@@ -27,6 +27,7 @@ typedef struct Service Service;
 #include "unit.h"
 #include "path.h"
 #include "ratelimit.h"
+#include "service.h"
 
 typedef enum ServiceState {
         SERVICE_DEAD,
@@ -154,8 +155,7 @@ struct Service {
 
         RateLimit ratelimit;
 
-        struct Socket *accept_socket;
-        Set *configured_sockets;
+        UnitRef accept_socket;
 
         Watch timer_watch;
         PathSpec *pid_file_pathspec;
@@ -164,6 +164,8 @@ struct Service {
 };
 
 extern const UnitVTable service_vtable;
+
+struct Socket;
 
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket);
 

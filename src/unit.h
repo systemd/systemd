@@ -32,6 +32,7 @@ typedef enum UnitType UnitType;
 typedef enum UnitLoadState UnitLoadState;
 typedef enum UnitActiveState UnitActiveState;
 typedef enum UnitDependency UnitDependency;
+typedef struct UnitRef UnitRef;
 
 #include "set.h"
 #include "util.h"
@@ -119,6 +120,10 @@ enum UnitDependency {
         /* On Failure */
         UNIT_ON_FAILURE,
 
+        /* Triggers (i.e. a socket triggers a service) */
+        UNIT_TRIGGERS,
+        UNIT_TRIGGERED_BY,
+
         /* Reference information for GC logic */
         UNIT_REFERENCES,              /* Inverse of 'references' is 'referenced_by' */
         UNIT_REFERENCED_BY,
@@ -155,6 +160,9 @@ struct Meta {
         Job *job;
 
         usec_t job_timeout;
+
+        /* References to this */
+        LIST_HEAD(UnitRef, refs);
 
         /* Conditions to check */
         LIST_HEAD(Condition, conditions);
@@ -235,6 +243,15 @@ struct Meta {
         bool no_gc:1;
 
         bool in_audit:1;
+};
+
+struct UnitRef {
+        /* Keeps tracks of references to a unit. This is useful so
+         * that we can merge two units if necessary and correct all
+         * references to them */
+
+        Unit* unit;
+        LIST_FIELDS(UnitRef, refs);
 };
 
 #include "service.h"
@@ -535,6 +552,11 @@ void unit_trigger_on_failure(Unit *u);
 bool unit_condition_test(Unit *u);
 
 UnitFileState unit_get_unit_file_state(Unit *u);
+
+Unit* unit_ref_set(UnitRef *ref, Unit *u);
+void unit_ref_unset(UnitRef *ref);
+
+#define UNIT_DEREF(ref) ((ref).unit)
 
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);

@@ -107,7 +107,7 @@ static int bus_timer_append_unit(DBusMessageIter *i, const char *property, void 
         assert(property);
         assert(u);
 
-        t = u->timer.unit ? u->timer.unit->meta.id : "";
+        t = UNIT_DEREF(u->timer.unit) ? UNIT_DEREF(u->timer.unit)->meta.id : "";
 
         return dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t) ? 0 : -ENOMEM;
 }

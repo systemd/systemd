@@ -108,20 +108,11 @@ static void mount_parameters_done(MountParameters *p) {
 
 static void mount_done(Unit *u) {
         Mount *m = MOUNT(u);
-        Meta *other;
 
         assert(m);
 
         free(m->where);
         m->where = NULL;
-
-        /* Try to detach us from the automount unit if there is any */
-        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_AUTOMOUNT]) {
-                Automount *a = (Automount*) other;
-
-                if (a->mount == m)
-                        a->mount = NULL;
-        }
 
         mount_parameters_done(&m->parameters_etc_fstab);
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
@@ -647,13 +638,18 @@ static int mount_load(Unit *u) {
 static int mount_notify_automount(Mount *m, int status) {
         Unit *p;
         int r;
+        Iterator i;
 
         assert(m);
 
-        if ((r = unit_get_related_unit(UNIT(m), ".automount", &p)) < 0)
-                return r == -ENOENT ? 0 : r;
+        SET_FOREACH(p, m->meta.dependencies[UNIT_TRIGGERED_BY], i)
+                if (p->meta.type == UNIT_AUTOMOUNT) {
+                         r = automount_send_ready(AUTOMOUNT(p), status);
+                         if (r < 0)
+                                 return r;
+                }
 
-        return automount_send_ready(AUTOMOUNT(p), status);
+        return 0;
 }
 
 static void mount_set_state(Mount *m, MountState state) {

@@ -86,7 +86,7 @@ static int bus_path_append_unit(DBusMessageIter *i, const char *property, void *
         assert(property);
         assert(u);
 
-        t = u->path.unit ? u->path.unit->meta.id : "";
+        t = UNIT_DEREF(u->path.unit) ? UNIT_DEREF(u->path.unit)->meta.id : "";
 
         return dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t) ? 0 : -ENOMEM;
 }

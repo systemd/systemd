@@ -42,13 +42,12 @@ struct Automount {
 
         char *where;
 
-        Mount *mount;
+        UnitRef mount;
 
         int pipe_fd;
         mode_t directory_mode;
         Watch pipe_watch;
         dev_t dev_id;
-
 
         Set *tokens;
 

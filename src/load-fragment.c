@@ -84,7 +84,8 @@ int config_parse_unit_deps(
                 char *t, *k;
                 int r;
 
-                if (!(t = strndup(w, l)))
+                t = strndup(w, l);
+                if (!t)
                         return -ENOMEM;
 
                 k = unit_name_printf(u, t);
@@ -94,12 +95,8 @@ int config_parse_unit_deps(
                         return -ENOMEM;
 
                 r = unit_add_dependency_by_name(u, d, k, NULL, true);
-
-                if (r < 0) {
-                        log_error("Failed to add dependency on %s, ignoring: %s", k, strerror(-r));
-                        free(k);
-                        return 0;
-                }
+                if (r < 0)
+                        log_error("[%s:%u] Failed to add dependency on %s, ignoring: %s", filename, line, k, strerror(-r));
 
                 free(k);
         }
@@ -1265,6 +1262,7 @@ int config_parse_timer_unit(
         Timer *t = data;
         int r;
         DBusError error;
+        Unit *u;
 
         assert(filename);
         assert(lvalue);
@@ -1278,11 +1276,14 @@ int config_parse_timer_unit(
                 return 0;
         }
 
-        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, NULL, &t->unit)) < 0) {
+        r = manager_load_unit(t->meta.manager, rvalue, NULL, NULL, &u);
+        if (r < 0) {
                 log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);
                 return 0;
         }
+
+        unit_ref_set(&t->unit, u);
 
         return 0;
 }
@@ -1347,6 +1348,7 @@ int config_parse_path_unit(
         Path *t = data;
         int r;
         DBusError error;
+        Unit *u;
 
         assert(filename);
         assert(lvalue);
@@ -1360,11 +1362,13 @@ int config_parse_path_unit(
                 return 0;
         }
 
-        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &error, &t->unit)) < 0) {
+        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &error, &u)) < 0) {
                 log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);
                 return 0;
         }
+
+        unit_ref_set(&t->unit, u);
 
         return 0;
 }
@@ -1416,7 +1420,6 @@ int config_parse_service_sockets(
 
         Service *s = data;
         int r;
-        DBusError error;
         char *state, *w;
         size_t l;
 
@@ -1425,35 +1428,34 @@ int config_parse_service_sockets(
         assert(rvalue);
         assert(data);
 
-        dbus_error_init(&error);
-
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char *t;
-                Unit *sock;
+                char *t, *k;
 
-                if (!(t = strndup(w, l)))
+                t = strndup(w, l);
+                if (!t)
                         return -ENOMEM;
 
-                if (!endswith(t, ".socket")) {
-                        log_error("[%s:%u] Unit must be of type socket, ignoring: %s", filename, line, rvalue);
-                        free(t);
-                        continue;
-                }
-
-                r = manager_load_unit(s->meta.manager, t, NULL, &error, &sock);
+                k = unit_name_printf(UNIT(s), t);
                 free(t);
 
-                if (r < 0) {
-                        log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
-                        dbus_error_free(&error);
+                if (!k)
+                        return -ENOMEM;
+
+                if (!endswith(k, ".socket")) {
+                        log_error("[%s:%u] Unit must be of type socket, ignoring: %s", filename, line, rvalue);
+                        free(k);
                         continue;
                 }
 
-                if ((r = set_ensure_allocated(&s->configured_sockets, trivial_hash_func, trivial_compare_func)) < 0)
+                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_WANTS, UNIT_AFTER, k, NULL, true);
+                if (r < 0)
+                        log_error("[%s:%u] Failed to add dependency on %s, ignoring: %s", filename, line, k, strerror(-r));
+
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_TRIGGERED_BY, k, NULL, true);
+                if (r < 0)
                         return r;
 
-                if ((r = set_put(s->configured_sockets, sock)) < 0)
-                        return r;
+                free(k);
         }
 
         return 0;

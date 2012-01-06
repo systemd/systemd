@@ -28,6 +28,7 @@ typedef struct Socket Socket;
 #include "unit.h"
 #include "socket-util.h"
 #include "mount.h"
+#include "service.h"
 
 typedef enum SocketState {
         SOCKET_DEAD,
@@ -93,7 +94,7 @@ struct Socket {
         /* For Accept=no sockets refers to the one service we'll
         activate. For Accept=yes sockets is either NULL, or filled
         when the next service we spawn. */
-        Service *service;
+        UnitRef service;
 
         SocketState state, deserialized_state;
 
@@ -102,9 +103,6 @@ struct Socket {
         ExecCommand* control_command;
         SocketExecCommand control_command_id;
         pid_t control_pid;
-
-        /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
-        SocketAddressBindIPv6Only bind_ipv6_only;
 
         mode_t directory_mode;
         mode_t socket_mode;
@@ -130,6 +128,9 @@ struct Socket {
         char *tcp_congestion;
         long mq_maxmsg;
         long mq_msgsize;
+
+        /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
+        SocketAddressBindIPv6Only bind_ipv6_only;
 };
 
 /* Called from the service code when collecting fds */

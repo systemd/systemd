@@ -39,7 +39,8 @@ static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_FAILED] = UNIT_FAILED
 };
 
-int pathspec_watch(PathSpec *s, Unit *u) {
+int path_spec_watch(PathSpec *s, Unit *u) {
+
         static const int flags_table[_PATH_TYPE_MAX] = {
                 [PATH_EXISTS] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
                 [PATH_EXISTS_GLOB] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
@@ -55,7 +56,7 @@ int pathspec_watch(PathSpec *s, Unit *u) {
         assert(u);
         assert(s);
 
-        pathspec_unwatch(s, u);
+        path_spec_unwatch(s, u);
 
         if (!(k = strdup(s->path)))
                 return -ENOMEM;
@@ -96,11 +97,11 @@ int pathspec_watch(PathSpec *s, Unit *u) {
 fail:
         free(k);
 
-        pathspec_unwatch(s, u);
+        path_spec_unwatch(s, u);
         return r;
 }
 
-void pathspec_unwatch(PathSpec *s, Unit *u) {
+void path_spec_unwatch(PathSpec *s, Unit *u) {
 
         if (s->inotify_fd < 0)
                 return;
@@ -111,7 +112,7 @@ void pathspec_unwatch(PathSpec *s, Unit *u) {
         s->inotify_fd = -1;
 }
 
-int pathspec_fd_event(PathSpec *s, uint32_t events) {
+int path_spec_fd_event(PathSpec *s, uint32_t events) {
         uint8_t *buf = NULL;
         struct inotify_event *e;
         ssize_t k;
@@ -164,7 +165,7 @@ out:
         return r;
 }
 
-static bool pathspec_check_good(PathSpec *s, bool initial) {
+static bool path_spec_check_good(PathSpec *s, bool initial) {
         bool good = false;
 
         switch (s->type) {
@@ -202,11 +203,11 @@ static bool pathspec_check_good(PathSpec *s, bool initial) {
         return good;
 }
 
-static bool pathspec_startswith(PathSpec *s, const char *what) {
+static bool path_spec_startswith(PathSpec *s, const char *what) {
         return path_startswith(s->path, what);
 }
 
-static void pathspec_mkdir(PathSpec *s, mode_t mode) {
+static void path_spec_mkdir(PathSpec *s, mode_t mode) {
         int r;
 
         if (s->type == PATH_EXISTS || s->type == PATH_EXISTS_GLOB)
@@ -216,7 +217,7 @@ static void pathspec_mkdir(PathSpec *s, mode_t mode) {
                 log_warning("mkdir(%s) failed: %s", s->path, strerror(-r));
 }
 
-static void pathspec_dump(PathSpec *s, FILE *f, const char *prefix) {
+static void path_spec_dump(PathSpec *s, FILE *f, const char *prefix) {
         fprintf(f,
                 "%s%s: %s\n",
                 prefix,
@@ -224,8 +225,10 @@ static void pathspec_dump(PathSpec *s, FILE *f, const char *prefix) {
                 s->path);
 }
 
-void pathspec_done(PathSpec *s) {
+void path_spec_done(PathSpec *s) {
+        assert(s);
         assert(s->inotify_fd == -1);
+
         free(s->path);
 }
 
@@ -244,10 +247,12 @@ static void path_done(Unit *u) {
 
         assert(p);
 
+        unit_ref_unset(&p->unit);
+
         while ((s = p->specs)) {
-                pathspec_unwatch(s, u);
+                path_spec_unwatch(s, u);
                 LIST_REMOVE(PathSpec, spec, p->specs, s);
-                pathspec_done(s);
+                path_spec_done(s);
                 free(s);
         }
 }
@@ -265,7 +270,7 @@ int path_add_one_mount_link(Path *p, Mount *m) {
 
         LIST_FOREACH(spec, s, p->specs) {
 
-                if (!pathspec_startswith(s, m->where))
+                if (!path_spec_startswith(s, m->where))
                         continue;
 
                 if ((r = unit_add_two_dependencies(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true)) < 0)
@@ -330,11 +335,18 @@ static int path_load(Unit *u) {
 
         if (u->meta.load_state == UNIT_LOADED) {
 
-                if (!p->unit)
-                        if ((r = unit_load_related_unit(u, ".service", &p->unit)))
+                if (!UNIT_DEREF(p->unit)) {
+                        Unit *x;
+
+                        r = unit_load_related_unit(u, ".service", &x);
+                        if (r < 0)
                                 return r;
 
-                if ((r = unit_add_dependency(u, UNIT_BEFORE, p->unit, true)) < 0)
+                        unit_ref_set(&p->unit, x);
+                }
+
+                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(p->unit), true);
+                if (r < 0)
                         return r;
 
                 if ((r = path_add_mount_links(p)) < 0)
@@ -361,12 +373,12 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sMakeDirectory: %s\n"
                 "%sDirectoryMode: %04o\n",
                 prefix, path_state_to_string(p->state),
-                prefix, p->unit->meta.id,
+                prefix, UNIT_DEREF(p->unit)->meta.id,
                 prefix, yes_no(p->make_directory),
                 prefix, p->directory_mode);
 
         LIST_FOREACH(spec, s, p->specs)
-                pathspec_dump(s, f, prefix);
+                path_spec_dump(s, f, prefix);
 }
 
 static void path_unwatch(Path *p) {
@@ -375,7 +387,7 @@ static void path_unwatch(Path *p) {
         assert(p);
 
         LIST_FOREACH(spec, s, p->specs)
-                pathspec_unwatch(s, UNIT(p));
+                path_spec_unwatch(s, UNIT(p));
 }
 
 static int path_watch(Path *p) {
@@ -385,7 +397,7 @@ static int path_watch(Path *p) {
         assert(p);
 
         LIST_FOREACH(spec, s, p->specs)
-                if ((r = pathspec_watch(s, UNIT(p))) < 0)
+                if ((r = path_spec_watch(s, UNIT(p))) < 0)
                         return r;
 
         return 0;
@@ -451,7 +463,7 @@ static void path_enter_running(Path *p) {
         if (p->meta.job && p->meta.job->type == JOB_STOP)
                 return;
 
-        if ((r = manager_add_job(p->meta.manager, JOB_START, p->unit, JOB_REPLACE, true, &error, NULL)) < 0)
+        if ((r = manager_add_job(p->meta.manager, JOB_START, UNIT_DEREF(p->unit), JOB_REPLACE, true, &error, NULL)) < 0)
                 goto fail;
 
         p->inotify_triggered = false;
@@ -476,7 +488,7 @@ static bool path_check_good(Path *p, bool initial) {
         assert(p);
 
         LIST_FOREACH(spec, s, p->specs) {
-                good = pathspec_check_good(s, initial);
+                good = path_spec_check_good(s, initial);
 
                 if (good)
                         break;
@@ -526,7 +538,7 @@ static void path_mkdir(Path *p) {
                 return;
 
         LIST_FOREACH(spec, s, p->specs)
-                pathspec_mkdir(s, p->directory_mode);
+                path_spec_mkdir(s, p->directory_mode);
 }
 
 static int path_start(Unit *u) {
@@ -535,7 +547,7 @@ static int path_start(Unit *u) {
         assert(p);
         assert(p->state == PATH_DEAD || p->state == PATH_FAILED);
 
-        if (p->unit->meta.load_state != UNIT_LOADED)
+        if (UNIT_DEREF(p->unit)->meta.load_state != UNIT_LOADED)
                 return -ENOENT;
 
         path_mkdir(p);
@@ -616,7 +628,7 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         /* log_debug("inotify wakeup on %s.", u->meta.id); */
 
         LIST_FOREACH(spec, s, p->specs)
-                if (pathspec_owns_inotify_fd(s, fd))
+                if (path_spec_owns_inotify_fd(s, fd))
                         break;
 
         if (!s) {
@@ -624,7 +636,7 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                 goto fail;
         }
 
-        changed = pathspec_fd_event(s, events);
+        changed = path_spec_fd_event(s, events);
         if (changed < 0)
                 goto fail;
 
@@ -645,36 +657,22 @@ fail:
 }
 
 void path_unit_notify(Unit *u, UnitActiveState new_state) {
-        char *n;
-        int r;
         Iterator i;
+        Unit *k;
 
         if (u->meta.type == UNIT_PATH)
                 return;
 
-        SET_FOREACH(n, u->meta.names, i) {
-                char *k;
-                Unit *t;
+        SET_FOREACH(k, u->meta.dependencies[UNIT_TRIGGERED_BY], i) {
                 Path *p;
 
-                if (!(k = unit_name_change_suffix(n, ".path"))) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                t = manager_get_unit(u->meta.manager, k);
-                free(k);
-
-                if (!t)
+                if (k->meta.type != UNIT_PATH)
                         continue;
 
-                if (t->meta.load_state != UNIT_LOADED)
+                if (k->meta.load_state != UNIT_LOADED)
                         continue;
 
-                p = PATH(t);
-
-                if (p->unit != u)
-                        continue;
+                p = PATH(k);
 
                 if (p->state == PATH_RUNNING && new_state == UNIT_INACTIVE) {
                         log_debug("%s got notified about unit deactivation.", p->meta.id);
@@ -685,11 +683,6 @@ void path_unit_notify(Unit *u, UnitActiveState new_state) {
                         path_enter_waiting(p, false, p->inotify_triggered);
                 }
         }
-
-        return;
-
-fail:
-        log_error("Failed find path unit: %s", strerror(-r));
 }
 
 static void path_reset_failed(Unit *u) {

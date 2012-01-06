@@ -141,6 +141,8 @@
         { "org.freedesktop.systemd1.Unit", "Before",               bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_BEFORE] }, \
         { "org.freedesktop.systemd1.Unit", "After",                bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_AFTER]  }, \
         { "org.freedesktop.systemd1.Unit", "OnFailure",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_ON_FAILURE] }, \
+        { "org.freedesktop.systemd1.Unit", "Triggers",             bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_TRIGGERS] }, \
+        { "org.freedesktop.systemd1.Unit", "TriggeredBy",          bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_TRIGGERED_BY] }, \
         { "org.freedesktop.systemd1.Unit", "Description",          bus_unit_append_description,    "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "LoadState",            bus_unit_append_load_state,     "s",    &u->meta.load_state               }, \
         { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state,   "s",    u                                 }, \

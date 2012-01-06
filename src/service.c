@@ -187,11 +187,11 @@ static void service_close_socket_fd(Service *s) {
 static void service_connection_unref(Service *s) {
         assert(s);
 
-        if (!s->accept_socket)
+        if (!UNIT_DEREF(s->accept_socket))
                 return;
 
-        socket_connection_unref(s->accept_socket);
-        s->accept_socket = NULL;
+        socket_connection_unref(SOCKET(UNIT_DEREF(s->accept_socket)));
+        unit_ref_unset(&s->accept_socket);
 }
 
 static void service_done(Unit *u) {
@@ -232,7 +232,7 @@ static void service_done(Unit *u) {
         service_close_socket_fd(s);
         service_connection_unref(s);
 
-        set_free(s->configured_sockets);
+        unit_ref_unset(&s->accept_socket);
 
         unit_unwatch_timer(u, &s->timer_watch);
 }
@@ -1108,22 +1108,6 @@ static int service_add_default_dependencies(Service *s) {
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
-static int service_add_socket_dependencies(Service *s) {
-        Iterator i;
-        Unit *u;
-        int r;
-
-        /* Make sure we pull in all explicitly configured sockets */
-
-        SET_FOREACH(u, s->configured_sockets, i) {
-                r = unit_add_two_dependencies(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, u, true);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
 static void service_fix_output(Service *s) {
         assert(s);
 
@@ -1196,12 +1180,6 @@ static int service_load(Unit *u) {
                 if (s->type == SERVICE_DBUS || s->bus_name)
                         if ((r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, NULL, true)) < 0)
                                 return r;
-
-                if (!set_isempty(s->configured_sockets)) {
-                        r = service_add_socket_dependencies(s);
-                        if (r < 0)
-                                return r;
-                }
 
                 if (s->meta.default_dependencies)
                         if ((r = service_add_default_dependencies(s)) < 0)
@@ -1393,86 +1371,22 @@ static int service_search_main_pid(Service *s) {
         return 0;
 }
 
-static int service_get_sockets(Service *s, Set **_set) {
-        Set *set;
+static void service_notify_sockets_dead(Service *s) {
         Iterator i;
-        char *t;
-        int r;
-
-        assert(s);
-        assert(_set);
-
-        if (s->socket_fd >= 0)
-                return 0;
-
-        if (!set_isempty(s->configured_sockets))
-                return 0;
-
-        /* Collects all Socket objects that belong to this
-         * service. Note that a service might have multiple sockets
-         * via multiple names. */
-
-        if (!(set = set_new(NULL, NULL)))
-                return -ENOMEM;
-
-        SET_FOREACH(t, s->meta.names, i) {
-                char *k;
-                Unit *p;
-
-                /* Look for all socket objects that go by any of our
-                 * units and collect their fds */
-
-                if (!(k = unit_name_change_suffix(t, ".socket"))) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                p = manager_get_unit(s->meta.manager, k);
-                free(k);
-
-                if (!p)
-                        continue;
-
-                if ((r = set_put(set, p)) < 0)
-                        goto fail;
-        }
-
-        *_set = set;
-        return 0;
-
-fail:
-        set_free(set);
-        return r;
-}
-
-static int service_notify_sockets_dead(Service *s) {
-        Iterator i;
-        Set *set, *free_set = NULL;
-        Socket *sock;
-        int r;
+        Unit *u;
 
         assert(s);
 
         /* Notifies all our sockets when we die */
 
         if (s->socket_fd >= 0)
-                return 0;
+                return;
 
-        if (!set_isempty(s->configured_sockets))
-                set = s->configured_sockets;
-        else {
-                if ((r = service_get_sockets(s, &free_set)) < 0)
-                        return r;
+        SET_FOREACH(u, s->meta.dependencies[UNIT_TRIGGERED_BY], i)
+                if (u->meta.type == UNIT_SOCKET)
+                        socket_notify_service_dead(SOCKET(u));
 
-                set = free_set;
-        }
-
-        SET_FOREACH(sock, set, i)
-                socket_notify_service_dead(sock);
-
-        set_free(free_set);
-
-        return 0;
+        return;
 }
 
 static void service_unwatch_pid_file(Service *s) {
@@ -1480,8 +1394,8 @@ static void service_unwatch_pid_file(Service *s) {
                 return;
 
         log_debug("Stopping watch for %s's PID file %s", s->meta.id, s->pid_file_pathspec->path);
-        pathspec_unwatch(s->pid_file_pathspec, UNIT(s));
-        pathspec_done(s->pid_file_pathspec);
+        path_spec_unwatch(s->pid_file_pathspec, UNIT(s));
+        path_spec_done(s->pid_file_pathspec);
         free(s->pid_file_pathspec);
         s->pid_file_pathspec = NULL;
 }
@@ -1644,8 +1558,7 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         int r;
         int *rfds = NULL;
         unsigned rn_fds = 0;
-        Set *set, *free_set = NULL;
-        Socket *sock;
+        Unit *u;
 
         assert(s);
         assert(fds);
@@ -1654,18 +1567,15 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         if (s->socket_fd >= 0)
                 return 0;
 
-        if (!set_isempty(s->configured_sockets))
-                set = s->configured_sockets;
-        else {
-                if ((r = service_get_sockets(s, &free_set)) < 0)
-                        return r;
-
-                set = free_set;
-        }
-
-        SET_FOREACH(sock, set, i) {
+        SET_FOREACH(u, s->meta.dependencies[UNIT_TRIGGERED_BY], i) {
                 int *cfds;
                 unsigned cn_fds;
+                Socket *sock;
+
+                if (u->meta.type != UNIT_SOCKET)
+                        continue;
+
+                sock = SOCKET(u);
 
                 if ((r = socket_collect_fds(sock, &cfds, &cn_fds)) < 0)
                         goto fail;
@@ -1698,12 +1608,9 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         *fds = rfds;
         *n_fds = rn_fds;
 
-        set_free(free_set);
-
         return 0;
 
 fail:
-        set_free(set);
         free(rfds);
 
         return r;
@@ -2659,7 +2566,7 @@ static int service_watch_pid_file(Service *s) {
         int r;
 
         log_debug("Setting watch for %s's PID file %s", s->meta.id, s->pid_file_pathspec->path);
-        r = pathspec_watch(s->pid_file_pathspec, UNIT(s));
+        r = path_spec_watch(s->pid_file_pathspec, UNIT(s));
         if (r < 0)
                 goto fail;
 
@@ -2709,11 +2616,11 @@ static void service_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         assert(fd >= 0);
         assert(s->state == SERVICE_START || s->state == SERVICE_START_POST);
         assert(s->pid_file_pathspec);
-        assert(pathspec_owns_inotify_fd(s->pid_file_pathspec, fd));
+        assert(path_spec_owns_inotify_fd(s->pid_file_pathspec, fd));
 
         log_debug("inotify event for %s", u->meta.id);
 
-        if (pathspec_fd_event(s->pid_file_pathspec, events) < 0)
+        if (path_spec_fd_event(s->pid_file_pathspec, events) < 0)
                 goto fail;
 
         if (service_retry_pid_file(s) == 0)
@@ -3458,6 +3365,7 @@ static void service_bus_query_pid_done(
 }
 
 int service_set_socket_fd(Service *s, int fd, Socket *sock) {
+
         assert(s);
         assert(fd >= 0);
 
@@ -3476,9 +3384,10 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock) {
 
         s->socket_fd = fd;
         s->got_socket_fd = true;
-        s->accept_socket = sock;
 
-        return 0;
+        unit_ref_set(&s->accept_socket, UNIT(sock));
+
+        return unit_add_two_dependencies(UNIT(sock), UNIT_BEFORE, UNIT_TRIGGERS, UNIT(s), false);
 }
 
 static void service_reset_failed(Unit *u) {

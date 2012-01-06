@@ -377,12 +377,15 @@ void unit_free(Unit *u) {
 
         free(u->meta.description);
         free(u->meta.fragment_path);
+        free(u->meta.instance);
 
         set_free_free(u->meta.names);
 
         condition_free_list(u->meta.conditions);
 
-        free(u->meta.instance);
+        while (u->meta.refs)
+                unit_ref_unset(u->meta.refs);
+
         free(u);
 }
 
@@ -497,6 +500,10 @@ int unit_merge(Unit *u, Unit *other) {
 
         /* Merge names */
         merge_names(u, other);
+
+        /* Redirect all references */
+        while (other->meta.refs)
+                unit_ref_set(other->meta.refs, u);
 
         /* Merge dependencies */
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
@@ -1530,7 +1537,9 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_AFTER] = UNIT_BEFORE,
                 [UNIT_ON_FAILURE] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
-                [UNIT_REFERENCED_BY] = UNIT_REFERENCES
+                [UNIT_REFERENCED_BY] = UNIT_REFERENCES,
+                [UNIT_TRIGGERS] = UNIT_TRIGGERED_BY,
+                [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS
         };
         int r, q = 0, v = 0, w = 0;
 
@@ -2592,6 +2601,28 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
         return u->meta.unit_file_state;
 }
 
+Unit* unit_ref_set(UnitRef *ref, Unit *u) {
+        assert(ref);
+        assert(u);
+
+        if (ref->unit)
+                unit_ref_unset(ref);
+
+        ref->unit = u;
+        LIST_PREPEND(UnitRef, refs, u->meta.refs, ref);
+        return u;
+}
+
+void unit_ref_unset(UnitRef *ref) {
+        assert(ref);
+
+        if (!ref->unit)
+                return;
+
+        LIST_REMOVE(UnitRef, refs, ref->unit->meta.refs, ref);
+        ref->unit = NULL;
+}
+
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB] = "stub",
         [UNIT_LOADED] = "loaded",
@@ -2630,7 +2661,9 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_AFTER] = "After",
         [UNIT_REFERENCES] = "References",
         [UNIT_REFERENCED_BY] = "ReferencedBy",
-        [UNIT_ON_FAILURE] = "OnFailure"
+        [UNIT_ON_FAILURE] = "OnFailure",
+        [UNIT_TRIGGERS] = "Triggers",
+        [UNIT_TRIGGERED_BY] = "TriggeredBy"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);

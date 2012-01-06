@@ -98,7 +98,6 @@ static void socket_unwatch_control_pid(Socket *s) {
 static void socket_done(Unit *u) {
         Socket *s = SOCKET(u);
         SocketPort *p;
-        Meta *i;
 
         assert(s);
 
@@ -120,7 +119,7 @@ static void socket_done(Unit *u) {
 
         socket_unwatch_control_pid(s);
 
-        s->service = NULL;
+        unit_ref_unset(&s->service);
 
         free(s->tcp_congestion);
         s->tcp_congestion = NULL;
@@ -129,16 +128,6 @@ static void socket_done(Unit *u) {
         s->bind_to_device = NULL;
 
         unit_unwatch_timer(u, &s->timer_watch);
-
-        /* Make sure no service instance refers to us anymore. */
-        LIST_FOREACH(units_by_type, i, u->meta.manager->units_by_type[UNIT_SERVICE]) {
-                Service *service = (Service *) i;
-
-                if (service->accept_socket == s)
-                        service->accept_socket = NULL;
-
-                set_remove(service->configured_sockets, s);
-        }
 }
 
 static int socket_instantiate_service(Socket *s) {
@@ -153,7 +142,7 @@ static int socket_instantiate_service(Socket *s) {
          * here. For Accept=no this is mostly a NOP since the service
          * is figured out at load time anyway. */
 
-        if (s->service)
+        if (UNIT_DEREF(s->service))
                 return 0;
 
         assert(s->accept);
@@ -181,8 +170,9 @@ static int socket_instantiate_service(Socket *s) {
 #endif
 
         u->meta.no_gc = true;
-        s->service = SERVICE(u);
-        return 0;
+        unit_ref_set(&s->service, u);
+
+        return unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, u, false);
 }
 
 static bool have_non_accept_socket(Socket *s) {
@@ -226,7 +216,7 @@ static int socket_verify(Socket *s) {
                 return -EINVAL;
         }
 
-        if (s->accept && s->service) {
+        if (s->accept && UNIT_DEREF(s->service)) {
                 log_error("Explicit service configuration for accepting sockets not supported on %s. Refusing.", s->meta.id);
                 return -EINVAL;
         }
@@ -349,11 +339,18 @@ static int socket_load(Unit *u) {
 
                 if (have_non_accept_socket(s)) {
 
-                        if (!s->service)
-                                if ((r = unit_load_related_unit(u, ".service", (Unit**) &s->service)) < 0)
+                        if (!UNIT_DEREF(s->service)) {
+                                Unit *x;
+
+                                r = unit_load_related_unit(u, ".service", &x);
+                                if (r < 0)
                                         return r;
 
-                        if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(s->service), true)) < 0)
+                                unit_ref_set(&s->service, x);
+                        }
+
+                        r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(s->service), true);
+                        if (r < 0)
                                 return r;
                 }
 
@@ -912,8 +909,9 @@ static int socket_open_fds(Socket *s) {
                                 if ((r = socket_instantiate_service(s)) < 0)
                                         return r;
 
-                                if (s->service && s->service->exec_command[SERVICE_EXEC_START]) {
-                                        r = label_get_create_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label);
+                                if (UNIT_DEREF(s->service) &&
+                                    SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]) {
+                                        r = label_get_create_label_from_exe(SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]->path, &label);
 
                                         if (r < 0) {
                                                 if (r != -EPERM)
@@ -1380,26 +1378,20 @@ static void socket_enter_running(Socket *s, int cfd) {
         }
 
         if (cfd < 0) {
+                Iterator i;
+                Unit *u;
                 bool pending = false;
-                Meta *i;
 
                 /* If there's already a start pending don't bother to
                  * do anything */
-                LIST_FOREACH(units_by_type, i, s->meta.manager->units_by_type[UNIT_SERVICE]) {
-                        Service *service = (Service *) i;
-
-                        if (!set_get(service->configured_sockets, s))
-                                continue;
-
-                        if (!unit_pending_active(UNIT(service)))
-                                continue;
-
-                        pending = true;
-                        break;
-                }
+                SET_FOREACH(u, s->meta.dependencies[UNIT_TRIGGERS], i)
+                        if (unit_pending_active(u)) {
+                                pending = true;
+                                break;
+                        }
 
                 if (!pending)
-                        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, &error, NULL)) < 0)
+                        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, true, &error, NULL)) < 0)
                                 goto fail;
 
                 socket_set_state(s, SOCKET_RUNNING);
@@ -1434,13 +1426,13 @@ static void socket_enter_running(Socket *s, int cfd) {
                         goto fail;
                 }
 
-                if ((r = unit_add_name(UNIT(s->service), name)) < 0) {
+                if ((r = unit_add_name(UNIT_DEREF(s->service), name)) < 0) {
                         free(name);
                         goto fail;
                 }
 
-                service = s->service;
-                s->service = NULL;
+                service = SERVICE(UNIT_DEREF(s->service));
+                unit_ref_unset(&s->service);
                 s->n_accepted ++;
 
                 service->meta.no_gc = false;
@@ -1523,23 +1515,27 @@ static int socket_start(Unit *u) {
                 return 0;
 
         /* Cannot run this without the service being around */
-        if (s->service) {
-                if (s->service->meta.load_state != UNIT_LOADED) {
-                        log_error("Socket service %s not loaded, refusing.", s->service->meta.id);
+        if (UNIT_DEREF(s->service)) {
+                Service *service;
+
+                service = SERVICE(UNIT_DEREF(s->service));
+
+                if (service->meta.load_state != UNIT_LOADED) {
+                        log_error("Socket service %s not loaded, refusing.", service->meta.id);
                         return -ENOENT;
                 }
 
                 /* If the service is already active we cannot start the
                  * socket */
-                if (s->service->state != SERVICE_DEAD &&
-                    s->service->state != SERVICE_FAILED &&
-                    s->service->state != SERVICE_AUTO_RESTART) {
-                        log_error("Socket service %s already active, refusing.", s->service->meta.id);
+                if (service->state != SERVICE_DEAD &&
+                    service->state != SERVICE_FAILED &&
+                    service->state != SERVICE_AUTO_RESTART) {
+                        log_error("Socket service %s already active, refusing.", service->meta.id);
                         return -EBUSY;
                 }
 
 #ifdef HAVE_SYSV_COMPAT
-                if (s->service->sysv_path) {
+                if (service->sysv_path) {
                         log_error("Using SysV services for socket activation is not supported. Refusing.");
                         return -ENOENT;
                 }

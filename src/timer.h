@@ -63,7 +63,7 @@ struct Timer {
         usec_t next_elapse;
 
         TimerState state, deserialized_state;
-        Unit *unit;
+        UnitRef unit;
 
         Watch timer_watch;
 

@@ -105,7 +105,7 @@ static void automount_done(Unit *u) {
         assert(a);
 
         unmount_autofs(a);
-        a->mount = NULL;
+        unit_ref_unset(&a->mount);
 
         free(a->where);
         a->where = NULL;
@@ -205,6 +205,7 @@ static int automount_load(Unit *u) {
                 return r;
 
         if (u->meta.load_state == UNIT_LOADED) {
+                Unit *x;
 
                 if (!a->where)
                         if (!(a->where = unit_name_to_path(u->meta.id)))
@@ -215,10 +216,14 @@ static int automount_load(Unit *u) {
                 if ((r = automount_add_mount_links(a)) < 0)
                         return r;
 
-                if ((r = unit_load_related_unit(u, ".mount", (Unit**) &a->mount)) < 0)
+                r = unit_load_related_unit(u, ".mount", &x);
+                if (r < 0)
                         return r;
 
-                if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(a->mount), true)) < 0)
+                unit_ref_set(&a->mount, x);
+
+                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(a->mount), true);
+                if (r < 0)
                         return r;
 
                 if (a->meta.default_dependencies)
@@ -569,7 +574,7 @@ static void automount_enter_runnning(Automount *a) {
         DBusError error;
 
         assert(a);
-        assert(a->mount);
+        assert(UNIT_DEREF(a->mount));
 
         dbus_error_init(&error);
 
@@ -591,7 +596,7 @@ static void automount_enter_runnning(Automount *a) {
 
         if (!S_ISDIR(st.st_mode) || st.st_dev != a->dev_id)
                 log_info("%s's automount point already active?", a->meta.id);
-        else if ((r = manager_add_job(a->meta.manager, JOB_START, UNIT(a->mount), JOB_REPLACE, true, &error, NULL)) < 0) {
+        else if ((r = manager_add_job(a->meta.manager, JOB_START, UNIT_DEREF(a->mount), JOB_REPLACE, true, &error, NULL)) < 0) {
                 log_warning("%s failed to queue mount startup job: %s", a->meta.id, bus_error(&error, r));
                 goto fail;
         }
@@ -616,7 +621,7 @@ static int automount_start(Unit *u) {
                 return -EEXIST;
         }
 
-        if (a->mount->meta.load_state != UNIT_LOADED)
+        if (UNIT_DEREF(a->mount)->meta.load_state != UNIT_LOADED)
                 return -ENOENT;
 
         a->failure = false;
@@ -738,10 +743,10 @@ static bool automount_check_gc(Unit *u) {
 
         assert(a);
 
-        if (!a->mount)
+        if (!UNIT_DEREF(a->mount))
                 return false;
 
-        return UNIT_VTABLE(UNIT(a->mount))->check_gc(UNIT(a->mount));
+        return UNIT_VTABLE(UNIT_DEREF(a->mount))->check_gc(UNIT_DEREF(a->mount));
 }
 
 static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {

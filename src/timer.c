@@ -57,6 +57,8 @@ static void timer_done(Unit *u) {
         }
 
         unit_unwatch_timer(u, &t->timer_watch);
+
+        unit_ref_unset(&t->unit);
 }
 
 static int timer_verify(Timer *t) {
@@ -101,11 +103,18 @@ static int timer_load(Unit *u) {
 
         if (u->meta.load_state == UNIT_LOADED) {
 
-                if (!t->unit)
-                        if ((r = unit_load_related_unit(u, ".service", &t->unit)))
+                if (!UNIT_DEREF(t->unit)) {
+                        Unit *x;
+
+                        r = unit_load_related_unit(u, ".service", &x);
+                        if (r < 0)
                                 return r;
 
-                if ((r = unit_add_dependency(u, UNIT_BEFORE, t->unit, true)) < 0)
+                        unit_ref_set(&t->unit, x);
+                }
+
+                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(t->unit), true);
+                if (r < 0)
                         return r;
 
                 if (t->meta.default_dependencies)
@@ -126,7 +135,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTimer State: %s\n"
                 "%sUnit: %s\n",
                 prefix, timer_state_to_string(t->state),
-                prefix, t->unit->meta.id);
+                prefix, UNIT_DEREF(t->unit)->meta.id);
 
         LIST_FOREACH(value, v, t->values)
                 fprintf(f,
@@ -216,18 +225,18 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                 case TIMER_UNIT_ACTIVE:
 
-                        if (t->unit->meta.inactive_exit_timestamp.monotonic <= 0)
+                        if (UNIT_DEREF(t->unit)->meta.inactive_exit_timestamp.monotonic <= 0)
                                 continue;
 
-                        base = t->unit->meta.inactive_exit_timestamp.monotonic;
+                        base = UNIT_DEREF(t->unit)->meta.inactive_exit_timestamp.monotonic;
                         break;
 
                 case TIMER_UNIT_INACTIVE:
 
-                        if (t->unit->meta.inactive_enter_timestamp.monotonic <= 0)
+                        if (UNIT_DEREF(t->unit)->meta.inactive_enter_timestamp.monotonic <= 0)
                                 continue;
 
-                        base = t->unit->meta.inactive_enter_timestamp.monotonic;
+                        base = UNIT_DEREF(t->unit)->meta.inactive_enter_timestamp.monotonic;
                         break;
 
                 default:
@@ -278,7 +287,7 @@ static void timer_enter_running(Timer *t) {
         if (t->meta.job && t->meta.job->type == JOB_STOP)
                 return;
 
-        if ((r = manager_add_job(t->meta.manager, JOB_START, t->unit, JOB_REPLACE, true, &error, NULL)) < 0)
+        if ((r = manager_add_job(t->meta.manager, JOB_START, UNIT_DEREF(t->unit), JOB_REPLACE, true, &error, NULL)) < 0)
                 goto fail;
 
         timer_set_state(t, TIMER_RUNNING);
@@ -297,7 +306,7 @@ static int timer_start(Unit *u) {
         assert(t);
         assert(t->state == TIMER_DEAD || t->state == TIMER_FAILED);
 
-        if (t->unit->meta.load_state != UNIT_LOADED)
+        if (UNIT_DEREF(t->unit)->meta.load_state != UNIT_LOADED)
                 return -ENOENT;
 
         t->failure = false;
@@ -374,37 +383,24 @@ static void timer_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
 }
 
 void timer_unit_notify(Unit *u, UnitActiveState new_state) {
-        char *n;
         int r;
         Iterator i;
+        Unit *k;
 
         if (u->meta.type == UNIT_TIMER)
                 return;
 
-        SET_FOREACH(n, u->meta.names, i) {
-                char *k;
-                Unit *p;
+        SET_FOREACH(k, u->meta.dependencies[UNIT_TRIGGERED_BY], i) {
                 Timer *t;
                 TimerValue *v;
 
-                if (!(k = unit_name_change_suffix(n, ".timer"))) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                p = manager_get_unit(u->meta.manager, k);
-                free(k);
-
-                if (!p)
+                if (k->meta.type != UNIT_TIMER)
                         continue;
 
-                if (p->meta.load_state != UNIT_LOADED)
+                if (k->meta.load_state != UNIT_LOADED)
                         continue;
 
-                t = TIMER(p);
-
-                if (t->unit != u)
-                        continue;
+                t = TIMER(k);
 
                 /* Reenable all timers that depend on unit state */
                 LIST_FOREACH(value, v, t->values)
@@ -438,11 +434,6 @@ void timer_unit_notify(Unit *u, UnitActiveState new_state) {
                         assert_not_reached("Unknown timer state");
                 }
         }
-
-        return;
-
-fail:
-        log_error("Failed find timer unit: %s", strerror(-r));
 }
 
 static void timer_reset_failed(Unit *u) {

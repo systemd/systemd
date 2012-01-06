@@ -58,14 +58,14 @@ typedef struct PathSpec {
         int primary_wd;
 
         bool previous_exists;
-
 } PathSpec;
 
-int  pathspec_watch(PathSpec *s, Unit *u);
-void pathspec_unwatch(PathSpec *s, Unit *u);
-int  pathspec_fd_event(PathSpec *s, uint32_t events);
-void pathspec_done(PathSpec *s);
-static inline bool pathspec_owns_inotify_fd(PathSpec *s, int fd) {
+int path_spec_watch(PathSpec *s, Unit *u);
+void path_spec_unwatch(PathSpec *s, Unit *u);
+int path_spec_fd_event(PathSpec *s, uint32_t events);
+void path_spec_done(PathSpec *s);
+
+static inline bool path_spec_owns_inotify_fd(PathSpec *s, int fd) {
         return s->inotify_fd == fd;
 }
 
@@ -74,7 +74,7 @@ struct Path {
 
         LIST_HEAD(PathSpec, specs);
 
-        Unit *unit;
+        UnitRef unit;
 
         PathState state, deserialized_state;
 
