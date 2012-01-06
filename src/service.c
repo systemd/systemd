@@ -1108,6 +1108,22 @@ static int service_add_default_dependencies(Service *s) {
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
+static int service_add_socket_dependencies(Service *s) {
+        Iterator i;
+        Unit *u;
+        int r;
+
+        /* Make sure we pull in all explicitly configured sockets */
+
+        SET_FOREACH(u, s->configured_sockets, i) {
+                r = unit_add_two_dependencies(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, u, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static void service_fix_output(Service *s) {
         assert(s);
 
@@ -1180,6 +1196,12 @@ static int service_load(Unit *u) {
                 if (s->type == SERVICE_DBUS || s->bus_name)
                         if ((r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, NULL, true)) < 0)
                                 return r;
+
+                if (!set_isempty(s->configured_sockets)) {
+                        r = service_add_socket_dependencies(s);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (s->meta.default_dependencies)
                         if ((r = service_add_default_dependencies(s)) < 0)
