@@ -270,7 +270,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 18)) < 0)
-                        log_warning("Failed to parse dump core switch %s, Ignoring.", word + 18);
+                        log_warning("Failed to parse dump core switch %s. Ignoring.", word + 18);
                 else
                         arg_dump_core = r;
 
@@ -278,7 +278,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 20)) < 0)
-                        log_warning("Failed to parse crash shell switch %s, Ignoring.", word + 20);
+                        log_warning("Failed to parse crash shell switch %s. Ignoring.", word + 20);
                 else
                         arg_crash_shell = r;
 
@@ -286,7 +286,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 22)) < 0)
-                        log_warning("Failed to parse confirm spawn switch %s, Ignoring.", word + 22);
+                        log_warning("Failed to parse confirm spawn switch %s. Ignoring.", word + 22);
                 else
                         arg_confirm_spawn = r;
 
@@ -294,7 +294,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int k;
 
                 if (safe_atoi(word + 19, &k) < 0)
-                        log_warning("Failed to parse crash chvt switch %s, Ignoring.", word + 19);
+                        log_warning("Failed to parse crash chvt switch %s. Ignoring.", word + 19);
                 else
                         arg_crash_chvt = k;
 
@@ -302,21 +302,21 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 20)) < 0)
-                        log_warning("Failed to parse show status switch %s, Ignoring.", word + 20);
+                        log_warning("Failed to parse show status switch %s. Ignoring.", word + 20);
                 else
                         arg_show_status = r;
         } else if (startswith(word, "systemd.default_standard_output=")) {
                 int r;
 
                 if ((r = exec_output_from_string(word + 32)) < 0)
-                        log_warning("Failed to parse default standard output switch %s, Ignoring.", word + 32);
+                        log_warning("Failed to parse default standard output switch %s. Ignoring.", word + 32);
                 else
                         arg_default_std_output = r;
         } else if (startswith(word, "systemd.default_standard_error=")) {
                 int r;
 
                 if ((r = exec_output_from_string(word + 31)) < 0)
-                        log_warning("Failed to parse default standard error switch %s, Ignoring.", word + 31);
+                        log_warning("Failed to parse default standard error switch %s. Ignoring.", word + 31);
                 else
                         arg_default_std_error = r;
 #ifdef HAVE_SYSV_COMPAT
@@ -324,7 +324,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 21)) < 0)
-                        log_warning("Failed to parse SysV console switch %s, Ignoring.", word + 20);
+                        log_warning("Failed to parse SysV console switch %s. Ignoring.", word + 20);
                 else
                         arg_sysv_console = r;
 #endif
