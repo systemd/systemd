@@ -593,7 +593,7 @@ AC_ARG_WITH([dbusinterfacedir],
         [with_dbusinterfacedir=`pkg-config --variable=session_bus_services_dir dbus-1`/../interfaces])
 
 AC_ARG_WITH([udevrulesdir],
-        AS_HELP_STRING([--with-udevrulesdir=DIR], [Diectory for udev rules]),
+        AS_HELP_STRING([--with-udevrulesdir=DIR], [Directory for udev rules]),
         [],
         [with_udevrulesdir=`pkg-config --variable=udevdir udev`/rules.d])
 
@@ -607,7 +607,7 @@ AC_ARG_WITH([rootlibdir],
         [with_rootlibdir=${libdir}])
 
 AC_ARG_WITH([pamlibdir],
-        AS_HELP_STRING([--with-pamlibdir=DIR], [Diectory for PAM modules]),
+        AS_HELP_STRING([--with-pamlibdir=DIR], [Directory for PAM modules]),
         [],
         [with_pamlibdir=${with_rootlibdir}/security])
 
