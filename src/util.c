@@ -2465,6 +2465,9 @@ int reset_terminal_fd(int fd) {
         /* Disable exclusive mode, just in case */
         ioctl(fd, TIOCNXCL);
 
+        /* Switch to text mode */
+        ioctl(fd, KDSETMODE, KD_TEXT);
+
         /* Enable console unicode mode */
         ioctl(fd, KDSKBMODE, K_UNICODE);
 
