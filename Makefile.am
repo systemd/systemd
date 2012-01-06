@@ -1353,10 +1353,14 @@ pkgconfiglib_DATA += \
 
 journal-install-data-hook:
 	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(systemunitdir)/sockets.target.wants
+		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
+		$(DESTDIR)$(systemunitdir)/sysinit.target.wants
 	( cd $(DESTDIR)$(systemunitdir)/sockets.target.wants && \
 		rm -f systemd-journald.socket && \
 		$(LN_S) ../systemd-journald.socket )
+	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
+		rm -f systemd-journald.service && \
+		$(LN_S) ../systemd-journald.service )
 
 INSTALL_DATA_HOOKS += \
 	journal-install-data-hook
