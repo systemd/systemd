@@ -1,3 +1,0 @@
-DEVTYPE=scsi_device
-DRIVER=sd
-MODALIAS=scsi:t-0x00

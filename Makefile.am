@@ -36,6 +36,7 @@ INSTALL_EXEC_HOOKS =
 INSTALL_DATA_HOOKS =
 UNINSTALL_EXEC_HOOKS =
 DISTCHECK_HOOKS =
+DISTCLEAN_LOCAL_HOOKS =
 
 udevhomedir = $(libexecdir)/udev
 udevhome_SCRIPTS =
@@ -289,12 +290,6 @@ TESTS = \
 	test/udev-test.pl \
 	test/rules-test.sh
 
-EXTRA_DIST += \
-	test/udev-test.pl.in
-
-CLEANFILES += \
-	test/udev-test.pl
-
 check_PROGRAMS = \
 	src/test-libudev \
 	src/test-udev
@@ -308,6 +303,18 @@ src_test_udev_SOURCES = \
 src_test_udev_CFLAGS = $(udev_common_CFLAGS)
 src_test_udev_LDADD = $(udev_common_LDADD)
 src_test_udev_CPPFLAGS = $(udev_common_CPPFLAGS)
+
+# packed sysfs test tree
+test/sys/kernel/uevent_seqnum:
+	$(AM_V_GEN)mkdir -p test && tar -C test/ -xJf $(top_srcdir)/test/sys.tar.xz
+
+BUILT_SOURCES += test/sys/kernel/uevent_seqnum
+
+test-sys-distclean:
+	-rm -rf test/sys
+DISTCLEAN_LOCAL_HOOKS += test-sys-distclean
+
+EXTRA_DIST += test/sys.tar.xz
 
 # ------------------------------------------------------------------------------
 # ata_id - ATA identify
@@ -517,14 +524,14 @@ if ENABLE_KEYMAP
 # ------------------------------------------------------------------------------
 # keymap - map custom hardware's multimedia keys
 # ------------------------------------------------------------------------------
-src_keymap_SOURCES = src/extras/keymap/keymap.c
-src_keymap_CPPFLAGS = $(AM_CPPFLAGS) -I src/extras/keymap
-nodist_src_keymap_SOURCES = \
+src_extras_keymap_keymap_SOURCES = src/extras/keymap/keymap.c
+src_extras_keymap_keymap_CPPFLAGS = $(AM_CPPFLAGS) -I src/extras/keymap
+nodist_src_extras_keymap_keymap_SOURCES = \
 	src/extras/keymap/keys-from-name.h \
 	src/extras/keymap/keys-to-name.h
-BUILT_SOURCES += $(nodist_src_keymap_SOURCES)
+BUILT_SOURCES += $(nodist_src_extras_keymap_keymap_SOURCES)
 
-pkglibexec_PROGRAMS += src/keymap
+pkglibexec_PROGRAMS += src/extras/keymap/keymap
 dist_doc_DATA = src/extras/keymap/README.keymap.txt
 
 dist_udevrules_DATA += \
@@ -631,13 +638,13 @@ if ENABLE_MTD_PROBE
 # ------------------------------------------------------------------------------
 # mtd_probe - autoloads FTL module for mtd devices
 # ------------------------------------------------------------------------------
-src_mtd_probe_SOURCES =  \
+src_extras_mtd_probe_mtd_probe_SOURCES =  \
 	src/extras/mtd_probe/mtd_probe.c \
 	src/extras/mtd_probe/mtd_probe.h \
 	src/extras/mtd_probe/probe_smartmedia.c
-src_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
+src_extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
 dist_udevrules_DATA += src/extras/mtd_probe/75-probe_mtd.rules
-pkglibexec_PROGRAMS += src/mtd_probe
+pkglibexec_PROGRAMS += src/extras/mtd_probe/mtd_probe
 endif
 
 if ENABLE_RULE_GENERATOR
@@ -649,7 +656,7 @@ dist_udevhome_SCRIPTS += \
 	src/extras/rule_generator/write_net_rules
 
 udevhome_DATA = src/extras/rule_generator/rule_generator.functions
-dist_udevhome_DATA = \
+dist_udevhome_DATA += \
 	src/extras/rule_generator/75-cd-aliases-generator.rules \
 	src/extras/rule_generator/75-persistent-net-generator.rules
 endif
@@ -714,6 +721,8 @@ install-data-hook: $(INSTALL_DATA_HOOKS)
 uninstall-hook: $(UNINSTALL_EXEC_HOOKS)
 
 distcheck-hook: $(DISTCHECK_HOOKS)
+
+distclean-local: $(DISTCLEAN_LOCAL_HOOKS)
 
 # ------------------------------------------------------------------------------
 # custom release helpers

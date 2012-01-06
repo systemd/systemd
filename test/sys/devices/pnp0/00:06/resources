@@ -1,3 +1,0 @@
-state = active
-io 0xf0-0xf0
-irq 13

@@ -1,2 +1,0 @@
-DRIVER=pcspkr
-MODALIAS=platform:pcspkr

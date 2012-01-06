@@ -1,2 +1,0 @@
-DRIVER=i8042
-MODALIAS=platform:i8042

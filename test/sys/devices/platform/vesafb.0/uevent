@@ -1,2 +1,0 @@
-DRIVER=vesafb
-MODALIAS=platform:vesafb

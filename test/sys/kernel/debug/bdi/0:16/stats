@@ -1,5 +1,0 @@
-BdiWriteback:            0 kB
-BdiReclaimable:          0 kB
-BdiDirtyThresh:          0 kB
-DirtyThresh:        189272 kB
-BackgroundThresh:    94636 kB

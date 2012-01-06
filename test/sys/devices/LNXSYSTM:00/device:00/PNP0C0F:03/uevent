@@ -1,2 +1,0 @@
-DRIVER=pci_link
-MODALIAS=acpi:PNP0C0F:
