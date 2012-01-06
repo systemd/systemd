@@ -47,6 +47,7 @@
 #include "journal-internal.h"
 #include "conf-parser.h"
 #include "journald.h"
+#include "virt.h"
 
 #define USER_JOURNALS_MAX 1024
 #define STDOUT_STREAMS_MAX 4096
@@ -2057,6 +2058,59 @@ static int open_signalfd(Server *s) {
         return 0;
 }
 
+static int server_parse_proc_cmdline(Server *s) {
+        char *line, *w, *state;
+        int r;
+        size_t l;
+
+        if (detect_container(NULL) > 0)
+                return 0;
+
+        r = read_one_line_file("/proc/cmdline", &line);
+        if (r < 0) {
+                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+                return 0;
+        }
+
+        FOREACH_WORD_QUOTED(w, l, line, state) {
+                char *word;
+
+                word = strndup(w, l);
+                if (!word) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (startswith(word, "systemd_journald.forward_to_syslog=")) {
+                        r = parse_boolean(word + 35);
+                        if (r < 0)
+                                log_warning("Failed to parse forward to syslog switch %s. Ignoring.", word + 35);
+                        else
+                                s->forward_to_syslog = r;
+                } else if (startswith(word, "systemd_journald.forward_to_kmsg=")) {
+                        r = parse_boolean(word + 33);
+                        if (r < 0)
+                                log_warning("Failed to parse forward to kmsg switch %s. Ignoring.", word + 33);
+                        else
+                                s->forward_to_kmsg = r;
+                } else if (startswith(word, "systemd_journald.forward_to_console=")) {
+                        r = parse_boolean(word + 36);
+                        if (r < 0)
+                                log_warning("Failed to parse forward to console switch %s. Ignoring.", word + 36);
+                        else
+                                s->forward_to_console = r;
+                }
+
+                free(word);
+        }
+
+        r = 0;
+
+finish:
+        free(line);
+        return r;
+}
+
 static int server_parse_config_file(Server *s) {
         FILE *f;
         const char *fn;
@@ -2101,6 +2155,7 @@ static int server_init(Server *s) {
         memset(&s->runtime_metrics, 0xFF, sizeof(s->runtime_metrics));
 
         server_parse_config_file(s);
+        server_parse_proc_cmdline(s);
 
         s->user_journals = hashmap_new(trivial_hash_func, trivial_compare_func);
         if (!s->user_journals) {
