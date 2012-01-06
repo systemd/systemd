@@ -2453,7 +2453,6 @@ int ask(char *ret, const char *replies, const char *text, ...) {
 int reset_terminal_fd(int fd) {
         struct termios termios;
         int r = 0;
-        long arg;
 
         /* Set terminal to some sane defaults */
 
@@ -2467,8 +2466,7 @@ int reset_terminal_fd(int fd) {
         ioctl(fd, TIOCNXCL);
 
         /* Enable console unicode mode */
-        arg = K_UNICODE;
-        ioctl(fd, KDSKBMODE, &arg);
+        ioctl(fd, KDSKBMODE, K_UNICODE);
 
         if (tcgetattr(fd, &termios) < 0) {
                 r = -errno;
