@@ -188,7 +188,6 @@ rootlibexec_PROGRAMS = \
 	systemd-shutdown \
 	systemd-modules-load \
 	systemd-remount-api-vfs \
-	systemd-kmsg-syslogd \
 	systemd-reply-password \
 	systemd-fsck \
 	systemd-timestamp \
@@ -318,7 +317,6 @@ nodist_systemunit_DATA = \
 	units/console-shell.service \
 	units/systemd-initctl.service \
 	units/systemd-shutdownd.service \
-	units/systemd-kmsg-syslogd.service \
 	units/systemd-modules-load.service \
 	units/systemd-remount-api-vfs.service \
 	units/systemd-update-utmp-runlevel.service \
@@ -351,7 +349,6 @@ EXTRA_DIST += \
 	units/rescue.service.m4 \
 	units/systemd-initctl.service.in \
 	units/systemd-shutdownd.service.in \
-	units/systemd-kmsg-syslogd.service.in \
 	units/systemd-modules-load.service.in \
 	units/systemd-remount-api-vfs.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
@@ -954,14 +951,6 @@ systemd_cgroups_agent_CFLAGS = \
 systemd_cgroups_agent_LDADD = \
 	libsystemd-basic.la \
 	$(DBUS_LIBS)
-
-systemd_kmsg_syslogd_SOURCES = \
-	src/kmsg-syslogd.c \
-	src/fdset.c
-
-systemd_kmsg_syslogd_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la
 
 systemctl_SOURCES = \
 	src/systemctl.c \
@@ -2233,10 +2222,9 @@ systemd-install-data-hook:
 		rm -f user && \
 		$(LN_S) $(pkgsysconfdir)/user user )
 	( cd $(DESTDIR)$(systemunitdir)/sockets.target.wants && \
-		rm -f systemd-initctl.socket systemd-shutdownd.socket syslog.socket && \
+		rm -f systemd-initctl.socket systemd-shutdownd.socket && \
 		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket && \
-		$(LN_S) ../systemd-shutdownd.socket systemd-shutdownd.socket && \
-		$(LN_S) ../syslog.socket syslog.socket )
+		$(LN_S) ../systemd-shutdownd.socket systemd-shutdownd.socket )
 	( cd $(DESTDIR)$(systemunitdir)/runlevel1.target.wants && \
 		rm -f systemd-update-utmp-runlevel.service && \
 		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
@@ -2307,8 +2295,7 @@ systemd-install-data-hook:
 			systemd-modules-load.service \
 			systemd-tmpfiles-setup.service \
 			systemd-sysctl.service \
-			systemd-ask-password-console.path \
-			systemd-kmsg-syslogd.service && \
+			systemd-ask-password-console.path && \
 		$(LN_S) ../dev-hugepages.mount dev-hugepages.mount && \
 		$(LN_S) ../dev-mqueue.mount dev-mqueue.mount && \
 		$(LN_S) ../sys-kernel-config.mount sys-kernel-config.mount && \
@@ -2318,8 +2305,7 @@ systemd-install-data-hook:
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
 		$(LN_S) ../systemd-sysctl.service systemd-sysctl.service && \
-		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path && \
-		$(LN_S) ../systemd-kmsg-syslogd.service )
+		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path )
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
 		$(LN_S) ../systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.timer )

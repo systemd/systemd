@@ -20,12 +20,17 @@ ListenDatagram=/run/systemd/journal/syslog
 SocketMode=0666
 PassCredentials=yes
 
-# The service we activate on incoming traffic is
-# systemd-kmsg-syslogd.service. That doesn't mean however, that this
-# is the main syslog daemon in the system. Another syslog
-# implementation (which might be started via on-boot or another
-# non-socket activation) can take over possession of the socket and
-# terminate systemd-kmsg-syslogd. It could also simply replace the
-# socket in the file system, and leave systemd-kmsg-syslogd untouched.
-
-Service=systemd-kmsg-syslogd.service
+# The default syslog implementation should make syslog.service a
+# symlink to itself, so that this socket activates the right actual
+# syslog service.
+#
+# Examples:
+#
+# /etc/systemd/system/syslog.service -> /lib/systemd/system/rsyslog.service
+# /etc/systemd/system/syslog.service -> /lib/systemd/system/syslog-ng.service
+#
+# Best way to achieve that is by adding this to your unit file
+# (i.e. to rsyslog.service or syslog-ng.service):
+#
+# [Install]
+# Alias=syslog.service
