@@ -383,7 +383,6 @@ static void timer_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
 }
 
 void timer_unit_notify(Unit *u, UnitActiveState new_state) {
-        int r;
         Iterator i;
         Unit *k;
 
