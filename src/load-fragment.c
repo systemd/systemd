@@ -1386,6 +1386,7 @@ int config_parse_socket_service(
         Socket *s = data;
         int r;
         DBusError error;
+        Unit *x;
 
         assert(filename);
         assert(lvalue);
@@ -1399,11 +1400,14 @@ int config_parse_socket_service(
                 return 0;
         }
 
-        if ((r = manager_load_unit(s->meta.manager, rvalue, NULL, &error, (Unit**) &s->service)) < 0) {
+        r = manager_load_unit(s->meta.manager, rvalue, NULL, &error, &x);
+        if (r < 0) {
                 log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);
                 return 0;
         }
+
+        unit_ref_set(&s->service, x);
 
         return 0;
 }
