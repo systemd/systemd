@@ -366,7 +366,7 @@ EXTRA_DIST += \
 	units/fsck@.service.in \
 	units/fsck-root.service.in \
 	units/user@.service.in \
-	systemd.pc.in \
+	src/systemd.pc.in \
 	introspect.awk \
 	src/73-seat-late.rules.in \
 	src/99-systemd.rules.in \
@@ -437,7 +437,7 @@ dist_doc_DATA = \
 	DISTRO_PORTING
 
 pkgconfigdata_DATA = \
-	systemd.pc
+	src/systemd.pc
 
 # First passed through sed, followed by intltool
 polkitpolicy_in_in_files = \
@@ -1115,7 +1115,7 @@ lib_LTLIBRARIES += \
 	libsystemd-daemon.la
 
 pkgconfiglib_DATA += \
-	libsystemd-daemon.pc
+        src/libsystemd-daemon.pc
 
 MANPAGES += \
 	man/sd-daemon.7 \
@@ -1138,7 +1138,7 @@ man/sd_is_mq.3: man/sd_is_fifo.3
 man/sd_notifyf.3: man/sd_notify.3
 
 EXTRA_DIST += \
-	libsystemd-daemon.pc.in \
+	src/libsystemd-daemon.pc.in \
 	src/libsystemd-daemon.sym
 
 # ------------------------------------------------------------------------------
@@ -1174,7 +1174,7 @@ lib_LTLIBRARIES += \
 	libsystemd-id128.la
 
 pkgconfiglib_DATA += \
-	libsystemd-id128.pc
+	src/libsystemd-id128.pc
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-id128-install-hook:
@@ -1196,7 +1196,7 @@ UNINSTALL_EXEC_HOOKS += \
 	libsystemd-id128-uninstall-hook
 
 EXTRA_DIST += \
-	libsystemd-id128.pc.in \
+	src/libsystemd-id128.pc.in \
 	src/libsystemd-id128.sym
 
 # ------------------------------------------------------------------------------
