@@ -64,6 +64,7 @@ static int parse_field(const void *data, size_t length, const char *field, char 
                 return -ENOMEM;
         }
 
+        free(*target);
         *target = buf;
         *target_size = nl;
 
@@ -92,8 +93,8 @@ static int output_short(sd_journal *j, unsigned line, bool show_all) {
         const void *data;
         size_t length;
         size_t n = 0;
-        char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *message = NULL;
-        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, message_len = 0;
+        char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL;
+        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0;
 
         assert(j);
 
@@ -118,6 +119,12 @@ static int output_short(sd_journal *j, unsigned line, bool show_all) {
                         continue;
 
                 r = parse_field(data, length, "_PID=", &pid, &pid_len);
+                if (r < 0)
+                        goto finish;
+                else if (r > 0)
+                        continue;
+
+                r = parse_field(data, length, "SYSLOG_PID=", &fake_pid, &fake_pid_len);
                 if (r < 0)
                         goto finish;
                 else if (r > 0)
@@ -164,6 +171,9 @@ static int output_short(sd_journal *j, unsigned line, bool show_all) {
         if (pid && shall_print(show_all, pid, pid_len)) {
                 printf("[%.*s]", (int) pid_len, pid);
                 n += pid_len + 2;
+        } else if (fake_pid && shall_print(show_all, fake_pid, fake_pid_len)) {
+                printf("[%.*s]", (int) fake_pid_len, fake_pid);
+                n += fake_pid_len + 2;
         }
 
         if (show_all)
@@ -193,6 +203,7 @@ finish:
         free(identifier);
         free(comm);
         free(pid);
+        free(fake_pid);
         free(message);
 
         return r;

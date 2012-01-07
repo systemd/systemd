@@ -40,6 +40,7 @@ typedef struct Server {
         int syslog_fd;
         int native_fd;
         int stdout_fd;
+        int proc_kmsg_fd;
 
         JournalFile *runtime_journal;
         JournalFile *system_journal;
@@ -62,6 +63,10 @@ typedef struct Server {
         bool forward_to_kmsg;
         bool forward_to_syslog;
         bool forward_to_console;
+
+        bool import_proc_kmsg;
+        char proc_kmsg_buffer[LINE_MAX+1];
+        size_t proc_kmsg_length;
 
         uint64_t cached_available_space;
         usec_t cached_available_space_timestamp;
