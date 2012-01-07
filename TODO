@@ -21,6 +21,8 @@ Bugfixes:
 
 Features:
 
+* move to LGPL2+
+
 * logind: selinux is borked...
 
 * logind: allow showing logout dialog from system

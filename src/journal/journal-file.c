@@ -917,7 +917,7 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         if (r < 0)
                 return r;
 
-        log_error("=> %s seqnr=%lu n_entries=%lu", f->path, (unsigned long) o->entry.seqnum, (unsigned long) f->header->n_entries);
+        /* log_debug("=> %s seqnr=%lu n_entries=%lu", f->path, (unsigned long) o->entry.seqnum, (unsigned long) f->header->n_entries); */
 
         if (f->header->head_entry_realtime == 0)
                 f->header->head_entry_realtime = o->entry.realtime;

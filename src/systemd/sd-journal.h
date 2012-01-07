@@ -44,6 +44,7 @@
  *   - cryptographic hash
  *   - think about manipulations of header
  *   - implement audit gateway
+ *   - implement kernel gatway
  */
 
 /* Write to daemon */
