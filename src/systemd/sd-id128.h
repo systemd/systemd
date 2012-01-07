@@ -39,8 +39,6 @@ int sd_id128_from_string(const char s[33], sd_id128_t *ret);
 
 int sd_id128_randomize(sd_id128_t *ret);
 
-sd_id128_t sd_id128_make_v4_uuid(sd_id128_t id);
-
 int sd_id128_get_machine(sd_id128_t *ret);
 
 int sd_id128_get_boot(sd_id128_t *ret);
