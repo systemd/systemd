@@ -58,7 +58,9 @@ static int parse_field(const void *data, size_t length, const char *field, char 
                 return 0;
 
         nl = length - fl;
-        buf = memdup((const char*) data + fl, nl);
+        buf = malloc(nl+1);
+        memcpy(buf, (const char*) data + fl, nl);
+        ((char*)buf)[nl] = 0;
         if (!buf) {
                 log_error("Out of memory");
                 return -ENOMEM;
@@ -84,13 +86,13 @@ static bool shall_print(bool show_all, char *p, size_t l) {
         return true;
 }
 
-static int output_short(sd_journal *j, unsigned line, bool show_all, bool monotonic) {
+static int output_short(sd_journal *j, unsigned line, bool show_all, bool monotonic_mode) {
         int r;
         const void *data;
         size_t length;
         size_t n = 0;
-        char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL;
-        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0;
+        char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL;
+        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0;
 
         assert(j);
 
@@ -126,6 +128,18 @@ static int output_short(sd_journal *j, unsigned line, bool show_all, bool monoto
                 else if (r > 0)
                         continue;
 
+                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=", &realtime, &realtime_len);
+                if (r < 0)
+                        goto finish;
+                else if (r > 0)
+                        continue;
+
+                r = parse_field(data, length, "_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, &monotonic_len);
+                if (r < 0)
+                        goto finish;
+                else if (r > 0)
+                        continue;
+
                 r = parse_field(data, length, "MESSAGE=", &message, &message_len);
                 if (r < 0)
                         goto finish;
@@ -136,10 +150,16 @@ static int output_short(sd_journal *j, unsigned line, bool show_all, bool monoto
                 goto finish;
         }
 
-        if (monotonic) {
+        if (monotonic_mode) {
                 uint64_t t;
+                r = -ENOENT;
 
-                r = sd_journal_get_monotonic_usec(j, &t, NULL);
+                if (monotonic)
+                        r = safe_atou64(monotonic, &t);
+
+                if (r < 0)
+                        r = sd_journal_get_monotonic_usec(j, &t, NULL);
+
                 if (r >= 0) {
                         printf("[%5llu.%06llu]",
                                (unsigned long long) (t / USEC_PER_SEC),
@@ -150,17 +170,23 @@ static int output_short(sd_journal *j, unsigned line, bool show_all, bool monoto
 
         } else {
                 char buf[64];
-                uint64_t realtime;
+                uint64_t x;
                 time_t t;
                 struct tm tm;
+                r = -ENOENT;
 
-                r = sd_journal_get_realtime_usec(j, &realtime);
+                if (realtime)
+                        r = safe_atou64(realtime, &x);
+
+                if (r < 0)
+                        r = sd_journal_get_realtime_usec(j, &x);
+
                 if (r < 0) {
                         log_error("Failed to get realtime: %s", strerror(-r));
                         goto finish;
                 }
 
-                t = (time_t) (realtime / USEC_PER_SEC);
+                t = (time_t) (x / USEC_PER_SEC);
                 if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S", localtime_r(&t, &tm)) <= 0) {
                         log_error("Failed to format time.");
                         goto finish;
@@ -220,6 +246,8 @@ finish:
         free(pid);
         free(fake_pid);
         free(message);
+        free(monotonic);
+        free(realtime);
 
         return r;
 }
