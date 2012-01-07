@@ -30,6 +30,7 @@
 
 typedef enum OutputMode {
         OUTPUT_SHORT,
+        OUTPUT_SHORT_MONOTONIC,
         OUTPUT_VERBOSE,
         OUTPUT_EXPORT,
         OUTPUT_JSON,

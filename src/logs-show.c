@@ -84,12 +84,8 @@ static bool shall_print(bool show_all, char *p, size_t l) {
         return true;
 }
 
-static int output_short(sd_journal *j, unsigned line, bool show_all) {
+static int output_short(sd_journal *j, unsigned line, bool show_all, bool monotonic) {
         int r;
-        uint64_t realtime;
-        time_t t;
-        struct tm tm;
-        char buf[64];
         const void *data;
         size_t length;
         size_t n = 0;
@@ -140,20 +136,39 @@ static int output_short(sd_journal *j, unsigned line, bool show_all) {
                 goto finish;
         }
 
-        r = sd_journal_get_realtime_usec(j, &realtime);
-        if (r < 0) {
-                log_error("Failed to get realtime: %s", strerror(-r));
-                goto finish;
-        }
+        if (monotonic) {
+                uint64_t t;
 
-        t = (time_t) (realtime / USEC_PER_SEC);
-        if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S", localtime_r(&t, &tm)) <= 0) {
-                log_error("Failed to format time.");
-                goto finish;
-        }
+                r = sd_journal_get_monotonic_usec(j, &t, NULL);
+                if (r >= 0) {
+                        printf("[%5llu.%06llu]",
+                               (unsigned long long) (t / USEC_PER_SEC),
+                               (unsigned long long) (t % USEC_PER_SEC));
 
-        fputs(buf, stdout);
-        n += strlen(buf);
+                        n += 1 + 5 + 1 + 6 + 1;
+                }
+
+        } else {
+                char buf[64];
+                uint64_t realtime;
+                time_t t;
+                struct tm tm;
+
+                r = sd_journal_get_realtime_usec(j, &realtime);
+                if (r < 0) {
+                        log_error("Failed to get realtime: %s", strerror(-r));
+                        goto finish;
+                }
+
+                t = (time_t) (realtime / USEC_PER_SEC);
+                if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S", localtime_r(&t, &tm)) <= 0) {
+                        log_error("Failed to format time.");
+                        goto finish;
+                }
+
+                fputs(buf, stdout);
+                n += strlen(buf);
+        }
 
         if (hostname && shall_print(show_all, hostname, hostname_len)) {
                 printf(" %.*s", (int) hostname_len, hostname);
@@ -207,6 +222,14 @@ finish:
         free(message);
 
         return r;
+}
+
+static int output_short_realtime(sd_journal *j, unsigned line, bool show_all) {
+        return output_short(j, line, show_all, false);
+}
+
+static int output_short_monotonic(sd_journal *j, unsigned line, bool show_all) {
+        return output_short(j, line, show_all, true);
 }
 
 static int output_verbose(sd_journal *j, unsigned line, bool show_all) {
@@ -432,7 +455,8 @@ static int output_json(sd_journal *j, unsigned line, bool show_all) {
 }
 
 static int (*output_funcs[_OUTPUT_MODE_MAX])(sd_journal*j, unsigned line, bool show_all) = {
-        [OUTPUT_SHORT] = output_short,
+        [OUTPUT_SHORT] = output_short_realtime,
+        [OUTPUT_SHORT_MONOTONIC] = output_short_monotonic,
         [OUTPUT_VERBOSE] = output_verbose,
         [OUTPUT_EXPORT] = output_export,
         [OUTPUT_JSON] = output_json
@@ -575,6 +599,7 @@ finish:
 
 static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT] = "short",
+        [OUTPUT_SHORT_MONOTONIC] = "short-monotonic",
         [OUTPUT_VERBOSE] = "verbose",
         [OUTPUT_EXPORT] = "export",
         [OUTPUT_JSON] = "json"
