@@ -44,7 +44,7 @@ static bool arg_show_all = false;
 static bool arg_no_pager = false;
 static int arg_lines = -1;
 static bool arg_no_tail = false;
-static bool arg_new_id = false;
+static bool arg_new_id128 = false;
 
 static int help(void) {
 
@@ -58,7 +58,7 @@ static int help(void) {
                "  -n --lines=INTEGER  Journal entries to show\n"
                "     --no-tail        Show all lines, even in follow mode\n"
                "  -o --output=STRING  Change journal output mode (short, verbose, export, json)\n"
-               "     --new-id         Generate a new 128 Bit id\n",
+               "     --new-id128      Generate a new 128 Bit id\n",
                program_invocation_short_name);
 
         return 0;
@@ -70,7 +70,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_TAIL,
-                ARG_NEW_ID
+                ARG_NEW_ID128
         };
 
         static const struct option options[] = {
@@ -82,7 +82,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "all",       no_argument,       NULL, 'a'           },
                 { "lines",     required_argument, NULL, 'n'           },
                 { "no-tail",   no_argument,       NULL, ARG_NO_TAIL   },
-                { "new-id",    no_argument,       NULL, ARG_NEW_ID    },
+                { "new-id128", no_argument,       NULL, ARG_NEW_ID128 },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -138,8 +138,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_no_tail = true;
                         break;
 
-                case ARG_NEW_ID:
-                        arg_new_id = true;
+                case ARG_NEW_ID128:
+                        arg_new_id128 = true;
                         break;
 
                 case '?':
@@ -157,7 +157,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int generate_new_id(void) {
+static int generate_new_id128(void) {
         sd_id128_t id;
         int r;
         unsigned i;
@@ -198,8 +198,8 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (arg_new_id) {
-                r = generate_new_id();
+        if (arg_new_id128) {
+                r = generate_new_id128();
                 goto finish;
         }
 
