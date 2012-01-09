@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/bin/sh
 
 set -e
 
@@ -28,9 +28,9 @@ args="\
 --enable-gtk-doc"
 
 echo
-echo "---------------------------------------------------------------------"
-echo "Initialized udev build system. For a common configuration please run:"
-echo "---------------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "Initialized build system. For a common configuration please run:"
+echo "----------------------------------------------------------------"
 echo
-echo "# ./configure $args"
+echo "./configure CFLAGS='-g -O0' $args"
 echo
