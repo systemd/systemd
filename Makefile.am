@@ -42,6 +42,7 @@ udevhomedir = $(libexecdir)/udev
 udevhome_SCRIPTS =
 dist_udevhome_SCRIPTS =
 dist_udevhome_DATA =
+dist_man_MANS =
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(SED) \
@@ -259,10 +260,11 @@ src_udevadm_CFLAGS = $(udev_common_CFLAGS)
 src_udevadm_LDADD = $(udev_common_LDADD)
 src_udevadm_CPPFLAGS = $(udev_common_CPPFLAGS)
 
+if HAVE_XSLTPROC
 # ------------------------------------------------------------------------------
 # udev man pages
 # ------------------------------------------------------------------------------
-dist_man_MANS = \
+dist_man_MANS += \
 	src/udev.7 \
 	src/udevadm.8 \
 	src/udevd.8
@@ -282,6 +284,7 @@ src/%.7 src/%.8 : src/%.xml
 
 src/%.html : src/%.xml
 	$(AM_V_GEN)$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/xhtml-1_1/docbook.xsl $<
+endif
 
 # ------------------------------------------------------------------------------
 # udev tests

@@ -17,7 +17,9 @@ AC_PROG_SED
 AC_PROG_MKDIR_P
 GTK_DOC_CHECK(1.10)
 AC_PREFIX_DEFAULT([/usr])
+
 AC_PATH_PROG([XSLTPROC], [xsltproc])
+AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
 AC_SEARCH_LIBS([clock_gettime], [rt], [], [AC_MSG_ERROR([POSIX RT library not found])])
 
