@@ -1492,7 +1492,7 @@ sub run_test {
         print "\n";
 
         if (defined($rules->{option}) && $rules->{option} eq "clean") {
-                make_udev_root ();
+                make_udev_root();
         }
 
 }

@@ -922,7 +922,7 @@ UDEV_EXPORT int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enume
 
         /* all kernel modules */
         if (match_subsystem(udev_enumerate, "module")) {
-                dbg(udev, "searching '%s/modules/*' dir\n", subsysdir);
+                dbg(udev, "searching 'modules/*' dir\n");
                 scan_dir_and_add_devices(udev_enumerate, "module", NULL, NULL);
         }
 
