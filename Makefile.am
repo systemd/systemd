@@ -974,6 +974,7 @@ systemctl_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	libsystemd-journal.la \
+	libsystemd-id128.la \
 	$(DBUS_LIBS)
 
 systemd_notify_SOURCES = \
@@ -1239,7 +1240,8 @@ systemd_journalctl_SOURCES = \
 
 systemd_journalctl_LDADD = \
 	libsystemd-basic.la \
-	libsystemd-journal.la
+	libsystemd-journal.la \
+	libsystemd-id128.la
 
 if HAVE_XZ
 systemd_journalctl_SOURCES += \
