@@ -30,5 +30,5 @@ echo "----------------------------------------------------------------"
 echo "Initialized build system. For a common configuration please run:"
 echo "----------------------------------------------------------------"
 echo
-echo "./configure CFLAGS='-g -O0' $args"
+echo "./configure CFLAGS='-g -O1' $args"
 echo
