@@ -32,56 +32,56 @@
 
 int main (int argc, char *argv[])
 {
-	static const struct option options[] = {
-		{ "help", no_argument, NULL, 'h' },
-		{}
-	};
-	int fd;
-	char *device;
-	struct v4l2_capability v2cap;
+        static const struct option options[] = {
+                { "help", no_argument, NULL, 'h' },
+                {}
+        };
+        int fd;
+        char *device;
+        struct v4l2_capability v2cap;
 
-	while (1) {
-		int option;
+        while (1) {
+                int option;
 
-		option = getopt_long(argc, argv, "h", options, NULL);
-		if (option == -1)
-			break;
+                option = getopt_long(argc, argv, "h", options, NULL);
+                if (option == -1)
+                        break;
 
-		switch (option) {
-		case 'h':
-			printf("Usage: v4l_id [--help] <device file>\n\n");
-			return 0;
-		default:
-			return 1;
-		}
-	}
-	device = argv[optind];
+                switch (option) {
+                case 'h':
+                        printf("Usage: v4l_id [--help] <device file>\n\n");
+                        return 0;
+                default:
+                        return 1;
+                }
+        }
+        device = argv[optind];
 
-	if (device == NULL)
-		return 2;
-	fd = open (device, O_RDONLY);
-	if (fd < 0)
-		return 3;
+        if (device == NULL)
+                return 2;
+        fd = open (device, O_RDONLY);
+        if (fd < 0)
+                return 3;
 
-	if (ioctl (fd, VIDIOC_QUERYCAP, &v2cap) == 0) {
-		printf("ID_V4L_VERSION=2\n");
-		printf("ID_V4L_PRODUCT=%s\n", v2cap.card);
-		printf("ID_V4L_CAPABILITIES=:");
-		if ((v2cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) > 0)
-			printf("capture:");
-		if ((v2cap.capabilities & V4L2_CAP_VIDEO_OUTPUT) > 0)
-			printf("video_output:");
-		if ((v2cap.capabilities & V4L2_CAP_VIDEO_OVERLAY) > 0)
-			printf("video_overlay:");
-		if ((v2cap.capabilities & V4L2_CAP_AUDIO) > 0)
-			printf("audio:");
-		if ((v2cap.capabilities & V4L2_CAP_TUNER) > 0)
-			printf("tuner:");
-		if ((v2cap.capabilities & V4L2_CAP_RADIO) > 0)
-			printf("radio:");
-		printf("\n");
-	}
+        if (ioctl (fd, VIDIOC_QUERYCAP, &v2cap) == 0) {
+                printf("ID_V4L_VERSION=2\n");
+                printf("ID_V4L_PRODUCT=%s\n", v2cap.card);
+                printf("ID_V4L_CAPABILITIES=:");
+                if ((v2cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) > 0)
+                        printf("capture:");
+                if ((v2cap.capabilities & V4L2_CAP_VIDEO_OUTPUT) > 0)
+                        printf("video_output:");
+                if ((v2cap.capabilities & V4L2_CAP_VIDEO_OVERLAY) > 0)
+                        printf("video_overlay:");
+                if ((v2cap.capabilities & V4L2_CAP_AUDIO) > 0)
+                        printf("audio:");
+                if ((v2cap.capabilities & V4L2_CAP_TUNER) > 0)
+                        printf("tuner:");
+                if ((v2cap.capabilities & V4L2_CAP_RADIO) > 0)
+                        printf("radio:");
+                printf("\n");
+        }
 
-	close (fd);
-	return 0;
+        close (fd);
+        return 0;
 }

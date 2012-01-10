@@ -28,24 +28,24 @@
 
 int main(int argc, char** argv)
 {
-	if (argc != 2) {
-		printf("usage: mtd_probe /dev/mtd[n]\n");
-		return 1;
-	}
+        if (argc != 2) {
+                printf("usage: mtd_probe /dev/mtd[n]\n");
+                return 1;
+        }
 
-	int mtd_fd = open(argv[1], O_RDONLY);
-	if (mtd_fd == -1) {
-		perror("open");
-		exit(-1);
-	}
+        int mtd_fd = open(argv[1], O_RDONLY);
+        if (mtd_fd == -1) {
+                perror("open");
+                exit(-1);
+        }
 
-	mtd_info_t mtd_info;
-	int error = ioctl(mtd_fd, MEMGETINFO, &mtd_info);
-	if (error == -1) {
-		perror("ioctl");
-		exit(-1);
-	}
+        mtd_info_t mtd_info;
+        int error = ioctl(mtd_fd, MEMGETINFO, &mtd_info);
+        if (error == -1) {
+                perror("ioctl");
+                exit(-1);
+        }
 
-	probe_smart_media(mtd_fd, &mtd_info);
-	return -1;
+        probe_smart_media(mtd_fd, &mtd_info);
+        return -1;
 }

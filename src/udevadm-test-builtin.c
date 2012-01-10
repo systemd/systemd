@@ -36,93 +36,93 @@
 
 static void help(struct udev *udev)
 {
-	fprintf(stderr, "\n");
-	fprintf(stderr, "Usage: udevadm builtin [--help] <command> <syspath>\n");
-	udev_builtin_list(udev);
-	fprintf(stderr, "\n");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "Usage: udevadm builtin [--help] <command> <syspath>\n");
+        udev_builtin_list(udev);
+        fprintf(stderr, "\n");
 }
 
 static int adm_builtin(struct udev *udev, int argc, char *argv[])
 {
-	static const struct option options[] = {
-		{ "help", no_argument, NULL, 'h' },
-		{}
-	};
-	char *command = NULL;
-	char *syspath = NULL;
-	char filename[UTIL_PATH_SIZE];
-	struct udev_device *dev = NULL;
-	enum udev_builtin_cmd cmd;
-	int rc = EXIT_SUCCESS;
+        static const struct option options[] = {
+                { "help", no_argument, NULL, 'h' },
+                {}
+        };
+        char *command = NULL;
+        char *syspath = NULL;
+        char filename[UTIL_PATH_SIZE];
+        struct udev_device *dev = NULL;
+        enum udev_builtin_cmd cmd;
+        int rc = EXIT_SUCCESS;
 
-	dbg(udev, "version %s\n", VERSION);
+        dbg(udev, "version %s\n", VERSION);
 
-	for (;;) {
-		int option;
+        for (;;) {
+                int option;
 
-		option = getopt_long(argc, argv, "h", options, NULL);
-		if (option == -1)
-			break;
+                option = getopt_long(argc, argv, "h", options, NULL);
+                if (option == -1)
+                        break;
 
-		switch (option) {
-		case 'h':
-			help(udev);
-			goto out;
-		}
-	}
+                switch (option) {
+                case 'h':
+                        help(udev);
+                        goto out;
+                }
+        }
 
-	command = argv[optind++];
-	if (command == NULL) {
-		fprintf(stderr, "command missing\n");
-		help(udev);
-		rc = 2;
-		goto out;
-	}
+        command = argv[optind++];
+        if (command == NULL) {
+                fprintf(stderr, "command missing\n");
+                help(udev);
+                rc = 2;
+                goto out;
+        }
 
-	syspath = argv[optind++];
-	if (syspath == NULL) {
-		fprintf(stderr, "syspath missing\n\n");
-		rc = 3;
-		goto out;
-	}
+        syspath = argv[optind++];
+        if (syspath == NULL) {
+                fprintf(stderr, "syspath missing\n\n");
+                rc = 3;
+                goto out;
+        }
 
-	udev_builtin_init(udev);
+        udev_builtin_init(udev);
 
-	cmd = udev_builtin_lookup(command);
-	if (cmd >= UDEV_BUILTIN_MAX) {
-		fprintf(stderr, "unknown command '%s'\n", command);
-		help(udev);
-		rc = 5;
-		goto out;
-	}
+        cmd = udev_builtin_lookup(command);
+        if (cmd >= UDEV_BUILTIN_MAX) {
+                fprintf(stderr, "unknown command '%s'\n", command);
+                help(udev);
+                rc = 5;
+                goto out;
+        }
 
-	/* add /sys if needed */
-	if (strncmp(syspath, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0)
-		util_strscpyl(filename, sizeof(filename), udev_get_sys_path(udev), syspath, NULL);
-	else
-		util_strscpy(filename, sizeof(filename), syspath);
-	util_remove_trailing_chars(filename, '/');
+        /* add /sys if needed */
+        if (strncmp(syspath, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0)
+                util_strscpyl(filename, sizeof(filename), udev_get_sys_path(udev), syspath, NULL);
+        else
+                util_strscpy(filename, sizeof(filename), syspath);
+        util_remove_trailing_chars(filename, '/');
 
-	dev = udev_device_new_from_syspath(udev, filename);
-	if (dev == NULL) {
-		fprintf(stderr, "unable to open device '%s'\n\n", filename);
-		rc = 4;
-		goto out;
-	}
+        dev = udev_device_new_from_syspath(udev, filename);
+        if (dev == NULL) {
+                fprintf(stderr, "unable to open device '%s'\n\n", filename);
+                rc = 4;
+                goto out;
+        }
 
-	if (udev_builtin_run(dev, cmd, command, true) < 0) {
-		fprintf(stderr, "error executing '%s'\n\n", command);
-		rc = 6;
-	}
+        if (udev_builtin_run(dev, cmd, command, true) < 0) {
+                fprintf(stderr, "error executing '%s'\n\n", command);
+                rc = 6;
+        }
 out:
-	udev_device_unref(dev);
-	udev_builtin_exit(udev);
-	return rc;
+        udev_device_unref(dev);
+        udev_builtin_exit(udev);
+        return rc;
 }
 
 const struct udevadm_cmd udevadm_test_builtin = {
-	.name = "test-builtin",
-	.cmd = adm_builtin,
-	.help = "test a built-in command",
-	.debug = true,
+        .name = "test-builtin",
+        .cmd = adm_builtin,
+        .help = "test a built-in command",
+        .debug = true,
 };

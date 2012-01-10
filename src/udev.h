@@ -27,38 +27,38 @@
 #include "libudev-private.h"
 
 struct udev_event {
-	struct udev *udev;
-	struct udev_device *dev;
-	struct udev_device *dev_parent;
-	struct udev_device *dev_db;
-	char *name;
-	char *program_result;
-	mode_t mode;
-	uid_t uid;
-	gid_t gid;
-	struct udev_list run_list;
-	int exec_delay;
-	unsigned long long birth_usec;
-	unsigned long long timeout_usec;
-	int fd_signal;
-	unsigned int builtin_run;
-	unsigned int builtin_ret;
-	bool sigterm;
-	bool inotify_watch;
-	bool inotify_watch_final;
-	bool group_final;
-	bool owner_final;
-	bool mode_set;
-	bool mode_final;
-	bool name_final;
-	bool devlink_final;
-	bool run_final;
+        struct udev *udev;
+        struct udev_device *dev;
+        struct udev_device *dev_parent;
+        struct udev_device *dev_db;
+        char *name;
+        char *program_result;
+        mode_t mode;
+        uid_t uid;
+        gid_t gid;
+        struct udev_list run_list;
+        int exec_delay;
+        unsigned long long birth_usec;
+        unsigned long long timeout_usec;
+        int fd_signal;
+        unsigned int builtin_run;
+        unsigned int builtin_ret;
+        bool sigterm;
+        bool inotify_watch;
+        bool inotify_watch_final;
+        bool group_final;
+        bool owner_final;
+        bool mode_set;
+        bool mode_final;
+        bool name_final;
+        bool devlink_final;
+        bool run_final;
 };
 
 struct udev_watch {
-	struct udev_list_node node;
-	int handle;
-	char *name;
+        struct udev_list_node node;
+        int handle;
+        char *name;
 };
 
 /* udev-rules.c */
@@ -73,10 +73,10 @@ struct udev_event *udev_event_new(struct udev_device *dev);
 void udev_event_unref(struct udev_event *event);
 size_t udev_event_apply_format(struct udev_event *event, const char *src, char *dest, size_t size);
 int udev_event_apply_subsys_kernel(struct udev_event *event, const char *string,
-				   char *result, size_t maxsize, int read_value);
+                                   char *result, size_t maxsize, int read_value);
 int udev_event_spawn(struct udev_event *event,
-		     const char *cmd, char **envp, const sigset_t *sigmask,
-		     char *result, size_t ressize);
+                     const char *cmd, char **envp, const sigset_t *sigmask,
+                     char *result, size_t ressize);
 int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigset);
 int udev_event_execute_run(struct udev_event *event, const sigset_t *sigset);
 int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[]);
@@ -130,24 +130,24 @@ int udev_ctrl_get_set_children_max(struct udev_ctrl_msg *ctrl_msg);
 
 /* built-in commands */
 enum udev_builtin_cmd {
-	UDEV_BUILTIN_BLKID,
-	UDEV_BUILTIN_FIRMWARE,
-	UDEV_BUILTIN_INPUT_ID,
-	UDEV_BUILTIN_KMOD,
-	UDEV_BUILTIN_PATH_ID,
-	UDEV_BUILTIN_PCI_DB,
-	UDEV_BUILTIN_USB_DB,
-	UDEV_BUILTIN_USB_ID,
-	UDEV_BUILTIN_MAX
+        UDEV_BUILTIN_BLKID,
+        UDEV_BUILTIN_FIRMWARE,
+        UDEV_BUILTIN_INPUT_ID,
+        UDEV_BUILTIN_KMOD,
+        UDEV_BUILTIN_PATH_ID,
+        UDEV_BUILTIN_PCI_DB,
+        UDEV_BUILTIN_USB_DB,
+        UDEV_BUILTIN_USB_ID,
+        UDEV_BUILTIN_MAX
 };
 struct udev_builtin {
-	const char *name;
-	int (*cmd)(struct udev_device *dev, int argc, char *argv[], bool test);
-	const char *help;
-	int (*init)(struct udev *udev);
-	void (*exit)(struct udev *udev);
-	bool (*validate)(struct udev *udev);
-	bool run_once;
+        const char *name;
+        int (*cmd)(struct udev_device *dev, int argc, char *argv[], bool test);
+        const char *help;
+        int (*init)(struct udev *udev);
+        void (*exit)(struct udev *udev);
+        bool (*validate)(struct udev *udev);
+        bool run_once;
 };
 extern const struct udev_builtin udev_builtin_blkid;
 extern const struct udev_builtin udev_builtin_firmware;
@@ -168,15 +168,15 @@ int udev_builtin_add_property(struct udev_device *dev, bool test, const char *ke
 
 /* udev logging */
 void udev_main_log(struct udev *udev, int priority,
-		   const char *file, int line, const char *fn,
-		   const char *format, va_list args);
+                   const char *file, int line, const char *fn,
+                   const char *format, va_list args);
 
 /* udevadm commands */
 struct udevadm_cmd {
-	const char *name;
-	int (*cmd)(struct udev *udev, int argc, char *argv[]);
-	const char *help;
-	int debug;
+        const char *name;
+        int (*cmd)(struct udev *udev, int argc, char *argv[]);
+        const char *help;
+        int debug;
 };
 extern const struct udevadm_cmd udevadm_info;
 extern const struct udevadm_cmd udevadm_trigger;

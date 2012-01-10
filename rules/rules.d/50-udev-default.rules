@@ -2,44 +2,44 @@
 
 KERNEL=="pty[pqrstuvwxyzabcdef][0123456789abcdef]", GROUP="tty", MODE="0660"
 KERNEL=="tty[pqrstuvwxyzabcdef][0123456789abcdef]", GROUP="tty", MODE="0660"
-KERNEL=="ptmx",			GROUP="tty", MODE="0666"
-KERNEL=="tty",			GROUP="tty", MODE="0666"
-KERNEL=="tty[0-9]*",		GROUP="tty", MODE="0620"
+KERNEL=="ptmx", GROUP="tty", MODE="0666"
+KERNEL=="tty", GROUP="tty", MODE="0666"
+KERNEL=="tty[0-9]*", GROUP="tty", MODE="0620"
 KERNEL=="vcs|vcs[0-9]*|vcsa|vcsa[0-9]*", GROUP="tty"
 
 # serial
 KERNEL=="tty[A-Z]*[0-9]|pppox[0-9]*|ircomm[0-9]*|noz[0-9]*|rfcomm[0-9]*", GROUP="dialout"
-KERNEL=="mwave",		GROUP="dialout"
-KERNEL=="hvc*|hvsi*",		GROUP="dialout"
+KERNEL=="mwave", GROUP="dialout"
+KERNEL=="hvc*|hvsi*", GROUP="dialout"
 
 # virtio serial / console ports
 KERNEL=="vport*", ATTR{name}=="?*", SYMLINK+="virtio-ports/$attr{name}"
 
 # mem
 KERNEL=="null|zero|full|random|urandom", MODE="0666"
-KERNEL=="mem|kmem|port|nvram",	GROUP="kmem", MODE="0640"
+KERNEL=="mem|kmem|port|nvram", GROUP="kmem", MODE="0640"
 
 # input
 SUBSYSTEM=="input", ENV{ID_INPUT}=="", IMPORT{builtin}="input_id"
-KERNEL=="mouse*|mice|event*",	MODE="0640"
-KERNEL=="ts[0-9]*|uinput",	MODE="0640"
-KERNEL=="js[0-9]*",		MODE="0644"
+KERNEL=="mouse*|mice|event*", MODE="0640"
+KERNEL=="ts[0-9]*|uinput", MODE="0640"
+KERNEL=="js[0-9]*", MODE="0644"
 
 # video4linux
-SUBSYSTEM=="video4linux",	GROUP="video"
-KERNEL=="vttuner*",		GROUP="video"
-KERNEL=="vtx*|vbi*",		GROUP="video"
-KERNEL=="winradio*",		GROUP="video"
+SUBSYSTEM=="video4linux", GROUP="video"
+KERNEL=="vttuner*", GROUP="video"
+KERNEL=="vtx*|vbi*", GROUP="video"
+KERNEL=="winradio*", GROUP="video"
 
 # graphics
-KERNEL=="agpgart",		GROUP="video"
-KERNEL=="pmu",			GROUP="video"
-KERNEL=="nvidia*|nvidiactl*",	GROUP="video"
-SUBSYSTEM=="graphics",		GROUP="video"
-SUBSYSTEM=="drm",		GROUP="video"
+KERNEL=="agpgart", GROUP="video"
+KERNEL=="pmu", GROUP="video"
+KERNEL=="nvidia*|nvidiactl*", GROUP="video"
+SUBSYSTEM=="graphics", GROUP="video"
+SUBSYSTEM=="drm", GROUP="video"
 
 # sound
-SUBSYSTEM=="sound",		GROUP="audio", \
+SUBSYSTEM=="sound", GROUP="audio", \
   OPTIONS+="static_node=snd/seq", OPTIONS+="static_node=snd/timer"
 
 # DVB (video)
@@ -56,11 +56,11 @@ SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", MODE="0664"
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", IMPORT{builtin}="usb_id"
 
 # printer
-KERNEL=="parport[0-9]*",	GROUP="lp"
-SUBSYSTEM=="printer",		KERNEL=="lp*", GROUP="lp"
-SUBSYSTEM=="ppdev",		GROUP="lp"
-KERNEL=="lp[0-9]*",		GROUP="lp"
-KERNEL=="irlpt[0-9]*",		GROUP="lp"
+KERNEL=="parport[0-9]*", GROUP="lp"
+SUBSYSTEM=="printer", KERNEL=="lp*", GROUP="lp"
+SUBSYSTEM=="ppdev", GROUP="lp"
+KERNEL=="lp[0-9]*", GROUP="lp"
+KERNEL=="irlpt[0-9]*", GROUP="lp"
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:*", GROUP="lp"
 
 # block
@@ -91,17 +91,17 @@ SUBSYSTEM=="aoe", GROUP="disk", MODE="0220"
 SUBSYSTEM=="aoe", KERNEL=="err", MODE="0440"
 
 # network
-KERNEL=="tun",			MODE="0666", OPTIONS+="static_node=net/tun"
-KERNEL=="rfkill",		MODE="0644"
+KERNEL=="tun", MODE="0666", OPTIONS+="static_node=net/tun"
+KERNEL=="rfkill", MODE="0644"
 
 # CPU
-KERNEL=="cpu[0-9]*",		MODE="0444"
+KERNEL=="cpu[0-9]*", MODE="0444"
 
-KERNEL=="fuse", ACTION=="add",	MODE="0666", OPTIONS+="static_node=fuse"
+KERNEL=="fuse", ACTION=="add", MODE="0666", OPTIONS+="static_node=fuse"
 
 SUBSYSTEM=="rtc", DRIVERS=="rtc_cmos", SYMLINK+="rtc"
-KERNEL=="mmtimer",		MODE="0644"
-KERNEL=="rflash[0-9]*",		MODE="0400"
-KERNEL=="rrom[0-9]*",		MODE="0400"
+KERNEL=="mmtimer", MODE="0644"
+KERNEL=="rflash[0-9]*", MODE="0400"
+KERNEL=="rrom[0-9]*", MODE="0400"
 
 SUBSYSTEM=="firmware", ACTION=="add", IMPORT{builtin}="firmware"

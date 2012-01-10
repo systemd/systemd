@@ -78,14 +78,14 @@ expand_content_files=
 # e.g. GTKDOC_CFLAGS=-I$(top_srcdir) -I$(top_builddir) $(GTK_DEBUG_FLAGS)
 # e.g. GTKDOC_LIBS=$(top_builddir)/gtk/$(gtktargetlib)
 GTKDOC_CFLAGS = \
-	$(DBUS_GLIB_CFLAGS) \
-	$(GLIB_CFLAGS) \
-	-I$(top_srcdir)/src/extras/gudev \
-	-I$(top_builddir)/src/extras/gudev
+        $(DBUS_GLIB_CFLAGS) \
+        $(GLIB_CFLAGS) \
+        -I$(top_srcdir)/src/extras/gudev \
+        -I$(top_builddir)/src/extras/gudev
 
 GTKDOC_LIBS = \
-	$(GLIB_LIBS) \
-	$(top_builddir)/src/extras/gudev/libgudev-1.0.la
+        $(GLIB_LIBS) \
+        $(top_builddir)/src/extras/gudev/libgudev-1.0.la
 
 # This includes the standard gtk-doc make rules, copied by gtkdocize.
 include $(top_srcdir)/gtk-doc.make

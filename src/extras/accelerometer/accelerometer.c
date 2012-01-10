@@ -71,32 +71,32 @@
 static int debug = 0;
 
 static void log_fn(struct udev *udev, int priority,
-		   const char *file, int line, const char *fn,
-		   const char *format, va_list args)
+                   const char *file, int line, const char *fn,
+                   const char *format, va_list args)
 {
-	if (debug) {
-		fprintf(stderr, "%s: ", fn);
-		vfprintf(stderr, format, args);
-	} else {
-		vsyslog(priority, format, args);
-	}
+        if (debug) {
+                fprintf(stderr, "%s: ", fn);
+                vfprintf(stderr, format, args);
+        } else {
+                vsyslog(priority, format, args);
+        }
 }
 
 typedef enum {
-	ORIENTATION_UNDEFINED,
-	ORIENTATION_NORMAL,
-	ORIENTATION_BOTTOM_UP,
-	ORIENTATION_LEFT_UP,
-	ORIENTATION_RIGHT_UP
+        ORIENTATION_UNDEFINED,
+        ORIENTATION_NORMAL,
+        ORIENTATION_BOTTOM_UP,
+        ORIENTATION_LEFT_UP,
+        ORIENTATION_RIGHT_UP
 } OrientationUp;
 
 static const char *orientations[] = {
-	"undefined",
-	"normal",
-	"bottom-up",
-	"left-up",
-	"right-up",
-	NULL
+        "undefined",
+        "normal",
+        "bottom-up",
+        "left-up",
+        "right-up",
+        NULL
 };
 
 #define ORIENTATION_UP_UP ORIENTATION_NORMAL
@@ -111,247 +111,247 @@ static const char *orientations[] = {
 static const char *
 orientation_to_string (OrientationUp o)
 {
-	return orientations[o];
+        return orientations[o];
 }
 
 static OrientationUp
 string_to_orientation (const char *orientation)
 {
-	int i;
+        int i;
 
-	if (orientation == NULL)
-		return ORIENTATION_UNDEFINED;
-	for (i = 0; orientations[i] != NULL; i++) {
-		if (strcmp (orientation, orientations[i]) == 0)
-			return i;
-	}
-	return ORIENTATION_UNDEFINED;
+        if (orientation == NULL)
+                return ORIENTATION_UNDEFINED;
+        for (i = 0; orientations[i] != NULL; i++) {
+                if (strcmp (orientation, orientations[i]) == 0)
+                        return i;
+        }
+        return ORIENTATION_UNDEFINED;
 }
 
 static OrientationUp
 orientation_calc (OrientationUp prev,
-		  int x, int y, int z)
+                  int x, int y, int z)
 {
-	int rotation;
-	OrientationUp ret = prev;
+        int rotation;
+        OrientationUp ret = prev;
 
-	/* Portrait check */
-	rotation = round(atan((double) x / sqrt(y * y + z * z)) * RADIANS_TO_DEGREES);
+        /* Portrait check */
+        rotation = round(atan((double) x / sqrt(y * y + z * z)) * RADIANS_TO_DEGREES);
 
-	if (abs(rotation) > THRESHOLD_PORTRAIT) {
-		ret = (rotation < 0) ? ORIENTATION_LEFT_UP : ORIENTATION_RIGHT_UP;
+        if (abs(rotation) > THRESHOLD_PORTRAIT) {
+                ret = (rotation < 0) ? ORIENTATION_LEFT_UP : ORIENTATION_RIGHT_UP;
 
-		/* Some threshold to switching between portrait modes */
-		if (prev == ORIENTATION_LEFT_UP || prev == ORIENTATION_RIGHT_UP) {
-			if (abs(rotation) < SAME_AXIS_LIMIT) {
-				ret = prev;
-			}
-		}
+                /* Some threshold to switching between portrait modes */
+                if (prev == ORIENTATION_LEFT_UP || prev == ORIENTATION_RIGHT_UP) {
+                        if (abs(rotation) < SAME_AXIS_LIMIT) {
+                                ret = prev;
+                        }
+                }
 
-	} else {
-		/* Landscape check */
-		rotation = round(atan((double) y / sqrt(x * x + z * z)) * RADIANS_TO_DEGREES);
+        } else {
+                /* Landscape check */
+                rotation = round(atan((double) y / sqrt(x * x + z * z)) * RADIANS_TO_DEGREES);
 
-		if (abs(rotation) > THRESHOLD_LANDSCAPE) {
-			ret = (rotation < 0) ? ORIENTATION_BOTTOM_UP : ORIENTATION_NORMAL;
+                if (abs(rotation) > THRESHOLD_LANDSCAPE) {
+                        ret = (rotation < 0) ? ORIENTATION_BOTTOM_UP : ORIENTATION_NORMAL;
 
-			/* Some threshold to switching between landscape modes */
-			if (prev == ORIENTATION_BOTTOM_UP || prev == ORIENTATION_NORMAL) {
-				if (abs(rotation) < SAME_AXIS_LIMIT) {
-					ret = prev;
-				}
-			}
-		}
-	}
+                        /* Some threshold to switching between landscape modes */
+                        if (prev == ORIENTATION_BOTTOM_UP || prev == ORIENTATION_NORMAL) {
+                                if (abs(rotation) < SAME_AXIS_LIMIT) {
+                                        ret = prev;
+                                }
+                        }
+                }
+        }
 
-	return ret;
+        return ret;
 }
 
 static OrientationUp
 get_prev_orientation(struct udev_device *dev)
 {
-	const char *value;
+        const char *value;
 
-	value = udev_device_get_property_value(dev, "ID_INPUT_ACCELEROMETER_ORIENTATION");
-	if (value == NULL)
-		return ORIENTATION_UNDEFINED;
-	return string_to_orientation(value);
+        value = udev_device_get_property_value(dev, "ID_INPUT_ACCELEROMETER_ORIENTATION");
+        if (value == NULL)
+                return ORIENTATION_UNDEFINED;
+        return string_to_orientation(value);
 }
 
 #define SET_AXIS(axis, code_) if (ev[i].code == code_) { if (got_##axis == 0) { axis = ev[i].value; got_##axis = 1; } }
 
 /* accelerometers */
 static void test_orientation(struct udev *udev,
-			     struct udev_device *dev,
-			     const char *devpath)
+                             struct udev_device *dev,
+                             const char *devpath)
 {
-	OrientationUp old, new;
-	int fd, r;
-	struct input_event ev[64];
-	int got_syn = 0;
-	int got_x, got_y, got_z;
-	int x = 0, y = 0, z = 0;
-	char text[64];
+        OrientationUp old, new;
+        int fd, r;
+        struct input_event ev[64];
+        int got_syn = 0;
+        int got_x, got_y, got_z;
+        int x = 0, y = 0, z = 0;
+        char text[64];
 
-	old = get_prev_orientation(dev);
+        old = get_prev_orientation(dev);
 
-	if ((fd = open(devpath, O_RDONLY)) < 0)
-		return;
+        if ((fd = open(devpath, O_RDONLY)) < 0)
+                return;
 
-	got_x = got_y = got_z = 0;
+        got_x = got_y = got_z = 0;
 
-	while (1) {
-		int i;
+        while (1) {
+                int i;
 
-		r = read(fd, ev, sizeof(struct input_event) * 64);
+                r = read(fd, ev, sizeof(struct input_event) * 64);
 
-		if (r < (int) sizeof(struct input_event))
-			return;
+                if (r < (int) sizeof(struct input_event))
+                        return;
 
-		for (i = 0; i < r / (int) sizeof(struct input_event); i++) {
-			if (got_syn == 1) {
-				if (ev[i].type == EV_ABS) {
-					SET_AXIS(x, ABS_X);
-					SET_AXIS(y, ABS_Y);
-					SET_AXIS(z, ABS_Z);
-				}
-			}
-			if (ev[i].type == EV_SYN && ev[i].code == SYN_REPORT) {
-				got_syn = 1;
-			}
-			if (got_x && got_y && got_z)
-				goto read_dev;
-		}
-	}
+                for (i = 0; i < r / (int) sizeof(struct input_event); i++) {
+                        if (got_syn == 1) {
+                                if (ev[i].type == EV_ABS) {
+                                        SET_AXIS(x, ABS_X);
+                                        SET_AXIS(y, ABS_Y);
+                                        SET_AXIS(z, ABS_Z);
+                                }
+                        }
+                        if (ev[i].type == EV_SYN && ev[i].code == SYN_REPORT) {
+                                got_syn = 1;
+                        }
+                        if (got_x && got_y && got_z)
+                                goto read_dev;
+                }
+        }
 
 read_dev:
-	close(fd);
+        close(fd);
 
-	if (!got_x || !got_y || !got_z)
-		return;
+        if (!got_x || !got_y || !got_z)
+                return;
 
-	new = orientation_calc(old, x, y, z);
-	snprintf(text, sizeof(text), "ID_INPUT_ACCELEROMETER_ORIENTATION=%s", orientation_to_string(new));
-	puts(text);
+        new = orientation_calc(old, x, y, z);
+        snprintf(text, sizeof(text), "ID_INPUT_ACCELEROMETER_ORIENTATION=%s", orientation_to_string(new));
+        puts(text);
 }
 
 static void help(void)
 {
-	printf("Usage: accelerometer [options] <device path>\n"
-	       "  --debug         debug to stderr\n"
-	       "  --help          print this help text\n\n");
+        printf("Usage: accelerometer [options] <device path>\n"
+               "  --debug         debug to stderr\n"
+               "  --help          print this help text\n\n");
 }
 
 int main (int argc, char** argv)
 {
-	struct udev *udev;
-	struct udev_device *dev;
+        struct udev *udev;
+        struct udev_device *dev;
 
-	static const struct option options[] = {
-		{ "debug", no_argument, NULL, 'd' },
-		{ "help", no_argument, NULL, 'h' },
-		{}
-	};
+        static const struct option options[] = {
+                { "debug", no_argument, NULL, 'd' },
+                { "help", no_argument, NULL, 'h' },
+                {}
+        };
 
-	char devpath[PATH_MAX];
-	char *devnode;
-	const char *id_path;
-	struct udev_enumerate *enumerate;
-	struct udev_list_entry *list_entry;
+        char devpath[PATH_MAX];
+        char *devnode;
+        const char *id_path;
+        struct udev_enumerate *enumerate;
+        struct udev_list_entry *list_entry;
 
-	udev = udev_new();
-	if (udev == NULL)
-		return 1;
+        udev = udev_new();
+        if (udev == NULL)
+                return 1;
 
-	udev_log_init("input_id");
-	udev_set_log_fn(udev, log_fn);
+        udev_log_init("input_id");
+        udev_set_log_fn(udev, log_fn);
 
-	/* CLI argument parsing */
-	while (1) {
-		int option;
+        /* CLI argument parsing */
+        while (1) {
+                int option;
 
-		option = getopt_long(argc, argv, "dxh", options, NULL);
-		if (option == -1)
-			break;
+                option = getopt_long(argc, argv, "dxh", options, NULL);
+                if (option == -1)
+                        break;
 
-		switch (option) {
-		case 'd':
-			debug = 1;
-			if (udev_get_log_priority(udev) < LOG_INFO)
-				udev_set_log_priority(udev, LOG_INFO);
-			break;
-		case 'h':
-			help();
-			exit(0);
-		default:
-			exit(1);
-		}
-	}
+                switch (option) {
+                case 'd':
+                        debug = 1;
+                        if (udev_get_log_priority(udev) < LOG_INFO)
+                                udev_set_log_priority(udev, LOG_INFO);
+                        break;
+                case 'h':
+                        help();
+                        exit(0);
+                default:
+                        exit(1);
+                }
+        }
 
-	if (argv[optind] == NULL) {
-		help();
-		exit(1);
-	}
+        if (argv[optind] == NULL) {
+                help();
+                exit(1);
+        }
 
-	/* get the device */
-	snprintf(devpath, sizeof(devpath), "%s/%s", udev_get_sys_path(udev), argv[optind]);
-	dev = udev_device_new_from_syspath(udev, devpath);
-	if (dev == NULL) {
-		fprintf(stderr, "unable to access '%s'\n", devpath);
-		return 1;
-	}
+        /* get the device */
+        snprintf(devpath, sizeof(devpath), "%s/%s", udev_get_sys_path(udev), argv[optind]);
+        dev = udev_device_new_from_syspath(udev, devpath);
+        if (dev == NULL) {
+                fprintf(stderr, "unable to access '%s'\n", devpath);
+                return 1;
+        }
 
-	id_path = udev_device_get_property_value(dev, "ID_PATH");
-	if (id_path == NULL) {
-		fprintf (stderr, "unable to get property ID_PATH for '%s'", devpath);
-		return 0;
-	}
+        id_path = udev_device_get_property_value(dev, "ID_PATH");
+        if (id_path == NULL) {
+                fprintf (stderr, "unable to get property ID_PATH for '%s'", devpath);
+                return 0;
+        }
 
-	/* Get the children devices and find the devnode
-	 * FIXME: use udev_enumerate_add_match_children() instead
-	 * when it's available */
-	devnode = NULL;
-	enumerate = udev_enumerate_new(udev);
-	udev_enumerate_add_match_property(enumerate, "ID_PATH", id_path);
-	udev_enumerate_add_match_subsystem(enumerate, "input");
-	udev_enumerate_scan_devices(enumerate);
-	udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(enumerate)) {
-		struct udev_device *device;
-		const char *node;
+        /* Get the children devices and find the devnode
+         * FIXME: use udev_enumerate_add_match_children() instead
+         * when it's available */
+        devnode = NULL;
+        enumerate = udev_enumerate_new(udev);
+        udev_enumerate_add_match_property(enumerate, "ID_PATH", id_path);
+        udev_enumerate_add_match_subsystem(enumerate, "input");
+        udev_enumerate_scan_devices(enumerate);
+        udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(enumerate)) {
+                struct udev_device *device;
+                const char *node;
 
-		device = udev_device_new_from_syspath(udev_enumerate_get_udev(enumerate),
-						      udev_list_entry_get_name(list_entry));
-		if (device == NULL)
-			continue;
-		/* Already found it */
-		if (devnode != NULL) {
-			udev_device_unref(device);
-			continue;
-		}
+                device = udev_device_new_from_syspath(udev_enumerate_get_udev(enumerate),
+                                                      udev_list_entry_get_name(list_entry));
+                if (device == NULL)
+                        continue;
+                /* Already found it */
+                if (devnode != NULL) {
+                        udev_device_unref(device);
+                        continue;
+                }
 
-		node = udev_device_get_devnode(device);
-		if (node == NULL) {
-			udev_device_unref(device);
-			continue;
-		}
-		/* Use the event sub-device */
-		if (strstr(node, "/event") == NULL) {
-			udev_device_unref(device);
-			continue;
-		}
+                node = udev_device_get_devnode(device);
+                if (node == NULL) {
+                        udev_device_unref(device);
+                        continue;
+                }
+                /* Use the event sub-device */
+                if (strstr(node, "/event") == NULL) {
+                        udev_device_unref(device);
+                        continue;
+                }
 
-		devnode = strdup(node);
-		udev_device_unref(device);
-	}
+                devnode = strdup(node);
+                udev_device_unref(device);
+        }
 
-	if (devnode == NULL) {
-		fprintf(stderr, "unable to get device node for '%s'\n", devpath);
-		return 0;
-	}
+        if (devnode == NULL) {
+                fprintf(stderr, "unable to get device node for '%s'\n", devpath);
+                return 0;
+        }
 
-	info(udev, "Opening accelerometer device %s\n", devnode);
-	test_orientation(udev, dev, devnode);
-	free(devnode);
+        info(udev, "Opening accelerometer device %s\n", devnode);
+        test_orientation(udev, dev, devnode);
+        free(devnode);
 
-	return 0;
+        return 0;
 }

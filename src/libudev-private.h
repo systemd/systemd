@@ -19,8 +19,8 @@
 #include "libudev.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-#define READ_END				0
-#define WRITE_END				1
+#define READ_END                                0
+#define WRITE_END                                1
 
 static inline void __attribute__((always_inline, format(printf, 2, 3)))
 udev_log_null(struct udev *udev, const char *format, ...) {}
@@ -49,19 +49,19 @@ udev_log_null(struct udev *udev, const char *format, ...) {}
 
 static inline void udev_log_init(const char *program_name)
 {
-	openlog(program_name, LOG_PID | LOG_CONS, LOG_DAEMON);
+        openlog(program_name, LOG_PID | LOG_CONS, LOG_DAEMON);
 }
 
 static inline void udev_log_close(void)
 {
-	closelog();
+        closelog();
 }
 
 /* libudev.c */
 void udev_log(struct udev *udev,
-	      int priority, const char *file, int line, const char *fn,
-	      const char *format, ...)
-	      __attribute__((format(printf, 6, 7)));
+              int priority, const char *file, int line, const char *fn,
+              const char *format, ...)
+              __attribute__((format(printf, 6, 7)));
 int udev_get_rules_path(struct udev *udev, char **path[], unsigned long long *ts_usec[]);
 struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value);
 struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev);
@@ -107,20 +107,20 @@ int udev_device_tag_index(struct udev_device *dev, struct udev_device *dev_old, 
 int udev_monitor_disconnect(struct udev_monitor *udev_monitor);
 int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender);
 int udev_monitor_send_device(struct udev_monitor *udev_monitor,
-			     struct udev_monitor *destination, struct udev_device *udev_device);
+                             struct udev_monitor *destination, struct udev_device *udev_device);
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd);
 
 /* libudev-list.c */
 struct udev_list_node {
-	struct udev_list_node *next, *prev;
+        struct udev_list_node *next, *prev;
 };
 struct udev_list {
-	struct udev *udev;
-	struct udev_list_node node;
-	struct udev_list_entry **entries;
-	unsigned int entries_cur;
-	unsigned int entries_max;
-	bool unique;
+        struct udev *udev;
+        struct udev_list_node node;
+        struct udev_list_entry **entries;
+        unsigned int entries_cur;
+        unsigned int entries_max;
+        bool unique;
 };
 #define UDEV_LIST(list) struct udev_list_node list = { &(list), &(list) }
 void udev_list_node_init(struct udev_list_node *list);
@@ -128,13 +128,13 @@ int udev_list_node_is_empty(struct udev_list_node *list);
 void udev_list_node_append(struct udev_list_node *new, struct udev_list_node *list);
 void udev_list_node_remove(struct udev_list_node *entry);
 #define udev_list_node_foreach(node, list) \
-	for (node = (list)->next; \
-	     node != list; \
-	     node = (node)->next)
+        for (node = (list)->next; \
+             node != list; \
+             node = (node)->next)
 #define udev_list_node_foreach_safe(node, tmp, list) \
-	for (node = (list)->next, tmp = (node)->next; \
-	     node != list; \
-	     node = tmp, tmp = (tmp)->next)
+        for (node = (list)->next, tmp = (node)->next; \
+             node != list; \
+             node = tmp, tmp = (tmp)->next)
 void udev_list_init(struct udev *udev, struct udev_list *list, bool unique);
 void udev_list_cleanup(struct udev_list *list);
 struct udev_list_entry *udev_list_get_entry(struct udev_list *list);
@@ -145,9 +145,9 @@ void udev_list_entry_append(struct udev_list_entry *new, struct udev_list *list)
 int udev_list_entry_get_num(struct udev_list_entry *list_entry);
 void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num);
 #define udev_list_entry_foreach_safe(entry, tmp, first) \
-	for (entry = first, tmp = udev_list_entry_get_next(entry); \
-	     entry != NULL; \
-	     entry = tmp, tmp = udev_list_entry_get_next(tmp))
+        for (entry = first, tmp = udev_list_entry_get_next(entry); \
+             entry != NULL; \
+             entry = tmp, tmp = udev_list_entry_get_next(tmp))
 
 /* libudev-queue.c */
 unsigned long long int udev_get_kernel_seqnum(struct udev *udev);
@@ -163,10 +163,10 @@ int udev_queue_export_device_queued(struct udev_queue_export *udev_queue_export,
 int udev_queue_export_device_finished(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
 
 /* libudev-util.c */
-#define UTIL_PATH_SIZE				1024
-#define UTIL_NAME_SIZE				512
-#define UTIL_LINE_SIZE				16384
-#define UDEV_ALLOWED_CHARS_INPUT		"/ $%?,"
+#define UTIL_PATH_SIZE                                1024
+#define UTIL_NAME_SIZE                                512
+#define UTIL_LINE_SIZE                                16384
+#define UDEV_ALLOWED_CHARS_INPUT                "/ $%?,"
 ssize_t util_get_sys_core_link_value(struct udev *udev, const char *slink, const char *syspath, char *value, size_t size);
 int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size);
 int util_log_priority(const char *priority);
@@ -189,7 +189,7 @@ int util_delete_path(struct udev *udev, const char *path);
 uid_t util_lookup_user(struct udev *udev, const char *user);
 gid_t util_lookup_group(struct udev *udev, const char *group);
 int util_resolve_subsys_kernel(struct udev *udev, const char *string,
-				      char *result, size_t maxsize, int read_value);
+                                      char *result, size_t maxsize, int read_value);
 unsigned long long ts_usec(const struct timespec *ts);
 unsigned long long now_usec(void);
 

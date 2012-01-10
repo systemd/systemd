@@ -87,8 +87,8 @@ G_DEFINE_TYPE (GUdevClient, g_udev_client, G_TYPE_OBJECT)
 
 static gboolean
 monitor_event (GIOChannel *source,
-	       GIOCondition condition,
-	       gpointer data)
+               GIOCondition condition,
+               gpointer data)
 {
   GUdevClient *client = (GUdevClient *) data;
   GUdevDevice *device;

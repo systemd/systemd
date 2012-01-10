@@ -31,91 +31,91 @@
 #include "udev.h"
 
 void udev_main_log(struct udev *udev, int priority,
-		   const char *file, int line, const char *fn,
-		   const char *format, va_list args) {}
+                   const char *file, int line, const char *fn,
+                   const char *format, va_list args) {}
 
 int main(int argc, char *argv[])
 {
-	struct udev *udev;
-	struct udev_event *event = NULL;
-	struct udev_device *dev = NULL;
-	struct udev_rules *rules = NULL;
-	char syspath[UTIL_PATH_SIZE];
-	const char *devpath;
-	const char *action;
-	sigset_t mask, sigmask_orig;
-	int err = -EINVAL;
+        struct udev *udev;
+        struct udev_event *event = NULL;
+        struct udev_device *dev = NULL;
+        struct udev_rules *rules = NULL;
+        char syspath[UTIL_PATH_SIZE];
+        const char *devpath;
+        const char *action;
+        sigset_t mask, sigmask_orig;
+        int err = -EINVAL;
 
-	udev = udev_new();
-	if (udev == NULL)
-		exit(1);
-	info(udev, "version %s\n", VERSION);
-	udev_selinux_init(udev);
+        udev = udev_new();
+        if (udev == NULL)
+                exit(1);
+        info(udev, "version %s\n", VERSION);
+        udev_selinux_init(udev);
 
-	sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
+        sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
 
-	action = argv[1];
-	if (action == NULL) {
-		err(udev, "action missing\n");
-		goto out;
-	}
+        action = argv[1];
+        if (action == NULL) {
+                err(udev, "action missing\n");
+                goto out;
+        }
 
-	devpath = argv[2];
-	if (devpath == NULL) {
-		err(udev, "devpath missing\n");
-		goto out;
-	}
+        devpath = argv[2];
+        if (devpath == NULL) {
+                err(udev, "devpath missing\n");
+                goto out;
+        }
 
-	rules = udev_rules_new(udev, 1);
+        rules = udev_rules_new(udev, 1);
 
-	util_strscpyl(syspath, sizeof(syspath), udev_get_sys_path(udev), devpath, NULL);
-	dev = udev_device_new_from_syspath(udev, syspath);
-	if (dev == NULL) {
-		info(udev, "unknown device '%s'\n", devpath);
-		goto out;
-	}
+        util_strscpyl(syspath, sizeof(syspath), udev_get_sys_path(udev), devpath, NULL);
+        dev = udev_device_new_from_syspath(udev, syspath);
+        if (dev == NULL) {
+                info(udev, "unknown device '%s'\n", devpath);
+                goto out;
+        }
 
-	udev_device_set_action(dev, action);
-	event = udev_event_new(dev);
+        udev_device_set_action(dev, action);
+        event = udev_event_new(dev);
 
-	sigfillset(&mask);
-	sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);
-	event->fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
-	if (event->fd_signal < 0) {
-		fprintf(stderr, "error creating signalfd\n");
-		goto out;
-	}
+        sigfillset(&mask);
+        sigprocmask(SIG_SETMASK, &mask, &sigmask_orig);
+        event->fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
+        if (event->fd_signal < 0) {
+                fprintf(stderr, "error creating signalfd\n");
+                goto out;
+        }
 
-	/* do what devtmpfs usually provides us */
-	if (udev_device_get_devnode(dev) != NULL) {
-		mode_t mode;
+        /* do what devtmpfs usually provides us */
+        if (udev_device_get_devnode(dev) != NULL) {
+                mode_t mode;
 
-		if (strcmp(udev_device_get_subsystem(dev), "block") == 0)
-			mode |= S_IFBLK;
-		else
-			mode |= S_IFCHR;
+                if (strcmp(udev_device_get_subsystem(dev), "block") == 0)
+                        mode |= S_IFBLK;
+                else
+                        mode |= S_IFCHR;
 
-		if (strcmp(action, "remove") != 0) {
-			util_create_path(udev, udev_device_get_devnode(dev));
-			mknod(udev_device_get_devnode(dev), mode, udev_device_get_devnum(dev));
-		} else {
-			unlink(udev_device_get_devnode(dev));
-			util_delete_path(udev, udev_device_get_devnode(dev));
-		}
-	}
+                if (strcmp(action, "remove") != 0) {
+                        util_create_path(udev, udev_device_get_devnode(dev));
+                        mknod(udev_device_get_devnode(dev), mode, udev_device_get_devnum(dev));
+                } else {
+                        unlink(udev_device_get_devnode(dev));
+                        util_delete_path(udev, udev_device_get_devnode(dev));
+                }
+        }
 
-	err = udev_event_execute_rules(event, rules, &sigmask_orig);
-	if (err == 0)
-		udev_event_execute_run(event, NULL);
+        err = udev_event_execute_rules(event, rules, &sigmask_orig);
+        if (err == 0)
+                udev_event_execute_run(event, NULL);
 out:
-	if (event != NULL && event->fd_signal >= 0)
-		close(event->fd_signal);
-	udev_event_unref(event);
-	udev_device_unref(dev);
-	udev_rules_unref(rules);
-	udev_selinux_exit(udev);
-	udev_unref(udev);
-	if (err != 0)
-		return 1;
-	return 0;
+        if (event != NULL && event->fd_signal >= 0)
+                close(event->fd_signal);
+        udev_event_unref(event);
+        udev_device_unref(dev);
+        udev_rules_unref(rules);
+        udev_selinux_exit(udev);
+        udev_unref(udev);
+        if (err != 0)
+                return 1;
+        return 0;
 }

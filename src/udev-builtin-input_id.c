@@ -45,174 +45,174 @@
  * @param bitmask: Output array which has a sizeof of bitmask_size
  */
 static void get_cap_mask(struct udev_device *dev,
-			 struct udev_device *pdev, const char* attr,
-			 unsigned long *bitmask, size_t bitmask_size,
-			 bool test)
+                         struct udev_device *pdev, const char* attr,
+                         unsigned long *bitmask, size_t bitmask_size,
+                         bool test)
 {
-	struct udev *udev = udev_device_get_udev(dev);
-	char text[4096];
-	unsigned i;
-	char* word;
-	unsigned long val;
+        struct udev *udev = udev_device_get_udev(dev);
+        char text[4096];
+        unsigned i;
+        char* word;
+        unsigned long val;
 
-	snprintf(text, sizeof(text), "%s", udev_device_get_sysattr_value(pdev, attr));
-	info(udev, "%s raw kernel attribute: %s\n", attr, text);
+        snprintf(text, sizeof(text), "%s", udev_device_get_sysattr_value(pdev, attr));
+        info(udev, "%s raw kernel attribute: %s\n", attr, text);
 
-	memset (bitmask, 0, bitmask_size);
-	i = 0;
-	while ((word = strrchr(text, ' ')) != NULL) {
-		val = strtoul (word+1, NULL, 16);
-		if (i < bitmask_size/sizeof(unsigned long))
-			bitmask[i] = val;
-		else
-			info(udev, "ignoring %s block %lX which is larger than maximum size\n", attr, val);
-		*word = '\0';
-		++i;
-	}
-	val = strtoul (text, NULL, 16);
-	if (i < bitmask_size / sizeof(unsigned long))
-		bitmask[i] = val;
-	else
-		info(udev, "ignoring %s block %lX which is larger than maximum size\n", attr, val);
+        memset (bitmask, 0, bitmask_size);
+        i = 0;
+        while ((word = strrchr(text, ' ')) != NULL) {
+                val = strtoul (word+1, NULL, 16);
+                if (i < bitmask_size/sizeof(unsigned long))
+                        bitmask[i] = val;
+                else
+                        info(udev, "ignoring %s block %lX which is larger than maximum size\n", attr, val);
+                *word = '\0';
+                ++i;
+        }
+        val = strtoul (text, NULL, 16);
+        if (i < bitmask_size / sizeof(unsigned long))
+                bitmask[i] = val;
+        else
+                info(udev, "ignoring %s block %lX which is larger than maximum size\n", attr, val);
 
-	if (test) {
-		/* printf pattern with the right unsigned long number of hex chars */
-		snprintf(text, sizeof(text), "  bit %%4u: %%0%zilX\n", 2 * sizeof(unsigned long));
-		info(udev, "%s decoded bit map:\n", attr);
-		val = bitmask_size / sizeof (unsigned long);
-		/* skip over leading zeros */
-		while (bitmask[val-1] == 0 && val > 0)
-			--val;
-		for (i = 0; i < val; ++i)
-			info(udev, text, i * BITS_PER_LONG, bitmask[i]);
-	}
+        if (test) {
+                /* printf pattern with the right unsigned long number of hex chars */
+                snprintf(text, sizeof(text), "  bit %%4u: %%0%zilX\n", 2 * sizeof(unsigned long));
+                info(udev, "%s decoded bit map:\n", attr);
+                val = bitmask_size / sizeof (unsigned long);
+                /* skip over leading zeros */
+                while (bitmask[val-1] == 0 && val > 0)
+                        --val;
+                for (i = 0; i < val; ++i)
+                        info(udev, text, i * BITS_PER_LONG, bitmask[i]);
+        }
 }
 
 /* pointer devices */
 static void test_pointers (struct udev_device *dev,
-			   const unsigned long* bitmask_ev,
-			   const unsigned long* bitmask_abs,
-			   const unsigned long* bitmask_key,
-			   const unsigned long* bitmask_rel,
-			   bool test)
+                           const unsigned long* bitmask_ev,
+                           const unsigned long* bitmask_abs,
+                           const unsigned long* bitmask_key,
+                           const unsigned long* bitmask_rel,
+                           bool test)
 {
-	int is_mouse = 0;
-	int is_touchpad = 0;
+        int is_mouse = 0;
+        int is_touchpad = 0;
 
-	if (!test_bit (EV_KEY, bitmask_ev)) {
-		if (test_bit (EV_ABS, bitmask_ev) &&
-		    test_bit (ABS_X, bitmask_abs) &&
-		    test_bit (ABS_Y, bitmask_abs) &&
-		    test_bit (ABS_Z, bitmask_abs))
-			udev_builtin_add_property(dev, test, "ID_INPUT_ACCELEROMETER", "1");
-		return;
-	}
+        if (!test_bit (EV_KEY, bitmask_ev)) {
+                if (test_bit (EV_ABS, bitmask_ev) &&
+                    test_bit (ABS_X, bitmask_abs) &&
+                    test_bit (ABS_Y, bitmask_abs) &&
+                    test_bit (ABS_Z, bitmask_abs))
+                        udev_builtin_add_property(dev, test, "ID_INPUT_ACCELEROMETER", "1");
+                return;
+        }
 
-	if (test_bit (EV_ABS, bitmask_ev) &&
-	    test_bit (ABS_X, bitmask_abs) && test_bit (ABS_Y, bitmask_abs)) {
-		if (test_bit (BTN_STYLUS, bitmask_key) || test_bit (BTN_TOOL_PEN, bitmask_key))
-			udev_builtin_add_property(dev, test, "ID_INPUT_TABLET", "1");
-		else if (test_bit (BTN_TOOL_FINGER, bitmask_key) && !test_bit (BTN_TOOL_PEN, bitmask_key))
-			is_touchpad = 1;
-		else if (test_bit (BTN_TRIGGER, bitmask_key) ||
-			 test_bit (BTN_A, bitmask_key) ||
-			 test_bit (BTN_1, bitmask_key))
-			udev_builtin_add_property(dev, test, "ID_INPUT_JOYSTICK", "1");
-		else if (test_bit (BTN_MOUSE, bitmask_key))
-			/* This path is taken by VMware's USB mouse, which has
-			 * absolute axes, but no touch/pressure button. */
-			is_mouse = 1;
-		else if (test_bit (BTN_TOUCH, bitmask_key))
-			udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHSCREEN", "1");
-	}
+        if (test_bit (EV_ABS, bitmask_ev) &&
+            test_bit (ABS_X, bitmask_abs) && test_bit (ABS_Y, bitmask_abs)) {
+                if (test_bit (BTN_STYLUS, bitmask_key) || test_bit (BTN_TOOL_PEN, bitmask_key))
+                        udev_builtin_add_property(dev, test, "ID_INPUT_TABLET", "1");
+                else if (test_bit (BTN_TOOL_FINGER, bitmask_key) && !test_bit (BTN_TOOL_PEN, bitmask_key))
+                        is_touchpad = 1;
+                else if (test_bit (BTN_TRIGGER, bitmask_key) ||
+                         test_bit (BTN_A, bitmask_key) ||
+                         test_bit (BTN_1, bitmask_key))
+                        udev_builtin_add_property(dev, test, "ID_INPUT_JOYSTICK", "1");
+                else if (test_bit (BTN_MOUSE, bitmask_key))
+                        /* This path is taken by VMware's USB mouse, which has
+                         * absolute axes, but no touch/pressure button. */
+                        is_mouse = 1;
+                else if (test_bit (BTN_TOUCH, bitmask_key))
+                        udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHSCREEN", "1");
+        }
 
-	if (test_bit (EV_REL, bitmask_ev) &&
-	    test_bit (REL_X, bitmask_rel) && test_bit (REL_Y, bitmask_rel) &&
-	    test_bit (BTN_MOUSE, bitmask_key))
-		is_mouse = 1;
+        if (test_bit (EV_REL, bitmask_ev) &&
+            test_bit (REL_X, bitmask_rel) && test_bit (REL_Y, bitmask_rel) &&
+            test_bit (BTN_MOUSE, bitmask_key))
+                is_mouse = 1;
 
-	if (is_mouse)
-		udev_builtin_add_property(dev, test, "ID_INPUT_MOUSE", "1");
-	if (is_touchpad)
-		udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHPAD", "1");
+        if (is_mouse)
+                udev_builtin_add_property(dev, test, "ID_INPUT_MOUSE", "1");
+        if (is_touchpad)
+                udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHPAD", "1");
 }
 
 /* key like devices */
 static void test_key (struct udev_device *dev,
-		      const unsigned long* bitmask_ev,
-		      const unsigned long* bitmask_key,
-		      bool test)
+                      const unsigned long* bitmask_ev,
+                      const unsigned long* bitmask_key,
+                      bool test)
 {
-	struct udev *udev = udev_device_get_udev(dev);
-	unsigned i;
-	unsigned long found;
-	unsigned long mask;
+        struct udev *udev = udev_device_get_udev(dev);
+        unsigned i;
+        unsigned long found;
+        unsigned long mask;
 
-	/* do we have any KEY_* capability? */
-	if (!test_bit (EV_KEY, bitmask_ev)) {
-		info(udev, "test_key: no EV_KEY capability\n");
-		return;
-	}
+        /* do we have any KEY_* capability? */
+        if (!test_bit (EV_KEY, bitmask_ev)) {
+                info(udev, "test_key: no EV_KEY capability\n");
+                return;
+        }
 
-	/* only consider KEY_* here, not BTN_* */
-	found = 0;
-	for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i) {
-		found |= bitmask_key[i];
-		info(udev, "test_key: checking bit block %lu for any keys; found=%i\n", i*BITS_PER_LONG, found > 0);
-	}
-	/* If there are no keys in the lower block, check the higher block */
-	if (!found) {
-		for (i = KEY_OK; i < BTN_TRIGGER_HAPPY; ++i) {
-			if (test_bit (i, bitmask_key)) {
-				info(udev, "test_key: Found key %x in high block\n", i);
-				found = 1;
-				break;
-			}
-		}
-	}
+        /* only consider KEY_* here, not BTN_* */
+        found = 0;
+        for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i) {
+                found |= bitmask_key[i];
+                info(udev, "test_key: checking bit block %lu for any keys; found=%i\n", i*BITS_PER_LONG, found > 0);
+        }
+        /* If there are no keys in the lower block, check the higher block */
+        if (!found) {
+                for (i = KEY_OK; i < BTN_TRIGGER_HAPPY; ++i) {
+                        if (test_bit (i, bitmask_key)) {
+                                info(udev, "test_key: Found key %x in high block\n", i);
+                                found = 1;
+                                break;
+                        }
+                }
+        }
 
-	if (found > 0)
-		udev_builtin_add_property(dev, test, "ID_INPUT_KEY", "1");
+        if (found > 0)
+                udev_builtin_add_property(dev, test, "ID_INPUT_KEY", "1");
 
-	/* the first 32 bits are ESC, numbers, and Q to D; if we have all of
-	 * those, consider it a full keyboard; do not test KEY_RESERVED, though */
-	mask = 0xFFFFFFFE;
-	if ((bitmask_key[0] & mask) == mask)
-		udev_builtin_add_property(dev, test, "ID_INPUT_KEYBOARD", "1");
+        /* the first 32 bits are ESC, numbers, and Q to D; if we have all of
+         * those, consider it a full keyboard; do not test KEY_RESERVED, though */
+        mask = 0xFFFFFFFE;
+        if ((bitmask_key[0] & mask) == mask)
+                udev_builtin_add_property(dev, test, "ID_INPUT_KEYBOARD", "1");
 }
 
 static int builtin_input_id(struct udev_device *dev, int argc, char *argv[], bool test)
 {
-	struct udev_device *pdev;
-	unsigned long bitmask_ev[NBITS(EV_MAX)];
-	unsigned long bitmask_abs[NBITS(ABS_MAX)];
-	unsigned long bitmask_key[NBITS(KEY_MAX)];
-	unsigned long bitmask_rel[NBITS(REL_MAX)];
+        struct udev_device *pdev;
+        unsigned long bitmask_ev[NBITS(EV_MAX)];
+        unsigned long bitmask_abs[NBITS(ABS_MAX)];
+        unsigned long bitmask_key[NBITS(KEY_MAX)];
+        unsigned long bitmask_rel[NBITS(REL_MAX)];
 
-	/* walk up the parental chain until we find the real input device; the
-	 * argument is very likely a subdevice of this, like eventN */
-	pdev = dev;
-	while (pdev != NULL && udev_device_get_sysattr_value(pdev, "capabilities/ev") == NULL)
-		pdev = udev_device_get_parent_with_subsystem_devtype(pdev, "input", NULL);
+        /* walk up the parental chain until we find the real input device; the
+         * argument is very likely a subdevice of this, like eventN */
+        pdev = dev;
+        while (pdev != NULL && udev_device_get_sysattr_value(pdev, "capabilities/ev") == NULL)
+                pdev = udev_device_get_parent_with_subsystem_devtype(pdev, "input", NULL);
 
-	/* not an "input" class device */
-	if (pdev == NULL)
-		return EXIT_SUCCESS;
+        /* not an "input" class device */
+        if (pdev == NULL)
+                return EXIT_SUCCESS;
 
-	/* Use this as a flag that input devices were detected, so that this
-	 * program doesn't need to be called more than once per device */
-	udev_builtin_add_property(dev, test, "ID_INPUT", "1");
-	get_cap_mask(dev, pdev, "capabilities/ev", bitmask_ev, sizeof(bitmask_ev), test);
-	get_cap_mask(dev, pdev, "capabilities/abs", bitmask_abs, sizeof(bitmask_abs), test);
-	get_cap_mask(dev, pdev, "capabilities/rel", bitmask_rel, sizeof(bitmask_rel), test);
-	get_cap_mask(dev, pdev, "capabilities/key", bitmask_key, sizeof(bitmask_key), test);
-	test_pointers(dev, bitmask_ev, bitmask_abs, bitmask_key, bitmask_rel, test);
-	test_key(dev, bitmask_ev, bitmask_key, test);
-	return EXIT_SUCCESS;
+        /* Use this as a flag that input devices were detected, so that this
+         * program doesn't need to be called more than once per device */
+        udev_builtin_add_property(dev, test, "ID_INPUT", "1");
+        get_cap_mask(dev, pdev, "capabilities/ev", bitmask_ev, sizeof(bitmask_ev), test);
+        get_cap_mask(dev, pdev, "capabilities/abs", bitmask_abs, sizeof(bitmask_abs), test);
+        get_cap_mask(dev, pdev, "capabilities/rel", bitmask_rel, sizeof(bitmask_rel), test);
+        get_cap_mask(dev, pdev, "capabilities/key", bitmask_key, sizeof(bitmask_key), test);
+        test_pointers(dev, bitmask_ev, bitmask_abs, bitmask_key, bitmask_rel, test);
+        test_key(dev, bitmask_ev, bitmask_key, test);
+        return EXIT_SUCCESS;
 }
 
 const struct udev_builtin udev_builtin_input_id = {
-	.name = "input_id",
-	.cmd = builtin_input_id,
-	.help = "input device properties",
+        .name = "input_id",
+        .cmd = builtin_input_id,
+        .help = "input device properties",
 };

@@ -5,18 +5,18 @@
 # $2 file with scancode list (hex or dec)
 
 case "$2" in
-	/*) scf="$2" ;;
-	*)  scf="@pkglibexecdir@/keymaps/force-release/$2" ;;
+        /*) scf="$2" ;;
+        *)  scf="@pkglibexecdir@/keymaps/force-release/$2" ;;
 esac
 
 read attr <"/sys/$1/force_release"
 while read scancode dummy; do
-	case "$scancode" in
-		\#*) ;;
-		*)
-			scancode=$(($scancode))
-			attr="$attr${attr:+,}$scancode"
-			;;
-	esac
+        case "$scancode" in
+                \#*) ;;
+                *)
+                        scancode=$(($scancode))
+                        attr="$attr${attr:+,}$scancode"
+                        ;;
+        esac
 done <"$scf"
 echo "$attr" >"/sys/$1/force_release"

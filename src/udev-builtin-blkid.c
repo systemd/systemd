@@ -33,175 +33,175 @@
 
 static void print_property(struct udev_device *dev, bool test, const char *name, const char *value)
 {
-	char s[265];
+        char s[265];
 
-	s[0] = '\0';
+        s[0] = '\0';
 
-	if (!strcmp(name, "TYPE")) {
-		udev_builtin_add_property(dev, test, "ID_FS_TYPE", value);
+        if (!strcmp(name, "TYPE")) {
+                udev_builtin_add_property(dev, test, "ID_FS_TYPE", value);
 
-	} else if (!strcmp(name, "USAGE")) {
-		udev_builtin_add_property(dev, test, "ID_FS_USAGE", value);
+        } else if (!strcmp(name, "USAGE")) {
+                udev_builtin_add_property(dev, test, "ID_FS_USAGE", value);
 
-	} else if (!strcmp(name, "VERSION")) {
-		udev_builtin_add_property(dev, test, "ID_FS_VERSION", value);
+        } else if (!strcmp(name, "VERSION")) {
+                udev_builtin_add_property(dev, test, "ID_FS_VERSION", value);
 
-	} else if (!strcmp(name, "UUID")) {
-		blkid_safe_string(value, s, sizeof(s));
-		udev_builtin_add_property(dev, test, "ID_FS_UUID", s);
-		blkid_encode_string(value, s, sizeof(s));
-		udev_builtin_add_property(dev, test, "ID_FS_UUID_ENC", s);
+        } else if (!strcmp(name, "UUID")) {
+                blkid_safe_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_UUID", s);
+                blkid_encode_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_UUID_ENC", s);
 
-	} else if (!strcmp(name, "UUID_SUB")) {
-		blkid_safe_string(value, s, sizeof(s));
-		udev_builtin_add_property(dev, test, "ID_FS_UUID_SUB", s);
-		blkid_encode_string(value, s, sizeof(s));
-		udev_builtin_add_property(dev, test, "ID_FS_UUID_SUB_ENC", s);
+        } else if (!strcmp(name, "UUID_SUB")) {
+                blkid_safe_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_UUID_SUB", s);
+                blkid_encode_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_UUID_SUB_ENC", s);
 
-	} else if (!strcmp(name, "LABEL")) {
-		blkid_safe_string(value, s, sizeof(s));
-		udev_builtin_add_property(dev, test, "ID_FS_LABEL", s);
-		blkid_encode_string(value, s, sizeof(s));
-		udev_builtin_add_property(dev, test, "ID_FS_LABEL_ENC", s);
+        } else if (!strcmp(name, "LABEL")) {
+                blkid_safe_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_LABEL", s);
+                blkid_encode_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_LABEL_ENC", s);
 
-	} else if (!strcmp(name, "PTTYPE")) {
-		udev_builtin_add_property(dev, test, "ID_PART_TABLE_TYPE", value);
+        } else if (!strcmp(name, "PTTYPE")) {
+                udev_builtin_add_property(dev, test, "ID_PART_TABLE_TYPE", value);
 
-	} else if (!strcmp(name, "PART_ENTRY_NAME")) {
-		blkid_encode_string(value, s, sizeof(s));
-		udev_builtin_add_property(dev, test, "PART_ENTRY_NAME", s);
+        } else if (!strcmp(name, "PART_ENTRY_NAME")) {
+                blkid_encode_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "PART_ENTRY_NAME", s);
 
-	} else if (!strcmp(name, "PART_ENTRY_TYPE")) {
-		blkid_encode_string(value, s, sizeof(s));
-		udev_builtin_add_property(dev, test, "PART_ENTRY_TYPE", s);
+        } else if (!strcmp(name, "PART_ENTRY_TYPE")) {
+                blkid_encode_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "PART_ENTRY_TYPE", s);
 
-	} else if (!strncmp(name, "PART_ENTRY_", 11)) {
-		util_strscpyl(s, sizeof(s), "ID_", name, NULL);
-		udev_builtin_add_property(dev, test, name, value);
-	}
+        } else if (!strncmp(name, "PART_ENTRY_", 11)) {
+                util_strscpyl(s, sizeof(s), "ID_", name, NULL);
+                udev_builtin_add_property(dev, test, name, value);
+        }
 }
 
 static int probe_superblocks(blkid_probe pr)
 {
-	struct stat st;
-	int rc;
+        struct stat st;
+        int rc;
 
-	if (fstat(blkid_probe_get_fd(pr), &st))
-		return -1;
+        if (fstat(blkid_probe_get_fd(pr), &st))
+                return -1;
 
-	blkid_probe_enable_partitions(pr, 1);
+        blkid_probe_enable_partitions(pr, 1);
 
-	if (!S_ISCHR(st.st_mode) && blkid_probe_get_size(pr) <= 1024 * 1440 &&
-	    blkid_probe_is_wholedisk(pr)) {
-		/*
-		 * check if the small disk is partitioned, if yes then
-		 * don't probe for filesystems.
-		 */
-		blkid_probe_enable_superblocks(pr, 0);
+        if (!S_ISCHR(st.st_mode) && blkid_probe_get_size(pr) <= 1024 * 1440 &&
+            blkid_probe_is_wholedisk(pr)) {
+                /*
+                 * check if the small disk is partitioned, if yes then
+                 * don't probe for filesystems.
+                 */
+                blkid_probe_enable_superblocks(pr, 0);
 
-		rc = blkid_do_fullprobe(pr);
-		if (rc < 0)
-			return rc;	/* -1 = error, 1 = nothing, 0 = succes */
+                rc = blkid_do_fullprobe(pr);
+                if (rc < 0)
+                        return rc;        /* -1 = error, 1 = nothing, 0 = succes */
 
-		if (blkid_probe_lookup_value(pr, "PTTYPE", NULL, NULL) == 0)
-			return 0;	/* partition table detected */
-	}
+                if (blkid_probe_lookup_value(pr, "PTTYPE", NULL, NULL) == 0)
+                        return 0;        /* partition table detected */
+        }
 
-	blkid_probe_set_partitions_flags(pr, BLKID_PARTS_ENTRY_DETAILS);
-	blkid_probe_enable_superblocks(pr, 1);
+        blkid_probe_set_partitions_flags(pr, BLKID_PARTS_ENTRY_DETAILS);
+        blkid_probe_enable_superblocks(pr, 1);
 
-	return blkid_do_safeprobe(pr);
+        return blkid_do_safeprobe(pr);
 }
 
 static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool test)
 {
-	struct udev *udev = udev_device_get_udev(dev);
-	int64_t offset = 0;
-	bool noraid = false;
-	int fd = -1;
-	blkid_probe pr;
-	const char *data;
-	const char *name;
-	int nvals;
-	int i;
-	size_t len;
-	int err = 0;
+        struct udev *udev = udev_device_get_udev(dev);
+        int64_t offset = 0;
+        bool noraid = false;
+        int fd = -1;
+        blkid_probe pr;
+        const char *data;
+        const char *name;
+        int nvals;
+        int i;
+        size_t len;
+        int err = 0;
 
-	static const struct option options[] = {
-		{ "offset", optional_argument, NULL, 'o' },
-		{ "noraid", no_argument, NULL, 'R' },
-		{}
-	};
+        static const struct option options[] = {
+                { "offset", optional_argument, NULL, 'o' },
+                { "noraid", no_argument, NULL, 'R' },
+                {}
+        };
 
-	for (;;) {
-		int option;
+        for (;;) {
+                int option;
 
-		option = getopt_long(argc, argv, "oR", options, NULL);
-		if (option == -1)
-			break;
+                option = getopt_long(argc, argv, "oR", options, NULL);
+                if (option == -1)
+                        break;
 
-		switch (option) {
-		case 'o':
-			offset = strtoull(optarg, NULL, 0);
-			break;
-		case 'R':
-			noraid = true;
-			break;
-		}
-	}
+                switch (option) {
+                case 'o':
+                        offset = strtoull(optarg, NULL, 0);
+                        break;
+                case 'R':
+                        noraid = true;
+                        break;
+                }
+        }
 
-	pr = blkid_new_probe();
-	if (!pr) {
-		err = -ENOMEM;
-		return EXIT_FAILURE;
-	}
+        pr = blkid_new_probe();
+        if (!pr) {
+                err = -ENOMEM;
+                return EXIT_FAILURE;
+        }
 
-	blkid_probe_set_superblocks_flags(pr,
-		BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
-		BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
-		BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
+        blkid_probe_set_superblocks_flags(pr,
+                BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
+                BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
+                BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
 
-	if (noraid)
-		blkid_probe_filter_superblocks_usage(pr, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
+        if (noraid)
+                blkid_probe_filter_superblocks_usage(pr, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
 
-	fd = open(udev_device_get_devnode(dev), O_RDONLY|O_CLOEXEC);
-	if (fd < 0) {
-		fprintf(stderr, "error: %s: %m\n", udev_device_get_devnode(dev));
-		goto out;
-	}
+        fd = open(udev_device_get_devnode(dev), O_RDONLY|O_CLOEXEC);
+        if (fd < 0) {
+                fprintf(stderr, "error: %s: %m\n", udev_device_get_devnode(dev));
+                goto out;
+        }
 
-	err = blkid_probe_set_device(pr, fd, offset, 0);
-	if (err < 0)
-		goto out;
+        err = blkid_probe_set_device(pr, fd, offset, 0);
+        if (err < 0)
+                goto out;
 
-	info(udev, "probe %s %sraid offset=%llu\n",
-	     udev_device_get_devnode(dev),
-	     noraid ? "no" : "", (unsigned long long) offset);
+        info(udev, "probe %s %sraid offset=%llu\n",
+             udev_device_get_devnode(dev),
+             noraid ? "no" : "", (unsigned long long) offset);
 
-	err = probe_superblocks(pr);
-	if (err < 0)
-		goto out;
+        err = probe_superblocks(pr);
+        if (err < 0)
+                goto out;
 
-	nvals = blkid_probe_numof_values(pr);
-	for (i = 0; i < nvals; i++) {
-		if (blkid_probe_get_value(pr, i, &name, &data, &len))
-			continue;
-		len = strnlen((char *) data, len);
-		print_property(dev, test, name, (char *) data);
-	}
+        nvals = blkid_probe_numof_values(pr);
+        for (i = 0; i < nvals; i++) {
+                if (blkid_probe_get_value(pr, i, &name, &data, &len))
+                        continue;
+                len = strnlen((char *) data, len);
+                print_property(dev, test, name, (char *) data);
+        }
 
-	blkid_free_probe(pr);
+        blkid_free_probe(pr);
 out:
-	if (fd > 0)
-		close(fd);
-	if (err < 0)
-		return EXIT_FAILURE;
-	return EXIT_SUCCESS;
+        if (fd > 0)
+                close(fd);
+        if (err < 0)
+                return EXIT_FAILURE;
+        return EXIT_SUCCESS;
 }
 
 const struct udev_builtin udev_builtin_blkid = {
-	.name = "blkid",
-	.cmd = builtin_blkid,
-	.help = "filesystem and partition probing",
-	.run_once = true,
+        .name = "blkid",
+        .cmd = builtin_blkid,
+        .help = "filesystem and partition probing",
+        .run_once = true,
 };

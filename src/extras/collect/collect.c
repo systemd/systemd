@@ -34,19 +34,19 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-#define BUFSIZE			16
-#define UDEV_ALARM_TIMEOUT	180
+#define BUFSIZE                        16
+#define UDEV_ALARM_TIMEOUT        180
 
 enum collect_state {
-	STATE_NONE,
-	STATE_OLD,
-	STATE_CONFIRMED,
+        STATE_NONE,
+        STATE_OLD,
+        STATE_CONFIRMED,
 };
 
 struct _mate {
-	struct udev_list_node node;
-	char *name;
-	enum collect_state state;
+        struct udev_list_node node;
+        char *name;
+        enum collect_state state;
 };
 
 static struct udev_list_node bunch;
@@ -57,29 +57,29 @@ static size_t bufsize = BUFSIZE;
 
 static struct _mate *node_to_mate(struct udev_list_node *node)
 {
-	char *mate;
+        char *mate;
 
-	mate = (char *)node;
-	mate -= offsetof(struct _mate, node);
-	return (struct _mate *)mate;
+        mate = (char *)node;
+        mate -= offsetof(struct _mate, node);
+        return (struct _mate *)mate;
 }
 
 static void sig_alrm(int signo)
 {
-	exit(4);
+        exit(4);
 }
 
 static void usage(void)
 {
-	printf("usage: collect [--add|--remove] [--debug] <checkpoint> <id> <idlist>\n"
-	       "\n"
-	       "  Adds ID <id> to the list governed by <checkpoint>.\n"
-	       "  <id> must be part of the list <idlist>.\n"
-	       "  If all IDs given by <idlist> are listed (ie collect has been\n"
-	       "  invoked for each ID in <idlist>) collect returns 0, the\n"
-	       "  number of missing IDs otherwise.\n"
-	       "  On error a negative number is returned.\n"
-	       "\n");
+        printf("usage: collect [--add|--remove] [--debug] <checkpoint> <id> <idlist>\n"
+               "\n"
+               "  Adds ID <id> to the list governed by <checkpoint>.\n"
+               "  <id> must be part of the list <idlist>.\n"
+               "  If all IDs given by <idlist> are listed (ie collect has been\n"
+               "  invoked for each ID in <idlist>) collect returns 0, the\n"
+               "  number of missing IDs otherwise.\n"
+               "  On error a negative number is returned.\n"
+               "\n");
 }
 
 /*
@@ -89,34 +89,34 @@ static void usage(void)
  */
 static int prepare(char *dir, char *filename)
 {
-	struct stat statbuf;
-	char buf[512];
-	int fd;
+        struct stat statbuf;
+        char buf[512];
+        int fd;
 
-	if (stat(dir, &statbuf) < 0)
-		mkdir(dir, 0700);
+        if (stat(dir, &statbuf) < 0)
+                mkdir(dir, 0700);
 
-	sprintf(buf, "%s/%s", dir, filename);
+        sprintf(buf, "%s/%s", dir, filename);
 
-	fd = open(buf,O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
-	if (fd < 0)
-		fprintf(stderr, "Cannot open %s: %s\n", buf, strerror(errno));
+        fd = open(buf,O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
+        if (fd < 0)
+                fprintf(stderr, "Cannot open %s: %s\n", buf, strerror(errno));
 
-	if (lockf(fd,F_TLOCK,0) < 0) {
-		if (debug)
-			fprintf(stderr, "Lock taken, wait for %d seconds\n", UDEV_ALARM_TIMEOUT);
-		if (errno == EAGAIN || errno == EACCES) {
-			alarm(UDEV_ALARM_TIMEOUT);
-			lockf(fd, F_LOCK, 0);
-			if (debug)
-				fprintf(stderr, "Acquired lock on %s\n", buf);
-		} else {
-			if (debug)
-				fprintf(stderr, "Could not get lock on %s: %s\n", buf, strerror(errno));
-		}
-	}
+        if (lockf(fd,F_TLOCK,0) < 0) {
+                if (debug)
+                        fprintf(stderr, "Lock taken, wait for %d seconds\n", UDEV_ALARM_TIMEOUT);
+                if (errno == EAGAIN || errno == EACCES) {
+                        alarm(UDEV_ALARM_TIMEOUT);
+                        lockf(fd, F_LOCK, 0);
+                        if (debug)
+                                fprintf(stderr, "Acquired lock on %s\n", buf);
+                } else {
+                        if (debug)
+                                fprintf(stderr, "Could not get lock on %s: %s\n", buf, strerror(errno));
+                }
+        }
 
-	return fd;
+        return fd;
 }
 
 /*
@@ -136,58 +136,58 @@ static int prepare(char *dir, char *filename)
  */
 static int checkout(int fd)
 {
-	int len;
-	char *buf, *ptr, *word = NULL;
-	struct _mate *him;
+        int len;
+        char *buf, *ptr, *word = NULL;
+        struct _mate *him;
 
  restart:
-	len = bufsize >> 1;
-	buf = calloc(1,bufsize + 1);
-	if (!buf) {
-		fprintf(stderr, "Out of memory\n");
-		return -1;
-	}
-	memset(buf, ' ', bufsize);
-	ptr = buf + len;
-	while ((read(fd, buf + len, len)) > 0) {
-		while (ptr && *ptr) {
-			word = ptr;
-			ptr = strpbrk(word," \n\t\r");
-			if (!ptr && word < (buf + len)) {
-				bufsize = bufsize << 1;
-				if (debug)
-					fprintf(stderr, "ID overflow, restarting with size %zi\n", bufsize);
-				free(buf);
-				lseek(fd, 0, SEEK_SET);
-				goto restart;
-			}
-			if (ptr) {
-				*ptr = '\0';
-				ptr++;
-				if (!strlen(word))
-					continue;
+        len = bufsize >> 1;
+        buf = calloc(1,bufsize + 1);
+        if (!buf) {
+                fprintf(stderr, "Out of memory\n");
+                return -1;
+        }
+        memset(buf, ' ', bufsize);
+        ptr = buf + len;
+        while ((read(fd, buf + len, len)) > 0) {
+                while (ptr && *ptr) {
+                        word = ptr;
+                        ptr = strpbrk(word," \n\t\r");
+                        if (!ptr && word < (buf + len)) {
+                                bufsize = bufsize << 1;
+                                if (debug)
+                                        fprintf(stderr, "ID overflow, restarting with size %zi\n", bufsize);
+                                free(buf);
+                                lseek(fd, 0, SEEK_SET);
+                                goto restart;
+                        }
+                        if (ptr) {
+                                *ptr = '\0';
+                                ptr++;
+                                if (!strlen(word))
+                                        continue;
 
-				if (debug)
-					fprintf(stderr, "Found word %s\n", word);
-				him = malloc(sizeof (struct _mate));
-				him->name = strdup(word);
-				him->state = STATE_OLD;
-				udev_list_node_append(&him->node, &bunch);
-				word = NULL;
-			}
-		}
-		memcpy(buf, buf + len, len);
-		memset(buf + len, ' ', len);
+                                if (debug)
+                                        fprintf(stderr, "Found word %s\n", word);
+                                him = malloc(sizeof (struct _mate));
+                                him->name = strdup(word);
+                                him->state = STATE_OLD;
+                                udev_list_node_append(&him->node, &bunch);
+                                word = NULL;
+                        }
+                }
+                memcpy(buf, buf + len, len);
+                memset(buf + len, ' ', len);
 
-		if (!ptr)
-			ptr = word;
-		if (!ptr)
-			break;
-		ptr -= len;
-	}
+                if (!ptr)
+                        ptr = word;
+                if (!ptr)
+                        break;
+                ptr -= len;
+        }
 
-	free(buf);
-	return 0;
+        free(buf);
+        return 0;
 }
 
 /*
@@ -198,22 +198,22 @@ static int checkout(int fd)
  */
 static void invite(char *us)
 {
-	struct udev_list_node *him_node;
-	struct _mate *who = NULL;
+        struct udev_list_node *him_node;
+        struct _mate *who = NULL;
 
-	if (debug)
-		fprintf(stderr, "Adding ID '%s'\n", us);
+        if (debug)
+                fprintf(stderr, "Adding ID '%s'\n", us);
 
-	udev_list_node_foreach(him_node, &bunch) {
-		struct _mate *him = node_to_mate(him_node);
+        udev_list_node_foreach(him_node, &bunch) {
+                struct _mate *him = node_to_mate(him_node);
 
-		if (!strcmp(him->name, us)) {
-			him->state = STATE_CONFIRMED;
-			who = him;
-		}
-	}
-	if (debug && !who)
-		fprintf(stderr, "ID '%s' not in database\n", us);
+                if (!strcmp(him->name, us)) {
+                        him->state = STATE_CONFIRMED;
+                        who = him;
+                }
+        }
+        if (debug && !who)
+                fprintf(stderr, "ID '%s' not in database\n", us);
 
 }
 
@@ -226,22 +226,22 @@ static void invite(char *us)
  */
 static void reject(char *us)
 {
-	struct udev_list_node *him_node;
-	struct _mate *who = NULL;
+        struct udev_list_node *him_node;
+        struct _mate *who = NULL;
 
-	if (debug)
-		fprintf(stderr, "Removing ID '%s'\n", us);
+        if (debug)
+                fprintf(stderr, "Removing ID '%s'\n", us);
 
-	udev_list_node_foreach(him_node, &bunch) {
-		struct _mate *him = node_to_mate(him_node);
+        udev_list_node_foreach(him_node, &bunch) {
+                struct _mate *him = node_to_mate(him_node);
 
-		if (!strcmp(him->name, us)) {
-			him->state = STATE_NONE;
-			who = him;
-		}
-	}
-	if (debug && !who)
-		fprintf(stderr, "ID '%s' not in database\n", us);
+                if (!strcmp(him->name, us)) {
+                        him->state = STATE_NONE;
+                        who = him;
+                }
+        }
+        if (debug && !who)
+                fprintf(stderr, "ID '%s' not in database\n", us);
 }
 
 /*
@@ -252,18 +252,18 @@ static void reject(char *us)
  */
 static void kickout(void)
 {
-	struct udev_list_node *him_node;
-	struct udev_list_node *tmp;
+        struct udev_list_node *him_node;
+        struct udev_list_node *tmp;
 
-	udev_list_node_foreach_safe(him_node, tmp, &bunch) {
-		struct _mate *him = node_to_mate(him_node);
+        udev_list_node_foreach_safe(him_node, tmp, &bunch) {
+                struct _mate *him = node_to_mate(him_node);
 
-		if (him->state == STATE_OLD) {
-			udev_list_node_remove(&him->node);
-			free(him->name);
-			free(him);
-		}
-	}
+                if (him->state == STATE_OLD) {
+                        udev_list_node_remove(&him->node);
+                        free(him->name);
+                        free(him);
+                }
+        }
 }
 
 /*
@@ -273,38 +273,38 @@ static void kickout(void)
  */
 static int missing(int fd)
 {
-	char *buf;
-	int ret = 0;
-	struct udev_list_node *him_node;
+        char *buf;
+        int ret = 0;
+        struct udev_list_node *him_node;
 
-	buf = malloc(bufsize);
-	if (!buf)
-		return -1;
+        buf = malloc(bufsize);
+        if (!buf)
+                return -1;
 
-	udev_list_node_foreach(him_node, &bunch) {
-		struct _mate *him = node_to_mate(him_node);
+        udev_list_node_foreach(him_node, &bunch) {
+                struct _mate *him = node_to_mate(him_node);
 
-		if (him->state == STATE_NONE) {
-			ret++;
-		} else {
-			while (strlen(him->name)+1 >= bufsize) {
-				char *tmpbuf;
+                if (him->state == STATE_NONE) {
+                        ret++;
+                } else {
+                        while (strlen(him->name)+1 >= bufsize) {
+                                char *tmpbuf;
 
-				bufsize = bufsize << 1;
-				tmpbuf = realloc(buf, bufsize);
-				if (!tmpbuf) {
-					free(buf);
-					return -1;
-				}
-				buf = tmpbuf;
-			}
-			snprintf(buf, strlen(him->name)+2, "%s ", him->name);
-			write(fd, buf, strlen(buf));
-		}
-	}
+                                bufsize = bufsize << 1;
+                                tmpbuf = realloc(buf, bufsize);
+                                if (!tmpbuf) {
+                                        free(buf);
+                                        return -1;
+                                }
+                                buf = tmpbuf;
+                        }
+                        snprintf(buf, strlen(him->name)+2, "%s ", him->name);
+                        write(fd, buf, strlen(buf));
+                }
+        }
 
-	free(buf);
-	return ret;
+        free(buf);
+        return ret;
 }
 
 /*
@@ -314,160 +314,160 @@ static int missing(int fd)
  */
 static void everybody(void)
 {
-	struct udev_list_node *him_node;
-	const char *state = "";
+        struct udev_list_node *him_node;
+        const char *state = "";
 
-	udev_list_node_foreach(him_node, &bunch) {
-		struct _mate *him = node_to_mate(him_node);
+        udev_list_node_foreach(him_node, &bunch) {
+                struct _mate *him = node_to_mate(him_node);
 
-		switch (him->state) {
-		case STATE_NONE:
-			state = "none";
-			break;
-		case STATE_OLD:
-			state = "old";
-			break;
-		case STATE_CONFIRMED:
-			state = "confirmed";
-			break;
-		}
-		fprintf(stderr, "ID: %s=%s\n", him->name, state);
-	}
+                switch (him->state) {
+                case STATE_NONE:
+                        state = "none";
+                        break;
+                case STATE_OLD:
+                        state = "old";
+                        break;
+                case STATE_CONFIRMED:
+                        state = "confirmed";
+                        break;
+                }
+                fprintf(stderr, "ID: %s=%s\n", him->name, state);
+        }
 }
 
 int main(int argc, char **argv)
 {
-	struct udev *udev;
-	static const struct option options[] = {
-		{ "add", no_argument, NULL, 'a' },
-		{ "remove", no_argument, NULL, 'r' },
-		{ "debug", no_argument, NULL, 'd' },
-		{ "help", no_argument, NULL, 'h' },
-		{}
-	};
-	int argi;
-	char *checkpoint, *us;
-	int fd;
-	int i;
-	int ret = EXIT_SUCCESS;
-	int prune = 0;
-	char tmpdir[UTIL_PATH_SIZE];
+        struct udev *udev;
+        static const struct option options[] = {
+                { "add", no_argument, NULL, 'a' },
+                { "remove", no_argument, NULL, 'r' },
+                { "debug", no_argument, NULL, 'd' },
+                { "help", no_argument, NULL, 'h' },
+                {}
+        };
+        int argi;
+        char *checkpoint, *us;
+        int fd;
+        int i;
+        int ret = EXIT_SUCCESS;
+        int prune = 0;
+        char tmpdir[UTIL_PATH_SIZE];
 
-	udev = udev_new();
-	if (udev == NULL) {
-		ret = EXIT_FAILURE;
-		goto exit;
-	}
+        udev = udev_new();
+        if (udev == NULL) {
+                ret = EXIT_FAILURE;
+                goto exit;
+        }
 
-	while (1) {
-		int option;
+        while (1) {
+                int option;
 
-		option = getopt_long(argc, argv, "ardh", options, NULL);
-		if (option == -1)
-			break;
+                option = getopt_long(argc, argv, "ardh", options, NULL);
+                if (option == -1)
+                        break;
 
-		switch (option) {
-		case 'a':
-			prune = 0;
-			break;
-		case 'r':
-			prune = 1;
-			break;
-		case 'd':
-			debug = 1;
-			break;
-		case 'h':
-			usage();
-			goto exit;
-		default:
-			ret = 1;
-			goto exit;
-		}
-	}
+                switch (option) {
+                case 'a':
+                        prune = 0;
+                        break;
+                case 'r':
+                        prune = 1;
+                        break;
+                case 'd':
+                        debug = 1;
+                        break;
+                case 'h':
+                        usage();
+                        goto exit;
+                default:
+                        ret = 1;
+                        goto exit;
+                }
+        }
 
-	argi = optind;
-	if (argi + 2 > argc) {
-		printf("Missing parameter(s)\n");
-		ret = 1;
-		goto exit;
-	}
-	checkpoint = argv[argi++];
-	us = argv[argi++];
+        argi = optind;
+        if (argi + 2 > argc) {
+                printf("Missing parameter(s)\n");
+                ret = 1;
+                goto exit;
+        }
+        checkpoint = argv[argi++];
+        us = argv[argi++];
 
-	if (signal(SIGALRM, sig_alrm) == SIG_ERR) {
-		fprintf(stderr, "Cannot set SIGALRM: %s\n", strerror(errno));
-		ret = 2;
-		goto exit;
-	}
+        if (signal(SIGALRM, sig_alrm) == SIG_ERR) {
+                fprintf(stderr, "Cannot set SIGALRM: %s\n", strerror(errno));
+                ret = 2;
+                goto exit;
+        }
 
-	udev_list_node_init(&bunch);
+        udev_list_node_init(&bunch);
 
-	if (debug)
-		fprintf(stderr, "Using checkpoint '%s'\n", checkpoint);
+        if (debug)
+                fprintf(stderr, "Using checkpoint '%s'\n", checkpoint);
 
-	util_strscpyl(tmpdir, sizeof(tmpdir), udev_get_run_path(udev), "/collect", NULL);
-	fd = prepare(tmpdir, checkpoint);
-	if (fd < 0) {
-		ret = 3;
-		goto out;
-	}
+        util_strscpyl(tmpdir, sizeof(tmpdir), udev_get_run_path(udev), "/collect", NULL);
+        fd = prepare(tmpdir, checkpoint);
+        if (fd < 0) {
+                ret = 3;
+                goto out;
+        }
 
-	if (checkout(fd) < 0) {
-		ret = 2;
-		goto out;
-	}
+        if (checkout(fd) < 0) {
+                ret = 2;
+                goto out;
+        }
 
-	for (i = argi; i < argc; i++) {
-		struct udev_list_node *him_node;
-		struct _mate *who;
+        for (i = argi; i < argc; i++) {
+                struct udev_list_node *him_node;
+                struct _mate *who;
 
-		who = NULL;
-		udev_list_node_foreach(him_node, &bunch) {
-			struct _mate *him = node_to_mate(him_node);
+                who = NULL;
+                udev_list_node_foreach(him_node, &bunch) {
+                        struct _mate *him = node_to_mate(him_node);
 
-			if (!strcmp(him->name, argv[i]))
-				who = him;
-		}
-		if (!who) {
-			struct _mate *him;
+                        if (!strcmp(him->name, argv[i]))
+                                who = him;
+                }
+                if (!who) {
+                        struct _mate *him;
 
-			if (debug)
-				fprintf(stderr, "ID %s: not in database\n", argv[i]);
-			him = malloc(sizeof (struct _mate));
-			him->name = malloc(strlen(argv[i]) + 1);
-			strcpy(him->name, argv[i]);
-			him->state = STATE_NONE;
-			udev_list_node_append(&him->node, &bunch);
-		} else {
-			if (debug)
-				fprintf(stderr, "ID %s: found in database\n", argv[i]);
-			who->state = STATE_CONFIRMED;
-		}
-	}
+                        if (debug)
+                                fprintf(stderr, "ID %s: not in database\n", argv[i]);
+                        him = malloc(sizeof (struct _mate));
+                        him->name = malloc(strlen(argv[i]) + 1);
+                        strcpy(him->name, argv[i]);
+                        him->state = STATE_NONE;
+                        udev_list_node_append(&him->node, &bunch);
+                } else {
+                        if (debug)
+                                fprintf(stderr, "ID %s: found in database\n", argv[i]);
+                        who->state = STATE_CONFIRMED;
+                }
+        }
 
-	if (prune)
-		reject(us);
-	else
-		invite(us);
+        if (prune)
+                reject(us);
+        else
+                invite(us);
 
-	if (debug) {
-		everybody();
-		fprintf(stderr, "Prune lists\n");
-	}
-	kickout();
+        if (debug) {
+                everybody();
+                fprintf(stderr, "Prune lists\n");
+        }
+        kickout();
 
-	lseek(fd, 0, SEEK_SET);
-	ftruncate(fd, 0);
-	ret = missing(fd);
+        lseek(fd, 0, SEEK_SET);
+        ftruncate(fd, 0);
+        ret = missing(fd);
 
-	lockf(fd, F_ULOCK, 0);
-	close(fd);
+        lockf(fd, F_ULOCK, 0);
+        close(fd);
 out:
-	if (debug)
-		everybody();
-	if (ret >= 0)
-		printf("COLLECT_%s=%d\n", checkpoint, ret);
+        if (debug)
+                everybody();
+        if (ret >= 0)
+                printf("COLLECT_%s=%d\n", checkpoint, ret);
 exit:
-	udev_unref(udev);
-	return ret;
+        udev_unref(udev);
+        return ret;
 }
