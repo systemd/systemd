@@ -56,7 +56,7 @@ int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)
         ssize_t len;
         int i;
         int back;
-        char *base;
+        char *base = NULL;
 
         len = readlink(syspath, link_target, sizeof(link_target));
         if (len <= 0 || len == (ssize_t)sizeof(link_target))
@@ -70,9 +70,11 @@ int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)
         for (i = 0; i <= back; i++) {
                 base = strrchr(syspath, '/');
                 if (base == NULL)
-                        return -1;
+                        return -EINVAL;
                 base[0] = '\0';
         }
+        if (base == NULL)
+                return -EINVAL;
         dbg(udev, "after moving back '%s'\n", syspath);
         util_strscpyl(base, size - (base - syspath), "/", &link_target[back * 3], NULL);
         return 0;
