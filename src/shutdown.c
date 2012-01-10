@@ -47,29 +47,45 @@
 #define FINALIZE_ATTEMPTS 50
 
 static bool ignore_proc(pid_t pid) {
-        if (pid == 1)
-                return true;
-
-        /* TODO: add more ignore rules here: device-mapper, etc */
-
-        return false;
-}
-
-static bool is_kernel_thread(pid_t pid)
-{
         char buf[PATH_MAX];
         FILE *f;
         char c;
         size_t count;
+        uid_t uid;
+        int r;
 
-        snprintf(buf, sizeof(buf), "/proc/%lu/cmdline", (unsigned long)pid);
+        /* We are PID 1, let's not commit suicide */
+        if (pid == 1)
+                return true;
+
+        r = get_process_uid(pid, &uid);
+        if (r < 0)
+                return true; /* not really, but better safe than sorry */
+
+        /* Non-root processes otherwise are always subject to be killed */
+        if (uid != 0)
+                return false;
+
+        snprintf(buf, sizeof(buf), "/proc/%lu/cmdline", (unsigned long) pid);
+        char_array_0(buf);
+
         f = fopen(buf, "re");
         if (!f)
                 return true; /* not really, but has the desired effect */
 
         count = fread(&c, 1, 1, f);
         fclose(f);
-        return count != 1;
+
+        /* Kernel threads have an empty cmdline */
+        if (count <= 0)
+                return true;
+
+        /* Processes with argv[0][0] = '@' we ignore from the killing
+         * spree. */
+        if (count == 1 && c == '@')
+                return true;
+
+        return false;
 }
 
 static int killall(int sign) {
@@ -77,16 +93,14 @@ static int killall(int sign) {
         struct dirent *d;
         unsigned int n_processes = 0;
 
-        if ((dir = opendir("/proc")) == NULL)
+        dir = opendir("/proc");
+        if (!dir)
                 return -errno;
 
         while ((d = readdir(dir))) {
                 pid_t pid;
 
                 if (parse_pid(d->d_name, &pid) < 0)
-                        continue;
-
-                if (is_kernel_thread(pid))
                         continue;
 
                 if (ignore_proc(pid))

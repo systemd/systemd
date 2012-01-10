@@ -251,6 +251,7 @@ int rmdir_parents(const char *path, const char *stop);
 int get_process_comm(pid_t pid, char **name);
 int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line);
 int get_process_exe(pid_t pid, char **name);
+int get_process_uid(pid_t pid, uid_t *uid);
 
 char hexchar(int x);
 int unhexchar(char c);
