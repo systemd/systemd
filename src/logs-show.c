@@ -237,7 +237,7 @@ static int output_short(sd_journal *j, unsigned line, bool show_all, bool monoto
                 if (!e)
                         printf(": %.*s\n", (int) message_len, message);
                 else
-                        printf(": %s", e);
+                        printf(": %s\n", e);
 
                 free(e);
         } else
