@@ -1590,27 +1590,27 @@ _public_ int sd_journal_process(sd_journal *j) {
         }
 }
 
-_public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
-        if (!j)
-                return -EINVAL;
-        if (!field)
-                return -EINVAL;
+/* _public_ int sd_journal_query_unique(sd_journal *j, const char *field) { */
+/*         if (!j) */
+/*                 return -EINVAL; */
+/*         if (!field) */
+/*                 return -EINVAL; */
 
-        return -ENOTSUP;
-}
+/*         return -ENOTSUP; */
+/* } */
 
-_public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_t *l) {
-        if (!j)
-                return -EINVAL;
-        if (!data)
-                return -EINVAL;
-        if (!l)
-                return -EINVAL;
+/* _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_t *l) { */
+/*         if (!j) */
+/*                 return -EINVAL; */
+/*         if (!data) */
+/*                 return -EINVAL; */
+/*         if (!l) */
+/*                 return -EINVAL; */
 
-        return -ENOTSUP;
-}
+/*         return -ENOTSUP; */
+/* } */
 
-_public_ void sd_journal_restart_unique(sd_journal *j) {
-        if (!j)
-                return;
-}
+/* _public_ void sd_journal_restart_unique(sd_journal *j) { */
+/*         if (!j) */
+/*                 return; */
+/* } */
