@@ -1,4 +1,4 @@
-The options used used usually look like:
+The options used usually look like:
   %configure \
     --prefix=/usr \
     --sysconfdir=/etc \

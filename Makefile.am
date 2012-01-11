@@ -755,16 +755,16 @@ git-release:
 	git tag -m "udev $(VERSION)" -s $(VERSION)
 	git gc --prune=0
 
-tar:
-	make distcheck
-	gpg --armor --detach-sign udev-$(VERSION).tar.xz
-
 git-sync:
 	git push
 	git push --tags $(VERSION)
 
+tar:
+	make distcheck
+	xz -d -c udev-$(VERSION).tar.xz | gpg --armor --detach-sign --output udev-$(VERSION).tar.asc
+
 tar-sync:
-	scp udev-$(VERSION).tar.xz master.kernel.org:/pub/linux/utils/kernel/hotplug/
+	kup put udev-$(VERSION).tar.xz  udev-$(VERSION).tar.asc /pub/linux/utils/kernel/hotplug/udev-$(VERSION).tar.gz
 
 doc-sync:
 	rsync -av src/*.html master.kernel.org:/pub/linux/utils/kernel/hotplug/udev/
