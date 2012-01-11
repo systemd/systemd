@@ -1,22 +1,22 @@
-udev 175
+udev 176
 ========
 The 'devtmpfs' filesystem is required now, udev will not create or delete
 device nodes anymore, it only adjusts permissions and ownership of device
 nodes and maintains additional symlinks.
 
-A writable /run directory (tmpfs) is required now for a fully functional
-udev.
+A writable /run directory (ususally tmpfs) is required now for a fully
+functional udev, there is no longer a fallback to /dev/.udev.
 
 The default 'configure' install locations have changed. Packages for systems
 with the historic / vs. /usr split need to be adapted, otherwise udev will
-be installed in /usr and not work properly. Example configuration options are
-in INSTALL.
+be installed in /usr and not work properly. Example configuration options
+to install things the traditional way are in INSTALL.
 
 The default install location of the 'udevadm' tool moved from 'sbin'
-to /usr/bin. Some tools expect udevadm in 'sbin'. A symlink to udevadm
-needs to be manually created if needed.
+to /usr/bin. Some tools expect udevadm in 'sbin', a symlink to udevadm
+needs to be manually created if needed, or --bindir=/sbin be specified.
 
-The expected value of '--libexecdir' has changed and must no longer contain
+The expected value of '--libexecdir=' has changed and must no longer contain
 the 'udev' directory.
 
 Kernel modules are now loaded directly by linking udev to 'libkmod'. The
@@ -31,12 +31,14 @@ is no longer used.
 All built-in tools can be listed and tested with 'udevadm test-builtin'.
 
 The 'udevadm control --reload-rules' option has been renamed to '--reload'.
-It reloads the kernel module configuration.
+It now also reloads the kernel module configuration.
 
-The systemd socket files use PassCredentials=yes, which requires systemd
-version 38.
+The systemd socket files use PassCredentials=yes, which is available in
+systemd version 38.
 
 The udev build system only creates a .xz tarball now.
+
+All tabs in the source code used for indentation are replaced by spaces now. :)
 
 udev 175
 ========

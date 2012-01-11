@@ -1,3 +1,91 @@
+Summary of changes from v175 to v176
+============================================
+
+Alan Stern (1):
+      [PATCH[ udev: ata_id: Fix length of INQUIRY command
+
+Kay Sievers (61):
+      libudev: print log_fn address instead of ctx when setting logging function
+      do not ship autogen.sh in the tarball
+      man: clarify 'config file stack'
+      rename 'init' directory to 'systemd'
+      systemd: use PassCred=yes
+      use libexecdir, bindir, sbindir, switch to /usr/lib/udev in documentation
+      configure: fix typo
+      make: do not (mis-)use the config file generator, create .xz tarball
+      prepare builtins for blkid and kmod
+      add builtin load/unload initializers
+      build argv[] for builtin commands
+      update blkid builtin
+      rules: switch to built-in blkid
+      rules: do not preprocess 60-persistent-storage.rules
+      buildsys: disable tar.gz
+      builtin: blkid - add missing newline
+      builtin: blkid - add missing ID_FS_USAGE
+      builtin: kmod - switch modprobe to builtin
+      rules: do not preprocess 80-drivers.rules + 75-probe_mtd.rules
+      builtin: apply format string
+      remove last sbindir use
+      update NEWS
+      autogen.sh: moce CFLAGS from to configure.ac; print common ./configure options
+      builtin: kmod - link against libkmod
+      add copyright
+      builtin: kmod - reload index when rules are reloaded
+      builtin: rename load()/unload() to init()/exit()
+      invalidate rules and kmod index with 'udevadm control --reload'
+      update NEWS
+      builtin: firmware - move 'firmware' tool to builtins
+      builtin: firmware - add missing file
+      builtin: kmod - hook up udev main logging to libkmod
+      make: introduce --with-rootprefix=
+      update NEWS
+      move rules dirs to udev context; replace inotify with time-controlled stat()
+      udevd: always create runtime dir
+      builtin: move usb-db, pci-db to builtins
+      builtin: kmod - switch to kmod_module_probe_insert_module()
+      udevd: remove TIMEOUT= handling
+      update README
+      systemd: rename PassCred= to PsssCredentials=
+      remove mknod() logic and rely on 'devtmpfs'
+      builtin: kmod - hook up kmod_validate_resources()
+      build-sys: use use ${ac_default_prefix}
+      require kmod >= 3
+      build-sys: use --libexecdir=/usr/lib instead of /usr/lib/udev
+      autogen.sh: enable git pre-commit
+      merge udev/, libudev/, systemd/ files in src/; move extras/ to src/
+      replace unpacked sysfs test tree 'test/sys/' with packed tarball
+      rules: delete arch specific rules
+      doc: fix out of tree build (copy from libkmod)
+      autogen.sh: add CFLAGS and print entire line, so that mouse copy/paste works
+      build-sys: try to build without installed xsltproc
+      add test/src to .gitignore
+      tabs are as useful as a hole in the head
+      autogen.sh: makedev() misteriously breaks with -O0 here, use -O1 for now
+      fix debug message
+      add .vimrc
+      cdrom_id: int -> bool
+      fix compiler warning
+      man: mention that no daemons should be started by udev
+
+Lucas De Marchi (1):
+      builtin: kmod - log if modules are blacklisted
+
+Luis Felipe Strano Moraes (1):
+      Switch spawn_read to void and remove useless stores there.
+
+Martin Pitt (1):
+      75-persistent-net-generator.rules: Add Xen
+
+Mike Frysinger (1):
+      hwdb: drop useless line freeing
+
+Sjoerd Simons (1):
+      keymap: Add Lenovo Thinkpad X220 Tablet
+
+Ville Skyttä (1):
+      man: spelling fix
+
+
 Summary of changes from v174 to v175
 ============================================
 
