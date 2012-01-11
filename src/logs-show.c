@@ -152,21 +152,26 @@ static int output_short(sd_journal *j, unsigned line, bool show_all, bool monoto
 
         if (monotonic_mode) {
                 uint64_t t;
+                sd_id128_t boot_id;
+
                 r = -ENOENT;
 
                 if (monotonic)
                         r = safe_atou64(monotonic, &t);
 
                 if (r < 0)
-                        r = sd_journal_get_monotonic_usec(j, &t, NULL);
+                        r = sd_journal_get_monotonic_usec(j, &t, &boot_id);
 
-                if (r >= 0) {
-                        printf("[%5llu.%06llu]",
-                               (unsigned long long) (t / USEC_PER_SEC),
-                               (unsigned long long) (t % USEC_PER_SEC));
-
-                        n += 1 + 5 + 1 + 6 + 1;
+                if (r < 0) {
+                        log_error("Failed to get monotonic: %s", strerror(-r));
+                        goto finish;
                 }
+
+                printf("[%5llu.%06llu]",
+                       (unsigned long long) (t / USEC_PER_SEC),
+                       (unsigned long long) (t % USEC_PER_SEC));
+
+                n += 1 + 5 + 1 + 6 + 1;
 
         } else {
                 char buf[64];
