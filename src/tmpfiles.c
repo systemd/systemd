@@ -117,41 +117,50 @@ static void load_unix_sockets(void) {
         /* We maintain a cache of the sockets we found in
          * /proc/net/unix to speed things up a little. */
 
-        if (!(unix_sockets = set_new(string_hash_func, string_compare_func)))
+        unix_sockets = set_new(string_hash_func, string_compare_func);
+        if (!unix_sockets)
                 return;
 
-        if (!(f = fopen("/proc/net/unix", "re")))
+        f = fopen("/proc/net/unix", "re");
+        if (!f)
                 return;
 
-        if (!(fgets(line, sizeof(line), f)))
+        /* Skip header */
+        if (!fgets(line, sizeof(line), f))
                 goto fail;
 
         for (;;) {
                 char *p, *s;
                 int k;
 
-                if (!(fgets(line, sizeof(line), f)))
+                if (!fgets(line, sizeof(line), f))
                         break;
 
                 truncate_nl(line);
 
-                if (strlen(line) < 53)
+                p = strchr(line, ':');
+                if (!p)
                         continue;
 
-                p = line + 53;
+                if (strlen(p) < 37)
+                        continue;
+
+                p += 37;
                 p += strspn(p, WHITESPACE);
-                p += strcspn(p, WHITESPACE);
+                p += strcspn(p, WHITESPACE); /* skip one more word */
                 p += strspn(p, WHITESPACE);
 
                 if (*p != '/')
                         continue;
 
-                if (!(s = strdup(p)))
+                s = strdup(p);
+                if (!s)
                         goto fail;
 
                 path_kill_slashes(s);
 
-                if ((k = set_put(unix_sockets, s)) < 0) {
+                k = set_put(unix_sockets, s);
+                if (k < 0) {
                         free(s);
 
                         if (k != -EEXIST)
@@ -1059,7 +1068,8 @@ int main(int argc, char *argv[]) {
         Item *i;
         Iterator iterator;
 
-        if ((r = parse_argv(argc, argv)) <= 0)
+        r = parse_argv(argc, argv);
+        if (r <= 0)
                 return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
         log_set_target(LOG_TARGET_AUTO);
