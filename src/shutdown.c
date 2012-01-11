@@ -81,7 +81,9 @@ static bool ignore_proc(pid_t pid) {
                 return true;
 
         /* Processes with argv[0][0] = '@' we ignore from the killing
-         * spree. */
+         * spree.
+         *
+         * http://www.freedesktop.org/wiki/Software/systemd/RootStorageDaemons */
         if (count == 1 && c == '@')
                 return true;
 
