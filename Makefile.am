@@ -2442,8 +2442,8 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-rootprefix=$$dc_install_base/$(rootprefix)
 
 upload: all distcheck
-	cp -v systemd-$(VERSION).tar.bz2 /home/lennart/git.fedora/systemd/
-	scp systemd-$(VERSION).tar.bz2 fdo:/srv/www.freedesktop.org/www/software/systemd/
+	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/
+	scp systemd-$(VERSION).tar.xz fdo:/srv/www.freedesktop.org/www/software/systemd/
 	scp man/*.html tango:public/systemd-man/
 
 git-tag:
