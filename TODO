@@ -21,6 +21,12 @@ Bugfixes:
 
 Features:
 
+* introduce PropagateReload= dependency
+
+* ignore processes with argv[0][0] == '@' when killing on shutdown
+
+* support "systemctl stop foobar@.service" to stop all units matching a certain template
+
 * move to LGPL2+
 
 * logind: selinux is borked...
