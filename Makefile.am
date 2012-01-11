@@ -1208,8 +1208,12 @@ systemd_journald_SOURCES = \
 	src/journal/lookup3.c \
 	src/journal/journal-rate-limit.c \
 	src/sd-id128.c \
-	src/acl-util.c \
 	src/cgroup-util.c
+
+if HAVE_ACL
+systemd_journald_SOURCES += \
+	src/acl-util.c
+endif
 
 nodist_systemd_journald_SOURCES = \
 	src/journal/journald-gperf.c

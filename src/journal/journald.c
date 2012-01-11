@@ -25,8 +25,6 @@
 #include <sys/signalfd.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/acl.h>
-#include <acl/libacl.h>
 #include <stddef.h>
 #include <sys/ioctl.h>
 #include <linux/sockios.h>
@@ -40,7 +38,6 @@
 #include "hashmap.h"
 #include "journal-file.h"
 #include "socket-util.h"
-#include "acl-util.h"
 #include "cgroup-util.h"
 #include "list.h"
 #include "journal-rate-limit.h"
@@ -48,6 +45,12 @@
 #include "conf-parser.h"
 #include "journald.h"
 #include "virt.h"
+
+#ifdef HAVE_ACL
+#include <sys/acl.h>
+#include <acl/libacl.h>
+#include "acl-util.h"
+#endif
 
 #define USER_JOURNALS_MAX 1024
 #define STDOUT_STREAMS_MAX 4096
@@ -181,10 +184,12 @@ finish:
 }
 
 static void fix_perms(JournalFile *f, uid_t uid) {
+        int r;
+#ifdef HAVE_ACL
         acl_t acl;
         acl_entry_t entry;
         acl_permset_t permset;
-        int r;
+#endif
 
         assert(f);
 
@@ -192,6 +197,7 @@ static void fix_perms(JournalFile *f, uid_t uid) {
         if (r < 0)
                 log_warning("Failed to fix access mode/rights on %s, ignoring: %s", f->path, strerror(-r));
 
+#ifdef HAVE_ACL
         if (uid <= 0)
                 return;
 
@@ -224,6 +230,7 @@ static void fix_perms(JournalFile *f, uid_t uid) {
 
 finish:
         acl_free(acl);
+#endif
 }
 
 static JournalFile* find_journal(Server *s, uid_t uid) {
