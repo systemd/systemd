@@ -330,7 +330,7 @@ static int journal_file_move_to(JournalFile *f, int wt, uint64_t offset, uint64_
                  * the window space before and half behind the
                  * requested mapping */
 
-                delta = PAGE_ALIGN((DEFAULT_WINDOW_SIZE - size) / 2);
+                delta = (DEFAULT_WINDOW_SIZE - size) / 2;
 
                 if (delta > offset)
                         delta = offset;
@@ -341,7 +341,7 @@ static int journal_file_move_to(JournalFile *f, int wt, uint64_t offset, uint64_
                 delta = 0;
 
         if (offset + size > (uint64_t) f->last_stat.st_size)
-                size = PAGE_ALIGN((uint64_t) f->last_stat.st_size - offset);
+                size = (uint64_t) f->last_stat.st_size - offset;
 
         if (size <= 0)
                 return -EADDRNOTAVAIL;
