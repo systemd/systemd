@@ -77,7 +77,7 @@ typedef struct JournalFile {
 
 #ifdef HAVE_XZ
         void *compress_buffer;
-        size_t compress_buffer_size;
+        uint64_t compress_buffer_size;
 #endif
 } JournalFile;
 
