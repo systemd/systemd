@@ -197,6 +197,9 @@ int cgroup_bonding_kill_list(CGroupBonding *first, int sig, bool sigcont, Set *s
         Set *allocated_set = NULL;
         int ret = -EAGAIN, r;
 
+        if (!first)
+                return 0;
+
         if (!s)
                 if (!(s = allocated_set = set_new(trivial_hash_func, trivial_compare_func)))
                         return -ENOMEM;
