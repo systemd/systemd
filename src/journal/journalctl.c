@@ -57,7 +57,7 @@ static int help(void) {
                "  -f --follow         Follow journal\n"
                "  -n --lines=INTEGER  Journal entries to show\n"
                "     --no-tail        Show all lines, even in follow mode\n"
-               "  -o --output=STRING  Change journal output mode (short, short-verbose, verbose, export, json)\n"
+               "  -o --output=STRING  Change journal output mode (short, short-monotonic, verbose, export, json)\n"
                "     --new-id128      Generate a new 128 Bit id\n",
                program_invocation_short_name);
 
