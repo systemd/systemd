@@ -21,10 +21,6 @@ Bugfixes:
 
 Features:
 
-* introduce PropagateReload= dependency
-
-* ignore processes with argv[0][0] == '@' when killing on shutdown
-
 * support "systemctl stop foobar@.service" to stop all units matching a certain template
 
 * move to LGPL2+
@@ -93,8 +89,6 @@ Features:
 
 * implement Register= switch in .socket units to enable registration
   in Avahi, RPC and other socket registration services.
-
-* make sure people don't leave processes around after ExecStartPre=
 
 * make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
 
@@ -167,10 +161,6 @@ Features:
 
 * timer events on calendar time
 
-* Support ProcessNeededForShutdown=true to allow stuff like mdmon to
-  be killed very late after the rootfs is read only? If implement pass
-  this to shutdown binary via command line argument.
-
 * dot output for --test showing the 'initial transaction'
 
 * calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
@@ -198,8 +188,6 @@ Features:
 * io priority during initialization
 
 * if a service fails too often, make the service enter failed mode, and the socket, too.
-
-* new deps "Triggers" and "TriggeredBy"
 
 * systemctl list-jobs - show dependencies
 
