@@ -178,6 +178,7 @@ static int output_short(sd_journal *j, unsigned line, bool show_all, bool monoto
                 uint64_t x;
                 time_t t;
                 struct tm tm;
+
                 r = -ENOENT;
 
                 if (realtime)

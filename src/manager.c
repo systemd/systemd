@@ -3129,36 +3129,20 @@ void manager_recheck_syslog(Manager *m) {
         if (m->running_as != MANAGER_SYSTEM)
                 return;
 
-        if ((u = manager_get_unit(m, SPECIAL_SYSLOG_SOCKET))) {
-                SocketState state;
-
-                state = SOCKET(u)->state;
-
-                if (state != SOCKET_DEAD &&
-                    state != SOCKET_FAILED &&
-                    state != SOCKET_RUNNING) {
-
-                        /* Hmm, the socket is not set up, or is still
-                         * listening, let's better not try to use
-                         * it. Note that we have no problem if the
-                         * socket is completely down, since there
-                         * might be a foreign /dev/log socket around
-                         * and we want to make use of that.
-                         */
-
-                        log_close_syslog();
-                        return;
-                }
+        u = manager_get_unit(m, SPECIAL_JOURNALD_SOCKET);
+        if (u && SOCKET(u)->state != SOCKET_RUNNING) {
+                log_close_syslog();
+                return;
         }
 
-        if ((u = manager_get_unit(m, SPECIAL_SYSLOG_TARGET)))
-                if (TARGET(u)->state != TARGET_ACTIVE) {
-                        log_close_syslog();
-                        return;
-                }
+        u = manager_get_unit(m, SPECIAL_JOURNALD_SERVICE);
+        if (u && SERVICE(u)->state != SERVICE_RUNNING) {
+                log_close_syslog();
+                return;
+        }
 
-        /* Hmm, OK, so the socket is either fully up, or fully down,
-         * and the target is up, then let's make use of the socket */
+        /* Hmm, OK, so the socket is fully up and the service is up
+         * too, then let's make use of the thing. */
         log_open();
 }
 

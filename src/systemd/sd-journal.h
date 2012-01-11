@@ -37,8 +37,6 @@
  *   - handle incomplete header
  *
  *   - kann NTP nicht finden?
- *   - in unit.c check ob syslog.socket wegen logging reconnect is kaputt
- *
  *
  *   - local deserializer
  *   - http server

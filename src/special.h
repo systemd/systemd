@@ -71,7 +71,7 @@
 #define SPECIAL_DBUS_SERVICE "dbus.service"
 #define SPECIAL_DBUS_SOCKET "dbus.socket"
 #define SPECIAL_JOURNALD_SOCKET "systemd-journald.socket"
-#define SPECIAL_SYSLOG_SOCKET "syslog.socket"
+#define SPECIAL_JOURNALD_SERVICE "systemd-journald.service"
 
 /* Magic init signals */
 #define SPECIAL_KBREQUEST_TARGET "kbrequest.target"
