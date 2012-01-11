@@ -640,7 +640,8 @@ int journal_file_find_data_object_with_hash(
 
                 if (o->object.flags & OBJECT_COMPRESSED) {
 #ifdef HAVE_XZ
-                        uint64_t l, rsize;
+                        uint64_t l;
+                        size_t rsize;
 
                         l = le64toh(o->object.size);
                         if (l <= offsetof(Object, data.payload))
@@ -651,7 +652,7 @@ int journal_file_find_data_object_with_hash(
                         if (!uncompress_blob(o->data.payload, l, &f->compress_buffer, &f->compress_buffer_size, &rsize))
                                 return -EBADMSG;
 
-                        if (rsize == size &&
+                        if ((uint64_t) rsize == size &&
                             memcmp(f->compress_buffer, data, size) == 0) {
 
                                 if (ret)
