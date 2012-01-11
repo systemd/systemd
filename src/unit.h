@@ -124,6 +124,10 @@ enum UnitDependency {
         UNIT_TRIGGERS,
         UNIT_TRIGGERED_BY,
 
+        /* Propagate reloads */
+        UNIT_PROPAGATE_RELOAD_TO,
+        UNIT_PROPAGATE_RELOAD_FROM,
+
         /* Reference information for GC logic */
         UNIT_REFERENCES,              /* Inverse of 'references' is 'referenced_by' */
         UNIT_REFERENCED_BY,

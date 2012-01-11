@@ -80,6 +80,10 @@
         "  <property name=\"Before\" type=\"as\" access=\"read\"/>\n"   \
         "  <property name=\"After\" type=\"as\" access=\"read\"/>\n"    \
         "  <property name=\"OnFailure\" type=\"as\" access=\"read\"/>\n"    \
+        "  <property name=\"Triggers\" type=\"as\" access=\"read\"/>\n"    \
+        "  <property name=\"TriggeredBy\" type=\"as\" access=\"read\"/>\n"    \
+        "  <property name=\"PropagateReloadTo\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"PropagateReloadFrom\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Description\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"LoadState\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ActiveState\" type=\"s\" access=\"read\"/>\n" \
@@ -143,6 +147,8 @@
         { "org.freedesktop.systemd1.Unit", "OnFailure",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_ON_FAILURE] }, \
         { "org.freedesktop.systemd1.Unit", "Triggers",             bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_TRIGGERS] }, \
         { "org.freedesktop.systemd1.Unit", "TriggeredBy",          bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_TRIGGERED_BY] }, \
+        { "org.freedesktop.systemd1.Unit", "PropagateReloadTo",    bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_PROPAGATE_RELOAD_TO] }, \
+        { "org.freedesktop.systemd1.Unit", "PropagateReloadFrom",  bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_PROPAGATE_RELOAD_FROM] }, \
         { "org.freedesktop.systemd1.Unit", "Description",          bus_unit_append_description,    "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "LoadState",            bus_unit_append_load_state,     "s",    &u->meta.load_state               }, \
         { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state,   "s",    u                                 }, \

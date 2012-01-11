@@ -510,6 +510,22 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>PropagateReloadTo=</varname></term>
+                                <term><varname>PropagateReloadFrom=</varname></term>
+
+                                <listitem><para>Lists one or more
+                                units where reload requests on the
+                                unit will be propagated to/on the
+                                other unit will be propagated
+                                from. Issuing a reload request on a
+                                unit will automatically also enqueue a
+                                reload request on all units that the
+                                reload request shall be propagated to
+                                via these two
+                                settings.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>OnFailureIsolate=</varname></term>
 
                                 <listitem><para>Takes a boolean

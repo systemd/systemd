@@ -1610,7 +1610,9 @@ static int transaction_add_job_and_dependencies(
                                                 dbus_error_free(e);
                                 }
 
-                } else if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
+                }
+
+                if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRED_BY], i)
                                 if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, false, false, ignore_order, e, NULL)) < 0) {
@@ -1631,6 +1633,20 @@ static int transaction_add_job_and_dependencies(
                                         if (e)
                                                 dbus_error_free(e);
                                 }
+                }
+
+                if (type == JOB_RELOAD || type == JOB_RELOAD_OR_START) {
+
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_PROPAGATE_RELOAD_TO], i) {
+                                r = transaction_add_job_and_dependencies(m, JOB_RELOAD, dep, ret, false, override, false, false, ignore_order, e, NULL);
+
+                                if (r < 0) {
+                                        log_warning("Cannot add dependency reload job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
+
+                                        if (e)
+                                                dbus_error_free(e);
+                                }
+                        }
                 }
 
                 /* JOB_VERIFY_STARTED, JOB_RELOAD require no dependency handling */

@@ -100,6 +100,8 @@ Unit.Conflicts,                  config_parse_unit_deps,             UNIT_CONFLI
 Unit.Before,                     config_parse_unit_deps,             UNIT_BEFORE,                   0
 Unit.After,                      config_parse_unit_deps,             UNIT_AFTER,                    0
 Unit.OnFailure,                  config_parse_unit_deps,             UNIT_ON_FAILURE,               0
+Unit.PropagateReloadTo,          config_parse_unit_deps,             UNIT_PROPAGATE_RELOAD_TO,      0
+Unit.PropagateReloadFrom,        config_parse_unit_deps,             UNIT_PROPAGATE_RELOAD_FROM,    0
 Unit.StopWhenUnneeded,           config_parse_bool,                  0,                             offsetof(Meta, stop_when_unneeded)
 Unit.RefuseManualStart,          config_parse_bool,                  0,                             offsetof(Meta, refuse_manual_start)
 Unit.RefuseManualStop,           config_parse_bool,                  0,                             offsetof(Meta, refuse_manual_stop)

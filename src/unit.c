@@ -1539,7 +1539,9 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
                 [UNIT_REFERENCED_BY] = UNIT_REFERENCES,
                 [UNIT_TRIGGERS] = UNIT_TRIGGERED_BY,
-                [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS
+                [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
+                [UNIT_PROPAGATE_RELOAD_TO] = UNIT_PROPAGATE_RELOAD_FROM,
+                [UNIT_PROPAGATE_RELOAD_FROM] = UNIT_PROPAGATE_RELOAD_TO
         };
         int r, q = 0, v = 0, w = 0;
 
@@ -2663,7 +2665,9 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_REFERENCED_BY] = "ReferencedBy",
         [UNIT_ON_FAILURE] = "OnFailure",
         [UNIT_TRIGGERS] = "Triggers",
-        [UNIT_TRIGGERED_BY] = "TriggeredBy"
+        [UNIT_TRIGGERED_BY] = "TriggeredBy",
+        [UNIT_PROPAGATE_RELOAD_TO] = "PropagateReloadTo",
+        [UNIT_PROPAGATE_RELOAD_FROM] = "PropagateReloadFrom"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
