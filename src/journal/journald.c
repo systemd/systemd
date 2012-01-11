@@ -52,6 +52,10 @@
 #include "acl-util.h"
 #endif
 
+#ifdef HAVE_SELINUX
+#include <selinux/selinux.h>
+#endif
+
 #define USER_JOURNALS_MAX 1024
 #define STDOUT_STREAMS_MAX 4096
 
@@ -64,7 +68,7 @@
 
 #define SYSLOG_TIMEOUT_USEC (250*USEC_PER_MSEC)
 
-#define N_IOVEC_META_FIELDS 16
+#define N_IOVEC_META_FIELDS 17
 
 typedef enum StdoutStreamState {
         STDOUT_STREAM_IDENTIFIER,
@@ -436,7 +440,7 @@ static void dispatch_message_real(Server *s,
                 *comm = NULL, *cmdline = NULL, *hostname = NULL,
                 *audit_session = NULL, *audit_loginuid = NULL,
                 *exe = NULL, *cgroup = NULL, *session = NULL,
-                *owner_uid = NULL, *unit = NULL;
+                *owner_uid = NULL, *unit = NULL, *selinux_context = NULL;
 
         char idbuf[33];
         sd_id128_t id;
@@ -454,6 +458,9 @@ static void dispatch_message_real(Server *s,
         if (ucred) {
                 uint32_t audit;
                 uid_t owner;
+#ifdef HAVE_SELINUX
+                security_context_t con;
+#endif
 
                 realuid = ucred->uid;
 
@@ -531,6 +538,16 @@ static void dispatch_message_real(Server *s,
                 if (sd_pid_get_owner_uid(ucred->uid, &owner) >= 0)
                         if (asprintf(&owner_uid, "_SYSTEMD_OWNER_UID=%lu", (unsigned long) owner) >= 0)
                                 IOVEC_SET_STRING(iovec[n++], owner_uid);
+
+#ifdef HAVE_SELINUX
+                if (getpidcon(ucred->pid, &con) >= 0) {
+                        selinux_context = strappend("_SELINUX_CONTEXT=", con);
+                        if (selinux_context)
+                                IOVEC_SET_STRING(iovec[n++], selinux_context);
+
+                        freecon(con);
+                }
+#endif
         }
 
         if (tv) {
@@ -602,6 +619,7 @@ retry:
         free(session);
         free(owner_uid);
         free(unit);
+        free(selinux_context);
 }
 
 static void driver_message(Server *s, sd_id128_t message_id, const char *format, ...) {
