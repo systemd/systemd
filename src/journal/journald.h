@@ -73,6 +73,9 @@ typedef struct Server {
 
         uint64_t var_available_timestamp;
 
+        gid_t file_gid;
+        bool file_gid_valid;
+
         LIST_HEAD(StdoutStream, stdout_streams);
         unsigned n_stdout_streams;
 } Server;

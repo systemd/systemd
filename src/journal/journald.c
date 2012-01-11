@@ -183,7 +183,26 @@ finish:
         return avail;
 }
 
-static void fix_perms(JournalFile *f, uid_t uid) {
+static void server_read_file_gid(Server *s) {
+        const char *adm = "adm";
+        int r;
+
+        assert(s);
+
+        if (s->file_gid_valid)
+                return;
+
+        r = get_group_creds(&adm, &s->file_gid);
+        if (r < 0)
+                log_warning("Failed to resolve 'adm' group: %s", strerror(-r));
+
+        /* if we couldn't read the gid, then it will be 0, but that's
+         * fine and we shouldn't try to resolve the group again, so
+         * let's just pretend it worked right-away. */
+        s->file_gid_valid = true;
+}
+
+static void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
         int r;
 #ifdef HAVE_ACL
         acl_t acl;
@@ -193,7 +212,9 @@ static void fix_perms(JournalFile *f, uid_t uid) {
 
         assert(f);
 
-        r = fchmod_and_fchown(f->fd, 0640, 0, 0);
+        server_read_file_gid(s);
+
+        r = fchmod_and_fchown(f->fd, 0640, 0, s->file_gid);
         if (r < 0)
                 log_warning("Failed to fix access mode/rights on %s, ignoring: %s", f->path, strerror(-r));
 
@@ -277,7 +298,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (r < 0)
                 return s->system_journal;
 
-        fix_perms(f, uid);
+        server_fix_perms(s, f, uid);
         f->metrics = s->system_metrics;
         f->compress = s->compress;
 
@@ -1733,7 +1754,7 @@ static int system_journal_open(Server *s) {
                         s->system_journal->metrics = s->system_metrics;
                         s->system_journal->compress = s->compress;
 
-                        fix_perms(s->system_journal, 0);
+                        server_fix_perms(s, s->system_journal, 0);
                 } else if (r < 0) {
 
                         if (r != -ENOENT && r != -EROFS)
@@ -1786,7 +1807,7 @@ static int system_journal_open(Server *s) {
                         s->runtime_journal->metrics = s->runtime_metrics;
                         s->runtime_journal->compress = s->compress;
 
-                        fix_perms(s->runtime_journal, 0);
+                        server_fix_perms(s, s->runtime_journal, 0);
                 }
         }
 
