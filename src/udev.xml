@@ -382,14 +382,15 @@
           <term><option>RUN</option></term>
           <listitem>
             <para>Add a program to the list of programs to be executed for a specific
-            device. This can only be used for very short running tasks. Running an
-            event process for a long period of time may block all further events for
-            this or a dependent device. Long running tasks need to be immediately
-            detached from the event process itself.</para>
+            device.</para>
             <para>If no absolute path is given, the program is expected to live in
             /usr/lib/udev, otherwise the absolute path must be specified. The program
             name and following arguments are separated by spaces. Single quotes can
             be used to specify arguments with spaces.</para>
+            <para>This can only be used for very short running tasks. Running an
+            event process for a long period of time may block all further events for
+            this or a dependent device. Starting daemons or other long running processes
+            is not appropriate for udev.</para>
           </listitem>
         </varlistentry>
 
