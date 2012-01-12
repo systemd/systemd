@@ -1,3 +1,7 @@
+udev 177
+========
+Bugfix for rule_generator instalation.
+
 udev 176
 ========
 The 'devtmpfs' filesystem is required now, udev will not create or delete

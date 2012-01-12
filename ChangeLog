@@ -1,3 +1,12 @@
+Summary of changes from v176 to v177
+============================================
+
+Kay Sievers (3):
+      Makefile: update kernel.org sign and upload hook
+      rule_generator: fix to install rules in rules.d/
+      rule_generator: use += for dist_udevhome_DATA
+
+
 Summary of changes from v175 to v176
 ============================================
 
