@@ -24,6 +24,10 @@
 
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * A few points:
  *
@@ -124,5 +128,9 @@ int sd_login_monitor_flush(sd_login_monitor *m);
 
 /* Get FD from monitor */
 int sd_login_monitor_get_fd(sd_login_monitor *m);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

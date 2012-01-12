@@ -26,6 +26,10 @@
 #include <stdbool.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef union sd_id128 sd_id128_t;
 
 union sd_id128 {
@@ -57,5 +61,9 @@ int sd_id128_get_boot(sd_id128_t *ret);
 static inline bool sd_id128_equal(sd_id128_t a, sd_id128_t b) {
         return memcmp(&a, &b, 16) == 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

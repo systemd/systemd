@@ -29,6 +29,10 @@
 
 #include <systemd/sd-id128.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* TODO:
  *
  *   - OR of matches is borked...
@@ -121,5 +125,9 @@ int sd_journal_process(sd_journal *j);
 
 #define SD_JOURNAL_FOREACH_UNIQUE(j, data, l)                           \
         for (sd_journal_restart_unique(j); sd_journal_enumerate_data((j), &(data), &(l)) > 0; )
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
