@@ -123,7 +123,8 @@ _public_ int sd_pid_get_session(pid_t pid, char **session) {
 
 _public_ int sd_pid_get_unit(pid_t pid, char **unit) {
         int r;
-        char *cgroup, *p;
+        char *cgroup, *p, *at, *b;
+        size_t k;
 
         if (!unit)
                 return -EINVAL;
@@ -138,13 +139,37 @@ _public_ int sd_pid_get_unit(pid_t pid, char **unit) {
         }
 
         p = cgroup + 8;
-        p = strndup(p, strcspn(p, "/"));
+        k = strcspn(p, "/");
+
+        at = memchr(p, '@', k);
+        if (at && at[1] == '.') {
+                size_t j;
+
+                /* This is a templated service */
+                if (p[k] != '/') {
+                        free(cgroup);
+                        return -EIO;
+                }
+
+                j = strcspn(p+k+1, "/");
+
+                b = malloc(k + j + 1);
+
+                if (b) {
+                        memcpy(b, p, at - p + 1);
+                        memcpy(b + (at - p) + 1, p + k + 1, j);
+                        memcpy(b + (at - p) + 1 + j, at + 1, k - (at - p) - 1);
+                        b[k+j] = 0;
+                }
+        } else
+                  b = strndup(p, k);
+
         free(cgroup);
 
-        if (!p)
+        if (!b)
                 return -ENOMEM;
 
-        *unit = p;
+        *unit = b;
         return 0;
 }
 
