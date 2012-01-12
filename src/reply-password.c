@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
         char packet[LINE_MAX];
         size_t length;
 
-        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 

@@ -245,7 +245,7 @@ int main(int argc, char *argv[]) {
         if (argc > 1)
                 arg_dest = argv[1];
 
-        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 

@@ -343,7 +343,7 @@ static int parse_proc_cmdline_word(const char *word) {
 #ifdef HAVE_SYSV_COMPAT
                          "systemd.sysv_console=0|1                 Connect output of SysV scripts to console\n"
 #endif
-                         "systemd.log_target=console|kmsg|syslog|syslog-or-kmsg|null\n"
+                         "systemd.log_target=console|kmsg|journal|journal-or-kmsg|syslog|syslog-or-kmsg|null\n"
                          "                                         Log target\n"
                          "systemd.log_level=LEVEL                  Log level\n"
                          "systemd.log_color=0|1                    Highlight important log messages\n"
@@ -993,7 +993,7 @@ static int help(void) {
 #ifdef HAVE_SYSV_COMPAT
                "     --sysv-console[=0|1]        Connect output of SysV scripts to console\n"
 #endif
-               "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg, null)\n"
+               "     --log-target=TARGET         Set log target (console, journal, syslog, kmsg, journal-or-kmsg, syslog-or-kmsg, null)\n"
                "     --log-level=LEVEL           Set log level (debug, info, notice, warning, err, crit, alert, emerg)\n"
                "     --log-color[=0|1]           Highlight important log messages\n"
                "     --log-location[=0|1]        Include code location in log messages\n"
@@ -1177,7 +1177,7 @@ int main(int argc, char *argv[]) {
 
         if (getpid() == 1) {
                 arg_running_as = MANAGER_SYSTEM;
-                log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_SYSLOG_OR_KMSG);
+                log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_JOURNAL_OR_KMSG);
 
                 if (!is_reexec)
                         if (selinux_setup(&loaded_policy) < 0)

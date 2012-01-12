@@ -209,8 +209,10 @@
                                 <listitem><para>Set log
                                 target. Argument must be one of
                                 <option>console</option>,
+                                <option>journal</option>,
                                 <option>syslog</option>,
                                 <option>kmsg</option>,
+                                <option>journal-or-kmsg</option>,
                                 <option>syslog-or-kmsg</option>,
                                 <option>null</option>.</para></listitem>
                         </varlistentry>
@@ -266,13 +268,15 @@
                                 <option>inherit</option>,
                                 <option>null</option>,
                                 <option>tty</option>,
+                                <option>journal</option>,
+                                <option>journal+console</option>,
                                 <option>syslog</option>,
                                 <option>syslog+console</option>,
                                 <option>kmsg</option>,
                                 <option>kmsg+console</option>.  If the
                                 argument is omitted
                                 <option>--default-standard-output=</option>
-                                defaults to <option>syslog</option>
+                                defaults to <option>journal</option>
                                 and
                                 <option>--default-standard-error=</option>
                                 to
@@ -823,19 +827,24 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term>SIGRTMIN+26</term>
                                 <term>SIGRTMIN+27</term>
                                 <term>SIGRTMIN+28</term>
                                 <term>SIGRTMIN+29</term>
 
                                 <listitem><para>Sets the log level to
-                                <literal>console</literal>
-                                (resp. <literal>kmsg</literal> on
+                                <literal>journal-or-kmsg</literal>
+                                (resp. <literal>console</literal> on
+                                <literal>SIGRTMIN+27</literal>;
+                                resp. <literal>kmsg</literal> on
                                 <literal>SIGRTMIN+28</literal>;
                                 resp. <literal>syslog-or-kmsg</literal>
                                 on <literal>SIGRTMIN+29</literal>), as
                                 controlled via
-                                <varname>systemd.log_target=console</varname>
-                                (resp. <varname>systemd.log_target=kmsg</varname>
+                                <varname>systemd.log_target=journal-or-kmsg</varname>
+                                (resp. <varname>systemd.log_target=console</varname>
+                                on <literal>SIGRTMIN+27</literal>;
+                                resp. <varname>systemd.log_target=kmsg</varname>
                                 on <literal>SIGRTMIN+28</literal>;
                                 resp
                                 <varname>systemd.log_target=syslog-or-kmsg</varname>
@@ -1076,19 +1085,6 @@
                                 logic as implemented by
                                 <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
 
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><filename>/run/systemd/stdout-syslog-bridge</filename></term>
-
-                                <listitem><para>Used internally by the
-                                <filename>systemd-stdout-syslog-bridge.service</filename>
-                                unit to connect STDOUT and/or STDERR
-                                of spawned processes to
-                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                or the kernel log buffer. This is an
-                                AF_UNIX stream
-                                socket.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

@@ -195,6 +195,7 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+21, /* systemd: disable status messages */
                         SIGRTMIN+22, /* systemd: set log level to LOG_DEBUG */
                         SIGRTMIN+23, /* systemd: set log level to LOG_INFO */
+                        SIGRTMIN+26, /* systemd: set log target to journal-or-kmsg */
                         SIGRTMIN+27, /* systemd: set log target to console */
                         SIGRTMIN+28, /* systemd: set log target to kmsg */
                         SIGRTMIN+29, /* systemd: set log target to syslog-or-kmsg */
@@ -2293,6 +2294,11 @@ static int manager_process_signal_fd(Manager *m) {
                                 log_notice("Setting log level to info.");
                                 break;
 
+                        case 26:
+                                log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
+                                log_notice("Setting log target to journal-or-kmsg.");
+                                break;
+
                         case 27:
                                 log_set_target(LOG_TARGET_CONSOLE);
                                 log_notice("Setting log target to console.");
@@ -3121,7 +3127,7 @@ int manager_set_default_controllers(Manager *m, char **controllers) {
         return 0;
 }
 
-void manager_recheck_syslog(Manager *m) {
+void manager_recheck_journal(Manager *m) {
         Unit *u;
 
         assert(m);
@@ -3131,13 +3137,13 @@ void manager_recheck_syslog(Manager *m) {
 
         u = manager_get_unit(m, SPECIAL_JOURNALD_SOCKET);
         if (u && SOCKET(u)->state != SOCKET_RUNNING) {
-                log_close_syslog();
+                log_close_journal();
                 return;
         }
 
         u = manager_get_unit(m, SPECIAL_JOURNALD_SERVICE);
         if (u && SERVICE(u)->state != SERVICE_RUNNING) {
-                log_close_syslog();
+                log_close_journal();
                 return;
         }
 

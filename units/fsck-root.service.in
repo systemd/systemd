@@ -18,6 +18,6 @@ ConditionPathExists=!/run/initramfs/root-fsck
 Type=oneshot
 RemainAfterExit=no
 ExecStart=@rootlibexecdir@/systemd-fsck
-StandardOutput=syslog+console
+StandardOutput=journal+console
 FsckPassNo=1
 TimeoutSec=0

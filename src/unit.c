@@ -1338,7 +1338,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 }
         }
 
-        manager_recheck_syslog(u->meta.manager);
+        manager_recheck_journal(u->meta.manager);
 
         /* Maybe we finished startup and are now ready for being
          * stopped because unneeded? */
