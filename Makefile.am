@@ -659,7 +659,7 @@ dist_udevhome_SCRIPTS += \
 	src/extras/rule_generator/write_net_rules
 
 udevhome_DATA = src/extras/rule_generator/rule_generator.functions
-dist_udevhome_DATA += \
+dist_udevrules_DATA += \
 	src/extras/rule_generator/75-cd-aliases-generator.rules \
 	src/extras/rule_generator/75-persistent-net-generator.rules
 endif
