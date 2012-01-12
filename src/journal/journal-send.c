@@ -195,7 +195,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
 
         zero(sa);
         sa.sun_family = AF_UNIX;
-        strncpy(sa.sun_path,"/run/systemd/journal/socket", sizeof(sa.sun_path));
+        strncpy(sa.sun_path, "/run/systemd/journal/socket", sizeof(sa.sun_path));
 
         zero(mh);
         mh.msg_name = &sa;

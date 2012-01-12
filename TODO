@@ -21,6 +21,8 @@ Bugfixes:
 
 Features:
 
+* clean up session cgroups that remain after logout (think sshd), but eventually run empty
+
 * support "systemctl stop foobar@.service" to stop all units matching a certain template
 
 * move to LGPL2+

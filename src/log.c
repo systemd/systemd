@@ -26,12 +26,14 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <stddef.h>
 
 #include "log.h"
 #include "util.h"
 #include "macro.h"
+#include "socket-util.h"
 
-#define SYSLOG_TIMEOUT_USEC (5*USEC_PER_SEC)
+#define SOCKET_TIMEOUT_USEC (5*USEC_PER_SEC)
 
 static LogTarget log_target = LOG_TARGET_CONSOLE;
 static int log_max_level = LOG_INFO;
@@ -39,6 +41,7 @@ static int log_max_level = LOG_INFO;
 static int console_fd = STDERR_FILENO;
 static int syslog_fd = -1;
 static int kmsg_fd = -1;
+static int journal_fd = -1;
 
 static bool syslog_is_stream = false;
 
@@ -69,7 +72,8 @@ static int log_open_console(void) {
 
         if (getpid() == 1) {
 
-                if ((console_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0) {
+                console_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+                if (console_fd < 0) {
                         log_error("Failed to open /dev/console for logging: %s", strerror(-console_fd));
                         return console_fd;
                 }
@@ -122,12 +126,14 @@ static int create_log_socket(int type) {
         if (getpid() == 1)
                 /* systemd should not block on syslog */
                 type |= SOCK_NONBLOCK;
-        if ((fd = socket(AF_UNIX, type|SOCK_CLOEXEC, 0)) < 0)
+
+        fd = socket(AF_UNIX, type|SOCK_CLOEXEC, 0);
+        if (fd < 0)
                 return -errno;
 
         /* Make sure we don't block for more than 5s when talking to
          * syslog */
-        timeval_store(&tv, SYSLOG_TIMEOUT_USEC);
+        timeval_store(&tv, SOCKET_TIMEOUT_USEC);
         if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) < 0) {
                 close_nointr_nofail(fd);
                 return -errno;
@@ -137,10 +143,7 @@ static int create_log_socket(int type) {
 }
 
 static int log_open_syslog(void) {
-        union {
-                struct sockaddr sa;
-                struct sockaddr_un un;
-        } sa;
+        union sockaddr_union sa;
         int r;
 
         if (syslog_fd >= 0)
@@ -150,8 +153,9 @@ static int log_open_syslog(void) {
         sa.un.sun_family = AF_UNIX;
         strncpy(sa.un.sun_path, "/dev/log", sizeof(sa.un.sun_path));
 
-        if ((syslog_fd = create_log_socket(SOCK_DGRAM)) < 0) {
-                r = -errno;
+        syslog_fd = create_log_socket(SOCK_DGRAM);
+        if (syslog_fd < 0) {
+                r = syslog_fd;
                 goto fail;
         }
 
@@ -161,8 +165,9 @@ static int log_open_syslog(void) {
                 /* Some legacy syslog systems still use stream
                  * sockets. They really shouldn't. But what can we
                  * do... */
-                if ((syslog_fd = create_log_socket(SOCK_STREAM)) < 0) {
-                        r = -errno;
+                syslog_fd = create_log_socket(SOCK_STREAM);
+                if (syslog_fd < 0) {
+                        r = syslog_fd;
                         goto fail;
                 }
 
@@ -185,6 +190,47 @@ fail:
         return r;
 }
 
+void log_close_journal(void) {
+
+        if (journal_fd < 0)
+                return;
+
+        close_nointr_nofail(journal_fd);
+        journal_fd = -1;
+}
+
+static int log_open_journal(void) {
+        union sockaddr_union sa;
+        int r;
+
+        if (journal_fd >= 0)
+                return 0;
+
+        journal_fd = create_log_socket(SOCK_DGRAM);
+        if (journal_fd < 0) {
+                r = journal_fd;
+                goto fail;
+        }
+
+        zero(sa);
+        sa.un.sun_family = AF_UNIX;
+        strncpy(sa.un.sun_path, "/run/systemd/journal/socket", sizeof(sa.un.sun_path));
+
+        if (connect(journal_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        log_debug("Successfully opened journal for logging.");
+
+        return 0;
+
+fail:
+        log_close_journal();
+        log_debug("Failed to open journal for logging: %s", strerror(-r));
+        return r;
+}
+
 int log_open(void) {
         int r;
 
@@ -195,6 +241,7 @@ int log_open(void) {
          * because there is no reason to close it. */
 
         if (log_target == LOG_TARGET_NULL) {
+                log_close_journal();
                 log_close_syslog();
                 log_close_console();
                 return 0;
@@ -205,22 +252,41 @@ int log_open(void) {
             isatty(STDERR_FILENO) <= 0) {
 
                 if (log_target == LOG_TARGET_AUTO ||
-                    log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
-                    log_target == LOG_TARGET_SYSLOG)
-                        if ((r = log_open_syslog()) >= 0) {
-                                log_close_console();
-                                return r;
-                        }
-                if (log_target == LOG_TARGET_AUTO ||
-                    log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
-                    log_target == LOG_TARGET_KMSG)
-                        if ((r = log_open_kmsg()) >= 0) {
+                    log_target == LOG_TARGET_JOURNAL_OR_KMSG ||
+                    log_target == LOG_TARGET_JOURNAL) {
+                        r = log_open_journal();
+                        if (r >= 0) {
                                 log_close_syslog();
                                 log_close_console();
                                 return r;
                         }
+                }
+
+                if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+                    log_target == LOG_TARGET_SYSLOG) {
+                        r = log_open_syslog();
+                        if (r >= 0) {
+                                log_close_journal();
+                                log_close_console();
+                                return r;
+                        }
+                }
+
+                if (log_target == LOG_TARGET_AUTO ||
+                    log_target == LOG_TARGET_JOURNAL_OR_KMSG ||
+                    log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+                    log_target == LOG_TARGET_KMSG) {
+                        r = log_open_kmsg();
+                        if (r >= 0) {
+                                log_close_journal();
+                                log_close_syslog();
+                                log_close_console();
+                                return r;
+                        }
+                }
         }
 
+        log_close_journal();
         log_close_syslog();
 
         /* Get the real /dev/console if we are PID=1, hence reopen */
@@ -236,13 +302,14 @@ void log_set_target(LogTarget target) {
 }
 
 void log_close(void) {
-        log_close_console();
-        log_close_kmsg();
+        log_close_journal();
         log_close_syslog();
+        log_close_kmsg();
+        log_close_console();
 }
 
 void log_forget_fds(void) {
-        console_fd = kmsg_fd = syslog_fd = -1;
+        console_fd = kmsg_fd = syslog_fd = journal_fd = -1;
 }
 
 void log_set_max_level(int level) {
@@ -382,6 +449,48 @@ static int write_to_kmsg(
         return 1;
 }
 
+static int write_to_journal(
+        int level,
+        const char*file,
+        int line,
+        const char *func,
+        const char *buffer) {
+
+        char header[LINE_MAX];
+        struct iovec iovec[3];
+        struct msghdr mh;
+
+        if (journal_fd < 0)
+                return 0;
+
+        snprintf(header, sizeof(header),
+                 "PRIORITY=%i\n"
+                 "CODE_FILE=%s\n"
+                 "CODE_LINE=%i\n"
+                 "CODE_FUNCTION=%s\n"
+                 "MESSAGE=",
+                 LOG_PRI(level),
+                 file,
+                 line,
+                 func);
+
+        char_array_0(header);
+
+        zero(iovec);
+        IOVEC_SET_STRING(iovec[0], header);
+        IOVEC_SET_STRING(iovec[1], buffer);
+        IOVEC_SET_STRING(iovec[2], "\n");
+
+        zero(mh);
+        mh.msg_iov = iovec;
+        mh.msg_iovlen = ELEMENTSOF(iovec);
+
+        if (sendmsg(journal_fd, &mh, MSG_NOSIGNAL) < 0)
+                return -errno;
+
+        return 1;
+}
+
 static int log_dispatch(
         int level,
         const char*file,
@@ -411,7 +520,19 @@ static int log_dispatch(
                         *(e++) = 0;
 
                 if (log_target == LOG_TARGET_AUTO ||
-                    log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+                    log_target == LOG_TARGET_JOURNAL_OR_KMSG ||
+                    log_target == LOG_TARGET_JOURNAL) {
+
+                        k = write_to_journal(level, file, line, func, buffer);
+                        if (k < 0) {
+                                if (k != -EAGAIN)
+                                        log_close_journal();
+                                log_open_kmsg();
+                        } else if (k > 0)
+                                r++;
+                }
+
+                if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
                     log_target == LOG_TARGET_SYSLOG) {
 
                         k = write_to_syslog(level, file, line, func, buffer);
@@ -524,7 +645,8 @@ void log_assert(
 int log_set_target_from_string(const char *e) {
         LogTarget t;
 
-        if ((t = log_target_from_string(e)) < 0)
+        t = log_target_from_string(e);
+        if (t < 0)
                 return -EINVAL;
 
         log_set_target(t);
@@ -534,8 +656,9 @@ int log_set_target_from_string(const char *e) {
 int log_set_max_level_from_string(const char *e) {
         int t;
 
-        if ((t = log_level_from_string(e)) < 0)
-                return -EINVAL;
+        t = log_level_from_string(e);
+        if (t < 0)
+                return t;
 
         log_set_max_level(t);
         return 0;
@@ -580,8 +703,9 @@ void log_show_location(bool b) {
 int log_show_color_from_string(const char *e) {
         int t;
 
-        if ((t = parse_boolean(e)) < 0)
-                return -EINVAL;
+        t = parse_boolean(e);
+        if (t < 0)
+                return t;
 
         log_show_color(t);
         return 0;
@@ -590,8 +714,9 @@ int log_show_color_from_string(const char *e) {
 int log_show_location_from_string(const char *e) {
         int t;
 
-        if ((t = parse_boolean(e)) < 0)
-                return -EINVAL;
+        t = parse_boolean(e);
+        if (t < 0)
+                return t;
 
         log_show_location(t);
         return 0;
@@ -599,11 +724,13 @@ int log_show_location_from_string(const char *e) {
 
 static const char *const log_target_table[] = {
         [LOG_TARGET_CONSOLE] = "console",
-        [LOG_TARGET_SYSLOG] = "syslog",
         [LOG_TARGET_KMSG] = "kmsg",
+        [LOG_TARGET_JOURNAL] = "journal",
+        [LOG_TARGET_JOURNAL_OR_KMSG] = "journal-or-kmsg",
+        [LOG_TARGET_SYSLOG] = "syslog",
         [LOG_TARGET_SYSLOG_OR_KMSG] = "syslog-or-kmsg",
-        [LOG_TARGET_NULL] = "null",
-        [LOG_TARGET_AUTO] = "auto"
+        [LOG_TARGET_AUTO] = "auto",
+        [LOG_TARGET_NULL] = "null"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);
