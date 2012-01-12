@@ -752,6 +752,11 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
         if (sendmsg(s->syslog_fd, &msghdr, MSG_NOSIGNAL) >= 0)
                 return;
 
+        /* The socket is full? I guess the syslog implementation is
+         * too slow, and we shouldn't wait for that... */
+        if (errno == EAGAIN)
+                return;
+
         if (ucred && errno == ESRCH) {
                 struct ucred u;
 
@@ -764,6 +769,9 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
                 memcpy(CMSG_DATA(cmsg), &u, sizeof(struct ucred));
 
                 if (sendmsg(s->syslog_fd, &msghdr, MSG_NOSIGNAL) >= 0)
+                        return;
+
+                if (errno == EAGAIN)
                         return;
         }
 
