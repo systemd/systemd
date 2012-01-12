@@ -771,6 +771,9 @@ tar-sync:
 	kup put udev-$(VERSION).tar.xz  udev-$(VERSION).tar.asc /pub/linux/utils/kernel/hotplug/udev-$(VERSION).tar.gz
 
 doc-sync:
-	rsync -av src/*.html master.kernel.org:/pub/linux/utils/kernel/hotplug/udev/
-	rsync -av --delete src/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/src/
-	rsync -av --delete src/extras/gudev/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/gudev/
+	for i in src/*.html; do rm -f $$i.sign; gpg --armor --detach-sign --output=$$i.sign $$i; done
+	for i in src/*.html; do echo $$i; kup put $$i $$i.sign /pub/linux/utils/kernel/hotplug/udev/; done
+	for i in src/docs/html/*.{html,css,png}; do rm -f $$i.sign; gpg --armor --detach-sign --output=$$i.sign $$i; done
+	for i in src/docs/html/*.{html,css,png}; do echo $$i; kup put $$i $$i.sign /pub/linux/utils/kernel/hotplug/libudev/; done
+	for i in src/extras/gudev/docs/html/*.{html,css,png}; do rm -f $$i.sign; gpg --armor --detach-sign --output=$$i.sign $$i; done
+	for i in src/extras/gudev/docs/html/*.{html,css,png}; do echo $$i; kup put $$i $$i.sign /pub/linux/utils/kernel/hotplug/gudev/; done
