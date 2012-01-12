@@ -479,6 +479,8 @@ src/extras/gudev/GUdev-1.0.gir: src/extras/gudev/libgudev-1.0.la $(G_IR_SCANNER)
 		--output $@ \
 		--pkg=glib-2.0 \
 		--pkg=gobject-2.0 \
+		--pkg-export=gudev-1.0 \
+		--c-include=gudev/gudev.h \
 		-I$(top_srcdir)/src/extras \
 		-I$(top_builddir)/src/extras \
 		-D_GUDEV_COMPILATION \

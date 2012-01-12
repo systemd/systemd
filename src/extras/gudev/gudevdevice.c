@@ -373,7 +373,7 @@ g_udev_device_get_device_file_symlinks (GUdevDevice *device)
  *
  * Gets the immediate parent of @device, if any.
  *
- * Returns: A #GUdevDevice or %NULL if @device has no parent. Free with g_object_unref().
+ * Returns: (transfer full): A #GUdevDevice or %NULL if @device has no parent. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_device_get_parent (GUdevDevice  *device)
@@ -404,7 +404,7 @@ g_udev_device_get_parent (GUdevDevice  *device)
  * Walks up the chain of parents of @device and returns the first
  * device encountered where @subsystem and @devtype matches, if any.
  *
- * Returns: A #GUdevDevice or %NULL if @device has no parent with @subsystem and @devtype. Free with g_object_unref().
+ * Returns: (transfer full): A #GUdevDevice or %NULL if @device has no parent with @subsystem and @devtype. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_device_get_parent_with_subsystem (GUdevDevice  *device,
