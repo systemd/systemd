@@ -11,6 +11,8 @@
 Description=Syslog Socket
 DefaultDependencies=no
 Before=sockets.target syslog.target
+Conflicts=shutdown.target
+Before=shutdown.target
 
 # Pull in syslog.target to tell people that /dev/log is now accessible
 Wants=syslog.target
