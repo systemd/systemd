@@ -260,7 +260,6 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         int v;
 
         assert(display);
-        assert(seat);
         assert(vtnr);
 
         /* We deduce the X11 socket from the display name, then use
@@ -308,7 +307,8 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         else if (v == 0)
                 return -ENOENT;
 
-        *seat = "seat0";
+        if (seat)
+                *seat = "seat0";
         *vtnr = (uint32_t) v;
 
         return 0;
@@ -455,8 +455,12 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (!isempty(cvtnr))
                 safe_atou32(cvtnr, &vtnr);
 
-        if (!isempty(display) && isempty(seat) && vtnr <= 0)
-                get_seat_from_display(display, &seat, &vtnr);
+        if (!isempty(display) && vtnr <= 0) {
+                if (isempty(seat))
+                        get_seat_from_display(handle, display, &seat, &vtnr);
+                else if (streq(seat, "seat0"))
+                        get_seat_from_display(handle, display, NULL, &vtnr);
+        }
 
         type = !isempty(display) ? "x11" :
                    !isempty(tty) ? "tty" : "unspecified";
