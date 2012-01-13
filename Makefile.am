@@ -52,6 +52,7 @@ bashcompletiondir=$(sysconfdir)/bash_completion.d
 pkgsysconfdir=$(sysconfdir)/systemd
 userunitdir=$(prefix)/lib/systemd/user
 tmpfilesdir=$(prefix)/lib/tmpfiles.d
+sysctldir=$(prefix)/lib/sysctl.d
 usergeneratordir=$(pkglibexecdir)/user-generators
 pkgincludedir=$(includedir)/systemd
 
@@ -1397,6 +1398,27 @@ EXTRA_DIST += \
 CLEANFILES += \
 	src/journal/journald-gperf.c
 
+if ENABLE_COREDUMP
+
+systemd_coredump_SOURCES = \
+        src/journal/coredump.c
+
+systemd_coredump_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-journal.la \
+	libsystemd-login.la
+
+rootlibexec_PROGRAMS += \
+        systemd-coredump
+
+sysctl_DATA = \
+        sysctl.d/coredump.conf
+
+EXTRA_DIST += \
+        sysctl.d/coredump.conf.in
+
+endif
+
 # ------------------------------------------------------------------------------
 if ENABLE_BINFMT
 systemd_binfmt_SOURCES = \
@@ -2072,6 +2094,9 @@ units/%: units/%.in Makefile
 	$(SED_PROCESS)
 
 man/%: man/%.in Makefile
+	$(SED_PROCESS)
+
+sysctl.d/%: sysctl.d/%.in Makefile
 	$(SED_PROCESS)
 
 %.pc: %.pc.in Makefile

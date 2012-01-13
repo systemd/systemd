@@ -1,3 +1,4 @@
+/systemd-coredump
 /systemd-cat
 /systemd-rc-local-generator
 /libsystemd-id128.pc
