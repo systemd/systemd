@@ -457,9 +457,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         if (!isempty(display) && vtnr <= 0) {
                 if (isempty(seat))
-                        get_seat_from_display(handle, display, &seat, &vtnr);
+                        get_seat_from_display(display, &seat, &vtnr);
                 else if (streq(seat, "seat0"))
-                        get_seat_from_display(handle, display, NULL, &vtnr);
+                        get_seat_from_display(display, NULL, &vtnr);
         }
 
         type = !isempty(display) ? "x11" :
