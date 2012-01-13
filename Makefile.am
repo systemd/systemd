@@ -1237,6 +1237,13 @@ systemd_journald_LDADD += \
 	$(XZ_LIBS)
 endif
 
+systemd_cat_SOURCES = \
+        src/journal/cat.c
+
+systemd_cat_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-journal.la
+
 systemd_journalctl_SOURCES = \
 	src/journal/journalctl.c \
 	src/pager.c \
@@ -1344,6 +1351,9 @@ rootlibexec_PROGRAMS += \
 
 rootbin_PROGRAMS += \
 	systemd-journalctl
+
+bin_PROGRAMS += \
+        systemd-cat
 
 dist_systemunit_DATA += \
 	units/systemd-journald.socket
