@@ -166,12 +166,12 @@ static void agent_open_if_enabled(void) {
         agent_open();
 }
 
-static const char *ansi_highlight(bool b) {
+static const char *ansi_highlight_red(bool b) {
 
         if (!on_tty())
                 return "";
 
-        return b ? ANSI_HIGHLIGHT_ON : ANSI_HIGHLIGHT_OFF;
+        return b ? ANSI_HIGHLIGHT_RED_ON : ANSI_HIGHLIGHT_OFF;
 }
 
 static const char *ansi_highlight_green(bool b) {
@@ -383,14 +383,14 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 n_shown++;
 
                 if (streq(u->load_state, "error")) {
-                        on_loaded = ansi_highlight(true);
-                        off_loaded = ansi_highlight(false);
+                        on_loaded = ansi_highlight_red(true);
+                        off_loaded = ansi_highlight_red(false);
                 } else
                         on_loaded = off_loaded = "";
 
                 if (streq(u->active_state, "failed")) {
-                        on_active = ansi_highlight(true);
-                        off_active = ansi_highlight(false);
+                        on_active = ansi_highlight_red(true);
+                        off_active = ansi_highlight_red(false);
                 } else
                         on_active = off_active = "";
 
@@ -593,8 +593,8 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 if (u->state == UNIT_FILE_MASKED ||
                     u->state == UNIT_FILE_MASKED_RUNTIME ||
                     u->state == UNIT_FILE_DISABLED) {
-                        on  = ansi_highlight(true);
-                        off = ansi_highlight(false);
+                        on  = ansi_highlight_red(true);
+                        off = ansi_highlight_red(false);
                 } else if (u->state == UNIT_FILE_ENABLED) {
                         on  = ansi_highlight_green(true);
                         off = ansi_highlight_green(false);
@@ -2069,8 +2069,8 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("\t  Follow: unit currently follows state of %s\n", i->following);
 
         if (streq_ptr(i->load_state, "error")) {
-                on = ansi_highlight(true);
-                off = ansi_highlight(false);
+                on = ansi_highlight_red(true);
+                off = ansi_highlight_red(false);
         } else
                 on = off = "";
 
@@ -2086,8 +2086,8 @@ static void print_status_info(UnitStatusInfo *i) {
         ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
 
         if (streq_ptr(i->active_state, "failed")) {
-                on = ansi_highlight(true);
-                off = ansi_highlight(false);
+                on = ansi_highlight_red(true);
+                off = ansi_highlight_red(false);
         } else if (streq_ptr(i->active_state, "active") || streq_ptr(i->active_state, "reloading")) {
                 on = ansi_highlight_green(true);
                 off = ansi_highlight_green(false);
@@ -2163,8 +2163,8 @@ static void print_status_info(UnitStatusInfo *i) {
                         good = is_clean_exit(p->code, p->status);
 
                 if (!good) {
-                        on = ansi_highlight(true);
-                        off = ansi_highlight(false);
+                        on = ansi_highlight_red(true);
+                        off = ansi_highlight_red(false);
                 } else
                         on = off = "";
 
@@ -2274,8 +2274,8 @@ static void print_status_info(UnitStatusInfo *i) {
 
         if (i->need_daemon_reload)
                 printf("\n%sWarning:%s Unit file changed on disk, 'systemctl %s daemon-reload' recommended.\n",
-                       ansi_highlight(true),
-                       ansi_highlight(false),
+                       ansi_highlight_red(true),
+                       ansi_highlight_red(false),
                        arg_scope == UNIT_FILE_SYSTEM ? "--system" : "--user");
 }
 

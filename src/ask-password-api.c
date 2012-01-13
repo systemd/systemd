@@ -89,10 +89,10 @@ int ask_password_tty(
                         goto finish;
                 }
 
-                loop_write(ttyfd, "\x1B[1m", 4, false);
+                loop_write(ttyfd, ANSI_HIGHLIGHT_ON, sizeof(ANSI_HIGHLIGHT_ON)-1, false);
                 loop_write(ttyfd, message, strlen(message), false);
                 loop_write(ttyfd, " ", 1, false);
-                loop_write(ttyfd, "\x1B[0m", 4, false);
+                loop_write(ttyfd, ANSI_HIGHLIGHT_OFF, sizeof(ANSI_HIGHLIGHT_OFF)-1, false);
 
                 new_termios = old_termios;
                 new_termios.c_lflag &= ~(ICANON|ECHO);

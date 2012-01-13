@@ -488,16 +488,16 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                         break;
 
                 case JOB_FAILED:
-                        unit_status_printf(u, ANSI_HIGHLIGHT_ON "FAILED" ANSI_HIGHLIGHT_OFF, "Failed to start %s", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON "FAILED" ANSI_HIGHLIGHT_OFF, "Failed to start %s", unit_description(u));
                         unit_status_printf(u, NULL, "See 'systemctl status %s' for details.", u->meta.id);
                         break;
 
                 case JOB_DEPENDENCY:
-                        unit_status_printf(u, ANSI_HIGHLIGHT_ON " ABORT" ANSI_HIGHLIGHT_OFF, "Dependency failed. Aborted start of %s", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " ABORT" ANSI_HIGHLIGHT_OFF, "Dependency failed. Aborted start of %s", unit_description(u));
                         break;
 
                 case JOB_TIMEOUT:
-                        unit_status_printf(u, ANSI_HIGHLIGHT_ON " TIME " ANSI_HIGHLIGHT_OFF, "Timed out starting %s", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, "Timed out starting %s", unit_description(u));
                         break;
 
                 default:
@@ -509,7 +509,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                 switch (result) {
 
                 case JOB_TIMEOUT:
-                        unit_status_printf(u, ANSI_HIGHLIGHT_ON " TIME " ANSI_HIGHLIGHT_OFF, "Timed out stopping %s", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, "Timed out stopping %s", unit_description(u));
                         break;
 
                 case JOB_DONE:

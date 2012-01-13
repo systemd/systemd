@@ -344,7 +344,7 @@ static int write_to_console(
         }
 
         if (highlight)
-                IOVEC_SET_STRING(iovec[n++], ANSI_HIGHLIGHT_ON);
+                IOVEC_SET_STRING(iovec[n++], ANSI_HIGHLIGHT_RED_ON);
         IOVEC_SET_STRING(iovec[n++], buffer);
         if (highlight)
                 IOVEC_SET_STRING(iovec[n++], ANSI_HIGHLIGHT_OFF);

@@ -2467,14 +2467,14 @@ int ask(char *ret, const char *replies, const char *text, ...) {
                 bool need_nl = true;
 
                 if (on_tty)
-                        fputs("\x1B[1m", stdout);
+                        fputs(ANSI_HIGHLIGHT_ON, stdout);
 
                 va_start(ap, text);
                 vprintf(text, ap);
                 va_end(ap);
 
                 if (on_tty)
-                        fputs("\x1B[0m", stdout);
+                        fputs(ANSI_HIGHLIGHT_OFF, stdout);
 
                 fflush(stdout);
 
