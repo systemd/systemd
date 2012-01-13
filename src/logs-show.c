@@ -488,12 +488,34 @@ static int output_json(sd_journal *j, unsigned line, bool show_all) {
         return 0;
 }
 
+static int output_cat(sd_journal *j, unsigned line, bool show_all) {
+        const void *data;
+        size_t l;
+        int r;
+
+        assert(j);
+
+        r = sd_journal_get_data(j, "MESSAGE", &data, &l);
+        if (r < 0) {
+                log_error("Failed to get data: %s", strerror(-r));
+                return r;
+        }
+
+        assert(l >= 8);
+
+        fwrite((const char*) data + 8, 1, l - 8, stdout);
+        putchar('\n');
+
+        return 0;
+}
+
 static int (*output_funcs[_OUTPUT_MODE_MAX])(sd_journal*j, unsigned line, bool show_all) = {
         [OUTPUT_SHORT] = output_short_realtime,
         [OUTPUT_SHORT_MONOTONIC] = output_short_monotonic,
         [OUTPUT_VERBOSE] = output_verbose,
         [OUTPUT_EXPORT] = output_export,
-        [OUTPUT_JSON] = output_json
+        [OUTPUT_JSON] = output_json,
+        [OUTPUT_CAT] = output_cat
 };
 
 int output_journal(sd_journal *j, OutputMode mode, unsigned line, bool show_all) {
@@ -636,7 +658,8 @@ static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT_MONOTONIC] = "short-monotonic",
         [OUTPUT_VERBOSE] = "verbose",
         [OUTPUT_EXPORT] = "export",
-        [OUTPUT_JSON] = "json"
+        [OUTPUT_JSON] = "json",
+        [OUTPUT_CAT] = "cat"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(output_mode, OutputMode);

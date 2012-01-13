@@ -34,6 +34,7 @@ typedef enum OutputMode {
         OUTPUT_VERBOSE,
         OUTPUT_EXPORT,
         OUTPUT_JSON,
+        OUTPUT_CAT,
         _OUTPUT_MODE_MAX,
         _OUTPUT_MODE_INVALID = -1
 } OutputMode;
