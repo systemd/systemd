@@ -357,10 +357,6 @@ static int mount_add_fstab_links(Mount *m) {
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
         }
 
-        if (!path_equal(m->where, "/"))
-                if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
-                        return r;
-
         if ((r = manager_load_unit(m->meta.manager, target, NULL, NULL, &tu)) < 0)
                 return r;
 
@@ -461,24 +457,23 @@ static int mount_add_device_links(Mount *m) {
 
 static int mount_add_default_dependencies(Mount *m) {
         int r;
+        MountParameters *p;
 
         assert(m);
 
-        if (m->meta.manager->running_as == MANAGER_SYSTEM &&
-            !path_equal(m->where, "/")) {
-                MountParameters *p;
+        if (m->meta.manager->running_as != MANAGER_SYSTEM)
+                return 0;
 
-                p = get_mount_parameters_configured(m);
-
-                if (p && needs_quota(p)) {
-                        if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTACHECK_SERVICE, NULL, true)) < 0 ||
-                            (r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTAON_SERVICE, NULL, true)) < 0)
-                                return r;
-                }
-
-                if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
+        p = get_mount_parameters_configured(m);
+        if (p && needs_quota(p)) {
+                if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTACHECK_SERVICE, NULL, true)) < 0 ||
+                    (r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTAON_SERVICE, NULL, true)) < 0)
                         return r;
         }
+
+        if (!path_equal(m->where, "/"))
+                if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
+                        return r;
 
         return 0;
 }
@@ -588,8 +583,6 @@ static int mount_load(Unit *u) {
 
                 if (m->meta.fragment_path)
                         m->from_fragment = true;
-                else if (m->from_etc_fstab)
-                        m->meta.default_dependencies = false;
 
                 if (!m->where)
                         if (!(m->where = unit_name_to_path(u->meta.id)))
