@@ -4402,31 +4402,37 @@ int vtnr_from_tty(const char *tty) {
         return i;
 }
 
-const char *default_term_for_tty(const char *tty) {
+bool tty_is_vc_resolve(const char *tty) {
         char *active = NULL;
-        const char *term;
+        bool b;
 
         assert(tty);
 
         if (startswith(tty, "/dev/"))
                 tty += 5;
 
-        /* Resolve where /dev/console is pointing when determining
-         * TERM */
+        /* Resolve where /dev/console is pointing to */
         if (streq(tty, "console"))
                 if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
                         /* If multiple log outputs are configured the
                          * last one is what /dev/console points to */
-                        if ((tty = strrchr(active, ' ')))
+                        tty = strrchr(active, ' ');
+                        if (tty)
                                 tty++;
                         else
                                 tty = active;
                 }
 
-        term = tty_is_vc(tty) ? "TERM=linux" : "TERM=vt100";
+        b = tty_is_vc(tty);
         free(active);
 
-        return term;
+        return b;
+}
+
+const char *default_term_for_tty(const char *tty) {
+        assert(tty);
+
+        return tty_is_vc_resolve(tty) ? "TERM=linux" : "TERM=vt100";
 }
 
 bool dirent_is_file(const struct dirent *de) {
