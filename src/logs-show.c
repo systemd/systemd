@@ -225,9 +225,10 @@ static int output_short(sd_journal *j, unsigned line, bool show_all, bool monoto
 
         if (show_all)
                 printf(": %.*s\n", (int) message_len, message);
-        else if (contains_unprintable(message, message_len))
-                fputs(": [blob data]\n", stdout);
-        else if (message_len + n < columns())
+        else if (contains_unprintable(message, message_len)) {
+                char bytes[FORMAT_BYTES_MAX];
+                printf(": [%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
+        } else if (message_len + n < columns())
                 printf(": %.*s\n", (int) message_len, message);
         else if (n < columns()) {
                 char *e;
@@ -298,6 +299,7 @@ static int output_verbose(sd_journal *j, unsigned line, bool show_all) {
                 if (!show_all && (length > PRINT_THRESHOLD ||
                                   contains_unprintable(data, length))) {
                         const char *c;
+                        char bytes[FORMAT_BYTES_MAX];
 
                         c = memchr(data, '=', length);
                         if (!c) {
@@ -305,9 +307,10 @@ static int output_verbose(sd_journal *j, unsigned line, bool show_all) {
                                 return -EINVAL;
                         }
 
-                        printf("\t%.*s=[blob data]\n",
+                        printf("\t%.*s=[%s blob data]\n",
                                (int) (c - (const char*) data),
-                               (const char*) data);
+                               (const char*) data,
+                               format_bytes(bytes, sizeof(bytes), length - (c - (const char *) data) - 1));
                 } else
                         printf("\t%.*s\n", (int) length, (const char*) data);
         }
