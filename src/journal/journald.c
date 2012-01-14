@@ -1405,10 +1405,14 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
         switch (s->state) {
 
         case STDOUT_STREAM_IDENTIFIER:
-                s->identifier = strdup(p);
-                if (!s->identifier) {
-                        log_error("Out of memory");
-                        return -ENOMEM;
+                if (isempty(p))
+                        s->identifier = NULL;
+                else  {
+                        s->identifier = strdup(p);
+                        if (!s->identifier) {
+                                log_error("Out of memory");
+                                return -ENOMEM;
+                        }
                 }
 
                 s->state = STDOUT_STREAM_PRIORITY;
