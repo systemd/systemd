@@ -28,7 +28,7 @@
 #include "log.h"
 #include "util.h"
 
-#define COREDUMP_MAX (64*1024)
+#define COREDUMP_MAX (24*1024*1024)
 
 enum {
         ARG_PID = 1,
