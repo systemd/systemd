@@ -45,6 +45,8 @@ int main(int argc, char* argv[]) {
         char *p = NULL;
         ssize_t n;
         pid_t pid;
+        uid_t uid;
+        gid_t gid;
         struct iovec iovec[14];
         char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
                 *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
@@ -63,30 +65,20 @@ int main(int argc, char* argv[]) {
         r = parse_pid(argv[ARG_PID], &pid);
         if (r < 0) {
                 log_error("Failed to parse PID.");
-                r = -EINVAL;
                 goto finish;
         }
 
-        p = malloc(9 + COREDUMP_MAX);
-        if (!p) {
-                log_error("Out of memory");
-                r = -ENOMEM;
+        r = parse_uid(argv[ARG_UID], &uid);
+        if (r < 0) {
+                log_error("Failed to parse UID.");
                 goto finish;
         }
 
-        memcpy(p, "COREDUMP=", 9);
-
-        n = loop_read(STDIN_FILENO, p + 9, COREDUMP_MAX, false);
-        if (n < 0) {
-                log_error("Failed to read core dump data: %s", strerror(-n));
-                r = (int) n;
+        r = parse_gid(argv[ARG_GID], &gid);
+        if (r < 0) {
+                log_error("Failed to parse GID.");
                 goto finish;
         }
-
-        zero(iovec);
-        iovec[j].iov_base = p;
-        iovec[j].iov_len = 9 + n;
-        j++;
 
         core_pid = strappend("COREDUMP_PID=", argv[ARG_PID]);
         if (core_pid)
@@ -150,6 +142,39 @@ int main(int argc, char* argv[]) {
         core_message = join("MESSAGE=Process ", argv[ARG_PID], " (", argv[ARG_COMM], ") dumped core.", NULL);
         if (core_message)
                 IOVEC_SET_STRING(iovec[j++], core_message);
+
+        /* Now, let's drop privileges to become the user who owns the
+         * segfaulted process and allocate the coredump memory under
+         * his uid. This also ensures that the credentials journald
+         * will see are the ones of the coredumping user, thus making
+         * sure the user himself gets access to the core dump. */
+
+        if (setresgid(gid, gid, gid) < 0 ||
+            setresuid(uid, uid, uid) < 0) {
+                log_error("Failed to drop privileges: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        p = malloc(9 + COREDUMP_MAX);
+        if (!p) {
+                log_error("Out of memory");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        memcpy(p, "COREDUMP=", 9);
+
+        n = loop_read(STDIN_FILENO, p + 9, COREDUMP_MAX, false);
+        if (n < 0) {
+                log_error("Failed to read core dump data: %s", strerror(-n));
+                r = (int) n;
+                goto finish;
+        }
+
+        iovec[j].iov_base = p;
+        iovec[j].iov_len = 9 + n;
+        j++;
 
         r = sd_journal_sendv(iovec, j);
         if (r < 0)
