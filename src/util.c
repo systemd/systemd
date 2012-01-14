@@ -3077,6 +3077,8 @@ int parse_bytes(const char *t, off_t *bytes) {
                 { "M", 1024ULL*1024ULL },
                 { "G", 1024ULL*1024ULL*1024ULL },
                 { "T", 1024ULL*1024ULL*1024ULL*1024ULL },
+                { "P", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
+                { "E", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
                 { "", 1 },
         };
 
@@ -6082,6 +6084,8 @@ char *format_bytes(char *buf, size_t l, off_t t) {
                 const char *suffix;
                 off_t factor;
         } table[] = {
+                { "E", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
+                { "P", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
                 { "T", 1024ULL*1024ULL*1024ULL*1024ULL },
                 { "G", 1024ULL*1024ULL*1024ULL },
                 { "M", 1024ULL*1024ULL },
