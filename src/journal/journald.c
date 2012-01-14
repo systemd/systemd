@@ -70,6 +70,8 @@
 
 #define N_IOVEC_META_FIELDS 17
 
+#define ENTRY_SIZE_MAX (1024*1024*32)
+
 typedef enum StdoutStreamState {
         STDOUT_STREAM_IDENTIFIER,
         STDOUT_STREAM_PRIORITY,
@@ -1291,6 +1293,52 @@ finish:
         free(message);
 }
 
+static void process_native_file(Server *s, int fd, struct ucred *ucred, struct timeval *tv) {
+        struct stat st;
+        void *p;
+        ssize_t n;
+
+        assert(s);
+        assert(fd >= 0);
+
+        /* Data is in the passed file, since it didn't fit in a
+         * datagram. We can't map the file here, since clients might
+         * then truncate it and trigger a SIGBUS for us. So let's
+         * stupidly read it */
+
+        if (fstat(fd, &st) < 0) {
+                log_error("Failed to stat passed file, ignoring: %m");
+                return;
+        }
+
+        if (!S_ISREG(st.st_mode)) {
+                log_error("File passed is not regular. Ignoring.");
+                return;
+        }
+
+        if (st.st_size <= 0)
+                return;
+
+        if (st.st_size > ENTRY_SIZE_MAX) {
+                log_error("File passed too large. Ignoring.");
+                return;
+        }
+
+        p = malloc(st.st_size);
+        if (!p) {
+                log_error("Out of memory");
+                return;
+        }
+
+        n = pread(fd, p, st.st_size, 0);
+        if (n < 0)
+                log_error("Failed to read file, ignoring: %s", strerror(-n));
+        else if (n > 0)
+                process_native_message(s, p, n, ucred, tv);
+
+        free(p);
+}
+
 static int stdout_stream_log(StdoutStream *s, const char *p) {
         struct iovec iovec[N_IOVEC_META_FIELDS + 5];
         char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_identifier = NULL;
@@ -1299,6 +1347,9 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
 
         assert(s);
         assert(p);
+
+        if (isempty(p))
+                return 0;
 
         priority = s->priority;
 
@@ -1649,6 +1700,9 @@ static void proc_kmsg_line(Server *s, const char *p) {
         assert(s);
         assert(p);
 
+        if (isempty(p))
+                return;
+
         parse_syslog_priority((char **) &p, &priority);
 
         if (s->forward_to_kmsg && (priority & LOG_FACMASK) != LOG_KERN)
@@ -1696,7 +1750,6 @@ static void proc_kmsg_line(Server *s, const char *p) {
         message = strappend("MESSAGE=", p);
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
-
 
         dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, priority);
 
@@ -2027,18 +2080,18 @@ static int process_event(Server *s, struct epoll_event *ev) {
                         union {
                                 struct cmsghdr cmsghdr;
                                 uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
-                                            CMSG_SPACE(sizeof(struct timeval))];
+                                            CMSG_SPACE(sizeof(struct timeval)) +
+                                            CMSG_SPACE(sizeof(int))];
                         } control;
                         ssize_t n;
                         int v;
+                        int *fds = NULL;
+                        unsigned n_fds = 0;
 
                         if (ioctl(ev->data.fd, SIOCINQ, &v) < 0) {
                                 log_error("SIOCINQ failed: %m");
                                 return -errno;
                         }
-
-                        if (v <= 0)
-                                return 1;
 
                         if (s->buffer_size < (size_t) v) {
                                 void *b;
@@ -2067,7 +2120,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
                         msghdr.msg_control = &control;
                         msghdr.msg_controllen = sizeof(control);
 
-                        n = recvmsg(ev->data.fd, &msghdr, MSG_DONTWAIT);
+                        n = recvmsg(ev->data.fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
                         if (n < 0) {
 
                                 if (errno == EINTR || errno == EAGAIN)
@@ -2087,20 +2140,37 @@ static int process_event(Server *s, struct epoll_event *ev) {
                                          cmsg->cmsg_type == SO_TIMESTAMP &&
                                          cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
                                         tv = (struct timeval*) CMSG_DATA(cmsg);
+                                else if (cmsg->cmsg_level == SOL_SOCKET &&
+                                         cmsg->cmsg_type == SCM_RIGHTS) {
+                                        fds = (int*) CMSG_DATA(cmsg);
+                                        n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+                                }
                         }
 
                         if (ev->data.fd == s->syslog_fd) {
                                 char *e;
 
-                                e = memchr(s->buffer, '\n', n);
-                                if (e)
-                                        *e = 0;
-                                else
-                                        s->buffer[n] = 0;
+                                if (n > 0 && n_fds == 0) {
+                                        e = memchr(s->buffer, '\n', n);
+                                        if (e)
+                                                *e = 0;
+                                        else
+                                                s->buffer[n] = 0;
 
-                                process_syslog_message(s, strstrip(s->buffer), ucred, tv);
-                        } else
-                                process_native_message(s, s->buffer, n, ucred, tv);
+                                        process_syslog_message(s, strstrip(s->buffer), ucred, tv);
+                                } else if (n_fds > 0)
+                                        log_warning("Got file descriptors via syslog socket. Ignoring.");
+
+                        } else {
+                                if (n > 0 && n_fds == 0)
+                                        process_native_message(s, s->buffer, n, ucred, tv);
+                                else if (n == 0 && n_fds == 1)
+                                        process_native_file(s, fds[0], ucred, tv);
+                                else if (n_fds > 0)
+                                        log_warning("Got too many file descriptors via native socket. Ignoring.");
+                        }
+
+                        close_many(fds, n_fds);
                 }
 
                 return 1;
