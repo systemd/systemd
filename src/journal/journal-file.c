@@ -2103,7 +2103,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 void journal_default_metrics(JournalMetrics *m, int fd) {
         uint64_t fs_size = 0;
         struct statvfs ss;
-        char a[64], b[64], c[64], d[64];
+        char a[FORMAT_BYTES_MAX], b[FORMAT_BYTES_MAX], c[FORMAT_BYTES_MAX], d[FORMAT_BYTES_MAX];
 
         assert(m);
         assert(fd >= 0);

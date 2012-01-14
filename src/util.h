@@ -67,6 +67,7 @@ typedef struct dual_timestamp {
 #define FORMAT_TIMESTAMP_MAX 64
 #define FORMAT_TIMESTAMP_PRETTY_MAX 256
 #define FORMAT_TIMESPAN_MAX 64
+#define FORMAT_BYTES_MAX 8
 
 #define ANSI_HIGHLIGHT_ON "\x1B[1;39m"
 #define ANSI_HIGHLIGHT_RED_ON "\x1B[1;32m"
