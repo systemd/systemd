@@ -489,7 +489,7 @@ static void dispatch_message_real(Server *s,
                         exe = strappend("_EXE=", t);
                         free(t);
 
-                        if (comm)
+                        if (exe)
                                 IOVEC_SET_STRING(iovec[n++], exe);
                 }
 
