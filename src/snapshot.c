@@ -36,10 +36,10 @@ static void snapshot_init(Unit *u) {
         Snapshot *s = SNAPSHOT(u);
 
         assert(s);
-        assert(s->meta.load_state == UNIT_STUB);
+        assert(UNIT(s)->load_state == UNIT_STUB);
 
-        s->meta.ignore_on_isolate = true;
-        s->meta.ignore_on_snapshot = true;
+        UNIT(s)->ignore_on_isolate = true;
+        UNIT(s)->ignore_on_snapshot = true;
 }
 
 static void snapshot_set_state(Snapshot *s, SnapshotState state) {
@@ -51,7 +51,7 @@ static void snapshot_set_state(Snapshot *s, SnapshotState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          s->meta.id,
+                          UNIT(s)->id,
                           snapshot_state_to_string(old_state),
                           snapshot_state_to_string(state));
 
@@ -66,7 +66,7 @@ static int snapshot_load(Unit *u) {
 
         /* Make sure that only snapshots created via snapshot_create()
          * can be loaded */
-        if (!s->by_snapshot_create && s->meta.manager->n_reloading <= 0)
+        if (!s->by_snapshot_create && UNIT(s)->manager->n_reloading <= 0)
                 return -ENOENT;
 
         u->load_state = UNIT_LOADED;

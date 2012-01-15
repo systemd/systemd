@@ -1276,7 +1276,7 @@ int config_parse_timer_unit(
                 return 0;
         }
 
-        r = manager_load_unit(t->meta.manager, rvalue, NULL, NULL, &u);
+        r = manager_load_unit(UNIT(t)->manager, rvalue, NULL, NULL, &u);
         if (r < 0) {
                 log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);
@@ -1362,7 +1362,7 @@ int config_parse_path_unit(
                 return 0;
         }
 
-        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &error, &u)) < 0) {
+        if ((r = manager_load_unit(UNIT(t)->manager, rvalue, NULL, &error, &u)) < 0) {
                 log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);
                 return 0;
@@ -1400,7 +1400,7 @@ int config_parse_socket_service(
                 return 0;
         }
 
-        r = manager_load_unit(s->meta.manager, rvalue, NULL, &error, &x);
+        r = manager_load_unit(UNIT(s)->manager, rvalue, NULL, &error, &x);
         if (r < 0) {
                 log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);

@@ -264,8 +264,8 @@ int path_add_one_mount_link(Path *p, Mount *m) {
         assert(p);
         assert(m);
 
-        if (p->meta.load_state != UNIT_LOADED ||
-            m->meta.load_state != UNIT_LOADED)
+        if (UNIT(p)->load_state != UNIT_LOADED ||
+            UNIT(m)->load_state != UNIT_LOADED)
                 return 0;
 
         LIST_FOREACH(spec, s, p->specs) {
@@ -286,7 +286,7 @@ static int path_add_mount_links(Path *p) {
 
         assert(p);
 
-        LIST_FOREACH(units_by_type, other, p->meta.manager->units_by_type[UNIT_MOUNT])
+        LIST_FOREACH(units_by_type, other, UNIT(p)->manager->units_by_type[UNIT_MOUNT])
                 if ((r = path_add_one_mount_link(p, (Mount*) other)) < 0)
                         return r;
 
@@ -296,11 +296,11 @@ static int path_add_mount_links(Path *p) {
 static int path_verify(Path *p) {
         assert(p);
 
-        if (p->meta.load_state != UNIT_LOADED)
+        if (UNIT(p)->load_state != UNIT_LOADED)
                 return 0;
 
         if (!p->specs) {
-                log_error("%s lacks path setting. Refusing.", p->meta.id);
+                log_error("%s lacks path setting. Refusing.", UNIT(p)->id);
                 return -EINVAL;
         }
 
@@ -312,7 +312,7 @@ static int path_add_default_dependencies(Path *p) {
 
         assert(p);
 
-        if (p->meta.manager->running_as == MANAGER_SYSTEM) {
+        if (UNIT(p)->manager->running_as == MANAGER_SYSTEM) {
                 if ((r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         return r;
 
@@ -352,7 +352,7 @@ static int path_load(Unit *u) {
                 if ((r = path_add_mount_links(p)) < 0)
                         return r;
 
-                if (p->meta.default_dependencies)
+                if (UNIT(p)->default_dependencies)
                         if ((r = path_add_default_dependencies(p)) < 0)
                                 return r;
         }
@@ -416,7 +416,7 @@ static void path_set_state(Path *p, PathState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          p->meta.id,
+                          UNIT(p)->id,
                           path_state_to_string(old_state),
                           path_state_to_string(state));
 
@@ -460,10 +460,10 @@ static void path_enter_running(Path *p) {
         dbus_error_init(&error);
 
         /* Don't start job if we are supposed to go down */
-        if (p->meta.job && p->meta.job->type == JOB_STOP)
+        if (UNIT(p)->job && UNIT(p)->job->type == JOB_STOP)
                 return;
 
-        if ((r = manager_add_job(p->meta.manager, JOB_START, UNIT_DEREF(p->unit), JOB_REPLACE, true, &error, NULL)) < 0)
+        if ((r = manager_add_job(UNIT(p)->manager, JOB_START, UNIT_DEREF(p->unit), JOB_REPLACE, true, &error, NULL)) < 0)
                 goto fail;
 
         p->inotify_triggered = false;
@@ -475,7 +475,7 @@ static void path_enter_running(Path *p) {
         return;
 
 fail:
-        log_warning("%s failed to queue unit startup job: %s", p->meta.id, bus_error(&error, r));
+        log_warning("%s failed to queue unit startup job: %s", UNIT(p)->id, bus_error(&error, r));
         path_enter_dead(p, false);
 
         dbus_error_free(&error);
@@ -502,7 +502,7 @@ static void path_enter_waiting(Path *p, bool initial, bool recheck) {
 
         if (recheck)
                 if (path_check_good(p, initial)) {
-                        log_debug("%s got triggered.", p->meta.id);
+                        log_debug("%s got triggered.", UNIT(p)->id);
                         path_enter_running(p);
                         return;
                 }
@@ -516,7 +516,7 @@ static void path_enter_waiting(Path *p, bool initial, bool recheck) {
 
         if (recheck)
                 if (path_check_good(p, false)) {
-                        log_debug("%s got triggered.", p->meta.id);
+                        log_debug("%s got triggered.", UNIT(p)->id);
                         path_enter_running(p);
                         return;
                 }
@@ -525,7 +525,7 @@ static void path_enter_waiting(Path *p, bool initial, bool recheck) {
         return;
 
 fail:
-        log_warning("%s failed to enter waiting state: %s", p->meta.id, strerror(-r));
+        log_warning("%s failed to enter waiting state: %s", UNIT(p)->id, strerror(-r));
         path_enter_dead(p, false);
 }
 
@@ -675,7 +675,7 @@ void path_unit_notify(Unit *u, UnitActiveState new_state) {
                 p = PATH(k);
 
                 if (p->state == PATH_RUNNING && new_state == UNIT_INACTIVE) {
-                        log_debug("%s got notified about unit deactivation.", p->meta.id);
+                        log_debug("%s got notified about unit deactivation.", UNIT(p)->id);
 
                         /* Hmm, so inotify was triggered since the
                          * last activation, so I guess we need to

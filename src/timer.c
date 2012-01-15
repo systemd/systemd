@@ -64,11 +64,11 @@ static void timer_done(Unit *u) {
 static int timer_verify(Timer *t) {
         assert(t);
 
-        if (t->meta.load_state != UNIT_LOADED)
+        if (UNIT(t)->load_state != UNIT_LOADED)
                 return 0;
 
         if (!t->values) {
-                log_error("%s lacks value setting. Refusing.", t->meta.id);
+                log_error("%s lacks value setting. Refusing.", UNIT(t)->id);
                 return -EINVAL;
         }
 
@@ -80,7 +80,7 @@ static int timer_add_default_dependencies(Timer *t) {
 
         assert(t);
 
-        if (t->meta.manager->running_as == MANAGER_SYSTEM) {
+        if (UNIT(t)->manager->running_as == MANAGER_SYSTEM) {
                 if ((r = unit_add_dependency_by_name(UNIT(t), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         return r;
 
@@ -117,7 +117,7 @@ static int timer_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (t->meta.default_dependencies)
+                if (UNIT(t)->default_dependencies)
                         if ((r = timer_add_default_dependencies(t)) < 0)
                                 return r;
         }
@@ -157,7 +157,7 @@ static void timer_set_state(Timer *t, TimerState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          t->meta.id,
+                          UNIT(t)->id,
                           timer_state_to_string(old_state),
                           timer_state_to_string(state));
 
@@ -209,7 +209,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                 case TIMER_ACTIVE:
                         if (state_translation_table[t->state] == UNIT_ACTIVE)
-                                base = t->meta.inactive_exit_timestamp.monotonic;
+                                base = UNIT(t)->inactive_exit_timestamp.monotonic;
                         else
                                 base = n;
                         break;
@@ -220,7 +220,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                         break;
 
                 case TIMER_STARTUP:
-                        base = t->meta.manager->startup_timestamp.monotonic;
+                        base = UNIT(t)->manager->startup_timestamp.monotonic;
                         break;
 
                 case TIMER_UNIT_ACTIVE:
@@ -272,7 +272,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         return;
 
 fail:
-        log_warning("%s failed to enter waiting state: %s", t->meta.id, strerror(-r));
+        log_warning("%s failed to enter waiting state: %s", UNIT(t)->id, strerror(-r));
         timer_enter_dead(t, false);
 }
 
@@ -284,17 +284,17 @@ static void timer_enter_running(Timer *t) {
         dbus_error_init(&error);
 
         /* Don't start job if we are supposed to go down */
-        if (t->meta.job && t->meta.job->type == JOB_STOP)
+        if (UNIT(t)->job && UNIT(t)->job->type == JOB_STOP)
                 return;
 
-        if ((r = manager_add_job(t->meta.manager, JOB_START, UNIT_DEREF(t->unit), JOB_REPLACE, true, &error, NULL)) < 0)
+        if ((r = manager_add_job(UNIT(t)->manager, JOB_START, UNIT_DEREF(t->unit), JOB_REPLACE, true, &error, NULL)) < 0)
                 goto fail;
 
         timer_set_state(t, TIMER_RUNNING);
         return;
 
 fail:
-        log_warning("%s failed to queue unit startup job: %s", t->meta.id, bus_error(&error, r));
+        log_warning("%s failed to queue unit startup job: %s", UNIT(t)->id, bus_error(&error, r));
         timer_enter_dead(t, false);
 
         dbus_error_free(&error);
@@ -419,7 +419,7 @@ void timer_unit_notify(Unit *u, UnitActiveState new_state) {
                 case TIMER_RUNNING:
 
                         if (UNIT_IS_INACTIVE_OR_FAILED(new_state)) {
-                                log_debug("%s got notified about unit deactivation.", t->meta.id);
+                                log_debug("%s got notified about unit deactivation.", UNIT(t)->id);
                                 timer_enter_waiting(t, false);
                         }
 

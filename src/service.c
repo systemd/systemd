@@ -163,7 +163,7 @@ static int service_set_main_pid(Service *s, pid_t pid) {
 
         if (get_parent_of_pid(pid, &ppid) >= 0 && ppid != getpid()) {
                 log_warning("%s: Supervising process %lu which is not our child. We'll most likely not notice when it exits.",
-                            s->meta.id, (unsigned long) pid);
+                            UNIT(s)->id, (unsigned long) pid);
 
                 s->main_pid_alien = true;
         } else
@@ -371,7 +371,7 @@ static int sysv_fix_order(Service *s) {
         /* For each pair of services where at least one lacks a LSB
          * header, we use the start priority value to order things. */
 
-        LIST_FOREACH(units_by_type, other, s->meta.manager->units_by_type[UNIT_SERVICE]) {
+        LIST_FOREACH(units_by_type, other, UNIT(s)->manager->units_by_type[UNIT_SERVICE]) {
                 Service *t;
                 UnitDependency d;
                 bool special_s, special_t;
@@ -381,7 +381,7 @@ static int sysv_fix_order(Service *s) {
                 if (s == t)
                         continue;
 
-                if (t->meta.load_state != UNIT_LOADED)
+                if (UNIT(t)->load_state != UNIT_LOADED)
                         continue;
 
                 if (t->sysv_start_priority < 0)
@@ -389,8 +389,8 @@ static int sysv_fix_order(Service *s) {
 
                 /* If both units have modern headers we don't care
                  * about the priorities */
-                if ((s->meta.fragment_path || s->sysv_has_lsb) &&
-                    (t->meta.fragment_path || t->sysv_has_lsb))
+                if ((UNIT(s)->fragment_path || s->sysv_has_lsb) &&
+                    (UNIT(t)->fragment_path || t->sysv_has_lsb))
                         continue;
 
                 special_s = s->sysv_runlevels && !chars_intersect(RUNLEVELS_UP, s->sysv_runlevels);
@@ -827,7 +827,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                  * needed for early boot) and don't create any links
                  * to it. */
 
-                s->meta.default_dependencies = false;
+                UNIT(s)->default_dependencies = false;
 
                 /* Don't timeout special services during boot (like fsck) */
                 s->timeout_usec = 0;
@@ -840,7 +840,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->guess_main_pid = false;
         s->restart = SERVICE_RESTART_NO;
 
-        if (s->meta.manager->sysv_console)
+        if (UNIT(s)->manager->sysv_console)
                 s->exec_context.std_output = EXEC_OUTPUT_JOURNAL_AND_CONSOLE;
 
         s->exec_context.kill_mode = KILL_PROCESS;
@@ -912,7 +912,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 return -ENOENT;
 #endif
 
-        STRV_FOREACH(p, s->meta.manager->lookup_paths.sysvinit_path) {
+        STRV_FOREACH(p, UNIT(s)->manager->lookup_paths.sysvinit_path) {
                 char *path;
                 int r;
 
@@ -926,7 +926,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 r = service_load_sysv_path(s, path);
 
 #if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_ANGSTROM)
-                if (r >= 0 && s->meta.load_state == UNIT_STUB) {
+                if (r >= 0 && UNIT(s)->load_state == UNIT_STUB) {
                         /* Try Debian style *.sh source'able init scripts */
                         strcat(path, ".sh");
                         r = service_load_sysv_path(s, path);
@@ -935,7 +935,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 free(path);
 
 #ifdef TARGET_SUSE
-                if (r >= 0 && s->meta.load_state == UNIT_STUB) {
+                if (r >= 0 && UNIT(s)->load_state == UNIT_STUB) {
                         /* Try SUSE style boot.* init scripts */
 
                         path = join(*p, "/boot.", name, NULL);
@@ -950,7 +950,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
 #endif
 
 #ifdef TARGET_FRUGALWARE
-                if (r >= 0 && s->meta.load_state == UNIT_STUB) {
+                if (r >= 0 && UNIT(s)->load_state == UNIT_STUB) {
                         /* Try Frugalware style rc.* init scripts */
 
                         path = join(*p, "/rc.", name, NULL);
@@ -967,7 +967,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 if (r < 0)
                         return r;
 
-                if ((s->meta.load_state != UNIT_STUB))
+                if ((UNIT(s)->load_state != UNIT_STUB))
                         break;
         }
 
@@ -984,22 +984,22 @@ static int service_load_sysv(Service *s) {
         /* Load service data from SysV init scripts, preferably with
          * LSB headers ... */
 
-        if (strv_isempty(s->meta.manager->lookup_paths.sysvinit_path))
+        if (strv_isempty(UNIT(s)->manager->lookup_paths.sysvinit_path))
                 return 0;
 
-        if ((t = s->meta.id))
+        if ((t = UNIT(s)->id))
                 if ((r = service_load_sysv_name(s, t)) < 0)
                         return r;
 
-        if (s->meta.load_state == UNIT_STUB)
-                SET_FOREACH(t, s->meta.names, i) {
-                        if (t == s->meta.id)
+        if (UNIT(s)->load_state == UNIT_STUB)
+                SET_FOREACH(t, UNIT(s)->names, i) {
+                        if (t == UNIT(s)->id)
                                 continue;
 
                         if ((r = service_load_sysv_name(s, t)) < 0)
                                 return r;
 
-                        if (s->meta.load_state != UNIT_STUB)
+                        if (UNIT(s)->load_state != UNIT_STUB)
                                 break;
                 }
 
@@ -1019,7 +1019,7 @@ static int fsck_fix_order(Service *s) {
         /* For each pair of services where both have an fsck priority
          * we order things based on it. */
 
-        LIST_FOREACH(units_by_type, other, s->meta.manager->units_by_type[UNIT_SERVICE]) {
+        LIST_FOREACH(units_by_type, other, UNIT(s)->manager->units_by_type[UNIT_SERVICE]) {
                 Service *t;
                 UnitDependency d;
 
@@ -1028,7 +1028,7 @@ static int fsck_fix_order(Service *s) {
                 if (s == t)
                         continue;
 
-                if (t->meta.load_state != UNIT_LOADED)
+                if (UNIT(t)->load_state != UNIT_LOADED)
                         continue;
 
                 if (t->fsck_passno <= 0)
@@ -1051,33 +1051,33 @@ static int fsck_fix_order(Service *s) {
 static int service_verify(Service *s) {
         assert(s);
 
-        if (s->meta.load_state != UNIT_LOADED)
+        if (UNIT(s)->load_state != UNIT_LOADED)
                 return 0;
 
         if (!s->exec_command[SERVICE_EXEC_START]) {
-                log_error("%s lacks ExecStart setting. Refusing.", s->meta.id);
+                log_error("%s lacks ExecStart setting. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->type != SERVICE_ONESHOT &&
             s->exec_command[SERVICE_EXEC_START]->command_next) {
-                log_error("%s has more than one ExecStart setting, which is only allowed for Type=oneshot services. Refusing.", s->meta.id);
+                log_error("%s has more than one ExecStart setting, which is only allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->type == SERVICE_ONESHOT &&
             s->exec_command[SERVICE_EXEC_RELOAD]) {
-                log_error("%s has an ExecReload setting, which is not allowed for Type=oneshot services. Refusing.", s->meta.id);
+                log_error("%s has an ExecReload setting, which is not allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->type == SERVICE_DBUS && !s->bus_name) {
-                log_error("%s is of type D-Bus but no D-Bus service name has been specified. Refusing.", s->meta.id);
+                log_error("%s is of type D-Bus but no D-Bus service name has been specified. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->exec_context.pam_name && s->exec_context.kill_mode != KILL_CONTROL_GROUP) {
-                log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", s->meta.id);
+                log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
@@ -1093,12 +1093,12 @@ static int service_add_default_dependencies(Service *s) {
          * majority of services. */
 
         /* First, pull in base system */
-        if (s->meta.manager->running_as == MANAGER_SYSTEM) {
+        if (UNIT(s)->manager->running_as == MANAGER_SYSTEM) {
 
                 if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         return r;
 
-        } else if (s->meta.manager->running_as == MANAGER_USER) {
+        } else if (UNIT(s)->manager->running_as == MANAGER_USER) {
 
                 if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SOCKETS_TARGET, NULL, true)) < 0)
                         return r;
@@ -1119,11 +1119,11 @@ static void service_fix_output(Service *s) {
         if (s->exec_context.std_error == EXEC_OUTPUT_INHERIT &&
             s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
             s->exec_context.std_input == EXEC_INPUT_NULL)
-                s->exec_context.std_error = s->meta.manager->default_std_error;
+                s->exec_context.std_error = UNIT(s)->manager->default_std_error;
 
         if (s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
             s->exec_context.std_input == EXEC_INPUT_NULL)
-                s->exec_context.std_output = s->meta.manager->default_std_output;
+                s->exec_context.std_output = UNIT(s)->manager->default_std_output;
 }
 
 static int service_load(Unit *u) {
@@ -1181,7 +1181,7 @@ static int service_load(Unit *u) {
                         if ((r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, NULL, true)) < 0)
                                 return r;
 
-                if (s->meta.default_dependencies)
+                if (UNIT(s)->default_dependencies)
                         if ((r = service_add_default_dependencies(s)) < 0)
                                 return r;
         }
@@ -1357,7 +1357,7 @@ static int service_search_main_pid(Service *s) {
 
         assert(s->main_pid <= 0);
 
-        if ((pid = cgroup_bonding_search_main_pid_list(s->meta.cgroup_bondings)) <= 0)
+        if ((pid = cgroup_bonding_search_main_pid_list(UNIT(s)->cgroup_bondings)) <= 0)
                 return -ENOENT;
 
         log_debug("Main PID guessed: %lu", (unsigned long) pid);
@@ -1382,7 +1382,7 @@ static void service_notify_sockets_dead(Service *s) {
         if (s->socket_fd >= 0)
                 return;
 
-        SET_FOREACH(u, s->meta.dependencies[UNIT_TRIGGERED_BY], i)
+        SET_FOREACH(u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY], i)
                 if (u->type == UNIT_SOCKET)
                         socket_notify_service_dead(SOCKET(u));
 
@@ -1393,7 +1393,7 @@ static void service_unwatch_pid_file(Service *s) {
         if (!s->pid_file_pathspec)
                 return;
 
-        log_debug("Stopping watch for %s's PID file %s", s->meta.id, s->pid_file_pathspec->path);
+        log_debug("Stopping watch for %s's PID file %s", UNIT(s)->id, s->pid_file_pathspec->path);
         path_spec_unwatch(s->pid_file_pathspec, UNIT(s));
         path_spec_done(s->pid_file_pathspec);
         free(s->pid_file_pathspec);
@@ -1470,18 +1470,18 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_STOP_POST &&
             state != SERVICE_FINAL_SIGTERM &&
             state != SERVICE_FINAL_SIGKILL &&
-            !(state == SERVICE_DEAD && s->meta.job)) {
+            !(state == SERVICE_DEAD && UNIT(s)->job)) {
                 service_close_socket_fd(s);
                 service_connection_unref(s);
         }
 
         /* For the inactive states unit_notify() will trim the cgroup,
          * but for exit we have to do that ourselves... */
-        if (state == SERVICE_EXITED && s->meta.manager->n_reloading <= 0)
-                cgroup_bonding_trim_list(s->meta.cgroup_bondings, true);
+        if (state == SERVICE_EXITED && UNIT(s)->manager->n_reloading <= 0)
+                cgroup_bonding_trim_list(UNIT(s)->cgroup_bondings, true);
 
         if (old_state != state)
-                log_debug("%s changed %s -> %s", s->meta.id, service_state_to_string(old_state), service_state_to_string(state));
+                log_debug("%s changed %s -> %s", UNIT(s)->id, service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], !s->reload_failure);
         s->reload_failure = false;
@@ -1567,7 +1567,7 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         if (s->socket_fd >= 0)
                 return 0;
 
-        SET_FOREACH(u, s->meta.dependencies[UNIT_TRIGGERED_BY], i) {
+        SET_FOREACH(u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY], i) {
                 int *cfds;
                 unsigned cn_fds;
                 Socket *sock;
@@ -1670,7 +1670,7 @@ static int service_spawn(
         }
 
         if (set_notify_socket)
-                if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=%s", s->meta.manager->notify_socket) < 0) {
+                if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=%s", UNIT(s)->manager->notify_socket) < 0) {
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -1682,7 +1682,7 @@ static int service_spawn(
                 }
 
         if (!(final_env = strv_env_merge(2,
-                                         s->meta.manager->environment,
+                                         UNIT(s)->manager->environment,
                                          our_env,
                                          NULL))) {
                 r = -ENOMEM;
@@ -1697,9 +1697,9 @@ static int service_spawn(
                        apply_permissions,
                        apply_chroot,
                        apply_tty_stdin,
-                       s->meta.manager->confirm_spawn,
-                       s->meta.cgroup_bondings,
-                       s->meta.cgroup_attributes,
+                       UNIT(s)->manager->confirm_spawn,
+                       UNIT(s)->cgroup_bondings,
+                       UNIT(s)->cgroup_attributes,
                        &pid);
 
         if (r < 0)
@@ -1767,7 +1767,7 @@ static int cgroup_good(Service *s) {
 
         assert(s);
 
-        if ((r = cgroup_bonding_is_empty_list(s->meta.cgroup_bondings)) < 0)
+        if ((r = cgroup_bonding_is_empty_list(UNIT(s)->cgroup_bondings)) < 0)
                 return r;
 
         return !r;
@@ -1801,7 +1801,7 @@ static void service_enter_dead(Service *s, bool success, bool allow_restart) {
         return;
 
 fail:
-        log_warning("%s failed to run install restart timer: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run install restart timer: %s", UNIT(s)->id, strerror(-r));
         service_enter_dead(s, false, false);
 }
 
@@ -1838,7 +1838,7 @@ static void service_enter_stop_post(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run 'stop-post' task: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run 'stop-post' task: %s", UNIT(s)->id, strerror(-r));
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
 }
 
@@ -1885,7 +1885,7 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                                 if ((r = set_put(pid_set, LONG_TO_PTR(s->control_pid))) < 0)
                                         goto fail;
 
-                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig, true, pid_set)) < 0) {
+                        if ((r = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, sig, true, pid_set)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                         log_warning("Failed to kill control group: %s", strerror(-r));
                         } else if (r > 0)
@@ -1910,7 +1910,7 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to kill processes: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to kill processes: %s", UNIT(s)->id, strerror(-r));
 
         if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL)
                 service_enter_stop_post(s, false);
@@ -1952,7 +1952,7 @@ static void service_enter_stop(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run 'stop' task: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run 'stop' task: %s", UNIT(s)->id, strerror(-r));
         service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
 }
 
@@ -2002,7 +2002,7 @@ static void service_enter_start_post(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run 'start-post' task: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run 'start-post' task: %s", UNIT(s)->id, strerror(-r));
         service_enter_stop(s, false);
 }
 
@@ -2024,7 +2024,7 @@ static void service_enter_start(Service *s) {
         /* We want to ensure that nobody leaks processes from
          * START_PRE here, so let's go on a killing spree, People
          * should not spawn long running processes from START_PRE. */
-        cgroup_bonding_kill_list(s->meta.cgroup_bondings, SIGKILL, true, NULL);
+        cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, NULL);
 
         if (s->type == SERVICE_FORKING) {
                 s->control_command_id = SERVICE_EXEC_START;
@@ -2083,7 +2083,7 @@ static void service_enter_start(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run 'start' task: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run 'start' task: %s", UNIT(s)->id, strerror(-r));
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
 }
 
@@ -2098,7 +2098,7 @@ static void service_enter_start_pre(Service *s) {
 
                 /* Before we start anything, let's clear up what might
                  * be left from previous runs. */
-                cgroup_bonding_kill_list(s->meta.cgroup_bondings, SIGKILL, true, NULL);
+                cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, NULL);
 
                 s->control_command_id = SERVICE_EXEC_START_PRE;
 
@@ -2120,7 +2120,7 @@ static void service_enter_start_pre(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run 'start-pre' task: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run 'start-pre' task: %s", UNIT(s)->id, strerror(-r));
         service_enter_dead(s, false, true);
 }
 
@@ -2131,7 +2131,7 @@ static void service_enter_restart(Service *s) {
         assert(s);
         dbus_error_init(&error);
 
-        if (s->meta.job) {
+        if (UNIT(s)->job) {
                 log_info("Job pending for unit, delaying automatic restart.");
 
                 if ((r = unit_watch_timer(UNIT(s), s->restart_usec, &s->timer_watch)) < 0)
@@ -2140,14 +2140,14 @@ static void service_enter_restart(Service *s) {
 
         service_enter_dead(s, true, false);
 
-        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s), JOB_FAIL, false, &error, NULL)) < 0)
+        if ((r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(s), JOB_FAIL, false, &error, NULL)) < 0)
                 goto fail;
 
-        log_debug("%s scheduled restart job.", s->meta.id);
+        log_debug("%s scheduled restart job.", UNIT(s)->id);
         return;
 
 fail:
-        log_warning("%s failed to schedule restart job: %s", s->meta.id, bus_error(&error, -r));
+        log_warning("%s failed to schedule restart job: %s", UNIT(s)->id, bus_error(&error, -r));
         service_enter_dead(s, false, false);
 
         dbus_error_free(&error);
@@ -2181,7 +2181,7 @@ static void service_enter_reload(Service *s) {
         return;
 
 fail:
-        log_warning("%s failed to run 'reload' task: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run 'reload' task: %s", UNIT(s)->id, strerror(-r));
         s->reload_failure = true;
         service_enter_running(s, true);
 }
@@ -2216,7 +2216,7 @@ static void service_run_next_control(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run next control task: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run next control task: %s", UNIT(s)->id, strerror(-r));
 
         if (s->state == SERVICE_START_PRE)
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
@@ -2262,7 +2262,7 @@ static void service_run_next_main(Service *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run next main task: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run next main task: %s", UNIT(s)->id, strerror(-r));
         service_enter_stop(s, false);
 }
 
@@ -2575,7 +2575,7 @@ static int service_retry_pid_file(Service *s) {
 static int service_watch_pid_file(Service *s) {
         int r;
 
-        log_debug("Setting watch for %s's PID file %s", s->meta.id, s->pid_file_pathspec->path);
+        log_debug("Setting watch for %s's PID file %s", UNIT(s)->id, s->pid_file_pathspec->path);
         r = path_spec_watch(s->pid_file_pathspec, UNIT(s));
         if (r < 0)
                 goto fail;
@@ -2586,7 +2586,7 @@ static int service_watch_pid_file(Service *s) {
         return 0;
 fail:
         log_error("Failed to set a watch for %s's PID file %s: %s",
-                  s->meta.id, s->pid_file_pathspec->path, strerror(-r));
+                  UNIT(s)->id, s->pid_file_pathspec->path, strerror(-r));
         service_unwatch_pid_file(s);
         return r;
 }
@@ -2652,7 +2652,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(s);
         assert(pid >= 0);
 
-        if (!s->meta.fragment_path)
+        if (!UNIT(s)->fragment_path)
                 success = is_clean_exit_lsb(code, status);
         else
                 success = is_clean_exit(code, status);
@@ -2971,7 +2971,7 @@ static void service_cgroup_notify_event(Unit *u) {
                 /* If we were hoping for the daemon to write its PID file,
                  * we can give up now. */
                 if (s->pid_file_pathspec) {
-                        log_warning("%s never wrote its PID file. Failing.", s->meta.id);
+                        log_warning("%s never wrote its PID file. Failing.", UNIT(s)->id);
                         service_unwatch_pid_file(s);
                         if (s->state == SERVICE_START)
                                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
@@ -3383,7 +3383,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock) {
          * service for a stream socket and the socket needs to be
          * configured. */
 
-        if (s->meta.load_state != UNIT_LOADED)
+        if (UNIT(s)->load_state != UNIT_LOADED)
                 return -EINVAL;
 
         if (s->socket_fd >= 0)
@@ -3480,7 +3480,7 @@ static int service_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusErro
                                 goto finish;
                         }
 
-                if ((q = cgroup_bonding_kill_list(s->meta.cgroup_bondings, signo, false, pid_set)) < 0)
+                if ((q = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, signo, false, pid_set)) < 0)
                         if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                                 r = q;
         }

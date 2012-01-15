@@ -45,7 +45,7 @@ static void target_set_state(Target *t, TargetState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          t->meta.id,
+                          UNIT(t)->id,
                           target_state_to_string(old_state),
                           target_state_to_string(state));
 
@@ -75,7 +75,7 @@ static int target_add_default_dependencies(Target *t) {
          * sure we don't create a loop. */
 
         for (k = 0; k < ELEMENTSOF(deps); k++)
-                SET_FOREACH(other, t->meta.dependencies[deps[k]], i)
+                SET_FOREACH(other, UNIT(t)->dependencies[deps[k]], i)
                         if ((r = unit_add_default_target_dependency(other, UNIT(t))) < 0)
                                 return r;
 

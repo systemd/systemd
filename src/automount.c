@@ -59,7 +59,7 @@ static void automount_init(Unit *u) {
 
         a->directory_mode = 0755;
 
-        a->meta.ignore_on_isolate = true;
+        UNIT(a)->ignore_on_isolate = true;
 }
 
 static void repeat_unmout(const char *path) {
@@ -94,8 +94,8 @@ static void unmount_autofs(Automount *a) {
         /* If we reload/reexecute things we keep the mount point
          * around */
         if (a->where &&
-            (a->meta.manager->exit_code != MANAGER_RELOAD &&
-             a->meta.manager->exit_code != MANAGER_REEXECUTE))
+            (UNIT(a)->manager->exit_code != MANAGER_RELOAD &&
+             UNIT(a)->manager->exit_code != MANAGER_REEXECUTE))
                 repeat_unmout(a->where);
 }
 
@@ -120,8 +120,8 @@ int automount_add_one_mount_link(Automount *a, Mount *m) {
         assert(a);
         assert(m);
 
-        if (a->meta.load_state != UNIT_LOADED ||
-            m->meta.load_state != UNIT_LOADED)
+        if (UNIT(a)->load_state != UNIT_LOADED ||
+            UNIT(m)->load_state != UNIT_LOADED)
                 return 0;
 
         if (!path_startswith(a->where, m->where))
@@ -142,7 +142,7 @@ static int automount_add_mount_links(Automount *a) {
 
         assert(a);
 
-        LIST_FOREACH(units_by_type, other, a->meta.manager->units_by_type[UNIT_MOUNT])
+        LIST_FOREACH(units_by_type, other, UNIT(a)->manager->units_by_type[UNIT_MOUNT])
                 if ((r = automount_add_one_mount_link(a, (Mount*) other)) < 0)
                         return r;
 
@@ -154,7 +154,7 @@ static int automount_add_default_dependencies(Automount *a) {
 
         assert(a);
 
-        if (a->meta.manager->running_as == MANAGER_SYSTEM) {
+        if (UNIT(a)->manager->running_as == MANAGER_SYSTEM) {
 
                 if ((r = unit_add_dependency_by_name(UNIT(a), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         return r;
@@ -171,7 +171,7 @@ static int automount_verify(Automount *a) {
         char *e;
         assert(a);
 
-        if (a->meta.load_state != UNIT_LOADED)
+        if (UNIT(a)->load_state != UNIT_LOADED)
                 return 0;
 
         if (path_equal(a->where, "/")) {
@@ -186,7 +186,7 @@ static int automount_verify(Automount *a) {
         free(e);
 
         if (!b) {
-                log_error("%s's Where setting doesn't match unit name. Refusing.", a->meta.id);
+                log_error("%s's Where setting doesn't match unit name. Refusing.", UNIT(a)->id);
                 return -EINVAL;
         }
 
@@ -226,7 +226,7 @@ static int automount_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (a->meta.default_dependencies)
+                if (UNIT(a)->default_dependencies)
                         if ((r = automount_add_default_dependencies(a)) < 0)
                                 return r;
         }
@@ -247,7 +247,7 @@ static void automount_set_state(Automount *a, AutomountState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          a->meta.id,
+                          UNIT(a)->id,
                           automount_state_to_string(old_state),
                           automount_state_to_string(state));
 
@@ -442,7 +442,7 @@ int automount_send_ready(Automount *a, int status) {
         if (set_isempty(a->tokens))
                 return 0;
 
-        if ((ioctl_fd = open_ioctl_fd(a->meta.manager->dev_autofs_fd, a->where, a->dev_id)) < 0) {
+        if ((ioctl_fd = open_ioctl_fd(UNIT(a)->manager->dev_autofs_fd, a->where, a->dev_id)) < 0) {
                 r = ioctl_fd;
                 goto fail;
         }
@@ -463,7 +463,7 @@ int automount_send_ready(Automount *a, int status) {
                  * if you pass a positive status code here, the kernel will
                  * freeze! Yay! */
 
-                if ((k = autofs_send_ready(a->meta.manager->dev_autofs_fd,
+                if ((k = autofs_send_ready(UNIT(a)->manager->dev_autofs_fd,
                                            ioctl_fd,
                                            token,
                                            status)) < 0)
@@ -491,7 +491,7 @@ static void automount_enter_waiting(Automount *a) {
         if (a->tokens)
                 set_clear(a->tokens);
 
-        if ((dev_autofs_fd = open_dev_autofs(a->meta.manager)) < 0) {
+        if ((dev_autofs_fd = open_dev_autofs(UNIT(a)->manager)) < 0) {
                 r = dev_autofs_fd;
                 goto fail;
         }
@@ -581,7 +581,7 @@ static void automount_enter_runnning(Automount *a) {
         /* We don't take mount requests anymore if we are supposed to
          * shut down anyway */
         if (unit_pending_inactive(UNIT(a))) {
-                log_debug("Suppressing automount request on %s since unit stop is scheduled.", a->meta.id);
+                log_debug("Suppressing automount request on %s since unit stop is scheduled.", UNIT(a)->id);
                 automount_send_ready(a, -EHOSTDOWN);
                 return;
         }
@@ -590,14 +590,14 @@ static void automount_enter_runnning(Automount *a) {
 
         /* Before we do anything, let's see if somebody is playing games with us? */
         if (lstat(a->where, &st) < 0) {
-                log_warning("%s failed to stat automount point: %m", a->meta.id);
+                log_warning("%s failed to stat automount point: %m", UNIT(a)->id);
                 goto fail;
         }
 
         if (!S_ISDIR(st.st_mode) || st.st_dev != a->dev_id)
-                log_info("%s's automount point already active?", a->meta.id);
-        else if ((r = manager_add_job(a->meta.manager, JOB_START, UNIT_DEREF(a->mount), JOB_REPLACE, true, &error, NULL)) < 0) {
-                log_warning("%s failed to queue mount startup job: %s", a->meta.id, bus_error(&error, r));
+                log_info("%s's automount point already active?", UNIT(a)->id);
+        else if ((r = manager_add_job(UNIT(a)->manager, JOB_START, UNIT_DEREF(a->mount), JOB_REPLACE, true, &error, NULL)) < 0) {
+                log_warning("%s failed to queue mount startup job: %s", UNIT(a)->id, bus_error(&error, r));
                 goto fail;
         }
 

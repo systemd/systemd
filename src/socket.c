@@ -147,7 +147,7 @@ static int socket_instantiate_service(Socket *s) {
 
         assert(s->accept);
 
-        if (!(prefix = unit_name_to_prefix(s->meta.id)))
+        if (!(prefix = unit_name_to_prefix(UNIT(s)->id)))
                 return -ENOMEM;
 
         r = asprintf(&name, "%s@%u.service", prefix, s->n_accepted);
@@ -156,7 +156,7 @@ static int socket_instantiate_service(Socket *s) {
         if (r < 0)
                 return -ENOMEM;
 
-        r = manager_load_unit(s->meta.manager, name, NULL, NULL, &u);
+        r = manager_load_unit(UNIT(s)->manager, name, NULL, NULL, &u);
         free(name);
 
         if (r < 0)
@@ -198,31 +198,31 @@ static bool have_non_accept_socket(Socket *s) {
 static int socket_verify(Socket *s) {
         assert(s);
 
-        if (s->meta.load_state != UNIT_LOADED)
+        if (UNIT(s)->load_state != UNIT_LOADED)
                 return 0;
 
         if (!s->ports) {
-                log_error("%s lacks Listen setting. Refusing.", s->meta.id);
+                log_error("%s lacks Listen setting. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->accept && have_non_accept_socket(s)) {
-                log_error("%s configured for accepting sockets, but sockets are non-accepting. Refusing.", s->meta.id);
+                log_error("%s configured for accepting sockets, but sockets are non-accepting. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->accept && s->max_connections <= 0) {
-                log_error("%s's MaxConnection setting too small. Refusing.", s->meta.id);
+                log_error("%s's MaxConnection setting too small. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->accept && UNIT_DEREF(s->service)) {
-                log_error("Explicit service configuration for accepting sockets not supported on %s. Refusing.", s->meta.id);
+                log_error("Explicit service configuration for accepting sockets not supported on %s. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->exec_context.pam_name && s->exec_context.kill_mode != KILL_CONTROL_GROUP) {
-                log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", s->meta.id);
+                log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
 
@@ -254,8 +254,8 @@ int socket_add_one_mount_link(Socket *s, Mount *m) {
         assert(s);
         assert(m);
 
-        if (s->meta.load_state != UNIT_LOADED ||
-            m->meta.load_state != UNIT_LOADED)
+        if (UNIT(s)->load_state != UNIT_LOADED ||
+            UNIT(m)->load_state != UNIT_LOADED)
                 return 0;
 
         if (!socket_needs_mount(s, m->where))
@@ -273,7 +273,7 @@ static int socket_add_mount_links(Socket *s) {
 
         assert(s);
 
-        LIST_FOREACH(units_by_type, other, s->meta.manager->units_by_type[UNIT_MOUNT])
+        LIST_FOREACH(units_by_type, other, UNIT(s)->manager->units_by_type[UNIT_MOUNT])
                 if ((r = socket_add_one_mount_link(s, (Mount*) other)) < 0)
                         return r;
 
@@ -302,7 +302,7 @@ static int socket_add_default_dependencies(Socket *s) {
         int r;
         assert(s);
 
-        if (s->meta.manager->running_as == MANAGER_SYSTEM) {
+        if (UNIT(s)->manager->running_as == MANAGER_SYSTEM) {
                 if ((r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SOCKETS_TARGET, NULL, true)) < 0)
                         return r;
 
@@ -367,7 +367,7 @@ static int socket_load(Unit *u) {
                 if ((r = unit_add_default_cgroups(u)) < 0)
                         return r;
 
-                if (s->meta.default_dependencies)
+                if (UNIT(s)->default_dependencies)
                         if ((r = socket_add_default_dependencies(s)) < 0)
                                 return r;
         }
@@ -1049,7 +1049,7 @@ static void socket_set_state(Socket *s, SocketState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          s->meta.id,
+                          UNIT(s)->id,
                           socket_state_to_string(old_state),
                           socket_state_to_string(state));
 
@@ -1124,13 +1124,13 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        argv,
                        &s->exec_context,
                        NULL, 0,
-                       s->meta.manager->environment,
+                       UNIT(s)->manager->environment,
                        true,
                        true,
                        true,
-                       s->meta.manager->confirm_spawn,
-                       s->meta.cgroup_bondings,
-                       s->meta.cgroup_attributes,
+                       UNIT(s)->manager->confirm_spawn,
+                       UNIT(s)->cgroup_bondings,
+                       UNIT(s)->cgroup_attributes,
                        &pid);
 
         strv_free(argv);
@@ -1184,7 +1184,7 @@ static void socket_enter_stop_post(Socket *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run 'stop-post' task: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run 'stop-post' task: %s", UNIT(s)->id, strerror(-r));
         socket_enter_signal(s, SOCKET_FINAL_SIGTERM, false);
 }
 
@@ -1221,7 +1221,7 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
                                 if ((r = set_put(pid_set, LONG_TO_PTR(s->control_pid))) < 0)
                                         goto fail;
 
-                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig, true, pid_set)) < 0) {
+                        if ((r = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, sig, true, pid_set)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                         log_warning("Failed to kill control group: %s", strerror(-r));
                         } else if (r > 0)
@@ -1245,7 +1245,7 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to kill processes: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to kill processes: %s", UNIT(s)->id, strerror(-r));
 
         if (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_STOP_PRE_SIGKILL)
                 socket_enter_stop_post(s, false);
@@ -1278,7 +1278,7 @@ static void socket_enter_stop_pre(Socket *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run 'stop-pre' task: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run 'stop-pre' task: %s", UNIT(s)->id, strerror(-r));
         socket_enter_stop_post(s, false);
 }
 
@@ -1287,7 +1287,7 @@ static void socket_enter_listening(Socket *s) {
         assert(s);
 
         if ((r = socket_watch_fds(s)) < 0) {
-                log_warning("%s failed to watch sockets: %s", s->meta.id, strerror(-r));
+                log_warning("%s failed to watch sockets: %s", UNIT(s)->id, strerror(-r));
                 goto fail;
         }
 
@@ -1303,7 +1303,7 @@ static void socket_enter_start_post(Socket *s) {
         assert(s);
 
         if ((r = socket_open_fds(s)) < 0) {
-                log_warning("%s failed to listen on sockets: %s", s->meta.id, strerror(-r));
+                log_warning("%s failed to listen on sockets: %s", UNIT(s)->id, strerror(-r));
                 goto fail;
         }
 
@@ -1313,7 +1313,7 @@ static void socket_enter_start_post(Socket *s) {
 
         if ((s->control_command = s->exec_command[SOCKET_EXEC_START_POST])) {
                 if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0) {
-                        log_warning("%s failed to run 'start-post' task: %s", s->meta.id, strerror(-r));
+                        log_warning("%s failed to run 'start-post' task: %s", UNIT(s)->id, strerror(-r));
                         goto fail;
                 }
 
@@ -1346,7 +1346,7 @@ static void socket_enter_start_pre(Socket *s) {
         return;
 
 fail:
-        log_warning("%s failed to run 'start-pre' task: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run 'start-pre' task: %s", UNIT(s)->id, strerror(-r));
         socket_enter_dead(s, false);
 }
 
@@ -1360,7 +1360,7 @@ static void socket_enter_running(Socket *s, int cfd) {
         /* We don't take connections anymore if we are supposed to
          * shut down anyway */
         if (unit_pending_inactive(UNIT(s))) {
-                log_debug("Suppressing connection request on %s since unit stop is scheduled.", s->meta.id);
+                log_debug("Suppressing connection request on %s since unit stop is scheduled.", UNIT(s)->id);
 
                 if (cfd >= 0)
                         close_nointr_nofail(cfd);
@@ -1369,7 +1369,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                         socket_close_fds(s);
 
                         if ((r = socket_watch_fds(s)) < 0) {
-                                log_warning("%s failed to watch sockets: %s", s->meta.id, strerror(-r));
+                                log_warning("%s failed to watch sockets: %s", UNIT(s)->id, strerror(-r));
                                 socket_enter_stop_pre(s, false);
                         }
                 }
@@ -1384,14 +1384,14 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 /* If there's already a start pending don't bother to
                  * do anything */
-                SET_FOREACH(u, s->meta.dependencies[UNIT_TRIGGERS], i)
+                SET_FOREACH(u, UNIT(s)->dependencies[UNIT_TRIGGERS], i)
                         if (unit_pending_active(u)) {
                                 pending = true;
                                 break;
                         }
 
                 if (!pending)
-                        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, true, &error, NULL)) < 0)
+                        if ((r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, true, &error, NULL)) < 0)
                                 goto fail;
 
                 socket_set_state(s, SOCKET_RUNNING);
@@ -1411,7 +1411,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 if ((r = instance_from_socket(cfd, s->n_accepted, &instance)) < 0)
                         goto fail;
 
-                if (!(prefix = unit_name_to_prefix(s->meta.id))) {
+                if (!(prefix = unit_name_to_prefix(UNIT(s)->id))) {
                         free(instance);
                         r = -ENOMEM;
                         goto fail;
@@ -1435,7 +1435,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 unit_ref_unset(&s->service);
                 s->n_accepted ++;
 
-                service->meta.no_gc = false;
+                UNIT(service)->no_gc = false;
 
                 unit_choose_id(UNIT(service), name);
                 free(name);
@@ -1446,7 +1446,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 cfd = -1;
                 s->n_connections ++;
 
-                if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(service), JOB_REPLACE, true, &error, NULL)) < 0)
+                if ((r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, true, &error, NULL)) < 0)
                         goto fail;
 
                 /* Notify clients about changed counters */
@@ -1456,7 +1456,7 @@ static void socket_enter_running(Socket *s, int cfd) {
         return;
 
 fail:
-        log_warning("%s failed to queue socket startup job: %s", s->meta.id, bus_error(&error, r));
+        log_warning("%s failed to queue socket startup job: %s", UNIT(s)->id, bus_error(&error, r));
         socket_enter_stop_pre(s, false);
 
         if (cfd >= 0)
@@ -1485,7 +1485,7 @@ static void socket_run_next(Socket *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run next task: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to run next task: %s", UNIT(s)->id, strerror(-r));
 
         if (s->state == SOCKET_START_POST)
                 socket_enter_stop_pre(s, false);
@@ -1520,8 +1520,8 @@ static int socket_start(Unit *u) {
 
                 service = SERVICE(UNIT_DEREF(s->service));
 
-                if (service->meta.load_state != UNIT_LOADED) {
-                        log_error("Socket service %s not loaded, refusing.", service->meta.id);
+                if (UNIT(service)->load_state != UNIT_LOADED) {
+                        log_error("Socket service %s not loaded, refusing.", UNIT(service)->id);
                         return -ENOENT;
                 }
 
@@ -1530,7 +1530,7 @@ static int socket_start(Unit *u) {
                 if (service->state != SERVICE_DEAD &&
                     service->state != SERVICE_FAILED &&
                     service->state != SERVICE_AUTO_RESTART) {
-                        log_error("Socket service %s already active, refusing.", service->meta.id);
+                        log_error("Socket service %s already active, refusing.", UNIT(service)->id);
                         return -EBUSY;
                 }
 
@@ -2009,7 +2009,7 @@ void socket_notify_service_dead(Socket *s) {
          * services. */
 
         if (s->state == SOCKET_RUNNING) {
-                log_debug("%s got notified about service death.", s->meta.id);
+                log_debug("%s got notified about service death.", UNIT(s)->id);
                 socket_enter_listening(s);
         }
 }
@@ -2025,7 +2025,7 @@ void socket_connection_unref(Socket *s) {
         assert(s->n_connections > 0);
         s->n_connections--;
 
-        log_debug("%s: One connection closed, %u left.", s->meta.id, s->n_connections);
+        log_debug("%s: One connection closed, %u left.", UNIT(s)->id, s->n_connections);
 }
 
 static void socket_reset_failed(Unit *u) {
@@ -2074,7 +2074,7 @@ static int socket_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError
                                 goto finish;
                         }
 
-                if ((q = cgroup_bonding_kill_list(s->meta.cgroup_bondings, signo, false, pid_set)) < 0)
+                if ((q = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, signo, false, pid_set)) < 0)
                         if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                                 r = q;
         }

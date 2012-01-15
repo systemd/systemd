@@ -83,7 +83,7 @@ static void mount_init(Unit *u) {
 
         m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
 
-        m->meta.ignore_on_isolate = true;
+        UNIT(m)->ignore_on_isolate = true;
 }
 
 static void mount_unwatch_control_pid(Mount *m) {
@@ -159,14 +159,14 @@ static int mount_add_mount_links(Mount *m) {
         /* Adds in links to other mount points that might lie below or
          * above us in the hierarchy */
 
-        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_MOUNT]) {
+        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_MOUNT]) {
                 Mount *n = (Mount*) other;
                 MountParameters *pn;
 
                 if (n == m)
                         continue;
 
-                if (n->meta.load_state != UNIT_LOADED)
+                if (UNIT(n)->load_state != UNIT_LOADED)
                         continue;
 
                 pn = get_mount_parameters_configured(n);
@@ -216,7 +216,7 @@ static int mount_add_swap_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_SWAP])
+        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_SWAP])
                 if ((r = swap_add_one_mount_link((Swap*) other, m)) < 0)
                         return r;
 
@@ -229,7 +229,7 @@ static int mount_add_path_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_PATH])
+        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_PATH])
                 if ((r = path_add_one_mount_link((Path*) other, m)) < 0)
                         return r;
 
@@ -242,7 +242,7 @@ static int mount_add_automount_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_AUTOMOUNT])
+        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_AUTOMOUNT])
                 if ((r = automount_add_one_mount_link((Automount*) other, m)) < 0)
                         return r;
 
@@ -255,7 +255,7 @@ static int mount_add_socket_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_SOCKET])
+        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_SOCKET])
                 if ((r = socket_add_one_mount_link((Socket*) other, m)) < 0)
                         return r;
 
@@ -328,7 +328,7 @@ static int mount_add_fstab_links(Mount *m) {
 
         assert(m);
 
-        if (m->meta.manager->running_as != MANAGER_SYSTEM)
+        if (UNIT(m)->manager->running_as != MANAGER_SYSTEM)
                 return 0;
 
         if (!(p = get_mount_parameters_configured(m)))
@@ -346,7 +346,7 @@ static int mount_add_fstab_links(Mount *m) {
                 automount ||
                 mount_test_option(p->options, "comment=systemd.mount") ||
                 mount_test_option(p->options, "x-systemd-mount") ||
-                m->meta.manager->mount_auto;
+                UNIT(m)->manager->mount_auto;
 
         if (mount_is_network(p)) {
                 target = SPECIAL_REMOTE_FS_TARGET;
@@ -357,7 +357,7 @@ static int mount_add_fstab_links(Mount *m) {
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
         }
 
-        if ((r = manager_load_unit(m->meta.manager, target, NULL, NULL, &tu)) < 0)
+        if ((r = manager_load_unit(UNIT(m)->manager, target, NULL, NULL, &tu)) < 0)
                 return r;
 
         if (after)
@@ -438,7 +438,7 @@ static int mount_add_device_links(Mount *m) {
                 if (!(name = unit_name_from_path_instance("fsck", p->what, ".service")))
                         return -ENOMEM;
 
-                if ((r = manager_load_unit_prepare(m->meta.manager, name, NULL, NULL, &fsck)) < 0) {
+                if ((r = manager_load_unit_prepare(UNIT(m)->manager, name, NULL, NULL, &fsck)) < 0) {
                         log_warning("Failed to prepare unit %s: %s", name, strerror(-r));
                         free(name);
                         return r;
@@ -461,7 +461,7 @@ static int mount_add_default_dependencies(Mount *m) {
 
         assert(m);
 
-        if (m->meta.manager->running_as != MANAGER_SYSTEM)
+        if (UNIT(m)->manager->running_as != MANAGER_SYSTEM)
                 return 0;
 
         p = get_mount_parameters_configured(m);
@@ -516,7 +516,7 @@ static int mount_fix_timeouts(Mount *m) {
                 return r;
         }
 
-        SET_FOREACH(other, m->meta.dependencies[UNIT_AFTER], i) {
+        SET_FOREACH(other, UNIT(m)->dependencies[UNIT_AFTER], i) {
                 if (other->type != UNIT_DEVICE)
                         continue;
 
@@ -531,7 +531,7 @@ static int mount_verify(Mount *m) {
         char *e;
         assert(m);
 
-        if (m->meta.load_state != UNIT_LOADED)
+        if (UNIT(m)->load_state != UNIT_LOADED)
                 return 0;
 
         if (!m->from_etc_fstab && !m->from_fragment && !m->from_proc_self_mountinfo)
@@ -544,7 +544,7 @@ static int mount_verify(Mount *m) {
         free(e);
 
         if (!b) {
-                log_error("%s's Where setting doesn't match unit name. Refusing.", m->meta.id);
+                log_error("%s's Where setting doesn't match unit name. Refusing.", UNIT(m)->id);
                 return -EINVAL;
         }
 
@@ -553,13 +553,13 @@ static int mount_verify(Mount *m) {
                 return -EINVAL;
         }
 
-        if (m->meta.fragment_path && !m->parameters_fragment.what) {
-                log_error("%s's What setting is missing. Refusing.", m->meta.id);
+        if (UNIT(m)->fragment_path && !m->parameters_fragment.what) {
+                log_error("%s's What setting is missing. Refusing.", UNIT(m)->id);
                 return -EBADMSG;
         }
 
         if (m->exec_context.pam_name && m->exec_context.kill_mode != KILL_CONTROL_GROUP) {
-                log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", m->meta.id);
+                log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", UNIT(m)->id);
                 return -EINVAL;
         }
 
@@ -581,7 +581,7 @@ static int mount_load(Unit *u) {
                 if ((r = unit_add_exec_dependencies(u, &m->exec_context)) < 0)
                         return r;
 
-                if (m->meta.fragment_path)
+                if (UNIT(m)->fragment_path)
                         m->from_fragment = true;
 
                 if (!m->where)
@@ -590,7 +590,7 @@ static int mount_load(Unit *u) {
 
                 path_kill_slashes(m->where);
 
-                if (!m->meta.description)
+                if (!UNIT(m)->description)
                         if ((r = unit_set_description(u, m->where)) < 0)
                                 return r;
 
@@ -615,7 +615,7 @@ static int mount_load(Unit *u) {
                 if ((r = mount_add_fstab_links(m)) < 0)
                         return r;
 
-                if (m->meta.default_dependencies)
+                if (UNIT(m)->default_dependencies)
                         if ((r = mount_add_default_dependencies(m)) < 0)
                                 return r;
 
@@ -635,7 +635,7 @@ static int mount_notify_automount(Mount *m, int status) {
 
         assert(m);
 
-        SET_FOREACH(p, m->meta.dependencies[UNIT_TRIGGERED_BY], i)
+        SET_FOREACH(p, UNIT(m)->dependencies[UNIT_TRIGGERED_BY], i)
                 if (p->type == UNIT_AUTOMOUNT) {
                          r = automount_send_ready(AUTOMOUNT(p), status);
                          if (r < 0)
@@ -684,7 +684,7 @@ static void mount_set_state(Mount *m, MountState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          m->meta.id,
+                          UNIT(m)->id,
                           mount_state_to_string(old_state),
                           mount_state_to_string(state));
 
@@ -786,13 +786,13 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                             NULL,
                             &m->exec_context,
                             NULL, 0,
-                            m->meta.manager->environment,
+                            UNIT(m)->manager->environment,
                             true,
                             true,
                             true,
-                            m->meta.manager->confirm_spawn,
-                            m->meta.cgroup_bondings,
-                            m->meta.cgroup_attributes,
+                            UNIT(m)->manager->confirm_spawn,
+                            UNIT(m)->cgroup_bondings,
+                            UNIT(m)->cgroup_attributes,
                             &pid)) < 0)
                 goto fail;
 
@@ -863,7 +863,7 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
                                 if ((r = set_put(pid_set, LONG_TO_PTR(m->control_pid))) < 0)
                                         goto fail;
 
-                        if ((r = cgroup_bonding_kill_list(m->meta.cgroup_bondings, sig, true, pid_set)) < 0) {
+                        if ((r = cgroup_bonding_kill_list(UNIT(m)->cgroup_bondings, sig, true, pid_set)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                         log_warning("Failed to kill control group: %s", strerror(-r));
                         } else if (r > 0)
@@ -887,7 +887,7 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to kill processes: %s", m->meta.id, strerror(-r));
+        log_warning("%s failed to kill processes: %s", UNIT(m)->id, strerror(-r));
 
         if (state == MOUNT_REMOUNTING_SIGTERM || state == MOUNT_REMOUNTING_SIGKILL)
                 mount_enter_mounted(m, false);
@@ -926,7 +926,7 @@ static void mount_enter_unmounting(Mount *m, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run 'umount' task: %s", m->meta.id, strerror(-r));
+        log_warning("%s failed to run 'umount' task: %s", UNIT(m)->id, strerror(-r));
         mount_enter_mounted(m, false);
 }
 
@@ -977,7 +977,7 @@ static void mount_enter_mounting(Mount *m) {
         return;
 
 fail:
-        log_warning("%s failed to run 'mount' task: %s", m->meta.id, strerror(-r));
+        log_warning("%s failed to run 'mount' task: %s", UNIT(m)->id, strerror(-r));
         mount_enter_dead(m, false);
 }
 
@@ -1045,7 +1045,7 @@ static void mount_enter_remounting(Mount *m, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run 'remount' task: %s", m->meta.id, strerror(-r));
+        log_warning("%s failed to run 'remount' task: %s", UNIT(m)->id, strerror(-r));
         m->reload_failure = true;
         mount_enter_mounted(m, true);
 }
@@ -1801,7 +1801,7 @@ static int mount_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError 
                                 goto finish;
                         }
 
-                if ((q = cgroup_bonding_kill_list(m->meta.cgroup_bondings, signo, false, pid_set)) < 0)
+                if ((q = cgroup_bonding_kill_list(UNIT(m)->cgroup_bondings, signo, false, pid_set)) < 0)
                         if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                                 r = q;
         }
