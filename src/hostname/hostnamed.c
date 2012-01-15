@@ -280,18 +280,24 @@ static int bus_hostname_append_icon_name(DBusMessageIter *i, const char *propert
         return bus_property_append_string(i, property, (void*) name);
 }
 
+static const BusProperty bus_hostname_properties[] = {
+        { "Hostname",       bus_property_append_string,    "s", sizeof(data[0])*PROP_HOSTNAME,        true },
+        { "StaticHostname", bus_property_append_string,    "s", sizeof(data[0])*PROP_STATIC_HOSTNAME, true },
+        { "PrettyHostname", bus_property_append_string,    "s", sizeof(data[0])*PROP_PRETTY_HOSTNAME, true },
+        { "IconName",       bus_hostname_append_icon_name, "s", sizeof(data[0])*PROP_ICON_NAME,       true },
+        { NULL, }
+};
+
+static const BusBoundProperties bps[] = {
+        { "org.freedesktop.hostname1", bus_hostname_properties, data },
+        { NULL, }
+};
+
 static DBusHandlerResult hostname_message_handler(
                 DBusConnection *connection,
                 DBusMessage *message,
                 void *userdata) {
 
-        const BusProperty properties[] = {
-                { "org.freedesktop.hostname1", "Hostname",       bus_property_append_string,    "s", data[PROP_HOSTNAME]},
-                { "org.freedesktop.hostname1", "StaticHostname", bus_property_append_string,    "s", data[PROP_STATIC_HOSTNAME]},
-                { "org.freedesktop.hostname1", "PrettyHostname", bus_property_append_string,    "s", data[PROP_PRETTY_HOSTNAME]},
-                { "org.freedesktop.hostname1", "IconName",       bus_hostname_append_icon_name, "s", data[PROP_ICON_NAME]},
-                { NULL, NULL, NULL, NULL, NULL }
-        };
 
         DBusMessage *reply = NULL, *changed = NULL;
         DBusError error;
@@ -470,7 +476,7 @@ static DBusHandlerResult hostname_message_handler(
                 }
 
         } else
-                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
 
         if (!(reply = dbus_message_new_method_return(message)))
                 goto oom;

@@ -84,18 +84,23 @@ static int bus_swap_append_priority(DBusMessageIter *i, const char *property, vo
         return 0;
 }
 
+static const BusProperty bus_swap_properties[] = {
+        { "What",       bus_property_append_string, "s", offsetof(Swap, what),  true },
+        { "Priority",   bus_swap_append_priority,   "i", 0 },
+        BUS_EXEC_COMMAND_PROPERTY("ExecActivate",   offsetof(Swap, exec_command[SWAP_EXEC_ACTIVATE]),   false),
+        BUS_EXEC_COMMAND_PROPERTY("ExecDeactivate", offsetof(Swap, exec_command[SWAP_EXEC_DEACTIVATE]), false),
+        { "ControlPID", bus_property_append_pid,    "u", offsetof(Swap, control_pid) },
+        { NULL, }
+};
+
 DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Swap *s = SWAP(u);
-        const BusProperty properties[] = {
-                BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Swap", "What",       bus_property_append_string, "s", s->what         },
-                { "org.freedesktop.systemd1.Swap", "Priority",   bus_swap_append_priority,   "i", u               },
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Swap", s->exec_command+SWAP_EXEC_ACTIVATE,   "ExecActivate"),
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Swap", s->exec_command+SWAP_EXEC_DEACTIVATE, "ExecDeactivate"),
-                BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Swap", s->exec_context),
-                { "org.freedesktop.systemd1.Swap", "ControlPID", bus_property_append_pid,    "u", &s->control_pid },
-                { NULL, NULL, NULL, NULL, NULL }
+        const BusBoundProperties bps[] = {
+                { "org.freedesktop.systemd1.Unit", bus_unit_properties,         u },
+                { "org.freedesktop.systemd1.Swap", bus_swap_properties,         s },
+                { "org.freedesktop.systemd1.Swap", bus_exec_context_properties, &s->exec_context },
+                { NULL, }
         };
 
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
 }

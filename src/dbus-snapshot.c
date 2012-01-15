@@ -45,13 +45,13 @@
 
 const char bus_snapshot_interface[] _introspect_("Snapshot") = BUS_SNAPSHOT_INTERFACE;
 
+static const BusProperty bus_snapshot_properties[] = {
+        { "Cleanup", bus_property_append_bool, "b", offsetof(Snapshot, cleanup) },
+        { NULL, }
+};
+
 DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Snapshot *s = SNAPSHOT(u);
-        const BusProperty properties[] = {
-                BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Snapshot", "Cleanup", bus_property_append_bool, "b", &s->cleanup },
-                { NULL, NULL, NULL, NULL, NULL }
-        };
 
         DBusMessage *reply = NULL;
         DBusError error;
@@ -65,8 +65,14 @@ DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusConnection *c, DBusM
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
-        } else
-                return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
+        } else {
+                const BusBoundProperties bps[] = {
+                        { "org.freedesktop.systemd1.Unit",     bus_unit_properties,     u },
+                        { "org.freedesktop.systemd1.Snapshot", bus_snapshot_properties, s },
+                        { NULL, }
+                };
+                return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
+        }
 
         if (reply) {
                 if (!dbus_connection_send(c, reply, NULL))

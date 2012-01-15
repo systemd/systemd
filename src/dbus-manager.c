@@ -491,46 +491,52 @@ static int bus_manager_send_unit_files_changed(Manager *m) {
         return r;
 }
 
+static const char systemd_property_string[] = PACKAGE_STRING "\0" DISTRIBUTION "\0" SYSTEMD_FEATURES;
+
+static const BusProperty bus_systemd_properties[] = {
+        { "Version",       bus_property_append_string,    "s",  0                                             },
+        { "Distribution",  bus_property_append_string,    "s",  sizeof(PACKAGE_STRING)                        },
+        { "Features",      bus_property_append_string,    "s",  sizeof(PACKAGE_STRING) + sizeof(DISTRIBUTION) },
+        { NULL, }
+};
+
+static const BusProperty bus_manager_properties[] = {
+        { "RunningAs",     bus_manager_append_running_as,          "s", offsetof(Manager, running_as)                  },
+        { "Tainted",       bus_manager_append_tainted,             "s", 0 },
+        { "InitRDTimestamp", bus_property_append_uint64,           "t", offsetof(Manager, initrd_timestamp.realtime)   },
+        { "InitRDTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, initrd_timestamp.monotonic)  },
+        { "StartupTimestamp", bus_property_append_uint64,          "t", offsetof(Manager, startup_timestamp.realtime)  },
+        { "StartupTimestampMonotonic", bus_property_append_uint64, "t", offsetof(Manager, startup_timestamp.monotonic) },
+        { "FinishTimestamp", bus_property_append_uint64,           "t", offsetof(Manager, finish_timestamp.realtime)   },
+        { "FinishTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, finish_timestamp.monotonic)  },
+        { "LogLevel",      bus_manager_append_log_level,           "s", 0,                                             0, bus_manager_set_log_level },
+        { "LogTarget",     bus_manager_append_log_target,          "s", 0,                                             0, bus_manager_set_log_target },
+        { "NNames",        bus_manager_append_n_names,             "u", 0 },
+        { "NJobs",         bus_manager_append_n_jobs,              "u", 0 },
+        { "NInstalledJobs",bus_property_append_uint32,             "u", offsetof(Manager, n_installed_jobs)            },
+        { "NFailedJobs",   bus_property_append_uint32,             "u", offsetof(Manager, n_failed_jobs)               },
+        { "Progress",      bus_manager_append_progress,            "d", 0 },
+        { "Environment",   bus_property_append_strv,              "as", offsetof(Manager, environment),                true },
+        { "ConfirmSpawn",  bus_property_append_bool,               "b", offsetof(Manager, confirm_spawn)               },
+        { "ShowStatus",    bus_property_append_bool,               "b", offsetof(Manager, show_status)                 },
+        { "UnitPath",      bus_property_append_strv,              "as", offsetof(Manager, lookup_paths.unit_path),     true },
+        { "NotifySocket",  bus_property_append_string,             "s", offsetof(Manager, notify_socket),              true },
+        { "ControlGroupHierarchy", bus_property_append_string,     "s", offsetof(Manager, cgroup_hierarchy),           true },
+        { "MountAuto",     bus_property_append_bool,               "b", offsetof(Manager, mount_auto)                  },
+        { "SwapAuto",      bus_property_append_bool,               "b", offsetof(Manager, swap_auto)                   },
+        { "DefaultControllers", bus_property_append_strv,         "as", offsetof(Manager, default_controllers),        true },
+        { "DefaultStandardOutput", bus_manager_append_exec_output, "s", offsetof(Manager, default_std_output)          },
+        { "DefaultStandardError",  bus_manager_append_exec_output, "s", offsetof(Manager, default_std_error)           },
+#ifdef HAVE_SYSV_COMPAT
+        { "SysVConsole",   bus_property_append_bool,               "b", offsetof(Manager, sysv_console)                },
+        { "SysVInitPath",  bus_property_append_strv,              "as", offsetof(Manager, lookup_paths.sysvinit_path), true },
+        { "SysVRcndPath",  bus_property_append_strv,              "as", offsetof(Manager, lookup_paths.sysvrcnd_path), true },
+#endif
+        { NULL, }
+};
+
 static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection, DBusMessage *message, void *data) {
         Manager *m = data;
-
-        const BusProperty properties[] = {
-                { "org.freedesktop.systemd1.Manager", "Version",       bus_property_append_string,    "s",  PACKAGE_STRING     },
-                { "org.freedesktop.systemd1.Manager", "Distribution",  bus_property_append_string,    "s",  DISTRIBUTION       },
-                { "org.freedesktop.systemd1.Manager", "Features",      bus_property_append_string,    "s",  SYSTEMD_FEATURES   },
-                { "org.freedesktop.systemd1.Manager", "RunningAs",     bus_manager_append_running_as, "s",  &m->running_as     },
-                { "org.freedesktop.systemd1.Manager", "Tainted",       bus_manager_append_tainted,    "s",  m                  },
-                { "org.freedesktop.systemd1.Manager", "InitRDTimestamp", bus_property_append_uint64,  "t",  &m->initrd_timestamp.realtime },
-                { "org.freedesktop.systemd1.Manager", "InitRDTimestampMonotonic", bus_property_append_uint64, "t", &m->initrd_timestamp.monotonic },
-                { "org.freedesktop.systemd1.Manager", "StartupTimestamp", bus_property_append_uint64, "t",  &m->startup_timestamp.realtime },
-                { "org.freedesktop.systemd1.Manager", "StartupTimestampMonotonic", bus_property_append_uint64, "t", &m->startup_timestamp.monotonic },
-                { "org.freedesktop.systemd1.Manager", "FinishTimestamp", bus_property_append_uint64,  "t",  &m->finish_timestamp.realtime },
-                { "org.freedesktop.systemd1.Manager", "FinishTimestampMonotonic", bus_property_append_uint64, "t",&m->finish_timestamp.monotonic },
-                { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s",  m, bus_manager_set_log_level },
-                { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s",  m, bus_manager_set_log_target },
-                { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u",  m                  },
-                { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u",  m                  },
-                { "org.freedesktop.systemd1.Manager", "NInstalledJobs",bus_property_append_uint32,    "u",  &m->n_installed_jobs },
-                { "org.freedesktop.systemd1.Manager", "NFailedJobs",   bus_property_append_uint32,    "u",  &m->n_failed_jobs  },
-                { "org.freedesktop.systemd1.Manager", "Progress",      bus_manager_append_progress,   "d",  m                  },
-                { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment     },
-                { "org.freedesktop.systemd1.Manager", "ConfirmSpawn",  bus_property_append_bool,      "b",  &m->confirm_spawn  },
-                { "org.freedesktop.systemd1.Manager", "ShowStatus",    bus_property_append_bool,      "b",  &m->show_status    },
-                { "org.freedesktop.systemd1.Manager", "UnitPath",      bus_property_append_strv,      "as", m->lookup_paths.unit_path },
-                { "org.freedesktop.systemd1.Manager", "NotifySocket",  bus_property_append_string,    "s",  m->notify_socket   },
-                { "org.freedesktop.systemd1.Manager", "ControlGroupHierarchy", bus_property_append_string, "s", m->cgroup_hierarchy },
-                { "org.freedesktop.systemd1.Manager", "MountAuto",     bus_property_append_bool,      "b",  &m->mount_auto     },
-                { "org.freedesktop.systemd1.Manager", "SwapAuto",      bus_property_append_bool,      "b",  &m->swap_auto      },
-                { "org.freedesktop.systemd1.Manager", "DefaultControllers", bus_property_append_strv, "as", m->default_controllers },
-                { "org.freedesktop.systemd1.Manager", "DefaultStandardOutput", bus_manager_append_exec_output, "s", &m->default_std_output },
-                { "org.freedesktop.systemd1.Manager", "DefaultStandardError",  bus_manager_append_exec_output, "s", &m->default_std_error  },
-#ifdef HAVE_SYSV_COMPAT
-                { "org.freedesktop.systemd1.Manager", "SysVConsole",   bus_property_append_bool,      "b",  &m->sysv_console   },
-                { "org.freedesktop.systemd1.Manager", "SysVInitPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvinit_path },
-                { "org.freedesktop.systemd1.Manager", "SysVRcndPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvrcnd_path },
-#endif
-                { NULL, NULL, NULL, NULL, NULL }
-        };
 
         int r;
         DBusError error;
@@ -1416,8 +1422,14 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!reply)
                         goto oom;
 
-        } else
-                return bus_default_message_handler(connection, message, NULL, INTERFACES_LIST, properties);
+        } else {
+                const BusBoundProperties bps[] = {
+                        { "org.freedesktop.systemd1.Manager", bus_systemd_properties, systemd_property_string },
+                        { "org.freedesktop.systemd1.Manager", bus_manager_properties, m },
+                        { NULL, }
+                };
+                return bus_default_message_handler(connection, message, NULL, INTERFACES_LIST, bps);
+        }
 
         if (job_type != _JOB_TYPE_INVALID) {
                 const char *name, *smode, *old_name = NULL;

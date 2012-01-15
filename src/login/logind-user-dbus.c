@@ -213,28 +213,28 @@ static int get_user_for_path(Manager *m, const char *path, User **_u) {
         return 0;
 }
 
+static const BusProperty bus_login_user_properties[] = {
+        { "UID",                    bus_property_append_uid,         "u", offsetof(User, uid)                 },
+        { "GID",                    bus_property_append_gid,         "u", offsetof(User, gid)                 },
+        { "Name",                   bus_property_append_string,      "s", offsetof(User, name),               true },
+        { "Timestamp",              bus_property_append_usec,        "t", offsetof(User, timestamp.realtime)  },
+        { "TimestampMonotonic",     bus_property_append_usec,        "t", offsetof(User, timestamp.monotonic) },
+        { "RuntimePath",            bus_property_append_string,      "s", offsetof(User, runtime_path),       true },
+        { "ControlGroupPath",       bus_property_append_string,      "s", offsetof(User, cgroup_path),        true },
+        { "Service",                bus_property_append_string,      "s", offsetof(User, service),            true },
+        { "Display",                bus_user_append_display,      "(so)", 0 },
+        { "State",                  bus_user_append_state,           "s", 0 },
+        { "Sessions",               bus_user_append_sessions,    "a(so)", 0 },
+        { "IdleHint",               bus_user_append_idle_hint,       "b", 0 },
+        { "IdleSinceHint",          bus_user_append_idle_hint_since, "t", 0 },
+        { "IdleSinceHintMonotonic", bus_user_append_idle_hint_since, "t", 0 },
+        { NULL, }
+};
+
 static DBusHandlerResult user_message_dispatch(
                 User *u,
                 DBusConnection *connection,
                 DBusMessage *message) {
-
-        const BusProperty properties[] = {
-                { "org.freedesktop.login1.User", "UID",                bus_property_append_uid,    "u",     &u->uid                 },
-                { "org.freedesktop.login1.User", "GID",                bus_property_append_gid,    "u",     &u->gid                 },
-                { "org.freedesktop.login1.User", "Name",               bus_property_append_string, "s",     u->name                 },
-                { "org.freedesktop.login1.User", "Timestamp",          bus_property_append_usec,   "t",     &u->timestamp.realtime  },
-                { "org.freedesktop.login1.User", "TimestampMonotonic", bus_property_append_usec,   "t",     &u->timestamp.monotonic },
-                { "org.freedesktop.login1.User", "RuntimePath",        bus_property_append_string, "s",     u->runtime_path         },
-                { "org.freedesktop.login1.User", "ControlGroupPath",   bus_property_append_string, "s",     u->cgroup_path          },
-                { "org.freedesktop.login1.User", "Service",            bus_property_append_string, "s",     u->service              },
-                { "org.freedesktop.login1.User", "Display",            bus_user_append_display,    "(so)",  u                       },
-                { "org.freedesktop.login1.User", "State",              bus_user_append_state,      "s",     u                       },
-                { "org.freedesktop.login1.User", "Sessions",           bus_user_append_sessions,   "a(so)", u                       },
-                { "org.freedesktop.login1.User", "IdleHint",           bus_user_append_idle_hint,  "b",     u                       },
-                { "org.freedesktop.login1.User", "IdleSinceHint",          bus_user_append_idle_hint_since, "t", u                  },
-                { "org.freedesktop.login1.User", "IdleSinceHintMonotonic", bus_user_append_idle_hint_since, "t", u                  },
-                { NULL, NULL, NULL, NULL, NULL }
-        };
 
         DBusError error;
         DBusMessage *reply = NULL;
@@ -274,8 +274,14 @@ static DBusHandlerResult user_message_dispatch(
                 if (!reply)
                         goto oom;
 
-        } else
-                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+        } else {
+                const BusBoundProperties bps[] = {
+                        { "org.freedesktop.login1.User", bus_login_user_properties, u },
+                        { NULL, }
+                };
+
+                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
+        }
 
         if (reply) {
                 if (!dbus_connection_send(connection, reply, NULL))

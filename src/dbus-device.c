@@ -47,13 +47,19 @@ const char bus_device_interface[] _introspect_("Device") = BUS_DEVICE_INTERFACE;
 const char bus_device_invalidating_properties[] =
         "SysFSPath\0";
 
+static const BusProperty bus_device_properties[] = {
+        { "SysFSPath", bus_property_append_string, "s", offsetof(Device, sysfs), true },
+        { NULL, }
+};
+
+
 DBusHandlerResult bus_device_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Device *d = DEVICE(u);
-        const BusProperty properties[] = {
-                BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Device", "SysFSPath", bus_property_append_string, "s", d->sysfs },
-                { NULL, NULL, NULL, NULL, NULL }
+        const BusBoundProperties bps[] = {
+                { "org.freedesktop.systemd1.Unit",   bus_unit_properties,   u },
+                { "org.freedesktop.systemd1.Device", bus_device_properties, d },
+                { NULL, }
         };
 
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
 }

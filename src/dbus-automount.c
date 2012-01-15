@@ -45,14 +45,19 @@
 
 const char bus_automount_interface[] _introspect_("Automount") = BUS_AUTOMOUNT_INTERFACE;
 
+static const BusProperty bus_automount_properties[] = {
+        { "Where",         bus_property_append_string, "s", offsetof(Automount, where),    true },
+        { "DirectoryMode", bus_property_append_mode,   "u", offsetof(Automount, directory_mode) },
+        { NULL, }
+};
+
 DBusHandlerResult bus_automount_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Automount *am = AUTOMOUNT(u);
-        const BusProperty properties[] = {
-                BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Automount", "Where", bus_property_append_string,       "s", am->where           },
-                { "org.freedesktop.systemd1.Automount", "DirectoryMode", bus_property_append_mode, "u", &am->directory_mode },
-                { NULL, NULL, NULL, NULL, NULL }
+        const BusBoundProperties bps[] = {
+                { "org.freedesktop.systemd1.Unit",      bus_unit_properties,      u  },
+                { "org.freedesktop.systemd1.Automount", bus_automount_properties, am },
+                { NULL, }
         };
 
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
 }

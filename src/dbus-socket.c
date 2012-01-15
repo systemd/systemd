@@ -87,42 +87,47 @@ const char bus_socket_invalidating_properties[] =
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_socket_append_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
 
+static const BusProperty bus_socket_properties[] = {
+        { "BindIPv6Only",   bus_socket_append_bind_ipv6_only,  "s", offsetof(Socket, bind_ipv6_only)  },
+        { "Backlog",        bus_property_append_unsigned,      "u", offsetof(Socket, backlog)         },
+        { "TimeoutUSec",    bus_property_append_usec,          "t", offsetof(Socket, timeout_usec)    },
+        BUS_EXEC_COMMAND_PROPERTY("ExecStartPre",  offsetof(Socket, exec_command[SOCKET_EXEC_START_PRE]),  true ),
+        BUS_EXEC_COMMAND_PROPERTY("ExecStartPost", offsetof(Socket, exec_command[SOCKET_EXEC_START_POST]), true ),
+        BUS_EXEC_COMMAND_PROPERTY("ExecStopPre",   offsetof(Socket, exec_command[SOCKET_EXEC_STOP_PRE]),   true ),
+        BUS_EXEC_COMMAND_PROPERTY("ExecStopPost",  offsetof(Socket, exec_command[SOCKET_EXEC_STOP_POST]),  true ),
+        { "ControlPID",     bus_property_append_pid,           "u", offsetof(Socket, control_pid)     },
+        { "BindToDevice",   bus_property_append_string,        "s", offsetof(Socket, bind_to_device), true },
+        { "DirectoryMode",  bus_property_append_mode,          "u", offsetof(Socket, directory_mode)  },
+        { "SocketMode",     bus_property_append_mode,          "u", offsetof(Socket, socket_mode)     },
+        { "Accept",         bus_property_append_bool,          "b", offsetof(Socket, accept)          },
+        { "KeepAlive",      bus_property_append_bool,          "b", offsetof(Socket, keep_alive)      },
+        { "Priority",       bus_property_append_int,           "i", offsetof(Socket, priority)        },
+        { "ReceiveBuffer",  bus_property_append_size,          "t", offsetof(Socket, receive_buffer)  },
+        { "SendBuffer",     bus_property_append_size,          "t", offsetof(Socket, send_buffer)     },
+        { "IPTOS",          bus_property_append_int,           "i", offsetof(Socket, ip_tos)          },
+        { "IPTTL",          bus_property_append_int,           "i", offsetof(Socket, ip_ttl)          },
+        { "PipeSize",       bus_property_append_size,          "t", offsetof(Socket, pipe_size)       },
+        { "FreeBind",       bus_property_append_bool,          "b", offsetof(Socket, free_bind)       },
+        { "Transparent",    bus_property_append_bool,          "b", offsetof(Socket, transparent)     },
+        { "Broadcast",      bus_property_append_bool,          "b", offsetof(Socket, broadcast)       },
+        { "PassCredentials",bus_property_append_bool,          "b", offsetof(Socket, pass_cred)       },
+        { "Mark",           bus_property_append_int,           "i", offsetof(Socket, mark)            },
+        { "MaxConnections", bus_property_append_unsigned,      "u", offsetof(Socket, max_connections) },
+        { "NConnections",   bus_property_append_unsigned,      "u", offsetof(Socket, n_connections)   },
+        { "NAccepted",      bus_property_append_unsigned,      "u", offsetof(Socket, n_accepted)      },
+        { "MessageQueueMaxMessages", bus_property_append_long, "x", offsetof(Socket, mq_maxmsg)       },
+        { "MessageQueueMessageSize", bus_property_append_long, "x", offsetof(Socket, mq_msgsize)      },
+        { NULL, }
+};
+
 DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Socket *s = SOCKET(u);
-        const BusProperty properties[] = {
-                BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Socket", "BindIPv6Only",   bus_socket_append_bind_ipv6_only, "s", &s->bind_ipv6_only  },
-                { "org.freedesktop.systemd1.Socket", "Backlog",        bus_property_append_unsigned,     "u", &s->backlog         },
-                { "org.freedesktop.systemd1.Socket", "TimeoutUSec",    bus_property_append_usec,         "t", &s->timeout_usec    },
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Socket", s->exec_command[SOCKET_EXEC_START_PRE],  "ExecStartPre"),
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Socket", s->exec_command[SOCKET_EXEC_START_POST], "ExecStartPost"),
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Socket", s->exec_command[SOCKET_EXEC_STOP_PRE],   "ExecStopPre"),
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Socket", s->exec_command[SOCKET_EXEC_STOP_POST],  "ExecStopPost"),
-                BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Socket", s->exec_context),
-                { "org.freedesktop.systemd1.Socket", "ControlPID",     bus_property_append_pid,          "u", &s->control_pid     },
-                { "org.freedesktop.systemd1.Socket", "BindToDevice",   bus_property_append_string,       "s", s->bind_to_device   },
-                { "org.freedesktop.systemd1.Socket", "DirectoryMode",  bus_property_append_mode,         "u", &s->directory_mode  },
-                { "org.freedesktop.systemd1.Socket", "SocketMode",     bus_property_append_mode,         "u", &s->socket_mode     },
-                { "org.freedesktop.systemd1.Socket", "Accept",         bus_property_append_bool,         "b", &s->accept          },
-                { "org.freedesktop.systemd1.Socket", "KeepAlive",      bus_property_append_bool,         "b", &s->keep_alive      },
-                { "org.freedesktop.systemd1.Socket", "Priority",       bus_property_append_int,          "i", &s->priority        },
-                { "org.freedesktop.systemd1.Socket", "ReceiveBuffer",  bus_property_append_size,         "t", &s->receive_buffer  },
-                { "org.freedesktop.systemd1.Socket", "SendBuffer",     bus_property_append_size,         "t", &s->send_buffer     },
-                { "org.freedesktop.systemd1.Socket", "IPTOS",          bus_property_append_int,          "i", &s->ip_tos          },
-                { "org.freedesktop.systemd1.Socket", "IPTTL",          bus_property_append_int,          "i", &s->ip_ttl          },
-                { "org.freedesktop.systemd1.Socket", "PipeSize",       bus_property_append_size,         "t", &s->pipe_size       },
-                { "org.freedesktop.systemd1.Socket", "FreeBind",       bus_property_append_bool,         "b", &s->free_bind       },
-                { "org.freedesktop.systemd1.Socket", "Transparent",    bus_property_append_bool,         "b", &s->transparent     },
-                { "org.freedesktop.systemd1.Socket", "Broadcast",      bus_property_append_bool,         "b", &s->broadcast       },
-                { "org.freedesktop.systemd1.Socket", "PassCredentials",bus_property_append_bool,         "b", &s->pass_cred       },
-                { "org.freedesktop.systemd1.Socket", "Mark",           bus_property_append_int,          "i", &s->mark            },
-                { "org.freedesktop.systemd1.Socket", "MaxConnections", bus_property_append_unsigned,     "u", &s->max_connections },
-                { "org.freedesktop.systemd1.Socket", "NConnections",   bus_property_append_unsigned,     "u", &s->n_connections   },
-                { "org.freedesktop.systemd1.Socket", "NAccepted",      bus_property_append_unsigned,     "u", &s->n_accepted      },
-                { "org.freedesktop.systemd1.Socket", "MessageQueueMaxMessages", bus_property_append_long,"x", &s->mq_maxmsg       },
-                { "org.freedesktop.systemd1.Socket", "MessageQueueMessageSize", bus_property_append_long,"x", &s->mq_msgsize      },
-                { NULL, NULL, NULL, NULL, NULL }
+        const BusBoundProperties bps[] = {
+                { "org.freedesktop.systemd1.Unit",   bus_unit_properties,         u },
+                { "org.freedesktop.systemd1.Socket", bus_socket_properties,       s },
+                { "org.freedesktop.systemd1.Socket", bus_exec_context_properties, &s->exec_context },
+                { NULL, }
         };
 
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
 }

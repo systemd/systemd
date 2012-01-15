@@ -46,10 +46,10 @@
 const char bus_target_interface[] _introspect_("Target") = BUS_TARGET_INTERFACE;
 
 DBusHandlerResult bus_target_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
-        const BusProperty properties[] = {
-                BUS_UNIT_PROPERTIES,
-                { NULL, NULL, NULL, NULL, NULL }
+        const BusBoundProperties bps[] = {
+                { "org.freedesktop.systemd1.Unit", bus_unit_properties, u },
+                { NULL, }
         };
 
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
 }

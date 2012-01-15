@@ -207,21 +207,21 @@ static int get_seat_for_path(Manager *m, const char *path, Seat **_s) {
         return 0;
 }
 
+static const BusProperty bus_login_seat_properties[] = {
+        { "Id",                     bus_property_append_string,      "s", offsetof(Seat, id), true },
+        { "ActiveSession",          bus_seat_append_active,       "(so)", 0 },
+        { "CanMultiSession",        bus_seat_append_multi_session,   "b", 0 },
+        { "Sessions",               bus_seat_append_sessions,    "a(so)", 0 },
+        { "IdleHint",               bus_seat_append_idle_hint,       "b", 0 },
+        { "IdleSinceHint",          bus_seat_append_idle_hint_since, "t", 0 },
+        { "IdleSinceHintMonotonic", bus_seat_append_idle_hint_since, "t", 0 },
+        { NULL, }
+};
+
 static DBusHandlerResult seat_message_dispatch(
                 Seat *s,
                 DBusConnection *connection,
                 DBusMessage *message) {
-
-        const BusProperty properties[] = {
-                { "org.freedesktop.login1.Seat", "Id",                     bus_property_append_string,      "s",     s->id },
-                { "org.freedesktop.login1.Seat", "ActiveSession",          bus_seat_append_active,          "(so)",  s     },
-                { "org.freedesktop.login1.Seat", "CanMultiSession",        bus_seat_append_multi_session,   "b",     s     },
-                { "org.freedesktop.login1.Seat", "Sessions",               bus_seat_append_sessions,        "a(so)", s     },
-                { "org.freedesktop.login1.Seat", "IdleHint",               bus_seat_append_idle_hint,       "b",     s     },
-                { "org.freedesktop.login1.Seat", "IdleSinceHint",          bus_seat_append_idle_hint_since, "t",     s     },
-                { "org.freedesktop.login1.Seat", "IdleSinceHintMonotonic", bus_seat_append_idle_hint_since, "t",     s     },
-                { NULL, NULL, NULL, NULL, NULL }
-        };
 
         DBusError error;
         DBusMessage *reply = NULL;
@@ -265,8 +265,13 @@ static DBusHandlerResult seat_message_dispatch(
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
                         goto oom;
-        } else
-                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+        } else {
+                const BusBoundProperties bps[] = {
+                        { "org.freedesktop.login1.Seat", bus_login_seat_properties, s },
+                        { NULL, }
+                };
+                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
+        }
 
         if (reply) {
                 if (!dbus_connection_send(connection, reply, NULL))

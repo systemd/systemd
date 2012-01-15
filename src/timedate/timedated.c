@@ -74,17 +74,23 @@
 
 const char timedate_interface[] _introspect_("timedate1") = INTERFACE;
 
-static char *zone = NULL;
-static bool local_rtc = false;
-static int use_ntp = -1;
+typedef struct TZ {
+        char *zone;
+        bool local_rtc;
+        int use_ntp;
+} TZ;
 
-static usec_t remain_until = 0;
+static TZ tz = {
+        .use_ntp = -1,
+};
+
+static usec_t remain_until;
 
 static void free_data(void) {
-        free(zone);
-        zone = NULL;
+        free(tz.zone);
+        tz.zone = NULL;
 
-        local_rtc = false;
+        tz.local_rtc = false;
 }
 
 static bool valid_timezone(const char *name) {
@@ -140,10 +146,10 @@ static void verify_timezone(void) {
         size_t l, q;
         int j, k;
 
-        if (!zone)
+        if (!tz.zone)
                 return;
 
-        p = strappend("/usr/share/zoneinfo/", zone);
+        p = strappend("/usr/share/zoneinfo/", tz.zone);
         if (!p) {
                 log_error("Out of memory");
                 return;
@@ -156,8 +162,8 @@ static void verify_timezone(void) {
 
         if (j < 0 || k < 0 || l != q || memcmp(a, b, l)) {
                 log_warning("/etc/localtime and /etc/timezone out of sync.");
-                free(zone);
-                zone = NULL;
+                free(tz.zone);
+                tz.zone = NULL;
         }
 
         free(a);
@@ -169,14 +175,14 @@ static int read_data(void) {
 
         free_data();
 
-        r = read_one_line_file("/etc/timezone", &zone);
+        r = read_one_line_file("/etc/timezone", &tz.zone);
         if (r < 0) {
                 if (r != -ENOENT)
                         log_warning("Failed to read /etc/timezone: %s", strerror(-r));
 
 #ifdef TARGET_FEDORA
                 r = parse_env_file("/etc/sysconfig/clock", NEWLINE,
-                                   "ZONE", &zone,
+                                   "ZONE", &tz.zone,
                                    NULL);
 
                 if (r < 0 && r != -ENOENT)
@@ -184,14 +190,14 @@ static int read_data(void) {
 #endif
         }
 
-        if (isempty(zone)) {
-                free(zone);
-                zone = NULL;
+        if (isempty(tz.zone)) {
+                free(tz.zone);
+                tz.zone = NULL;
         }
 
         verify_timezone();
 
-        local_rtc = hwclock_is_localtime() > 0;
+        tz.local_rtc = hwclock_is_localtime() > 0;
 
         return 0;
 }
@@ -200,7 +206,7 @@ static int write_data_timezone(void) {
         int r = 0;
         char *p;
 
-        if (!zone) {
+        if (!tz.zone) {
                 if (unlink("/etc/timezone") < 0 && errno != ENOENT)
                         r = -errno;
 
@@ -210,7 +216,7 @@ static int write_data_timezone(void) {
                 return r;
         }
 
-        p = strappend("/usr/share/zoneinfo/", zone);
+        p = strappend("/usr/share/zoneinfo/", tz.zone);
         if (!p) {
                 log_error("Out of memory");
                 return -ENOMEM;
@@ -222,7 +228,7 @@ static int write_data_timezone(void) {
         if (r < 0)
                 return r;
 
-        r = write_one_line_file_atomic("/etc/timezone", zone);
+        r = write_one_line_file_atomic("/etc/timezone", tz.zone);
         if (r < 0)
                 return r;
 
@@ -238,7 +244,7 @@ static int write_data_local_rtc(void) {
                 if (r != -ENOENT)
                         return r;
 
-                if (!local_rtc)
+                if (!tz.local_rtc)
                         return 0;
 
                 w = strdup(NULL_ADJTIME_LOCAL);
@@ -270,13 +276,13 @@ static int write_data_local_rtc(void) {
                 a = p - s;
                 b = strlen(e);
 
-                w = new(char, a + (local_rtc ? 5 : 3) + b + 1);
+                w = new(char, a + (tz.local_rtc ? 5 : 3) + b + 1);
                 if (!w) {
                         free(s);
                         return -ENOMEM;
                 }
 
-                *(char*) mempcpy(stpcpy(mempcpy(w, s, a), local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
+                *(char*) mempcpy(stpcpy(mempcpy(w, s, a), tz.local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
 
                 if (streq(w, NULL_ADJTIME_UTC)) {
                         free(w);
@@ -341,7 +347,7 @@ static int read_ntp(DBusConnection *bus) {
                 goto finish;
         }
 
-        use_ntp =
+        tz.use_ntp =
                 streq(s, "enabled") ||
                 streq(s, "enabled-runtime");
         r = 0;
@@ -370,7 +376,7 @@ static int start_ntp(DBusConnection *bus, DBusError *error) {
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        use_ntp ? "StartUnit" : "StopUnit");
+                        tz.use_ntp ? "StartUnit" : "StopUnit");
         if (!m) {
                 log_error("Could not allocate message.");
                 r = -ENOMEM;
@@ -419,7 +425,7 @@ static int enable_ntp(DBusConnection *bus, DBusError *error) {
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        use_ntp ? "EnableUnitFiles" : "DisableUnitFiles");
+                        tz.use_ntp ? "EnableUnitFiles" : "DisableUnitFiles");
 
         if (!m) {
                 log_error("Could not allocate message.");
@@ -441,7 +447,7 @@ static int enable_ntp(DBusConnection *bus, DBusError *error) {
                 goto finish;
         }
 
-        if (use_ntp) {
+        if (tz.use_ntp) {
                 /* send force bool */
                 if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &t)) {
                         log_error("Failed to append force boolean.");
@@ -495,7 +501,7 @@ static int property_append_ntp(DBusMessageIter *i, const char *property, void *d
         assert(i);
         assert(property);
 
-        db = use_ntp > 0;
+        db = tz.use_ntp > 0;
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &db))
                 return -ENOMEM;
@@ -503,17 +509,22 @@ static int property_append_ntp(DBusMessageIter *i, const char *property, void *d
         return 0;
 }
 
+static const BusProperty bus_timedate_properties[] = {
+        { "Timezone", bus_property_append_string, "s", offsetof(TZ, zone),     true },
+        { "LocalRTC", bus_property_append_bool,   "b", offsetof(TZ, local_rtc) },
+        { "NTP",      property_append_ntp,        "b", offsetof(TZ, use_ntp)   },
+        { NULL, }
+};
+
+static const BusBoundProperties bps[] = {
+        { "org.freedesktop.timedate1", bus_timedate_properties, &tz },
+        { NULL, }
+};
+
 static DBusHandlerResult timedate_message_handler(
                 DBusConnection *connection,
                 DBusMessage *message,
                 void *userdata) {
-
-        const BusProperty properties[] = {
-                { "org.freedesktop.timedate1", "Timezone", bus_property_append_string, "s", zone       },
-                { "org.freedesktop.timedate1", "LocalRTC", bus_property_append_bool,   "b", &local_rtc },
-                { "org.freedesktop.timedate1", "NTP",      property_append_ntp,        "b", NULL       },
-                { NULL, NULL, NULL, NULL, NULL }
-        };
 
         DBusMessage *reply = NULL, *changed = NULL;
         DBusError error;
@@ -539,7 +550,7 @@ static DBusHandlerResult timedate_message_handler(
                 if (!valid_timezone(z))
                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
 
-                if (!streq_ptr(z, zone)) {
+                if (!streq_ptr(z, tz.zone)) {
                         char *t;
 
                         r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-timezone", interactive, &error);
@@ -550,8 +561,8 @@ static DBusHandlerResult timedate_message_handler(
                         if (!t)
                                 goto oom;
 
-                        free(zone);
-                        zone = t;
+                        free(tz.zone);
+                        tz.zone = t;
 
                         /* 1. Write new configuration file */
                         r = write_data_timezone();
@@ -560,7 +571,7 @@ static DBusHandlerResult timedate_message_handler(
                                 return bus_send_error_reply(connection, message, NULL, r);
                         }
 
-                        if (local_rtc) {
+                        if (tz.local_rtc) {
                                 struct timespec ts;
                                 struct tm *tm;
 
@@ -573,7 +584,7 @@ static DBusHandlerResult timedate_message_handler(
                                 hwclock_set_time(tm);
                         }
 
-                        log_info("Changed timezone to '%s'.", zone);
+                        log_info("Changed timezone to '%s'.", tz.zone);
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/timedate1",
@@ -597,14 +608,14 @@ static DBusHandlerResult timedate_message_handler(
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if (lrtc != local_rtc) {
+                if (lrtc != tz.local_rtc) {
                         struct timespec ts;
 
                         r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-local-rtc", interactive, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 
-                        local_rtc = lrtc;
+                        tz.local_rtc = lrtc;
 
                         /* 1. Write new configuration file */
                         r = write_data_local_rtc();
@@ -614,7 +625,7 @@ static DBusHandlerResult timedate_message_handler(
                         }
 
                         /* 2. Teach kernel new timezone */
-                        if (local_rtc)
+                        if (tz.local_rtc)
                                 hwclock_apply_localtime_delta(NULL);
                         else
                                 hwclock_reset_localtime_delta();
@@ -628,7 +639,7 @@ static DBusHandlerResult timedate_message_handler(
                                 /* Sync system clock from RTC; first,
                                  * initialize the timezone fields of
                                  * struct tm. */
-                                if (local_rtc)
+                                if (tz.local_rtc)
                                         tm = *localtime(&ts.tv_sec);
                                 else
                                         tm = *gmtime(&ts.tv_sec);
@@ -640,7 +651,7 @@ static DBusHandlerResult timedate_message_handler(
 
                                         /* And set the system clock
                                          * with this */
-                                        if (local_rtc)
+                                        if (tz.local_rtc)
                                                 ts.tv_sec = mktime(&tm);
                                         else
                                                 ts.tv_sec = timegm(&tm);
@@ -652,7 +663,7 @@ static DBusHandlerResult timedate_message_handler(
                                 struct tm *tm;
 
                                 /* Sync RTC from system clock */
-                                if (local_rtc)
+                                if (tz.local_rtc)
                                         tm = localtime(&ts.tv_sec);
                                 else
                                         tm = gmtime(&ts.tv_sec);
@@ -660,7 +671,7 @@ static DBusHandlerResult timedate_message_handler(
                                 hwclock_set_time(tm);
                         }
 
-                        log_info("RTC configured to %s time.", local_rtc ? "local" : "UTC");
+                        log_info("RTC configured to %s time.", tz.local_rtc ? "local" : "UTC");
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/timedate1",
@@ -707,7 +718,7 @@ static DBusHandlerResult timedate_message_handler(
                         }
 
                         /* Sync down to RTC */
-                        if (local_rtc)
+                        if (tz.local_rtc)
                                 tm = localtime(&ts.tv_sec);
                         else
                                 tm = gmtime(&ts.tv_sec);
@@ -728,13 +739,13 @@ static DBusHandlerResult timedate_message_handler(
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if (ntp != !!use_ntp) {
+                if (ntp != !!tz.use_ntp) {
 
                         r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-ntp", interactive, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 
-                        use_ntp = !!ntp;
+                        tz.use_ntp = !!ntp;
 
                         r = enable_ntp(connection, &error);
                         if (r < 0)
@@ -744,7 +755,7 @@ static DBusHandlerResult timedate_message_handler(
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 
-                        log_info("Set NTP to %s", use_ntp ? "enabled" : "disabled");
+                        log_info("Set NTP to %s", tz.use_ntp ? "enabled" : "disabled");
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/timedate1",
@@ -755,7 +766,7 @@ static DBusHandlerResult timedate_message_handler(
                 }
 
         } else
-                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
 
         if (!(reply = dbus_message_new_method_return(message)))
                 goto oom;

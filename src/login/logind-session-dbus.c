@@ -119,21 +119,21 @@ static int bus_session_append_seat(DBusMessageIter *i, const char *property, voi
 
 static int bus_session_append_user(DBusMessageIter *i, const char *property, void *data) {
         DBusMessageIter sub;
-        Session *s = data;
+        User *u = data;
         char *p = NULL;
 
         assert(i);
         assert(property);
-        assert(s);
+        assert(u);
 
         if (!dbus_message_iter_open_container(i, DBUS_TYPE_STRUCT, NULL, &sub))
                 return -ENOMEM;
 
-        p = user_bus_path(s->user);
+        p = user_bus_path(u);
         if (!p)
                 return -ENOMEM;
 
-        if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT32, &s->user->uid) ||
+        if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT32, &u->uid) ||
             !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &p)) {
                 free(p);
                 return -ENOMEM;
@@ -222,38 +222,41 @@ static int get_session_for_path(Manager *m, const char *path, Session **_s) {
         return 0;
 }
 
+static const BusProperty bus_login_session_properties[] = {
+        { "Id",                     bus_property_append_string,         "s", offsetof(Session, id),                 true },
+        { "Timestamp",              bus_property_append_usec,           "t", offsetof(Session, timestamp.realtime)  },
+        { "TimestampMonotonic",     bus_property_append_usec,           "t", offsetof(Session, timestamp.monotonic) },
+        { "ControlGroupPath",       bus_property_append_string,         "s", offsetof(Session, cgroup_path),        true },
+        { "VTNr",                   bus_property_append_uint32,         "u", offsetof(Session, vtnr)                },
+        { "Seat",                   bus_session_append_seat,         "(so)", 0 },
+        { "TTY",                    bus_property_append_string,         "s", offsetof(Session, tty),                true },
+        { "Display",                bus_property_append_string,         "s", offsetof(Session, display),            true },
+        { "Remote",                 bus_property_append_bool,           "b", offsetof(Session, remote)              },
+        { "RemoteUser",             bus_property_append_string,         "s", offsetof(Session, remote_user),        true },
+        { "RemoteHost",             bus_property_append_string,         "s", offsetof(Session, remote_host),        true },
+        { "Service",                bus_property_append_string,         "s", offsetof(Session, service),            true },
+        { "Leader",                 bus_property_append_pid,            "u", offsetof(Session, leader)              },
+        { "Audit",                  bus_property_append_uint32,         "u", offsetof(Session, audit_id)            },
+        { "Type",                   bus_session_append_type,            "s", offsetof(Session, type)                },
+        { "Active",                 bus_session_append_active,          "b", 0 },
+        { "Controllers",            bus_property_append_strv,          "as", offsetof(Session, controllers),        true },
+        { "ResetControllers",       bus_property_append_strv,          "as", offsetof(Session, reset_controllers),  true },
+        { "KillProcesses",          bus_property_append_bool,           "b", offsetof(Session, kill_processes)      },
+        { "IdleHint",               bus_session_append_idle_hint,       "b", 0 },
+        { "IdleSinceHint",          bus_session_append_idle_hint_since, "t", 0 },
+        { "IdleSinceHintMonotonic", bus_session_append_idle_hint_since, "t", 0 },
+        { NULL, }
+};
+
+static const BusProperty bus_login_session_user_properties[] = {
+        { "User",                   bus_session_append_user,         "(uo)", 0 },
+        { "Name",                   bus_property_append_string,         "s", offsetof(User, name),                  true },
+};
+
 static DBusHandlerResult session_message_dispatch(
                 Session *s,
                 DBusConnection *connection,
                 DBusMessage *message) {
-
-        const BusProperty properties[] = {
-                { "org.freedesktop.login1.Session", "Id",                 bus_property_append_string,   "s",    s->id                   },
-                { "org.freedesktop.login1.Session", "User",               bus_session_append_user,      "(uo)", s                       },
-                { "org.freedesktop.login1.Session", "Name",               bus_property_append_string,   "s",    s->user->name           },
-                { "org.freedesktop.login1.Session", "Timestamp",          bus_property_append_usec,     "t",    &s->timestamp.realtime  },
-                { "org.freedesktop.login1.Session", "TimestampMonotonic", bus_property_append_usec,     "t",    &s->timestamp.monotonic },
-                { "org.freedesktop.login1.Session", "ControlGroupPath",   bus_property_append_string,   "s",    s->cgroup_path          },
-                { "org.freedesktop.login1.Session", "VTNr",               bus_property_append_uint32,   "u",    &s->vtnr                },
-                { "org.freedesktop.login1.Session", "Seat",               bus_session_append_seat,      "(so)", s                       },
-                { "org.freedesktop.login1.Session", "TTY",                bus_property_append_string,   "s",    s->tty                  },
-                { "org.freedesktop.login1.Session", "Display",            bus_property_append_string,   "s",    s->display              },
-                { "org.freedesktop.login1.Session", "Remote",             bus_property_append_bool,     "b",    &s->remote              },
-                { "org.freedesktop.login1.Session", "RemoteUser",         bus_property_append_string,   "s",    s->remote_user          },
-                { "org.freedesktop.login1.Session", "RemoteHost",         bus_property_append_string,   "s",    s->remote_host          },
-                { "org.freedesktop.login1.Session", "Service",            bus_property_append_string,   "s",    s->service              },
-                { "org.freedesktop.login1.Session", "Leader",             bus_property_append_pid,      "u",    &s->leader              },
-                { "org.freedesktop.login1.Session", "Audit",              bus_property_append_uint32,   "u",    &s->audit_id            },
-                { "org.freedesktop.login1.Session", "Type",               bus_session_append_type,      "s",    &s->type                },
-                { "org.freedesktop.login1.Session", "Active",             bus_session_append_active,    "b",    s                       },
-                { "org.freedesktop.login1.Session", "Controllers",        bus_property_append_strv,     "as",   s->controllers          },
-                { "org.freedesktop.login1.Session", "ResetControllers",   bus_property_append_strv,     "as",   s->reset_controllers    },
-                { "org.freedesktop.login1.Session", "KillProcesses",      bus_property_append_bool,     "b",    &s->kill_processes      },
-                { "org.freedesktop.login1.Session", "IdleHint",           bus_session_append_idle_hint, "b",    s                       },
-                { "org.freedesktop.login1.Session", "IdleSinceHint",          bus_session_append_idle_hint_since, "t", s                },
-                { "org.freedesktop.login1.Session", "IdleSinceHintMonotonic", bus_session_append_idle_hint_since, "t", s                },
-                { NULL, NULL, NULL, NULL, NULL }
-        };
 
         DBusError error;
         DBusMessage *reply = NULL;
@@ -351,8 +354,14 @@ static DBusHandlerResult session_message_dispatch(
                 if (!reply)
                         goto oom;
 
-        } else
-                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+        } else {
+                const BusBoundProperties bps[] = {
+                        { "org.freedesktop.login1.Session", bus_login_session_properties,      s       },
+                        { "org.freedesktop.login1.Session", bus_login_session_user_properties, s->user },
+                        { NULL, }
+                };
+                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
+        }
 
         if (reply) {
                 if (!dbus_connection_send(connection, reply, NULL))

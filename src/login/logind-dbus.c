@@ -706,26 +706,26 @@ static int flush_devices(Manager *m) {
         return trigger_device(m, NULL);
 }
 
+static const BusProperty bus_login_manager_properties[] = {
+        { "ControlGroupHierarchy",  bus_property_append_string,         "s",  offsetof(Manager, cgroup_path),        true },
+        { "Controllers",            bus_property_append_strv,           "as", offsetof(Manager, controllers),        true },
+        { "ResetControllers",       bus_property_append_strv,           "as", offsetof(Manager, reset_controllers),  true },
+        { "NAutoVTs",               bus_property_append_unsigned,       "u",  offsetof(Manager, n_autovts)           },
+        { "KillOnlyUsers",          bus_property_append_strv,           "as", offsetof(Manager, kill_only_users),    true },
+        { "KillExcludeUsers",       bus_property_append_strv,           "as", offsetof(Manager, kill_exclude_users), true },
+        { "KillUserProcesses",      bus_property_append_bool,           "b",  offsetof(Manager, kill_user_processes) },
+        { "IdleHint",               bus_manager_append_idle_hint,       "b",  0 },
+        { "IdleSinceHint",          bus_manager_append_idle_hint_since, "t",  0 },
+        { "IdleSinceHintMonotonic", bus_manager_append_idle_hint_since, "t",  0 },
+        { NULL, }
+};
+
 static DBusHandlerResult manager_message_handler(
                 DBusConnection *connection,
                 DBusMessage *message,
                 void *userdata) {
 
         Manager *m = userdata;
-
-        const BusProperty properties[] = {
-                { "org.freedesktop.login1.Manager", "ControlGroupHierarchy",  bus_property_append_string,   "s",  m->cgroup_path          },
-                { "org.freedesktop.login1.Manager", "Controllers",            bus_property_append_strv,     "as", m->controllers          },
-                { "org.freedesktop.login1.Manager", "ResetControllers",       bus_property_append_strv,     "as", m->reset_controllers    },
-                { "org.freedesktop.login1.Manager", "NAutoVTs",               bus_property_append_unsigned, "u",  &m->n_autovts           },
-                { "org.freedesktop.login1.Manager", "KillOnlyUsers",          bus_property_append_strv,     "as", m->kill_only_users      },
-                { "org.freedesktop.login1.Manager", "KillExcludeUsers",       bus_property_append_strv,     "as", m->kill_exclude_users   },
-                { "org.freedesktop.login1.Manager", "KillUserProcesses",      bus_property_append_bool,     "b",  &m->kill_user_processes },
-                { "org.freedesktop.login1.Manager", "IdleHint",               bus_manager_append_idle_hint, "b",  m                       },
-                { "org.freedesktop.login1.Manager", "IdleSinceHint",          bus_manager_append_idle_hint_since, "t", m                  },
-                { "org.freedesktop.login1.Manager", "IdleSinceHintMonotonic", bus_manager_append_idle_hint_since, "t", m                  },
-                { NULL, NULL, NULL, NULL, NULL }
-        };
 
         DBusError error;
         DBusMessage *reply = NULL;
@@ -1426,8 +1426,13 @@ static DBusHandlerResult manager_message_handler(
                 }
 
                 free(introspection);
-        } else
-                return bus_default_message_handler(connection, message, NULL, INTERFACES_LIST, properties);
+        } else {
+                const BusBoundProperties bps[] = {
+                        { "org.freedesktop.login1.Manager", bus_login_manager_properties, m },
+                        { NULL, }
+                };
+                return bus_default_message_handler(connection, message, NULL, INTERFACES_LIST, bps);
+        }
 
         if (reply) {
                 if (!dbus_connection_send(connection, reply, NULL))

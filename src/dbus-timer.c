@@ -113,15 +113,20 @@ static int bus_timer_append_unit(DBusMessageIter *i, const char *property, void 
         return dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t) ? 0 : -ENOMEM;
 }
 
+static const BusProperty bus_timer_properties[] = {
+        { "Unit",           bus_timer_append_unit,        "s", 0 },
+        { "Timers",         bus_timer_append_timers, "a(stt)", 0 },
+        { "NextElapseUSec", bus_property_append_usec,     "t", offsetof(Timer, next_elapse) },
+        { NULL, }
+};
+
 DBusHandlerResult bus_timer_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Timer *t = TIMER(u);
-        const BusProperty properties[] = {
-                BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Timer", "Unit",           bus_timer_append_unit,      "s",      u               },
-                { "org.freedesktop.systemd1.Timer", "Timers",         bus_timer_append_timers,    "a(stt)", u               },
-                { "org.freedesktop.systemd1.Timer", "NextElapseUSec", bus_property_append_usec,   "t",      &t->next_elapse },
-                { NULL, NULL, NULL, NULL, NULL }
+        const BusBoundProperties bps[] = {
+                { "org.freedesktop.systemd1.Unit",  bus_unit_properties,  u },
+                { "org.freedesktop.systemd1.Timer", bus_timer_properties, t },
+                { NULL, }
         };
 
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
 }
