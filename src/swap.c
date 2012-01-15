@@ -157,7 +157,7 @@ static int swap_add_mount_links(Swap *s) {
         assert(s);
 
         LIST_FOREACH(units_by_type, other, UNIT(s)->manager->units_by_type[UNIT_MOUNT])
-                if ((r = swap_add_one_mount_link(s, (Mount*) other)) < 0)
+                if ((r = swap_add_one_mount_link(s, MOUNT(other))) < 0)
                         return r;
 
         return 0;
@@ -1096,7 +1096,7 @@ int swap_dispatch_reload(Manager *m) {
 }
 
 int swap_fd_event(Manager *m, int events) {
-        Unit *meta;
+        Unit *u;
         int r;
 
         assert(m);
@@ -1106,8 +1106,8 @@ int swap_fd_event(Manager *m, int events) {
                 log_error("Failed to reread /proc/swaps: %s", strerror(-r));
 
                 /* Reset flags, just in case, for late calls */
-                LIST_FOREACH(units_by_type, meta, m->units_by_type[UNIT_SWAP]) {
-                        Swap *swap = (Swap*) meta;
+                LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_SWAP]) {
+                        Swap *swap = SWAP(u);
 
                         swap->is_active = swap->just_activated = false;
                 }
@@ -1117,8 +1117,8 @@ int swap_fd_event(Manager *m, int events) {
 
         manager_dispatch_load_queue(m);
 
-        LIST_FOREACH(units_by_type, meta, m->units_by_type[UNIT_SWAP]) {
-                Swap *swap = (Swap*) meta;
+        LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_SWAP]) {
+                Swap *swap = SWAP(u);
 
                 if (!swap->is_active) {
                         /* This has just been deactivated */

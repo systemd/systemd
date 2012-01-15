@@ -306,15 +306,15 @@ fail:
 }
 
 static unsigned manager_dispatch_cleanup_queue(Manager *m) {
-        Unit *meta;
+        Unit *u;
         unsigned n = 0;
 
         assert(m);
 
-        while ((meta = m->cleanup_queue)) {
-                assert(meta->in_cleanup_queue);
+        while ((u = m->cleanup_queue)) {
+                assert(u->in_cleanup_queue);
 
-                unit_free((Unit*) meta);
+                unit_free(u);
                 n++;
         }
 
@@ -382,7 +382,7 @@ good:
 }
 
 static unsigned manager_dispatch_gc_queue(Manager *m) {
-        Unit *meta;
+        Unit *u;
         unsigned n = 0;
         unsigned gc_marker;
 
@@ -401,21 +401,21 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
 
         gc_marker = m->gc_marker;
 
-        while ((meta = m->gc_queue)) {
-                assert(meta->in_gc_queue);
+        while ((u = m->gc_queue)) {
+                assert(u->in_gc_queue);
 
-                unit_gc_sweep((Unit*) meta, gc_marker);
+                unit_gc_sweep(u, gc_marker);
 
-                LIST_REMOVE(Unit, gc_queue, m->gc_queue, meta);
-                meta->in_gc_queue = false;
+                LIST_REMOVE(Unit, gc_queue, m->gc_queue, u);
+                u->in_gc_queue = false;
 
                 n++;
 
-                if (meta->gc_marker == gc_marker + GC_OFFSET_BAD ||
-                    meta->gc_marker == gc_marker + GC_OFFSET_UNSURE) {
-                        log_debug("Collecting %s", meta->id);
-                        meta->gc_marker = gc_marker + GC_OFFSET_BAD;
-                        unit_add_to_cleanup_queue((Unit*) meta);
+                if (u->gc_marker == gc_marker + GC_OFFSET_BAD ||
+                    u->gc_marker == gc_marker + GC_OFFSET_UNSURE) {
+                        log_debug("Collecting %s", u->id);
+                        u->gc_marker = gc_marker + GC_OFFSET_BAD;
+                        unit_add_to_cleanup_queue(u);
                 }
         }
 
@@ -1768,7 +1768,7 @@ Unit *manager_get_unit(Manager *m, const char *name) {
 }
 
 unsigned manager_dispatch_load_queue(Manager *m) {
-        Unit *meta;
+        Unit *u;
         unsigned n = 0;
 
         assert(m);
@@ -1782,10 +1782,10 @@ unsigned manager_dispatch_load_queue(Manager *m) {
         /* Dispatches the load queue. Takes a unit from the queue and
          * tries to load its data until the queue is empty */
 
-        while ((meta = m->load_queue)) {
-                assert(meta->in_load_queue);
+        while ((u = m->load_queue)) {
+                assert(u->in_load_queue);
 
-                unit_load((Unit*) meta);
+                unit_load(u);
                 n++;
         }
 
@@ -1929,7 +1929,7 @@ unsigned manager_dispatch_run_queue(Manager *m) {
 
 unsigned manager_dispatch_dbus_queue(Manager *m) {
         Job *j;
-        Unit *meta;
+        Unit *u;
         unsigned n = 0;
 
         assert(m);
@@ -1939,10 +1939,10 @@ unsigned manager_dispatch_dbus_queue(Manager *m) {
 
         m->dispatching_dbus_queue = true;
 
-        while ((meta = m->dbus_unit_queue)) {
-                assert(meta->in_dbus_queue);
+        while ((u = m->dbus_unit_queue)) {
+                assert(u->in_dbus_queue);
 
-                bus_unit_send_change_signal((Unit*) meta);
+                bus_unit_send_change_signal(u);
                 n++;
         }
 

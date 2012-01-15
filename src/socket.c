@@ -274,7 +274,7 @@ static int socket_add_mount_links(Socket *s) {
         assert(s);
 
         LIST_FOREACH(units_by_type, other, UNIT(s)->manager->units_by_type[UNIT_MOUNT])
-                if ((r = socket_add_one_mount_link(s, (Mount*) other)) < 0)
+                if ((r = socket_add_one_mount_link(s, MOUNT(other))) < 0)
                         return r;
 
         return 0;

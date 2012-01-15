@@ -376,7 +376,7 @@ static int sysv_fix_order(Service *s) {
                 UnitDependency d;
                 bool special_s, special_t;
 
-                t = (Service*) other;
+                t = SERVICE(other);
 
                 if (s == t)
                         continue;
@@ -1023,7 +1023,7 @@ static int fsck_fix_order(Service *s) {
                 Service *t;
                 UnitDependency d;
 
-                t = (Service*) other;
+                t = SERVICE(other);
 
                 if (s == t)
                         continue;

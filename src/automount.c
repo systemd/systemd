@@ -143,7 +143,7 @@ static int automount_add_mount_links(Automount *a) {
         assert(a);
 
         LIST_FOREACH(units_by_type, other, UNIT(a)->manager->units_by_type[UNIT_MOUNT])
-                if ((r = automount_add_one_mount_link(a, (Mount*) other)) < 0)
+                if ((r = automount_add_one_mount_link(a, MOUNT(other))) < 0)
                         return r;
 
         return 0;

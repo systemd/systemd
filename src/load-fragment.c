@@ -269,7 +269,7 @@ int config_parse_socket_listen(
         assert(rvalue);
         assert(data);
 
-        s = (Socket*) data;
+        s = SOCKET(data);
 
         if (!(p = new0(SocketPort, 1)))
                 return -ENOMEM;
@@ -380,7 +380,7 @@ int config_parse_socket_bind(
         assert(rvalue);
         assert(data);
 
-        s = (Socket*) data;
+        s = SOCKET(data);
 
         if ((b = socket_address_bind_ipv6_only_from_string(rvalue)) < 0) {
                 int r;

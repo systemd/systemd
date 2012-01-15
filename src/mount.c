@@ -160,7 +160,7 @@ static int mount_add_mount_links(Mount *m) {
          * above us in the hierarchy */
 
         LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_MOUNT]) {
-                Mount *n = (Mount*) other;
+                Mount *n = MOUNT(other);
                 MountParameters *pn;
 
                 if (n == m)
@@ -217,7 +217,7 @@ static int mount_add_swap_links(Mount *m) {
         assert(m);
 
         LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_SWAP])
-                if ((r = swap_add_one_mount_link((Swap*) other, m)) < 0)
+                if ((r = swap_add_one_mount_link(SWAP(other), m)) < 0)
                         return r;
 
         return 0;
@@ -230,7 +230,7 @@ static int mount_add_path_links(Mount *m) {
         assert(m);
 
         LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_PATH])
-                if ((r = path_add_one_mount_link((Path*) other, m)) < 0)
+                if ((r = path_add_one_mount_link(PATH(other), m)) < 0)
                         return r;
 
         return 0;
@@ -243,7 +243,7 @@ static int mount_add_automount_links(Mount *m) {
         assert(m);
 
         LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_AUTOMOUNT])
-                if ((r = automount_add_one_mount_link((Automount*) other, m)) < 0)
+                if ((r = automount_add_one_mount_link(AUTOMOUNT(other), m)) < 0)
                         return r;
 
         return 0;
@@ -256,7 +256,7 @@ static int mount_add_socket_links(Mount *m) {
         assert(m);
 
         LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_SOCKET])
-                if ((r = socket_add_one_mount_link((Socket*) other, m)) < 0)
+                if ((r = socket_add_one_mount_link(SOCKET(other), m)) < 0)
                         return r;
 
         return 0;
@@ -1679,7 +1679,7 @@ fail:
 }
 
 void mount_fd_event(Manager *m, int events) {
-        Unit *meta;
+        Unit *u;
         int r;
 
         assert(m);
@@ -1693,8 +1693,8 @@ void mount_fd_event(Manager *m, int events) {
                 log_error("Failed to reread /proc/self/mountinfo: %s", strerror(-r));
 
                 /* Reset flags, just in case, for later calls */
-                LIST_FOREACH(units_by_type, meta, m->units_by_type[UNIT_MOUNT]) {
-                        Mount *mount = (Mount*) meta;
+                LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
+                        Mount *mount = MOUNT(u);
 
                         mount->is_mounted = mount->just_mounted = mount->just_changed = false;
                 }
@@ -1704,8 +1704,8 @@ void mount_fd_event(Manager *m, int events) {
 
         manager_dispatch_load_queue(m);
 
-        LIST_FOREACH(units_by_type, meta, m->units_by_type[UNIT_MOUNT]) {
-                Mount *mount = (Mount*) meta;
+        LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
+                Mount *mount = MOUNT(u);
 
                 if (!mount->is_mounted) {
                         /* This has just been unmounted. */
