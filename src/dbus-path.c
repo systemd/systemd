@@ -80,24 +80,26 @@ static int bus_path_append_paths(DBusMessageIter *i, const char *property, void 
 
 static int bus_path_append_unit(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
+        Path *p = PATH(u);
         const char *t;
 
         assert(i);
         assert(property);
         assert(u);
 
-        t = UNIT_DEREF(u->path.unit) ? UNIT_DEREF(u->path.unit)->meta.id : "";
+        t = UNIT_DEREF(p->unit) ? UNIT_DEREF(p->unit)->id : "";
 
         return dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t) ? 0 : -ENOMEM;
 }
 
 DBusHandlerResult bus_path_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
+        Path *p = PATH(u);
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Path", "Unit",          bus_path_append_unit,     "s",     u                        },
-                { "org.freedesktop.systemd1.Path", "Paths",         bus_path_append_paths,    "a(ss)", u                        },
-                { "org.freedesktop.systemd1.Path", "MakeDirectory", bus_property_append_bool, "b",     &u->path.make_directory  },
-                { "org.freedesktop.systemd1.Path", "DirectoryMode", bus_property_append_mode, "u",     &u->path.directory_mode  },
+                { "org.freedesktop.systemd1.Path", "Unit",          bus_path_append_unit,     "s",     u                   },
+                { "org.freedesktop.systemd1.Path", "Paths",         bus_path_append_paths,    "a(ss)", u                   },
+                { "org.freedesktop.systemd1.Path", "MakeDirectory", bus_property_append_bool, "b",     &p->make_directory  },
+                { "org.freedesktop.systemd1.Path", "DirectoryMode", bus_property_append_mode, "u",     &p->directory_mode  },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

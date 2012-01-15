@@ -46,10 +46,10 @@
 const char bus_snapshot_interface[] _introspect_("Snapshot") = BUS_SNAPSHOT_INTERFACE;
 
 DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
-
+        Snapshot *s = SNAPSHOT(u);
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Snapshot", "Cleanup", bus_property_append_bool, "b", &u->snapshot.cleanup },
+                { "org.freedesktop.systemd1.Snapshot", "Cleanup", bus_property_append_bool, "b", &s->cleanup },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

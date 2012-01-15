@@ -71,7 +71,7 @@ static int bus_job_append_unit(DBusMessageIter *i, const char *property, void *d
         if (!(p = unit_dbus_path(j->unit)))
                 return -ENOMEM;
 
-        if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &j->unit->meta.id) ||
+        if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &j->unit->id) ||
             !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &p)) {
                 free(p);
                 return -ENOMEM;

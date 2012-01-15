@@ -40,7 +40,7 @@ static void timer_init(Unit *u) {
         Timer *t = TIMER(u);
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         t->next_elapse = (usec_t) -1;
 }
@@ -96,12 +96,12 @@ static int timer_load(Unit *u) {
         int r;
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         if ((r = unit_load_fragment_and_dropin(u)) < 0)
                 return r;
 
-        if (u->meta.load_state == UNIT_LOADED) {
+        if (u->load_state == UNIT_LOADED) {
 
                 if (!UNIT_DEREF(t->unit)) {
                         Unit *x;
@@ -135,7 +135,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTimer State: %s\n"
                 "%sUnit: %s\n",
                 prefix, timer_state_to_string(t->state),
-                prefix, UNIT_DEREF(t->unit)->meta.id);
+                prefix, UNIT_DEREF(t->unit)->id);
 
         LIST_FOREACH(value, v, t->values)
                 fprintf(f,
@@ -225,18 +225,18 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                 case TIMER_UNIT_ACTIVE:
 
-                        if (UNIT_DEREF(t->unit)->meta.inactive_exit_timestamp.monotonic <= 0)
+                        if (UNIT_DEREF(t->unit)->inactive_exit_timestamp.monotonic <= 0)
                                 continue;
 
-                        base = UNIT_DEREF(t->unit)->meta.inactive_exit_timestamp.monotonic;
+                        base = UNIT_DEREF(t->unit)->inactive_exit_timestamp.monotonic;
                         break;
 
                 case TIMER_UNIT_INACTIVE:
 
-                        if (UNIT_DEREF(t->unit)->meta.inactive_enter_timestamp.monotonic <= 0)
+                        if (UNIT_DEREF(t->unit)->inactive_enter_timestamp.monotonic <= 0)
                                 continue;
 
-                        base = UNIT_DEREF(t->unit)->meta.inactive_enter_timestamp.monotonic;
+                        base = UNIT_DEREF(t->unit)->inactive_enter_timestamp.monotonic;
                         break;
 
                 default:
@@ -306,7 +306,7 @@ static int timer_start(Unit *u) {
         assert(t);
         assert(t->state == TIMER_DEAD || t->state == TIMER_FAILED);
 
-        if (UNIT_DEREF(t->unit)->meta.load_state != UNIT_LOADED)
+        if (UNIT_DEREF(t->unit)->load_state != UNIT_LOADED)
                 return -ENOENT;
 
         t->failure = false;
@@ -378,7 +378,7 @@ static void timer_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
         if (t->state != TIMER_WAITING)
                 return;
 
-        log_debug("Timer elapsed on %s", u->meta.id);
+        log_debug("Timer elapsed on %s", u->id);
         timer_enter_running(t);
 }
 
@@ -386,17 +386,17 @@ void timer_unit_notify(Unit *u, UnitActiveState new_state) {
         Iterator i;
         Unit *k;
 
-        if (u->meta.type == UNIT_TIMER)
+        if (u->type == UNIT_TIMER)
                 return;
 
-        SET_FOREACH(k, u->meta.dependencies[UNIT_TRIGGERED_BY], i) {
+        SET_FOREACH(k, u->dependencies[UNIT_TRIGGERED_BY], i) {
                 Timer *t;
                 TimerValue *v;
 
-                if (k->meta.type != UNIT_TIMER)
+                if (k->type != UNIT_TIMER)
                         continue;
 
-                if (k->meta.load_state != UNIT_LOADED)
+                if (k->load_state != UNIT_LOADED)
                         continue;
 
                 t = TIMER(k);

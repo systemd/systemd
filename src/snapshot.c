@@ -62,14 +62,14 @@ static int snapshot_load(Unit *u) {
         Snapshot *s = SNAPSHOT(u);
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         /* Make sure that only snapshots created via snapshot_create()
          * can be loaded */
         if (!s->by_snapshot_create && s->meta.manager->n_reloading <= 0)
                 return -ENOENT;
 
-        u->meta.load_state = UNIT_LOADED;
+        u->load_state = UNIT_LOADED;
         return 0;
 }
 
@@ -133,8 +133,8 @@ static int snapshot_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         unit_serialize_item(u, f, "state", snapshot_state_to_string(s->state));
         unit_serialize_item(u, f, "cleanup", yes_no(s->cleanup));
-        SET_FOREACH(other, u->meta.dependencies[UNIT_WANTS], i)
-                unit_serialize_item(u, f, "wants", other->meta.id);
+        SET_FOREACH(other, u->dependencies[UNIT_WANTS], i)
+                unit_serialize_item(u, f, "wants", other->id);
 
         return 0;
 }
@@ -234,14 +234,14 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, DBusError *e, Sn
 
         SNAPSHOT(u)->by_snapshot_create = true;
         manager_dispatch_load_queue(m);
-        assert(u->meta.load_state == UNIT_LOADED);
+        assert(u->load_state == UNIT_LOADED);
 
         HASHMAP_FOREACH_KEY(other, k, m->units, i) {
 
-                if (other->meta.ignore_on_snapshot)
+                if (other->ignore_on_snapshot)
                         continue;
 
-                if (k != other->meta.id)
+                if (k != other->id)
                         continue;
 
                 if (UNIT_VTABLE(other)->check_snapshot)

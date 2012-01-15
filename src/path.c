@@ -236,7 +236,7 @@ static void path_init(Unit *u) {
         Path *p = PATH(u);
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         p->directory_mode = 0755;
 }
@@ -281,7 +281,7 @@ int path_add_one_mount_link(Path *p, Mount *m) {
 }
 
 static int path_add_mount_links(Path *p) {
-        Meta *other;
+        Unit *other;
         int r;
 
         assert(p);
@@ -328,12 +328,12 @@ static int path_load(Unit *u) {
         int r;
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         if ((r = unit_load_fragment_and_dropin(u)) < 0)
                 return r;
 
-        if (u->meta.load_state == UNIT_LOADED) {
+        if (u->load_state == UNIT_LOADED) {
 
                 if (!UNIT_DEREF(p->unit)) {
                         Unit *x;
@@ -373,7 +373,7 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sMakeDirectory: %s\n"
                 "%sDirectoryMode: %04o\n",
                 prefix, path_state_to_string(p->state),
-                prefix, UNIT_DEREF(p->unit)->meta.id,
+                prefix, UNIT_DEREF(p->unit)->id,
                 prefix, yes_no(p->make_directory),
                 prefix, p->directory_mode);
 
@@ -547,7 +547,7 @@ static int path_start(Unit *u) {
         assert(p);
         assert(p->state == PATH_DEAD || p->state == PATH_FAILED);
 
-        if (UNIT_DEREF(p->unit)->meta.load_state != UNIT_LOADED)
+        if (UNIT_DEREF(p->unit)->load_state != UNIT_LOADED)
                 return -ENOENT;
 
         path_mkdir(p);
@@ -625,7 +625,7 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
             p->state != PATH_RUNNING)
                 return;
 
-        /* log_debug("inotify wakeup on %s.", u->meta.id); */
+        /* log_debug("inotify wakeup on %s.", u->id); */
 
         LIST_FOREACH(spec, s, p->specs)
                 if (path_spec_owns_inotify_fd(s, fd))
@@ -660,16 +660,16 @@ void path_unit_notify(Unit *u, UnitActiveState new_state) {
         Iterator i;
         Unit *k;
 
-        if (u->meta.type == UNIT_PATH)
+        if (u->type == UNIT_PATH)
                 return;
 
-        SET_FOREACH(k, u->meta.dependencies[UNIT_TRIGGERED_BY], i) {
+        SET_FOREACH(k, u->dependencies[UNIT_TRIGGERED_BY], i) {
                 Path *p;
 
-                if (k->meta.type != UNIT_PATH)
+                if (k->type != UNIT_PATH)
                         continue;
 
-                if (k->meta.load_state != UNIT_LOADED)
+                if (k->load_state != UNIT_LOADED)
                         continue;
 
                 p = PATH(k);

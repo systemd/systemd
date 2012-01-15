@@ -83,8 +83,8 @@ static void swap_init(Unit *u) {
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
 
         exec_context_init(&s->exec_context);
-        s->exec_context.std_output = u->meta.manager->default_std_output;
-        s->exec_context.std_error = u->meta.manager->default_std_error;
+        s->exec_context.std_output = u->manager->default_std_output;
+        s->exec_context.std_error = u->manager->default_std_error;
 
         s->parameters_etc_fstab.priority = s->parameters_proc_swaps.priority = s->parameters_fragment.priority = -1;
 
@@ -151,7 +151,7 @@ int swap_add_one_mount_link(Swap *s, Mount *m) {
 }
 
 static int swap_add_mount_links(Swap *s) {
-        Meta *other;
+        Unit *other;
         int r;
 
         assert(s);
@@ -262,13 +262,13 @@ static int swap_load(Unit *u) {
         Swap *s = SWAP(u);
 
         assert(s);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         /* Load a .swap file */
         if ((r = unit_load_fragment_and_dropin_optional(u)) < 0)
                 return r;
 
-        if (u->meta.load_state == UNIT_LOADED) {
+        if (u->load_state == UNIT_LOADED) {
                 if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
                         return r;
 
@@ -283,7 +283,7 @@ static int swap_load(Unit *u) {
                         else if (s->parameters_proc_swaps.what)
                                 s->what = strdup(s->parameters_proc_swaps.what);
                         else
-                                s->what = unit_name_to_path(u->meta.id);
+                                s->what = unit_name_to_path(u->id);
 
                         if (!s->what)
                                 return -ENOMEM;
@@ -952,7 +952,7 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         }
 
         log_full(success ? LOG_DEBUG : LOG_NOTICE,
-                 "%s swap process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
+                 "%s swap process exited, code=%s status=%i", u->id, sigchld_code_to_string(code), status);
 
         switch (s->state) {
 
@@ -985,7 +985,7 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
         /* Request a reload of /proc/swaps, so that following units
          * can follow our state change */
-        u->meta.manager->request_reload = true;
+        u->manager->request_reload = true;
 }
 
 static void swap_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
@@ -998,38 +998,38 @@ static void swap_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
         switch (s->state) {
 
         case SWAP_ACTIVATING:
-                log_warning("%s activation timed out. Stopping.", u->meta.id);
+                log_warning("%s activation timed out. Stopping.", u->id);
                 swap_enter_signal(s, SWAP_ACTIVATING_SIGTERM, false);
                 break;
 
         case SWAP_DEACTIVATING:
-                log_warning("%s deactivation timed out. Stopping.", u->meta.id);
+                log_warning("%s deactivation timed out. Stopping.", u->id);
                 swap_enter_signal(s, SWAP_DEACTIVATING_SIGTERM, false);
                 break;
 
         case SWAP_ACTIVATING_SIGTERM:
                 if (s->exec_context.send_sigkill) {
-                        log_warning("%s activation timed out. Killing.", u->meta.id);
+                        log_warning("%s activation timed out. Killing.", u->id);
                         swap_enter_signal(s, SWAP_ACTIVATING_SIGKILL, false);
                 } else {
-                        log_warning("%s activation timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+                        log_warning("%s activation timed out. Skipping SIGKILL. Ignoring.", u->id);
                         swap_enter_dead(s, false);
                 }
                 break;
 
         case SWAP_DEACTIVATING_SIGTERM:
                 if (s->exec_context.send_sigkill) {
-                        log_warning("%s deactivation timed out. Killing.", u->meta.id);
+                        log_warning("%s deactivation timed out. Killing.", u->id);
                         swap_enter_signal(s, SWAP_DEACTIVATING_SIGKILL, false);
                 } else {
-                        log_warning("%s deactivation timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+                        log_warning("%s deactivation timed out. Skipping SIGKILL. Ignoring.", u->id);
                         swap_enter_dead(s, false);
                 }
                 break;
 
         case SWAP_ACTIVATING_SIGKILL:
         case SWAP_DEACTIVATING_SIGKILL:
-                log_warning("%s swap process still around after SIGKILL. Ignoring.", u->meta.id);
+                log_warning("%s swap process still around after SIGKILL. Ignoring.", u->id);
                 swap_enter_dead(s, false);
                 break;
 
@@ -1096,7 +1096,7 @@ int swap_dispatch_reload(Manager *m) {
 }
 
 int swap_fd_event(Manager *m, int events) {
-        Meta *meta;
+        Unit *meta;
         int r;
 
         assert(m);

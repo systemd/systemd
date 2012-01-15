@@ -93,8 +93,8 @@ static int target_load(Unit *u) {
                 return r;
 
         /* This is a new unit? Then let's add in some extras */
-        if (u->meta.load_state == UNIT_LOADED) {
-                if (u->meta.default_dependencies)
+        if (u->load_state == UNIT_LOADED) {
+                if (u->default_dependencies)
                         if ((r = target_add_default_dependencies(t)) < 0)
                                 return r;
         }

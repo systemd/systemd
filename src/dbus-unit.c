@@ -49,7 +49,7 @@ int bus_unit_append_names(DBusMessageIter *i, const char *property, void *data) 
         if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "s", &sub))
                 return -ENOMEM;
 
-        SET_FOREACH(t, u->meta.names, j)
+        SET_FOREACH(t, u->names, j)
                 if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &t))
                         return -ENOMEM;
 
@@ -68,7 +68,7 @@ int bus_unit_append_following(DBusMessageIter *i, const char *property, void *da
         assert(u);
 
         f = unit_following(u);
-        d = f ? f->meta.id : "";
+        d = f ? f->id : "";
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &d))
                 return -ENOMEM;
@@ -86,7 +86,7 @@ int bus_unit_append_dependencies(DBusMessageIter *i, const char *property, void 
                 return -ENOMEM;
 
         SET_FOREACH(u, s, j)
-                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &u->meta.id))
+                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &u->id))
                         return -ENOMEM;
 
         if (!dbus_message_iter_close_container(i, &sub))
@@ -170,7 +170,7 @@ int bus_unit_append_can_start(DBusMessageIter *i, const char *property, void *da
         assert(u);
 
         b = unit_can_start(u) &&
-                !u->meta.refuse_manual_start;
+                !u->refuse_manual_start;
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
                 return -ENOMEM;
@@ -190,7 +190,7 @@ int bus_unit_append_can_stop(DBusMessageIter *i, const char *property, void *dat
          * we can also stop */
 
         b = unit_can_start(u) &&
-                !u->meta.refuse_manual_stop;
+                !u->refuse_manual_stop;
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
                 return -ENOMEM;
@@ -223,7 +223,7 @@ int bus_unit_append_can_isolate(DBusMessageIter *i, const char *property, void *
         assert(u);
 
         b = unit_can_isolate(u) &&
-                !u->meta.refuse_manual_start;
+                !u->refuse_manual_start;
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
                 return -ENOMEM;
@@ -243,12 +243,12 @@ int bus_unit_append_job(DBusMessageIter *i, const char *property, void *data) {
         if (!dbus_message_iter_open_container(i, DBUS_TYPE_STRUCT, NULL, &sub))
                 return -ENOMEM;
 
-        if (u->meta.job) {
+        if (u->job) {
 
-                if (!(p = job_dbus_path(u->meta.job)))
+                if (!(p = job_dbus_path(u->job)))
                         return -ENOMEM;
 
-                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT32, &u->meta.job->id) ||
+                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT32, &u->job->id) ||
                     !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &p)) {
                         free(p);
                         return -ENOMEM;
@@ -310,7 +310,7 @@ int bus_unit_append_cgroups(DBusMessageIter *i, const char *property, void *data
         if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "s", &sub))
                 return -ENOMEM;
 
-        LIST_FOREACH(by_unit, cgb, u->meta.cgroup_bondings) {
+        LIST_FOREACH(by_unit, cgb, u->cgroup_bondings) {
                 char *t;
                 bool success;
 
@@ -338,7 +338,7 @@ int bus_unit_append_cgroup_attrs(DBusMessageIter *i, const char *property, void 
         if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(sss)", &sub))
                 return -ENOMEM;
 
-        LIST_FOREACH(by_unit, a, u->meta.cgroup_attributes) {
+        LIST_FOREACH(by_unit, a, u->cgroup_attributes) {
                 char *v = NULL;
                 bool success;
 
@@ -389,9 +389,9 @@ int bus_unit_append_load_error(DBusMessageIter *i, const char *property, void *d
         assert(property);
         assert(u);
 
-        if (u->meta.load_error != 0) {
-                name = bus_errno_to_dbus(u->meta.load_error);
-                message = strempty(strerror(-u->meta.load_error));
+        if (u->load_error != 0) {
+                name = bus_errno_to_dbus(u->load_error);
+                message = strempty(strerror(-u->load_error));
         } else
                 name = message = "";
 
@@ -406,7 +406,7 @@ int bus_unit_append_load_error(DBusMessageIter *i, const char *property, void *d
 
 static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *connection, DBusMessage *message) {
         DBusMessage *reply = NULL;
-        Manager *m = u->meta.manager;
+        Manager *m = u->manager;
         DBusError error;
         JobType job_type = _JOB_TYPE_INVALID;
         char *path = NULL;
@@ -489,10 +489,10 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 Job *j;
                 int r;
 
-                if ((job_type == JOB_START && u->meta.refuse_manual_start) ||
-                    (job_type == JOB_STOP && u->meta.refuse_manual_stop) ||
+                if ((job_type == JOB_START && u->refuse_manual_start) ||
+                    (job_type == JOB_STOP && u->refuse_manual_stop) ||
                     ((job_type == JOB_RESTART || job_type == JOB_TRY_RESTART) &&
-                     (u->meta.refuse_manual_start || u->meta.refuse_manual_stop))) {
+                     (u->refuse_manual_start || u->refuse_manual_stop))) {
                         dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, may be requested by dependency only.");
                         return bus_send_error_reply(connection, message, &error, -EPERM);
                 }
@@ -594,7 +594,7 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
                         HASHMAP_FOREACH_KEY(u, k, m->units, i) {
                                 char *p;
 
-                                if (k != u->meta.id)
+                                if (k != u->id)
                                         continue;
 
                                 if (!(p = bus_path_escape(k))) {
@@ -673,23 +673,23 @@ void bus_unit_send_change_signal(Unit *u) {
 
         assert(u);
 
-        if (u->meta.in_dbus_queue) {
-                LIST_REMOVE(Meta, dbus_queue, u->meta.manager->dbus_unit_queue, &u->meta);
-                u->meta.in_dbus_queue = false;
+        if (u->in_dbus_queue) {
+                LIST_REMOVE(Unit, dbus_queue, u->manager->dbus_unit_queue, u);
+                u->in_dbus_queue = false;
         }
 
-        if (!u->meta.id)
+        if (!u->id)
                 return;
 
-        if (!bus_has_subscriber(u->meta.manager)) {
-                u->meta.sent_dbus_new_signal = true;
+        if (!bus_has_subscriber(u->manager)) {
+                u->sent_dbus_new_signal = true;
                 return;
         }
 
         if (!(p = unit_dbus_path(u)))
                 goto oom;
 
-        if (u->meta.sent_dbus_new_signal) {
+        if (u->sent_dbus_new_signal) {
                 /* Send a properties changed signal. First for the
                  * specific type, then for the generic unit. The
                  * clients may rely on this order to get atomic
@@ -702,7 +702,7 @@ void bus_unit_send_change_signal(Unit *u) {
                                                              UNIT_VTABLE(u)->bus_invalidating_properties)))
                                 goto oom;
 
-                        if (bus_broadcast(u->meta.manager, m) < 0)
+                        if (bus_broadcast(u->manager, m) < 0)
                                 goto oom;
 
                         dbus_message_unref(m);
@@ -718,19 +718,19 @@ void bus_unit_send_change_signal(Unit *u) {
                         goto oom;
 
                 if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &u->meta.id,
+                                              DBUS_TYPE_STRING, &u->id,
                                               DBUS_TYPE_OBJECT_PATH, &p,
                                               DBUS_TYPE_INVALID))
                         goto oom;
         }
 
-        if (bus_broadcast(u->meta.manager, m) < 0)
+        if (bus_broadcast(u->manager, m) < 0)
                 goto oom;
 
         free(p);
         dbus_message_unref(m);
 
-        u->meta.sent_dbus_new_signal = true;
+        u->sent_dbus_new_signal = true;
 
         return;
 
@@ -749,13 +749,13 @@ void bus_unit_send_removed_signal(Unit *u) {
 
         assert(u);
 
-        if (!bus_has_subscriber(u->meta.manager))
+        if (!bus_has_subscriber(u->manager))
                 return;
 
-        if (!u->meta.sent_dbus_new_signal)
+        if (!u->sent_dbus_new_signal)
                 bus_unit_send_change_signal(u);
 
-        if (!u->meta.id)
+        if (!u->id)
                 return;
 
         if (!(p = unit_dbus_path(u)))
@@ -765,12 +765,12 @@ void bus_unit_send_removed_signal(Unit *u) {
                 goto oom;
 
         if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &u->meta.id,
+                                      DBUS_TYPE_STRING, &u->id,
                                       DBUS_TYPE_OBJECT_PATH, &p,
                                       DBUS_TYPE_INVALID))
                 goto oom;
 
-        if (bus_broadcast(u->meta.manager, m) < 0)
+        if (bus_broadcast(u->manager, m) < 0)
                 goto oom;
 
         free(p);

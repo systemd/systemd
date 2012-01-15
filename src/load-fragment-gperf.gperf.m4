@@ -89,7 +89,7 @@ $1.UtmpIdentifier,               config_parse_unit_string_printf,    0,         
 $1.ControlGroupModify,           config_parse_bool,                  0,                             offsetof($1, exec_context.control_group_modify)'
 )m4_dnl
 Unit.Names,                      config_parse_unit_names,            0,                             0
-Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Meta, description)
+Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Unit, description)
 Unit.Requires,                   config_parse_unit_deps,             UNIT_REQUIRES,                 0
 Unit.RequiresOverridable,        config_parse_unit_deps,             UNIT_REQUIRES_OVERRIDABLE,     0
 Unit.Requisite,                  config_parse_unit_deps,             UNIT_REQUISITE,                0
@@ -102,15 +102,15 @@ Unit.After,                      config_parse_unit_deps,             UNIT_AFTER,
 Unit.OnFailure,                  config_parse_unit_deps,             UNIT_ON_FAILURE,               0
 Unit.PropagateReloadTo,          config_parse_unit_deps,             UNIT_PROPAGATE_RELOAD_TO,      0
 Unit.PropagateReloadFrom,        config_parse_unit_deps,             UNIT_PROPAGATE_RELOAD_FROM,    0
-Unit.StopWhenUnneeded,           config_parse_bool,                  0,                             offsetof(Meta, stop_when_unneeded)
-Unit.RefuseManualStart,          config_parse_bool,                  0,                             offsetof(Meta, refuse_manual_start)
-Unit.RefuseManualStop,           config_parse_bool,                  0,                             offsetof(Meta, refuse_manual_stop)
-Unit.AllowIsolate,               config_parse_bool,                  0,                             offsetof(Meta, allow_isolate)
-Unit.DefaultDependencies,        config_parse_bool,                  0,                             offsetof(Meta, default_dependencies)
-Unit.OnFailureIsolate,           config_parse_bool,                  0,                             offsetof(Meta, on_failure_isolate)
-Unit.IgnoreOnIsolate,            config_parse_bool,                  0,                             offsetof(Meta, ignore_on_isolate)
-Unit.IgnoreOnSnapshot,           config_parse_bool,                  0,                             offsetof(Meta, ignore_on_snapshot)
-Unit.JobTimeoutSec,              config_parse_usec,                  0,                             offsetof(Meta, job_timeout)
+Unit.StopWhenUnneeded,           config_parse_bool,                  0,                             offsetof(Unit, stop_when_unneeded)
+Unit.RefuseManualStart,          config_parse_bool,                  0,                             offsetof(Unit, refuse_manual_start)
+Unit.RefuseManualStop,           config_parse_bool,                  0,                             offsetof(Unit, refuse_manual_stop)
+Unit.AllowIsolate,               config_parse_bool,                  0,                             offsetof(Unit, allow_isolate)
+Unit.DefaultDependencies,        config_parse_bool,                  0,                             offsetof(Unit, default_dependencies)
+Unit.OnFailureIsolate,           config_parse_bool,                  0,                             offsetof(Unit, on_failure_isolate)
+Unit.IgnoreOnIsolate,            config_parse_bool,                  0,                             offsetof(Unit, ignore_on_isolate)
+Unit.IgnoreOnSnapshot,           config_parse_bool,                  0,                             offsetof(Unit, ignore_on_snapshot)
+Unit.JobTimeoutSec,              config_parse_usec,                  0,                             offsetof(Unit, job_timeout)
 Unit.ConditionPathExists,        config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         0
 Unit.ConditionPathExistsGlob,    config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    0
 Unit.ConditionPathIsDirectory,   config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY,   0

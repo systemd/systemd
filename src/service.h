@@ -89,7 +89,7 @@ typedef enum NotifyAccess {
 } NotifyAccess;
 
 struct Service {
-        Meta meta;
+        Unit meta;
 
         ServiceType type;
         ServiceRestart restart;

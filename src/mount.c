@@ -59,7 +59,7 @@ static void mount_init(Unit *u) {
         Mount *m = MOUNT(u);
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         m->timeout_usec = DEFAULT_TIMEOUT_USEC;
         m->directory_mode = 0755;
@@ -69,8 +69,8 @@ static void mount_init(Unit *u) {
         /* The stdio/kmsg bridge socket is on /, in order to avoid a
          * dep loop, don't use kmsg logging for -.mount */
         if (!unit_has_name(u, "-.mount")) {
-                m->exec_context.std_output = u->meta.manager->default_std_output;
-                m->exec_context.std_error = u->meta.manager->default_std_error;
+                m->exec_context.std_output = u->manager->default_std_output;
+                m->exec_context.std_error = u->manager->default_std_error;
         }
 
         /* We need to make sure that /bin/mount is always called in
@@ -148,7 +148,7 @@ static MountParameters* get_mount_parameters(Mount *m) {
 }
 
 static int mount_add_mount_links(Mount *m) {
-        Meta *other;
+        Unit *other;
         int r;
         MountParameters *pm;
 
@@ -211,7 +211,7 @@ static int mount_add_mount_links(Mount *m) {
 }
 
 static int mount_add_swap_links(Mount *m) {
-        Meta *other;
+        Unit *other;
         int r;
 
         assert(m);
@@ -224,7 +224,7 @@ static int mount_add_swap_links(Mount *m) {
 }
 
 static int mount_add_path_links(Mount *m) {
-        Meta *other;
+        Unit *other;
         int r;
 
         assert(m);
@@ -237,7 +237,7 @@ static int mount_add_path_links(Mount *m) {
 }
 
 static int mount_add_automount_links(Mount *m) {
-        Meta *other;
+        Unit *other;
         int r;
 
         assert(m);
@@ -250,7 +250,7 @@ static int mount_add_automount_links(Mount *m) {
 }
 
 static int mount_add_socket_links(Mount *m) {
-        Meta *other;
+        Unit *other;
         int r;
 
         assert(m);
@@ -382,9 +382,9 @@ static int mount_add_fstab_links(Mount *m) {
 
                 /* Install automount unit */
                 if (!nofail) /* automount + fail */
-                        return unit_add_two_dependencies(tu, UNIT_AFTER, UNIT_REQUIRES, UNIT(am), true);
+                        return unit_add_two_dependencies(tu, UNIT_AFTER, UNIT_REQUIRES, am, true);
                 else /* automount + nofail */
-                        return unit_add_two_dependencies(tu, UNIT_AFTER, UNIT_WANTS, UNIT(am), true);
+                        return unit_add_two_dependencies(tu, UNIT_AFTER, UNIT_WANTS, am, true);
 
         } else if (handle && !noauto) {
 
@@ -422,13 +422,13 @@ static int mount_add_device_links(Mount *m) {
 
                 if ((r = unit_add_node_link(UNIT(m), p->what,
                                             !noauto && nofail &&
-                                            UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM)) < 0)
+                                            UNIT(m)->manager->running_as == MANAGER_SYSTEM)) < 0)
                         return r;
         }
 
         if (p->passno > 0 &&
             !mount_is_bind(p) &&
-            UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM &&
+            UNIT(m)->manager->running_as == MANAGER_SYSTEM &&
             !path_equal(m->where, "/")) {
                 char *name;
                 Unit *fsck;
@@ -517,10 +517,10 @@ static int mount_fix_timeouts(Mount *m) {
         }
 
         SET_FOREACH(other, m->meta.dependencies[UNIT_AFTER], i) {
-                if (other->meta.type != UNIT_DEVICE)
+                if (other->type != UNIT_DEVICE)
                         continue;
 
-                other->meta.job_timeout = u;
+                other->job_timeout = u;
         }
 
         return 0;
@@ -571,13 +571,13 @@ static int mount_load(Unit *u) {
         int r;
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         if ((r = unit_load_fragment_and_dropin_optional(u)) < 0)
                 return r;
 
         /* This is a new unit? Then let's add in some extras */
-        if (u->meta.load_state == UNIT_LOADED) {
+        if (u->load_state == UNIT_LOADED) {
                 if ((r = unit_add_exec_dependencies(u, &m->exec_context)) < 0)
                         return r;
 
@@ -585,7 +585,7 @@ static int mount_load(Unit *u) {
                         m->from_fragment = true;
 
                 if (!m->where)
-                        if (!(m->where = unit_name_to_path(u->meta.id)))
+                        if (!(m->where = unit_name_to_path(u->id)))
                                 return -ENOMEM;
 
                 path_kill_slashes(m->where);
@@ -636,7 +636,7 @@ static int mount_notify_automount(Mount *m, int status) {
         assert(m);
 
         SET_FOREACH(p, m->meta.dependencies[UNIT_TRIGGERED_BY], i)
-                if (p->meta.type == UNIT_AUTOMOUNT) {
+                if (p->type == UNIT_AUTOMOUNT) {
                          r = automount_send_ready(AUTOMOUNT(p), status);
                          if (r < 0)
                                  return r;
@@ -1220,7 +1220,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         }
 
         log_full(success ? LOG_DEBUG : LOG_NOTICE,
-                 "%s mount process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
+                 "%s mount process exited, code=%s status=%i", u->id, sigchld_code_to_string(code), status);
 
         /* Note that mount(8) returning and the kernel sending us a
          * mount table change event might happen out-of-order. If an
@@ -1287,27 +1287,27 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
 
         case MOUNT_MOUNTING:
         case MOUNT_MOUNTING_DONE:
-                log_warning("%s mounting timed out. Stopping.", u->meta.id);
+                log_warning("%s mounting timed out. Stopping.", u->id);
                 mount_enter_signal(m, MOUNT_MOUNTING_SIGTERM, false);
                 break;
 
         case MOUNT_REMOUNTING:
-                log_warning("%s remounting timed out. Stopping.", u->meta.id);
+                log_warning("%s remounting timed out. Stopping.", u->id);
                 m->reload_failure = true;
                 mount_enter_mounted(m, true);
                 break;
 
         case MOUNT_UNMOUNTING:
-                log_warning("%s unmounting timed out. Stopping.", u->meta.id);
+                log_warning("%s unmounting timed out. Stopping.", u->id);
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGTERM, false);
                 break;
 
         case MOUNT_MOUNTING_SIGTERM:
                 if (m->exec_context.send_sigkill) {
-                        log_warning("%s mounting timed out. Killing.", u->meta.id);
+                        log_warning("%s mounting timed out. Killing.", u->id);
                         mount_enter_signal(m, MOUNT_MOUNTING_SIGKILL, false);
                 } else {
-                        log_warning("%s mounting timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+                        log_warning("%s mounting timed out. Skipping SIGKILL. Ignoring.", u->id);
 
                         if (m->from_proc_self_mountinfo)
                                 mount_enter_mounted(m, false);
@@ -1318,10 +1318,10 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
 
         case MOUNT_REMOUNTING_SIGTERM:
                 if (m->exec_context.send_sigkill) {
-                        log_warning("%s remounting timed out. Killing.", u->meta.id);
+                        log_warning("%s remounting timed out. Killing.", u->id);
                         mount_enter_signal(m, MOUNT_REMOUNTING_SIGKILL, false);
                 } else {
-                        log_warning("%s remounting timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+                        log_warning("%s remounting timed out. Skipping SIGKILL. Ignoring.", u->id);
 
                         if (m->from_proc_self_mountinfo)
                                 mount_enter_mounted(m, false);
@@ -1332,10 +1332,10 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
 
         case MOUNT_UNMOUNTING_SIGTERM:
                 if (m->exec_context.send_sigkill) {
-                        log_warning("%s unmounting timed out. Killing.", u->meta.id);
+                        log_warning("%s unmounting timed out. Killing.", u->id);
                         mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, false);
                 } else {
-                        log_warning("%s unmounting timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+                        log_warning("%s unmounting timed out. Skipping SIGKILL. Ignoring.", u->id);
 
                         if (m->from_proc_self_mountinfo)
                                 mount_enter_mounted(m, false);
@@ -1347,7 +1347,7 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
         case MOUNT_MOUNTING_SIGKILL:
         case MOUNT_REMOUNTING_SIGKILL:
         case MOUNT_UNMOUNTING_SIGKILL:
-                log_warning("%s mount process still around after SIGKILL. Ignoring.", u->meta.id);
+                log_warning("%s mount process still around after SIGKILL. Ignoring.", u->id);
 
                 if (m->from_proc_self_mountinfo)
                         mount_enter_mounted(m, false);
@@ -1679,7 +1679,7 @@ fail:
 }
 
 void mount_fd_event(Manager *m, int events) {
-        Meta *meta;
+        Unit *meta;
         int r;
 
         assert(m);

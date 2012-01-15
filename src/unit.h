@@ -25,8 +25,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-typedef union Unit Unit;
-typedef struct Meta Meta;
+typedef struct Unit Unit;
 typedef struct UnitVTable UnitVTable;
 typedef enum UnitType UnitType;
 typedef enum UnitLoadState UnitLoadState;
@@ -141,7 +140,7 @@ enum UnitDependency {
 #include "cgroup.h"
 #include "cgroup-attr.h"
 
-struct Meta {
+struct Unit {
         Manager *manager;
 
         UnitType type;
@@ -183,19 +182,19 @@ struct Meta {
         CGroupAttribute *cgroup_attributes;
 
         /* Per type list */
-        LIST_FIELDS(Meta, units_by_type);
+        LIST_FIELDS(Unit, units_by_type);
 
         /* Load queue */
-        LIST_FIELDS(Meta, load_queue);
+        LIST_FIELDS(Unit, load_queue);
 
         /* D-Bus queue */
-        LIST_FIELDS(Meta, dbus_queue);
+        LIST_FIELDS(Unit, dbus_queue);
 
         /* Cleanup queue */
-        LIST_FIELDS(Meta, cleanup_queue);
+        LIST_FIELDS(Unit, cleanup_queue);
 
         /* GC queue */
-        LIST_FIELDS(Meta, gc_queue);
+        LIST_FIELDS(Unit, gc_queue);
 
         /* Used during GC sweeps */
         unsigned gc_marker;
@@ -268,20 +267,6 @@ struct UnitRef {
 #include "snapshot.h"
 #include "swap.h"
 #include "path.h"
-
-union Unit {
-        Meta meta;
-        Service service;
-        Timer timer;
-        Socket socket;
-        Target target;
-        Device device;
-        Mount mount;
-        Automount automount;
-        Snapshot snapshot;
-        Swap swap;
-        Path path;
-};
 
 struct UnitVTable {
         const char *suffix;
@@ -413,19 +398,19 @@ struct UnitVTable {
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 
-#define UNIT_VTABLE(u) unit_vtable[(u)->meta.type]
+#define UNIT_VTABLE(u) unit_vtable[(u)->type]
 
 /* For casting a unit into the various unit types */
 #define DEFINE_CAST(UPPERCASE, MixedCase)                               \
         static inline MixedCase* UPPERCASE(Unit *u) {                   \
-                if (_unlikely_(!u || u->meta.type != UNIT_##UPPERCASE)) \
+                if (_unlikely_(!u || u->type != UNIT_##UPPERCASE))      \
                         return NULL;                                    \
                                                                         \
                 return (MixedCase*) u;                                  \
         }
 
 /* For casting the various unit types into a unit */
-#define UNIT(u) ((Unit*) (&(u)->meta))
+#define UNIT(u) (&(u)->meta)
 
 DEFINE_CAST(SOCKET, Socket);
 DEFINE_CAST(TIMER, Timer);

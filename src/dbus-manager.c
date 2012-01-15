@@ -777,39 +777,39 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         uint32_t job_id;
                         Unit *f;
 
-                        if (k != u->meta.id)
+                        if (k != u->id)
                                 continue;
 
                         if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
                                 goto oom;
 
                         description = unit_description(u);
-                        load_state = unit_load_state_to_string(u->meta.load_state);
+                        load_state = unit_load_state_to_string(u->load_state);
                         active_state = unit_active_state_to_string(unit_active_state(u));
                         sub_state = unit_sub_state_to_string(u);
 
                         f = unit_following(u);
-                        following = f ? f->meta.id : "";
+                        following = f ? f->id : "";
 
                         if (!(u_path = unit_dbus_path(u)))
                                 goto oom;
 
-                        if (u->meta.job) {
-                                job_id = (uint32_t) u->meta.job->id;
+                        if (u->job) {
+                                job_id = (uint32_t) u->job->id;
 
-                                if (!(j_path = job_dbus_path(u->meta.job))) {
+                                if (!(j_path = job_dbus_path(u->job))) {
                                         free(u_path);
                                         goto oom;
                                 }
 
-                                sjob_type = job_type_to_string(u->meta.job->type);
+                                sjob_type = job_type_to_string(u->job->type);
                         } else {
                                 job_id = 0;
                                 j_path = u_path;
                                 sjob_type = "";
                         }
 
-                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &u->meta.id) ||
+                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &u->id) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &description) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &load_state) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &active_state) ||
@@ -820,13 +820,13 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &sjob_type) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &j_path)) {
                                 free(u_path);
-                                if (u->meta.job)
+                                if (u->job)
                                         free(j_path);
                                 goto oom;
                         }
 
                         free(u_path);
-                        if (u->meta.job)
+                        if (u->job)
                                 free(j_path);
 
                         if (!dbus_message_iter_close_container(&sub, &sub2))
@@ -871,7 +871,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         }
 
                         if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &id) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &j->unit->meta.id) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &j->unit->id) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &type) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &state) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &j_path) ||
@@ -1013,7 +1013,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 HASHMAP_FOREACH_KEY(u, k, m->units, i) {
                         char *p;
 
-                        if (k != u->meta.id)
+                        if (k != u->id)
                                 continue;
 
                         if (!(p = bus_path_escape(k))) {
@@ -1447,8 +1447,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 if (old_name)
                         if (!(u = manager_get_unit(m, old_name)) ||
-                            !u->meta.job ||
-                            u->meta.job->type != JOB_START) {
+                            !u->job ||
+                            u->job->type != JOB_START) {
                                 dbus_set_error(&error, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
                                 return bus_send_error_reply(connection, message, &error, -ENOENT);
                         }
@@ -1469,10 +1469,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                 job_type = JOB_RELOAD;
                 }
 
-                if ((job_type == JOB_START && u->meta.refuse_manual_start) ||
-                    (job_type == JOB_STOP && u->meta.refuse_manual_stop) ||
+                if ((job_type == JOB_START && u->refuse_manual_start) ||
+                    (job_type == JOB_STOP && u->refuse_manual_stop) ||
                     ((job_type == JOB_RESTART || job_type == JOB_TRY_RESTART) &&
-                     (u->meta.refuse_manual_start || u->meta.refuse_manual_stop))) {
+                     (u->refuse_manual_start || u->refuse_manual_stop))) {
                         dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, may be requested by dependency only.");
                         return bus_send_error_reply(connection, message, &error, -EPERM);
                 }

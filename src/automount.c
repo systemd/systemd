@@ -52,7 +52,7 @@ static void automount_init(Unit *u) {
         Automount *a = AUTOMOUNT(u);
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         a->pipe_watch.fd = a->pipe_fd = -1;
         a->pipe_watch.type = WATCH_INVALID;
@@ -137,7 +137,7 @@ int automount_add_one_mount_link(Automount *a, Mount *m) {
 }
 
 static int automount_add_mount_links(Automount *a) {
-        Meta *other;
+        Unit *other;
         int r;
 
         assert(a);
@@ -198,17 +198,17 @@ static int automount_load(Unit *u) {
         Automount *a = AUTOMOUNT(u);
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         /* Load a .automount file */
         if ((r = unit_load_fragment_and_dropin_optional(u)) < 0)
                 return r;
 
-        if (u->meta.load_state == UNIT_LOADED) {
+        if (u->load_state == UNIT_LOADED) {
                 Unit *x;
 
                 if (!a->where)
-                        if (!(a->where = unit_name_to_path(u->meta.id)))
+                        if (!(a->where = unit_name_to_path(u->id)))
                                 return -ENOMEM;
 
                 path_kill_slashes(a->where);
@@ -263,7 +263,7 @@ static int automount_coldplug(Unit *u) {
 
         if (a->deserialized_state != a->state) {
 
-                if ((r = open_dev_autofs(u->meta.manager)) < 0)
+                if ((r = open_dev_autofs(u->manager)) < 0)
                         return r;
 
                 if (a->deserialized_state == AUTOMOUNT_WAITING ||
@@ -617,11 +617,11 @@ static int automount_start(Unit *u) {
         assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_FAILED);
 
         if (path_is_mount_point(a->where, false)) {
-                log_error("Path %s is already a mount point, refusing start for %s", a->where, u->meta.id);
+                log_error("Path %s is already a mount point, refusing start for %s", a->where, u->id);
                 return -EEXIST;
         }
 
-        if (UNIT_DEREF(a->mount)->meta.load_state != UNIT_LOADED)
+        if (UNIT_DEREF(a->mount)->load_state != UNIT_LOADED)
                 return -ENOENT;
 
         a->failure = false;

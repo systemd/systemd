@@ -101,23 +101,25 @@ static int bus_timer_append_timers(DBusMessageIter *i, const char *property, voi
 
 static int bus_timer_append_unit(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
+        Timer *timer = TIMER(u);
         const char *t;
 
         assert(i);
         assert(property);
         assert(u);
 
-        t = UNIT_DEREF(u->timer.unit) ? UNIT_DEREF(u->timer.unit)->meta.id : "";
+        t = UNIT_DEREF(timer->unit) ? UNIT_DEREF(timer->unit)->id : "";
 
         return dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t) ? 0 : -ENOMEM;
 }
 
 DBusHandlerResult bus_timer_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
+        Timer *t = TIMER(u);
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Timer", "Unit",           bus_timer_append_unit,      "s",      u                      },
-                { "org.freedesktop.systemd1.Timer", "Timers",         bus_timer_append_timers,    "a(stt)", u                      },
-                { "org.freedesktop.systemd1.Timer", "NextElapseUSec", bus_property_append_usec,   "t",      &u->timer.next_elapse  },
+                { "org.freedesktop.systemd1.Timer", "Unit",           bus_timer_append_unit,      "s",      u               },
+                { "org.freedesktop.systemd1.Timer", "Timers",         bus_timer_append_timers,    "a(stt)", u               },
+                { "org.freedesktop.systemd1.Timer", "NextElapseUSec", bus_property_append_usec,   "t",      &t->next_elapse },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

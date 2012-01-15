@@ -70,7 +70,7 @@ static inline bool path_spec_owns_inotify_fd(PathSpec *s, int fd) {
 }
 
 struct Path {
-        Meta meta;
+        Unit meta;
 
         LIST_HEAD(PathSpec, specs);
 

@@ -48,9 +48,10 @@ const char bus_device_invalidating_properties[] =
         "SysFSPath\0";
 
 DBusHandlerResult bus_device_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
+        Device *d = DEVICE(u);
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Device", "SysFSPath", bus_property_append_string, "s", u->device.sysfs },
+                { "org.freedesktop.systemd1.Device", "SysFSPath", bus_property_append_string, "s", d->sysfs },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

@@ -36,7 +36,7 @@ typedef enum AutomountState {
 } AutomountState;
 
 struct Automount {
-        Meta meta;
+        Unit meta;
 
         AutomountState state, deserialized_state;
 

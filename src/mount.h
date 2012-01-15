@@ -60,7 +60,7 @@ typedef struct MountParameters {
 } MountParameters;
 
 struct Mount {
-        Meta meta;
+        Unit meta;
 
         char *where;
 

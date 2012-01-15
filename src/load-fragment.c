@@ -1569,7 +1569,7 @@ int config_parse_unit_condition_path(
         if (!c)
                 return -ENOMEM;
 
-        LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
+        LIST_PREPEND(Condition, conditions, u->conditions, c);
         return 0;
 }
 
@@ -1602,7 +1602,7 @@ int config_parse_unit_condition_string(
         if (!(c = condition_new(cond, rvalue, trigger, negate)))
                 return -ENOMEM;
 
-        LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
+        LIST_PREPEND(Condition, conditions, u->conditions, c);
         return 0;
 }
 
@@ -1643,7 +1643,7 @@ int config_parse_unit_condition_null(
         if (!(c = condition_new(CONDITION_NULL, NULL, trigger, negate)))
                 return -ENOMEM;
 
-        LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
+        LIST_PREPEND(Condition, conditions, u->conditions, c);
         return 0;
 }
 
@@ -2109,7 +2109,7 @@ static int merge_by_names(Unit **u, Set *names, const char *id) {
                          * ours? Then let's try it the other way
                          * round */
 
-                        other = manager_get_unit((*u)->meta.manager, k);
+                        other = manager_get_unit((*u)->manager, k);
                         free(k);
 
                         if (other)
@@ -2163,7 +2163,7 @@ static int load_from_path(Unit *u, const char *path) {
         } else  {
                 char **p;
 
-                STRV_FOREACH(p, u->meta.manager->lookup_paths.unit_path) {
+                STRV_FOREACH(p, u->manager->lookup_paths.unit_path) {
 
                         /* Instead of opening the path right away, we manually
                          * follow all symlinks and add their name to our unit
@@ -2173,8 +2173,8 @@ static int load_from_path(Unit *u, const char *path) {
                                 goto finish;
                         }
 
-                        if (u->meta.manager->unit_path_cache &&
-                            !set_get(u->meta.manager->unit_path_cache, filename))
+                        if (u->manager->unit_path_cache &&
+                            !set_get(u->manager->unit_path_cache, filename))
                                 r = -ENOENT;
                         else
                                 r = open_follow(&filename, &f, symlink_names, &id);
@@ -2210,7 +2210,7 @@ static int load_from_path(Unit *u, const char *path) {
                 goto finish;
 
         if (merged != u) {
-                u->meta.load_state = UNIT_MERGED;
+                u->load_state = UNIT_MERGED;
                 r = 0;
                 goto finish;
         }
@@ -2222,21 +2222,21 @@ static int load_from_path(Unit *u, const char *path) {
         }
 
         if (null_or_empty(&st))
-                u->meta.load_state = UNIT_MASKED;
+                u->load_state = UNIT_MASKED;
         else {
                 /* Now, parse the file contents */
                 r = config_parse(filename, f, UNIT_VTABLE(u)->sections, config_item_perf_lookup, (void*) load_fragment_gperf_lookup, false, u);
                 if (r < 0)
                         goto finish;
 
-                u->meta.load_state = UNIT_LOADED;
+                u->load_state = UNIT_LOADED;
         }
 
-        free(u->meta.fragment_path);
-        u->meta.fragment_path = filename;
+        free(u->fragment_path);
+        u->fragment_path = filename;
         filename = NULL;
 
-        u->meta.fragment_mtime = timespec_load(&st.st_mtim);
+        u->fragment_mtime = timespec_load(&st.st_mtim);
 
         r = 0;
 
@@ -2256,49 +2256,49 @@ int unit_load_fragment(Unit *u) {
         const char *t;
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
-        assert(u->meta.id);
+        assert(u->load_state == UNIT_STUB);
+        assert(u->id);
 
         /* First, try to find the unit under its id. We always look
          * for unit files in the default directories, to make it easy
          * to override things by placing things in /etc/systemd/system */
-        if ((r = load_from_path(u, u->meta.id)) < 0)
+        if ((r = load_from_path(u, u->id)) < 0)
                 return r;
 
         /* Try to find an alias we can load this with */
-        if (u->meta.load_state == UNIT_STUB)
-                SET_FOREACH(t, u->meta.names, i) {
+        if (u->load_state == UNIT_STUB)
+                SET_FOREACH(t, u->names, i) {
 
-                        if (t == u->meta.id)
+                        if (t == u->id)
                                 continue;
 
                         if ((r = load_from_path(u, t)) < 0)
                                 return r;
 
-                        if (u->meta.load_state != UNIT_STUB)
+                        if (u->load_state != UNIT_STUB)
                                 break;
                 }
 
         /* And now, try looking for it under the suggested (originally linked) path */
-        if (u->meta.load_state == UNIT_STUB && u->meta.fragment_path) {
+        if (u->load_state == UNIT_STUB && u->fragment_path) {
 
-                if ((r = load_from_path(u, u->meta.fragment_path)) < 0)
+                if ((r = load_from_path(u, u->fragment_path)) < 0)
                         return r;
 
-                if (u->meta.load_state == UNIT_STUB) {
+                if (u->load_state == UNIT_STUB) {
                         /* Hmm, this didn't work? Then let's get rid
                          * of the fragment path stored for us, so that
                          * we don't point to an invalid location. */
-                        free(u->meta.fragment_path);
-                        u->meta.fragment_path = NULL;
+                        free(u->fragment_path);
+                        u->fragment_path = NULL;
                 }
         }
 
         /* Look for a template */
-        if (u->meta.load_state == UNIT_STUB && u->meta.instance) {
+        if (u->load_state == UNIT_STUB && u->instance) {
                 char *k;
 
-                if (!(k = unit_name_template(u->meta.id)))
+                if (!(k = unit_name_template(u->id)))
                         return -ENOMEM;
 
                 r = load_from_path(u, k);
@@ -2307,10 +2307,10 @@ int unit_load_fragment(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (u->meta.load_state == UNIT_STUB)
-                        SET_FOREACH(t, u->meta.names, i) {
+                if (u->load_state == UNIT_STUB)
+                        SET_FOREACH(t, u->names, i) {
 
-                                if (t == u->meta.id)
+                                if (t == u->id)
                                         continue;
 
                                 if (!(k = unit_name_template(t)))
@@ -2322,7 +2322,7 @@ int unit_load_fragment(Unit *u) {
                                 if (r < 0)
                                         return r;
 
-                                if (u->meta.load_state != UNIT_STUB)
+                                if (u->load_state != UNIT_STUB)
                                         break;
                         }
         }

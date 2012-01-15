@@ -57,7 +57,7 @@ typedef struct TimerValue {
 } TimerValue;
 
 struct Timer {
-        Meta meta;
+        Unit meta;
 
         LIST_HEAD(TimerValue, values);
         usec_t next_elapse;

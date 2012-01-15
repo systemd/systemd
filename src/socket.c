@@ -64,7 +64,7 @@ static void socket_init(Unit *u) {
         Socket *s = SOCKET(u);
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         s->backlog = SOMAXCONN;
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
@@ -79,8 +79,8 @@ static void socket_init(Unit *u) {
         s->mark = -1;
 
         exec_context_init(&s->exec_context);
-        s->exec_context.std_output = u->meta.manager->default_std_output;
-        s->exec_context.std_error = u->meta.manager->default_std_error;
+        s->exec_context.std_output = u->manager->default_std_output;
+        s->exec_context.std_error = u->manager->default_std_error;
 
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 }
@@ -169,7 +169,7 @@ static int socket_instantiate_service(Socket *s) {
         }
 #endif
 
-        u->meta.no_gc = true;
+        u->no_gc = true;
         unit_ref_set(&s->service, u);
 
         return unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, u, false);
@@ -268,7 +268,7 @@ int socket_add_one_mount_link(Socket *s, Mount *m) {
 }
 
 static int socket_add_mount_links(Socket *s) {
-        Meta *other;
+        Unit *other;
         int r;
 
         assert(s);
@@ -329,13 +329,13 @@ static int socket_load(Unit *u) {
         int r;
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         if ((r = unit_load_fragment_and_dropin(u)) < 0)
                 return r;
 
         /* This is a new unit? Then let's add in some extras */
-        if (u->meta.load_state == UNIT_LOADED) {
+        if (u->load_state == UNIT_LOADED) {
 
                 if (have_non_accept_socket(s)) {
 
@@ -1787,14 +1787,14 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         if (s->state != SOCKET_LISTENING)
                 return;
 
-        log_debug("Incoming traffic on %s", u->meta.id);
+        log_debug("Incoming traffic on %s", u->id);
 
         if (events != EPOLLIN) {
 
                 if (events & EPOLLHUP)
-                        log_error("%s: Got POLLHUP on a listening socket. The service probably invoked shutdown() on it, and should better not do that.", u->meta.id);
+                        log_error("%s: Got POLLHUP on a listening socket. The service probably invoked shutdown() on it, and should better not do that.", u->id);
                 else
-                        log_error("%s: Got unexpected poll event (0x%x) on socket.", u->meta.id, events);
+                        log_error("%s: Got unexpected poll event (0x%x) on socket.", u->id, events);
 
                 goto fail;
         }
@@ -1846,11 +1846,11 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         }
 
         log_full(success ? LOG_DEBUG : LOG_NOTICE,
-                 "%s control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
+                 "%s control process exited, code=%s status=%i", u->id, sigchld_code_to_string(code), status);
         s->failure = s->failure || !success;
 
         if (s->control_command && s->control_command->command_next && success) {
-                log_debug("%s running next command for state %s", u->meta.id, socket_state_to_string(s->state));
+                log_debug("%s running next command for state %s", u->id, socket_state_to_string(s->state));
                 socket_run_next(s, success);
         } else {
                 s->control_command = NULL;
@@ -1859,7 +1859,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 /* No further commands for this step, so let's figure
                  * out what to do next */
 
-                log_debug("%s got final SIGCHLD for state %s", u->meta.id, socket_state_to_string(s->state));
+                log_debug("%s got final SIGCHLD for state %s", u->id, socket_state_to_string(s->state));
 
                 switch (s->state) {
 
@@ -1908,52 +1908,52 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
         switch (s->state) {
 
         case SOCKET_START_PRE:
-                log_warning("%s starting timed out. Terminating.", u->meta.id);
+                log_warning("%s starting timed out. Terminating.", u->id);
                 socket_enter_signal(s, SOCKET_FINAL_SIGTERM, false);
                 break;
 
         case SOCKET_START_POST:
-                log_warning("%s starting timed out. Stopping.", u->meta.id);
+                log_warning("%s starting timed out. Stopping.", u->id);
                 socket_enter_stop_pre(s, false);
                 break;
 
         case SOCKET_STOP_PRE:
-                log_warning("%s stopping timed out. Terminating.", u->meta.id);
+                log_warning("%s stopping timed out. Terminating.", u->id);
                 socket_enter_signal(s, SOCKET_STOP_PRE_SIGTERM, false);
                 break;
 
         case SOCKET_STOP_PRE_SIGTERM:
                 if (s->exec_context.send_sigkill) {
-                        log_warning("%s stopping timed out. Killing.", u->meta.id);
+                        log_warning("%s stopping timed out. Killing.", u->id);
                         socket_enter_signal(s, SOCKET_STOP_PRE_SIGKILL, false);
                 } else {
-                        log_warning("%s stopping timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+                        log_warning("%s stopping timed out. Skipping SIGKILL. Ignoring.", u->id);
                         socket_enter_stop_post(s, false);
                 }
                 break;
 
         case SOCKET_STOP_PRE_SIGKILL:
-                log_warning("%s still around after SIGKILL. Ignoring.", u->meta.id);
+                log_warning("%s still around after SIGKILL. Ignoring.", u->id);
                 socket_enter_stop_post(s, false);
                 break;
 
         case SOCKET_STOP_POST:
-                log_warning("%s stopping timed out (2). Terminating.", u->meta.id);
+                log_warning("%s stopping timed out (2). Terminating.", u->id);
                 socket_enter_signal(s, SOCKET_FINAL_SIGTERM, false);
                 break;
 
         case SOCKET_FINAL_SIGTERM:
                 if (s->exec_context.send_sigkill) {
-                        log_warning("%s stopping timed out (2). Killing.", u->meta.id);
+                        log_warning("%s stopping timed out (2). Killing.", u->id);
                         socket_enter_signal(s, SOCKET_FINAL_SIGKILL, false);
                 } else {
-                        log_warning("%s stopping timed out (2). Skipping SIGKILL. Ignoring.", u->meta.id);
+                        log_warning("%s stopping timed out (2). Skipping SIGKILL. Ignoring.", u->id);
                         socket_enter_dead(s, false);
                 }
                 break;
 
         case SOCKET_FINAL_SIGKILL:
-                log_warning("%s still around after SIGKILL (2). Entering failed mode.", u->meta.id);
+                log_warning("%s still around after SIGKILL (2). Entering failed mode.", u->id);
                 socket_enter_dead(s, false);
                 break;
 

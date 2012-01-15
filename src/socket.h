@@ -77,7 +77,7 @@ typedef struct SocketPort {
 } SocketPort;
 
 struct Socket {
-        Meta meta;
+        Unit meta;
 
         LIST_HEAD(SocketPort, ports);
 

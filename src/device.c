@@ -389,7 +389,7 @@ static Unit *device_following(Unit *u) {
 
         assert(d);
 
-        if (startswith(u->meta.id, "sys-"))
+        if (startswith(u->id, "sys-"))
                 return NULL;
 
         /* Make everybody follow the unit that's named after the sysfs path */

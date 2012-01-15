@@ -61,7 +61,7 @@ static int iterate_dir(Unit *u, const char *path, UnitDependency dependency) {
                 free(f);
 
                 if (r < 0)
-                        log_error("Cannot add dependency %s to %s, ignoring: %s", de->d_name, u->meta.id, strerror(-r));
+                        log_error("Cannot add dependency %s to %s, ignoring: %s", de->d_name, u->id, strerror(-r));
         }
 
         r = 0;
@@ -84,8 +84,8 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
         if (!path)
                 return -ENOMEM;
 
-        if (u->meta.manager->unit_path_cache &&
-            !set_get(u->meta.manager->unit_path_cache, path))
+        if (u->manager->unit_path_cache &&
+            !set_get(u->manager->unit_path_cache, path))
                 r = 0;
         else
                 r = iterate_dir(u, path, dependency);
@@ -94,7 +94,7 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
         if (r < 0)
                 return r;
 
-        if (u->meta.instance) {
+        if (u->instance) {
                 char *template;
                 /* Also try the template dir */
 
@@ -108,8 +108,8 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
                 if (!path)
                         return -ENOMEM;
 
-                if (u->meta.manager->unit_path_cache &&
-                    !set_get(u->meta.manager->unit_path_cache, path))
+                if (u->manager->unit_path_cache &&
+                    !set_get(u->manager->unit_path_cache, path))
                         r = 0;
                 else
                         r = iterate_dir(u, path, dependency);
@@ -130,10 +130,10 @@ int unit_load_dropin(Unit *u) {
 
         /* Load dependencies from supplementary drop-in directories */
 
-        SET_FOREACH(t, u->meta.names, i) {
+        SET_FOREACH(t, u->names, i) {
                 char **p;
 
-                STRV_FOREACH(p, u->meta.manager->lookup_paths.unit_path) {
+                STRV_FOREACH(p, u->manager->lookup_paths.unit_path) {
                         int r;
 
                         r = process_dir(u, *p, t, ".wants", UNIT_WANTS);

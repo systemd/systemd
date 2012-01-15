@@ -85,14 +85,15 @@ static int bus_swap_append_priority(DBusMessageIter *i, const char *property, vo
 }
 
 DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
+        Swap *s = SWAP(u);
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Swap", "What",       bus_property_append_string, "s", u->swap.what          },
-                { "org.freedesktop.systemd1.Swap", "Priority",   bus_swap_append_priority,   "i", u                     },
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Swap", u->swap.exec_command+SWAP_EXEC_ACTIVATE,   "ExecActivate"),
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Swap", u->swap.exec_command+SWAP_EXEC_DEACTIVATE, "ExecDeactivate"),
-                BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Swap", u->swap.exec_context),
-                { "org.freedesktop.systemd1.Swap", "ControlPID", bus_property_append_pid,    "u", &u->swap.control_pid },
+                { "org.freedesktop.systemd1.Swap", "What",       bus_property_append_string, "s", s->what         },
+                { "org.freedesktop.systemd1.Swap", "Priority",   bus_swap_append_priority,   "i", u               },
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Swap", s->exec_command+SWAP_EXEC_ACTIVATE,   "ExecActivate"),
+                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Swap", s->exec_command+SWAP_EXEC_DEACTIVATE, "ExecDeactivate"),
+                BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Swap", s->exec_context),
+                { "org.freedesktop.systemd1.Swap", "ControlPID", bus_property_append_pid,    "u", &s->control_pid },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

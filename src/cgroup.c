@@ -66,16 +66,16 @@ void cgroup_bonding_free(CGroupBonding *b, bool remove_or_trim) {
         if (b->unit) {
                 CGroupBonding *f;
 
-                LIST_REMOVE(CGroupBonding, by_unit, b->unit->meta.cgroup_bondings, b);
+                LIST_REMOVE(CGroupBonding, by_unit, b->unit->cgroup_bondings, b);
 
                 if (streq(b->controller, SYSTEMD_CGROUP_CONTROLLER)) {
-                        assert_se(f = hashmap_get(b->unit->meta.manager->cgroup_bondings, b->path));
+                        assert_se(f = hashmap_get(b->unit->manager->cgroup_bondings, b->path));
                         LIST_REMOVE(CGroupBonding, by_path, f, b);
 
                         if (f)
-                                hashmap_replace(b->unit->meta.manager->cgroup_bondings, b->path, f);
+                                hashmap_replace(b->unit->manager->cgroup_bondings, b->path, f);
                         else
-                                hashmap_remove(b->unit->meta.manager->cgroup_bondings, b->path);
+                                hashmap_remove(b->unit->manager->cgroup_bondings, b->path);
                 }
         }
 
@@ -388,7 +388,7 @@ int cgroup_notify_empty(Manager *m, const char *group) {
 
                 if (t > 0) {
                         /* If it is empty, let's delete it */
-                        cgroup_bonding_trim_list(b->unit->meta.cgroup_bondings, true);
+                        cgroup_bonding_trim_list(b->unit->cgroup_bondings, true);
 
                         if (UNIT_VTABLE(b->unit)->cgroup_notify_empty)
                                 UNIT_VTABLE(b->unit)->cgroup_notify_empty(b->unit);

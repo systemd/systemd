@@ -57,7 +57,7 @@ typedef struct SwapParameters {
 } SwapParameters;
 
 struct Swap {
-        Meta meta;
+        Unit meta;
 
         char *what;
 

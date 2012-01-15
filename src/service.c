@@ -108,7 +108,7 @@ static void service_init(Unit *u) {
         Service *s = SERVICE(u);
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         s->restart_usec = DEFAULT_RESTART_USEC;
@@ -224,7 +224,7 @@ static void service_done(Unit *u) {
         service_unwatch_control_pid(s);
 
         if (s->bus_name)  {
-                unit_unwatch_bus_name(UNIT(u), s->bus_name);
+                unit_unwatch_bus_name(u, s->bus_name);
                 free(s->bus_name);
                 s->bus_name = NULL;
         }
@@ -360,7 +360,7 @@ finish:
 }
 
 static int sysv_fix_order(Service *s) {
-        Meta *other;
+        Unit *other;
         int r;
 
         assert(s);
@@ -496,7 +496,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->sysv_mtime = timespec_load(&st.st_mtim);
 
         if (null_or_empty(&st)) {
-                u->meta.load_state = UNIT_MASKED;
+                u->load_state = UNIT_MASKED;
                 r = 0;
                 goto finish;
         }
@@ -865,7 +865,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                         goto finish;
                 }
 
-                u->meta.description = d;
+                u->description = d;
         }
 
         /* The priority that has been set in /etc/rcN.d/ hierarchies
@@ -874,7 +874,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         if (s->sysv_start_priority_from_rcnd >= 0)
                 s->sysv_start_priority = s->sysv_start_priority_from_rcnd;
 
-        u->meta.load_state = UNIT_LOADED;
+        u->load_state = UNIT_LOADED;
         r = 0;
 
 finish:
@@ -1008,7 +1008,7 @@ static int service_load_sysv(Service *s) {
 #endif
 
 static int fsck_fix_order(Service *s) {
-        Meta *other;
+        Unit *other;
         int r;
 
         assert(s);
@@ -1138,13 +1138,13 @@ static int service_load(Unit *u) {
 
 #ifdef HAVE_SYSV_COMPAT
         /* Load a classic init script as a fallback, if we couldn't find anything */
-        if (u->meta.load_state == UNIT_STUB)
+        if (u->load_state == UNIT_STUB)
                 if ((r = service_load_sysv(s)) < 0)
                         return r;
 #endif
 
         /* Still nothing found? Then let's give up */
-        if (u->meta.load_state == UNIT_STUB)
+        if (u->load_state == UNIT_STUB)
                 return -ENOENT;
 
         /* We were able to load something, then let's add in the
@@ -1153,7 +1153,7 @@ static int service_load(Unit *u) {
                 return r;
 
         /* This is a new unit? Then let's add in some extras */
-        if (u->meta.load_state == UNIT_LOADED) {
+        if (u->load_state == UNIT_LOADED) {
                 service_fix_output(s);
 
                 if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
@@ -1383,7 +1383,7 @@ static void service_notify_sockets_dead(Service *s) {
                 return;
 
         SET_FOREACH(u, s->meta.dependencies[UNIT_TRIGGERED_BY], i)
-                if (u->meta.type == UNIT_SOCKET)
+                if (u->type == UNIT_SOCKET)
                         socket_notify_service_dead(SOCKET(u));
 
         return;
@@ -1572,7 +1572,7 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
                 unsigned cn_fds;
                 Socket *sock;
 
-                if (u->meta.type != UNIT_SOCKET)
+                if (u->type != UNIT_SOCKET)
                         continue;
 
                 sock = SOCKET(u);
@@ -2291,7 +2291,7 @@ static int service_start(Unit *u) {
 
         /* Make sure we don't enter a busy loop of some kind. */
         if (!ratelimit_test(&s->ratelimit)) {
-                log_warning("%s start request repeated too quickly, refusing to start.", u->meta.id);
+                log_warning("%s start request repeated too quickly, refusing to start.", u->id);
                 return -ECANCELED;
         }
 
@@ -2628,7 +2628,7 @@ static void service_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         assert(s->pid_file_pathspec);
         assert(path_spec_owns_inotify_fd(s->pid_file_pathspec, fd));
 
-        log_debug("inotify event for %s", u->meta.id);
+        log_debug("inotify event for %s", u->id);
 
         if (path_spec_fd_event(s->pid_file_pathspec, events) < 0)
                 goto fail;
@@ -2679,7 +2679,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 }
 
                 log_full(success ? LOG_DEBUG : LOG_NOTICE,
-                         "%s: main process exited, code=%s, status=%i", u->meta.id, sigchld_code_to_string(code), status);
+                         "%s: main process exited, code=%s, status=%i", u->id, sigchld_code_to_string(code), status);
                 s->failure = s->failure || !success;
 
                 if (s->main_command &&
@@ -2689,7 +2689,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         /* There is another command to *
                          * execute, so let's do that. */
 
-                        log_debug("%s running next main command for state %s", u->meta.id, service_state_to_string(s->state));
+                        log_debug("%s running next main command for state %s", u->id, service_state_to_string(s->state));
                         service_run_next_main(s, success);
 
                 } else {
@@ -2751,7 +2751,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 }
 
                 log_full(success ? LOG_DEBUG : LOG_NOTICE,
-                         "%s: control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
+                         "%s: control process exited, code=%s status=%i", u->id, sigchld_code_to_string(code), status);
                 s->failure = s->failure || !success;
 
                 if (s->control_command &&
@@ -2761,7 +2761,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         /* There is another command to *
                          * execute, so let's do that. */
 
-                        log_debug("%s running next control command for state %s", u->meta.id, service_state_to_string(s->state));
+                        log_debug("%s running next control command for state %s", u->id, service_state_to_string(s->state));
                         service_run_next_control(s, success);
 
                 } else {
@@ -2771,7 +2771,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         s->control_command = NULL;
                         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 
-                        log_debug("%s got final SIGCHLD for state %s", u->meta.id, service_state_to_string(s->state));
+                        log_debug("%s got final SIGCHLD for state %s", u->id, service_state_to_string(s->state));
 
                         switch (s->state) {
 
@@ -2880,32 +2880,32 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
 
         case SERVICE_START_PRE:
         case SERVICE_START:
-                log_warning("%s operation timed out. Terminating.", u->meta.id);
+                log_warning("%s operation timed out. Terminating.", u->id);
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
                 break;
 
         case SERVICE_START_POST:
-                log_warning("%s operation timed out. Stopping.", u->meta.id);
+                log_warning("%s operation timed out. Stopping.", u->id);
                 service_enter_stop(s, false);
                 break;
 
         case SERVICE_RELOAD:
-                log_warning("%s operation timed out. Stopping.", u->meta.id);
+                log_warning("%s operation timed out. Stopping.", u->id);
                 s->reload_failure = true;
                 service_enter_running(s, true);
                 break;
 
         case SERVICE_STOP:
-                log_warning("%s stopping timed out. Terminating.", u->meta.id);
+                log_warning("%s stopping timed out. Terminating.", u->id);
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
                 break;
 
         case SERVICE_STOP_SIGTERM:
                 if (s->exec_context.send_sigkill) {
-                        log_warning("%s stopping timed out. Killing.", u->meta.id);
+                        log_warning("%s stopping timed out. Killing.", u->id);
                         service_enter_signal(s, SERVICE_STOP_SIGKILL, false);
                 } else {
-                        log_warning("%s stopping timed out. Skipping SIGKILL.", u->meta.id);
+                        log_warning("%s stopping timed out. Skipping SIGKILL.", u->id);
                         service_enter_stop_post(s, false);
                 }
 
@@ -2916,33 +2916,33 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                  * Must be something we cannot kill, so let's just be
                  * weirded out and continue */
 
-                log_warning("%s still around after SIGKILL. Ignoring.", u->meta.id);
+                log_warning("%s still around after SIGKILL. Ignoring.", u->id);
                 service_enter_stop_post(s, false);
                 break;
 
         case SERVICE_STOP_POST:
-                log_warning("%s stopping timed out (2). Terminating.", u->meta.id);
+                log_warning("%s stopping timed out (2). Terminating.", u->id);
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
                 break;
 
         case SERVICE_FINAL_SIGTERM:
                 if (s->exec_context.send_sigkill) {
-                        log_warning("%s stopping timed out (2). Killing.", u->meta.id);
+                        log_warning("%s stopping timed out (2). Killing.", u->id);
                         service_enter_signal(s, SERVICE_FINAL_SIGKILL, false);
                 } else {
-                        log_warning("%s stopping timed out (2). Skipping SIGKILL. Entering failed mode.", u->meta.id);
+                        log_warning("%s stopping timed out (2). Skipping SIGKILL. Entering failed mode.", u->id);
                         service_enter_dead(s, false, true);
                 }
 
                 break;
 
         case SERVICE_FINAL_SIGKILL:
-                log_warning("%s still around after SIGKILL (2). Entering failed mode.", u->meta.id);
+                log_warning("%s still around after SIGKILL (2). Entering failed mode.", u->id);
                 service_enter_dead(s, false, true);
                 break;
 
         case SERVICE_AUTO_RESTART:
-                log_info("%s holdoff time over, scheduling restart.", u->meta.id);
+                log_info("%s holdoff time over, scheduling restart.", u->id);
                 service_enter_restart(s);
                 break;
 
@@ -2956,7 +2956,7 @@ static void service_cgroup_notify_event(Unit *u) {
 
         assert(u);
 
-        log_debug("%s: cgroup is empty", u->meta.id);
+        log_debug("%s: cgroup is empty", u->id);
 
         switch (s->state) {
 
@@ -3012,17 +3012,17 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
 
         if (s->notify_access == NOTIFY_NONE) {
                 log_warning("%s: Got notification message from PID %lu, but reception is disabled.",
-                            u->meta.id, (unsigned long) pid);
+                            u->id, (unsigned long) pid);
                 return;
         }
 
         if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
                 log_warning("%s: Got notification message from PID %lu, but reception only permitted for PID %lu",
-                            u->meta.id, (unsigned long) pid, (unsigned long) s->main_pid);
+                            u->id, (unsigned long) pid, (unsigned long) s->main_pid);
                 return;
         }
 
-        log_debug("%s: Got message", u->meta.id);
+        log_debug("%s: Got message", u->id);
 
         /* Interpret MAINPID= */
         if ((e = strv_find_prefix(tags, "MAINPID=")) &&
@@ -3034,7 +3034,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                 if (parse_pid(e + 8, &pid) < 0)
                         log_warning("Failed to parse notification message %s", e);
                 else {
-                        log_debug("%s: got %s", u->meta.id, e);
+                        log_debug("%s: got %s", u->id, e);
                         service_set_main_pid(s, pid);
                 }
         }
@@ -3043,7 +3043,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         if (s->type == SERVICE_NOTIFY &&
             s->state == SERVICE_START &&
             strv_find(tags, "READY=1")) {
-                log_debug("%s: got READY=1", u->meta.id);
+                log_debug("%s: got READY=1", u->id);
 
                 service_enter_start_post(s);
         }
@@ -3058,7 +3058,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                                 return;
                         }
 
-                        log_debug("%s: got %s", u->meta.id, e);
+                        log_debug("%s: got %s", u->id, e);
 
                         free(s->status_text);
                         s->status_text = t;
@@ -3109,7 +3109,7 @@ static void sysv_facility_in_insserv_conf(Manager *mgr) {
                         Unit *u;
                         if (sysv_translate_facility(parsed[0], NULL, &facility) < 0)
                                 continue;
-                        if ((u = manager_get_unit(mgr, facility)) && (u->meta.type == UNIT_TARGET)) {
+                        if ((u = manager_get_unit(mgr, facility)) && (u->type == UNIT_TARGET)) {
                                 UnitDependency e;
                                 char *dep = NULL, *name, **j;
 
@@ -3262,7 +3262,7 @@ static int service_enumerate(Manager *m) {
                 SET_FOREACH(service, runlevel_services[i], j) {
                         service = unit_follow_merge(service);
 
-                        if (service->meta.fragment_path)
+                        if (service->fragment_path)
                                 continue;
 
                         if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_WANTS, rcnd_table[i].target, NULL, true)) < 0)
@@ -3279,7 +3279,7 @@ static int service_enumerate(Manager *m) {
         SET_FOREACH(service, shutdown_services, j) {
                 service = unit_follow_merge(service);
 
-                if (service->meta.fragment_path)
+                if (service->fragment_path)
                         continue;
 
                 if ((r = unit_add_two_dependencies_by_name(service, UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
@@ -3323,11 +3323,11 @@ static void service_bus_name_owner_change(
         assert(old_owner || new_owner);
 
         if (old_owner && new_owner)
-                log_debug("%s's D-Bus name %s changed owner from %s to %s", u->meta.id, name, old_owner, new_owner);
+                log_debug("%s's D-Bus name %s changed owner from %s to %s", u->id, name, old_owner, new_owner);
         else if (old_owner)
-                log_debug("%s's D-Bus name %s no longer registered by %s", u->meta.id, name, old_owner);
+                log_debug("%s's D-Bus name %s no longer registered by %s", u->id, name, old_owner);
         else
-                log_debug("%s's D-Bus name %s now registered by %s", u->meta.id, name, new_owner);
+                log_debug("%s's D-Bus name %s now registered by %s", u->id, name, new_owner);
 
         s->bus_name_good = !!new_owner;
 
@@ -3350,7 +3350,7 @@ static void service_bus_name_owner_change(
                 /* Try to acquire PID from bus service */
                 log_debug("Trying to acquire PID from D-Bus name...");
 
-                bus_query_pid(u->meta.manager, name);
+                bus_query_pid(u->manager, name);
         }
 }
 
@@ -3364,7 +3364,7 @@ static void service_bus_query_pid_done(
         assert(s);
         assert(name);
 
-        log_debug("%s's D-Bus name %s is now owned by process %u", u->meta.id, name, (unsigned) pid);
+        log_debug("%s's D-Bus name %s is now owned by process %u", u->id, name, (unsigned) pid);
 
         if (s->main_pid <= 0 &&
             (s->state == SERVICE_START ||
