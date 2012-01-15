@@ -1795,6 +1795,7 @@ unsigned manager_dispatch_load_queue(Manager *m) {
 
 int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DBusError *e, Unit **_ret) {
         Unit *ret;
+        UnitType t;
         int r;
 
         assert(m);
@@ -1811,24 +1812,30 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DB
         if (!name)
                 name = file_name_from_path(path);
 
-        if (!unit_name_is_valid(name, false)) {
+        t = unit_name_to_type(name);
+
+        if (t == _UNIT_TYPE_INVALID || !unit_name_is_valid_no_type(name, false)) {
                 dbus_set_error(e, BUS_ERROR_INVALID_NAME, "Unit name %s is not valid.", name);
                 return -EINVAL;
         }
 
-        if ((ret = manager_get_unit(m, name))) {
+        ret = manager_get_unit(m, name);
+        if (ret) {
                 *_ret = ret;
                 return 1;
         }
 
-        if (!(ret = unit_new(m)))
+        ret = unit_new(m, unit_vtable[t]->object_size);
+        if (!ret)
                 return -ENOMEM;
 
-        if (path)
-                if (!(ret->meta.fragment_path = strdup(path))) {
+        if (path) {
+                ret->meta.fragment_path = strdup(path);
+                if (!ret->meta.fragment_path) {
                         unit_free(ret);
                         return -ENOMEM;
                 }
+        }
 
         if ((r = unit_add_name(ret, name)) < 0) {
                 unit_free(ret);

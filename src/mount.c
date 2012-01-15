@@ -1395,13 +1395,16 @@ static int mount_add_one(
         if (!is_path(where))
                 return 0;
 
-        if (!(e = unit_name_from_path(where, ".mount")))
+        e = unit_name_from_path(where, ".mount");
+        if (!e)
                 return -ENOMEM;
 
-        if (!(u = manager_get_unit(m, e))) {
+        u = manager_get_unit(m, e);
+        if (!u) {
                 delete = true;
 
-                if (!(u = unit_new(m))) {
+                u = unit_new(m, sizeof(Mount));
+                if (!u) {
                         free(e);
                         return -ENOMEM;
                 }
@@ -1412,7 +1415,8 @@ static int mount_add_one(
                 if (r < 0)
                         goto fail;
 
-                if (!(MOUNT(u)->where = strdup(where))) {
+                MOUNT(u)->where = strdup(where);
+                if (!MOUNT(u)->where) {
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -1837,6 +1841,7 @@ DEFINE_STRING_TABLE_LOOKUP(mount_exec_command, MountExecCommand);
 
 const UnitVTable mount_vtable = {
         .suffix = ".mount",
+        .object_size = sizeof(Mount),
         .sections =
                 "Unit\0"
                 "Mount\0"

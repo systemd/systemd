@@ -717,6 +717,7 @@ DEFINE_STRING_TABLE_LOOKUP(path_type, PathType);
 
 const UnitVTable path_vtable = {
         .suffix = ".path",
+        .object_size = sizeof(Path),
         .sections =
                 "Unit\0"
                 "Path\0"

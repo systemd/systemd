@@ -57,15 +57,18 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_PATH] = &path_vtable
 };
 
-Unit *unit_new(Manager *m) {
+Unit *unit_new(Manager *m, size_t size) {
         Unit *u;
 
         assert(m);
+        assert(size >= sizeof(Meta));
 
-        if (!(u = new0(Unit, 1)))
+        u = malloc0(size);
+        if (!u)
                 return NULL;
 
-        if (!(u->meta.names = set_new(string_hash_func, string_compare_func))) {
+        u->meta.names = set_new(string_hash_func, string_compare_func);
+        if (!u->meta.names) {
                 free(u);
                 return NULL;
         }

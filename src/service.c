@@ -3553,6 +3553,7 @@ DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
 
 const UnitVTable service_vtable = {
         .suffix = ".service",
+        .object_size = sizeof(Service),
         .sections =
                 "Unit\0"
                 "Service\0"

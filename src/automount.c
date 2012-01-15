@@ -836,6 +836,7 @@ DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
 
 const UnitVTable automount_vtable = {
         .suffix = ".automount",
+        .object_size = sizeof(Automount),
         .sections =
                 "Unit\0"
                 "Automount\0"

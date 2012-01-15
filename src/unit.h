@@ -286,6 +286,9 @@ union Unit {
 struct UnitVTable {
         const char *suffix;
 
+        /* How much memory does an object of this unit type need */
+        size_t object_size;
+
         /* Config file sections this unit type understands, separated
          * by NUL chars */
         const char *sections;
@@ -435,7 +438,7 @@ DEFINE_CAST(SNAPSHOT, Snapshot);
 DEFINE_CAST(SWAP, Swap);
 DEFINE_CAST(PATH, Path);
 
-Unit *unit_new(Manager *m);
+Unit *unit_new(Manager *m, size_t size);
 void unit_free(Unit *u);
 
 int unit_add_name(Unit *u, const char *name);

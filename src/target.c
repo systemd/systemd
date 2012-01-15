@@ -199,6 +199,7 @@ DEFINE_STRING_TABLE_LOOKUP(target_state, TargetState);
 
 const UnitVTable target_vtable = {
         .suffix = ".target",
+        .object_size = sizeof(Target),
         .sections =
                 "Unit\0"
                 "Target\0"

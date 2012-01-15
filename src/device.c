@@ -198,10 +198,12 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
         if (!u) {
                 delete = true;
 
-                if (!(u = unit_new(m)))
+                u = unit_new(m, sizeof(Device));
+                if (!u)
                         return -ENOMEM;
 
-                if ((r = device_add_escaped_name(u, path)) < 0)
+                r = device_add_escaped_name(u, path);
+                if (r < 0)
                         goto fail;
 
                 unit_add_to_load_queue(u);
@@ -583,6 +585,7 @@ DEFINE_STRING_TABLE_LOOKUP(device_state, DeviceState);
 
 const UnitVTable device_vtable = {
         .suffix = ".device",
+        .object_size = sizeof(Device),
         .sections =
                 "Unit\0"
                 "Device\0"

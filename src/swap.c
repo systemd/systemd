@@ -334,7 +334,8 @@ int swap_add_one(
         assert(m);
         assert(what);
 
-        if (!(e = unit_name_from_path(what, ".swap")))
+        e = unit_name_from_path(what, ".swap");
+        if (!e)
                 return -ENOMEM;
 
         u = manager_get_unit(m, e);
@@ -348,15 +349,18 @@ int swap_add_one(
         if (!u) {
                 delete = true;
 
-                if (!(u = unit_new(m))) {
+                u = unit_new(m, sizeof(Swap));
+                if (!u) {
                         free(e);
                         return -ENOMEM;
                 }
 
-                if ((r = unit_add_name(u, e)) < 0)
+                r = unit_add_name(u, e);
+                if (r < 0)
                         goto fail;
 
-                if (!(SWAP(u)->what = strdup(what))) {
+                SWAP(u)->what = strdup(what);
+                if (!SWAP(u)->what) {
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -1341,6 +1345,7 @@ DEFINE_STRING_TABLE_LOOKUP(swap_exec_command, SwapExecCommand);
 
 const UnitVTable swap_vtable = {
         .suffix = ".swap",
+        .object_size = sizeof(Swap),
         .sections =
                 "Unit\0"
                 "Swap\0"
