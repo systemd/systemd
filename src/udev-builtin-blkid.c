@@ -69,11 +69,11 @@ static void print_property(struct udev_device *dev, bool test, const char *name,
 
         } else if (!strcmp(name, "PART_ENTRY_NAME")) {
                 blkid_encode_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "PART_ENTRY_NAME", s);
+                udev_builtin_add_property(dev, test, "ID_PART_ENTRY_NAME", s);
 
         } else if (!strcmp(name, "PART_ENTRY_TYPE")) {
                 blkid_encode_string(value, s, sizeof(s));
-                udev_builtin_add_property(dev, test, "PART_ENTRY_TYPE", s);
+                udev_builtin_add_property(dev, test, "ID_PART_ENTRY_TYPE", s);
 
         } else if (!strncmp(name, "PART_ENTRY_", 11)) {
                 util_strscpyl(s, sizeof(s), "ID_", name, NULL);
