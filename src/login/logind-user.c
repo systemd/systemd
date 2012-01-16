@@ -310,7 +310,7 @@ int user_start(User *u) {
         if (u->started)
                 return 0;
 
-        log_info("New user %s logged in.", u->name);
+        log_debug("New user %s logged in.", u->name);
 
         /* Make XDG_RUNTIME_DIR */
         r = user_mkdir_runtime_path(u);
@@ -425,7 +425,7 @@ int user_stop(User *u) {
         assert(u);
 
         if (u->started)
-                log_info("User %s logged out.", u->name);
+                log_debug("User %s logged out.", u->name);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
                 k = session_stop(s);
