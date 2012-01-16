@@ -1117,7 +1117,7 @@ lib_LTLIBRARIES += \
 	libsystemd-daemon.la
 
 pkgconfiglib_DATA += \
-        src/libsystemd-daemon.pc
+	src/libsystemd-daemon.pc
 
 MANPAGES += \
 	man/sd-daemon.7 \
@@ -1239,7 +1239,7 @@ systemd_journald_LDADD += \
 endif
 
 systemd_cat_SOURCES = \
-        src/journal/cat.c
+	src/journal/cat.c
 
 systemd_cat_LDADD = \
 	libsystemd-basic.la \
@@ -1342,7 +1342,7 @@ noinst_PROGRAMS += \
 
 pkginclude_HEADERS += \
 	src/systemd/sd-journal.h \
-        src/systemd/sd-messages.h
+	src/systemd/sd-messages.h
 
 lib_LTLIBRARIES += \
 	libsystemd-journal.la
@@ -1354,7 +1354,7 @@ rootbin_PROGRAMS += \
 	systemd-journalctl
 
 bin_PROGRAMS += \
-        systemd-cat
+	systemd-cat
 
 dist_systemunit_DATA += \
 	units/systemd-journald.socket
@@ -1398,10 +1398,10 @@ EXTRA_DIST += \
 CLEANFILES += \
 	src/journal/journald-gperf.c
 
+# ------------------------------------------------------------------------------
 if ENABLE_COREDUMP
-
 systemd_coredump_SOURCES = \
-        src/journal/coredump.c
+	src/journal/coredump.c
 
 systemd_coredump_LDADD = \
 	libsystemd-basic.la \
@@ -1409,14 +1409,16 @@ systemd_coredump_LDADD = \
 	libsystemd-login.la
 
 rootlibexec_PROGRAMS += \
-        systemd-coredump
+	systemd-coredump
 
 sysctl_DATA = \
-        sysctl.d/coredump.conf
+	sysctl.d/coredump.conf
 
 EXTRA_DIST += \
-        sysctl.d/coredump.conf.in
+	sysctl.d/coredump.conf.in
 
+CLEANFILES += \
+	sysctl.d/coredump.conf
 endif
 
 # ------------------------------------------------------------------------------
