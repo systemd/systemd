@@ -91,9 +91,7 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 #define assert_se(expr)                                                 \
         do {                                                            \
                 if (_unlikely_(!(expr)))                                \
-                        log_assert(__FILE__, __LINE__, __PRETTY_FUNCTION__, \
-                                   "Assertion '%s' failed at %s:%u, function %s(). Aborting.", \
-                                   #expr , __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+                        log_assert_failed(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
         } while (false)                                                 \
 
 /* We override the glibc assert() here. */
@@ -106,9 +104,7 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 
 #define assert_not_reached(t)                                           \
         do {                                                            \
-                log_assert(__FILE__, __LINE__, __PRETTY_FUNCTION__,     \
-                           "Code should not be reached '%s' at %s:%u, function %s(). Aborting.", \
-                           t, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+                log_assert_failed_unreachable(t, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
         } while (false)
 
 #define assert_cc(expr)                            \

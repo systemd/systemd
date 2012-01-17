@@ -618,24 +618,27 @@ int log_meta(
         return r;
 }
 
-void log_assert(
-        const char*file,
-        int line,
-        const char *func,
-        const char *format, ...) {
-
+_noreturn_ static void log_assert(const char *text, const char *file, int line, const char *func, const char *format) {
         static char buffer[LINE_MAX];
-        va_list ap;
 
-        va_start(ap, format);
-        vsnprintf(buffer, sizeof(buffer), format, ap);
-        va_end(ap);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+        snprintf(buffer, sizeof(buffer), format, text, file, line, func);
+#pragma GCC diagnostic pop
 
         char_array_0(buffer);
         log_abort_msg = buffer;
 
         log_dispatch(LOG_CRIT, file, line, func, buffer);
         abort();
+}
+
+void log_assert_failed(const char *text, const char *file, int line, const char *func) {
+        log_assert(text, file, line, func, "Assertion '%s' failed at %s:%u, function %s(). Aborting.");
+}
+
+void log_assert_failed_unreachable(const char *text, const char *file, int line, const char *func) {
+        log_assert(text, file, line, func, "Code should not be reached '%s' at %s:%u, function %s(). Aborting.");
 }
 
 int log_set_target_from_string(const char *e) {

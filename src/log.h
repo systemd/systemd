@@ -73,11 +73,8 @@ int log_meta(
         const char *func,
         const char *format, ...) _printf_attr_(5,6);
 
-_noreturn_ void log_assert(
-        const char*file,
-        int line,
-        const char *func,
-        const char *format, ...) _printf_attr_(4,5);
+_noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func);
+_noreturn_ void log_assert_failed_unreachable(const char *text, const char *file, int line, const char *func);
 
 /* This modifies the buffer passed! */
 int log_dump_internal(
