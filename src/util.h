@@ -70,7 +70,7 @@ typedef struct dual_timestamp {
 #define FORMAT_BYTES_MAX 8
 
 #define ANSI_HIGHLIGHT_ON "\x1B[1;39m"
-#define ANSI_HIGHLIGHT_RED_ON "\x1B[1;32m"
+#define ANSI_HIGHLIGHT_RED_ON "\x1B[1;31m"
 #define ANSI_HIGHLIGHT_GREEN_ON "\x1B[1;32m"
 #define ANSI_HIGHLIGHT_OFF "\x1B[0m"
 
