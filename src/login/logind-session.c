@@ -376,14 +376,12 @@ static int session_link_x11_socket(Session *s) {
                 return -ENOENT;
         }
 
-        t = strappend(s->user->runtime_path, "/X11/display");
+        t = strappend(s->user->runtime_path, "/X11-display");
         if (!t) {
                 log_error("Out of memory");
                 free(f);
                 return -ENOMEM;
         }
-
-        mkdir_parents(t, 0755);
 
         if (link(f, t) < 0) {
                 if (errno == EEXIST) {
@@ -637,7 +635,7 @@ static int session_unlink_x11_socket(Session *s) {
 
         s->user->display = NULL;
 
-        t = strappend(s->user->runtime_path, "/X11/display");
+        t = strappend(s->user->runtime_path, "/X11-display");
         if (!t) {
                 log_error("Out of memory");
                 return -ENOMEM;
