@@ -625,7 +625,6 @@ void log_assert(
         const char *format, ...) {
 
         static char buffer[LINE_MAX];
-        int saved_errno = errno;
         va_list ap;
 
         va_start(ap, format);
@@ -637,9 +636,6 @@ void log_assert(
 
         log_dispatch(LOG_CRIT, file, line, func, buffer);
         abort();
-
-        /* If the user chose to ignore this SIGABRT, we are happy to go on, as if nothing happened. */
-        errno = saved_errno;
 }
 
 int log_set_target_from_string(const char *e) {
