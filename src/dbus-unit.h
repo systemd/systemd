@@ -129,25 +129,6 @@
 
 extern const BusProperty bus_unit_properties[];
 
-int bus_unit_append_names(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_following(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_dependencies(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_description(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_load_state(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_active_state(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_sub_state(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_file_state(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_can_start(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_can_stop(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_can_reload(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_can_isolate(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_job(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_default_cgroup(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_cgroups(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_cgroup_attrs(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_need_daemon_reload(DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_load_error(DBusMessageIter *i, const char *property, void *data);
-
 void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_removed_signal(Unit *u);
 
