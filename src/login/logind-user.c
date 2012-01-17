@@ -299,6 +299,8 @@ static int user_create_cgroup(User *u) {
 static int user_start_service(User *u) {
         assert(u);
 
+        /* FIXME: Fill me in later ... */
+
         return 0;
 }
 

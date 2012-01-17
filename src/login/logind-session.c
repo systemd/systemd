@@ -324,7 +324,6 @@ finish:
 
 int session_activate(Session *s) {
         int r;
-        Session *old_active;
 
         assert(s);
 
@@ -343,10 +342,7 @@ int session_activate(Session *s) {
         if (r < 0)
                 return r;
 
-        old_active = s->seat->active;
-        s->seat->active = s;
-
-        return seat_apply_acls(s->seat, old_active);
+        return seat_set_active(s->seat, s);
 }
 
 static int session_link_x11_socket(Session *s) {
