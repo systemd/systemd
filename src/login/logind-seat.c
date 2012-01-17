@@ -390,18 +390,19 @@ int seat_attach_session(Seat *s, Session *session) {
         assert(session);
         assert(!session->seat);
 
-        if (!seat_can_multi_session(s) && s->sessions)
-                return -EEXIST;
-
         session->seat = s;
         LIST_PREPEND(Session, sessions_by_seat, s->sessions, session);
 
         seat_send_changed(s, "Sessions\0");
 
-        if (!seat_can_multi_session(s)) {
-                assert(!s->active);
+        /* Note that even if a seat is not multi-session capable it
+         * still might have multiple sessions on it since old, dead
+         * sessions might continue to be tracked until all their
+         * processes are gone. The most recently added session
+         * (i.e. the first in s->sessions) is the one that matters. */
+
+        if (!seat_can_multi_session(s))
                 seat_set_active(s, session);
-        }
 
         return 0;
 }
