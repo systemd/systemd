@@ -21,6 +21,14 @@ Bugfixes:
 
 Features:
 
+* systemctl journal command
+
+* journalctl: --cursor support, priority filtering
+
+* systemctl status: show coredumps
+
+* systemctl status: show whether journal was rotated since service started
+
 * save coredump in Windows/Mozilla minidump format
 
 * support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)

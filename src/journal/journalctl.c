@@ -152,7 +152,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_follow && !arg_no_tail)
+        if (arg_follow && !arg_no_tail && arg_lines < 0)
                 arg_lines = 10;
 
         return 1;
