@@ -21,6 +21,12 @@ Bugfixes:
 
 Features:
 
+* save coredump in Windows/Mozilla minidump format
+
+* support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)
+
+* allow per-entry control on /var vs. /run (think incognito browser mode)
+
 * clean up session cgroups that remain after logout (think sshd), but eventually run empty
 
 * support "systemctl stop foobar@.service" to stop all units matching a certain template
