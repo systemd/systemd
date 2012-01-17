@@ -67,27 +67,31 @@
 		<title>Configuration Format</title>
 
                 <para>Each configuration file is named in the style of
-                <filename>&lt;program&gt;.conf</filename>.
-                Files in <filename>/etc/</filename> overwrite
-                files with the same name in <filename>/usr/lib/</filename>.
-                Files in <filename>/run</filename> overwrite files with
-                the same name in <filename>/etc/</filename> and
-                <filename>/usr/lib/</filename>. Packages should install their
-                configuration files in <filename>/usr/lib/</filename>, files
-                in <filename>/etc/</filename> are reserved for the local
-                administration, which possibly decides to overwrite the
-                configurations installed from packages. All files are sorted
-                by filename in alphabetical order, regardless in which of the
-                directories they reside, to ensure that a specific
-                configuration file takes precedence over another file with
-                an alphabetically later name.</para>
+                <filename>&lt;program&gt;.conf</filename>.  Files in
+                <filename>/etc/</filename> override files with the
+                same name in <filename>/usr/lib/</filename>.  Files in
+                <filename>/run</filename> override files with the same
+                name in <filename>/etc/</filename> and
+                <filename>/usr/lib/</filename>. Packages should
+                install their configuration files in
+                <filename>/usr/lib/</filename>, files in
+                <filename>/etc/</filename> are reserved for the local
+                administrator, who may choose to override the
+                configurations installed from packages. The list of
+                configuration files are sorted by their filename in
+                alphabetical order, regardless in which of the
+                directories they reside, to guarantee that a
+                configuration file takes precedence over another
+                configuration file with an alphabetically later
+                name.</para>
 
 		<para>The configuration format is one line per path
-		containing action, mode, ownership and age
+		containing action, path, mode, ownership, age and argument
 		fields:</para>
 
-                <programlisting>Type Path          Mode UID  GID  Age
-d    /run/user 0755 root root 10d</programlisting>
+                <programlisting>Type Path        Mode UID  GID  Age Argument
+d    /run/user   0755 root root 10d -
+L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                 <refsect2>
                         <title>Type</title>
@@ -115,6 +119,21 @@ d    /run/user 0755 root root 10d</programlisting>
                                 <varlistentry>
                                         <term><varname>p</varname></term>
                                         <listitem><para>Create a named pipe (FIFO) if it doesn't exist yet</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>L</varname></term>
+                                        <listitem><para>Create a symlink if it doesn't exist yet</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>c</varname></term>
+                                        <listitem><para>Create a character device node if it doesn't exist yet</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>b</varname></term>
+                                        <listitem><para>Create a block device node if it doesn't exist yet</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
@@ -185,10 +204,11 @@ d    /run/user 0755 root root 10d</programlisting>
                         <para>The file access mode to use when
                         creating this file or directory. If omitted or
                         when set to - the default is used: 0755 for
-                        directories, 0644 for files. For z, Z lines
-                        if omitted or when set to - the file access mode will
-                        not be modified. This parameter is ignored for x, r, R
-                        lines.</para>
+                        directories, 0644 for all other file
+                        objects. For z, Z lines if omitted or when set
+                        to - the file access mode will not be
+                        modified. This parameter is ignored for x, r,
+                        R, L lines.</para>
                 </refsect2>
 
                 <refsect2>
@@ -200,7 +220,7 @@ d    /run/user 0755 root root 10d</programlisting>
                         omitted or when set to - the default 0 (root)
                         is used. For z, Z lines when omitted or when set to -
                         the file ownership will not be modified.
-                        These parameters are ignored for x, r, R lines.</para>
+                        These parameters are ignored for x, r, R, L lines.</para>
                 </refsect2>
 
                 <refsect2>
@@ -233,6 +253,16 @@ d    /run/user 0755 root root 10d</programlisting>
                         is done.</para>
                 </refsect2>
 
+                <refsect2>
+                        <title>Argument</title>
+
+                        <para>For L lines determines the destination
+                        path of the symlink. For c, b determines the
+                        major/minor of the device node, with major and
+                        minor formatted as integers, separated by :,
+                        e.g. "1:3". Ignored for all other lines.</para>
+                </refsect2>
+
         </refsect1>
 
         <refsect1>
@@ -241,7 +271,7 @@ d    /run/user 0755 root root 10d</programlisting>
                         <title>/etc/tmpfiles.d/screen.conf example</title>
                         <para><command>screen</command> needs two directories created at boot with specific modes and ownership.</para>
 
-                        <programlisting>d /var/run/screens 1777 root root 10d
+                        <programlisting>d /var/run/screens  1777 root root 10d
 d /var/run/uscreens 0755 root root 10d12h</programlisting>
                 </example>
         </refsect1>

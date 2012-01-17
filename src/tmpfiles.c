@@ -57,6 +57,9 @@ typedef enum ItemType {
         CREATE_DIRECTORY = 'd',
         TRUNCATE_DIRECTORY = 'D',
         CREATE_FIFO = 'p',
+        CREATE_SYMLINK = 'L',
+        CREATE_CHAR_DEVICE = 'c',
+        CREATE_BLOCK_DEVICE = 'b',
 
         /* These ones take globs */
         IGNORE_PATH = 'x',
@@ -70,10 +73,13 @@ typedef struct Item {
         ItemType type;
 
         char *path;
+        char *argument;
         uid_t uid;
         gid_t gid;
         mode_t mode;
         usec_t age;
+
+        dev_t major_minor;
 
         bool uid_set:1;
         bool gid_set:1;
@@ -656,6 +662,60 @@ static int create_item(Item *i) {
 
                 break;
 
+        case CREATE_SYMLINK: {
+                char *x;
+
+                r = symlink(i->argument, i->path);
+                if (r < 0 && errno != EEXIST) {
+                        log_error("symlink(%s, %s) failed: %m", i->argument, i->path);
+                        return -errno;
+                }
+
+                r = readlink_malloc(i->path, &x);
+                if (r < 0) {
+                        log_error("readlink(%s) failed: %s", i->path, strerror(-r));
+                        return -errno;
+                }
+
+                if (!streq(i->argument, x)) {
+                        free(x);
+                        log_error("%s is not the right symlinks.", i->path);
+                        return -EEXIST;
+                }
+
+                free(x);
+                break;
+        }
+
+        case CREATE_BLOCK_DEVICE:
+        case CREATE_CHAR_DEVICE: {
+
+                u = umask(0);
+                r = mknod(i->path, i->mode | (i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR), i->major_minor);
+                umask(u);
+
+                if (r < 0 && errno != EEXIST) {
+                        log_error("Failed to create device node %s: %m", i->path);
+                        return -errno;
+                }
+
+                if (stat(i->path, &st) < 0) {
+                        log_error("stat(%s) failed: %m", i->path);
+                        return -errno;
+                }
+
+                if (i->type == CREATE_BLOCK_DEVICE ? !S_ISBLK(st.st_mode) : !S_ISCHR(st.st_mode)) {
+                        log_error("%s is not a device node.", i->path);
+                        return -EEXIST;
+                }
+
+                r = item_set_perms(i, i->path);
+                if (r < 0)
+                        return r;
+
+                break;
+        }
+
         case RELABEL_PATH:
 
                 r = glob_item(i, item_set_perms);
@@ -686,6 +746,9 @@ static int remove_item_instance(Item *i, const char *instance) {
         case TRUNCATE_FILE:
         case CREATE_DIRECTORY:
         case CREATE_FIFO:
+        case CREATE_SYMLINK:
+        case CREATE_BLOCK_DEVICE:
+        case CREATE_CHAR_DEVICE:
         case IGNORE_PATH:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
@@ -701,8 +764,8 @@ static int remove_item_instance(Item *i, const char *instance) {
 
         case TRUNCATE_DIRECTORY:
         case RECURSIVE_REMOVE_PATH:
-                if ((r = rm_rf(instance, false, i->type == RECURSIVE_REMOVE_PATH, false)) < 0 &&
-                    r != -ENOENT) {
+                r = rm_rf(instance, false, i->type == RECURSIVE_REMOVE_PATH, false);
+                if (r < 0 && r != -ENOENT) {
                         log_error("rm_rf(%s): %s", instance, strerror(-r));
                         return r;
                 }
@@ -724,6 +787,9 @@ static int remove_item(Item *i) {
         case TRUNCATE_FILE:
         case CREATE_DIRECTORY:
         case CREATE_FIFO:
+        case CREATE_SYMLINK:
+        case CREATE_CHAR_DEVICE:
+        case CREATE_BLOCK_DEVICE:
         case IGNORE_PATH:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
@@ -761,6 +827,7 @@ static void item_free(Item *i) {
         assert(i);
 
         free(i->path);
+        free(i->argument);
         free(i);
 }
 
@@ -790,6 +857,15 @@ static bool item_equal(Item *a, Item *b) {
             (a->age_set && a->age != b->age))
             return false;
 
+        if (a->type == CREATE_SYMLINK &&
+            !streq(a->argument, b->argument))
+                return false;
+
+        if ((a->type == CREATE_CHAR_DEVICE ||
+             a->type == CREATE_BLOCK_DEVICE) &&
+            a->major_minor != b->major_minor)
+                return false;
+
         return true;
 }
 
@@ -804,7 +880,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         assert(line >= 1);
         assert(buffer);
 
-        if (!(i = new0(Item, 1))) {
+        i = new0(Item, 1);
+        if (!i) {
                 log_error("Out of memory");
                 return -ENOMEM;
         }
@@ -815,19 +892,22 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                    "%ms "
                    "%ms "
                    "%ms "
+                   "%ms "
                    "%ms",
                    &type,
                    &i->path,
                    &mode,
                    &user,
                    &group,
-                   &age) < 2) {
+                   &age,
+                   &i->argument) < 2) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 r = -EIO;
                 goto finish;
         }
 
         switch(type) {
+
         case CREATE_FILE:
         case TRUNCATE_FILE:
         case CREATE_DIRECTORY:
@@ -839,11 +919,41 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
                 break;
+
+        case CREATE_SYMLINK:
+                if (!i->argument) {
+                        log_error("[%s:%u] Symlink file requires argument.", fname, line);
+                        r = -EBADMSG;
+                        goto finish;
+                }
+                break;
+
+        case CREATE_CHAR_DEVICE:
+        case CREATE_BLOCK_DEVICE: {
+                unsigned major, minor;
+
+                if (!i->argument) {
+                        log_error("[%s:%u] Device file requires argument.", fname, line);
+                        r = -EBADMSG;
+                        goto finish;
+                }
+
+                if (sscanf(i->argument, "%u:%u", &major, &minor) != 2) {
+                        log_error("[%s:%u] Can't parse device file major/minor '%s'.", fname, line, i->argument);
+                        r = -EBADMSG;
+                        goto finish;
+                }
+
+                i->major_minor = makedev(major, minor);
+                break;
+        }
+
         default:
                 log_error("[%s:%u] Unknown file type '%c'.", fname, line, type);
                 r = -EBADMSG;
                 goto finish;
         }
+
         i->type = type;
 
         if (!path_is_absolute(i->path)) {
@@ -895,7 +1005,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 i->mode = m;
                 i->mode_set = true;
         } else
-                i->mode = i->type == CREATE_DIRECTORY ? 0755 : 0644;
+                i->mode =
+                        i->type == CREATE_DIRECTORY ||
+                        i->type == TRUNCATE_DIRECTORY ? 0755 : 0644;
 
         if (age && !streq(age, "-")) {
                 if (parse_usec(age, &i->age) < 0) {
@@ -909,7 +1021,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         h = needs_glob(i->type) ? globs : items;
 
-        if ((existing = hashmap_get(h, i->path))) {
+        existing = hashmap_get(h, i->path);
+        if (existing) {
 
                 /* Two identical items are fine */
                 if (!item_equal(existing, i))
@@ -919,7 +1032,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 goto finish;
         }
 
-        if ((r = hashmap_put(h, i->path, i)) < 0) {
+        r = hashmap_put(h, i->path, i);
+        if (r < 0) {
                 log_error("Failed to insert item %s: %s", i->path, strerror(-r));
                 goto finish;
         }
@@ -1024,7 +1138,8 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
 
         assert(fn);
 
-        if (!(f = fopen(fn, "re"))) {
+        f = fopen(fn, "re");
+        if (!f) {
 
                 if (ignore_enoent && errno == ENOENT)
                         return 0;
