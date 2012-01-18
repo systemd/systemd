@@ -777,11 +777,11 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>ControlGroupPersistant=</varname></term>
+                                <term><varname>ControlGroupPersistent=</varname></term>
                                 <listitem><para>Takes a boolean
                                 argument. If true, the control groups
                                 created for this unit will be marked
-                                to be persistant, i.e. systemd will
+                                to be persistent, i.e. systemd will
                                 not remove them when stopping the
                                 unit. The default is false, meaning
                                 that the control groups will be

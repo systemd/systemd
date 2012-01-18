@@ -87,7 +87,7 @@ $1.KillSignal,                   config_parse_kill_signal,           0,         
 $1.SendSIGKILL,                  config_parse_bool,                  0,                             offsetof($1, exec_context.send_sigkill)
 $1.UtmpIdentifier,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.utmp_id)
 $1.ControlGroupModify,           config_parse_bool,                  0,                             offsetof($1, exec_context.control_group_modify)
-$1.ControlGroupPersistant,       config_parse_tristate,              0,                             offsetof($1, exec_context.control_group_persistant)'
+$1.ControlGroupPersistent,       config_parse_tristate,              0,                             offsetof($1, exec_context.control_group_persistent)'
 )m4_dnl
 Unit.Names,                      config_parse_unit_names,            0,                             0
 Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Unit, description)
