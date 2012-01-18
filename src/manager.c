@@ -247,8 +247,11 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         if (!(m->environment = strv_copy(environ)))
                 goto fail;
 
-        if (!(m->default_controllers = strv_new("cpu", NULL)))
-                goto fail;
+        if (running_as == MANAGER_SYSTEM) {
+                m->default_controllers = strv_new("cpu", NULL);
+                if (!m->default_controllers)
+                        goto fail;
+        }
 
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
