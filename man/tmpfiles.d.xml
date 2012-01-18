@@ -98,12 +98,17 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         <variablelist>
                                 <varlistentry>
                                         <term><varname>f</varname></term>
-                                        <listitem><para>Create a file if it doesn't exist yet</para></listitem>
+                                        <listitem><para>Create a file if it doesn't exist yet (optionally writing a short string into it, if the argument parameter is passed)</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>F</varname></term>
-                                        <listitem><para>Create or truncate a file</para></listitem>
+                                        <listitem><para>Create or truncate a file (optionally writing a short string into it, if the argument parameter is passed)</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>w</varname></term>
+                                        <listitem><para>Write the argument parameter to a file, if it exists.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
@@ -260,7 +265,10 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         path of the symlink. For c, b determines the
                         major/minor of the device node, with major and
                         minor formatted as integers, separated by :,
-                        e.g. "1:3". Ignored for all other lines.</para>
+                        e.g. "1:3". For f, F, w may be used to specify
+                        a short string that is written to the file,
+                        suffixed by a newline. Ignored for all other
+                        lines.</para>
                 </refsect2>
 
         </refsect1>

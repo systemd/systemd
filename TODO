@@ -21,6 +21,8 @@ Bugfixes:
 
 Features:
 
+* rework namespace support, don't use pivot_root, and mount things after creating the namespace, not before
+
 * systemctl journal command
 
 * journalctl: --cursor support, priority filtering
@@ -82,7 +84,6 @@ Features:
 * service restart retry configuration
 
 * tmpfiles: apply "x" on "D" too (see patch from William Douglas)
-* tmpfiles: support generation of char/block devices, symlinks and one-line files (think sysfs)
 
 * don't set $HOME in services unless requested
 

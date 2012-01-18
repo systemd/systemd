@@ -54,6 +54,7 @@ typedef enum ItemType {
         /* These ones take file names */
         CREATE_FILE = 'f',
         TRUNCATE_FILE = 'F',
+        WRITE_FILE = 'w',
         CREATE_DIRECTORY = 'd',
         TRUNCATE_DIRECTORY = 'D',
         CREATE_FIFO = 'p',
@@ -574,17 +575,46 @@ static int create_item(Item *i) {
                 return 0;
 
         case CREATE_FILE:
-        case TRUNCATE_FILE: {
-                int fd;
+        case TRUNCATE_FILE:
+        case WRITE_FILE: {
+                int fd, flags;
+
+                flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND :
+                        i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC : 0;
 
                 u = umask(0);
-                fd = open(i->path, O_CREAT|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY|O_NOFOLLOW|
-                          (i->type == TRUNCATE_FILE ? O_TRUNC : 0), i->mode);
+                fd = open(i->path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY|O_NOFOLLOW, i->mode);
                 umask(u);
 
                 if (fd < 0) {
+                        if (i->type == WRITE_FILE && errno == ENOENT)
+                                break;
+
                         log_error("Failed to create file %s: %m", i->path);
                         return -errno;
+                }
+
+                if (i->argument) {
+                        ssize_t n;
+                        size_t l;
+                        struct iovec iovec[2];
+                        static const char new_line = '\n';
+
+                        l = strlen(i->argument);
+
+                        zero(iovec);
+                        iovec[0].iov_base = i->argument;
+                        iovec[0].iov_len = l;
+
+                        iovec[1].iov_base = (void*) &new_line;
+                        iovec[1].iov_len = 1;
+
+                        n = writev(fd, iovec, 2);
+                        if (n < 0 || (size_t) n != l+1) {
+                                log_error("Failed to write file %s: %s", i->path, n < 0 ? strerror(-n) : "Short");
+                                close_nointr_nofail(fd);
+                                return n < 0 ? n : -EIO;
+                        }
                 }
 
                 close_nointr_nofail(fd);
@@ -752,6 +782,7 @@ static int remove_item_instance(Item *i, const char *instance) {
         case IGNORE_PATH:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
+        case WRITE_FILE:
                 break;
 
         case REMOVE_PATH:
@@ -793,6 +824,7 @@ static int remove_item(Item *i) {
         case IGNORE_PATH:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
+        case WRITE_FILE:
                 break;
 
         case REMOVE_PATH:
@@ -857,7 +889,10 @@ static bool item_equal(Item *a, Item *b) {
             (a->age_set && a->age != b->age))
             return false;
 
-        if (a->type == CREATE_SYMLINK &&
+        if ((a->type == CREATE_FILE ||
+             a->type == TRUNCATE_FILE ||
+             a->type == WRITE_FILE ||
+             a->type == CREATE_SYMLINK) &&
             !streq(a->argument, b->argument))
                 return false;
 
@@ -874,7 +909,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         char *mode = NULL, *user = NULL, *group = NULL, *age = NULL;
         char type;
         Hashmap *h;
-        int r;
+        int r, n = -1;
 
         assert(fname);
         assert(line >= 1);
@@ -893,17 +928,28 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                    "%ms "
                    "%ms "
                    "%ms "
-                   "%ms",
+                   "%n",
                    &type,
                    &i->path,
                    &mode,
                    &user,
                    &group,
                    &age,
-                   &i->argument) < 2) {
+                   &n) < 2) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 r = -EIO;
                 goto finish;
+        }
+
+        if (n >= 0)  {
+                n += strspn(buffer+n, WHITESPACE);
+                if (buffer[n] != 0 && (buffer[n] != '-' || buffer[n+1] != 0)) {
+                        i->argument = unquote(buffer+n, "\"");
+                        if (!i->argument) {
+                                log_error("Out of memory");
+                                return -ENOMEM;
+                        }
+                }
         }
 
         switch(type) {
@@ -923,6 +969,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case CREATE_SYMLINK:
                 if (!i->argument) {
                         log_error("[%s:%u] Symlink file requires argument.", fname, line);
+                        r = -EBADMSG;
+                        goto finish;
+                }
+                break;
+
+        case WRITE_FILE:
+                if (!i->argument) {
+                        log_error("[%s:%u] Write file requires argument.", fname, line);
                         r = -EBADMSG;
                         goto finish;
                 }

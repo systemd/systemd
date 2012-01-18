@@ -4118,7 +4118,8 @@ char *unquote(const char *s, const char* quotes) {
         size_t l;
         assert(s);
 
-        if ((l = strlen(s)) < 2)
+        l = strlen(s);
+        if (l < 2)
                 return strdup(s);
 
         if (strchr(quotes, s[0]) && s[l-1] == s[0])
