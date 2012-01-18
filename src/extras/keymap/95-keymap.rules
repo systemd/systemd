@@ -163,4 +163,6 @@ ENV{DMI_VENDOR}=="COMPAL", ATTR{[dmi/id]product_name}=="HEL80I", RUN+="keymap $n
 
 ENV{DMI_VENDOR}=="OLPC", ATTR{[dmi/id]product_name}=="XO", RUN+="keymap $name olpc-xo"
 
+ENV{DMI_VENDOR}=="Alienware*", ATTR{[dmi/id]product_name}=="M14xR1", RUN+="keymap $name 0x8A ejectcd"
+
 LABEL="keyboard_end"
