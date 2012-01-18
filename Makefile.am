@@ -765,10 +765,10 @@ git-sync:
 
 tar:
 	make distcheck
-	xz -d -c udev-$(VERSION).tar.xz | gpg --armor --detach-sign --output udev-$(VERSION).tar.asc
+	xz -d -c udev-$(VERSION).tar.xz | gpg --armor --detach-sign --output udev-$(VERSION).tar.sign
 
 tar-sync:
-	kup put udev-$(VERSION).tar.xz  udev-$(VERSION).tar.asc /pub/linux/utils/kernel/hotplug/udev-$(VERSION).tar.gz
+	kup put udev-$(VERSION).tar.xz  udev-$(VERSION).tar.sign /pub/linux/utils/kernel/hotplug/
 
 doc-sync:
 	for i in src/*.html; do rm -f $$i.sign; gpg --armor --detach-sign --output=$$i.sign $$i; done
