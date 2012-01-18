@@ -133,6 +133,7 @@ struct worker {
         struct udev_monitor *monitor;
         enum worker_state state;
         struct event *event;
+        unsigned long long event_start_usec;
 };
 
 /* passed from worker to main process */
@@ -372,6 +373,7 @@ out:
                 close(fd_inotify);
                 close(worker_watch[WRITE_END]);
                 udev_rules_unref(rules);
+                udev_builtin_exit(udev);
                 udev_monitor_unref(worker_monitor);
                 udev_unref(udev);
                 udev_log_close();
@@ -389,6 +391,7 @@ out:
                 worker->monitor = worker_monitor;
                 worker->pid = pid;
                 worker->state = WORKER_RUNNING;
+                worker->event_start_usec = now_usec();
                 worker->event = event;
                 event->state = EVENT_RUNNING;
                 udev_list_node_append(&worker->node, &worker_list);
@@ -419,6 +422,7 @@ static void event_run(struct event *event)
                 worker_ref(worker);
                 worker->event = event;
                 worker->state = WORKER_RUNNING;
+                worker->event_start_usec = now_usec();
                 event->state = EVENT_RUNNING;
                 return;
         }
@@ -610,9 +614,11 @@ static void worker_returned(int fd_worker)
                                 continue;
 
                         /* worker returned */
-                        worker->event->exitcode = msg.exitcode;
-                        event_queue_delete(worker->event, true);
-                        worker->event = NULL;
+                        if (worker->event) {
+                                worker->event->exitcode = msg.exitcode;
+                                event_queue_delete(worker->event, true);
+                                worker->event = NULL;
+                        }
                         if (worker->state != WORKER_KILLED)
                                 worker->state = WORKER_IDLE;
                         worker_unref(worker);
@@ -796,7 +802,7 @@ static void handle_signal(struct udev *udev, int signo)
                                 }
 
                                 if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-                                        if (worker->event != NULL) {
+                                        if (worker->event) {
                                                 err(udev, "worker [%u] failed while handling '%s'\n",
                                                     pid, worker->event->devpath);
                                                 worker->event->exitcode = -32;
@@ -1574,25 +1580,57 @@ int main(int argc, char *argv[])
                                 break;
 
                         /* timeout at exit for workers to finish */
-                        timeout = 60 * 1000;
-                } else if (udev_list_node_is_empty(&event_list) && children > 2) {
-                        /* set timeout to kill idle workers */
-                        timeout = 3 * 1000;
-                } else {
+                        timeout = 30 * 1000;
+                } else if (udev_list_node_is_empty(&event_list) && children <= 2) {
+                        /* we are idle */
                         timeout = -1;
+                } else {
+                        /* kill idle or hanging workers */
+                        timeout = 3 * 1000;
                 }
                 fdcount = epoll_wait(fd_ep, ev, ARRAY_SIZE(ev), timeout);
                 if (fdcount < 0)
                         continue;
 
                 if (fdcount == 0) {
+                        struct udev_list_node *loop;
+
+                        /* timeout */
                         if (udev_exit) {
-                                info(udev, "timeout, giving up waiting for workers to finish\n");
+                                err(udev, "timeout, giving up waiting for workers to finish\n");
                                 break;
                         }
 
-                        /* timeout - kill idle workers */
-                        worker_kill(udev, 2);
+                        /* kill idle workers */
+                        if (udev_list_node_is_empty(&event_list)) {
+                                info(udev, "cleanup idle workers\n");
+                                worker_kill(udev, 2);
+                        }
+
+                        /* check for hanging events */
+                        udev_list_node_foreach(loop, &worker_list) {
+                                struct worker *worker = node_to_worker(loop);
+
+                                if (worker->state != WORKER_RUNNING)
+                                        continue;
+
+                                if ((now_usec() - worker->event_start_usec) > 30 * 1000 * 1000) {
+                                        err(udev, "worker [%u] timeout, kill it\n", worker->pid,
+                                            worker->event ? worker->event->devpath : "<idle>");
+                                        kill(worker->pid, SIGKILL);
+                                        worker->state = WORKER_KILLED;
+                                        /* drop reference taken for state 'running' */
+                                        worker_unref(worker);
+                                        if (worker->event) {
+                                                err(udev, "seq %llu '%s' killed\n",
+                                                    udev_device_get_seqnum(worker->event->dev), worker->event->devpath);
+                                                worker->event->exitcode = -64;
+                                                event_queue_delete(worker->event, true);
+                                                worker->event = NULL;
+                                        }
+                                }
+                        }
+
                 }
 
                 is_worker = is_signal = is_inotify = is_netlink = is_ctrl = false;
