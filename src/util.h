@@ -478,7 +478,7 @@ bool in_charset(const char *s, const char* charset);
 
 int block_get_whole_disk(dev_t d, dev_t *ret);
 
-int file_is_sticky(const char *p);
+int file_is_priv_sticky(const char *p);
 
 int strdup_or_null(const char *a, char **b);
 

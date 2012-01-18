@@ -173,7 +173,7 @@ int cg_rmdir(const char *controller, const char *path, bool honour_sticky) {
                         return -ENOMEM;
                 }
 
-                r = file_is_sticky(tasks);
+                r = file_is_priv_sticky(tasks);
                 free(tasks);
 
                 if (r > 0) {
@@ -571,7 +571,7 @@ static int trim_cb(const char *path, const struct stat *sb, int typeflag, struct
                 return 1;
         }
 
-        is_sticky = file_is_sticky(p) > 0;
+        is_sticky = file_is_priv_sticky(p) > 0;
         free(p);
 
         if (is_sticky)
@@ -606,7 +606,7 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
                         return -ENOMEM;
                 }
 
-                is_sticky = file_is_sticky(p) > 0;
+                is_sticky = file_is_priv_sticky(p) > 0;
                 free(p);
 
                 if (!is_sticky)
@@ -712,7 +712,11 @@ int cg_set_group_access(const char *controller, const char *path, mode_t mode, u
         assert(controller);
         assert(path);
 
-        if ((r = cg_get_path(controller, path, NULL, &fs)) < 0)
+        if (mode != (mode_t) -1)
+                mode &= 0777;
+
+        r = cg_get_path(controller, path, NULL, &fs);
+        if (r < 0)
                 return r;
 
         r = chmod_and_chown(fs, mode, uid, gid);
@@ -721,15 +725,46 @@ int cg_set_group_access(const char *controller, const char *path, mode_t mode, u
         return r;
 }
 
-int cg_set_task_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid) {
+int cg_set_task_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid, int sticky) {
         char *fs;
         int r;
 
         assert(controller);
         assert(path);
 
-        if ((r = cg_get_path(controller, path, "tasks", &fs)) < 0)
+        if (mode == (mode_t) -1 && uid == (uid_t) -1 && gid == (gid_t) -1 && sticky < 0)
+                return 0;
+
+        if (mode != (mode_t) -1)
+                mode &= 0666;
+
+        r = cg_get_path(controller, path, "tasks", &fs);
+        if (r < 0)
                 return r;
+
+        if (sticky >= 0 && mode != (mode_t) -1)
+                /* Both mode and sticky param are passed */
+                mode |= (sticky ? S_ISVTX : 0);
+        else if ((sticky >= 0 && mode == (mode_t) -1) ||
+                 (mode != (mode_t) -1 && sticky < 0)) {
+                struct stat st;
+
+                /* Only one param is passed, hence read the current
+                 * mode from the file itself */
+
+                r = lstat(fs, &st);
+                if (r < 0) {
+                        free(fs);
+                        return -errno;
+                }
+
+                if (mode == (mode_t) -1)
+                        /* No mode set, we just shall set the sticky bit */
+                        mode = (st.st_mode & ~S_ISVTX) | (sticky ? S_ISVTX : 0);
+                else
+                        /* Only mode set, leave sticky bit untouched */
+                        mode = (st.st_mode & ~0777) | mode;
+        }
 
         r = chmod_and_chown(fs, mode, uid, gid);
         free(fs);

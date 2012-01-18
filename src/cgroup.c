@@ -60,7 +60,7 @@ int cgroup_bonding_realize_list(CGroupBonding *first) {
         return 0;
 }
 
-void cgroup_bonding_free(CGroupBonding *b, bool remove_or_trim) {
+void cgroup_bonding_free(CGroupBonding *b, bool trim) {
         assert(b);
 
         if (b->unit) {
@@ -79,13 +79,8 @@ void cgroup_bonding_free(CGroupBonding *b, bool remove_or_trim) {
                 }
         }
 
-        if (b->realized && b->ours && remove_or_trim) {
-
-                if (cgroup_bonding_is_empty(b) > 0)
-                        cg_delete(b->controller, b->path);
-                else
-                        cg_trim(b->controller, b->path, false);
-        }
+        if (b->realized && b->ours && trim)
+                cg_trim(b->controller, b->path, false);
 
         free(b->controller);
         free(b->path);
@@ -159,21 +154,21 @@ int cgroup_bonding_set_group_access_list(CGroupBonding *first, mode_t mode, uid_
         return 0;
 }
 
-int cgroup_bonding_set_task_access(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid) {
+int cgroup_bonding_set_task_access(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid, int sticky) {
         assert(b);
 
         if (!b->realized)
                 return -EINVAL;
 
-        return cg_set_task_access(b->controller, b->path, mode, uid, gid);
+        return cg_set_task_access(b->controller, b->path, mode, uid, gid, sticky);
 }
 
-int cgroup_bonding_set_task_access_list(CGroupBonding *first, mode_t mode, uid_t uid, gid_t gid) {
+int cgroup_bonding_set_task_access_list(CGroupBonding *first, mode_t mode, uid_t uid, gid_t gid, int sticky) {
         CGroupBonding *b;
         int r;
 
         LIST_FOREACH(by_unit, b, first) {
-                r = cgroup_bonding_set_task_access(b, mode, uid, gid);
+                r = cgroup_bonding_set_task_access(b, mode, uid, gid, sticky);
                 if (r < 0)
                         return r;
         }

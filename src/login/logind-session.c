@@ -434,7 +434,7 @@ static int session_create_one_group(Session *s, const char *controller, const ch
         if (r < 0)
                 return r;
 
-        r = cg_set_task_access(controller, path, 0644, s->user->uid, s->user->gid);
+        r = cg_set_task_access(controller, path, 0644, s->user->uid, s->user->gid, -1);
         if (r >= 0)
                 r = cg_set_group_access(controller, path, 0755, s->user->uid, s->user->gid);
 

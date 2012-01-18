@@ -993,7 +993,7 @@ int exec_spawn(ExecCommand *command,
                 char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
                 unsigned n_env = 0;
                 int saved_stdout = -1, saved_stdin = -1;
-                bool keep_stdout = false, keep_stdin = false;
+                bool keep_stdout = false, keep_stdin = false, set_access = false;
 
                 /* child */
 
@@ -1218,11 +1218,21 @@ int exec_spawn(ExecCommand *command,
                         if (cgroup_bondings && context->control_group_modify) {
                                 err = cgroup_bonding_set_group_access_list(cgroup_bondings, 0755, uid, gid);
                                 if (err >= 0)
-                                        err = cgroup_bonding_set_task_access_list(cgroup_bondings, 0644, uid, gid);
+                                        err = cgroup_bonding_set_task_access_list(cgroup_bondings, 0644, uid, gid, context->control_group_persistant);
                                 if (err < 0) {
                                         r = EXIT_CGROUP;
                                         goto fail_child;
                                 }
+
+                                set_access = true;
+                        }
+                }
+
+                if (cgroup_bondings && !set_access && context->control_group_persistant >= 0)  {
+                        err = cgroup_bonding_set_task_access_list(cgroup_bondings, (mode_t) -1, (uid_t) -1, (uid_t) -1, context->control_group_persistant);
+                        if (err < 0) {
+                                r = EXIT_CGROUP;
+                                goto fail_child;
                         }
                 }
 
@@ -1488,6 +1498,7 @@ void exec_context_init(ExecContext *c) {
         c->mount_flags = MS_SHARED;
         c->kill_signal = SIGTERM;
         c->send_sigkill = true;
+        c->control_group_persistant = -1;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -1673,6 +1684,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sNonBlocking: %s\n"
                 "%sPrivateTmp: %s\n"
                 "%sControlGroupModify: %s\n"
+                "%sControlGroupPersistant: %s\n"
                 "%sPrivateNetwork: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
@@ -1680,6 +1692,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->non_blocking),
                 prefix, yes_no(c->private_tmp),
                 prefix, yes_no(c->control_group_modify),
+                prefix, yes_no(c->control_group_persistant),
                 prefix, yes_no(c->private_network));
 
         STRV_FOREACH(e, c->environment)

@@ -777,6 +777,21 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>ControlGroupPersistant=</varname></term>
+                                <listitem><para>Takes a boolean
+                                argument. If true, the control groups
+                                created for this unit will be marked
+                                to be persistant, i.e. systemd will
+                                not remove them when stopping the
+                                unit. The default is false, meaning
+                                that the control groups will be
+                                removed when the unit is stopped. For
+                                details about the semantics of this
+                                logic see <ulink
+                                url="http://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups">PaxControlGroups</ulink>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>ControlGroupAttribute=</varname></term>
 
                                 <listitem><para>Set a specific control

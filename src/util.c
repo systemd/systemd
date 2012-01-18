@@ -3483,7 +3483,9 @@ static int rm_rf_children(int fd, bool only_dirs, bool honour_sticky) {
                         }
 
                         if (honour_sticky)
-                                keep_around = st.st_uid == 0 && (st.st_mode & S_ISVTX);
+                                keep_around =
+                                        (st.st_uid == 0 || st.st_uid == getuid()) &&
+                                        (st.st_mode & S_ISVTX);
 
                         is_dir = S_ISDIR(st.st_mode);
 
@@ -3497,7 +3499,9 @@ static int rm_rf_children(int fd, bool only_dirs, bool honour_sticky) {
                                         continue;
                                 }
 
-                                keep_around = st.st_uid == 0 && (st.st_mode & S_ISVTX);
+                                keep_around =
+                                        (st.st_uid == 0 || st.st_uid == getuid()) &&
+                                        (st.st_mode & S_ISVTX);
                         }
 
                         is_dir = de->d_type == DT_DIR;
@@ -3559,7 +3563,7 @@ int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky
 
         if (delete_root) {
 
-                if (honour_sticky && file_is_sticky(path) > 0)
+                if (honour_sticky && file_is_priv_sticky(path) > 0)
                         return r;
 
                 if (rmdir(path) < 0 && errno != ENOENT) {
@@ -3578,11 +3582,13 @@ int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
          * first change the access mode and only then hand out
          * ownership to avoid a window where access is too open. */
 
-        if (chmod(path, mode) < 0)
-                return -errno;
+        if (mode != (mode_t) -1)
+                if (chmod(path, mode) < 0)
+                        return -errno;
 
-        if (chown(path, uid, gid) < 0)
-                return -errno;
+        if (uid != (uid_t) -1 || gid != (gid_t) -1)
+                if (chown(path, uid, gid) < 0)
+                        return -errno;
 
         return 0;
 }
@@ -5810,7 +5816,7 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         return -ENOENT;
 }
 
-int file_is_sticky(const char *p) {
+int file_is_priv_sticky(const char *p) {
         struct stat st;
 
         assert(p);
@@ -5819,7 +5825,7 @@ int file_is_sticky(const char *p) {
                 return -errno;
 
         return
-                st.st_uid == 0 &&
+                (st.st_uid == 0 || st.st_uid == getuid()) &&
                 (st.st_mode & S_ISVTX);
 }
 

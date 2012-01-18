@@ -163,6 +163,7 @@ struct ExecContext {
         bool private_network;
 
         bool control_group_modify;
+        int control_group_persistant;
 
         /* This is not exposed to the user but available
          * internally. We need it to make sure that whenever we spawn

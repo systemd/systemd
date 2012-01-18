@@ -60,7 +60,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid);
 int cg_create_and_attach(const char *controller, const char *path, pid_t pid);
 
 int cg_set_group_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid);
-int cg_set_task_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid);
+int cg_set_task_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid, int sticky);
 
 int cg_install_release_agent(const char *controller, const char *agent);
 

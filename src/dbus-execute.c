@@ -416,5 +416,6 @@ const BusProperty bus_exec_context_properties[] = {
         { "KillSignal",               bus_property_append_int,               "i", offsetof(ExecContext, kill_signal)                  },
         { "UtmpIdentifier",           bus_property_append_string,            "s", offsetof(ExecContext, utmp_id),                true },
         { "ControlGroupModify",       bus_property_append_bool,              "b", offsetof(ExecContext, control_group_modify)         },
+        { "ControlGroupModify",       bus_property_append_bool,              "b", offsetof(ExecContext, control_group_persistant)     },
         { NULL, }
 };
