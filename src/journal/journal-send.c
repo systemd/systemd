@@ -140,13 +140,16 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         int i, j = 0;
         struct msghdr mh;
         struct sockaddr_un sa;
-        char path[] = "/tmp/journal.XXXXXX";
         ssize_t k;
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
         } control;
         struct cmsghdr *cmsg;
+        /* We use /dev/shm instead of /tmp here, since we want this to
+         * be a tmpfs, and one that is available from early boot on
+         * and where unprivileged users can create files. */
+        char path[] = "/dev/shm/journal.XXXXXX";
 
         if (!iov || n <= 0)
                 return -EINVAL;
