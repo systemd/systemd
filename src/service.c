@@ -147,6 +147,17 @@ static void service_unwatch_main_pid(Service *s) {
         s->main_pid = 0;
 }
 
+static void service_unwatch_pid_file(Service *s) {
+        if (!s->pid_file_pathspec)
+                return;
+
+        log_debug("Stopping watch for %s's PID file %s", UNIT(s)->id, s->pid_file_pathspec->path);
+        path_spec_unwatch(s->pid_file_pathspec, UNIT(s));
+        path_spec_done(s->pid_file_pathspec);
+        free(s->pid_file_pathspec);
+        s->pid_file_pathspec = NULL;
+}
+
 static int service_set_main_pid(Service *s, pid_t pid) {
         pid_t ppid;
 
@@ -222,6 +233,7 @@ static void service_done(Unit *u) {
          * our resources */
         service_unwatch_main_pid(s);
         service_unwatch_control_pid(s);
+        service_unwatch_pid_file(s);
 
         if (s->bus_name)  {
                 unit_unwatch_bus_name(u, s->bus_name);
@@ -1387,17 +1399,6 @@ static void service_notify_sockets_dead(Service *s) {
                         socket_notify_service_dead(SOCKET(u));
 
         return;
-}
-
-static void service_unwatch_pid_file(Service *s) {
-        if (!s->pid_file_pathspec)
-                return;
-
-        log_debug("Stopping watch for %s's PID file %s", UNIT(s)->id, s->pid_file_pathspec->path);
-        path_spec_unwatch(s->pid_file_pathspec, UNIT(s));
-        path_spec_done(s->pid_file_pathspec);
-        free(s->pid_file_pathspec);
-        s->pid_file_pathspec = NULL;
 }
 
 static void service_set_state(Service *s, ServiceState state) {
