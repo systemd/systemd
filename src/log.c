@@ -618,13 +618,12 @@ int log_meta(
         return r;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 _noreturn_ static void log_assert(const char *text, const char *file, int line, const char *func, const char *format) {
         static char buffer[LINE_MAX];
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
         snprintf(buffer, sizeof(buffer), format, text, file, line, func);
-#pragma GCC diagnostic pop
 
         char_array_0(buffer);
         log_abort_msg = buffer;
@@ -632,6 +631,7 @@ _noreturn_ static void log_assert(const char *text, const char *file, int line, 
         log_dispatch(LOG_CRIT, file, line, func, buffer);
         abort();
 }
+#pragma GCC diagnostic pop
 
 void log_assert_failed(const char *text, const char *file, int line, const char *func) {
         log_assert(text, file, line, func, "Assertion '%s' failed at %s:%u, function %s(). Aborting.");
