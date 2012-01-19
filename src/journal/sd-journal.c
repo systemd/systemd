@@ -66,7 +66,7 @@ static void init_location(Location *l, JournalFile *f, Object *o) {
         l->seqnum_id = f->header->seqnum_id;
         l->realtime = le64toh(o->entry.realtime);
         l->monotonic = le64toh(o->entry.monotonic);
-        l->boot_id = le64toh(o->entry.boot_id);
+        l->boot_id = o->entry.boot_id;
         l->xor_hash = le64toh(o->entry.xor_hash);
 
         l->seqnum_set = l->realtime_set = l->monotonic_set = l->xor_hash_set = true;
