@@ -1368,7 +1368,8 @@ static void socket_enter_running(Socket *s, int cfd) {
                         /* Flush all sockets by closing and reopening them */
                         socket_close_fds(s);
 
-                        if ((r = socket_watch_fds(s)) < 0) {
+                        r = socket_watch_fds(s);
+                        if (r < 0) {
                                 log_warning("%s failed to watch sockets: %s", UNIT(s)->id, strerror(-r));
                                 socket_enter_stop_pre(s, false);
                         }
@@ -1390,9 +1391,11 @@ static void socket_enter_running(Socket *s, int cfd) {
                                 break;
                         }
 
-                if (!pending)
-                        if ((r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, true, &error, NULL)) < 0)
+                if (!pending) {
+                        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, true, &error, NULL);
+                        if (r < 0)
                                 goto fail;
+                }
 
                 socket_set_state(s, SOCKET_RUNNING);
         } else {
@@ -1405,13 +1408,23 @@ static void socket_enter_running(Socket *s, int cfd) {
                         return;
                 }
 
-                if ((r = socket_instantiate_service(s)) < 0)
+                r = socket_instantiate_service(s);
+                if (r < 0)
                         goto fail;
 
-                if ((r = instance_from_socket(cfd, s->n_accepted, &instance)) < 0)
-                        goto fail;
+                r = instance_from_socket(cfd, s->n_accepted, &instance);
+                if (r < 0) {
+                        if (r != -ENOTCONN)
+                                goto fail;
 
-                if (!(prefix = unit_name_to_prefix(UNIT(s)->id))) {
+                        /* ENOTCONN is legitimate if TCP RST was received.
+                         * This connection is over, but the socket unit lives on. */
+                        close_nointr_nofail(cfd);
+                        return;
+                }
+
+                prefix = unit_name_to_prefix(UNIT(s)->id);
+                if (!prefix) {
                         free(instance);
                         r = -ENOMEM;
                         goto fail;
@@ -1426,7 +1439,8 @@ static void socket_enter_running(Socket *s, int cfd) {
                         goto fail;
                 }
 
-                if ((r = unit_add_name(UNIT_DEREF(s->service), name)) < 0) {
+                r = unit_add_name(UNIT_DEREF(s->service), name);
+                if (r < 0) {
                         free(name);
                         goto fail;
                 }
@@ -1440,13 +1454,15 @@ static void socket_enter_running(Socket *s, int cfd) {
                 unit_choose_id(UNIT(service), name);
                 free(name);
 
-                if ((r = service_set_socket_fd(service, cfd, s)) < 0)
+                r = service_set_socket_fd(service, cfd, s);
+                if (r < 0)
                         goto fail;
 
                 cfd = -1;
                 s->n_connections ++;
 
-                if ((r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, true, &error, NULL)) < 0)
+                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, true, &error, NULL);
+                if (r < 0)
                         goto fail;
 
                 /* Notify clients about changed counters */
