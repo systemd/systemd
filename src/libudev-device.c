@@ -548,16 +548,23 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
                         continue;
                 pos[0] = '\0';
 
-                if (strncmp(line, "DEVTYPE=", 8) == 0)
+                if (strncmp(line, "DEVTYPE=", 8) == 0) {
                         udev_device_set_devtype(udev_device, &line[8]);
-                else if (strncmp(line, "MAJOR=", 6) == 0)
+                        continue;
+                }
+                if (strncmp(line, "IFINDEX=", 8) == 0) {
+                        udev_device_set_ifindex(udev_device, strtoull(&line[8], NULL, 10));
+                        continue;
+                }
+                if (strncmp(line, "DEVNAME=", 8) == 0) {
+                        udev_device_set_devnode(udev_device, &line[8]);
+                        continue;
+                }
+
+                if (strncmp(line, "MAJOR=", 6) == 0)
                         maj = strtoull(&line[6], NULL, 10);
                 else if (strncmp(line, "MINOR=", 6) == 0)
                         min = strtoull(&line[6], NULL, 10);
-                else if (strncmp(line, "IFINDEX=", 8) == 0)
-                        udev_device_set_ifindex(udev_device, strtoull(&line[8], NULL, 10));
-                else if (strncmp(line, "DEVNAME=", 8) == 0)
-                        udev_device_set_devnode(udev_device, &line[8]);
                 else if (strncmp(line, "DEVMODE=", 8) == 0)
                         udev_device->devnode_mode = strtoul(&line[8], NULL, 8);
 

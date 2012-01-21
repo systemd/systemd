@@ -77,7 +77,7 @@ SED_PROCESS = \
 # libudev
 # ------------------------------------------------------------------------------
 LIBUDEV_CURRENT=13
-LIBUDEV_REVISION=0
+LIBUDEV_REVISION=1
 LIBUDEV_AGE=13
 
 SUBDIRS += src/docs

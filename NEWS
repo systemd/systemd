@@ -1,3 +1,19 @@
+udev 178
+========
+Bugfix for the firmware loading behavior with kernel modules which
+try to load firmware in the module_init() path. The blocked event
+runs into a timout now, which should allow the firmware to be loaded.
+
+Bugfix for a wrong DEVNAME= export, which breaks at least the udev-acl
+tool.
+
+Bugfix for missing ID_ properties for GPT partitions.
+
+The RUN+="socket:.." option is deprecated and should not be used. A warning
+during rules parsing is printed now. Services which listen to udev events,
+need to subscribe to the netlink messages with libudev and not let udev block
+in the rules execution until the message is delivered.
+
 udev 177
 ========
 Bugfix for rule_generator instalation.
