@@ -1,3 +1,25 @@
+Summary of changes from v177 to v178
+============================================
+
+Evan Nemerson (1):
+      gudev: several minor introspection fixes
+
+Kay Sievers (7):
+      Makefile: update kernel.org doc hooks for kup
+      builtin: blkid - add missing ID_ prefix
+      udevd: kill hanging event processes after 30 seconds
+      Makefile: switch from .asc to .sign
+      rules: rtc - point /dev/rtc symlink to 'hctosys' device
+      warn about deprecated RUN+="socket:" use
+      libudev: do not set DEVNAME= twice
+
+Martin Pitt (4):
+      keymap: Fix rfkill button on Hewlett-Packard HP ProBook
+      keymap: Fix eject button on Samsung 700Z series
+      keymap: Fix keyboard brightness keys on Samsung 700Z series
+      keymap: Add Alienware M14xR1
+
+
 Summary of changes from v176 to v177
 ============================================
 
