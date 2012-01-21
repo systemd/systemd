@@ -3688,11 +3688,13 @@ static int enable_unit(DBusConnection *bus, char **args) {
                         goto finish;
                 }
 
-                for (i = 0; i < n_changes; i++) {
-                        if (changes[i].type == UNIT_FILE_SYMLINK)
-                                log_info("ln -s '%s' '%s'", changes[i].source, changes[i].path);
-                        else
-                                log_info("rm '%s'", changes[i].path);
+                if (!arg_quiet) {
+                        for (i = 0; i < n_changes; i++) {
+                                if (changes[i].type == UNIT_FILE_SYMLINK)
+                                        log_info("ln -s '%s' '%s'", changes[i].source, changes[i].path);
+                                else
+                                        log_info("rm '%s'", changes[i].path);
+                        }
                 }
 
         } else {
@@ -3808,10 +3810,12 @@ static int enable_unit(DBusConnection *bus, char **args) {
                                 goto finish;
                         }
 
-                        if (streq(type, "symlink"))
-                                log_info("ln -s '%s' '%s'", source, path);
-                        else
-                                log_info("rm '%s'", path);
+                        if (!arg_quiet) {
+                                if (streq(type, "symlink"))
+                                        log_info("ln -s '%s' '%s'", source, path);
+                                else
+                                        log_info("rm '%s'", path);
+                        }
 
                         dbus_message_iter_next(&sub);
                 }
