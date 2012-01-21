@@ -186,7 +186,13 @@ static int replay(const char *root) {
         if (on_ssd)
                 prio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE, 0);
         else
-                prio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_RT, 7);
+                /* We are not using RT here, since we'd starve IO that
+                we didn't record (which is for example blkid, since
+                its disk accesses go directly to the block device and
+                are thus not visible in fallocate) to death. However,
+                we do ask for an IO prio that is slightly higher than
+                the default (which is BE. 4) */
+                prio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 2);
 
         if (ioprio_set(IOPRIO_WHO_PROCESS, getpid(), prio) < 0)
                 log_warning("Failed to set IDLE IO priority class: %m");
