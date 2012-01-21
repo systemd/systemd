@@ -94,6 +94,7 @@
         "  <property name=\"KillSignal\" type=\"i\" access=\"read\"/>\n" \
         "  <property name=\"UtmpIdentifier\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupModify\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"ControlGroupPersistent\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"PrivateNetwork\" type=\"b\" access=\"read\"/>\n"
 
 #define BUS_EXEC_COMMAND_INTERFACE(name)                             \

@@ -533,6 +533,22 @@ int bus_property_append_bool(DBusMessageIter *i, const char *property, void *dat
         return 0;
 }
 
+int bus_property_append_tristate_false(DBusMessageIter *i, const char *property, void *data) {
+        int *b = data;
+        dbus_bool_t db;
+
+        assert(i);
+        assert(property);
+        assert(b);
+
+        db = *b > 0;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &db))
+                return -ENOMEM;
+
+        return 0;
+}
+
 int bus_property_append_uint64(DBusMessageIter *i, const char *property, void *data) {
         assert(i);
         assert(property);
