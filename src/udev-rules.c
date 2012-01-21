@@ -1451,6 +1451,9 @@ static int add_rule(struct udev_rules *rules, char *line,
                 }
 
                 if (strcmp(key, "RUN") == 0) {
+                        if (strncmp(value, "socket:", 7) == 0)
+                                err(rules->udev, "RUN+=\"socket:...\" support will be removed from a future udev release. "
+                                    "Please remove it from: %s:%u and use libudev to subscribe to events.\n", filename, lineno);
                         rule_add_key(&rule_tmp, TK_A_RUN, op, value, NULL);
                         continue;
                 }

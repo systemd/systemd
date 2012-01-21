@@ -230,7 +230,7 @@ static void worker_new(struct event *event)
                 sigset_t mask;
                 int rc = EXIT_SUCCESS;
 
-                /* move initial device from queue */
+                /* take initial device from queue */
                 dev = event->dev;
                 event->dev = NULL;
 
