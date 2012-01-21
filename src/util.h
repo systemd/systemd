@@ -529,4 +529,6 @@ int fd_wait_for_event(int fd, int event);
 
 void* memdup(const void *p, size_t l);
 
+int rtc_open(int flags);
+
 #endif

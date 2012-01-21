@@ -23,8 +23,6 @@ Features:
 
 * document the exit codes when services fail before they are exec()ed
 
-* use the rtc which has: /sys/class/rtc/*/hctosys == "1" as the system RTC
-
 * rework namespace support, don't use pivot_root, and mount things after creating the namespace, not before
 
 * systemctl journal command

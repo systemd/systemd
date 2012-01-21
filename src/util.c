@@ -5155,13 +5155,78 @@ int hwclock_reset_localtime_delta(void) {
         return 0;
 }
 
+int rtc_open(int flags) {
+        int fd;
+        DIR *d;
+
+        /* We open the first RTC which has hctosys=1 set. If we don't
+         * find any we just take the first one */
+
+        d = opendir("/sys/class/rtc");
+        if (!d)
+                goto fallback;
+
+        for (;;) {
+                char *p, *v;
+                struct dirent buf, *de;
+                int r;
+
+                r = readdir_r(d, &buf, &de);
+                if (r != 0)
+                        goto fallback;
+
+                if (!de)
+                        goto fallback;
+
+                if (ignore_file(de->d_name))
+                        continue;
+
+                p = join("/sys/class/rtc/", de->d_name, "/hctosys", NULL);
+                if (!p) {
+                        closedir(d);
+                        return -ENOMEM;
+                }
+
+                r = read_one_line_file(p, &v);
+                free(p);
+
+                if (r < 0)
+                        continue;
+
+                r = parse_boolean(v);
+                free(v);
+
+                if (r <= 0)
+                        continue;
+
+                p = strappend("/dev/", de->d_name);
+                fd = open(p, flags);
+                free(p);
+
+                if (fd >= 0) {
+                        closedir(d);
+                        return fd;
+                }
+        }
+
+fallback:
+        if (d)
+                closedir(d);
+
+        fd = open("/dev/rtc0", flags);
+        if (fd < 0)
+                return -errno;
+
+        return fd;
+}
+
 int hwclock_get_time(struct tm *tm) {
         int fd;
         int err = 0;
 
         assert(tm);
 
-        fd = open("/dev/rtc0", O_RDONLY|O_CLOEXEC);
+        fd = rtc_open(O_RDONLY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
@@ -5185,7 +5250,7 @@ int hwclock_set_time(const struct tm *tm) {
 
         assert(tm);
 
-        fd = open("/dev/rtc0", O_RDONLY|O_CLOEXEC);
+        fd = rtc_open(O_RDONLY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
