@@ -20,6 +20,7 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
+* use the rtc which has: /sys/class/rtc/*/hctosys == "1" as the system RTC
 
 * rework namespace support, don't use pivot_root, and mount things after creating the namespace, not before
 
@@ -143,12 +144,8 @@ Features:
   - status update
   - how to make changes to sysctl and sysfs attributes
   - remote access
-  - cgroup best pratices to avoid stepping on each others toes
   - how to pass throw-away units to systemd, or dynamically change properties of existing units
   - how to integrate cgconfig and suchlike with systemd
-  - security properties
-  - xinetd conversion
-  - details of instantiated @.service setups
 
 * allow port=0 in .socket units
 
