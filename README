@@ -7,11 +7,11 @@ WEB SITE:
         http://www.freedesktop.org/wiki/Software/systemd
 
 GIT:
-        git://anongit.freedesktop.org/systemd
-        ssh://git.freedesktop.org/git/systemd
+        git://anongit.freedesktop.org/systemd/systemd
+        ssh://git.freedesktop.org/git/systemd/systemd
 
 GITWEB:
-        http://cgit.freedesktop.org/systemd/
+        http://cgit.freedesktop.org/systemd/systemd
 
 MAILING LIST:
         http://lists.freedesktop.org/mailman/listinfo/systemd-devel
