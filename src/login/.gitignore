@@ -1,1 +1,3 @@
 logind-gperf.c
+org.freedesktop.login1.policy
+73-seat-late.rules

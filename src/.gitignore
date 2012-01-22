@@ -3,14 +3,9 @@ load-fragment-gperf-nulstr.c
 load-fragment-gperf.c
 load-fragment-gperf.gperf
 org.freedesktop.systemd1.policy.in
-99-systemd.rules
-org.freedesktop.hostname1.policy
-org.freedesktop.locale1.policy
-org.freedesktop.login1.policy
-org.freedesktop.timedate1.policy
 org.freedesktop.systemd1.policy
 gnome-ask-password-agent.c
 systemd-interfaces.c
 systemadm.c
 wraplabel.c
-73-seat-late.rules
+99-systemd.rules

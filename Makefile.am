@@ -73,6 +73,7 @@ pkginclude_HEADERS =
 lib_LTLIBRARIES =
 pkgconfiglib_DATA =
 polkitpolicy_in_files =
+dist_udevrules_DATA =
 
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
@@ -222,11 +223,7 @@ dist_dbuspolicy_DATA = \
 dist_dbussystemservice_DATA = \
 	src/org.freedesktop.systemd1.service
 
-dist_udevrules_DATA = \
-	src/71-seat.rules
-
 nodist_udevrules_DATA = \
-	src/73-seat-late.rules \
 	src/99-systemd.rules
 
 dbusinterface_DATA = \
@@ -370,7 +367,6 @@ EXTRA_DIST += \
 	units/user@.service.in \
 	src/systemd.pc.in \
 	introspect.awk \
-	src/73-seat-late.rules.in \
 	src/99-systemd.rules.in \
 	man/custom-html.xsl
 
@@ -1861,11 +1857,11 @@ rootlibexec_PROGRAMS += \
 
 systemd_loginctl_SOURCES = \
 	src/login/loginctl.c \
+	src/login/sysfs-show.c \
 	src/dbus-common.c \
 	src/cgroup-show.c \
 	src/cgroup-util.c \
-	src/pager.c \
-	src/sysfs-show.c
+	src/pager.c
 
 systemd_loginctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2017,7 +2013,13 @@ rootlibexec_PROGRAMS += \
 	systemd-uaccess
 
 dist_udevrules_DATA += \
-	src/70-uaccess.rules
+	src/login/70-uaccess.rules
+
+dist_udevrules_DATA += \
+	src/login/71-seat.rules
+
+nodist_udevrules_DATA += \
+	src/login/73-seat-late.rules
 
 MANPAGES += \
 	man/systemd-logind.conf.5 \
@@ -2063,8 +2065,6 @@ man/sd_get_uids.3: man/sd_get_seats.3
 
 EXTRA_DIST += \
 	src/login/logind-gperf.gperf \
-	units/systemd-logind.service.in \
-	units/systemd-user-sessions.service.in \
 	src/login/libsystemd-login.pc.in \
 	src/login/libsystemd-login.sym \
 	src/login/logind.h \
@@ -2072,10 +2072,14 @@ EXTRA_DIST += \
 	src/login/logind-seat.h \
 	src/login/logind-session.h \
 	src/login/logind-user.h \
-	src/login/logind-acl.h
+	src/login/logind-acl.h \
+	src/login/73-seat-late.rules.in \
+	units/systemd-logind.service.in \
+	units/systemd-user-sessions.service.in
 
 CLEANFILES += \
-	src/login/logind-gperf.c
+	src/login/logind-gperf.c \
+	src/login/73-seat-late.rules
 endif
 # ------------------------------------------------------------------------------
 
@@ -2152,11 +2156,10 @@ CLEANFILES += \
 	$(pkgconfigdata_DATA) \
 	$(pkgconfiglib_DATA) \
 	$(nodist_polkitpolicy_DATA) \
-	src/73-seat-late.rules \
-	src/99-systemd.rules \
 	src/load-fragment-gperf.gperf \
 	src/load-fragment-gperf.c \
-	src/load-fragment-gperf-nulstr.c
+	src/load-fragment-gperf-nulstr.c \
+	src/99-systemd.rules
 
 if HAVE_VALAC
 CLEANFILES += \
