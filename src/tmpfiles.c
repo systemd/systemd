@@ -893,7 +893,7 @@ static bool item_equal(Item *a, Item *b) {
              a->type == TRUNCATE_FILE ||
              a->type == WRITE_FILE ||
              a->type == CREATE_SYMLINK) &&
-            !streq(a->argument, b->argument))
+            !streq_ptr(a->argument, b->argument))
                 return false;
 
         if ((a->type == CREATE_CHAR_DEVICE ||
