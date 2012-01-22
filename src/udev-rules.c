@@ -32,15 +32,15 @@
 
 #include "udev.h"
 
-#define PREALLOC_TOKEN                        2048
-#define PREALLOC_STRBUF                        32 * 1024
-#define PREALLOC_TRIE                        256
+#define PREALLOC_TOKEN          2048
+#define PREALLOC_STRBUF         32 * 1024
+#define PREALLOC_TRIE           256
 
 struct uid_gid {
         unsigned int name_off;
         union {
-                uid_t        uid;
-                gid_t        gid;
+                uid_t uid;
+                gid_t gid;
         };
 };
 
@@ -100,11 +100,11 @@ enum operation_type {
 
 enum string_glob_type {
         GL_UNSET,
-        GL_PLAIN,                        /* no special chars */
+        GL_PLAIN,                       /* no special chars */
         GL_GLOB,                        /* shell globs ?,*,[] */
-        GL_SPLIT,                        /* multi-value A|B */
-        GL_SPLIT_GLOB,                        /* multi-value with glob A*|B* */
-        GL_SOMETHING,                        /* commonly used "?*" */
+        GL_SPLIT,                       /* multi-value A|B */
+        GL_SPLIT_GLOB,                  /* multi-value with glob A*|B* */
+        GL_SOMETHING,                   /* commonly used "?*" */
 };
 
 enum string_subst_type {
@@ -119,57 +119,57 @@ enum token_type {
         TK_UNSET,
         TK_RULE,
 
-        TK_M_ACTION,                        /* val */
-        TK_M_DEVPATH,                        /* val */
-        TK_M_KERNEL,                        /* val */
-        TK_M_DEVLINK,                        /* val */
-        TK_M_NAME,                        /* val */
-        TK_M_ENV,                        /* val, attr */
-        TK_M_TAG,                        /* val */
-        TK_M_SUBSYSTEM,                        /* val */
-        TK_M_DRIVER,                        /* val */
-        TK_M_WAITFOR,                        /* val */
-        TK_M_ATTR,                        /* val, attr */
+        TK_M_ACTION,                    /* val */
+        TK_M_DEVPATH,                   /* val */
+        TK_M_KERNEL,                    /* val */
+        TK_M_DEVLINK,                   /* val */
+        TK_M_NAME,                      /* val */
+        TK_M_ENV,                       /* val, attr */
+        TK_M_TAG,                       /* val */
+        TK_M_SUBSYSTEM,                 /* val */
+        TK_M_DRIVER,                    /* val */
+        TK_M_WAITFOR,                   /* val */
+        TK_M_ATTR,                      /* val, attr */
 
         TK_M_PARENTS_MIN,
-        TK_M_KERNELS,                        /* val */
+        TK_M_KERNELS,                   /* val */
         TK_M_SUBSYSTEMS,                /* val */
-        TK_M_DRIVERS,                        /* val */
-        TK_M_ATTRS,                        /* val, attr */
-        TK_M_TAGS,                        /* val */
+        TK_M_DRIVERS,                   /* val */
+        TK_M_ATTRS,                     /* val, attr */
+        TK_M_TAGS,                      /* val */
         TK_M_PARENTS_MAX,
 
-        TK_M_TEST,                        /* val, mode_t */
-        TK_M_EVENT_TIMEOUT,                /* int */
-        TK_M_PROGRAM,                        /* val */
-        TK_M_IMPORT_FILE,                /* val */
-        TK_M_IMPORT_PROG,                /* val */
-        TK_M_IMPORT_BUILTIN,                /* val */
-        TK_M_IMPORT_DB,                        /* val */
-        TK_M_IMPORT_CMDLINE,                /* val */
-        TK_M_IMPORT_PARENT,                /* val */
-        TK_M_RESULT,                        /* val */
+        TK_M_TEST,                      /* val, mode_t */
+        TK_M_EVENT_TIMEOUT,             /* int */
+        TK_M_PROGRAM,                   /* val */
+        TK_M_IMPORT_FILE,               /* val */
+        TK_M_IMPORT_PROG,               /* val */
+        TK_M_IMPORT_BUILTIN,            /* val */
+        TK_M_IMPORT_DB,                 /* val */
+        TK_M_IMPORT_CMDLINE,            /* val */
+        TK_M_IMPORT_PARENT,             /* val */
+        TK_M_RESULT,                    /* val */
         TK_M_MAX,
 
         TK_A_STRING_ESCAPE_NONE,
         TK_A_STRING_ESCAPE_REPLACE,
         TK_A_DB_PERSIST,
-        TK_A_INOTIFY_WATCH,                /* int */
-        TK_A_DEVLINK_PRIO,                /* int */
-        TK_A_OWNER,                        /* val */
-        TK_A_GROUP,                        /* val */
-        TK_A_MODE,                        /* val */
-        TK_A_OWNER_ID,                        /* uid_t */
-        TK_A_GROUP_ID,                        /* gid_t */
-        TK_A_MODE_ID,                        /* mode_t */
-        TK_A_STATIC_NODE,                /* val */
-        TK_A_ENV,                        /* val, attr */
-        TK_A_TAG,                        /* val */
-        TK_A_NAME,                        /* val */
-        TK_A_DEVLINK,                        /* val */
-        TK_A_ATTR,                        /* val, attr */
-        TK_A_RUN,                        /* val, bool */
-        TK_A_GOTO,                        /* size_t */
+        TK_A_INOTIFY_WATCH,             /* int */
+        TK_A_DEVLINK_PRIO,              /* int */
+        TK_A_OWNER,                     /* val */
+        TK_A_GROUP,                     /* val */
+        TK_A_MODE,                      /* val */
+        TK_A_OWNER_ID,                  /* uid_t */
+        TK_A_GROUP_ID,                  /* gid_t */
+        TK_A_MODE_ID,                   /* mode_t */
+        TK_A_STATIC_NODE,               /* val */
+        TK_A_ENV,                       /* val, attr */
+        TK_A_TAG,                       /* val */
+        TK_A_NAME,                      /* val */
+        TK_A_DEVLINK,                   /* val */
+        TK_A_ATTR,                      /* val, attr */
+        TK_A_RUN,                       /* val, bool */
+        TK_A_GOTO,                      /* size_t */
 
         TK_END,
 };
@@ -223,14 +223,14 @@ struct rule_tmp {
 static const char *operation_str(enum operation_type type)
 {
         static const char *operation_strs[] = {
-                [OP_UNSET] =                "UNSET",
-                [OP_MATCH] =                "match",
-                [OP_NOMATCH] =                "nomatch",
+                [OP_UNSET] =            "UNSET",
+                [OP_MATCH] =            "match",
+                [OP_NOMATCH] =          "nomatch",
                 [OP_MATCH_MAX] =        "MATCH_MAX",
 
-                [OP_ADD] =                "add",
-                [OP_ASSIGN] =                "assign",
-                [OP_ASSIGN_FINAL] =        "assign-final",
+                [OP_ADD] =              "add",
+                [OP_ASSIGN] =           "assign",
+                [OP_ASSIGN_FINAL] =     "assign-final",
 }        ;
 
         return operation_strs[type];
@@ -239,12 +239,12 @@ static const char *operation_str(enum operation_type type)
 static const char *string_glob_str(enum string_glob_type type)
 {
         static const char *string_glob_strs[] = {
-                [GL_UNSET] =                 "UNSET",
-                [GL_PLAIN] =                 "plain",
-                [GL_GLOB] =                 "glob",
-                [GL_SPLIT] =                 "split",
-                [GL_SPLIT_GLOB] =         "split-glob",
-                [GL_SOMETHING] =         "split-glob",
+                [GL_UNSET] =            "UNSET",
+                [GL_PLAIN] =            "plain",
+                [GL_GLOB] =             "glob",
+                [GL_SPLIT] =            "split",
+                [GL_SPLIT_GLOB] =       "split-glob",
+                [GL_SOMETHING] =        "split-glob",
         };
 
         return string_glob_strs[type];
@@ -253,62 +253,62 @@ static const char *string_glob_str(enum string_glob_type type)
 static const char *token_str(enum token_type type)
 {
         static const char *token_strs[] = {
-                [TK_UNSET] =                        "UNSET",
-                [TK_RULE] =                        "RULE",
+                [TK_UNSET] =                    "UNSET",
+                [TK_RULE] =                     "RULE",
 
-                [TK_M_ACTION] =                        "M ACTION",
+                [TK_M_ACTION] =                 "M ACTION",
                 [TK_M_DEVPATH] =                "M DEVPATH",
-                [TK_M_KERNEL] =                        "M KERNEL",
+                [TK_M_KERNEL] =                 "M KERNEL",
                 [TK_M_DEVLINK] =                "M DEVLINK",
-                [TK_M_NAME] =                        "M NAME",
-                [TK_M_ENV] =                        "M ENV",
-                [TK_M_TAG] =                        "M TAG",
-                [TK_M_SUBSYSTEM] =                "M SUBSYSTEM",
-                [TK_M_DRIVER] =                        "M DRIVER",
+                [TK_M_NAME] =                   "M NAME",
+                [TK_M_ENV] =                    "M ENV",
+                [TK_M_TAG] =                    "M TAG",
+                [TK_M_SUBSYSTEM] =              "M SUBSYSTEM",
+                [TK_M_DRIVER] =                 "M DRIVER",
                 [TK_M_WAITFOR] =                "M WAITFOR",
-                [TK_M_ATTR] =                        "M ATTR",
+                [TK_M_ATTR] =                   "M ATTR",
 
-                [TK_M_PARENTS_MIN] =                "M PARENTS_MIN",
+                [TK_M_PARENTS_MIN] =            "M PARENTS_MIN",
                 [TK_M_KERNELS] =                "M KERNELS",
-                [TK_M_SUBSYSTEMS] =                "M SUBSYSTEMS",
+                [TK_M_SUBSYSTEMS] =             "M SUBSYSTEMS",
                 [TK_M_DRIVERS] =                "M DRIVERS",
-                [TK_M_ATTRS] =                        "M ATTRS",
-                [TK_M_TAGS] =                        "M TAGS",
-                [TK_M_PARENTS_MAX] =                "M PARENTS_MAX",
+                [TK_M_ATTRS] =                  "M ATTRS",
+                [TK_M_TAGS] =                   "M TAGS",
+                [TK_M_PARENTS_MAX] =            "M PARENTS_MAX",
 
-                [TK_M_TEST] =                        "M TEST",
-                [TK_M_EVENT_TIMEOUT] =                "M EVENT_TIMEOUT",
+                [TK_M_TEST] =                   "M TEST",
+                [TK_M_EVENT_TIMEOUT] =          "M EVENT_TIMEOUT",
                 [TK_M_PROGRAM] =                "M PROGRAM",
-                [TK_M_IMPORT_FILE] =                "M IMPORT_FILE",
-                [TK_M_IMPORT_PROG] =                "M IMPORT_PROG",
-                [TK_M_IMPORT_BUILTIN] =                "M IMPORT_BUILTIN",
-                [TK_M_IMPORT_DB] =                "M IMPORT_DB",
-                [TK_M_IMPORT_CMDLINE] =                "M IMPORT_CMDLINE",
-                [TK_M_IMPORT_PARENT] =                "M IMPORT_PARENT",
-                [TK_M_RESULT] =                        "M RESULT",
-                [TK_M_MAX] =                        "M MAX",
+                [TK_M_IMPORT_FILE] =            "M IMPORT_FILE",
+                [TK_M_IMPORT_PROG] =            "M IMPORT_PROG",
+                [TK_M_IMPORT_BUILTIN] =         "M IMPORT_BUILTIN",
+                [TK_M_IMPORT_DB] =              "M IMPORT_DB",
+                [TK_M_IMPORT_CMDLINE] =         "M IMPORT_CMDLINE",
+                [TK_M_IMPORT_PARENT] =          "M IMPORT_PARENT",
+                [TK_M_RESULT] =                 "M RESULT",
+                [TK_M_MAX] =                    "M MAX",
 
-                [TK_A_STRING_ESCAPE_NONE] =        "A STRING_ESCAPE_NONE",
-                [TK_A_STRING_ESCAPE_REPLACE] =        "A STRING_ESCAPE_REPLACE",
-                [TK_A_DB_PERSIST] =                "A DB_PERSIST",
-                [TK_A_INOTIFY_WATCH] =                 "A INOTIFY_WATCH",
-                [TK_A_DEVLINK_PRIO] =                "A DEVLINK_PRIO",
-                [TK_A_OWNER] =                        "A OWNER",
-                [TK_A_GROUP] =                        "A GROUP",
-                [TK_A_MODE] =                        "A MODE",
-                [TK_A_OWNER_ID] =                "A OWNER_ID",
-                [TK_A_GROUP_ID] =                "A GROUP_ID",
-                [TK_A_STATIC_NODE] =                "A STATIC_NODE",
+                [TK_A_STRING_ESCAPE_NONE] =     "A STRING_ESCAPE_NONE",
+                [TK_A_STRING_ESCAPE_REPLACE] =  "A STRING_ESCAPE_REPLACE",
+                [TK_A_DB_PERSIST] =             "A DB_PERSIST",
+                [TK_A_INOTIFY_WATCH] =          "A INOTIFY_WATCH",
+                [TK_A_DEVLINK_PRIO] =           "A DEVLINK_PRIO",
+                [TK_A_OWNER] =                  "A OWNER",
+                [TK_A_GROUP] =                  "A GROUP",
+                [TK_A_MODE] =                   "A MODE",
+                [TK_A_OWNER_ID] =               "A OWNER_ID",
+                [TK_A_GROUP_ID] =               "A GROUP_ID",
+                [TK_A_STATIC_NODE] =            "A STATIC_NODE",
                 [TK_A_MODE_ID] =                "A MODE_ID",
-                [TK_A_ENV] =                        "A ENV",
-                [TK_A_TAG] =                        "A ENV",
-                [TK_A_NAME] =                        "A NAME",
+                [TK_A_ENV] =                    "A ENV",
+                [TK_A_TAG] =                    "A ENV",
+                [TK_A_NAME] =                   "A NAME",
                 [TK_A_DEVLINK] =                "A DEVLINK",
-                [TK_A_ATTR] =                        "A ATTR",
-                [TK_A_RUN] =                        "A RUN",
-                [TK_A_GOTO] =                        "A GOTO",
+                [TK_A_ATTR] =                   "A ATTR",
+                [TK_A_RUN] =                    "A RUN",
+                [TK_A_GOTO] =                   "A GOTO",
 
-                [TK_END] =                        "END",
+                [TK_END] =                      "END",
         };
 
         return token_strs[type];

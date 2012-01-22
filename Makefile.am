@@ -761,7 +761,7 @@ git-release:
 
 git-sync:
 	git push
-	git push --tags $(VERSION)
+	git push --tags
 
 tar:
 	make distcheck
