@@ -50,7 +50,7 @@ static unsigned ilog10(unsigned long ul) {
         return n;
 }
 
-static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigned n_columns, bool more) {
+static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigned n_columns, bool more, bool kernel_threads) {
         char *fn;
         FILE *f;
         size_t n = 0, n_allocated = 0;
@@ -81,6 +81,9 @@ static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigne
                 return -errno;
 
         while ((r = cg_read_pid(f, &pid)) > 0) {
+
+                if (!kernel_threads && is_kernel_thread(pid) > 0)
+                        continue;
 
                 if (n >= n_allocated) {
                         pid_t *npids;
@@ -157,7 +160,7 @@ finish:
         return r;
 }
 
-int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns) {
+int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns, bool kernel_threads) {
         DIR *d;
         char *last = NULL;
         char *p1 = NULL, *p2 = NULL, *fn = NULL, *gn = NULL;
@@ -181,7 +184,7 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
         while ((r = cg_read_subgroup(d, &gn)) > 0) {
 
                 if (!shown_pids) {
-                        show_cgroup_one_by_path(path, prefix, n_columns, true);
+                        show_cgroup_one_by_path(path, prefix, n_columns, true, kernel_threads);
                         shown_pids = true;
                 }
 
@@ -194,7 +197,7 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
                                         goto finish;
                                 }
 
-                        show_cgroup_by_path(last, p1, n_columns-2);
+                        show_cgroup_by_path(last, p1, n_columns-2, kernel_threads);
 
                         free(last);
                         last = NULL;
@@ -213,7 +216,7 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
                 goto finish;
 
         if (!shown_pids)
-                show_cgroup_one_by_path(path, prefix, n_columns, !!last);
+                show_cgroup_one_by_path(path, prefix, n_columns, !!last, kernel_threads);
 
         if (last) {
                 printf("%s\342\224\224 %s\n", prefix, file_name_from_path(last));
@@ -224,7 +227,7 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
                                 goto finish;
                         }
 
-                show_cgroup_by_path(last, p2, n_columns-2);
+                show_cgroup_by_path(last, p2, n_columns-2, kernel_threads);
         }
 
         r = 0;
@@ -240,17 +243,18 @@ finish:
         return r;
 }
 
-int show_cgroup(const char *controller, const char *path, const char *prefix, unsigned n_columns) {
+int show_cgroup(const char *controller, const char *path, const char *prefix, unsigned n_columns, bool kernel_threads) {
         char *p;
         int r;
 
         assert(controller);
         assert(path);
 
-        if ((r = cg_get_path(controller, path, NULL, &p)) < 0)
+        r = cg_get_path(controller, path, NULL, &p);
+        if (r < 0)
                 return r;
 
-        r = show_cgroup_by_path(p, prefix, n_columns);
+        r = show_cgroup_by_path(p, prefix, n_columns, kernel_threads);
         free(p);
 
         return r;

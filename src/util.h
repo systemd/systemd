@@ -531,4 +531,6 @@ void* memdup(const void *p, size_t l);
 
 int rtc_open(int flags);
 
+int is_kernel_thread(pid_t pid);
+
 #endif

@@ -84,6 +84,20 @@
                                 text and exits.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>--no-pager</option></term>
+
+				<listitem><para>Do not pipe output into a
+				pager.</para></listitem>
+			</varlistentry>
+
+                        <varlistentry>
+                                <term><option>-k</option></term>
+
+                                <listitem><para>Includes kernel
+                                threads in output.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
         </refsect1>

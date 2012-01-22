@@ -33,13 +33,15 @@
 #include "pager.h"
 
 static bool arg_no_pager = false;
+static bool arg_kernel_threads = false;
 
 static void help(void) {
 
         printf("%s [OPTIONS...] [CGROUP...]\n\n"
                "Recursively show control group contents.\n\n"
                "  -h --help           Show this help\n"
-               "     --no-pager       Do not pipe output into a pager\n",
+               "     --no-pager       Do not pipe output into a pager\n"
+               "  -k                  Include kernel threads in output\n",
                program_invocation_short_name);
 }
 
@@ -60,7 +62,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hk", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -70,6 +72,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
+                        break;
+
+                case 'k':
+                        arg_kernel_threads = true;
                         break;
 
                 case '?':
@@ -90,7 +96,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        if ((r = parse_argv(argc, argv)) < 0)
+        r = parse_argv(argc, argv);
+        if (r < 0)
                 goto finish;
         else if (r == 0) {
                 retval = EXIT_SUCCESS;
@@ -107,26 +114,29 @@ int main(int argc, char *argv[]) {
                         int q;
                         printf("%s:\n", argv[i]);
 
-                        if ((q = show_cgroup_by_path(argv[i], NULL, 0)) < 0)
+                        q = show_cgroup_by_path(argv[i], NULL, 0, arg_kernel_threads);
+                        if (q < 0)
                                 r = q;
                 }
 
         } else {
                 char *p;
 
-                if (!(p = get_current_dir_name())) {
+                p = get_current_dir_name();
+                if (!p) {
                         log_error("Cannot determine current working directory: %m");
                         goto finish;
                 }
 
                 if (path_startswith(p, "/sys/fs/cgroup")) {
                         printf("Working Directory %s:\n", p);
-                        r = show_cgroup_by_path(p, NULL, 0);
+                        r = show_cgroup_by_path(p, NULL, 0, arg_kernel_threads);
                 } else {
                         char *root = NULL;
                         const char *t = NULL;
 
-                        if ((r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 1, &root)) < 0)
+                        r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 1, &root);
+                        if (r < 0)
                                 t = "/";
                         else {
                                 if (endswith(root, "/system"))
@@ -135,7 +145,7 @@ int main(int argc, char *argv[]) {
                                 t = root[0] ? root : "/";
                         }
 
-                        r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, t, NULL, 0);
+                        r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, t, NULL, 0, arg_kernel_threads);
                         free(root);
                 }
 
