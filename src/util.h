@@ -327,7 +327,7 @@ bool fstype_is_network(const char *fstype);
 
 int chvt(int vt);
 
-int read_one_char(FILE *f, char *ret, bool *need_nl);
+int read_one_char(FILE *f, char *ret, usec_t timeout, bool *need_nl);
 int ask(char *ret, const char *replies, const char *text, ...);
 
 int reset_terminal_fd(int fd);
@@ -383,6 +383,9 @@ void status_welcome(void);
 
 int fd_columns(int fd);
 unsigned columns(void);
+
+int fd_lines(int fd);
+unsigned lines(void);
 
 int running_in_chroot(void);
 
@@ -525,7 +528,7 @@ unsigned long cap_last_cap(void);
 
 char *format_bytes(char *buf, size_t l, off_t t);
 
-int fd_wait_for_event(int fd, int event);
+int fd_wait_for_event(int fd, int event, usec_t timeout);
 
 void* memdup(const void *p, size_t l);
 

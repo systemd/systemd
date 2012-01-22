@@ -169,6 +169,7 @@ rootbin_PROGRAMS = \
 
 bin_PROGRAMS = \
 	systemd-cgls \
+	systemd-cgtop \
 	systemd-stdio-bridge \
 	systemd-nspawn
 
@@ -1006,6 +1007,13 @@ systemd_cgls_SOURCES = \
 	src/pager.c
 
 systemd_cgls_LDADD = \
+	libsystemd-basic.la
+
+systemd_cgtop_SOURCES = \
+	src/cgtop.c \
+        src/cgroup-util.c
+
+systemd_cgtop_LDADD = \
 	libsystemd-basic.la
 
 systemd_nspawn_SOURCES = \

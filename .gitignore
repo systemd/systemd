@@ -1,3 +1,4 @@
+/systemd-cgtop
 /systemd-coredump
 /systemd-cat
 /systemd-rc-local-generator

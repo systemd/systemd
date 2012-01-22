@@ -2434,7 +2434,7 @@ fail:
         return r;
 }
 
-int read_one_char(FILE *f, char *ret, bool *need_nl) {
+int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
         struct termios old_termios, new_termios;
         char c;
         char line[LINE_MAX];
@@ -2452,6 +2452,13 @@ int read_one_char(FILE *f, char *ret, bool *need_nl) {
                 if (tcsetattr(fileno(f), TCSADRAIN, &new_termios) >= 0) {
                         size_t k;
 
+                        if (t != (usec_t) -1) {
+                                if (fd_wait_for_event(fileno(f), POLLIN, t) <= 0) {
+                                        tcsetattr(fileno(f), TCSADRAIN, &old_termios);
+                                        return -ETIMEDOUT;
+                                }
+                        }
+
                         k = fread(&c, 1, 1, f);
 
                         tcsetattr(fileno(f), TCSADRAIN, &old_termios);
@@ -2467,7 +2474,11 @@ int read_one_char(FILE *f, char *ret, bool *need_nl) {
                 }
         }
 
-        if (!(fgets(line, sizeof(line), f)))
+        if (t != (usec_t) -1)
+                if (fd_wait_for_event(fileno(f), POLLIN, t) <= 0)
+                        return -ETIMEDOUT;
+
+        if (!fgets(line, sizeof(line), f))
                 return -EIO;
 
         truncate_nl(line);
@@ -2509,7 +2520,8 @@ int ask(char *ret, const char *replies, const char *text, ...) {
 
                 fflush(stdout);
 
-                if ((r = read_one_char(stdin, &c, &need_nl)) < 0) {
+                r = read_one_char(stdin, &c, (usec_t) -1, &need_nl);
+                if (r < 0) {
 
                         if (r == -EBADMSG) {
                                 puts("Bad input, please try again.");
@@ -4079,6 +4091,39 @@ unsigned columns(void) {
         return parsed_columns;
 }
 
+int fd_lines(int fd) {
+        struct winsize ws;
+        zero(ws);
+
+        if (ioctl(fd, TIOCGWINSZ, &ws) < 0)
+                return -errno;
+
+        if (ws.ws_row <= 0)
+                return -EIO;
+
+        return ws.ws_row;
+}
+
+unsigned lines(void) {
+        static __thread int parsed_lines = 0;
+        const char *e;
+
+        if (_likely_(parsed_lines > 0))
+                return parsed_lines;
+
+        e = getenv("LINES");
+        if (e)
+                parsed_lines = atoi(e);
+
+        if (parsed_lines <= 0)
+                parsed_lines = fd_lines(STDOUT_FILENO);
+
+        if (parsed_lines <= 0)
+                parsed_lines = 25;
+
+        return parsed_lines;
+}
+
 int running_in_chroot(void) {
         struct stat a, b;
 
@@ -4850,7 +4895,7 @@ int pipe_eof(int fd) {
         return pollfd.revents & POLLHUP;
 }
 
-int fd_wait_for_event(int fd, int event) {
+int fd_wait_for_event(int fd, int event, usec_t t) {
         struct pollfd pollfd;
         int r;
 
@@ -4858,7 +4903,7 @@ int fd_wait_for_event(int fd, int event) {
         pollfd.fd = fd;
         pollfd.events = event;
 
-        r = poll(&pollfd, 1, -1);
+        r = poll(&pollfd, 1, t == (usec_t) -1 ? -1 : (int) (t / USEC_PER_MSEC));
         if (r < 0)
                 return -errno;
 

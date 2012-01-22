@@ -282,7 +282,7 @@ int main(int argc, char *argv[]) {
                 if (!arg_follow)
                         break;
 
-                r = fd_wait_for_event(fd, POLLIN);
+                r = fd_wait_for_event(fd, POLLIN, (usec_t) -1);
                 if (r < 0) {
                         log_error("Couldn't wait for event: %s", strerror(-r));
                         goto finish;

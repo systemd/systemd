@@ -633,7 +633,7 @@ int show_journal_by_unit(
                 if (!follow)
                         break;
 
-                r = fd_wait_for_event(fd, POLLIN);
+                r = fd_wait_for_event(fd, POLLIN, (usec_t) -1);
                 if (r < 0)
                         goto finish;
 
