@@ -78,7 +78,6 @@ systemadm
 *.8
 *.html
 *~
-*.tar.gz
 *.o
 *.lo
 *.a
@@ -102,8 +101,5 @@ stamp-*
 *.stamp
 /Makefile
 ltmain.sh
-*.tar.bz2
-*.tar.gz
 *.tar.xz
 libtool
-.vimrc
