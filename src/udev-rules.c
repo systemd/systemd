@@ -2546,6 +2546,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                 }
                 case TK_A_NAME: {
                         const char *name  = &rules->buf[cur->key.value_off];
+
                         char name_str[UTIL_PATH_SIZE];
                         int count;
 
@@ -2558,6 +2559,16 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                 count = util_replace_chars(name_str, "/");
                                 if (count > 0)
                                         info(event->udev, "%i character(s) replaced\n", count);
+                        }
+                        if (major(udev_device_get_devnum(event->dev))) {
+                                size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
+
+                                if (strcmp(name_str, &udev_device_get_devnode(event->dev)[devlen]) != 0) {
+                                        err(event->udev, "NAME=\"%s\" ignored, kernel device nodes "
+                                            "can not be renamed; please fix it in %s:%u\n", name,
+                                            &rules->buf[rule->rule.filename_off], rule->rule.filename_line);
+                                        break;
+                                }
                         }
                         free(event->name);
                         event->name = strdup(name_str);
