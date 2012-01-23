@@ -33,25 +33,6 @@
 extern "C" {
 #endif
 
-/* TODO:
- *
- *   - OR of matches is borked...
- *   - extend hash tables table as we go
- *   - accelerate looking for "all hostnames" and suchlike.
- *   - handle incomplete header
- *
- *   - kann NTP nicht finden?
- *
- *   - local deserializer
- *   - http server
- *   - message catalog
- *
- *   - check LE/BE conversion for 8bit, 16bit, 32bit values
- *   - cryptographic hash
- *   - think about manipulations of header
- *   - implement audit gateway
- */
-
 /* Write to daemon */
 
 int sd_journal_print(int piority, const char *format, ...) __attribute__ ((format (printf, 2, 3)));
