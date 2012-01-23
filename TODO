@@ -21,6 +21,10 @@ Bugfixes:
 
 Features:
 
+* write man pages for systemd-cgtop, systemd-cat
+
+* journal: write man pages for API
+
 * journal: OR matches are borked
 
 * journal: extend hash tables as we go
