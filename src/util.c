@@ -5235,8 +5235,14 @@ int rtc_open(int flags) {
         int fd;
         DIR *d;
 
-        /* We open the first RTC which has hctosys=1 set. If we don't
-         * find any we just take the first one */
+        /* First, we try to make use of the /dev/rtc symlink. If that
+         * doesn't exist, we open the first RTC which has hctosys=1
+         * set. If we don't find any we just take the first RTC that
+         * exists at all. */
+
+        fd = open("/dev/rtc", flags);
+        if (fd >= 0)
+                return fd;
 
         d = opendir("/sys/class/rtc");
         if (!d)

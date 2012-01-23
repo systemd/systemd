@@ -113,7 +113,7 @@ Features:
 
 * readahead: check whether a btrfs volume includes ssd by checking mount flag "ssd"
 
-* support sd_notify() style notification when reload begins (RELOADING=1), reload is finished (READY=1)
+* support sd_notify() style notification when reload begins (RELOADING=1), reload is finished (READY=1), and add ReloadSignal= then to use in combination
 
 * support sd_notify() style notification when shutting down, to make auto-exit bus services work (STOPPING=1)
 
