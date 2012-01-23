@@ -99,6 +99,7 @@ AM_CPPFLAGS = \
 	-DUSER_GENERATOR_PATH=\"$(usergeneratordir)\" \
 	-DSYSTEM_SHUTDOWN_PATH=\"$(systemshutdowndir)\" \
 	-DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
+        -DX_SERVER=\"$(bindir)/X\" \
 	-I $(top_srcdir)/src \
 	-I $(top_srcdir)/src/readahead \
 	-I $(top_srcdir)/src/login \
@@ -1987,6 +1988,20 @@ logind-install-data-hook:
 
 INSTALL_DATA_HOOKS += \
 	logind-install-data-hook
+
+systemd_multi_seat_x_SOURCES = \
+	src/login/multi-seat-x.c
+
+systemd_multi_seat_x_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(UDEV_CFLAGS)
+
+systemd_multi_seat_x_LDADD = \
+	libsystemd-basic.la \
+	$(UDEV_LIBS)
+
+rootlibexec_PROGRAMS += \
+	systemd-multi-seat-x
 
 systemd_uaccess_SOURCES = \
 	src/login/uaccess.c
