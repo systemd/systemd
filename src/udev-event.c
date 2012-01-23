@@ -347,12 +347,12 @@ subst:
                                 l = util_strpcpy(&s, l, udev_device_get_devnode(dev));
                         break;
                 case SUBST_NAME: {
-                        size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
-
                         if (event->name != NULL) {
                                 l = util_strpcpy(&s, l, event->name);
                                 dbg(event->udev, "substitute custom name '%s'\n", event->name);
                         } else {
+                                size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
+
                                 l = util_strpcpy(&s, l, &udev_device_get_devnode(dev)[devlen]);
                                 dbg(event->udev, "substitute name'%s'\n", &udev_device_get_devnode(dev)[devlen]);
                         }
