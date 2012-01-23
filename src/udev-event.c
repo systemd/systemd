@@ -346,15 +346,18 @@ subst:
                         if (udev_device_get_devnode(dev) != NULL)
                                 l = util_strpcpy(&s, l, udev_device_get_devnode(dev));
                         break;
-                case SUBST_NAME:
+                case SUBST_NAME: {
+                        size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
+
                         if (event->name != NULL) {
                                 l = util_strpcpy(&s, l, event->name);
-                                dbg(event->udev, "substitute name '%s'\n", event->name);
+                                dbg(event->udev, "substitute custom name '%s'\n", event->name);
                         } else {
-                                l = util_strpcpy(&s, l, udev_device_get_sysname(dev));
-                                dbg(event->udev, "substitute sysname '%s'\n", udev_device_get_sysname(dev));
+                                l = util_strpcpy(&s, l, &udev_device_get_devnode(dev)[devlen]);
+                                dbg(event->udev, "substitute name'%s'\n", &udev_device_get_devnode(dev)[devlen]);
                         }
                         break;
+                }
                 case SUBST_LINKS: {
                         size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
                         struct udev_list_entry *list_entry;
@@ -928,7 +931,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                         }
                 }
 
-                if (major(udev_device_get_devnum(dev)) != 0) {
+                if (major(udev_device_get_devnum(dev)) > 0) {
                         /* remove/update possible left-over symlinks from old database entry */
                         if (event->dev_db != NULL)
                                 udev_node_update_old_links(dev, event->dev_db);
