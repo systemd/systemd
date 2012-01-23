@@ -21,6 +21,8 @@ Bugfixes:
 
 Features:
 
+* write RPM spec macros for presets
+
 * write man pages for systemd-cgtop, systemd-cat
 
 * journal: write man pages for API
