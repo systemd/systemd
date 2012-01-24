@@ -46,6 +46,9 @@ int main(int argc, char *argv[]) {
          * device assigned to a seat and write a configuration file
          * from it and then spawn the real X server. */
 
+        /* If this file is removed, don't forget to remove the code
+         * that invokes this in gdm and other display managers. */
+
         for (i = 1; i < argc; i++)
                 if (streq(argv[i], "-seat"))
                         seat = argv[i+1];
