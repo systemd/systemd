@@ -7,7 +7,7 @@
 
 ACTION!="add", GOTO="kernel_compat_end"
 
-# see extras/qemu/42-qemu-usb.rules, version for 2.6.32 + older.
+# see src/extras/qemu/42-qemu-usb.rules, version for 2.6.32 + older.
 ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Mouse", ATTR{serial}=="42", TEST=="power/level", ATTR{power/level}="auto"
 ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Tablet", ATTR{serial}=="42", TEST=="power/level", ATTR{power/level}="auto"
 ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Keyboard", ATTR{serial}=="42", TEST=="power/level", ATTR{power/level}="auto"
