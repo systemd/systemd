@@ -1,0 +1,246 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2012 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-cgtop">
+
+        <refentryinfo>
+                <title>systemd-cgtop</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-cgtop</refentrytitle>
+                <manvolnum>1</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-cgtop</refname>
+                <refpurpose>Show top control groups by their resource usage</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>systemd-cgtop <arg choice="opt" rep="repeat">OPTIONS</arg></command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>systemd-cgtop</command> shows the top
+                control groups of the local Linux control group
+                hierarchy, ordered by their CPU, memory and disk I/O load. The
+                display is refreshed in regular intervals (by default
+                every 1s), similar in style to
+                <citerefentry><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+                <para>Resource usage is only accounted for control
+                groups in the relevant hierarchy, i.e. CPU usage is
+                only accounted for control groups in the
+                <literal>cpuacct</literal> hierarchy, memory usage
+                only for those in <literal>memory</literal> and disk
+                I/O usage for those in
+                <literal>blkio</literal>. <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                by default places all services in their own control
+                group in the <literal>cpuacct</literal> hierarchy, but
+                not in <literal>memory</literal> nor
+                <literal>blkio</literal>. If resource monitoring for
+                these resources is required it is recommended to add
+                <literal>blkio</literal> and <literal>memory</literal>
+                to the <varname>DefaultControllers=</varname> setting
+                in <filename>/etc/systemd/system.conf</filename> (see
+                <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details). Alternatively, it is possible to enable
+                resource accounting individually for services, by
+                making use of the <varname>ControlGroup=</varname>
+                option in the unit files (See
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details).</para>
+
+                <para>To emphasize this: unless
+                <literal>blkio</literal> and <literal>memory</literal>
+                are enabled for the services in question with either
+                of the options suggested above no resource accounting
+                will be available for system services and the data shown
+                by <command>systemd-cgtop</command> will be
+                incomplete.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following options are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>-h</option></term>
+                                <term><option>--help</option></term>
+
+                                <listitem><para>Prints a short help
+                                text and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-p</option></term>
+
+                                <listitem><para>Order by control group
+                                path name.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-t</option></term>
+
+                                <listitem><para>Order by number of
+                                tasks in control
+                                group (i.e. threads and processes).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-c</option></term>
+
+                                <listitem><para>Order by CPU load.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-m</option></term>
+
+                                <listitem><para>Order by memory usage.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-i</option></term>
+
+                                <listitem><para>Order by disk I/O load.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-d</option></term>
+                                <term><option>--delay=</option></term>
+
+                                <listitem><para>Specify refresh delay
+                                in seconds (or if one of
+                                <literal>ms</literal>,
+                                <literal>us</literal>,
+                                <literal>min</literal> is specified as
+                                unit in this time
+                                unit).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--depth=</option></term>
+
+                                <listitem><para>Maximum control group
+                                tree traversal depth. Specifies how
+                                deep <command>systemd-cgtop</command>
+                                shall traverse the control group
+                                hierarchies. If 0 is specified only
+                                the root group is monitored, for 1
+                                only the first level of control groups
+                                is monitored, and so on. Defaults to
+                                2.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+
+        </refsect1>
+
+
+        <refsect1>
+                <title>Keys</title>
+
+                <para><command>systemd-cgtop</command> is an
+                interactive tool and may be controlled via user input
+                using the following keys:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term>h</term>
+
+                                <listitem><para>Shows a short help text.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SPACE</term>
+
+                                <listitem><para>Immediately refresh output.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>q</term>
+
+                                <listitem><para>Terminate the program.</para></listitem>
+                        </varlistentry>
+
+
+                        <varlistentry>
+                                <term>p</term>
+                                <term>t</term>
+                                <term>c</term>
+                                <term>m</term>
+                                <term>i</term>
+
+                                <listitem><para>Change ordering of control groups
+                                by path, number of tasks, CPU load,
+                                memory usage resp. IO
+                                load.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>+</term>
+                                <term>-</term>
+
+                                <listitem><para>Increase,
+                                resp. decrease refresh
+                                delay.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Exit status</title>
+
+                <para>On success 0 is returned, a non-zero failure
+                code otherwise.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-cgls</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

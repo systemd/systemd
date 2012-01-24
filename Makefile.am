@@ -653,6 +653,7 @@ MANPAGES = \
 	man/systemctl.1 \
 	man/systemadm.1 \
 	man/systemd-cgls.1 \
+	man/systemd-cgtop.1 \
 	man/systemd-nspawn.1 \
 	man/systemd-tmpfiles.8 \
 	man/systemd-notify.1 \

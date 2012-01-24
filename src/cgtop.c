@@ -499,7 +499,7 @@ static void help(void) {
                "  -m                  Order by memory load\n"
                "  -i                  Order by IO load\n"
                "  -d --delay=DELAY    Specify delay\n"
-               "     --depth=DEPTH    Maximum traversal depth\n",
+               "     --depth=DEPTH    Maximum traversal depth (default: 2)\n",
                program_invocation_short_name);
 }
 
