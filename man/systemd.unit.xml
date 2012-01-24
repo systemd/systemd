@@ -779,6 +779,7 @@
                                 <varname>chroot</varname>,
                                 <varname>openvz</varname>,
                                 <varname>lxc</varname>,
+                                <varname>lxc-libvirt</varname>,
                                 <varname>systemd-nspawn</varname>,
                                 <varname>pidns</varname> to test
                                 against a specific implementation. If

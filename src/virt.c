@@ -209,6 +209,13 @@ int detect_container(const char **id) {
                                         *id = "lxc";
                                 return 1;
 
+                        } else if (streq(line, "container=lxc-libvirt")) {
+                                fclose(f);
+
+                                if (id)
+                                        *id = "lxc-libvirt";
+                                return 1;
+
                         } else if (streq(line, "container=systemd-nspawn")) {
                                 fclose(f);
 
