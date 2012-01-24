@@ -1,3 +1,7 @@
+udev 179
+========
+Bugfix for $name resolution, which broke at least some keymap handling.
+
 udev 178
 ========
 Bugfix for the firmware loading behavior with kernel modules which

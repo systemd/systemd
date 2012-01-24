@@ -1,3 +1,17 @@
+Summary of changes from v178 to v179
+============================================
+
+Kay Sievers (8):
+      fix some fallout from tab removal
+      use devnode() for $name not sysname(), device nodes might be in a subdirectory
+      print warning when rules try to rename kernel device nodes
+      move variable inside condition
+      update TODO
+      build-sys: enable everything for 'make distcheck'
+      use sysname() for devices without a device node
+      fix path to extras
+
+
 Summary of changes from v177 to v178
 ============================================
 
