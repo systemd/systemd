@@ -769,11 +769,9 @@ git-sync:
 	git push
 	git push --tags
 
-tar:
-	make distcheck
-	xz -d -c udev-$(VERSION).tar.xz | gpg --armor --detach-sign --output udev-$(VERSION).tar.sign
-
 tar-sync:
+	rm -f udev-$(VERSION).tar.sign
+	xz -d -c udev-$(VERSION).tar.xz | gpg --armor --detach-sign --output udev-$(VERSION).tar.sign
 	kup put udev-$(VERSION).tar.xz  udev-$(VERSION).tar.sign /pub/linux/utils/kernel/hotplug/
 
 doc-sync:
