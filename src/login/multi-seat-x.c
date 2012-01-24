@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
 
                 dn = udev_device_get_devnode(d);
 
-                if (!dn) {
+                if (dn) {
                         device_node = strdup(dn);
                         if (!device_node) {
                                 udev_device_unref(d);
