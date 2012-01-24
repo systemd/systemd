@@ -26,6 +26,12 @@ AM_LDFLAGS = \
 	-Wl,--as-needed
 
 DISTCHECK_CONFIGURE_FLAGS = \
+	--enable-debug \
+	--enable-rule_generator \
+	--enable-udev_acl \
+	--enable-floppy \
+	--enable-edd \
+	--with-selinux \
 	--enable-gtk-doc \
 	--with-systemdsystemunitdir=$$dc_install_base/$(systemdsystemunitdir)
 
