@@ -349,12 +349,15 @@ subst:
                 case SUBST_NAME: {
                         if (event->name != NULL) {
                                 l = util_strpcpy(&s, l, event->name);
-                                dbg(event->udev, "substitute custom name '%s'\n", event->name);
-                        } else {
+                                dbg(event->udev, "substitute custom node name '%s'\n", event->name);
+                        } else if (udev_device_get_devnode(dev) != NULL) {
                                 size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
 
                                 l = util_strpcpy(&s, l, &udev_device_get_devnode(dev)[devlen]);
-                                dbg(event->udev, "substitute name'%s'\n", &udev_device_get_devnode(dev)[devlen]);
+                                dbg(event->udev, "substitute node name'%s'\n", &udev_device_get_devnode(dev)[devlen]);
+                        } else {
+                                l = util_strpcpy(&s, l, udev_device_get_sysname(dev));
+                                dbg(event->udev, "substitute device name'%s'\n", udev_device_get_sysname(dev));
                         }
                         break;
                 }
