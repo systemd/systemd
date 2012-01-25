@@ -266,7 +266,6 @@ src_udevadm_CFLAGS = $(udev_common_CFLAGS)
 src_udevadm_LDADD = $(udev_common_LDADD)
 src_udevadm_CPPFLAGS = $(udev_common_CPPFLAGS)
 
-if HAVE_XSLTPROC
 # ------------------------------------------------------------------------------
 # udev man pages
 # ------------------------------------------------------------------------------
@@ -275,15 +274,16 @@ dist_man_MANS += \
 	src/udevadm.8 \
 	src/udevd.8
 
-dist_noinst_DATA = \
-	src/udev.html \
-	src/udevadm.html \
-	src/udevd.html
-
 EXTRA_DIST += \
 	src/udev.xml \
 	src/udevadm.xml \
 	src/udevd.xml
+
+if HAVE_XSLTPROC
+dist_noinst_DATA = \
+	src/udev.html \
+	src/udevadm.html \
+	src/udevd.html
 
 src/%.7 src/%.8 : src/%.xml
 	$(AM_V_GEN)$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
