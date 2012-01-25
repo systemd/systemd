@@ -1,0 +1,146 @@
+systemd System and Session Manager
+
+CHANGES WITH 39:
+        * This is mostly a test release, but incorporates many
+          bugfixes.
+
+        * New systemd-cgtop tool to show control groups by their
+          resource usage.
+
+        * Linking against libacl for ACLs is optional again. If
+          disabled, support tracking device access for active logins
+          goes becomes unavailable, and so does access to the user
+          journals by the respective users.
+
+        * If a group "adm" exists, journal files are automatically
+          owned by them, thus allow members of this group full access
+          to the system journal as well as all user journals.
+
+        * The journal now stores the SELinux context of the logging
+          client for all entries.
+
+        * Add C++ inclusion guards to all public headers
+
+        * New output mode "cat" in the journal to print only text
+          messages, without any meta data like date or time.
+
+        * Include tiny X server wrapper as a temporary stop-gap to
+          teach XOrg udev display enumeration. This is used by display
+          managers such as gdm, and will go away as soon as XOrg
+          learned native udev hotplugging for display devices.
+
+        * Add new systemd-cat tool for executing arbitrary programs
+          with STDERR/STDOUT connected to the journal. Can also act as
+          BSD logger replacement, and does so by default.
+
+        * Optionally store all locally generated coredumps in the
+          journal along with meta data.
+
+        * systemd-tmpfiles learnt four new commands: n, L, c, b, for
+          writing short strings to files (for usage for /sys), and for
+          creating symlinks, character and block device nodes.
+
+        * New unit file option ControlGroupPersistent= to make cgroups
+          persistent, following the mechanisms outlined in
+          http://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups
+
+        * Support multiple local RTCs in a sane way
+
+        * No longer monopolize IO when replaying readahead data on
+          rotating disks, since we might starve non-file-system IO to
+          death, since fanotify() will not see accesses done by blkid,
+          or fsck.
+
+        * Don't show kernel threads in systemd-cgls anymore, unless
+          requested with new -k switch.
+
+        Contributions from: Dan Horák, Kay Sievers, Lennart
+        Poettering, Michal Schmidt
+
+CHANGES WITH 38:
+        * This is mostly a test release, but incorporates many
+          bugfixes.
+
+        * The git repository moved to:
+          git://anongit.freedesktop.org/systemd/systemd
+          ssh://git.freedesktop.org/git/systemd/systemd
+
+        * First release with the journal
+          http://0pointer.de/blog/projects/the-journal.html
+
+        * The journal replaces both systemd-kmsg-syslogd and
+          systemd-stdout-bridge.
+
+        * New sd_pid_get_unit() API call in libsystemd-logind
+
+        * Many systemadm clean-ups
+
+        * Introduce remote-fs-pre.target which is ordered before all
+          remote mounts and may be used to start services before all
+          remote mounts.
+
+        * Added Mageia support
+
+        * Add bash completion for systemd-loginctl
+
+        * Actively monitor PID file creation for daemons which exit in
+          the parent process before having finished writing the PID
+          file in the daemon process. Daemons which do this need to be
+          fixed (i.e. PID file creation must have finished before the
+          parent exits), but we now react a bit more gracefully to them.
+
+        * Add colourful boot output, mimicking the well-known output
+          of existing distributions.
+
+        * New option PassCredentials= for socket units, for
+          compatibility with a recent kernel ABI breakage.
+
+        * /etc/rc.local is now hooked in via a generator binary, and
+          thus will no longer act as synchronization point during
+          boot.
+
+        * systemctl list-unit-files now supports --root=.
+
+        * systemd-tmpfiles now understands two new commands: z, Z for
+          relabelling files according to the SELinux database. This is
+          useful to apply SELinux labels to specific files in /sys,
+          among other things.
+
+        * Output of SysV services is now forwarded to both the console
+          and the journal by default, not only just the console.
+
+        * New man pages for all APIs from libsystemd-login.
+
+        * The build tree got reorganized and a the build system is a
+          lot more modular allowing embedded setups to specifically
+          select the components of systemd they are interested in.
+
+        * Support for Linux systems lacking the kernel VT subsystem is
+          restored.
+
+        * configure's --with-rootdir= got renamed to
+          --with-rootprefix= to follow the naming used by udev and
+          kmod
+
+        * Unless specified otherwise we'll now install to /usr instead
+          of /usr/local by default.
+
+        * Processes with '@' in argv[0][0] are now excluded from the
+          final shut-down killing spree, following the logic explained
+          in:
+          http://www.freedesktop.org/wiki/Software/systemd/RootStorageDaemons
+
+        * All processes remaining in a service cgroup when we enter
+          the START or START_PRE states are now killed with
+          SIGKILL. That means it is no longer possible to spawn
+          background processes from ExecStart= lines (which was never
+          supported anyway, and bad style).
+
+        * New PropagateReloadTo=/PropagateReloadFrom= options to bind
+          reloading of units together.
+
+        Contributions from: Bill Nottingham, Daniel Walsh, Dave
+        Reisner, Dexter Morgan, Gregs Gregs, Jonathan Nieder, Kay
+        Sievers, Lennart Poettering, Michael Biebl, Michal Schmidt,
+        Michał Górny, Ran Benita, Thomas Jarosch, Tim Waugh, Tollef
+        Fog Heen, Tom Gundersen, Zbigniew Jędrzejewski-Szmek

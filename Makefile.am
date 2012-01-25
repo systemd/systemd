@@ -432,6 +432,7 @@ endif
 
 dist_doc_DATA = \
 	README \
+        NEWS \
 	LICENSE \
 	DISTRO_PORTING
 
