@@ -1,4 +1,4 @@
-systemd System and Session Manager
+systemd System and Service Manager
 
 CHANGES WITH 39:
         * This is mostly a test release, but incorporates many
