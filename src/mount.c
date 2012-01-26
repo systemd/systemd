@@ -583,6 +583,11 @@ static int mount_load(Unit *u) {
 
                 if (UNIT(m)->fragment_path)
                         m->from_fragment = true;
+                else if (m->from_etc_fstab)
+                        /* We always add several default dependencies to fstab mounts,
+                         * but we do not want the implicit complementing of Wants= with After=
+                         * in the target unit that this mount unit will be hooked into. */
+                        UNIT(m)->default_dependencies = false;
 
                 if (!m->where)
                         if (!(m->where = unit_name_to_path(u->id)))
@@ -615,7 +620,7 @@ static int mount_load(Unit *u) {
                 if ((r = mount_add_fstab_links(m)) < 0)
                         return r;
 
-                if (UNIT(m)->default_dependencies)
+                if (UNIT(m)->default_dependencies || m->from_etc_fstab)
                         if ((r = mount_add_default_dependencies(m)) < 0)
                                 return r;
 
