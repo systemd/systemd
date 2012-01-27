@@ -1188,6 +1188,8 @@ static DBusHandlerResult manager_message_handler(
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
+                mkdir_p("/var/lib/systemd", 0755);
+
                 r = safe_mkdir("/var/lib/systemd/linger", 0755, 0, 0);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
