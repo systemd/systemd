@@ -1979,7 +1979,8 @@ polkitpolicy_in_files += \
 
 logind-install-data-hook:
 	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(systemunitdir)/multi-user.target.wants
+		$(DESTDIR)$(systemunitdir)/multi-user.target.wants \
+                $(DESTDIR)$(localstatedir)/lib/systemd
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f dbus-org.freedesktop.login1.service && \
 		$(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service)
