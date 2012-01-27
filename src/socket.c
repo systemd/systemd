@@ -680,14 +680,19 @@ static void socket_apply_socket_options(Socket *s, int fd) {
 
         if (s->receive_buffer > 0) {
                 int value = (int) s->receive_buffer;
+
+                /* We first try with SO_RCVBUFFORCE, in case we have the perms for that */
+
                 if (setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &value, sizeof(value)) < 0)
-                        log_warning("SO_RCVBUFFORCE failed: %m");
+                        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value)) < 0)
+                                log_warning("SO_RCVBUF failed: %m");
         }
 
         if (s->send_buffer > 0) {
                 int value = (int) s->send_buffer;
                 if (setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &value, sizeof(value)) < 0)
-                        log_warning("SO_SNDBUFFORCE failed: %m");
+                        if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value)) < 0)
+                                log_warning("SO_SNDBUF failed: %m");
         }
 
         if (s->mark >= 0)
