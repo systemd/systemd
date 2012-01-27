@@ -33,8 +33,6 @@
 #include "macro.h"
 #include "socket-util.h"
 
-#define SOCKET_TIMEOUT_USEC (5*USEC_PER_SEC)
-
 static LogTarget log_target = LOG_TARGET_CONSOLE;
 static int log_max_level = LOG_INFO;
 
@@ -120,24 +118,14 @@ void log_close_syslog(void) {
 }
 
 static int create_log_socket(int type) {
-        struct timeval tv;
         int fd;
 
-        if (getpid() == 1)
-                /* systemd should not block on syslog */
-                type |= SOCK_NONBLOCK;
+        /* All output to the syslog/journal fds we do asynchronously,
+         * and if the buffers are full we just drop the messages */
 
-        fd = socket(AF_UNIX, type|SOCK_CLOEXEC, 0);
+        fd = socket(AF_UNIX, type|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
-
-        /* Make sure we don't block for more than 5s when talking to
-         * syslog */
-        timeval_store(&tv, SOCKET_TIMEOUT_USEC);
-        if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) < 0) {
-                close_nointr_nofail(fd);
-                return -errno;
-        }
 
         return fd;
 }

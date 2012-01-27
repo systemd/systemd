@@ -66,8 +66,6 @@
 
 #define RECHECK_VAR_AVAILABLE_USEC (30*USEC_PER_SEC)
 
-#define SYSLOG_TIMEOUT_USEC (250*USEC_PER_MSEC)
-
 #define N_IOVEC_META_FIELDS 17
 
 #define ENTRY_SIZE_MAX (1024*1024*32)
@@ -2220,7 +2218,6 @@ static int open_syslog_socket(Server *s) {
         union sockaddr_union sa;
         int one, r;
         struct epoll_event ev;
-        struct timeval tv;
 
         assert(s);
 
@@ -2245,7 +2242,8 @@ static int open_syslog_socket(Server *s) {
                 }
 
                 chmod(sa.un.sun_path, 0666);
-        }
+        } else
+                fd_nonblock(s->syslog_fd, 1);
 
         one = 1;
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
@@ -2258,15 +2256,6 @@ static int open_syslog_socket(Server *s) {
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
         if (r < 0) {
                 log_error("SO_TIMESTAMP failed: %m");
-                return -errno;
-        }
-
-        /* Since we use the same socket for forwarding this to some
-         * other syslog implementation, make sure we don't hang
-         * forever */
-        timeval_store(&tv, SYSLOG_TIMEOUT_USEC);
-        if (setsockopt(s->syslog_fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) < 0) {
-                log_error("SO_SNDTIMEO failed: %m");
                 return -errno;
         }
 
@@ -2309,7 +2298,8 @@ static int open_native_socket(Server*s) {
                 }
 
                 chmod(sa.un.sun_path, 0666);
-        }
+        } else
+                fd_nonblock(s->native_fd, 1);
 
         one = 1;
         r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
@@ -2369,7 +2359,8 @@ static int open_stdout_socket(Server *s) {
                         log_error("liste() failed: %m");
                         return -errno;
                 }
-        }
+        } else
+                fd_nonblock(s->stdout_fd, 1);
 
         zero(ev);
         ev.events = EPOLLIN;
