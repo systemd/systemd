@@ -21,6 +21,7 @@ Wants=syslog.target
 ListenDatagram=/run/systemd/journal/syslog
 SocketMode=0666
 PassCredentials=yes
+ReceiveBuffer=8M
 
 # The default syslog implementation should make syslog.service a
 # symlink to itself, so that this socket activates the right actual

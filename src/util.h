@@ -536,4 +536,7 @@ int rtc_open(int flags);
 
 int is_kernel_thread(pid_t pid);
 
+int fd_inc_sndbuf(int fd, size_t n);
+int fd_inc_rcvbuf(int fd, size_t n);
+
 #endif

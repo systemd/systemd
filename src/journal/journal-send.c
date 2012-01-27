@@ -30,6 +30,8 @@
 #include "util.h"
 #include "socket-util.h"
 
+#define SNDBUF_SIZE (8*1024*1024)
+
 /* We open a single fd, and we'll share it with the current process,
  * all its threads, and all its subprocesses. This means we need to
  * initialize it atomically, and need to operate on it atomically
@@ -46,6 +48,8 @@ retry:
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
+
+        fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         if (!__sync_bool_compare_and_swap(&fd_plus_one, 0, fd+1)) {
                 close_nointr_nofail(fd);
@@ -219,7 +223,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         if (k >= 0)
                 return 0;
 
-        if (errno != EMSGSIZE)
+        if (errno != EMSGSIZE && errno != ENOBUFS)
                 return -errno;
 
         /* Message doesn't fit... Let's dump the data in a temporary
@@ -293,6 +297,8 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
                 close_nointr_nofail(fd);
                 return -errno;
         }
+
+        fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         if (!identifier)
                 identifier = "";

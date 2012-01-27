@@ -33,6 +33,8 @@
 #include "macro.h"
 #include "socket-util.h"
 
+#define SNDBUF_SIZE (8*1024*1024)
+
 static LogTarget log_target = LOG_TARGET_CONSOLE;
 static int log_max_level = LOG_INFO;
 
@@ -126,6 +128,8 @@ static int create_log_socket(int type) {
         fd = socket(AF_UNIX, type|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
+
+        fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         return fd;
 }

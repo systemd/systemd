@@ -23,3 +23,4 @@ ListenDatagram=/run/systemd/journal/socket
 ListenDatagram=/dev/log
 SocketMode=0666
 PassCredentials=yes
+ReceiveBuffer=8M

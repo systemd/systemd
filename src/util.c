@@ -6279,3 +6279,39 @@ void* memdup(const void *p, size_t l) {
         memcpy(r, p, l);
         return r;
 }
+
+int fd_inc_sndbuf(int fd, size_t n) {
+        int r, value;
+        socklen_t l = sizeof(value);
+
+        r = getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, &l);
+        if (r >= 0 &&
+            l == sizeof(value) &&
+            (size_t) value >= n*2)
+                return 0;
+
+        value = (int) n;
+        r = setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value));
+        if (r < 0)
+                return -errno;
+
+        return 1;
+}
+
+int fd_inc_rcvbuf(int fd, size_t n) {
+        int r, value;
+        socklen_t l = sizeof(value);
+
+        r = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, &l);
+        if (r >= 0 &&
+            l == sizeof(value) &&
+            (size_t) value >= n*2)
+                return 0;
+
+        value = (int) n;
+        r = setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value));
+        if (r < 0)
+                return -errno;
+
+        return 1;
+}
