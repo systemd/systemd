@@ -1,3 +1,13 @@
+Summary of changes from v179 to v180
+============================================
+
+Kay Sievers (4):
+      Makefile: update kernel.org hooks
+      build-sys: we need to install shipped man pages without xsltproc installed
+      builtin: blkid - add missing ID_ prefix for PART_ENTRY_* keys
+      do not stop rule processing when device node is no longer around
+
+
 Summary of changes from v178 to v179
 ============================================
 
