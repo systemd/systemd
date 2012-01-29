@@ -89,8 +89,8 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev);
 struct udev_device *udev_watch_lookup(struct udev *udev, int wd);
 
 /* udev-node.c */
-int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid);
-int udev_node_remove(struct udev_device *dev);
+void udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid);
+void udev_node_remove(struct udev_device *dev);
 void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old);
 
 /* udev-ctrl.c */

@@ -1,3 +1,15 @@
+udev 180
+========
+Fix for ID_PART_ENTRY_* property names, added by the blkid built-in. The
+fix is needed for udisk2 to operate properly.
+
+Fix for skipped rule execution when the kernel has removed the device
+node in /dev again, before the event was even started. The fix is needed
+to run device-mapper/LVM events properly.
+
+Fix for the man page installation, which was skipped when xsltproc was not
+installed.
+
 udev 179
 ========
 Bugfix for $name resolution, which broke at least some keymap handling.

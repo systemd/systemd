@@ -894,7 +894,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                 udev_rules_apply_to_event(rules, event, sigmask);
 
                 if (major(udev_device_get_devnum(dev)) != 0)
-                        err = udev_node_remove(dev);
+                        udev_node_remove(dev);
         } else {
                 event->dev_db = udev_device_new_from_syspath(event->udev, udev_device_get_syspath(dev));
                 if (event->dev_db != NULL) {
@@ -952,7 +952,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                                 }
                         }
 
-                        err = udev_node_add(dev, event->mode, event->uid, event->gid);
+                        udev_node_add(dev, event->mode, event->uid, event->gid);
                 }
 
                 /* preserve old, or get new initialization timestamp */

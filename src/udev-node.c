@@ -327,7 +327,7 @@ out:
         return err;
 }
 
-int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
+void udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 {
         struct udev *udev = udev_device_get_udev(dev);
         char filename[UTIL_PATH_SIZE];
@@ -337,9 +337,8 @@ int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
         info(udev, "handling device node '%s', devnum=%s, mode=%#o, uid=%d, gid=%d\n",
              udev_device_get_devnode(dev), udev_device_get_id_filename(dev), mode, uid, gid);
 
-        err = node_fixup(dev, mode, uid, gid);
-        if (err < 0)
-                goto exit;
+        if (node_fixup(dev, mode, uid, gid) < 0)
+                return;
 
         /* always add /dev/{block,char}/$major:$minor */
         snprintf(filename, sizeof(filename), "%s/%s/%u:%u",
@@ -356,11 +355,9 @@ int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
                 else
                         link_update(dev, udev_list_entry_get_name(list_entry), 1);
         }
-exit:
-        return err;
 }
 
-int udev_node_remove(struct udev_device *dev)
+void udev_node_remove(struct udev_device *dev)
 {
         struct udev *udev = udev_device_get_udev(dev);
         struct udev_list_entry *list_entry;
@@ -368,7 +365,6 @@ int udev_node_remove(struct udev_device *dev)
         struct stat stats;
         struct udev_device *dev_check;
         char filename[UTIL_PATH_SIZE];
-        int err = 0;
 
         /* remove/update symlinks, remove symlinks from name index */
         udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev))
@@ -380,6 +376,4 @@ int udev_node_remove(struct udev_device *dev)
                  strcmp(udev_device_get_subsystem(dev), "block") == 0 ? "block" : "char",
                  major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)));
         unlink(filename);
-out:
-        return err;
 }
