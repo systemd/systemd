@@ -200,12 +200,16 @@ static int console_setup(bool do_reset) {
         if (!do_reset)
                 return 0;
 
-        if ((tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0) {
+        tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (tty_fd < 0) {
                 log_error("Failed to open /dev/console: %s", strerror(-tty_fd));
                 return -tty_fd;
         }
 
-        if ((r = reset_terminal_fd(tty_fd)) < 0)
+        /* We don't want to force text mode.
+         * plymouth may be showing pictures already from initrd. */
+        r = reset_terminal_fd(tty_fd, false);
+        if (r < 0)
                 log_error("Failed to reset /dev/console: %s", strerror(-r));
 
         close_nointr_nofail(tty_fd);

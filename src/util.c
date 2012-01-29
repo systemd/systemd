@@ -2544,7 +2544,7 @@ int ask(char *ret, const char *replies, const char *text, ...) {
         }
 }
 
-int reset_terminal_fd(int fd) {
+int reset_terminal_fd(int fd, bool switch_to_text) {
         struct termios termios;
         int r = 0;
 
@@ -2560,7 +2560,8 @@ int reset_terminal_fd(int fd) {
         ioctl(fd, TIOCNXCL);
 
         /* Switch to text mode */
-        ioctl(fd, KDSETMODE, KD_TEXT);
+        if (switch_to_text)
+                ioctl(fd, KDSETMODE, KD_TEXT);
 
         /* Enable console unicode mode */
         ioctl(fd, KDSKBMODE, K_UNICODE);
@@ -2614,7 +2615,7 @@ int reset_terminal(const char *name) {
         if (fd < 0)
                 return fd;
 
-        r = reset_terminal_fd(fd);
+        r = reset_terminal_fd(fd, true);
         close_nointr_nofail(fd);
 
         return r;
@@ -2808,7 +2809,8 @@ int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocst
         if (notify >= 0)
                 close_nointr_nofail(notify);
 
-        if ((r = reset_terminal_fd(fd)) < 0)
+        r = reset_terminal_fd(fd, true);
+        if (r < 0)
                 log_warning("Failed to reset terminal: %s", strerror(-r));
 
         return fd;

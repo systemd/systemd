@@ -330,7 +330,7 @@ int chvt(int vt);
 int read_one_char(FILE *f, char *ret, usec_t timeout, bool *need_nl);
 int ask(char *ret, const char *replies, const char *text, ...);
 
-int reset_terminal_fd(int fd);
+int reset_terminal_fd(int fd, bool switch_to_text);
 int reset_terminal(const char *name);
 
 int open_terminal(const char *name, int mode);
