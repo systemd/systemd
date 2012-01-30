@@ -15,4 +15,7 @@ ENV{DISK_EJECT_REQUEST}=="?*", RUN+="cdrom_id --eject-media $devnode", GOTO="cdr
 # enable the receiving of media eject button events
 IMPORT{program}="cdrom_id --lock-media $devnode"
 
+KERNEL=="sr0", SYMLINK+="cdrom", OPTIONS+="link_priority=-100"
+KERNEL=="sr0", ENV{ID_CDROM_DVD}=="1", SYMLINK+="dvd", OPTIONS+="link_priority=-100"
+
 LABEL="cdrom_end"
