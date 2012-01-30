@@ -95,7 +95,7 @@ AS_IF([test "x$enable_logging" = "xyes"], [ AC_DEFINE(ENABLE_LOGGING, [1], [Syst
 
 AC_ARG_WITH(firmware-path,
        AS_HELP_STRING([--with-firmware-path=DIR[[[:DIR[...]]]]],
-          [Firmware search path (default=/lib/firmware/updates:/lib/firmware)]),
+          [Firmware search path (default=ROOTPREFIX/lib/firmware/updates:ROOTPREFIX/lib/firmware)]),
        [], [with_firmware_path="$rootprefix/lib/firmware/updates:$rootprefix/lib/firmware"])
 OLD_IFS=$IFS
 IFS=:
