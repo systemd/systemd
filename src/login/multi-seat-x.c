@@ -139,6 +139,11 @@ int main(int argc, char *argv[]) {
                 "Section \"ServerFlags\"\n"
                 "        Option \"AutoAddDevices\" \"True\"\n"
                 "        Option \"AllowEmptyInput\" \"True\"\n"
+                "        Option \"DontVTSwitch\" \"True\"\n"
+                "EndSection\n"
+                "Section \"InputClass\"\n"
+                "        Identifier \"Force Input Devices to Seat\"\n"
+                "        Option \"GrabDevice\" \"True\"\n"
                 "EndSection\n",
                 device_node);
 
