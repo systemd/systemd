@@ -415,7 +415,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sFreeBind: %s\n"
                 "%sTransparent: %s\n"
                 "%sBroadcast: %s\n"
-                "%sPassCrededentials: %s\n"
+                "%sPassCredentials: %s\n"
                 "%sTCPCongestion: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
