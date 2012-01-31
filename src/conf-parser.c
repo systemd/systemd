@@ -454,7 +454,7 @@ int config_parse_unsigned(
         return 0;
 }
 
-int config_parse_size(
+int config_parse_bytes_size(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -465,20 +465,47 @@ int config_parse_size(
                 void *userdata) {
 
         size_t *sz = data;
-        unsigned u;
-        int r;
+        off_t o;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if ((r = safe_atou(rvalue, &u)) < 0) {
-                log_error("[%s:%u] Failed to parse numeric value, ignoring: %s", filename, line, rvalue);
+        if (parse_bytes(rvalue, &o) < 0 || (off_t) (size_t) o != o) {
+                log_error("[%s:%u] Failed to parse byte value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
 
-        *sz = (size_t) u;
+        *sz = (size_t) o;
+        return 0;
+}
+
+
+int config_parse_bytes_off(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        off_t *bytes = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        assert_cc(sizeof(off_t) == sizeof(uint64_t));
+
+        if (parse_bytes(rvalue, bytes) < 0) {
+                log_error("[%s:%u] Failed to parse bytes value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
         return 0;
 }
 
@@ -780,32 +807,5 @@ int config_parse_mode(
         }
 
         *m = (mode_t) l;
-        return 0;
-}
-
-int config_parse_bytes(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        off_t *bytes = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        assert_cc(sizeof(off_t) == sizeof(uint64_t));
-
-        if (parse_bytes(rvalue, bytes) < 0) {
-                log_error("[%s:%u] Failed to parse bytes value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
         return 0;
 }

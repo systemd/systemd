@@ -2337,7 +2337,7 @@ void unit_dump_config_items(FILE *f) {
         } table[] = {
                 { config_parse_int,                   "INTEGER" },
                 { config_parse_unsigned,              "UNSIGNED" },
-                { config_parse_size,                  "SIZE" },
+                { config_parse_bytes_size,            "SIZE" },
                 { config_parse_bool,                  "BOOLEAN" },
                 { config_parse_string,                "STRING" },
                 { config_parse_path,                  "PATH" },
