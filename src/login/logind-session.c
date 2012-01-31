@@ -601,6 +601,23 @@ static int session_terminate_cgroup(Session *s) {
                         log_error("Failed to kill session cgroup: %s", strerror(-r));
 
         } else {
+                if (s->leader > 0) {
+                        Session *t;
+
+                        /* We still send a HUP to the leader process,
+                         * even if we are not supposed to kill the
+                         * whole cgroup. But let's first check the
+                         * leader still exists and belongs to our
+                         * session... */
+
+                        r = manager_get_session_by_pid(s->manager, s->leader, &t);
+                        if (r > 0 && t == s) {
+                                kill(s->leader, SIGTERM); /* for normal processes */
+                                kill(s->leader, SIGHUP);  /* for shells */
+                                kill(s->leader, SIGCONT); /* in case they are stopped */
+                        }
+                }
+
                 r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path, true);
                 if (r < 0)
                         log_error("Failed to check session cgroup: %s", strerror(-r));
@@ -608,8 +625,7 @@ static int session_terminate_cgroup(Session *s) {
                         r = cg_delete(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path);
                         if (r < 0)
                                 log_error("Failed to delete session cgroup: %s", strerror(-r));
-                } else
-                        r = -EBUSY;
+                }
         }
 
         STRV_FOREACH(k, s->user->manager->controllers)
@@ -620,7 +636,7 @@ static int session_terminate_cgroup(Session *s) {
         free(s->cgroup_path);
         s->cgroup_path = NULL;
 
-        return r;
+        return 0;
 }
 
 static int session_unlink_x11_socket(Session *s) {

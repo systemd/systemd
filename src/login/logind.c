@@ -781,34 +781,68 @@ finish:
         return r;
 }
 
-void manager_cgroup_notify_empty(Manager *m, const char *cgroup) {
-        Session *s;
+int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **session) {
         char *p;
 
         assert(m);
         assert(cgroup);
+        assert(session);
 
         p = strdup(cgroup);
         if (!p) {
                 log_error("Out of memory.");
-                return;
+                return -ENOMEM;
         }
 
         for (;;) {
+                Session *s;
                 char *e;
 
-                if (isempty(p) || streq(p, "/"))
-                        break;
+                if (isempty(p) || streq(p, "/")) {
+                        free(p);
+                        *session = NULL;
+                        return 0;
+                }
 
                 s = hashmap_get(m->cgroups, p);
-                if (s)
-                        session_add_to_gc_queue(s);
+                if (s) {
+                        free(p);
+                        *session = s;
+                        return 1;
+                }
 
                 assert_se(e = strrchr(p, '/'));
                 *e = 0;
         }
+}
 
+int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
+        char *p;
+        int r;
+
+        assert(m);
+        assert(pid >= 1);
+        assert(session);
+
+        r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, pid, &p);
+        if (r < 0)
+                return r;
+
+        r = manager_get_session_by_cgroup(m, p, session);
         free(p);
+
+        return r;
+}
+
+void manager_cgroup_notify_empty(Manager *m, const char *cgroup) {
+        Session *s;
+        int r;
+
+        r = manager_get_session_by_cgroup(m, cgroup, &s);
+        if (r <= 0)
+                return;
+
+        session_add_to_gc_queue(s);
 }
 
 static void manager_pipe_notify_eof(Manager *m, int fd) {

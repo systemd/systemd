@@ -116,6 +116,9 @@ void manager_gc(Manager *m, bool drop_not_started);
 
 int manager_get_idle_hint(Manager *m, dual_timestamp *t);
 
+int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **session);
+int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session);
+
 extern const DBusObjectPathVTable bus_manager_vtable;
 
 DBusHandlerResult bus_message_filter(DBusConnection *c, DBusMessage *message, void *userdata);
