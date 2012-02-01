@@ -307,8 +307,8 @@ static void disk_identify_get_string(uint8_t identify[512],
         assert((dest_len & 1) == 0);
 
         while (dest_len > 0) {
-                c1 = ((uint16_t *) identify)[offset_words] >> 8;
-                c2 = ((uint16_t *) identify)[offset_words] & 0xff;
+                c1 = identify[offset_words * 2 + 1];
+                c2 = identify[offset_words * 2];
                 *dest = c1;
                 dest++;
                 *dest = c2;
