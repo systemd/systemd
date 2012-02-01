@@ -100,6 +100,8 @@ struct Service {
         usec_t restart_usec;
         usec_t timeout_usec;
 
+        dual_timestamp watchdog_timestamp;
+
         ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
         ExecContext exec_context;
 

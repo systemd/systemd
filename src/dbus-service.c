@@ -43,6 +43,8 @@
         "  <property name=\"NotifyAccess\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RestartUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"WatchdogTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"WatchdogTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         BUS_EXEC_COMMAND_INTERFACE("ExecStartPre")                      \
         BUS_EXEC_COMMAND_INTERFACE("ExecStart")                         \
         BUS_EXEC_COMMAND_INTERFACE("ExecStartPost")                     \
@@ -86,6 +88,8 @@ const char bus_service_invalidating_properties[] =
         "ExecStop\0"
         "ExecStopPost\0"
         "ExecMain\0"
+        "WatchdogTimestamp\0"
+        "WatchdogTimestampMonotonic\0"
         "MainPID\0"
         "ControlPID\0"
         "StatusText\0";
@@ -106,32 +110,34 @@ static const BusProperty bus_exec_main_status_properties[] = {
 };
 
 static const BusProperty bus_service_properties[] = {
-        { "Type",                   bus_service_append_type,          "s", offsetof(Service, type)                      },
-        { "Restart",                bus_service_append_restart,       "s", offsetof(Service, restart)                   },
-        { "PIDFile",                bus_property_append_string,       "s", offsetof(Service, pid_file),            true },
-        { "NotifyAccess",           bus_service_append_notify_access, "s", offsetof(Service, notify_access)             },
-        { "RestartUSec",            bus_property_append_usec,         "t", offsetof(Service, restart_usec)              },
-        { "TimeoutUSec",            bus_property_append_usec,         "t", offsetof(Service, timeout_usec)              },
+        { "Type",                   bus_service_append_type,          "s", offsetof(Service, type)                         },
+        { "Restart",                bus_service_append_restart,       "s", offsetof(Service, restart)                      },
+        { "PIDFile",                bus_property_append_string,       "s", offsetof(Service, pid_file),               true },
+        { "NotifyAccess",           bus_service_append_notify_access, "s", offsetof(Service, notify_access)                },
+        { "RestartUSec",            bus_property_append_usec,         "t", offsetof(Service, restart_usec)                 },
+        { "TimeoutUSec",            bus_property_append_usec,         "t", offsetof(Service, timeout_usec)                 },
+        { "WatchdogTimestamp",      bus_property_append_usec,         "t", offsetof(Service, watchdog_timestamp.realtime)  },
+        { "WatchdogTimestampMonotonic",bus_property_append_usec,      "t", offsetof(Service, watchdog_timestamp.monotonic) },
         BUS_EXEC_COMMAND_PROPERTY("ExecStartPre",  offsetof(Service, exec_command[SERVICE_EXEC_START_PRE]),  true ),
         BUS_EXEC_COMMAND_PROPERTY("ExecStart",     offsetof(Service, exec_command[SERVICE_EXEC_START]),      true ),
         BUS_EXEC_COMMAND_PROPERTY("ExecStartPost", offsetof(Service, exec_command[SERVICE_EXEC_START_POST]), true ),
         BUS_EXEC_COMMAND_PROPERTY("ExecReload",    offsetof(Service, exec_command[SERVICE_EXEC_RELOAD]),     true ),
         BUS_EXEC_COMMAND_PROPERTY("ExecStop",      offsetof(Service, exec_command[SERVICE_EXEC_STOP]),       true ),
         BUS_EXEC_COMMAND_PROPERTY("ExecStopPost",  offsetof(Service, exec_command[SERVICE_EXEC_STOP_POST]),  true ),
-        { "PermissionsStartOnly",   bus_property_append_bool,         "b", offsetof(Service, permissions_start_only)    },
-        { "RootDirectoryStartOnly", bus_property_append_bool,         "b", offsetof(Service, root_directory_start_only) },
-        { "RemainAfterExit",        bus_property_append_bool,         "b", offsetof(Service, remain_after_exit)         },
-        { "GuessMainPID",           bus_property_append_bool,         "b", offsetof(Service, guess_main_pid)            },
-        { "MainPID",                bus_property_append_pid,          "u", offsetof(Service, main_pid)                  },
-        { "ControlPID",             bus_property_append_pid,          "u", offsetof(Service, control_pid)               },
-        { "BusName",                bus_property_append_string,       "s", offsetof(Service, bus_name),            true },
-        { "StatusText",             bus_property_append_string,       "s", offsetof(Service, status_text),         true },
+        { "PermissionsStartOnly",   bus_property_append_bool,         "b", offsetof(Service, permissions_start_only)       },
+        { "RootDirectoryStartOnly", bus_property_append_bool,         "b", offsetof(Service, root_directory_start_only)    },
+        { "RemainAfterExit",        bus_property_append_bool,         "b", offsetof(Service, remain_after_exit)            },
+        { "GuessMainPID",           bus_property_append_bool,         "b", offsetof(Service, guess_main_pid)               },
+        { "MainPID",                bus_property_append_pid,          "u", offsetof(Service, main_pid)                     },
+        { "ControlPID",             bus_property_append_pid,          "u", offsetof(Service, control_pid)                  },
+        { "BusName",                bus_property_append_string,       "s", offsetof(Service, bus_name),               true },
+        { "StatusText",             bus_property_append_string,       "s", offsetof(Service, status_text),            true },
 #ifdef HAVE_SYSV_COMPAT
-        { "SysVRunLevels",          bus_property_append_string,       "s", offsetof(Service, sysv_runlevels),      true },
-        { "SysVStartPriority",      bus_property_append_int,          "i", offsetof(Service, sysv_start_priority)       },
-        { "SysVPath",               bus_property_append_string,       "s", offsetof(Service, sysv_path),           true },
+        { "SysVRunLevels",          bus_property_append_string,       "s", offsetof(Service, sysv_runlevels),         true },
+        { "SysVStartPriority",      bus_property_append_int,          "i", offsetof(Service, sysv_start_priority)          },
+        { "SysVPath",               bus_property_append_string,       "s", offsetof(Service, sysv_path),              true },
 #endif
-        { "FsckPassNo",             bus_property_append_int,          "i", offsetof(Service, fsck_passno)               },
+        { "FsckPassNo",             bus_property_append_int,          "i", offsetof(Service, fsck_passno)                  },
         { NULL, }
 };
 

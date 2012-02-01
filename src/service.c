@@ -205,6 +205,19 @@ static void service_connection_unref(Service *s) {
         unit_ref_unset(&s->accept_socket);
 }
 
+static void service_stop_watchdog(Service *s) {
+        assert(s);
+
+        s->watchdog_timestamp.realtime = 0;
+        s->watchdog_timestamp.monotonic = 0;
+}
+
+static void service_reset_watchdog(Service *s) {
+        assert(s);
+
+        dual_timestamp_get(&s->watchdog_timestamp);
+}
+
 static void service_done(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -1476,6 +1489,9 @@ static void service_set_state(Service *s, ServiceState state) {
                 service_connection_unref(s);
         }
 
+        if (state == SERVICE_STOP)
+                service_stop_watchdog(s);
+
         /* For the inactive states unit_notify() will trim the cgroup,
          * but for exit we have to do that ourselves... */
         if (state == SERVICE_EXITED && UNIT(s)->manager->n_reloading <= 0)
@@ -2411,6 +2427,8 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                         unit_serialize_item_format(u, f, "main-exec-status-status", "%i", s->main_exec_status.status);
                 }
         }
+        if (dual_timestamp_is_set(&s->watchdog_timestamp))
+                dual_timestamp_serialize(f, "watchdog-timestamp", &s->watchdog_timestamp);
 
         return 0;
 }
@@ -2511,6 +2529,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 dual_timestamp_deserialize(value, &s->main_exec_status.start_timestamp);
         else if (streq(key, "main-exec-status-exit"))
                 dual_timestamp_deserialize(value, &s->main_exec_status.exit_timestamp);
+        else if (streq(key, "watchdog-timestamp"))
+                dual_timestamp_deserialize(value, &s->watchdog_timestamp);
         else
                 log_debug("Unknown serialization key '%s'", key);
 
@@ -3068,6 +3088,10 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                         s->status_text = NULL;
                 }
 
+        }
+        if (strv_find(tags, "WATCHDOG=1")) {
+                log_debug("%s: got WATCHDOG=1", u->id);
+                service_reset_watchdog(s);
         }
 
         /* Notify clients about changed status or main pid */
