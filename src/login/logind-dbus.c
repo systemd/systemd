@@ -36,6 +36,10 @@
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "   <arg name=\"session\" type=\"o\" direction=\"out\"/>\n"     \
         "  </method>\n"                                                 \
+        "  <method name=\"GetSessionByPID\">\n"                         \
+        "   <arg name=\"pid\" type=\"u\" direction=\"in\"/>\n"          \
+        "   <arg name=\"session\" type=\"o\" direction=\"out\"/>\n"     \
+        "  </method>\n"                                                 \
         "  <method name=\"GetUser\">\n"                                 \
         "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
         "   <arg name=\"user\" type=\"o\" direction=\"out\"/>\n"        \
@@ -753,6 +757,40 @@ static DBusHandlerResult manager_message_handler(
                 session = hashmap_get(m->sessions, name);
                 if (!session)
                         return bus_send_error_reply(connection, message, &error, -ENOENT);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                p = session_bus_path(session);
+                if (!p)
+                        goto oom;
+
+                b = dbus_message_append_args(
+                                reply,
+                                DBUS_TYPE_OBJECT_PATH, &p,
+                                DBUS_TYPE_INVALID);
+                free(p);
+
+                if (!b)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "GetSessionByPID")) {
+                uint32_t pid;
+                char *p;
+                Session *session;
+                bool b;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &pid,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                r = manager_get_session_by_pid(m, pid, &session);
+                if (r <= 0)
+                        return bus_send_error_reply(connection, message, NULL, r < 0 ? r : -ENOENT);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)

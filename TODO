@@ -23,7 +23,7 @@ Features:
 
 * journald: reuse XZ context
 
-* logind: add equivalent to sd_pid_get_session() to the D-Bus API
+* logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
 
 * Fedora: disable journald's /proc/kmsg reading on Fedora for now
 
