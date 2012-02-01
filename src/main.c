@@ -1138,7 +1138,7 @@ int main(int argc, char *argv[]) {
         bool reexecute = false;
         const char *shutdown_verb = NULL;
         dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
-        char systemd[] = "systemd";
+        static char systemd[] = "systemd";
         bool is_reexec = false;
         int j;
         bool loaded_policy = false;
@@ -1169,9 +1169,9 @@ int main(int argc, char *argv[]) {
            called 'init'. After a subsequent reexecution we are then
            called 'systemd'. That is confusing, hence let's call us
            systemd right-away. */
-
         program_invocation_short_name = systemd;
         prctl(PR_SET_NAME, systemd);
+
         saved_argv = argv;
         saved_argc = argc;
 

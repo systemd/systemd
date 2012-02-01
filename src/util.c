@@ -3263,11 +3263,15 @@ fallback:
 void rename_process(const char name[8]) {
         assert(name);
 
-        prctl(PR_SET_NAME, name);
+        /* This is a like a poor man's setproctitle(). It changes the
+         * comm field, argv[0], and also the glibc's internally used
+         * name of the process. For the first one a limit of 16 chars
+         * applies, to the second one usually one of 10 (i.e. length
+         * of "/sbin/init"), to the third one one of 7 (i.e. length of
+         * "systemd"). If you pass a longer string it will be
+         * truncated */
 
-        /* This is a like a poor man's setproctitle(). The string
-         * passed should fit in 7 chars (i.e. the length of
-         * "systemd") */
+        prctl(PR_SET_NAME, name);
 
         if (program_invocation_name)
                 strncpy(program_invocation_name, name, strlen(program_invocation_name));

@@ -770,8 +770,8 @@ static int setup_pam(
                  * termination */
 
                 /* This string must fit in 10 chars (i.e. the length
-                 * of "/sbin/init") */
-                rename_process("sd(PAM)");
+                 * of "/sbin/init"), to look pretty in /bin/ps */
+                rename_process("(sd-pam)");
 
                 /* Make sure we don't keep open the passed fds in this
                 child. We assume that otherwise only those fds are
@@ -919,6 +919,37 @@ finish:
         return r;
 }
 
+static void rename_process_from_path(const char *path) {
+        char process_name[11];
+        const char *p;
+        size_t l;
+
+        /* This resulting string must fit in 10 chars (i.e. the length
+         * of "/sbin/init") to look pretty in /bin/ps */
+
+        p = file_name_from_path(path);
+        if (isempty(p)) {
+                rename_process("(...)");
+                return;
+        }
+
+        l = strlen(p);
+        if (l > 8) {
+                /* The end of the process name is usually more
+                 * interesting, since the first bit might just be
+                 * "systemd-" */
+                p = p + l - 8;
+                l = 8;
+        }
+
+        process_name[0] = '(';
+        memcpy(process_name+1, p, l);
+        process_name[1+l] = ')';
+        process_name[1+l+1] = 0;
+
+        rename_process(process_name);
+}
+
 int exec_spawn(ExecCommand *command,
                char **argv,
                const ExecContext *context,
@@ -997,9 +1028,7 @@ int exec_spawn(ExecCommand *command,
 
                 /* child */
 
-                /* This string must fit in 10 chars (i.e. the length
-                 * of "/sbin/init") */
-                rename_process("sd(EXEC)");
+                rename_process_from_path(command->path);
 
                 /* We reset exactly these signals, since they are the
                  * only ones we set to SIG_IGN in the main daemon. All
