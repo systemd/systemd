@@ -4,4 +4,5 @@
 0xB9 brightnessup       # does nothing in BIOS
 0xBA brightnessdown     # does nothing in BIOS
 0xF1 camera             # BIOS toggles camera power
-0xf2 unknown            # trackpad enable/disable (does nothing in BIOS)
+0xf2 f21                # touchpad toggle (key alternately emits f2 and f3)
+0xf3 f21
