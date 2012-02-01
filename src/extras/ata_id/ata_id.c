@@ -294,17 +294,17 @@ static int disk_identify_packet_device_command(int          fd,
  *
  * Copies the ATA string from @identify located at @offset_words into @dest.
  */
-static void disk_identify_get_string (uint8_t identify[512],
-                                      unsigned int offset_words,
-                                      char *dest,
-                                      size_t dest_len)
+static void disk_identify_get_string(uint8_t identify[512],
+                                     unsigned int offset_words,
+                                     char *dest,
+                                     size_t dest_len)
 {
         unsigned int c1;
         unsigned int c2;
 
-        assert (identify != NULL);
-        assert (dest != NULL);
-        assert ((dest_len & 1) == 0);
+        assert(identify != NULL);
+        assert(dest != NULL);
+        assert((dest_len & 1) == 0);
 
         while (dest_len > 0) {
                 c1 = ((uint16_t *) identify)[offset_words] >> 8;
@@ -318,9 +318,9 @@ static void disk_identify_get_string (uint8_t identify[512],
         }
 }
 
-static void disk_identify_fixup_string (uint8_t identify[512],
-                                        unsigned int offset_words,
-                                        size_t len)
+static void disk_identify_fixup_string(uint8_t identify[512],
+                                       unsigned int offset_words,
+                                       size_t len)
 {
         disk_identify_get_string(identify, offset_words,
                                  (char *) identify + offset_words * 2, len);
@@ -351,10 +351,10 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offs
  * Returns: 0 if the data was successfully obtained, otherwise
  * non-zero with errno set.
  */
-static int disk_identify (struct udev *udev,
-                          int               fd,
-                          uint8_t      out_identify[512],
-                          int              *out_is_packet_device)
+static int disk_identify(struct udev *udev,
+                         int               fd,
+                         uint8_t      out_identify[512],
+                         int              *out_is_packet_device)
 {
         int ret;
         uint8_t inquiry_buf[36];
@@ -363,11 +363,11 @@ static int disk_identify (struct udev *udev,
         int n;
         int is_packet_device;
 
-        assert (out_identify != NULL);
+        assert(out_identify != NULL);
 
         /* init results */
         ret = -1;
-        memset (out_identify, '\0', 512);
+        memset(out_identify, '\0', 512);
         is_packet_device = 0;
 
         /* If we were to use ATA PASS_THROUGH (12) on an ATAPI device
@@ -510,24 +510,24 @@ int main(int argc, char *argv[])
                  * fix up only the fields from the IDENTIFY data that we are going to
                  * use and copy it into the hd_driveid struct for convenience
                  */
-                disk_identify_fixup_string (identify,  10, 20);        /* serial */
-                disk_identify_fixup_string (identify,  23,  6);        /* fwrev */
-                disk_identify_fixup_string (identify,  27, 40);        /* model */
-                disk_identify_fixup_uint16 (identify,        0);        /* configuration */
-                disk_identify_fixup_uint16 (identify,  75);        /* queue depth */
-                disk_identify_fixup_uint16 (identify,  75);        /* SATA capabilities */
-                disk_identify_fixup_uint16 (identify,  82);        /* command set supported */
-                disk_identify_fixup_uint16 (identify,  83);        /* command set supported */
-                disk_identify_fixup_uint16 (identify,  84);        /* command set supported */
-                disk_identify_fixup_uint16 (identify,  85);        /* command set supported */
-                disk_identify_fixup_uint16 (identify,  86);        /* command set supported */
-                disk_identify_fixup_uint16 (identify,  87);        /* command set supported */
-                disk_identify_fixup_uint16 (identify,  89);        /* time required for SECURITY ERASE UNIT */
-                disk_identify_fixup_uint16 (identify,  90);        /* time required for enhanced SECURITY ERASE UNIT */
-                disk_identify_fixup_uint16 (identify,  91);        /* current APM values */
-                disk_identify_fixup_uint16 (identify,  94);        /* current AAM value */
-                disk_identify_fixup_uint16 (identify, 128);        /* device lock function */
-                disk_identify_fixup_uint16 (identify, 217);        /* nominal media rotation rate */
+                disk_identify_fixup_string (identify,  10, 20); /* serial */
+                disk_identify_fixup_string (identify,  23,  6); /* fwrev */
+                disk_identify_fixup_string (identify,  27, 40); /* model */
+                disk_identify_fixup_uint16 (identify,  0);      /* configuration */
+                disk_identify_fixup_uint16 (identify,  75);     /* queue depth */
+                disk_identify_fixup_uint16 (identify,  75);     /* SATA capabilities */
+                disk_identify_fixup_uint16 (identify,  82);     /* command set supported */
+                disk_identify_fixup_uint16 (identify,  83);     /* command set supported */
+                disk_identify_fixup_uint16 (identify,  84);     /* command set supported */
+                disk_identify_fixup_uint16 (identify,  85);     /* command set supported */
+                disk_identify_fixup_uint16 (identify,  86);     /* command set supported */
+                disk_identify_fixup_uint16 (identify,  87);     /* command set supported */
+                disk_identify_fixup_uint16 (identify,  89);     /* time required for SECURITY ERASE UNIT */
+                disk_identify_fixup_uint16 (identify,  90);     /* time required for enhanced SECURITY ERASE UNIT */
+                disk_identify_fixup_uint16 (identify,  91);     /* current APM values */
+                disk_identify_fixup_uint16 (identify,  94);     /* current AAM value */
+                disk_identify_fixup_uint16 (identify, 128);     /* device lock function */
+                disk_identify_fixup_uint16 (identify, 217);     /* nominal media rotation rate */
                 memcpy(&id, identify, sizeof id);
         } else {
                 /* If this fails, then try HDIO_GET_IDENTITY */
