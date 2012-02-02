@@ -2943,7 +2943,7 @@ bool manager_is_booting_or_shutting_down(Manager *m) {
         assert(m);
 
         /* Is the initial job still around? */
-        if (manager_get_job(m, 1))
+        if (manager_get_job(m, m->default_unit_job_id))
                 return true;
 
         /* Is there a job for the shutdown target? */

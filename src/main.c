@@ -1404,6 +1404,7 @@ int main(int argc, char *argv[]) {
         } else {
                 DBusError error;
                 Unit *target = NULL;
+                Job *default_unit_job;
 
                 dbus_error_init(&error);
 
@@ -1440,11 +1441,13 @@ int main(int argc, char *argv[]) {
                         manager_dump_units(m, stdout, "\t");
                 }
 
-                if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, NULL)) < 0) {
+                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, &default_unit_job);
+                if (r < 0) {
                         log_error("Failed to start default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
                         goto finish;
                 }
+                m->default_unit_job_id = default_unit_job->id;
 
                 after_startup = now(CLOCK_MONOTONIC);
                 log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,
