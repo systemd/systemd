@@ -4623,11 +4623,12 @@ void execute_directory(const char *directory, DIR *d, char *argv[]) {
         }
 
         while (!hashmap_isempty(pids)) {
+                pid_t pid = PTR_TO_UINT(hashmap_first_key(pids));
                 siginfo_t si;
                 char *path;
 
                 zero(si);
-                if (waitid(P_ALL, 0, &si, WEXITED) < 0) {
+                if (waitid(P_PID, pid, &si, WEXITED) < 0) {
 
                         if (errno == EINTR)
                                 continue;
