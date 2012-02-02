@@ -645,14 +645,19 @@
                                 conjunction with socket-activated
                                 services, and stream sockets (TCP) in
                                 particular. It has no effect on other
-                                socket types (e.g. datagram/UDP) and on processes
-                                unrelated to socket-based
+                                socket types (e.g. datagram/UDP) and
+                                on processes unrelated to socket-based
                                 activation. If the tcpwrap
                                 verification fails daemon start-up
                                 will fail and the connection is
                                 terminated. See
                                 <citerefentry><refentrytitle>tcpd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                                for details.</para></listitem>
+                                for details. Note that this option may
+                                be used to do access control checks
+                                only. Shell commands and commands
+                                described in
+                                <citerefentry><refentrytitle>hosts_options</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                are not supported.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
