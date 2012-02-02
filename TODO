@@ -27,8 +27,6 @@ Features:
 
 * Fedora: disable journald's /proc/kmsg reading on Fedora for now
 
-* avoid that we choke on journal coredump loops (i.e. where the journal crashes and causes a coredump to be fed back to it)
-
 * write RPM spec macros for presets
 
 * write man pages for systemd-cgtop, systemd-cat

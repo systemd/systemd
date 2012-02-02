@@ -21,12 +21,15 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <sys/prctl.h>
 
 #include <systemd/sd-journal.h>
 #include <systemd/sd-login.h>
 
 #include "log.h"
 #include "util.h"
+#include "special.h"
 
 #define COREDUMP_MAX (24*1024*1024)
 
@@ -40,6 +43,56 @@ enum {
         _ARG_MAX
 };
 
+static int divert_coredump(void) {
+        FILE *f;
+        int r;
+
+        log_info("Detected coredump of the journal daemon itself, diverting coredump to /var/lib/systemd/coredump/.");
+
+        mkdir_p("/var/lib/systemd/coredump", 0755);
+
+        f = fopen("/var/lib/systemd/coredump/core.systemd-journald", "we");
+        if (!f) {
+                log_error("Failed to create coredump file: %m");
+                return -errno;
+        }
+
+        for (;;) {
+                uint8_t buffer[4096];
+                size_t l, q;
+
+                l = fread(buffer, 1, sizeof(buffer), stdin);
+                if (l <= 0) {
+                        if (ferror(f)) {
+                                log_error("Failed to read coredump: %m");
+                                r = -errno;
+                                goto finish;
+                        }
+
+                        r = 0;
+                        break;
+                }
+
+                q = fwrite(buffer, 1, l, f);
+                if (q != l) {
+                        log_error("Failed to write coredump: %m");
+                        r = -errno;
+                        goto finish;
+                }
+        }
+
+        fflush(f);
+
+        if (ferror(f)) {
+                log_error("Failed to write coredump: %m");
+                r = -errno;
+        }
+
+finish:
+        fclose(f);
+        return r;
+}
+
 int main(int argc, char* argv[]) {
         int r, j = 0;
         char *p = NULL;
@@ -52,11 +105,12 @@ int main(int argc, char* argv[]) {
                 *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
                 *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *t;
 
-        log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
-        log_parse_environment();
-        log_open();
+        prctl(PR_SET_DUMPABLE, 0);
 
         if (argc != _ARG_MAX) {
+                log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
+                log_open();
+
                 log_error("Invalid number of arguments passed from kernel.");
                 r = -EINVAL;
                 goto finish;
@@ -64,9 +118,36 @@ int main(int argc, char* argv[]) {
 
         r = parse_pid(argv[ARG_PID], &pid);
         if (r < 0) {
+                log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
+                log_open();
+
                 log_error("Failed to parse PID.");
                 goto finish;
         }
+
+        if (sd_pid_get_unit(pid, &t) >= 0) {
+
+                if (streq(t, SPECIAL_JOURNALD_SERVICE)) {
+                        /* Make sure we don't make use of the journal,
+                         * if it's the journal which is crashing */
+                        log_set_target(LOG_TARGET_KMSG);
+                        log_open();
+
+                        r = divert_coredump();
+                        goto finish;
+                }
+
+                core_unit = strappend("COREDUMP_UNIT=", t);
+                free(t);
+
+                if (core_unit)
+                        IOVEC_SET_STRING(iovec[j++], core_unit);
+        }
+
+        /* OK, now we know it's not the journal, hence make use of
+         * it */
+        log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
+        log_open();
 
         r = parse_uid(argv[ARG_UID], &uid);
         if (r < 0) {
@@ -106,14 +187,6 @@ int main(int argc, char* argv[]) {
 
                 if (core_session)
                         IOVEC_SET_STRING(iovec[j++], core_session);
-        }
-
-        if (sd_pid_get_unit(pid, &t) >= 0) {
-                core_unit = strappend("COREDUMP_UNIT=", t);
-                free(t);
-
-                if (core_unit)
-                        IOVEC_SET_STRING(iovec[j++], core_unit);
         }
 
         if (get_process_exe(pid, &t) >= 0) {
