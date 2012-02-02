@@ -21,6 +21,8 @@ Bugfixes:
 
 Features:
 
+* dbus: in fedora, make the machine a symlink to /etc/machine-id
+
 * journald: reuse XZ context
 
 * logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
