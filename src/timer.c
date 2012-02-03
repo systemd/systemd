@@ -133,8 +133,10 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sTimer State: %s\n"
+                "%sResult: %s\n"
                 "%sUnit: %s\n",
                 prefix, timer_state_to_string(t->state),
+                prefix, timer_result_to_string(t->result),
                 prefix, UNIT_DEREF(t->unit)->id);
 
         LIST_FOREACH(value, v, t->values)
@@ -183,13 +185,13 @@ static int timer_coldplug(Unit *u) {
         return 0;
 }
 
-static void timer_enter_dead(Timer *t, bool success) {
+static void timer_enter_dead(Timer *t, TimerResult f) {
         assert(t);
 
-        if (!success)
-                t->failure = true;
+        if (f != TIMER_SUCCESS)
+                t->result = f;
 
-        timer_set_state(t, t->failure ? TIMER_FAILED : TIMER_DEAD);
+        timer_set_state(t, t->result != TIMER_SUCCESS ? TIMER_FAILED : TIMER_DEAD);
 }
 
 static void timer_enter_waiting(Timer *t, bool initial) {
@@ -273,7 +275,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
 fail:
         log_warning("%s failed to enter waiting state: %s", UNIT(t)->id, strerror(-r));
-        timer_enter_dead(t, false);
+        timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
 }
 
 static void timer_enter_running(Timer *t) {
@@ -295,7 +297,7 @@ static void timer_enter_running(Timer *t) {
 
 fail:
         log_warning("%s failed to queue unit startup job: %s", UNIT(t)->id, bus_error(&error, r));
-        timer_enter_dead(t, false);
+        timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
 
         dbus_error_free(&error);
 }
@@ -309,7 +311,7 @@ static int timer_start(Unit *u) {
         if (UNIT_DEREF(t->unit)->load_state != UNIT_LOADED)
                 return -ENOENT;
 
-        t->failure = false;
+        t->result = TIMER_SUCCESS;
         timer_enter_waiting(t, true);
         return 0;
 }
@@ -320,7 +322,7 @@ static int timer_stop(Unit *u) {
         assert(t);
         assert(t->state == TIMER_WAITING || t->state == TIMER_RUNNING || t->state == TIMER_ELAPSED);
 
-        timer_enter_dead(t, true);
+        timer_enter_dead(t, TIMER_SUCCESS);
         return 0;
 }
 
@@ -332,6 +334,7 @@ static int timer_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(fds);
 
         unit_serialize_item(u, f, "state", timer_state_to_string(t->state));
+        unit_serialize_item(u, f, "result", timer_result_to_string(t->result));
 
         return 0;
 }
@@ -351,6 +354,15 @@ static int timer_deserialize_item(Unit *u, const char *key, const char *value, F
                         log_debug("Failed to parse state value %s", value);
                 else
                         t->deserialized_state = state;
+        } else if (streq(key, "result")) {
+                TimerResult f;
+
+                f = timer_result_from_string(value);
+                if (f < 0)
+                        log_debug("Failed to parse result value %s", value);
+                else if (f != TIMER_SUCCESS)
+                        t->result = f;
+
         } else
                 log_debug("Unknown serialization key '%s'", key);
 
@@ -443,7 +455,7 @@ static void timer_reset_failed(Unit *u) {
         if (t->state == TIMER_FAILED)
                 timer_set_state(t, TIMER_DEAD);
 
-        t->failure = false;
+        t->result = TIMER_SUCCESS;
 }
 
 static const char* const timer_state_table[_TIMER_STATE_MAX] = {
@@ -465,6 +477,13 @@ static const char* const timer_base_table[_TIMER_BASE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);
+
+static const char* const timer_result_table[_TIMER_RESULT_MAX] = {
+        [TIMER_SUCCESS] = "success",
+        [TIMER_FAILURE_RESOURCES] = "resources"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(timer_result, TimerResult);
 
 const UnitVTable timer_vtable = {
         .suffix = ".timer",

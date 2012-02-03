@@ -31,6 +31,7 @@
         "  <property name=\"Unit\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Timers\" type=\"a(stt)\" access=\"read\"/>\n" \
         "  <property name=\"NextElapseUSec\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
         " </interface>\n"
 
 #define INTROSPECTION                                                   \
@@ -51,7 +52,8 @@ const char bus_timer_interface[] _introspect_("Timer") = BUS_TIMER_INTERFACE;
 
 const char bus_timer_invalidating_properties[] =
         "Timers\0"
-        "NextElapseUSec\0";
+        "NextElapseUSec\0"
+        "Result\0";
 
 static int bus_timer_append_timers(DBusMessageIter *i, const char *property, void *data) {
         Timer *p = data;
@@ -113,10 +115,13 @@ static int bus_timer_append_unit(DBusMessageIter *i, const char *property, void 
         return dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t) ? 0 : -ENOMEM;
 }
 
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_timer_append_timer_result, timer_result, TimerResult);
+
 static const BusProperty bus_timer_properties[] = {
         { "Unit",           bus_timer_append_unit,        "s", 0 },
         { "Timers",         bus_timer_append_timers, "a(stt)", 0 },
         { "NextElapseUSec", bus_property_append_usec,     "t", offsetof(Timer, next_elapse) },
+        { "Result",         bus_timer_append_timer_result,"s", offsetof(Timer, result)      },
         { NULL, }
 };
 

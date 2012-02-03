@@ -56,6 +56,13 @@ typedef struct TimerValue {
         bool disabled;
 } TimerValue;
 
+typedef enum TimerResult {
+        TIMER_SUCCESS,
+        TIMER_FAILURE_RESOURCES,
+        _TIMER_RESULT_MAX,
+        _TIMER_RESULT_INVALID = -1
+} TimerResult;
+
 struct Timer {
         Unit meta;
 
@@ -67,7 +74,7 @@ struct Timer {
 
         Watch timer_watch;
 
-        bool failure;
+        TimerResult result;
 };
 
 void timer_unit_notify(Unit *u, UnitActiveState new_state);
@@ -79,5 +86,8 @@ TimerState timer_state_from_string(const char *s);
 
 const char *timer_base_to_string(TimerBase i);
 TimerBase timer_base_from_string(const char *s);
+
+const char* timer_result_to_string(TimerResult i);
+TimerResult timer_result_from_string(const char *s);
 
 #endif
