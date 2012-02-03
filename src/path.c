@@ -369,10 +369,12 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sPath State: %s\n"
+                "%sResult: %s\n"
                 "%sUnit: %s\n"
                 "%sMakeDirectory: %s\n"
                 "%sDirectoryMode: %04o\n",
                 prefix, path_state_to_string(p->state),
+                prefix, path_result_to_string(p->result),
                 prefix, UNIT_DEREF(p->unit)->id,
                 prefix, yes_no(p->make_directory),
                 prefix, p->directory_mode);
@@ -443,13 +445,13 @@ static int path_coldplug(Unit *u) {
         return 0;
 }
 
-static void path_enter_dead(Path *p, bool success) {
+static void path_enter_dead(Path *p, PathResult f) {
         assert(p);
 
-        if (!success)
-                p->failure = true;
+        if (f != PATH_SUCCESS)
+                p->result = f;
 
-        path_set_state(p, p->failure ? PATH_FAILED : PATH_DEAD);
+        path_set_state(p, p->result != PATH_SUCCESS ? PATH_FAILED : PATH_DEAD);
 }
 
 static void path_enter_running(Path *p) {
@@ -476,7 +478,7 @@ static void path_enter_running(Path *p) {
 
 fail:
         log_warning("%s failed to queue unit startup job: %s", UNIT(p)->id, bus_error(&error, r));
-        path_enter_dead(p, false);
+        path_enter_dead(p, PATH_FAILURE_RESOURCES);
 
         dbus_error_free(&error);
 }
@@ -526,7 +528,7 @@ static void path_enter_waiting(Path *p, bool initial, bool recheck) {
 
 fail:
         log_warning("%s failed to enter waiting state: %s", UNIT(p)->id, strerror(-r));
-        path_enter_dead(p, false);
+        path_enter_dead(p, PATH_FAILURE_RESOURCES);
 }
 
 static void path_mkdir(Path *p) {
@@ -552,7 +554,7 @@ static int path_start(Unit *u) {
 
         path_mkdir(p);
 
-        p->failure = false;
+        p->result = PATH_SUCCESS;
         path_enter_waiting(p, true, true);
 
         return 0;
@@ -564,7 +566,7 @@ static int path_stop(Unit *u) {
         assert(p);
         assert(p->state == PATH_WAITING || p->state == PATH_RUNNING);
 
-        path_enter_dead(p, true);
+        path_enter_dead(p, PATH_SUCCESS);
         return 0;
 }
 
@@ -576,6 +578,7 @@ static int path_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(fds);
 
         unit_serialize_item(u, f, "state", path_state_to_string(p->state));
+        unit_serialize_item(u, f, "result", path_result_to_string(p->result));
 
         return 0;
 }
@@ -595,6 +598,16 @@ static int path_deserialize_item(Unit *u, const char *key, const char *value, FD
                         log_debug("Failed to parse state value %s", value);
                 else
                         p->deserialized_state = state;
+
+        } else if (streq(key, "result")) {
+                PathResult f;
+
+                f = path_result_from_string(value);
+                if (f < 0)
+                        log_debug("Failed to parse result value %s", value);
+                else if (f != PATH_SUCCESS)
+                        p->result = f;
+
         } else
                 log_debug("Unknown serialization key '%s'", key);
 
@@ -653,7 +666,7 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         return;
 
 fail:
-        path_enter_dead(p, false);
+        path_enter_dead(p, PATH_FAILURE_RESOURCES);
 }
 
 void path_unit_notify(Unit *u, UnitActiveState new_state) {
@@ -693,7 +706,7 @@ static void path_reset_failed(Unit *u) {
         if (p->state == PATH_FAILED)
                 path_set_state(p, PATH_DEAD);
 
-        p->failure = false;
+        p->result = PATH_SUCCESS;
 }
 
 static const char* const path_state_table[_PATH_STATE_MAX] = {
@@ -714,6 +727,13 @@ static const char* const path_type_table[_PATH_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_type, PathType);
+
+static const char* const path_result_table[_PATH_RESULT_MAX] = {
+        [PATH_SUCCESS] = "success",
+        [PATH_FAILURE_RESOURCES] = "resources"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(path_result, PathResult);
 
 const UnitVTable path_vtable = {
         .suffix = ".path",
@@ -745,5 +765,6 @@ const UnitVTable path_vtable = {
         .reset_failed = path_reset_failed,
 
         .bus_interface = "org.freedesktop.systemd1.Path",
-        .bus_message_handler = bus_path_message_handler
+        .bus_message_handler = bus_path_message_handler,
+        .bus_invalidating_properties = bus_path_invalidating_properties
 };

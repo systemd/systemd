@@ -32,6 +32,7 @@
         "  <property name=\"Paths\" type=\"a(ss)\" access=\"read\"/>\n" \
         "  <property name=\"MakeDirectory\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
         " </interface>\n"
 
 #define INTROSPECTION                                                   \
@@ -49,6 +50,9 @@
         "org.freedesktop.systemd1.Path\0"
 
 const char bus_path_interface[] _introspect_("Path") = BUS_PATH_INTERFACE;
+
+const char bus_path_invalidating_properties[] =
+        "Result\0";
 
 static int bus_path_append_paths(DBusMessageIter *i, const char *property, void *data) {
         Path *p = data;
@@ -92,11 +96,14 @@ static int bus_path_append_unit(DBusMessageIter *i, const char *property, void *
         return dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t) ? 0 : -ENOMEM;
 }
 
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_path_append_path_result, path_result, PathResult);
+
 static const BusProperty bus_path_properties[] = {
         { "Unit",          bus_path_append_unit,      "s", 0 },
         { "Paths",         bus_path_append_paths, "a(ss)", 0 },
         { "MakeDirectory", bus_property_append_bool,  "b", offsetof(Path, make_directory) },
         { "DirectoryMode", bus_property_append_mode,  "u", offsetof(Path, directory_mode) },
+        { "Result",        bus_path_append_path_result, "s", offsetof(Path, result) },
         { NULL, }
 };
 
