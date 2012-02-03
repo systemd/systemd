@@ -86,6 +86,7 @@ pid_t cgroup_bonding_search_main_pid_list(CGroupBonding *b);
 int manager_setup_cgroup(Manager *m);
 void manager_shutdown_cgroup(Manager *m, bool delete);
 
+int cgroup_bonding_get(Manager *m, const char *cgroup, CGroupBonding **bonding);
 int cgroup_notify_empty(Manager *m, const char *group);
 
 Unit* cgroup_unit_by_pid(Manager *m, pid_t pid);

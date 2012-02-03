@@ -31,7 +31,7 @@ Features:
 
 * write RPM spec macros for presets
 
-* write man pages for systemd-cgtop, systemd-cat
+* write man pages for systemd-cat
 
 * journal: write man pages for API
 
@@ -72,8 +72,6 @@ Features:
 * support "systemctl stop foobar@.service" to stop all units matching a certain template
 
 * move to LGPL2+
-
-* logind: selinux is borked...
 
 * logind: allow showing logout dialog from system
 
@@ -164,8 +162,6 @@ Features:
 
 * GC unreferenced jobs (such as .device jobs)
 
-* cgroup_notify_empty(): recursively check groups up the tree, too
-
 * when failing to start a service due to ratelimiting, try again later, if restart=always is set
 
 * write blog stories about:
@@ -175,6 +171,7 @@ Features:
   - remote access
   - how to pass throw-away units to systemd, or dynamically change properties of existing units
   - how to integrate cgconfig and suchlike with systemd
+  - resource control in systemd
 
 * allow port=0 in .socket units
 

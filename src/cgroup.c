@@ -355,15 +355,55 @@ void manager_shutdown_cgroup(Manager *m, bool delete) {
         m->cgroup_hierarchy = NULL;
 }
 
+int cgroup_bonding_get(Manager *m, const char *cgroup, CGroupBonding **bonding) {
+        CGroupBonding *b;
+        char *p;
+
+        assert(m);
+        assert(cgroup);
+        assert(bonding);
+
+        b = hashmap_get(m->cgroup_bondings, cgroup);
+        if (!b) {
+                *bonding = b;
+                return 1;
+        }
+
+        p = strdup(cgroup);
+        if (!p)
+                return -ENOMEM;
+
+        for (;;) {
+                char *e;
+
+                e = strrchr(p, '/');
+                if (!e || e == p) {
+                        free(p);
+                        *bonding = NULL;
+                        return 0;
+                }
+
+                *e = 0;
+
+                b = hashmap_get(m->cgroup_bondings, p);
+                if (b) {
+                        free(p);
+                        *bonding = b;
+                        return 1;
+                }
+        }
+}
+
 int cgroup_notify_empty(Manager *m, const char *group) {
         CGroupBonding *l, *b;
+        int r;
 
         assert(m);
         assert(group);
 
-        l = hashmap_get(m->cgroup_bondings, group);
-        if (!l)
-                return 0;
+        r = cgroup_bonding_get(m, group, &l);
+        if (r <= 0)
+                return r;
 
         LIST_FOREACH(by_path, b, l) {
                 int t;

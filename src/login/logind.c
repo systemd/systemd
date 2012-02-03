@@ -782,11 +782,18 @@ finish:
 }
 
 int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **session) {
+        Session *s;
         char *p;
 
         assert(m);
         assert(cgroup);
         assert(session);
+
+        s = hashmap_get(m->cgroups, cgroup);
+        if (s) {
+                *session = s;
+                return 1;
+        }
 
         p = strdup(cgroup);
         if (!p) {
@@ -795,14 +802,16 @@ int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **sess
         }
 
         for (;;) {
-                Session *s;
                 char *e;
 
-                if (isempty(p) || streq(p, "/")) {
+                e = strrchr(p, '/');
+                if (!e || e == p) {
                         free(p);
                         *session = NULL;
                         return 0;
                 }
+
+                *e = 0;
 
                 s = hashmap_get(m->cgroups, p);
                 if (s) {
@@ -810,9 +819,6 @@ int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **sess
                         *session = s;
                         return 1;
                 }
-
-                assert_se(e = strrchr(p, '/'));
-                *e = 0;
         }
 }
 
