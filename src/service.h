@@ -88,6 +88,17 @@ typedef enum NotifyAccess {
         _NOTIFY_ACCESS_INVALID = -1
 } NotifyAccess;
 
+typedef enum ServiceResult {
+        SERVICE_SUCCESS,
+        SERVICE_FAILURE_RESOURCES,
+        SERVICE_FAILURE_TIMEOUT,
+        SERVICE_FAILURE_EXIT_CODE,
+        SERVICE_FAILURE_SIGNAL,
+        SERVICE_FAILURE_CORE_DUMP,
+        _SERVICE_RESULT_MAX,
+        _SERVICE_RESULT_INVALID = -1
+} ServiceResult;
+
 struct Service {
         Unit meta;
 
@@ -132,8 +143,8 @@ struct Service {
         bool guess_main_pid;
 
         /* If we shut down, remember why */
-        bool failure:1;
-        bool reload_failure:1;
+        ServiceResult result;
+        ServiceResult reload_result;
 
         bool main_pid_known:1;
         bool main_pid_alien:1;
@@ -185,5 +196,8 @@ ServiceExecCommand service_exec_command_from_string(const char *s);
 
 const char* notify_access_to_string(NotifyAccess i);
 NotifyAccess notify_access_from_string(const char *s);
+
+const char* service_result_to_string(ServiceResult i);
+ServiceResult service_result_from_string(const char *s);
 
 #endif

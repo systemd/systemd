@@ -61,7 +61,8 @@
         "  <property name=\"BusName\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"StatusText\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"FsckPassNo\" type=\"i\" access=\"read\"/>\n" \
-        BUS_SERVICE_SYSV_INTERFACE_FRAGMENT                              \
+        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
+        BUS_SERVICE_SYSV_INTERFACE_FRAGMENT                             \
        " </interface>\n"
 
 #define INTROSPECTION                                                   \
@@ -92,11 +93,13 @@ const char bus_service_invalidating_properties[] =
         "WatchdogTimestampMonotonic\0"
         "MainPID\0"
         "ControlPID\0"
-        "StatusText\0";
+        "StatusText\0"
+        "Result\0";
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_type, service_type, ServiceType);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_restart, service_restart, ServiceRestart);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_notify_access, notify_access, NotifyAccess);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_service_result, service_result, ServiceResult);
 
 static const BusProperty bus_exec_main_status_properties[] = {
         { "ExecMainStartTimestamp",         bus_property_append_usec, "t", offsetof(ExecStatus, start_timestamp.realtime)  },
@@ -138,6 +141,7 @@ static const BusProperty bus_service_properties[] = {
         { "SysVPath",               bus_property_append_string,       "s", offsetof(Service, sysv_path),              true },
 #endif
         { "FsckPassNo",             bus_property_append_int,          "i", offsetof(Service, fsck_passno)                  },
+        { "Result",                 bus_service_append_service_result,"s", offsetof(Service, result)                       },
         { NULL, }
 };
 

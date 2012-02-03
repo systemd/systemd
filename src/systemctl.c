@@ -1437,9 +1437,9 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
                 else if (streq(d.result, "canceled"))
                         log_error("Job canceled.");
                 else if (streq(d.result, "dependency"))
-                        log_error("A dependency job failed. See system logs for details.");
+                        log_error("A dependency job failed. See system journal for details.");
                 else if (!streq(d.result, "done") && !streq(d.result, "skipped"))
-                        log_error("Job failed. See system logs and 'systemctl status' for details.");
+                        log_error("Job failed. See system journal and 'systemctl status' for details.");
         }
 
         if (streq_ptr(d.result, "timeout"))
@@ -2003,6 +2003,7 @@ typedef struct UnitStatusInfo {
         const char *default_control_group;
 
         const char *load_error;
+        const char *result;
 
         usec_t inactive_exit_timestamp;
         usec_t inactive_exit_timestamp_monotonic;
@@ -2105,6 +2106,9 @@ static void print_status_info(UnitStatusInfo *i) {
                        on,
                        strna(i->active_state),
                        off);
+
+        if (!isempty(i->result) && !streq(i->result, "success"))
+                printf(" (Result: %s)", i->result);
 
         timestamp = (streq_ptr(i->active_state, "active")      ||
                      streq_ptr(i->active_state, "reloading"))   ? i->active_enter_timestamp :
@@ -2325,6 +2329,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 i->following = s;
                         else if (streq(name, "UnitFileState"))
                                 i->unit_file_state = s;
+                        else if (streq(name, "Result"))
+                                i->result = s;
                 }
 
                 break;

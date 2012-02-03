@@ -1228,6 +1228,8 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sService State: %s\n"
+                "%sResult: %s\n"
+                "%sReload Result: %s\n"
                 "%sPermissionsStartOnly: %s\n"
                 "%sRootDirectoryStartOnly: %s\n"
                 "%sRemainAfterExit: %s\n"
@@ -1236,6 +1238,8 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sRestart: %s\n"
                 "%sNotifyAccess: %s\n",
                 prefix, service_state_to_string(s->state),
+                prefix, service_result_to_string(s->result),
+                prefix, service_result_to_string(s->reload_result),
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
                 prefix, yes_no(s->remain_after_exit),
@@ -1500,8 +1504,8 @@ static void service_set_state(Service *s, ServiceState state) {
         if (old_state != state)
                 log_debug("%s changed %s -> %s", UNIT(s)->id, service_state_to_string(old_state), service_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], !s->reload_failure);
-        s->reload_failure = false;
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], s->reload_result == SERVICE_SUCCESS);
+        s->reload_result = SERVICE_SUCCESS;
 }
 
 static int service_coldplug(Unit *u) {
@@ -1790,28 +1794,28 @@ static int cgroup_good(Service *s) {
         return !r;
 }
 
-static void service_enter_dead(Service *s, bool success, bool allow_restart) {
+static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
         int r;
         assert(s);
 
-        if (!success)
-                s->failure = true;
+        if (f != SERVICE_SUCCESS)
+                s->result = f;
 
         if (allow_restart &&
             !s->forbid_restart &&
             (s->restart == SERVICE_RESTART_ALWAYS ||
-             (s->restart == SERVICE_RESTART_ON_SUCCESS && !s->failure) ||
-             (s->restart == SERVICE_RESTART_ON_FAILURE && s->failure) ||
-             (s->restart == SERVICE_RESTART_ON_ABORT && s->failure &&
-              (s->main_exec_status.code == CLD_KILLED ||
-               s->main_exec_status.code == CLD_DUMPED)))) {
+             (s->restart == SERVICE_RESTART_ON_SUCCESS && s->result == SERVICE_SUCCESS) ||
+             (s->restart == SERVICE_RESTART_ON_FAILURE && s->result != SERVICE_SUCCESS) ||
+             (s->restart == SERVICE_RESTART_ON_ABORT && (s->result == SERVICE_FAILURE_SIGNAL ||
+                                                         s->result == SERVICE_FAILURE_CORE_DUMP)))) {
 
-                if ((r = unit_watch_timer(UNIT(s), s->restart_usec, &s->timer_watch)) < 0)
+                r = unit_watch_timer(UNIT(s), s->restart_usec, &s->timer_watch);
+                if (r < 0)
                         goto fail;
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
         } else
-                service_set_state(s, s->failure ? SERVICE_FAILED : SERVICE_DEAD);
+                service_set_state(s, s->result != SERVICE_SUCCESS ? SERVICE_FAILED : SERVICE_DEAD);
 
         s->forbid_restart = false;
 
@@ -1819,17 +1823,17 @@ static void service_enter_dead(Service *s, bool success, bool allow_restart) {
 
 fail:
         log_warning("%s failed to run install restart timer: %s", UNIT(s)->id, strerror(-r));
-        service_enter_dead(s, false, false);
+        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, false);
 }
 
-static void service_enter_signal(Service *s, ServiceState state, bool success);
+static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
 
-static void service_enter_stop_post(Service *s, bool success) {
+static void service_enter_stop_post(Service *s, ServiceResult f) {
         int r;
         assert(s);
 
-        if (!success)
-                s->failure = true;
+        if (f != SERVICE_SUCCESS)
+                s->result = f;
 
         service_unwatch_control_pid(s);
 
@@ -1850,24 +1854,24 @@ static void service_enter_stop_post(Service *s, bool success) {
 
                 service_set_state(s, SERVICE_STOP_POST);
         } else
-                service_enter_signal(s, SERVICE_FINAL_SIGTERM, true);
+                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_SUCCESS);
 
         return;
 
 fail:
         log_warning("%s failed to run 'stop-post' task: %s", UNIT(s)->id, strerror(-r));
-        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+        service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
-static void service_enter_signal(Service *s, ServiceState state, bool success) {
+static void service_enter_signal(Service *s, ServiceState state, ServiceResult f) {
         int r;
         Set *pid_set = NULL;
         bool wait_for_exit = false;
 
         assert(s);
 
-        if (!success)
-                s->failure = true;
+        if (f != SERVICE_SUCCESS)
+                s->result = f;
 
         if (s->exec_context.kill_mode != KILL_NONE) {
                 int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
@@ -1920,9 +1924,9 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
 
                 service_set_state(s, state);
         } else if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL)
-                service_enter_stop_post(s, true);
+                service_enter_stop_post(s, SERVICE_SUCCESS);
         else
-                service_enter_dead(s, true, true);
+                service_enter_dead(s, SERVICE_SUCCESS, true);
 
         return;
 
@@ -1930,21 +1934,21 @@ fail:
         log_warning("%s failed to kill processes: %s", UNIT(s)->id, strerror(-r));
 
         if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL)
-                service_enter_stop_post(s, false);
+                service_enter_stop_post(s, SERVICE_FAILURE_RESOURCES);
         else
-                service_enter_dead(s, false, true);
+                service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
 
         if (pid_set)
                 set_free(pid_set);
 }
 
-static void service_enter_stop(Service *s, bool success) {
+static void service_enter_stop(Service *s, ServiceResult f) {
         int r;
 
         assert(s);
 
-        if (!success)
-                s->failure = true;
+        if (f != SERVICE_SUCCESS)
+                s->result = f;
 
         service_unwatch_control_pid(s);
 
@@ -1964,21 +1968,21 @@ static void service_enter_stop(Service *s, bool success) {
 
                 service_set_state(s, SERVICE_STOP);
         } else
-                service_enter_signal(s, SERVICE_STOP_SIGTERM, true);
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_SUCCESS);
 
         return;
 
 fail:
         log_warning("%s failed to run 'stop' task: %s", UNIT(s)->id, strerror(-r));
-        service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
+        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
-static void service_enter_running(Service *s, bool success) {
+static void service_enter_running(Service *s, ServiceResult f) {
         int main_pid_ok, cgroup_ok;
         assert(s);
 
-        if (!success)
-                s->failure = true;
+        if (f != SERVICE_SUCCESS)
+                s->result = f;
 
         main_pid_ok = main_pid_good(s);
         cgroup_ok = cgroup_good(s);
@@ -1989,7 +1993,7 @@ static void service_enter_running(Service *s, bool success) {
         else if (s->remain_after_exit)
                 service_set_state(s, SERVICE_EXITED);
         else
-                service_enter_stop(s, true);
+                service_enter_stop(s, SERVICE_SUCCESS);
 }
 
 static void service_enter_start_post(Service *s) {
@@ -2014,13 +2018,13 @@ static void service_enter_start_post(Service *s) {
 
                 service_set_state(s, SERVICE_START_POST);
         } else
-                service_enter_running(s, true);
+                service_enter_running(s, SERVICE_SUCCESS);
 
         return;
 
 fail:
         log_warning("%s failed to run 'start-post' task: %s", UNIT(s)->id, strerror(-r));
-        service_enter_stop(s, false);
+        service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
 static void service_enter_start(Service *s) {
@@ -2101,7 +2105,7 @@ static void service_enter_start(Service *s) {
 
 fail:
         log_warning("%s failed to run 'start' task: %s", UNIT(s)->id, strerror(-r));
-        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+        service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
 static void service_enter_start_pre(Service *s) {
@@ -2138,7 +2142,7 @@ static void service_enter_start_pre(Service *s) {
 
 fail:
         log_warning("%s failed to run 'start-pre' task: %s", UNIT(s)->id, strerror(-r));
-        service_enter_dead(s, false, true);
+        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
 }
 
 static void service_enter_restart(Service *s) {
@@ -2155,7 +2159,7 @@ static void service_enter_restart(Service *s) {
                         goto fail;
         }
 
-        service_enter_dead(s, true, false);
+        service_enter_dead(s, SERVICE_SUCCESS, false);
 
         if ((r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(s), JOB_FAIL, false, &error, NULL)) < 0)
                 goto fail;
@@ -2165,7 +2169,7 @@ static void service_enter_restart(Service *s) {
 
 fail:
         log_warning("%s failed to schedule restart job: %s", UNIT(s)->id, bus_error(&error, -r));
-        service_enter_dead(s, false, false);
+        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, false);
 
         dbus_error_free(&error);
 }
@@ -2193,25 +2197,22 @@ static void service_enter_reload(Service *s) {
 
                 service_set_state(s, SERVICE_RELOAD);
         } else
-                service_enter_running(s, true);
+                service_enter_running(s, SERVICE_SUCCESS);
 
         return;
 
 fail:
         log_warning("%s failed to run 'reload' task: %s", UNIT(s)->id, strerror(-r));
-        s->reload_failure = true;
-        service_enter_running(s, true);
+        s->reload_result = SERVICE_FAILURE_RESOURCES;
+        service_enter_running(s, SERVICE_SUCCESS);
 }
 
-static void service_run_next_control(Service *s, bool success) {
+static void service_run_next_control(Service *s) {
         int r;
 
         assert(s);
         assert(s->control_command);
         assert(s->control_command->command_next);
-
-        if (!success)
-                s->failure = true;
 
         assert(s->control_command_id != SERVICE_EXEC_START);
 
@@ -2236,19 +2237,19 @@ fail:
         log_warning("%s failed to run next control task: %s", UNIT(s)->id, strerror(-r));
 
         if (s->state == SERVICE_START_PRE)
-                service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
         else if (s->state == SERVICE_STOP)
-                service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
         else if (s->state == SERVICE_STOP_POST)
-                service_enter_dead(s, false, true);
+                service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
         else if (s->state == SERVICE_RELOAD) {
-                s->reload_failure = true;
-                service_enter_running(s, true);
+                s->reload_result = SERVICE_FAILURE_RESOURCES;
+                service_enter_running(s, SERVICE_SUCCESS);
         } else
-                service_enter_stop(s, false);
+                service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
-static void service_run_next_main(Service *s, bool success) {
+static void service_run_next_main(Service *s) {
         pid_t pid;
         int r;
 
@@ -2256,9 +2257,6 @@ static void service_run_next_main(Service *s, bool success) {
         assert(s->main_command);
         assert(s->main_command->command_next);
         assert(s->type == SERVICE_ONESHOT);
-
-        if (!success)
-                s->failure = true;
 
         s->main_command = s->main_command->command_next;
         service_unwatch_main_pid(s);
@@ -2280,7 +2278,7 @@ static void service_run_next_main(Service *s, bool success) {
 
 fail:
         log_warning("%s failed to run next main task: %s", UNIT(s)->id, strerror(-r));
-        service_enter_stop(s, false);
+        service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
 static int service_start(Unit *u) {
@@ -2312,7 +2310,8 @@ static int service_start(Unit *u) {
                 return -ECANCELED;
         }
 
-        s->failure = false;
+        s->result = SERVICE_SUCCESS;
+        s->reload_result = SERVICE_SUCCESS;
         s->main_pid_known = false;
         s->main_pid_alien = false;
         s->forbid_restart = false;
@@ -2351,14 +2350,14 @@ static int service_stop(Unit *u) {
             s->state == SERVICE_START ||
             s->state == SERVICE_START_POST ||
             s->state == SERVICE_RELOAD) {
-                service_enter_signal(s, SERVICE_STOP_SIGTERM, true);
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_SUCCESS);
                 return 0;
         }
 
         assert(s->state == SERVICE_RUNNING ||
                s->state == SERVICE_EXITED);
 
-        service_enter_stop(s, true);
+        service_enter_stop(s, SERVICE_SUCCESS);
         return 0;
 }
 
@@ -2389,7 +2388,8 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(fds);
 
         unit_serialize_item(u, f, "state", service_state_to_string(s->state));
-        unit_serialize_item(u, f, "failure", yes_no(s->failure));
+        unit_serialize_item(u, f, "result", service_result_to_string(s->result));
+        unit_serialize_item(u, f, "reload-result", service_result_to_string(s->reload_result));
 
         if (s->control_pid > 0)
                 unit_serialize_item_format(u, f, "control-pid", "%lu", (unsigned long) s->control_pid);
@@ -2448,13 +2448,24 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_debug("Failed to parse state value %s", value);
                 else
                         s->deserialized_state = state;
-        } else if (streq(key, "failure")) {
-                int b;
+        } else if (streq(key, "result")) {
+                ServiceResult f;
 
-                if ((b = parse_boolean(value)) < 0)
-                        log_debug("Failed to parse failure value %s", value);
-                else
-                        s->failure = b || s->failure;
+                f = service_result_from_string(value);
+                if (f < 0)
+                        log_debug("Failed to parse result value %s", value);
+                else if (f != SERVICE_SUCCESS)
+                        s->result = f;
+
+        } else if (streq(key, "reload-result")) {
+                ServiceResult f;
+
+                f = service_result_from_string(value);
+                if (f < 0)
+                        log_debug("Failed to parse reload result value %s", value);
+                else if (f != SERVICE_SUCCESS)
+                        s->reload_result = f;
+
         } else if (streq(key, "control-pid")) {
                 pid_t pid;
 
@@ -2589,7 +2600,7 @@ static int service_retry_pid_file(Service *s) {
 
         service_unwatch_pid_file(s);
 
-        service_enter_running(s, true);
+        service_enter_running(s, SERVICE_SUCCESS);
         return 0;
 }
 
@@ -2663,20 +2674,26 @@ static void service_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         return;
 fail:
         service_unwatch_pid_file(s);
-        service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
+        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
 static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         Service *s = SERVICE(u);
-        bool success;
+        ServiceResult f;
 
         assert(s);
         assert(pid >= 0);
 
-        if (!UNIT(s)->fragment_path)
-                success = is_clean_exit_lsb(code, status);
+        if (UNIT(s)->fragment_path ? is_clean_exit(code, status) : is_clean_exit_lsb(code, status))
+                f = SERVICE_SUCCESS;
+        else if (code == CLD_EXITED)
+                f = SERVICE_FAILURE_EXIT_CODE;
+        else if (code == CLD_KILLED)
+                f = SERVICE_FAILURE_SIGNAL;
+        else if (code == CLD_DUMPED)
+                f = SERVICE_FAILURE_CORE_DUMP;
         else
-                success = is_clean_exit(code, status);
+                f = SERVICE_FAILURE_RESOURCES;
 
         if (s->main_pid == pid) {
                 /* Forking services may occasionally move to a new PID.
@@ -2696,22 +2713,24 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         s->main_command->exec_status = s->main_exec_status;
 
                         if (s->main_command->ignore)
-                                success = true;
+                                f = SERVICE_SUCCESS;
                 }
 
-                log_full(success ? LOG_DEBUG : LOG_NOTICE,
+                log_full(f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
                          "%s: main process exited, code=%s, status=%i", u->id, sigchld_code_to_string(code), status);
-                s->failure = s->failure || !success;
+
+                if (f != SERVICE_SUCCESS)
+                        s->result = f;
 
                 if (s->main_command &&
                     s->main_command->command_next &&
-                    success) {
+                    f == SERVICE_SUCCESS) {
 
                         /* There is another command to *
                          * execute, so let's do that. */
 
                         log_debug("%s running next main command for state %s", u->id, service_state_to_string(s->state));
-                        service_run_next_main(s, success);
+                        service_run_next_main(s);
 
                 } else {
 
@@ -2731,10 +2750,10 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         case SERVICE_START:
                                 if (s->type == SERVICE_ONESHOT) {
                                         /* This was our main goal, so let's go on */
-                                        if (success)
+                                        if (f == SERVICE_SUCCESS)
                                                 service_enter_start_post(s);
                                         else
-                                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
                                         break;
                                 } else {
                                         assert(s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY);
@@ -2743,14 +2762,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 }
 
                         case SERVICE_RUNNING:
-                                service_enter_running(s, success);
+                                service_enter_running(s, f);
                                 break;
 
                         case SERVICE_STOP_SIGTERM:
                         case SERVICE_STOP_SIGKILL:
 
                                 if (!control_pid_good(s))
-                                        service_enter_stop_post(s, success);
+                                        service_enter_stop_post(s, f);
 
                                 /* If there is still a control process, wait for that first */
                                 break;
@@ -2768,22 +2787,24 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
 
                         if (s->control_command->ignore)
-                                success = true;
+                                f = SERVICE_SUCCESS;
                 }
 
-                log_full(success ? LOG_DEBUG : LOG_NOTICE,
+                log_full(f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
                          "%s: control process exited, code=%s status=%i", u->id, sigchld_code_to_string(code), status);
-                s->failure = s->failure || !success;
+
+                if (f != SERVICE_SUCCESS)
+                        s->result = f;
 
                 if (s->control_command &&
                     s->control_command->command_next &&
-                    success) {
+                    f == SERVICE_SUCCESS) {
 
                         /* There is another command to *
                          * execute, so let's do that. */
 
                         log_debug("%s running next control command for state %s", u->id, service_state_to_string(s->state));
-                        service_run_next_control(s, success);
+                        service_run_next_control(s);
 
                 } else {
                         /* No further commands for this step, so let's
@@ -2797,30 +2818,34 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         switch (s->state) {
 
                         case SERVICE_START_PRE:
-                                if (success)
+                                if (f == SERVICE_SUCCESS)
                                         service_enter_start(s);
                                 else
-                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
                                 break;
 
                         case SERVICE_START:
                                 assert(s->type == SERVICE_FORKING);
 
-                                if (!success) {
-                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                                if (f != SERVICE_SUCCESS) {
+                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
                                         break;
                                 }
 
                                 if (s->pid_file) {
+                                        bool has_start_post;
+                                        int r;
+
                                         /* Let's try to load the pid file here if we can.
                                          * The PID file might actually be created by a START_POST
                                          * script. In that case don't worry if the loading fails. */
-                                        bool has_start_post = !!s->exec_command[SERVICE_EXEC_START_POST];
-                                        int r = service_load_pid_file(s, !has_start_post);
+
+                                        has_start_post = !!s->exec_command[SERVICE_EXEC_START_POST];
+                                        r = service_load_pid_file(s, !has_start_post);
                                         if (!has_start_post && r < 0) {
                                                 r = service_demand_pid_file(s);
                                                 if (r < 0 || !cgroup_good(s))
-                                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
                                                 break;
                                         }
                                 } else
@@ -2830,43 +2855,45 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_START_POST:
-                                if (!success) {
-                                        service_enter_stop(s, false);
+                                if (f != SERVICE_SUCCESS) {
+                                        service_enter_stop(s, f);
                                         break;
                                 }
 
                                 if (s->pid_file) {
-                                        int r = service_load_pid_file(s, true);
+                                        int r;
+
+                                        r = service_load_pid_file(s, true);
                                         if (r < 0) {
                                                 r = service_demand_pid_file(s);
                                                 if (r < 0 || !cgroup_good(s))
-                                                        service_enter_stop(s, false);
+                                                        service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
                                                 break;
                                         }
                                 } else
                                         service_search_main_pid(s);
 
-                                service_enter_running(s, true);
+                                service_enter_running(s, SERVICE_SUCCESS);
                                 break;
 
                         case SERVICE_RELOAD:
-                                if (success) {
+                                if (f == SERVICE_SUCCESS) {
                                         service_load_pid_file(s, true);
                                         service_search_main_pid(s);
                                 }
 
-                                s->reload_failure = !success;
-                                service_enter_running(s, true);
+                                s->reload_result = f;
+                                service_enter_running(s, SERVICE_SUCCESS);
                                 break;
 
                         case SERVICE_STOP:
-                                service_enter_signal(s, SERVICE_STOP_SIGTERM, success);
+                                service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
                                 break;
 
                         case SERVICE_STOP_SIGTERM:
                         case SERVICE_STOP_SIGKILL:
                                 if (main_pid_good(s) <= 0)
-                                        service_enter_stop_post(s, success);
+                                        service_enter_stop_post(s, f);
 
                                 /* If there is still a service
                                  * process around, wait until
@@ -2876,7 +2903,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         case SERVICE_STOP_POST:
                         case SERVICE_FINAL_SIGTERM:
                         case SERVICE_FINAL_SIGKILL:
-                                service_enter_dead(s, success, true);
+                                service_enter_dead(s, f, true);
                                 break;
 
                         default:
@@ -2902,32 +2929,32 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
         case SERVICE_START_PRE:
         case SERVICE_START:
                 log_warning("%s operation timed out. Terminating.", u->id);
-                service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_START_POST:
                 log_warning("%s operation timed out. Stopping.", u->id);
-                service_enter_stop(s, false);
+                service_enter_stop(s, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_RELOAD:
                 log_warning("%s operation timed out. Stopping.", u->id);
-                s->reload_failure = true;
-                service_enter_running(s, true);
+                s->reload_result = SERVICE_FAILURE_TIMEOUT;
+                service_enter_running(s, SERVICE_SUCCESS);
                 break;
 
         case SERVICE_STOP:
                 log_warning("%s stopping timed out. Terminating.", u->id);
-                service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_STOP_SIGTERM:
                 if (s->exec_context.send_sigkill) {
                         log_warning("%s stopping timed out. Killing.", u->id);
-                        service_enter_signal(s, SERVICE_STOP_SIGKILL, false);
+                        service_enter_signal(s, SERVICE_STOP_SIGKILL, SERVICE_FAILURE_TIMEOUT);
                 } else {
                         log_warning("%s stopping timed out. Skipping SIGKILL.", u->id);
-                        service_enter_stop_post(s, false);
+                        service_enter_stop_post(s, SERVICE_FAILURE_TIMEOUT);
                 }
 
                 break;
@@ -2938,28 +2965,28 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                  * weirded out and continue */
 
                 log_warning("%s still around after SIGKILL. Ignoring.", u->id);
-                service_enter_stop_post(s, false);
+                service_enter_stop_post(s, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_STOP_POST:
                 log_warning("%s stopping timed out (2). Terminating.", u->id);
-                service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_FINAL_SIGTERM:
                 if (s->exec_context.send_sigkill) {
                         log_warning("%s stopping timed out (2). Killing.", u->id);
-                        service_enter_signal(s, SERVICE_FINAL_SIGKILL, false);
+                        service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_FAILURE_TIMEOUT);
                 } else {
                         log_warning("%s stopping timed out (2). Skipping SIGKILL. Entering failed mode.", u->id);
-                        service_enter_dead(s, false, true);
+                        service_enter_dead(s, SERVICE_FAILURE_TIMEOUT, false);
                 }
 
                 break;
 
         case SERVICE_FINAL_SIGKILL:
                 log_warning("%s still around after SIGKILL (2). Entering failed mode.", u->id);
-                service_enter_dead(s, false, true);
+                service_enter_dead(s, SERVICE_FAILURE_TIMEOUT, true);
                 break;
 
         case SERVICE_AUTO_RESTART:
@@ -2995,28 +3022,29 @@ static void service_cgroup_notify_event(Unit *u) {
                         log_warning("%s never wrote its PID file. Failing.", UNIT(s)->id);
                         service_unwatch_pid_file(s);
                         if (s->state == SERVICE_START)
-                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
                         else
-                                service_enter_stop(s, false);
+                                service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
                 }
                 break;
 
         case SERVICE_RUNNING:
-                service_enter_running(s, true);
+                /* service_enter_running() will figure out what to do */
+                service_enter_running(s, SERVICE_SUCCESS);
                 break;
 
         case SERVICE_STOP_SIGTERM:
         case SERVICE_STOP_SIGKILL:
 
                 if (main_pid_good(s) <= 0 && !control_pid_good(s))
-                        service_enter_stop_post(s, true);
+                        service_enter_stop_post(s, SERVICE_SUCCESS);
 
                 break;
 
         case SERVICE_FINAL_SIGTERM:
         case SERVICE_FINAL_SIGKILL:
                 if (main_pid_good(s) <= 0 && !control_pid_good(s))
-                        service_enter_dead(s, true, true);
+                        service_enter_dead(s, SERVICE_SUCCESS, SERVICE_SUCCESS);
 
                 break;
 
@@ -3361,7 +3389,7 @@ static void service_bus_name_owner_change(
                 /* service_enter_running() will figure out what to
                  * do */
                 if (s->state == SERVICE_RUNNING)
-                        service_enter_running(s, true);
+                        service_enter_running(s, SERVICE_SUCCESS);
                 else if (s->state == SERVICE_START && new_owner)
                         service_enter_start_post(s);
 
@@ -3433,7 +3461,8 @@ static void service_reset_failed(Unit *u) {
         if (s->state == SERVICE_FAILED)
                 service_set_state(s, SERVICE_DEAD);
 
-        s->failure = false;
+        s->result = SERVICE_SUCCESS;
+        s->reload_result = SERVICE_SUCCESS;
 }
 
 static bool service_need_daemon_reload(Unit *u) {
@@ -3575,6 +3604,17 @@ static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
+
+static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
+        [SERVICE_SUCCESS] = "success",
+        [SERVICE_FAILURE_RESOURCES] = "resources",
+        [SERVICE_FAILURE_TIMEOUT] = "timeout",
+        [SERVICE_FAILURE_EXIT_CODE] = "exit-code",
+        [SERVICE_FAILURE_SIGNAL] = "signal",
+        [SERVICE_FAILURE_CORE_DUMP] = "core-dump"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult);
 
 const UnitVTable service_vtable = {
         .suffix = ".service",
