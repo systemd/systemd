@@ -56,6 +56,17 @@ typedef struct SwapParameters {
         bool handle:1;
 } SwapParameters;
 
+typedef enum SwapResult {
+        SWAP_SUCCESS,
+        SWAP_FAILURE_RESOURCES,
+        SWAP_FAILURE_TIMEOUT,
+        SWAP_FAILURE_EXIT_CODE,
+        SWAP_FAILURE_SIGNAL,
+        SWAP_FAILURE_CORE_DUMP,
+        _SWAP_RESULT_MAX,
+        _SWAP_RESULT_INVALID = -1
+} SwapResult;
+
 struct Swap {
         Unit meta;
 
@@ -69,12 +80,12 @@ struct Swap {
         bool from_proc_swaps:1;
         bool from_fragment:1;
 
-        bool failure:1;
-
         /* Used while looking for swaps that vanished or got added
          * from/to /proc/swaps */
         bool is_active:1;
         bool just_activated:1;
+
+        SwapResult result;
 
         usec_t timeout_usec;
 
@@ -110,5 +121,8 @@ SwapState swap_state_from_string(const char *s);
 
 const char* swap_exec_command_to_string(SwapExecCommand i);
 SwapExecCommand swap_exec_command_from_string(const char *s);
+
+const char* swap_result_to_string(SwapResult i);
+SwapResult swap_result_from_string(const char *s);
 
 #endif
