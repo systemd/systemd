@@ -35,6 +35,13 @@ typedef enum AutomountState {
         _AUTOMOUNT_STATE_INVALID = -1
 } AutomountState;
 
+typedef enum AutomountResult {
+        AUTOMOUNT_SUCCESS,
+        AUTOMOUNT_FAILURE_RESOURCES,
+        _AUTOMOUNT_RESULT_MAX,
+        _AUTOMOUNT_RESULT_INVALID = -1
+} AutomountResult;
+
 struct Automount {
         Unit meta;
 
@@ -51,7 +58,7 @@ struct Automount {
 
         Set *tokens;
 
-        bool failure:1;
+        AutomountResult result;
 };
 
 extern const UnitVTable automount_vtable;
@@ -62,5 +69,8 @@ int automount_add_one_mount_link(Automount *a, Mount *m);
 
 const char* automount_state_to_string(AutomountState i);
 AutomountState automount_state_from_string(const char *s);
+
+const char* automount_result_to_string(AutomountResult i);
+AutomountResult automount_result_from_string(const char *s);
 
 #endif

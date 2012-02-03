@@ -750,6 +750,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sMount State: %s\n"
+                "%sResult: %s\n"
                 "%sWhere: %s\n"
                 "%sWhat: %s\n"
                 "%sFile System Type: %s\n"
@@ -759,6 +760,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sFrom fragment: %s\n"
                 "%sDirectoryMode: %04o\n",
                 prefix, mount_state_to_string(m->state),
+                prefix, mount_result_to_string(m->result),
                 prefix, m->where,
                 prefix, strna(p->what),
                 prefix, strna(p->fstype),

@@ -29,5 +29,6 @@
 DBusHandlerResult bus_automount_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
 
 extern const char bus_automount_interface[];
+extern const char bus_automount_invalidating_properties[];
 
 #endif

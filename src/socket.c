@@ -407,6 +407,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sSocket State: %s\n"
+                "%sResult: %s\n"
                 "%sBindIPv6Only: %s\n"
                 "%sBacklog: %u\n"
                 "%sSocketMode: %04o\n"
@@ -418,6 +419,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPassCredentials: %s\n"
                 "%sTCPCongestion: %s\n",
                 prefix, socket_state_to_string(s->state),
+                prefix, socket_result_to_string(s->result),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
                 prefix, s->backlog,
                 prefix, s->socket_mode,

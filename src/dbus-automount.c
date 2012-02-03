@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+
 #include "dbus-unit.h"
 #include "dbus-automount.h"
 #include "dbus-common.h"
@@ -27,6 +29,7 @@
         " <interface name=\"org.freedesktop.systemd1.Automount\">\n" \
         "  <property name=\"Where\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
         " </interface>\n"
 
 #define INTROSPECTION                                                \
@@ -45,9 +48,15 @@
 
 const char bus_automount_interface[] _introspect_("Automount") = BUS_AUTOMOUNT_INTERFACE;
 
+const char bus_automount_invalidating_properties[] =
+        "Result\0";
+
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_automount_append_automount_result, automount_result, AutomountResult);
+
 static const BusProperty bus_automount_properties[] = {
         { "Where",         bus_property_append_string, "s", offsetof(Automount, where),    true },
         { "DirectoryMode", bus_property_append_mode,   "u", offsetof(Automount, directory_mode) },
+        { "Result",        bus_automount_append_automount_result, "s", offsetof(Automount, result) },
         { NULL, }
 };
 

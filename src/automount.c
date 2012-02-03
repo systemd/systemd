@@ -288,20 +288,22 @@ static void automount_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sAutomount State: %s\n"
+                "%sResult: %s\n"
                 "%sWhere: %s\n"
                 "%sDirectoryMode: %04o\n",
                 prefix, automount_state_to_string(a->state),
+                prefix, automount_result_to_string(a->result),
                 prefix, a->where,
                 prefix, a->directory_mode);
 }
 
-static void automount_enter_dead(Automount *a, bool success) {
+static void automount_enter_dead(Automount *a, AutomountResult f) {
         assert(a);
 
-        if (!success)
-                a->failure = true;
+        if (f != AUTOMOUNT_SUCCESS)
+                a->result = f;
 
-        automount_set_state(a, a->failure ? AUTOMOUNT_FAILED : AUTOMOUNT_DEAD);
+        automount_set_state(a, a->result != AUTOMOUNT_SUCCESS ? AUTOMOUNT_FAILED : AUTOMOUNT_DEAD);
 }
 
 static int open_dev_autofs(Manager *m) {
@@ -565,7 +567,7 @@ fail:
                 repeat_unmout(a->where);
 
         log_error("Failed to initialize automounter: %s", strerror(-r));
-        automount_enter_dead(a, false);
+        automount_enter_dead(a, AUTOMOUNT_FAILURE_RESOURCES);
 }
 
 static void automount_enter_runnning(Automount *a) {
@@ -605,7 +607,7 @@ static void automount_enter_runnning(Automount *a) {
         return;
 
 fail:
-        automount_enter_dead(a, false);
+        automount_enter_dead(a, AUTOMOUNT_FAILURE_RESOURCES);
         dbus_error_free(&error);
 }
 
@@ -624,7 +626,7 @@ static int automount_start(Unit *u) {
         if (UNIT_DEREF(a->mount)->load_state != UNIT_LOADED)
                 return -ENOENT;
 
-        a->failure = false;
+        a->result = AUTOMOUNT_SUCCESS;
         automount_enter_waiting(a);
         return 0;
 }
@@ -636,7 +638,7 @@ static int automount_stop(Unit *u) {
 
         assert(a->state == AUTOMOUNT_WAITING || a->state == AUTOMOUNT_RUNNING);
 
-        automount_enter_dead(a, true);
+        automount_enter_dead(a, AUTOMOUNT_SUCCESS);
         return 0;
 }
 
@@ -650,7 +652,7 @@ static int automount_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(fds);
 
         unit_serialize_item(u, f, "state", automount_state_to_string(a->state));
-        unit_serialize_item(u, f, "failure", yes_no(a->failure));
+        unit_serialize_item(u, f, "result", automount_result_to_string(a->result));
         unit_serialize_item_format(u, f, "dev-id", "%u", (unsigned) a->dev_id);
 
         SET_FOREACH(p, a->tokens, i)
@@ -682,13 +684,15 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
                         log_debug("Failed to parse state value %s", value);
                 else
                         a->deserialized_state = state;
-        } else if (streq(key, "failure")) {
-                int b;
+        } else if (streq(key, "result")) {
+                AutomountResult f;
 
-                if ((b = parse_boolean(value)) < 0)
-                        log_debug("Failed to parse failure value %s", value);
-                else
-                        a->failure = b || a->failure;
+                f = automount_result_from_string(value);
+                if (f < 0)
+                        log_debug("Failed to parse result value %s", value);
+                else if (f != AUTOMOUNT_SUCCESS)
+                        a->result = f;
+
         } else if (streq(key, "dev-id")) {
                 unsigned d;
 
@@ -804,7 +808,7 @@ static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         return;
 
 fail:
-        automount_enter_dead(a, false);
+        automount_enter_dead(a, AUTOMOUNT_FAILURE_RESOURCES);
 }
 
 static void automount_shutdown(Manager *m) {
@@ -822,7 +826,7 @@ static void automount_reset_failed(Unit *u) {
         if (a->state == AUTOMOUNT_FAILED)
                 automount_set_state(a, AUTOMOUNT_DEAD);
 
-        a->failure = false;
+        a->result = AUTOMOUNT_SUCCESS;
 }
 
 static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
@@ -833,6 +837,13 @@ static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
+
+static const char* const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
+        [AUTOMOUNT_SUCCESS] = "success",
+        [AUTOMOUNT_FAILURE_RESOURCES] = "resources"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(automount_result, AutomountResult);
 
 const UnitVTable automount_vtable = {
         .suffix = ".automount",
@@ -870,6 +881,7 @@ const UnitVTable automount_vtable = {
 
         .bus_interface = "org.freedesktop.systemd1.Automount",
         .bus_message_handler = bus_automount_message_handler,
+        .bus_invalidating_properties =  bus_automount_invalidating_properties,
 
         .shutdown = automount_shutdown
 };
