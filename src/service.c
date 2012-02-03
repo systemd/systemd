@@ -2402,9 +2402,9 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (s->status_text)
                 unit_serialize_item(u, f, "status-text", s->status_text);
 
-        /* There's a minor uncleanliness here: if there are multiple
-         * commands attached here, we will start from the first one
-         * again */
+        /* FIXME: There's a minor uncleanliness here: if there are
+         * multiple commands attached here, we will start from the
+         * first one again */
         if (s->control_command_id >= 0)
                 unit_serialize_item(u, f, "control-command", service_exec_command_to_string(s->control_command_id));
 
@@ -2693,7 +2693,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else if (code == CLD_DUMPED)
                 f = SERVICE_FAILURE_CORE_DUMP;
         else
-                f = SERVICE_FAILURE_RESOURCES;
+                assert_not_reached("Unknown code");
 
         if (s->main_pid == pid) {
                 /* Forking services may occasionally move to a new PID.

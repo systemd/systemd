@@ -65,6 +65,17 @@ typedef enum SocketType {
         _SOCKET_FIFO_INVALID = -1
 } SocketType;
 
+typedef enum SocketResult {
+        SOCKET_SUCCESS,
+        SOCKET_FAILURE_RESOURCES,
+        SOCKET_FAILURE_TIMEOUT,
+        SOCKET_FAILURE_EXIT_CODE,
+        SOCKET_FAILURE_SIGNAL,
+        SOCKET_FAILURE_CORE_DUMP,
+        _SOCKET_RESULT_MAX,
+        _SOCKET_RESULT_INVALID = -1
+} SocketResult;
+
 typedef struct SocketPort {
         SocketType type;
         int fd;
@@ -107,7 +118,7 @@ struct Socket {
         mode_t directory_mode;
         mode_t socket_mode;
 
-        bool failure;
+        SocketResult result;
 
         bool accept;
 
@@ -153,5 +164,8 @@ SocketState socket_state_from_string(const char *s);
 
 const char* socket_exec_command_to_string(SocketExecCommand i);
 SocketExecCommand socket_exec_command_from_string(const char *s);
+
+const char* socket_result_to_string(SocketResult i);
+SocketResult socket_result_from_string(const char *s);
 
 #endif

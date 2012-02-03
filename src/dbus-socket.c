@@ -58,6 +58,7 @@
         "  <property name=\"NConnections\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"MessageQueueMaxMessages\" type=\"x\" access=\"read\"/>\n" \
         "  <property name=\"MessageQueueMessageSize\" type=\"x\" access=\"read\"/>\n" \
+        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
         " </interface>\n"                                               \
 
 #define INTROSPECTION                                                   \
@@ -83,9 +84,11 @@ const char bus_socket_invalidating_properties[] =
         "ExecStopPost\0"
         "ControlPID\0"
         "NAccepted\0"
-        "NConnections\0";
+        "NConnections\0"
+        "Result\0";
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_socket_append_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_socket_append_socket_result, socket_result, SocketResult);
 
 static const BusProperty bus_socket_properties[] = {
         { "BindIPv6Only",   bus_socket_append_bind_ipv6_only,  "s", offsetof(Socket, bind_ipv6_only)  },
@@ -117,6 +120,7 @@ static const BusProperty bus_socket_properties[] = {
         { "NAccepted",      bus_property_append_unsigned,      "u", offsetof(Socket, n_accepted)      },
         { "MessageQueueMaxMessages", bus_property_append_long, "x", offsetof(Socket, mq_maxmsg)       },
         { "MessageQueueMessageSize", bus_property_append_long, "x", offsetof(Socket, mq_msgsize)      },
+        { "Result",         bus_socket_append_socket_result,   "s", offsetof(Socket, result)          },
         { NULL, }
 };
 
