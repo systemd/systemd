@@ -39,6 +39,7 @@
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
         " </interface>\n"
 
 #define INTROSPECTION                                                   \
@@ -64,7 +65,8 @@ const char bus_mount_invalidating_properties[] =
         "ExecMount\0"
         "ExecUnmount\0"
         "ExecRemount\0"
-        "ControlPID\0";
+        "ControlPID\0"
+        "Result\0";
 
 static int bus_mount_append_what(DBusMessageIter *i, const char *property, void *data) {
         Mount *m = data;
@@ -135,6 +137,8 @@ static int bus_mount_append_type(DBusMessageIter *i, const char *property, void 
         return 0;
 }
 
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_mount_append_mount_result, mount_result, MountResult);
+
 static const BusProperty bus_mount_properties[] = {
         { "Where",         bus_property_append_string, "s", offsetof(Mount, where),    true },
         { "What",          bus_mount_append_what,      "s", 0 },
@@ -146,6 +150,7 @@ static const BusProperty bus_mount_properties[] = {
         BUS_EXEC_COMMAND_PROPERTY("ExecRemount", offsetof(Mount, exec_command[MOUNT_EXEC_REMOUNT]), false),
         { "ControlPID",    bus_property_append_pid,    "u", offsetof(Mount, control_pid)    },
         { "DirectoryMode", bus_property_append_mode,   "u", offsetof(Mount, directory_mode) },
+        { "Result",        bus_mount_append_mount_result, "s", offsetof(Mount, result)      },
         { NULL, }
 };
 

@@ -59,6 +59,17 @@ typedef struct MountParameters {
         int passno;
 } MountParameters;
 
+typedef enum MountResult {
+        MOUNT_SUCCESS,
+        MOUNT_FAILURE_RESOURCES,
+        MOUNT_FAILURE_TIMEOUT,
+        MOUNT_FAILURE_EXIT_CODE,
+        MOUNT_FAILURE_SIGNAL,
+        MOUNT_FAILURE_CORE_DUMP,
+        _MOUNT_RESULT_MAX,
+        _MOUNT_RESULT_INVALID = -1
+} MountResult;
+
 struct Mount {
         Unit meta;
 
@@ -78,8 +89,8 @@ struct Mount {
         bool just_mounted:1;
         bool just_changed:1;
 
-        bool failure:1;
-        bool reload_failure:1;
+        MountResult result;
+        MountResult reload_result;
 
         mode_t directory_mode;
 
@@ -106,5 +117,8 @@ MountState mount_state_from_string(const char *s);
 
 const char* mount_exec_command_to_string(MountExecCommand i);
 MountExecCommand mount_exec_command_from_string(const char *s);
+
+const char* mount_result_to_string(MountResult i);
+MountResult mount_result_from_string(const char *s);
 
 #endif
