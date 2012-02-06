@@ -36,7 +36,6 @@ static struct kmod_ctx *ctx;
 static int load_module(struct udev *udev, const char *alias)
 {
         struct kmod_list *list = NULL;
-        struct kmod_list *listb = NULL;
         struct kmod_list *l;
         int err;
 
@@ -44,20 +43,16 @@ static int load_module(struct udev *udev, const char *alias)
         if (err < 0)
                 return err;
 
-        err = kmod_module_get_filtered_blacklist(ctx, list, &listb);
-        if (err < 0)
-                return err;
-
         if (list == NULL)
                 info(udev, "no module matches '%s'\n", alias);
-        else if (listb == NULL)
-                info(udev, "modules matching '%s' are blacklisted\n", alias);
 
-        kmod_list_foreach(l, listb) {
+        kmod_list_foreach(l, list) {
                 struct kmod_module *mod = kmod_module_get_module(l);
 
-                err = kmod_module_probe_insert_module(mod, 0, NULL, NULL, NULL);
-                if (err >=0 )
+                err = kmod_module_probe_insert_module(mod, KMOD_PROBE_APPLY_BLACKLIST, NULL, NULL, NULL, NULL);
+                if (err == KMOD_PROBE_APPLY_BLACKLIST)
+                        info(udev, "module '%s' is blacklisted\n", kmod_module_get_name(mod));
+                else if (err == 0)
                         info(udev, "inserted '%s'\n", kmod_module_get_name(mod));
                 else
                         info(udev, "failed to insert '%s'\n", kmod_module_get_name(mod));
@@ -66,7 +61,6 @@ static int load_module(struct udev *udev, const char *alias)
         }
 
         kmod_module_unref_list(list);
-        kmod_module_unref_list(listb);
         return err;
 }
 
