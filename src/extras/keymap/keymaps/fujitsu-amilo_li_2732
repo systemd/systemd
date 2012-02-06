@@ -1,0 +1,3 @@
+0xD9 brightnessdown # Fn+F8 brightness down
+0xEF brightnessup # Fn+F9 brightness up
+0xA9 switchvideomode # Fn+F10 Cycle between available video outputs

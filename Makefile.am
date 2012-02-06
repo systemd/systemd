@@ -574,6 +574,7 @@ dist_udevkeymap_DATA = \
 	src/extras/keymap/keymaps/dell \
 	src/extras/keymap/keymaps/dell-latitude-xt2 \
 	src/extras/keymap/keymaps/everex-xt5000 \
+	src/extras/keymap/keymaps/fujitsu-amilo_li_2732 \
 	src/extras/keymap/keymaps/fujitsu-amilo_pa_2548 \
 	src/extras/keymap/keymaps/fujitsu-amilo_pro_edition_v3505 \
 	src/extras/keymap/keymaps/fujitsu-amilo_pro_v3205 \
