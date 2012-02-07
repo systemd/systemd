@@ -21,13 +21,13 @@ Bugfixes:
 
 Features:
 
+* Port systemd-load-modules and setup-kmod.c to libkmod
+
 * dbus: in fedora, make the machine a symlink to /etc/machine-id
 
 * journald: reuse XZ context
 
 * logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
-
-* Fedora: disable journald's /proc/kmsg reading on Fedora for now
 
 * write RPM spec macros for presets
 
