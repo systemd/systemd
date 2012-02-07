@@ -1,5 +1,19 @@
 systemd System and Service Manager
 
+CHANGES WITH 40:
+        * This is mostly a bugfix release
+
+        * We now expose the reason why a service failed in the
+          "Result" D-Bus property.
+
+        * Rudimentary service watchdog support (will be completed over
+          the next few releases.)
+
+        * When systemd forks off in order execute some service we will
+          now immediately changes its argv[0] to reflect which process
+          it will execute. This is useful to minimize the time window
+          with a generic argv[0], which makes bootcharts more useful
+
 CHANGES WITH 39:
         * This is mostly a test release, but incorporates many
           bugfixes.
