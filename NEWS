@@ -1,3 +1,9 @@
+udev 181
+========
+Require kmod version 5.
+
+Provide /dev/cdrom symlink for /dev/sr0.
+
 udev 180
 ========
 Fix for ID_PART_ENTRY_* property names, added by the blkid built-in. The

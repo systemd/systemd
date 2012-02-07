@@ -1,3 +1,25 @@
+Summary of changes from v180 to v181
+============================================
+
+Andreas Schwab (1):
+      ata_id: fix identify string fixup
+
+Bruno Redondi (1):
+      keymap: Add Fujitsu Siemens Amilo Li 2732
+
+James M. Leddy (1):
+      keymap: Fix touchpad toggle button on Lenovo Ideapad
+
+Kay Sievers (4):
+      configure: show ROOTPREFIX in firmware path option help text
+      extras: cdrom_id -  create /dev/cdrom and conditionally /dev/dvd for sr0
+      extras: cdrom_id -  create only /dev/cdrom
+      ata_id: whitespace fixes
+
+Lucas De Marchi (1):
+      builtin: kmod - depend on libkmod >= 5
+
+
 Summary of changes from v179 to v180
 ============================================
 
