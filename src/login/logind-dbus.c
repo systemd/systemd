@@ -94,12 +94,12 @@
         "  </method>\n"                                                 \
         "  <method name=\"KillSession\">\n"                             \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
-        "   <arg name=\"who\" type=\"s\"/>\n"                           \
-        "   <arg name=\"signal\" type=\"s\"/>\n"                        \
+        "   <arg name=\"who\" type=\"s\" direction=\"in\"/>\n"          \
+        "   <arg name=\"signal\" type=\"s\" direction=\"in\"/>\n"       \
         "  </method>\n"                                                 \
         "  <method name=\"KillUser\">\n"                                \
         "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
-        "   <arg name=\"signal\" type=\"s\"/>\n"                        \
+        "   <arg name=\"signal\" type=\"s\" direction=\"in\"/>\n"       \
         "  </method>\n"                                                 \
         "  <method name=\"TerminateSession\">\n"                        \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
