@@ -185,7 +185,7 @@
                 <title>Example 2</title>
 
                 <programlisting># mock --init
-# systemd-nspawn -D /var/lib/mock/fedora-rawhide-x86_64/root/ /bin/systemd systemd.log_level=debug</programlisting>
+# systemd-nspawn -D /var/lib/mock/fedora-rawhide-x86_64/root/ /sbin/init systemd.log_level=debug</programlisting>
 
                 <para>This installs a minimal Fedora distribution into
                 a subdirectory of <filename>/var/lib/mock/</filename>

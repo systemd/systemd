@@ -15,5 +15,5 @@ PAMName=systemd-shared
 ControlGroup=%R/user/%I/shared cpu:/
 ControlGroupModify=yes
 Type=notify
-ExecStart=-@rootbindir@/systemd --user
+ExecStart=-@rootlibexecdir@/systemd --user
 Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%I/dbus/user_bus_socket

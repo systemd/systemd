@@ -161,7 +161,6 @@ endif
 endif
 
 rootbin_PROGRAMS = \
-	systemd \
 	systemctl \
 	systemd-notify \
 	systemd-ask-password \
@@ -185,6 +184,7 @@ bin_PROGRAMS += \
 endif
 
 rootlibexec_PROGRAMS = \
+	systemd \
 	systemd-cgroups-agent \
 	systemd-initctl \
 	systemd-update-utmp \

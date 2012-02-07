@@ -1,5 +1,10 @@
 systemd System and Service Manager
 
+CHANGES WITH 41:
+        * The systemd binary is installed /usr/lib/systemd/systemd now;
+          An existing /sbin/init symlink needs to be adapted with the
+          package update.
+
 CHANGES WITH 40:
         * This is mostly a bugfix release
 
