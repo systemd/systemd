@@ -46,7 +46,7 @@ typedef struct RateLimit {
                 _r->burst = (_burst);                    \
                 _r->num = 0;                             \
                 _r->begin = 0;                           \
-        } while (false);
+        } while (false)
 
 bool ratelimit_test(RateLimit *r);
 
