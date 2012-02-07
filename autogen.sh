@@ -29,12 +29,17 @@ libdir() {
 }
 
 args="\
---with-rootprefix= \
 --sysconfdir=/etc \
 --localstatedir=/var \
 --libdir=$(libdir /usr/lib) \
---with-rootlibdir=$(libdir /lib) \
 --libexecdir=/usr/lib"
+
+if [ ! -L /bin ]; then
+args="$args \
+--with-rootprefix= \
+--with-rootlibdir=$(libdir /lib) \
+"
+fi
 
 if [ "x$1" != "xc" ]; then
     echo
