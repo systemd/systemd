@@ -251,6 +251,7 @@ static const BusProperty bus_login_session_properties[] = {
 static const BusProperty bus_login_session_user_properties[] = {
         { "User",                   bus_session_append_user,         "(uo)", 0 },
         { "Name",                   bus_property_append_string,         "s", offsetof(User, name),                  true },
+        { NULL, }
 };
 
 static DBusHandlerResult session_message_dispatch(
