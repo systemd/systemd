@@ -1292,7 +1292,11 @@ int main(int argc, char *argv[]) {
 
         /* Set up PATH unless it is already set */
         setenv("PATH",
+#ifdef HAVE_SPLIT_USR
                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+#else
+               "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin",
+#endif
                arg_running_as == MANAGER_SYSTEM);
 
         if (arg_running_as == MANAGER_SYSTEM) {

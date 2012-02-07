@@ -612,6 +612,12 @@ AC_ARG_WITH([pamlibdir],
         [],
         [with_pamlibdir=${with_rootlibdir}/security])
 
+have_split_usr=no
+if test "x${ac_default_prefix}" != "x${with_rootprefix}" ; then
+        AC_DEFINE(HAVE_SPLIT_USR, 1, [Define if /bin, /sbin aren't symlinks into /usr])
+        have_split_usr=yes
+fi
+
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
@@ -654,10 +660,11 @@ AC_MSG_RESULT([
         libexec dir:             ${libexecdir}
         lib dir:                 ${libdir}
         rootlib dir:             ${with_rootlibdir}
-        pam modules dir:         ${with_pamlibdir}
+        PAM modules dir:         ${with_pamlibdir}
         udev rules dir:          ${with_udevrulesdir}
-        dbus policy dir:         ${with_dbuspolicydir}
-        dbus session dir:        ${with_dbussessionservicedir}
-        dbus system dir:         ${with_dbussystemservicedir}
-        dbus interfaces dir:     ${with_dbusinterfacedir}
+        D-Bus policy dir:        ${with_dbuspolicydir}
+        D-Bus session dir:       ${with_dbussessionservicedir}
+        D-Bus system dir:        ${with_dbussystemservicedir}
+        D-Bus interfaces dir:    ${with_dbusinterfacedir}
+        Split /usr:              ${have_split_usr}
 ])
