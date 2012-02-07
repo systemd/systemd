@@ -82,6 +82,10 @@
         "  <method name=\"ActivateSession\">\n"                         \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "  </method>\n"                                                 \
+        "  <method name=\"ActivateSessionOnSeat\">\n"                   \
+        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
+        "   <arg name=\"seat\" type=\"s\" direction=\"in\"/>\n"         \
+        "  </method>\n"                                                 \
         "  <method name=\"LockSession\">\n"                             \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "  </method>\n"                                                 \
@@ -1034,6 +1038,41 @@ static DBusHandlerResult manager_message_handler(
                 session = hashmap_get(m->sessions, name);
                 if (!session)
                         return bus_send_error_reply(connection, message, &error, -ENOENT);
+
+                r = session_activate(session);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ActivateSessionOnSeat")) {
+                const char *session_name, *seat_name;
+                Session *session;
+                Seat *seat;
+
+                /* Same as ActivateSession() but refuses to work if
+                 * the seat doesn't match */
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &session_name,
+                                    DBUS_TYPE_STRING, &seat_name,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                session = hashmap_get(m->sessions, session_name);
+                if (!session)
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+
+                seat = hashmap_get(m->seats, seat_name);
+                if (!seat)
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+
+                if (session->seat != seat)
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 r = session_activate(session);
                 if (r < 0)
