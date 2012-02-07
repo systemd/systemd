@@ -320,7 +320,7 @@ static bool needs_quota(MountParameters *p) {
 }
 
 static int mount_add_fstab_links(Mount *m) {
-        const char *target, *after = NULL, *after2 = NULL;
+        const char *target, *after, *tu_wants = NULL;
         MountParameters *p;
         Unit *tu;
         int r;
@@ -350,23 +350,27 @@ static int mount_add_fstab_links(Mount *m) {
 
         if (mount_is_network(p)) {
                 target = SPECIAL_REMOTE_FS_TARGET;
-                after = SPECIAL_REMOTE_FS_PRE_TARGET;
-                after2 = SPECIAL_NETWORK_TARGET;
+                after = tu_wants = SPECIAL_REMOTE_FS_PRE_TARGET;
         } else {
                 target = SPECIAL_LOCAL_FS_TARGET;
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
         }
 
-        if ((r = manager_load_unit(UNIT(m)->manager, target, NULL, NULL, &tu)) < 0)
+        r = manager_load_unit(UNIT(m)->manager, target, NULL, NULL, &tu);
+        if (r < 0)
                 return r;
 
-        if (after)
-                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, NULL, true)) < 0)
+        if (tu_wants) {
+                r = unit_add_dependency_by_name(tu, UNIT_WANTS, tu_wants, NULL, true);
+                if (r < 0)
                         return r;
+        }
 
-        if (after2)
-                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after2, NULL, true)) < 0)
+        if (after) {
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, NULL, true);
+                if (r < 0)
                         return r;
+        }
 
         if (automount) {
                 Unit *am;
