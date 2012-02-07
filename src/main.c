@@ -323,6 +323,26 @@ static int parse_proc_cmdline_word(const char *word) {
                         log_warning("Failed to parse default standard error switch %s. Ignoring.", word + 31);
                 else
                         arg_default_std_error = r;
+        } else if (startswith(word, "systemd.setenv=")) {
+                char *cenv, *eq;
+                int r;
+
+                cenv = strdup(word + 15);
+                if (!cenv)
+                        return -ENOMEM;
+
+                eq = strchr(cenv, '=');
+                if (!eq) {
+                        r = unsetenv(cenv);
+                        if (r < 0)
+                                log_warning("unsetenv failed %s. Ignoring.", strerror(errno));
+                } else {
+                        *eq = 0;
+                        r = setenv(cenv, eq + 1, 1);
+                        if (r < 0)
+                                log_warning("setenv failed %s. Ignoring.", strerror(errno));
+                }
+                free(cenv);
 #ifdef HAVE_SYSV_COMPAT
         } else if (startswith(word, "systemd.sysv_console=")) {
                 int r;
