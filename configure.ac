@@ -36,13 +36,6 @@ AS_IF([test "x$host_cpu" = "xmips" || test "x$host_cpu" = "xmipsel" ||
 
 AM_SILENT_RULES([yes])
 
-AC_CHECK_PROG([STOW], [stow], [yes], [no])
-
-AS_IF([test "x$STOW" = "xyes" && test -d /usr/local/stow], [
-        AC_MSG_NOTICE([*** Found /usr/local/stow: default install prefix set to /usr/local/stow/${PACKAGE_NAME}-${PACKAGE_VERSION} ***])
-        ac_default_prefix="/usr/local/stow/${PACKAGE_NAME}-${PACKAGE_VERSION}"
-])
-
 # i18n stuff for the PolicyKit policy files
 IT_PROG_INTLTOOL([0.40.0])
 
