@@ -1735,6 +1735,12 @@ static int service_spawn(
                         goto fail;
                 }
 
+        if (s->watchdog_usec > 0)
+                if (asprintf(our_env + n_env++, "WATCHDOG_USEC=%llu", (unsigned long long) s->watchdog_usec) < 0) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
         if (!(final_env = strv_env_merge(2,
                                          UNIT(s)->manager->environment,
                                          our_env,
