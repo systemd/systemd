@@ -862,8 +862,12 @@ systemd_shutdown_LDADD = \
 systemd_modules_load_SOURCES = \
 	src/modules-load.c
 
+systemd_modules_load_CFLAGS = \
+	$(KMOD_CFLAGS)
+
 systemd_modules_load_LDADD = \
-	libsystemd-basic.la
+	libsystemd-basic.la \
+	$(KMOD_LIBS)
 
 systemd_tmpfiles_SOURCES = \
 	src/tmpfiles.c

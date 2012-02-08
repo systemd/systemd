@@ -23,8 +23,6 @@ Features:
 
 * if a journal file is corrupt, rotate it and create a new one
 
-* Port systemd-load-modules to libkmod
-
 * dbus: in fedora, make the machine a symlink to /etc/machine-id
 
 * journald: reuse XZ context

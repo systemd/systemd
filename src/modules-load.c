@@ -26,16 +26,23 @@
 #include <sys/stat.h>
 #include <limits.h>
 #include <dirent.h>
+#include <libkmod.h>
 
 #include "log.h"
 #include "util.h"
 #include "strv.h"
 
+static void systemd_kmod_log(void *data, int priority, const char *file, int line,
+                             const char *fn, const char *format, va_list args)
+{
+        log_meta(priority, file, line, fn, format, args);
+}
+
 int main(int argc, char *argv[]) {
         int r = EXIT_FAILURE;
-        char **arguments = NULL;
-        unsigned n_arguments = 0, n_allocated = 0;
         char **files, **fn;
+        struct kmod_ctx *ctx;
+        struct kmod_module *mod;
 
         if (argc > 1) {
                 log_error("This program takes no argument.");
@@ -48,12 +55,14 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (!(arguments = strv_new("/sbin/modprobe", "-sab", "--", NULL))) {
-                log_error("Failed to allocate string array");
+        if (!(ctx = kmod_new(NULL, NULL))) {
+                log_error("Failed to allocate memory for kmod.");
                 goto finish;
         }
 
-        n_arguments = n_allocated = 3;
+        kmod_load_resources(ctx);
+
+        kmod_set_log_fn(ctx, systemd_kmod_log, NULL);
 
         if (conf_files_list(&files, ".conf",
                             "/run/modules-load.d",
@@ -83,7 +92,8 @@ int main(int argc, char *argv[]) {
 
                 log_debug("apply: %s\n", *fn);
                 for (;;) {
-                        char line[LINE_MAX], *l, *t;
+                        char line[LINE_MAX], *l;
+                        int err;
 
                         if (!(fgets(line, sizeof(line), f)))
                                 break;
@@ -92,52 +102,38 @@ int main(int argc, char *argv[]) {
                         if (*l == '#' || *l == 0)
                                 continue;
 
-                        if (!(t = strdup(l))) {
-                                log_error("Failed to allocate module name.");
+                        err = kmod_module_new_from_name(ctx, l, &mod);
+                        if (err < 0) {
+                                log_error("Failed to load module '%s'", l);
+                                r = EXIT_FAILURE;
                                 continue;
                         }
 
-                        if (n_arguments >= n_allocated) {
-                                char **a;
-                                unsigned m;
-
-                                m = MAX(16U, n_arguments*2);
-
-                                if (!(a = realloc(arguments, sizeof(char*) * (m+1)))) {
-                                        log_error("Failed to increase module array size.");
-                                        free(t);
-                                        r = EXIT_FAILURE;
-                                        continue;
-                                }
-
-                                arguments = a;
-                                n_allocated = m;
+                        err = kmod_module_probe_insert_module(mod, KMOD_PROBE_APPLY_BLACKLIST,
+                                                              NULL, NULL, NULL, NULL);
+                        if (err == 0)
+                                log_info("Inserted module '%s'", kmod_module_get_name(mod));
+                        else if (err == KMOD_PROBE_APPLY_BLACKLIST)
+                                log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
+                        else {
+                                log_error("Failed to insert '%s'", kmod_module_get_name(mod));
+                                r = EXIT_FAILURE;
                         }
 
-                        arguments[n_arguments++] = t;
+                        kmod_module_unref(mod);
                 }
 
                 if (ferror(f)) {
-                        r = EXIT_FAILURE;
                         log_error("Failed to read from file: %m");
+                        r = EXIT_FAILURE;
                 }
 
                 fclose(f);
         }
 
-        strv_free(files);
 finish:
-
-        if (n_arguments > 3) {
-                arguments[n_arguments] = NULL;
-                strv_uniq(arguments);
-                execv("/sbin/modprobe", arguments);
-
-                log_error("Failed to execute /sbin/modprobe: %m");
-                r = EXIT_FAILURE;
-        }
-
-        strv_free(arguments);
+        strv_free(files);
+        kmod_unref(ctx);
 
         return r;
 }
