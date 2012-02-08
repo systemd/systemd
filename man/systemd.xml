@@ -1068,6 +1068,22 @@
                                 above.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>systemd.setenv=</varname></term>
+
+                                <listitem><para>Takes a string
+                                argument in the form
+                                VARIABLE=VALUE. May be used to set
+                                environment variables for the init
+                                process and all its children at boot
+                                time. May be used more than once to
+                                set multiple variables. If the equal
+                                sign and variable are missing unsets
+                                an environment variable which might be
+                                passed in from the initial ram
+                                disk.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 
