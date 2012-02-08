@@ -471,7 +471,7 @@
                                 than the configured time then the
                                 service is placed in a failure
                                 state. By setting
-                                <term><varname>Restart=</varname></term>
+                                <varname>Restart=</varname>
                                 to <option>on-failure</option> or
                                 <option>always</option> the service
                                 will be automatically restarted. The
