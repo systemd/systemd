@@ -43,6 +43,7 @@
         "  <property name=\"NotifyAccess\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RestartUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"WatchdogUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"WatchdogTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"WatchdogTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         BUS_EXEC_COMMAND_INTERFACE("ExecStartPre")                      \
@@ -119,6 +120,7 @@ static const BusProperty bus_service_properties[] = {
         { "NotifyAccess",           bus_service_append_notify_access, "s", offsetof(Service, notify_access)                },
         { "RestartUSec",            bus_property_append_usec,         "t", offsetof(Service, restart_usec)                 },
         { "TimeoutUSec",            bus_property_append_usec,         "t", offsetof(Service, timeout_usec)                 },
+        { "WatchdogUSec",           bus_property_append_usec,         "t", offsetof(Service, watchdog_usec)                },
         { "WatchdogTimestamp",      bus_property_append_usec,         "t", offsetof(Service, watchdog_timestamp.realtime)  },
         { "WatchdogTimestampMonotonic",bus_property_append_usec,      "t", offsetof(Service, watchdog_timestamp.monotonic) },
         BUS_EXEC_COMMAND_PROPERTY("ExecStartPre",  offsetof(Service, exec_command[SERVICE_EXEC_START_PRE]),  true ),

@@ -95,6 +95,7 @@ typedef enum ServiceResult {
         SERVICE_FAILURE_EXIT_CODE,
         SERVICE_FAILURE_SIGNAL,
         SERVICE_FAILURE_CORE_DUMP,
+        SERVICE_FAILURE_WATCHDOG,
         _SERVICE_RESULT_MAX,
         _SERVICE_RESULT_INVALID = -1
 } ServiceResult;
@@ -112,6 +113,8 @@ struct Service {
         usec_t timeout_usec;
 
         dual_timestamp watchdog_timestamp;
+        usec_t watchdog_usec;
+        Watch watchdog_watch;
 
         ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
         ExecContext exec_context;

@@ -460,6 +460,24 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>WatchdogSec=</varname></term>
+                                <listitem><para>Configures the watchdog
+                                timeout for a service. This is activated
+                                when the start-up is completed. The service
+                                must call
+                                <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                regularly with "WATCHDOG=1". If the time
+                                between two such calls is larger than
+                                the configured time then the service
+                                enters a failure state. By setting
+                                <term><varname>Restart=</varname></term>
+                                to <option>on-failure</option> or
+                                <option>always</option> the service can
+                                be restarted. Defaults to 0s, which
+                                disables this feature.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>Restart=</varname></term>
                                 <listitem><para>Configures whether the
                                 main service process shall be

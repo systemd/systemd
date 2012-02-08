@@ -112,6 +112,9 @@ static void service_init(Unit *u) {
 
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         s->restart_usec = DEFAULT_RESTART_USEC;
+
+        s->watchdog_watch.type = WATCH_INVALID;
+
         s->timer_watch.type = WATCH_INVALID;
 #ifdef HAVE_SYSV_COMPAT
         s->sysv_start_priority = -1;
@@ -208,14 +211,39 @@ static void service_connection_unref(Service *s) {
 static void service_stop_watchdog(Service *s) {
         assert(s);
 
+        unit_unwatch_timer(UNIT(s), &s->watchdog_watch);
         s->watchdog_timestamp.realtime = 0;
         s->watchdog_timestamp.monotonic = 0;
+}
+
+static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart);
+
+static void service_handle_watchdog(Service *s) {
+        usec_t offset;
+        int r;
+
+        assert(s);
+
+        if (s->watchdog_usec == 0)
+                return;
+
+        offset = now(CLOCK_MONOTONIC) - s->watchdog_timestamp.monotonic;
+        if (offset >= s->watchdog_usec) {
+                log_error("%s watchdog timeout!", UNIT(s)->id);
+                service_enter_dead(s, SERVICE_FAILURE_WATCHDOG, true);
+                return;
+        }
+
+        r = unit_watch_timer(UNIT(s), s->watchdog_usec - offset, &s->watchdog_watch);
+        if (r < 0)
+                log_warning("%s failed to install watchdog timer: %s", UNIT(s)->id, strerror(-r));
 }
 
 static void service_reset_watchdog(Service *s) {
         assert(s);
 
         dual_timestamp_get(&s->watchdog_timestamp);
+        service_handle_watchdog(s);
 }
 
 static void service_done(Unit *u) {
@@ -258,6 +286,8 @@ static void service_done(Unit *u) {
         service_connection_unref(s);
 
         unit_ref_unset(&s->accept_socket);
+
+        service_stop_watchdog(s);
 
         unit_unwatch_timer(u, &s->timer_watch);
 }
@@ -1568,9 +1598,12 @@ static int service_coldplug(Unit *u) {
                                 if ((r = unit_watch_pid(UNIT(s), s->control_pid)) < 0)
                                         return r;
 
+                if (s->deserialized_state == SERVICE_START_POST ||
+                    s->deserialized_state == SERVICE_RUNNING)
+                        service_handle_watchdog(s);
+
                 service_set_state(s, s->deserialized_state);
         }
-
         return 0;
 }
 
@@ -2001,6 +2034,9 @@ static void service_enter_start_post(Service *s) {
         assert(s);
 
         service_unwatch_control_pid(s);
+
+        if (s->watchdog_usec > 0)
+                service_reset_watchdog(s);
 
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST])) {
                 s->control_command_id = SERVICE_EXEC_START_POST;
@@ -2922,6 +2958,11 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
         assert(s);
         assert(elapsed == 1);
 
+        if (w == &s->watchdog_watch) {
+                service_handle_watchdog(s);
+                return;
+        }
+
         assert(w == &s->timer_watch);
 
         switch (s->state) {
@@ -3611,7 +3652,8 @@ static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
         [SERVICE_FAILURE_TIMEOUT] = "timeout",
         [SERVICE_FAILURE_EXIT_CODE] = "exit-code",
         [SERVICE_FAILURE_SIGNAL] = "signal",
-        [SERVICE_FAILURE_CORE_DUMP] = "core-dump"
+        [SERVICE_FAILURE_CORE_DUMP] = "core-dump",
+        [SERVICE_FAILURE_WATCHDOG] = "watchdog"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult);

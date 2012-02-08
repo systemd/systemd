@@ -134,6 +134,7 @@ Service.ExecStop,                config_parse_exec,                  SERVICE_EXE
 Service.ExecStopPost,            config_parse_exec,                  SERVICE_EXEC_STOP_POST,        offsetof(Service, exec_command)
 Service.RestartSec,              config_parse_usec,                  0,                             offsetof(Service, restart_usec)
 Service.TimeoutSec,              config_parse_usec,                  0,                             offsetof(Service, timeout_usec)
+Service.WatchdogSec,             config_parse_usec,                  0,                             offsetof(Service, watchdog_usec)
 Service.Type,                    config_parse_service_type,          0,                             offsetof(Service, type)
 Service.Restart,                 config_parse_service_restart,       0,                             offsetof(Service, restart)
 Service.PermissionsStartOnly,    config_parse_bool,                  0,                             offsetof(Service, permissions_start_only)
