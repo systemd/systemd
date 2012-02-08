@@ -728,10 +728,12 @@ systemd_SOURCES = \
 systemd_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS)
+	$(UDEV_CFLAGS) \
+	$(KMOD_CFLAGS)
 
 systemd_LDADD = \
-	libsystemd-core.la
+	libsystemd-core.la \
+	$(KMOD_LIBS)
 
 test_engine_SOURCES = \
 	src/test-engine.c

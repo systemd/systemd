@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <libkmod.h>
 
 #include "macro.h"
 #include "execute.h"
@@ -35,13 +36,18 @@ static const char * const kmod_table[] = {
         "unix",    "/proc/net/unix"
 };
 
+static void systemd_kmod_log(void *data, int priority, const char *file, int line,
+                             const char *fn, const char *format, va_list args)
+{
+        log_meta(priority, file, line, fn, format, args);
+}
+
+
 int kmod_setup(void) {
-        unsigned i, n = 0;
-        const char * cmdline[3 + ELEMENTSOF(kmod_table) + 1];
-        ExecCommand command;
-        ExecContext context;
-        pid_t pid;
-        int r;
+        unsigned i;
+        struct kmod_ctx *ctx = NULL;
+        struct kmod_module *mod;
+        int err;
 
         for (i = 0; i < ELEMENTSOF(kmod_table); i += 2) {
 
@@ -49,34 +55,40 @@ int kmod_setup(void) {
                         continue;
 
                 log_debug("Your kernel apparently lacks built-in %s support. Might be a good idea to compile it in. "
-                          "We'll now try to work around this by calling '/sbin/modprobe %s'...",
-                          kmod_table[i], kmod_table[i]);
+                          "We'll now try to work around this by loading the module...",
+                          kmod_table[i]);
 
-                cmdline[3 + n++] = kmod_table[i];
+                if (!ctx) {
+                        ctx = kmod_new(NULL, NULL);
+                        if (!ctx) {
+                                log_error("Failed to allocate memory for kmod");
+                                return -ENOMEM;
+                        }
+
+                        kmod_set_log_fn(ctx, systemd_kmod_log, NULL);
+
+                        kmod_load_resources(ctx);
+                }
+
+                err = kmod_module_new_from_name(ctx, kmod_table[i], &mod);
+                if (err < 0) {
+                        log_error("Failed to load module '%s'", kmod_table[i]);
+                        continue;
+                }
+
+                err = kmod_module_probe_insert_module(mod, KMOD_PROBE_APPLY_BLACKLIST, NULL, NULL, NULL, NULL);
+                if (err == 0)
+                        log_info("Inserted module '%s'", kmod_module_get_name(mod));
+                else if (err == KMOD_PROBE_APPLY_BLACKLIST)
+                        log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
+                else
+                        log_error("Failed to insert '%s'", kmod_module_get_name(mod));
+
+                kmod_module_unref(mod);
         }
 
-        if (n <= 0)
-                return 0;
+        if (ctx)
+                ctx = kmod_unref(ctx);
 
-        cmdline[0] = "/sbin/modprobe";
-        cmdline[1] = "-qab";
-        cmdline[2] = "--";
-        cmdline[3 + n] = NULL;
-
-        zero(command);
-        zero(context);
-
-        command.path = (char*) cmdline[0];
-        command.argv = (char**) cmdline;
-
-        exec_context_init(&context);
-        r = exec_spawn(&command, NULL, &context, NULL, 0, NULL, false, false, false, false, NULL, NULL, &pid);
-        exec_context_done(&context);
-
-        if (r < 0) {
-                log_error("Failed to spawn %s: %s", cmdline[0], strerror(-r));
-                return r;
-        }
-
-        return wait_for_terminate_and_warn(cmdline[0], pid);
+        return 0;
 }
