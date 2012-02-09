@@ -99,7 +99,7 @@
         </refsect1>
 
         <refsect1>
-                <title><filename>fstab</filename></title>
+                <title><filename>/etc/fstab</filename></title>
 
                 <para>Mount units may either be configured via unit
                 files, or via <filename>/etc/fstab</filename> (see
@@ -110,16 +110,25 @@
                 few special mount options are understood by systemd
                 which influence how dependencies are created for mount
                 points from <filename>/etc/fstab</filename>. If
-                <option>comment=systemd.mount</option> is specified as
-                mount option, then systemd will create a dependency of
-                type <option>Wants</option> from either
+                <option>x-systemd.mount</option> is specified as mount
+                option, then systemd will create a dependency of type
+                <option>Wants</option> from either
                 <filename>local-fs.target</filename> or
                 <filename>remote-fs.target</filename>, depending
                 whether the file system is local or remote. If
-                <option>comment=systemd.automount</option> is set, an
-                automount unit will be created for the file system. See
+                <option>x-systemd.automount</option> is set, an
+                automount unit will be created for the file
+                system. See
                 <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for details.</para>
+                for details. If
+                <option>x-systemd-device-timeout=</option> is
+                specified it may be used to configure how long systemd
+                should wait for a device to show up before giving up
+                on an entry from
+                <filename>/etc/fstab</filename>. Specify a time in
+                seconds or explicitly specifiy a unit as
+                <literal>s</literal>, <literal>min</literal>,
+                <literal>h</literal>, <literal>ms</literal>.</para>
 
                 <para>If a mount point is configured in both
                 <filename>/etc/fstab</filename> and a unit file, the
