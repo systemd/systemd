@@ -36,12 +36,14 @@ static const char * const kmod_table[] = {
         "unix",    "/proc/net/unix"
 };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 static void systemd_kmod_log(void *data, int priority, const char *file, int line,
                              const char *fn, const char *format, va_list args)
 {
         log_meta(priority, file, line, fn, format, args);
 }
-
+#pragma GCC diagnostic pop
 
 int kmod_setup(void) {
         unsigned i;
