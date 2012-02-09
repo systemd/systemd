@@ -21,6 +21,8 @@ Bugfixes:
 
 Features:
 
+* support closing all fds via RLIMIT_NOFILE instead of /proc, in order to make chroot stuff work.
+
 * add interface to allow immediate rotation of the journal, and even flushing.
 
 * don't log coredumps of PID 1 into the journal
