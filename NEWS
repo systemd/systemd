@@ -16,6 +16,8 @@ CHANGES WITH 41:
           understood to set system wide environment variables
           dynamically at boot.
 
+	* We now limit the set of capabilities of systemd-journald.
+
         Contributions from: Benjamin Franzke, Kay Sievers, Lennart
         Poettering, Michael Olbrich, Michal Schmidt, Tom Gundersen,
         William Douglas
