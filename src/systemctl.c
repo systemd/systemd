@@ -3662,11 +3662,14 @@ static int enable_unit(DBusConnection *bus, char **args) {
         int r;
         DBusError error;
 
-        dbus_error_init(&error);
-
         r = enable_sysv_units(args);
         if (r < 0)
                 return r;
+
+        if (!args[1])
+                return 0;
+
+        dbus_error_init(&error);
 
         if (!bus || avoid_bus()) {
                 if (streq(verb, "enable")) {
