@@ -5,6 +5,21 @@ CHANGES WITH 41:
           An existing /sbin/init symlink needs to be adapted with the
           package update.
 
+        * The code that loads kernel modules has been ported to invoke
+          libkmod directly, instead of modprobe. This means we do not
+          support systems with module-init-tools anymore.
+
+        * Watchdog support is now already useful, but still not
+          complete.
+
+        * A new kernel command line option systemd.setenv= is
+          understood to set system wide environment variables
+          dynamically at boot.
+
+        Contributions from: Benjamin Franzke, Kay Sievers, Lennart
+        Poettering, Michael Olbrich, Michal Schmidt, Tom Gundersen,
+        William Douglas
+
 CHANGES WITH 40:
         * This is mostly a bugfix release
 
@@ -18,6 +33,10 @@ CHANGES WITH 40:
           now immediately changes its argv[0] to reflect which process
           it will execute. This is useful to minimize the time window
           with a generic argv[0], which makes bootcharts more useful
+
+        Contributions from: Alvaro Soliverez, Chris Paulson-Ellis, Kay
+        Sievers, Lennart Poettering, Michael Olbrich, Michal Schmidt,
+        Mike Kazantsev, Ray Strode
 
 CHANGES WITH 39:
         * This is mostly a test release, but incorporates many
