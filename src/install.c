@@ -1571,10 +1571,10 @@ UnitFileState unit_file_get_state(
                 }
 
                 if (lstat(path, &st) < 0) {
+                        r = -errno;
                         if (errno == ENOENT)
                                 continue;
 
-                        r = -errno;
                         goto finish;
                 }
 
