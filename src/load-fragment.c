@@ -1648,6 +1648,7 @@ int config_parse_unit_condition_null(
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_start_limit_action, start_limit_action, StartLimitAction, "Failed to parse start limit action specifier");
 
 int config_parse_unit_cgroup_attr(
                 const char *filename,

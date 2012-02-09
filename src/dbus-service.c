@@ -46,6 +46,9 @@
         "  <property name=\"WatchdogUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"WatchdogTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"WatchdogTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"StartLimitInterval\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"StartLimitBurst\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"StartLimitAction\" type=\"s\" access=\"read\"/>\n" \
         BUS_EXEC_COMMAND_INTERFACE("ExecStartPre")                      \
         BUS_EXEC_COMMAND_INTERFACE("ExecStart")                         \
         BUS_EXEC_COMMAND_INTERFACE("ExecStartPost")                     \
@@ -101,6 +104,7 @@ static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_type, service_type, Se
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_restart, service_restart, ServiceRestart);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_notify_access, notify_access, NotifyAccess);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_service_result, service_result, ServiceResult);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_start_limit_action, start_limit_action, StartLimitAction);
 
 static const BusProperty bus_exec_main_status_properties[] = {
         { "ExecMainStartTimestamp",         bus_property_append_usec, "t", offsetof(ExecStatus, start_timestamp.realtime)  },
@@ -123,6 +127,9 @@ static const BusProperty bus_service_properties[] = {
         { "WatchdogUSec",           bus_property_append_usec,         "t", offsetof(Service, watchdog_usec)                },
         { "WatchdogTimestamp",      bus_property_append_usec,         "t", offsetof(Service, watchdog_timestamp.realtime)  },
         { "WatchdogTimestampMonotonic",bus_property_append_usec,      "t", offsetof(Service, watchdog_timestamp.monotonic) },
+        { "StartLimitInterval",     bus_property_append_usec,         "t", offsetof(Service, start_limit.interval)         },
+        { "StartLimitBurst",        bus_property_append_uint32,       "u", offsetof(Service, start_limit.burst)            },
+        { "StartLimitAction",       bus_service_append_start_limit_action,"s", offsetof(Service, start_limit_action)       },
         BUS_EXEC_COMMAND_PROPERTY("ExecStartPre",  offsetof(Service, exec_command[SERVICE_EXEC_START_PRE]),  true ),
         BUS_EXEC_COMMAND_PROPERTY("ExecStart",     offsetof(Service, exec_command[SERVICE_EXEC_START]),      true ),
         BUS_EXEC_COMMAND_PROPERTY("ExecStartPost", offsetof(Service, exec_command[SERVICE_EXEC_START_POST]), true ),

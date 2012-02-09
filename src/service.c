@@ -23,7 +23,9 @@
 #include <signal.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <sys/reboot.h>
 
+#include "manager.h"
 #include "unit.h"
 #include "service.h"
 #include "load-fragment.h"
@@ -125,7 +127,7 @@ static void service_init(Unit *u) {
 
         exec_context_init(&s->exec_context);
 
-        RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
+        RATELIMIT_INIT(s->start_limit, 10*USEC_PER_SEC, 5);
 
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 }
@@ -2324,8 +2326,56 @@ fail:
         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
+static int service_start_limit_test(Service *s) {
+        assert(s);
+
+        if (ratelimit_test(&s->start_limit))
+                return 0;
+
+        switch (s->start_limit_action) {
+
+        case SERVICE_START_LIMIT_NONE:
+                log_warning("%s start request repeated too quickly, refusing to start.", UNIT(s)->id);
+                break;
+
+        case SERVICE_START_LIMIT_REBOOT: {
+                DBusError error;
+                int r;
+
+                dbus_error_init(&error);
+
+                log_warning("%s start request repeated too quickly, rebooting.", UNIT(s)->id);
+
+                r = manager_add_job_by_name(UNIT(s)->manager, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE, true, &error, NULL);
+                if (r < 0) {
+                        log_error("Failed to reboot: %s.", bus_error(&error, r));
+                        dbus_error_free(&error);
+                }
+
+                break;
+        }
+
+        case SERVICE_START_LIMIT_REBOOT_FORCE:
+                log_warning("%s start request repeated too quickly, force rebooting.", UNIT(s)->id);
+                UNIT(s)->manager->exit_code = MANAGER_REBOOT;
+                break;
+
+        case SERVICE_START_LIMIT_REBOOT_IMMEDIATE:
+                log_warning("%s start request repeated too quickly, rebooting immediately.", UNIT(s)->id);
+                reboot(RB_AUTOBOOT);
+                break;
+
+        default:
+                log_error("start limit action=%i", s->start_limit_action);
+                assert_not_reached("Unknown StartLimitAction.");
+        }
+
+        return -ECANCELED;
+}
+
 static int service_start(Unit *u) {
         Service *s = SERVICE(u);
+        int r;
 
         assert(s);
 
@@ -2348,10 +2398,9 @@ static int service_start(Unit *u) {
         assert(s->state == SERVICE_DEAD || s->state == SERVICE_FAILED || s->state == SERVICE_AUTO_RESTART);
 
         /* Make sure we don't enter a busy loop of some kind. */
-        if (!ratelimit_test(&s->ratelimit)) {
-                log_warning("%s start request repeated too quickly, refusing to start.", u->id);
-                return -ECANCELED;
-        }
+        r = service_start_limit_test(s);
+        if (r < 0)
+                return r;
 
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
@@ -3664,6 +3713,14 @@ static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult);
+
+static const char* const start_limit_action_table[_SERVICE_START_LIMIT_MAX] = {
+        [SERVICE_START_LIMIT_NONE] = "none",
+        [SERVICE_START_LIMIT_REBOOT] = "reboot",
+        [SERVICE_START_LIMIT_REBOOT_FORCE] = "reboot-force",
+        [SERVICE_START_LIMIT_REBOOT_IMMEDIATE] = "reboot-immediate"
+};
+DEFINE_STRING_TABLE_LOOKUP(start_limit_action, StartLimitAction);
 
 const UnitVTable service_vtable = {
         .suffix = ".service",
