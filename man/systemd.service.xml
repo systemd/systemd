@@ -502,16 +502,19 @@
                                 0. If set to
                                 <option>on-failure</option> it will be
                                 restarted only when it exited with an
-                                exit code not equalling 0, or when
-                                terminated by a signal. If set to
+                                exit code not equalling 0, when
+                                terminated by a signal, when an
+                                operation times out or when the
+                                configured watchdog timeout is
+                                triggered. If set to
                                 <option>on-abort</option> it will be
                                 restarted only if it exits due to
                                 reception of an uncaught signal. If
                                 set to <option>always</option> the
                                 service will be restarted regardless
-                                whether it exited cleanly or not, or
+                                whether it exited cleanly or not,
                                 got terminated abnormally by a
-                                signal.</para></listitem>
+                                signal or hit a timeout.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -742,6 +745,66 @@
                                 fs_passno column. See
                                 <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>StartLimitInterval=</varname></term>
+                                <term><varname>StartLimitBurst=</varname></term>
+
+                                <listitem><para>Configure service
+                                start rate limiting. By default
+                                services which are started more often
+                                than 5 times within 10s are not
+                                permitted to start any more times
+                                until the 10s interval ends. With
+                                these two options this rate limiting
+                                may be modified. Use
+                                <varname>StartLimitInterval=</varname>
+                                to configure the checking interval
+                                (defaults to 10s, set to 0 to disable
+                                any kind of rate limiting). Use
+                                <varname>StartLimitBurst=</varname> to
+                                configure how many starts per interval
+                                are allowed (defaults to 5). These
+                                configuration options are particularly
+                                useful in conjunction with
+                                <varname>Restart=</varname>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>StartLimitAction=</varname></term>
+
+                                <listitem><para>Configure the action
+                                to take if the rate limit configured
+                                with
+                                <varname>StartLimitInterval=</varname>
+                                and
+                                <varname>StartLimitBurst=</varname> is
+                                hit. Takes one of
+                                <option>none</option>,
+                                <option>reboot</option>,
+                                <option>reboot-force</option> or
+                                <option>reboot-immediate</option>. If
+                                <option>none</option> is set,
+                                hitting the rate limit will trigger no
+                                action besides that the start will not
+                                be
+                                permitted. <option>reboot</option>
+                                causes a reboot following the normal
+                                shutdown procedure (i.e. equivalent to
+                                <command>systemctl reboot</command>),
+                                <option>reboot-force</option> causes
+                                an forced reboot which will terminate
+                                all processes forcibly but should
+                                cause no dirty file systems on reboot
+                                (i.e. equivalent to <command>systemctl
+                                reboot -f</command>) and
+                                <option>reboot-immediate</option>
+                                causes immediate execution of the
+                                <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                system call, which might result in
+                                data loss.  Defaults to
+                                <option>none</option>.</para></listitem>
                         </varlistentry>
 
                 </variablelist>
