@@ -123,13 +123,7 @@ AC_SUBST(CAP_LIBS)
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
 
 PKG_CHECK_MODULES(UDEV, [ libudev >= 172 ])
-AC_SUBST(UDEV_CFLAGS)
-AC_SUBST(UDEV_LIBS)
-
 PKG_CHECK_MODULES(DBUS, [ dbus-1 >= 1.3.2 ])
-AC_SUBST(DBUS_CFLAGS)
-AC_SUBST(DBUS_LIBS)
-
 PKG_CHECK_MODULES(KMOD, [ libkmod >= 5 ])
 
 have_selinux=no
@@ -137,8 +131,6 @@ AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [Disable optional SEL
 if test "x$enable_selinux" != "xno"; then
         PKG_CHECK_MODULES(SELINUX, [ libselinux ],
                 [AC_DEFINE(HAVE_SELINUX, 1, [Define if SELinux is available]) have_selinux=yes], have_selinux=no)
-        AC_SUBST(SELINUX_CFLAGS)
-        AC_SUBST(SELINUX_LIBS)
         if test "x$have_selinux" = xno -a "x$enable_selinux" = xyes; then
                 AC_MSG_ERROR([*** SELinux support requested but libraries not found])
         fi
@@ -150,8 +142,6 @@ AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [Disable optional XZ support]))
 if test "x$enable_xz" != "xno"; then
         PKG_CHECK_MODULES(XZ, [ liblzma ],
                 [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available]) have_xz=yes], have_xz=no)
-        AC_SUBST(XZ_CFLAGS)
-        AC_SUBST(XZ_LIBS)
         if test "x$have_xz" = xno -a "x$enable_xz" = xyes; then
                 AC_MSG_ERROR([*** Xz support requested but libraries not found])
         fi
@@ -297,8 +287,6 @@ AC_ARG_ENABLE(libcryptsetup, AS_HELP_STRING([--disable-libcryptsetup], [disable 
 if test "x$enable_libcryptsetup" != "xno"; then
         PKG_CHECK_MODULES(LIBCRYPTSETUP, [ libcryptsetup ],
                 [AC_DEFINE(HAVE_LIBCRYPTSETUP, 1, [Define if libcryptsetup is available]) have_libcryptsetup=yes], have_libcryptsetup=no)
-        AC_SUBST(LIBCRYPTSETUP_CFLAGS)
-        AC_SUBST(LIBCRYPTSETUP_LIBS)
         if test "x$have_libcryptsetup" = xno -a "x$enable_libcryptsetup" = xyes; then
                 AC_MSG_ERROR([*** libcryptsetup support requested but libraries not found])
         fi
@@ -380,8 +368,6 @@ AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
         PKG_CHECK_MODULES(GTK, [ gtk+-2.0 glib-2.0 > 2.26 gio-unix-2.0 gee-1.0],
                 [AC_DEFINE(HAVE_GTK, 1, [Define if GTK is available]) have_gtk=yes], have_gtk=no)
-        AC_SUBST(GTK_CFLAGS)
-        AC_SUBST(GTK_LIBS)
         if test "x$have_gtk" = xno -a "x$enable_gtk" = xyes; then
                 AC_MSG_ERROR([*** gtk support requested but libraries not found])
         fi
@@ -390,8 +376,6 @@ AM_CONDITIONAL(HAVE_GTK, [test "$have_gtk" = "yes"])
 
 if test "$have_gtk" = "yes"; then
         PKG_CHECK_MODULES(LIBNOTIFY, [ libnotify ])
-        AC_SUBST(LIBNOTIFY_CFLAGS)
-        AC_SUBST(LIBNOTIFY_LIBS)
 fi
 
 AM_PROG_VALAC([0.10])
