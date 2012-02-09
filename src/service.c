@@ -894,6 +894,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->remain_after_exit = !s->pid_file;
         s->guess_main_pid = false;
         s->restart = SERVICE_RESTART_NO;
+        s->exec_context.ignore_sigpipe = false;
 
         if (UNIT(s)->manager->sysv_console)
                 s->exec_context.std_output = EXEC_OUTPUT_JOURNAL_AND_CONSOLE;

@@ -21,6 +21,8 @@ Bugfixes:
 
 Features:
 
+* add interface to allow immediate rotation of the journal, and even flushing.
+
 * don't log coredumps of PID 1 into the journal
 
 * if a journal file is corrupt, rotate it and create a new one

@@ -417,5 +417,6 @@ const BusProperty bus_exec_context_properties[] = {
         { "UtmpIdentifier",           bus_property_append_string,            "s", offsetof(ExecContext, utmp_id),                true },
         { "ControlGroupModify",       bus_property_append_bool,              "b", offsetof(ExecContext, control_group_modify)         },
         { "ControlGroupPersistent",   bus_property_append_tristate_false,    "b", offsetof(ExecContext, control_group_persistent)     },
+        { "IgnoreSIGPIPE",            bus_property_append_bool,              "b", offsetof(ExecContext, ignore_sigpipe          )     },
         { NULL, }
 };

@@ -85,6 +85,7 @@ $1.PAMName,                      config_parse_unit_string_printf,    0,         
 $1.KillMode,                     config_parse_kill_mode,             0,                             offsetof($1, exec_context.kill_mode)
 $1.KillSignal,                   config_parse_kill_signal,           0,                             offsetof($1, exec_context.kill_signal)
 $1.SendSIGKILL,                  config_parse_bool,                  0,                             offsetof($1, exec_context.send_sigkill)
+$1.IgnoreSIGPIPE,                config_parse_bool,                  0,                             offsetof($1, exec_context.ignore_sigpipe)
 $1.UtmpIdentifier,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.utmp_id)
 $1.ControlGroupModify,           config_parse_bool,                  0,                             offsetof($1, exec_context.control_group_modify)
 $1.ControlGroupPersistent,       config_parse_tristate,              0,                             offsetof($1, exec_context.control_group_persistent)'

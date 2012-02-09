@@ -128,6 +128,8 @@ struct ExecContext {
         bool tty_vhangup;
         bool tty_vt_disallocate;
 
+        bool ignore_sigpipe;
+
         /* Since resolving these names might might involve socket
          * connections and we don't want to deadlock ourselves these
          * names are resolved on execution only and in the child

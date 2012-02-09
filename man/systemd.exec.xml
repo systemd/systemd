@@ -1075,6 +1075,17 @@
                                 this service.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>IgnoreSIGPIPE=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true causes SIGPIPE to be
+                                ignored in the executed
+                                process. Defaults to true, since
+                                SIGPIPE generally is useful only in
+                                shell pipelines.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 

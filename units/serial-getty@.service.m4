@@ -43,6 +43,7 @@ TTYPath=/dev/%I
 TTYReset=yes
 TTYVHangup=yes
 KillMode=process
+IgnoreSIGPIPE=no
 
 # Some login implementations ignore SIGTERM, so we send SIGHUP
 # instead, to ensure that login terminates cleanly.

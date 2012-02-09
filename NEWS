@@ -18,6 +18,11 @@ CHANGES WITH 41:
 
 	* We now limit the set of capabilities of systemd-journald.
 
+        * We now set SIGPIPE to ignore by default, since it only is
+          useful in shell pipelines, and has little use in general
+          code. This can be disabled with IgnoreSIPIPE=no in unit
+          files.
+
         Contributions from: Benjamin Franzke, Kay Sievers, Lennart
         Poettering, Michael Olbrich, Michal Schmidt, Tom Gundersen,
         William Douglas

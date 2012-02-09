@@ -1038,8 +1038,11 @@ int exec_spawn(ExecCommand *command,
                 default_signals(SIGNALS_CRASH_HANDLER,
                                 SIGNALS_IGNORE, -1);
 
-                if (sigemptyset(&ss) < 0 ||
-                    sigprocmask(SIG_SETMASK, &ss, NULL) < 0) {
+                if (context->ignore_sigpipe)
+                        ignore_signals(SIGPIPE, -1);
+
+                assert_se(sigemptyset(&ss) == 0);
+                if (sigprocmask(SIG_SETMASK, &ss, NULL) < 0) {
                         err = -errno;
                         r = EXIT_SIGNAL_MASK;
                         goto fail_child;
@@ -1528,6 +1531,7 @@ void exec_context_init(ExecContext *c) {
         c->kill_signal = SIGTERM;
         c->send_sigkill = true;
         c->control_group_persistent = -1;
+        c->ignore_sigpipe = true;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -1876,10 +1880,12 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         fprintf(f,
                 "%sKillMode: %s\n"
                 "%sKillSignal: SIG%s\n"
-                "%sSendSIGKILL: %s\n",
+                "%sSendSIGKILL: %s\n"
+                "%sIgnoreSIGPIPE: %s\n",
                 prefix, kill_mode_to_string(c->kill_mode),
                 prefix, signal_to_string(c->kill_signal),
-                prefix, yes_no(c->send_sigkill));
+                prefix, yes_no(c->send_sigkill),
+                prefix, yes_no(c->ignore_sigpipe));
 
         if (c->utmp_id)
                 fprintf(f,

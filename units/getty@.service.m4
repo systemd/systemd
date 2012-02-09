@@ -44,6 +44,7 @@ TTYReset=yes
 TTYVHangup=yes
 TTYVTDisallocate=yes
 KillMode=process
+IgnoreSIGPIPE=no
 
 # Unset locale for the console getty since the console has problems
 # displaying some internationalized messages.
