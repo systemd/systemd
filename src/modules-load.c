@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
         int r = EXIT_FAILURE;
         char **files, **fn;
         struct kmod_ctx *ctx;
-        struct kmod_module *mod;
+        const int probe_flags = KMOD_PROBE_APPLY_BLACKLIST|KMOD_PROBE_IGNORE_LOADED;
 
         if (argc > 1) {
                 log_error("This program takes no argument.");
@@ -96,6 +96,7 @@ int main(int argc, char *argv[]) {
                 log_debug("apply: %s\n", *fn);
                 for (;;) {
                         char line[LINE_MAX], *l;
+                        struct kmod_list *itr, *modlist = NULL;
                         int err;
 
                         if (!(fgets(line, sizeof(line), f)))
@@ -105,25 +106,32 @@ int main(int argc, char *argv[]) {
                         if (*l == '#' || *l == 0)
                                 continue;
 
-                        err = kmod_module_new_from_name(ctx, l, &mod);
+                        err = kmod_module_new_from_lookup(ctx, l, &modlist);
                         if (err < 0) {
-                                log_error("Failed to load module '%s'", l);
+                                log_error("Failed to lookup alias '%s'", l);
                                 r = EXIT_FAILURE;
                                 continue;
                         }
 
-                        err = kmod_module_probe_insert_module(mod, KMOD_PROBE_APPLY_BLACKLIST,
-                                                              NULL, NULL, NULL, NULL);
-                        if (err == 0)
-                                log_info("Inserted module '%s'", kmod_module_get_name(mod));
-                        else if (err == KMOD_PROBE_APPLY_BLACKLIST)
-                                log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
-                        else {
-                                log_error("Failed to insert '%s'", kmod_module_get_name(mod));
-                                r = EXIT_FAILURE;
+                        kmod_list_foreach(itr, modlist) {
+                                struct kmod_module *mod = kmod_module_get_module(itr);
+                                err = kmod_module_probe_insert_module(mod, probe_flags,
+                                                                      NULL, NULL, NULL, NULL);
+
+                                if (err == 0)
+                                        log_info("Inserted module '%s'", kmod_module_get_name(mod));
+                                else if (err == KMOD_PROBE_APPLY_BLACKLIST)
+                                        log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
+                                else {
+                                        log_error("Failed to insert '%s': %s", kmod_module_get_name(mod),
+                                                        strerror(-err));
+                                        r = EXIT_FAILURE;
+                                }
+
+                                kmod_module_unref(mod);
                         }
 
-                        kmod_module_unref(mod);
+                        kmod_module_unref_list(modlist);
                 }
 
                 if (ferror(f)) {
