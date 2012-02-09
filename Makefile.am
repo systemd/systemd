@@ -546,7 +546,8 @@ libsystemd_core_la_CFLAGS = \
 	$(UDEV_CFLAGS) \
 	$(LIBWRAP_CFLAGS) \
 	$(PAM_CFLAGS) \
-	$(AUDIT_CFLAGS)
+	$(AUDIT_CFLAGS) \
+	$(KMOD_CFLAGS)
 
 libsystemd_core_la_LIBADD = \
 	libsystemd-basic.la \
@@ -555,7 +556,8 @@ libsystemd_core_la_LIBADD = \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
 	$(AUDIT_LIBS) \
-	$(CAP_LIBS)
+	$(CAP_LIBS) \
+	$(KMOD_LIBS)
 
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.	We therefore can't
@@ -728,12 +730,10 @@ systemd_SOURCES = \
 systemd_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS) \
-	$(KMOD_CFLAGS)
+	$(UDEV_CFLAGS)
 
 systemd_LDADD = \
-	libsystemd-core.la \
-	$(KMOD_LIBS)
+	libsystemd-core.la
 
 test_engine_SOURCES = \
 	src/test-engine.c
