@@ -364,7 +364,7 @@ int cgroup_bonding_get(Manager *m, const char *cgroup, CGroupBonding **bonding) 
         assert(bonding);
 
         b = hashmap_get(m->cgroup_bondings, cgroup);
-        if (!b) {
+        if (b) {
                 *bonding = b;
                 return 1;
         }
