@@ -705,15 +705,22 @@ int read_one_line_file(const char *fn, char **line) {
         assert(fn);
         assert(line);
 
-        if (!(f = fopen(fn, "re")))
+        f = fopen(fn, "re");
+        if (!f)
                 return -errno;
 
-        if (!(fgets(t, sizeof(t), f))) {
-                r = feof(f) ? -EIO : -errno;
-                goto finish;
+        if (!fgets(t, sizeof(t), f)) {
+
+                if (ferror(f)) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                t[0] = 0;
         }
 
-        if (!(c = strdup(t))) {
+        c = strdup(t);
+        if (!c) {
                 r = -ENOMEM;
                 goto finish;
         }
