@@ -605,11 +605,18 @@ AC_ARG_WITH([pamlibdir],
         [],
         [with_pamlibdir=${with_rootlibdir}/security])
 
-have_split_usr=no
-if test "x${ac_default_prefix}" != "x${with_rootprefix}" ; then
+AC_ARG_ENABLE([split-usr],
+        AS_HELP_STRING([--enable-split-usr], [Assume that /bin, /sbin aren\'t symlinks into /usr]),
+        [],
+        [AS_IF([test "x${ac_default_prefix}" != "x${with_rootprefix}"], [
+                enable_split_usr=yes
+        ], [
+                enable_split_usr=no
+        ])])
+
+AS_IF([test "x${enable_split_usr}" = "xyes"], [
         AC_DEFINE(HAVE_SPLIT_USR, 1, [Define if /bin, /sbin aren't symlinks into /usr])
-        have_split_usr=yes
-fi
+])
 
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
@@ -659,6 +666,6 @@ AC_MSG_RESULT([
         D-Bus session dir:       ${with_dbussessionservicedir}
         D-Bus system dir:        ${with_dbussystemservicedir}
         D-Bus interfaces dir:    ${with_dbusinterfacedir}
-        Split /usr:              ${have_split_usr}
+        Split /usr:              ${enable_split_usr}
         Build man pages:         ${have_manpages}
 ])
