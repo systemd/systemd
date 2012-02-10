@@ -363,6 +363,13 @@ if test "x$enable_coredump" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_COREDUMP, [test "$have_coredump" = "yes"])
 
+have_manpages=no
+AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpage], [disable manpages]))
+if test "x$enable_manpages" != "xno"; then
+	have_manpages=yes
+fi
+AM_CONDITIONAL(ENABLE_MANPAGES, [test "$have_manpages" = "yes"])
+
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
@@ -653,4 +660,5 @@ AC_MSG_RESULT([
         D-Bus system dir:        ${with_dbussystemservicedir}
         D-Bus interfaces dir:    ${with_dbusinterfacedir}
         Split /usr:              ${have_split_usr}
+        Build man pages:         ${have_manpages}
 ])

@@ -651,6 +651,7 @@ EXTRA_DIST += \
 	src/acl-util.h \
 	src/logs-show.h
 
+if ENABLE_MANPAGES
 MANPAGES = \
 	man/systemd.1 \
 	man/systemctl.1 \
@@ -723,6 +724,8 @@ EXTRA_DIST += \
 	$(XML_IN_FILES) \
 	${nodist_man_MANS:=.in} \
 	${XML_IN_FILES:.xml.in=.html.in}
+
+endif
 
 systemd_SOURCES = \
 	src/main.c
@@ -1132,6 +1135,7 @@ lib_LTLIBRARIES += \
 pkgconfiglib_DATA += \
 	src/libsystemd-daemon.pc
 
+if ENABLE_MANPAGES
 MANPAGES += \
 	man/sd-daemon.7 \
 	man/sd_notify.3 \
@@ -1151,6 +1155,7 @@ man/sd_is_socket_unix.3: man/sd_is_fifo.3
 man/sd_is_socket_inet.3: man/sd_is_fifo.3
 man/sd_is_mq.3: man/sd_is_fifo.3
 man/sd_notifyf.3: man/sd_notify.3
+endif
 
 EXTRA_DIST += \
 	src/libsystemd-daemon.pc.in \
@@ -1466,8 +1471,10 @@ binfmt-install-data-hook:
 INSTALL_DATA_HOOKS += \
 	binfmt-install-data-hook
 
+if ENABLE_MANPAGES
 MANPAGES += \
 	man/binfmt.d.5
+endif
 
 EXTRA_DIST += \
 	units/systemd-binfmt.service.in
@@ -1497,8 +1504,10 @@ vconsole-install-data-hook:
 INSTALL_DATA_HOOKS += \
 	vconsole-install-data-hook
 
+if ENABLE_MANPAGES
 MANPAGES += \
 	man/vconsole.conf.5
+endif
 
 EXTRA_DIST += \
 	units/systemd-vconsole-setup.service.in
@@ -1551,9 +1560,11 @@ EXTRA_DIST += \
 	units/systemd-readahead-replay.service.in \
 	units/systemd-readahead-done.service.in
 
+if ENABLE_MANPAGES
 MANPAGES += \
 	man/sd_readahead.3 \
 	man/sd-readahead.7
+endif
 endif
 
 # ------------------------------------------------------------------------------
@@ -2045,6 +2056,7 @@ dist_udevrules_DATA += \
 nodist_udevrules_DATA += \
 	src/login/73-seat-late.rules
 
+if ENABLE_MANPAGES
 MANPAGES += \
 	man/systemd-logind.conf.5 \
 	man/sd-login.7 \
@@ -2086,6 +2098,7 @@ man/sd_seat_get_sessions.3: man/sd_seat_get_active.3
 man/sd_seat_can_multi_session.3: man/sd_seat_get_active.3
 man/sd_get_sessions.3: man/sd_get_seats.3
 man/sd_get_uids.3: man/sd_get_seats.3
+endif
 
 EXTRA_DIST += \
 	src/login/logind-gperf.gperf \
