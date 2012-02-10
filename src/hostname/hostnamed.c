@@ -332,7 +332,7 @@ static DBusHandlerResult hostname_message_handler(
                 if (!streq_ptr(name, data[PROP_HOSTNAME])) {
                         char *h;
 
-                        r = verify_polkit(connection, message, "org.freedesktop.hostname1.set-hostname", interactive, &error);
+                        r = verify_polkit(connection, message, "org.freedesktop.hostname1.set-hostname", interactive, NULL, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 
@@ -376,7 +376,7 @@ static DBusHandlerResult hostname_message_handler(
 
                 if (!streq_ptr(name, data[PROP_STATIC_HOSTNAME])) {
 
-                        r = verify_polkit(connection, message, "org.freedesktop.hostname1.set-static-hostname", interactive, &error);
+                        r = verify_polkit(connection, message, "org.freedesktop.hostname1.set-static-hostname", interactive, NULL, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 
@@ -441,7 +441,7 @@ static DBusHandlerResult hostname_message_handler(
 
                         r = verify_polkit(connection, message, k == PROP_PRETTY_HOSTNAME ?
                                           "org.freedesktop.hostname1.set-static-hostname" :
-                                          "org.freedesktop.hostname1.set-machine-info", interactive, &error);
+                                          "org.freedesktop.hostname1.set-machine-info", interactive, NULL, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 

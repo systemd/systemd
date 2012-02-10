@@ -1100,7 +1100,7 @@ static DBusHandlerResult locale_message_handler(
 
                 if (modified) {
 
-                        r = verify_polkit(connection, message, "org.freedesktop.locale1.set-locale", interactive, &error);
+                        r = verify_polkit(connection, message, "org.freedesktop.locale1.set-locale", interactive, NULL, &error);
                         if (r < 0) {
                                 strv_free(l);
                                 return bus_send_error_reply(connection, message, &error, r);
@@ -1181,7 +1181,7 @@ static DBusHandlerResult locale_message_handler(
                 if (!streq_ptr(keymap, state.vc_keymap) ||
                     !streq_ptr(keymap_toggle, state.vc_keymap_toggle)) {
 
-                        r = verify_polkit(connection, message, "org.freedesktop.locale1.set-keyboard", interactive, &error);
+                        r = verify_polkit(connection, message, "org.freedesktop.locale1.set-keyboard", interactive, NULL, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 
@@ -1251,7 +1251,7 @@ static DBusHandlerResult locale_message_handler(
                     !streq_ptr(variant, state.x11_variant) ||
                     !streq_ptr(options, state.x11_options)) {
 
-                        r = verify_polkit(connection, message, "org.freedesktop.locale1.set-keyboard", interactive, &error);
+                        r = verify_polkit(connection, message, "org.freedesktop.locale1.set-keyboard", interactive, NULL, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 

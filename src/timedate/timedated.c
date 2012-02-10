@@ -553,7 +553,7 @@ static DBusHandlerResult timedate_message_handler(
                 if (!streq_ptr(z, tz.zone)) {
                         char *t;
 
-                        r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-timezone", interactive, &error);
+                        r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-timezone", interactive, NULL, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 
@@ -611,7 +611,7 @@ static DBusHandlerResult timedate_message_handler(
                 if (lrtc != tz.local_rtc) {
                         struct timespec ts;
 
-                        r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-local-rtc", interactive, &error);
+                        r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-local-rtc", interactive, NULL, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 
@@ -702,7 +702,7 @@ static DBusHandlerResult timedate_message_handler(
                         struct timespec ts;
                         struct tm* tm;
 
-                        r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-time", interactive, &error);
+                        r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-time", interactive, NULL, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 
@@ -741,7 +741,7 @@ static DBusHandlerResult timedate_message_handler(
 
                 if (ntp != !!tz.use_ntp) {
 
-                        r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-ntp", interactive, &error);
+                        r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-ntp", interactive, NULL, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 

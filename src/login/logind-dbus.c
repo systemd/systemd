@@ -129,6 +129,12 @@
         "  <method name=\"Reboot\">\n"                                  \
         "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
         "  </method>\n"                                                 \
+        "  <method name=\"CanPowerOff\">\n"                             \
+        "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
+        "  </method>\n"                                                 \
+        "  <method name=\"CanReboot\">\n"                               \
+        "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
+        "  </method>\n"                                                 \
         "  <signal name=\"SessionNew\">\n"                              \
         "   <arg name=\"id\" type=\"s\"/>\n"                            \
         "   <arg name=\"path\" type=\"o\"/>\n"                          \
@@ -714,6 +720,37 @@ static int flush_devices(Manager *m) {
         return trigger_device(m, NULL);
 }
 
+static int have_multiple_sessions(
+                DBusConnection *connection,
+                Manager *m,
+                DBusMessage *message,
+                DBusError *error) {
+
+        Session *s;
+
+        assert(m);
+
+        if (hashmap_size(m->sessions) > 1)
+                return true;
+
+        /* Hmm, there's only one session, but let's make sure it
+         * actually belongs to the user who is asking. If not, better
+         * be safe than sorry. */
+
+        s = hashmap_first(m->sessions);
+        if (s) {
+                unsigned long ul;
+
+                ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), error);
+                if (ul == (unsigned long) -1)
+                        return -EIO;
+
+                return s->user->uid != ul;
+        }
+
+        return false;
+}
+
 static const BusProperty bus_login_manager_properties[] = {
         { "ControlGroupHierarchy",  bus_property_append_string,         "s",  offsetof(Manager, cgroup_path),        true },
         { "Controllers",            bus_property_append_strv,           "as", offsetof(Manager, controllers),        true },
@@ -1261,7 +1298,7 @@ static DBusHandlerResult manager_message_handler(
                 if (!pw)
                         return bus_send_error_reply(connection, message, NULL, errno ? -errno : -EINVAL);
 
-                r = verify_polkit(connection, message, "org.freedesktop.login1.set-user-linger", interactive, &error);
+                r = verify_polkit(connection, message, "org.freedesktop.login1.set-user-linger", interactive, NULL, &error);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
@@ -1321,7 +1358,7 @@ static DBusHandlerResult manager_message_handler(
                 if (!path_startswith(sysfs, "/sys") || !seat_name_is_valid(seat))
                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
 
-                r = verify_polkit(connection, message, "org.freedesktop.login1.attach-device", interactive, &error);
+                r = verify_polkit(connection, message, "org.freedesktop.login1.attach-device", interactive, NULL, &error);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
@@ -1344,7 +1381,7 @@ static DBusHandlerResult manager_message_handler(
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                r = verify_polkit(connection, message, "org.freedesktop.login1.flush-devices", interactive, &error);
+                r = verify_polkit(connection, message, "org.freedesktop.login1.flush-devices", interactive, NULL, &error);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
@@ -1372,27 +1409,11 @@ static DBusHandlerResult manager_message_handler(
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                multiple_sessions = hashmap_size(m->sessions) > 1;
+                r = have_multiple_sessions(connection, m, message, &error);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
 
-                if (!multiple_sessions) {
-                        Session *s;
-
-                        /* Hmm, there's only one session, but let's
-                         * make sure it actually belongs to the user
-                         * who is asking. If not, better be safe than
-                         * sorry. */
-
-                        s = hashmap_first(m->sessions);
-                        if (s) {
-                                unsigned long ul;
-
-                                ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), &error);
-                                if (ul == (unsigned long) -1)
-                                        return bus_send_error_reply(connection, message, &error, -EIO);
-
-                                multiple_sessions = s->user->uid != ul;
-                        }
-                }
+                multiple_sessions = r > 0;
 
                 if (streq(dbus_message_get_member(message), "PowerOff")) {
                         if (multiple_sessions)
@@ -1410,7 +1431,7 @@ static DBusHandlerResult manager_message_handler(
                         name = SPECIAL_REBOOT_TARGET;
                 }
 
-                r = verify_polkit(connection, message, action, interactive, &error);
+                r = verify_polkit(connection, message, action, interactive, NULL, &error);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
@@ -1440,6 +1461,50 @@ static DBusHandlerResult manager_message_handler(
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanPowerOff") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanReboot")) {
+
+                bool multiple_sessions, challenge, b;
+                const char *t, *action;
+
+                r = have_multiple_sessions(connection, m, message, &error);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                multiple_sessions = r > 0;
+
+                if (streq(dbus_message_get_member(message), "CanPowerOff")) {
+                        if (multiple_sessions)
+                                action = "org.freedesktop.login1.power-off-multiple-sessions";
+                        else
+                                action = "org.freedesktop.login1.power-off";
+
+                } else {
+                        if (multiple_sessions)
+                                action = "org.freedesktop.login1.reboot-multiple-sessions";
+                        else
+                                action = "org.freedesktop.login1.reboot";
+                }
+
+                r = verify_polkit(connection, message, action, false, &challenge, &error);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                t =     r > 0 ?     "yes" :
+                        challenge ? "challenge" :
+                                    "no";
+
+                b = dbus_message_append_args(
+                                reply,
+                                DBUS_TYPE_STRING, &t,
+                                DBUS_TYPE_INVALID);
+                if (!b)
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
