@@ -364,7 +364,7 @@ fi
 AM_CONDITIONAL(ENABLE_COREDUMP, [test "$have_coredump" = "yes"])
 
 have_manpages=no
-AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpage], [disable manpages]))
+AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
 if test "x$enable_manpages" != "xno"; then
 	have_manpages=yes
 fi
