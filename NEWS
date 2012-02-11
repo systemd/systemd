@@ -1,5 +1,26 @@
 systemd System and Service Manager
 
+CHANGES WITH 42:
+        * This is an important bugfix release for v41.
+
+        * Building man pages is now optional which should be useful
+          for those building systemd from git but unwilling to install
+          xsltproc.
+
+        * Watchdog support for supervising services is now usable. In
+          a future release support for hardware watchdogs
+          (i.e. /dev/watchdog) will be added building on this.
+
+        * Service start rate limiting is now configurable and can be
+          turned off per service. When a start rate limit is hit a
+          reboot can automatically be triggered.
+
+        * New CanReboot(), CanPowerOff() bus calls in systemd-logind.
+
+        Contributions from: Benjamin Franzke, Bill Nottingham,
+        Frederic Crozat, Lennart Poettering, Michael Olbrich, Michal
+        Schmidt, Michał Górny, Piotr Drąg
+
 CHANGES WITH 41:
         * The systemd binary is installed /usr/lib/systemd/systemd now;
           An existing /sbin/init symlink needs to be adapted with the
