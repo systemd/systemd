@@ -125,6 +125,11 @@ int main(int argc, char* argv[]) {
         printf("seats = %s\n", t);
         free(t);
 
+        r = sd_seat_get_active(NULL, &t, NULL);
+        assert_se(r >= 0);
+        printf("active session on current seat = %s\n", t);
+        free(t);
+
         assert_se(sd_get_seats(NULL) == r);
 
         r = sd_get_sessions(&sessions);

@@ -70,7 +70,7 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_seat_can_multi_session</function></funcdef>
-                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                                <paramdef>const char* <parameter>seat</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
@@ -110,6 +110,11 @@
                 capable of multi-session, i.e. allows multiple login
                 sessions in parallel (whith only one being active at a
                 time).</para>
+
+                <para>If the <literal>seat</literal> parameter of any
+                of these functions is passed as NULL the operation is
+                executed for the seat of the session of the calling
+                process, if there is any.</para>
         </refsect1>
 
         <refsect1>

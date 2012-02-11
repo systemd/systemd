@@ -113,6 +113,10 @@
                 fail. For processes not being part of a login session
                 and not being a shared process of a user this function
                 will fail.</para>
+
+                <para>If the <literal>pid</literal> paramater of any
+                of these functions is passed as 0 the operation is
+                executed for the calling process.</para>
         </refsect1>
 
         <refsect1>

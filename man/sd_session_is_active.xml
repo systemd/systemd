@@ -110,6 +110,11 @@
                 the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
+
+                <para>If the <literal>session</literal> parameter of
+                any of these functions is passed as NULL the operation
+                is executed for the session the calling process is a
+                member of, if there is any.</para>
         </refsect1>
 
         <refsect1>
