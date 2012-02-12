@@ -312,12 +312,11 @@ src_test_udev_SOURCES = \
 src_test_udev_CFLAGS = $(udev_common_CFLAGS)
 src_test_udev_LDADD = $(udev_common_LDADD)
 src_test_udev_CPPFLAGS = $(udev_common_CPPFLAGS)
+src_test_udev_DEPENDENCIES = test/sys
 
 # packed sysfs test tree
-test/sys/kernel/uevent_seqnum:
+test/sys:
 	$(AM_V_GEN)mkdir -p test && tar -C test/ -xJf $(top_srcdir)/test/sys.tar.xz
-
-BUILT_SOURCES += test/sys/kernel/uevent_seqnum
 
 test-sys-distclean:
 	-rm -rf test/sys
