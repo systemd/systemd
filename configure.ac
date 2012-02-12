@@ -27,37 +27,6 @@ PKG_CHECK_MODULES(BLKID, blkid >= 2.20)
 
 PKG_CHECK_MODULES(KMOD, libkmod >= 5)
 
-if test "x$cross_compiling" = "xno" ; then
-       AC_CHECK_FILES([/usr/share/pci.ids], [pciids=/usr/share/pci.ids])
-       AC_CHECK_FILES([/usr/share/hwdata/pci.ids], [pciids=/usr/share/hwdata/pci.ids])
-       AC_CHECK_FILES([/usr/share/misc/pci.ids], [pciids=/usr/share/misc/pci.ids])
-fi
-
-AC_ARG_WITH(usb-ids-path,
-       [AS_HELP_STRING([--with-usb-ids-path=DIR], [Path to usb.ids file])],
-       [USB_DATABASE=${withval}],
-       [if test -n "$usbids" ; then
-              USB_DATABASE="$usbids"
-       else
-              PKG_CHECK_MODULES(USBUTILS, usbutils >= 0.82)
-              AC_SUBST([USB_DATABASE], [$($PKG_CONFIG --variable=usbids usbutils)])
-       fi])
-AC_MSG_CHECKING([for USB database location])
-AC_MSG_RESULT([$USB_DATABASE])
-AC_SUBST(USB_DATABASE)
-
-AC_ARG_WITH(pci-ids-path,
-       [AS_HELP_STRING([--with-pci-ids-path=DIR], [Path to pci.ids file])],
-       [PCI_DATABASE=${withval}],
-       [if test -n "$pciids" ; then
-              PCI_DATABASE="$pciids"
-       else
-              AC_MSG_ERROR([pci.ids not found, try --with-pci-ids-path=])
-       fi])
-AC_MSG_CHECKING([for PCI database location])
-AC_MSG_RESULT([$PCI_DATABASE])
-AC_SUBST(PCI_DATABASE)
-
 AC_ARG_WITH([rootprefix],
        AS_HELP_STRING([--with-rootprefix=DIR], [rootfs directory prefix for config files and kernel modules]),
        [], [with_rootprefix=${ac_default_prefix}])
@@ -92,6 +61,42 @@ AC_ARG_ENABLE([logging],
        AS_HELP_STRING([--disable-logging], [disable system logging @<:@default=enabled@:>@]),
        [], enable_logging=yes)
 AS_IF([test "x$enable_logging" = "xyes"], [ AC_DEFINE(ENABLE_LOGGING, [1], [System logging.]) ])
+
+AC_ARG_ENABLE([manpages],
+        AS_HELP_STRING([--disable-manpages], [disable man pages @<:@default=enabled@:>@]),
+        [], enable_manpages=yes)
+AM_CONDITIONAL([ENABLE_MANPAGES], [test "x$enable_manpages" = "xyes"])
+
+if test "x$cross_compiling" = "xno" ; then
+       AC_CHECK_FILES([/usr/share/pci.ids], [pciids=/usr/share/pci.ids])
+       AC_CHECK_FILES([/usr/share/hwdata/pci.ids], [pciids=/usr/share/hwdata/pci.ids])
+       AC_CHECK_FILES([/usr/share/misc/pci.ids], [pciids=/usr/share/misc/pci.ids])
+fi
+
+AC_ARG_WITH(usb-ids-path,
+       [AS_HELP_STRING([--with-usb-ids-path=DIR], [Path to usb.ids file])],
+       [USB_DATABASE=${withval}],
+       [if test -n "$usbids" ; then
+              USB_DATABASE="$usbids"
+       else
+              PKG_CHECK_MODULES(USBUTILS, usbutils >= 0.82)
+              AC_SUBST([USB_DATABASE], [$($PKG_CONFIG --variable=usbids usbutils)])
+       fi])
+AC_MSG_CHECKING([for USB database location])
+AC_MSG_RESULT([$USB_DATABASE])
+AC_SUBST(USB_DATABASE)
+
+AC_ARG_WITH(pci-ids-path,
+       [AS_HELP_STRING([--with-pci-ids-path=DIR], [Path to pci.ids file])],
+       [PCI_DATABASE=${withval}],
+       [if test -n "$pciids" ; then
+              PCI_DATABASE="$pciids"
+       else
+              AC_MSG_ERROR([pci.ids not found, try --with-pci-ids-path=])
+       fi])
+AC_MSG_CHECKING([for PCI database location])
+AC_MSG_RESULT([$PCI_DATABASE])
+AC_SUBST(PCI_DATABASE)
 
 AC_ARG_WITH(firmware-path,
        AS_HELP_STRING([--with-firmware-path=DIR[[[:DIR[...]]]]],
@@ -220,41 +225,42 @@ AC_CONFIG_FILES([
 
 AC_OUTPUT
 AC_MSG_RESULT([
-       $PACKAGE $VERSION
-       ========
+        $PACKAGE $VERSION
+        ========
 
-       prefix:                  ${prefix}
-       rootprefix:              ${rootprefix}
-       sysconfdir:              ${sysconfdir}
-       bindir:                  ${bindir}
-       libdir:                  ${libdir}
-       rootlibdir:              ${rootlib_execdir}
-       libexecdir:              ${libexecdir}
-       datarootdir:             ${datarootdir}
-       mandir:                  ${mandir}
-       includedir:              ${includedir}
-       include_prefix:          ${INCLUDE_PREFIX}
-       systemdsystemunitdir:    ${systemdsystemunitdir}
-       firmware path:           ${FIRMWARE_PATH}
-       usb.ids:                 ${USB_DATABASE}
-       pci.ids:                 ${PCI_DATABASE}
+        prefix:                  ${prefix}
+        rootprefix:              ${rootprefix}
+        sysconfdir:              ${sysconfdir}
+        bindir:                  ${bindir}
+        libdir:                  ${libdir}
+        rootlibdir:              ${rootlib_execdir}
+        libexecdir:              ${libexecdir}
+        datarootdir:             ${datarootdir}
+        mandir:                  ${mandir}
+        includedir:              ${includedir}
+        include_prefix:          ${INCLUDE_PREFIX}
+        systemdsystemunitdir:    ${systemdsystemunitdir}
+        firmware path:           ${FIRMWARE_PATH}
+        usb.ids:                 ${USB_DATABASE}
+        pci.ids:                 ${PCI_DATABASE}
 
-       compiler:                ${CC}
-       cflags:                  ${CFLAGS}
-       ldflags:                 ${LDFLAGS}
-       xsltproc:                ${XSLTPROC}
-       gperf:                   ${GPERF}
+        compiler:                ${CC}
+        cflags:                  ${CFLAGS}
+        ldflags:                 ${LDFLAGS}
+        xsltproc:                ${XSLTPROC}
+        gperf:                   ${GPERF}
 
-       logging:                 ${enable_logging}
-       debug:                   ${enable_debug}
-       selinux:                 ${with_selinux}
+        logging:                 ${enable_logging}
+        debug:                   ${enable_debug}
+        selinux:                 ${with_selinux}
 
-       gudev:                   ${enable_gudev}
-       gintrospection:          ${enable_introspection}
-       keymap:                  ${enable_keymap}
-       mtd_probe:               ${enable_mtd_probe}
-       rule_generator:          ${enable_rule_generator}
-       udev_acl:                ${enable_udev_acl}
-       floppy:                  ${enable_floppy}
-       edd:                     ${enable_edd}
+        man pages                ${enable_manpages}
+        gudev:                   ${enable_gudev}
+        gintrospection:          ${enable_introspection}
+        keymap:                  ${enable_keymap}
+        mtd_probe:               ${enable_mtd_probe}
+        rule_generator:          ${enable_rule_generator}
+        udev_acl:                ${enable_udev_acl}
+        floppy:                  ${enable_floppy}
+        edd:                     ${enable_edd}
 ])

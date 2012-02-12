@@ -269,10 +269,12 @@ src_udevadm_CPPFLAGS = $(udev_common_CPPFLAGS)
 # ------------------------------------------------------------------------------
 # udev man pages
 # ------------------------------------------------------------------------------
+if ENABLE_MANPAGES
 dist_man_MANS += \
 	src/udev.7 \
 	src/udevadm.8 \
 	src/udevd.8
+endif
 
 EXTRA_DIST += \
 	src/udev.xml \
