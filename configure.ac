@@ -297,77 +297,77 @@ AM_CONDITIONAL(HAVE_LIBCRYPTSETUP, [test "$have_libcryptsetup" = "yes"])
 have_binfmt=no
 AC_ARG_ENABLE(binfmt, AS_HELP_STRING([--disable-binfmt], [disable binfmt tool]))
 if test "x$enable_binfmt" != "xno"; then
-	have_binfmt=yes
+        have_binfmt=yes
 fi
 AM_CONDITIONAL(ENABLE_BINFMT, [test "$have_binfmt" = "yes"])
 
 have_vconsole=no
 AC_ARG_ENABLE(vconsole, AS_HELP_STRING([--disable-vconsole], [disable vconsole tool]))
 if test "x$enable_vconsole" != "xno"; then
-	have_vconsole=yes
+        have_vconsole=yes
 fi
 AM_CONDITIONAL(ENABLE_VCONSOLE, [test "$have_vconsole" = "yes"])
 
 have_readahead=no
 AC_ARG_ENABLE(readahead, AS_HELP_STRING([--disable-readahead], [disable readahead tools]))
 if test "x$enable_readahead" != "xno"; then
-	have_readahead=yes
+        have_readahead=yes
 fi
 AM_CONDITIONAL(ENABLE_READAHEAD, [test "$have_readahead" = "yes"])
 
 have_quotacheck=no
 AC_ARG_ENABLE(quotacheck, AS_HELP_STRING([--disable-quotacheck], [disable quotacheck tools]))
 if test "x$enable_quotacheck" != "xno"; then
-	have_quotacheck=yes
+        have_quotacheck=yes
 fi
 AM_CONDITIONAL(ENABLE_QUOTACHECK, [test "$have_quotacheck" = "yes"])
 
 have_randomseed=no
 AC_ARG_ENABLE(randomseed, AS_HELP_STRING([--disable-randomseed], [disable randomseed tools]))
 if test "x$enable_randomseed" != "xno"; then
-	have_randomseed=yes
+        have_randomseed=yes
 fi
 AM_CONDITIONAL(ENABLE_RANDOMSEED, [test "$have_randomseed" = "yes"])
 
 have_logind=no
 AC_ARG_ENABLE(logind, AS_HELP_STRING([--disable-logind], [disable login daemon]))
 if test "x$enable_logind" != "xno"; then
-	have_logind=yes
+        have_logind=yes
 fi
 AM_CONDITIONAL(ENABLE_LOGIND, [test "$have_logind" = "yes"])
 
 have_hostnamed=no
 AC_ARG_ENABLE(hostnamed, AS_HELP_STRING([--disable-hostnamed], [disable hostname daemon]))
 if test "x$enable_hostnamed" != "xno"; then
-	have_hostnamed=yes
+        have_hostnamed=yes
 fi
 AM_CONDITIONAL(ENABLE_HOSTNAMED, [test "$have_hostnamed" = "yes"])
 
 have_timedated=no
 AC_ARG_ENABLE(timedated, AS_HELP_STRING([--disable-timedated], [disable timedate daemon]))
 if test "x$enable_timedated" != "xno"; then
-	have_timedated=yes
+        have_timedated=yes
 fi
 AM_CONDITIONAL(ENABLE_TIMEDATED, [test "$have_timedated" = "yes"])
 
 have_localed=no
 AC_ARG_ENABLE(localed, AS_HELP_STRING([--disable-localed], [disable locale daemon]))
 if test "x$enable_localed" != "xno"; then
-	have_localed=yes
+        have_localed=yes
 fi
 AM_CONDITIONAL(ENABLE_LOCALED, [test "$have_localed" = "yes"])
 
 have_coredump=no
 AC_ARG_ENABLE(coredump, AS_HELP_STRING([--disable-coredump], [disable coredump hook]))
 if test "x$enable_coredump" != "xno"; then
-	have_coredump=yes
+        have_coredump=yes
 fi
 AM_CONDITIONAL(ENABLE_COREDUMP, [test "$have_coredump" = "yes"])
 
 have_manpages=no
 AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
 if test "x$enable_manpages" != "xno"; then
-	have_manpages=yes
+        have_manpages=yes
 fi
 AM_CONDITIONAL(ENABLE_MANPAGES, [test "$have_manpages" = "yes"])
 
@@ -479,7 +479,7 @@ case $with_distro in
                 SYSTEM_SYSVRCND_PATH=
                 AC_DEFINE(TARGET_MEEGO, [], [Target is MeeGo])
                 M4_DEFINES=-DTARGET_MEEGO=1
-		;;
+                ;;
         angstrom)
                 SYSTEM_SYSVRCND_PATH=/etc
                 AC_DEFINE(TARGET_ANGSTROM, [], [Target is Ångström])
@@ -499,10 +499,10 @@ case $with_distro in
 esac
 
 AC_ARG_WITH([sysvinit-path],
-	[AS_HELP_STRING([--with-sysvinit-path=PATH],
-		[Specify the path to where the SysV init scripts are located @<:@default=based on distro@:>@])],
-	[SYSTEM_SYSVINIT_PATH="$withval"],
-	[])
+        [AS_HELP_STRING([--with-sysvinit-path=PATH],
+                [Specify the path to where the SysV init scripts are located @<:@default=based on distro@:>@])],
+        [SYSTEM_SYSVINIT_PATH="$withval"],
+        [])
 
 AC_ARG_WITH([sysvrcd-path],
         [AS_HELP_STRING([--with-sysvrcd-path=PATH],
