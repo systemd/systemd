@@ -230,7 +230,9 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
                                               "/usr/local/lib/systemd/system",
                                               "/usr/lib/systemd/system",
                                               SYSTEM_DATA_UNIT_PATH,
+#ifdef HAVE_SPLIT_USR
                                               "/lib/systemd/system",
+#endif
                                               NULL)))
                                 return -ENOMEM;
         }
