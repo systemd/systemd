@@ -177,11 +177,11 @@ int bus_connect_system_ssh(const char *user, const char *host, DBusConnection **
         assert(user || host);
 
         if (user && host)
-                asprintf(&p, "exec:path=ssh,argv1=-xT,argv2=%s@%s,argv3=systemd-stdio-bridge", user, host);
+                asprintf(&p, "unixexec:path=ssh,argv1=-xT,argv2=%s@%s,argv3=systemd-stdio-bridge", user, host);
         else if (user)
-                asprintf(&p, "exec:path=ssh,argv1=-xT,argv2=%s@localhost,argv3=systemd-stdio-bridge", user);
+                asprintf(&p, "unixexec:path=ssh,argv1=-xT,argv2=%s@localhost,argv3=systemd-stdio-bridge", user);
         else if (host)
-                asprintf(&p, "exec:path=ssh,argv1=-xT,argv2=%s,argv3=systemd-stdio-bridge", host);
+                asprintf(&p, "unixexec:path=ssh,argv1=-xT,argv2=%s,argv3=systemd-stdio-bridge", host);
 
         if (!p) {
                 dbus_set_error_const(error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -222,7 +222,8 @@ int bus_connect_system_polkit(DBusConnection **_bus, DBusError *error) {
         if (geteuid() == 0)
                 return bus_connect(DBUS_BUS_SYSTEM, _bus, NULL, error);
 
-        if (!(bus = dbus_connection_open_private("exec:path=pkexec,argv1=" SYSTEMD_STDIO_BRIDGE_BINARY_PATH, error)))
+        bus = dbus_connection_open_private("unixexec:path=pkexec,argv1=" SYSTEMD_STDIO_BRIDGE_BINARY_PATH, error);
+        if (!bus)
                 return -EIO;
 
         dbus_connection_set_exit_on_disconnect(bus, FALSE);
