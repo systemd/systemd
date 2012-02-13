@@ -45,6 +45,7 @@ AC_SUBST(GETTEXT_PACKAGE)
 AC_PROG_MKDIR_P
 AC_PROG_LN_S
 AC_PROG_SED
+AC_PROG_GREP
 AC_PROG_AWK
 
 AC_PROG_CC
@@ -394,29 +395,15 @@ AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
 AC_PATH_PROG([M4], [m4])
 
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware, altlinux or other]))
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware, altlinuxi, mandriva, meego, mageia, angstrom or other]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
         else
-                test -f "/etc/redhat-release" && with_distro="fedora"
-                test -f "/etc/SuSE-release" && with_distro="suse"
-                test -f "/etc/debian_version" &&  with_distro="debian"
-                test -f "/etc/arch-release" && with_distro="arch"
-                test -f "/etc/gentoo-release" && with_distro="gentoo"
-                test -f "/etc/slackware-version" && with_distro="slackware"
-                test -f "/etc/frugalware-release" && with_distro="frugalware"
-                test -f "/etc/altlinux-release" && with_distro="altlinux"
-                test -f "/etc/mandriva-release" && with_distro="mandriva"
-                test -f "/etc/meego-release" && with_distro="meego"
-                test -f "/etc/angstrom-version" && with_distro="angstrom"
-                test -f "/etc/mageia-release" && with_distro="mageia"
-                if test "x`lsb_release -is 2>/dev/null`" = "xUbuntu"; then
-                        with_distro="ubuntu"
-                fi
+                with_distro=$($GREP '^ID=' /etc/os-release | $SED 's/ID=//');
         fi
         if test "z$with_distro" = "z"; then
-                with_distro=`uname -s`
+                with_distro=other
         fi
 fi
 with_distro=`echo ${with_distro} | tr '[[:upper:]]' '[[:lower:]]' `
@@ -436,7 +423,7 @@ case $with_distro in
                 M4_DEFINES=-DTARGET_FEDORA=1
                 have_plymouth=yes
                 ;;
-        suse)
+        opensuse|suse)
                 SYSTEM_SYSVRCND_PATH=/etc/init.d
                 AC_DEFINE(TARGET_SUSE, [], [Target is openSUSE/SLE])
                 M4_DEFINES=-DTARGET_SUSE=1
