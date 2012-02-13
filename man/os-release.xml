@@ -70,11 +70,6 @@
                 <para><filename>/etc/os-release</filename> contains
                 data that is defined by the operating system vendor
                 and should not be changed by the administrator.</para>
-
-                <para>Depending on the operating system other
-                configuration files might be checked for OS
-                identification as well, however only as
-                fallback.</para>
         </refsect1>
 
         <refsect1>
