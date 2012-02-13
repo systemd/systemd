@@ -220,9 +220,9 @@
 
                 <para>For details about the algorithms check the
                 liberally licensed reference implementation sources:
-                <ulink url="http://cgit.freedesktop.org/systemd/plain/src/sd-daemon.c"/>
+                <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/sd-daemon.c"/>
                 resp. <ulink
-                url="http://cgit.freedesktop.org/systemd/plain/src/systemd/sd-daemon.h"/></para>
+                url="http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h"/></para>
 
                 <para><function>sd_notify()</function> and
                 <function>sd_notifyf()</function> are implemented in

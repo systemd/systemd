@@ -47,8 +47,8 @@ extern "C" {
 
   You may find an up-to-date version of these source files online:
 
-  http://cgit.freedesktop.org/systemd/plain/src/systemd/sd-readahead.h
-  http://cgit.freedesktop.org/systemd/plain/src/readahead/sd-readahead.c
+  http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-readahead.h
+  http://cgit.freedesktop.org/systemd/systemd/plain/src/readahead/sd-readahead.c
 
   This should compile on non-Linux systems, too, but all functions
   will become NOPs.
