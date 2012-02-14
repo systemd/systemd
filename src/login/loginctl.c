@@ -349,6 +349,7 @@ typedef struct SessionStatusInfo {
         const char *service;
         pid_t leader;
         const char *type;
+        const char *class;
         bool active;
 } SessionStatusInfo;
 
@@ -431,9 +432,18 @@ static void print_session_status_info(SessionStatusInfo *i) {
                 if (i->type)
                         printf("; type %s", i->type);
 
+                if (i->class)
+                        printf("; class %s", i->class);
+
                 printf("\n");
-        } else if (i->type)
+        } else if (i->type) {
                 printf("\t    Type: %s\n", i->type);
+
+                if (i->class)
+                        printf("; class %s", i->class);
+        } else if (i->class)
+                printf("\t   Class: %s\n", i->class);
+
 
         printf("\t  Active: %s\n", yes_no(i->active));
 
@@ -571,6 +581,8 @@ static int status_property_session(const char *name, DBusMessageIter *iter, Sess
                                 i->service = s;
                         else if (streq(name, "Type"))
                                 i->type = s;
+                        else if (streq(name, "Class"))
+                                i->class = s;
                 }
                 break;
         }

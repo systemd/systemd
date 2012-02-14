@@ -62,6 +62,7 @@
         "   <arg name=\"leader\" type=\"u\" direction=\"in\"/>\n"       \
         "   <arg name=\"sevice\" type=\"s\" direction=\"in\"/>\n"       \
         "   <arg name=\"type\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"class\" type=\"s\" direction=\"in\"/>\n"        \
         "   <arg name=\"seat\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"vtnr\" type=\"u\" direction=\"in\"/>\n"         \
         "   <arg name=\"tty\" type=\"s\" direction=\"in\"/>\n"          \
@@ -222,11 +223,12 @@ static int bus_manager_append_idle_hint_since(DBusMessageIter *i, const char *pr
 static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMessage **_reply) {
         Session *session = NULL;
         User *user = NULL;
-        const char *type, *seat, *tty, *display, *remote_user, *remote_host, *service;
+        const char *type, *class, *seat, *tty, *display, *remote_user, *remote_host, *service;
         uint32_t uid, leader, audit_id = 0;
         dbus_bool_t remote, kill_processes;
         char **controllers = NULL, **reset_controllers = NULL;
         SessionType t;
+        SessionClass c;
         Seat *s;
         DBusMessageIter iter;
         int r;
@@ -267,6 +269,17 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         t = session_type_from_string(type);
 
         if (t < 0 ||
+            !dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &class);
+        if (isempty(class))
+                c = SESSION_USER;
+        else
+                c = session_class_from_string(class);
+
+        if (c < 0 ||
             !dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
                 return -EINVAL;
@@ -467,6 +480,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         session->leader = leader;
         session->audit_id = audit_id;
         session->type = t;
+        session->class = c;
         session->remote = remote;
         session->controllers = controllers;
         session->reset_controllers = reset_controllers;

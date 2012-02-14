@@ -321,7 +321,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         struct passwd *pw;
         bool kill_processes = false, debug = false;
-        const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type, *cvtnr = NULL;
+        const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type, *class, *cvtnr = NULL;
         char **controllers = NULL, **reset_controllers = NULL, **kill_only_users = NULL, **kill_exclude_users = NULL;
         DBusError error;
         uint32_t uid, pid;
@@ -465,13 +465,20 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         type = !isempty(display) ? "x11" :
                    !isempty(tty) ? "tty" : "unspecified";
 
-        remote = !isempty(remote_host) && !streq(remote_host, "localhost") && !streq(remote_host, "localhost.localdomain");
+        class = pam_getenv(handle, "XDG_SESSION_CLASS");
+        if (isempty(class))
+                class = "user";
+
+        remote = !isempty(remote_host) &&
+                !streq(remote_host, "localhost") &&
+                !streq(remote_host, "localhost.localdomain");
 
         if (!dbus_message_append_args(m,
                                       DBUS_TYPE_UINT32, &uid,
                                       DBUS_TYPE_UINT32, &pid,
                                       DBUS_TYPE_STRING, &service,
                                       DBUS_TYPE_STRING, &type,
+                                      DBUS_TYPE_STRING, &class,
                                       DBUS_TYPE_STRING, &seat,
                                       DBUS_TYPE_UINT32, &vtnr,
                                       DBUS_TYPE_STRING, &tty,

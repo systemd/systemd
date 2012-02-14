@@ -38,6 +38,14 @@ typedef enum SessionType {
         _SESSION_TYPE_INVALID = -1
 } SessionType;
 
+typedef enum SessionClass {
+        SESSION_USER,
+        SESSION_GREETER,
+        SESSION_LOCK_SCREEN,
+        _SESSION_CLASS_MAX,
+        _SESSION_CLASS_INVALID = -1
+} SessionClass;
+
 typedef enum KillWho {
         KILL_LEADER,
         KILL_ALL,
@@ -50,6 +58,7 @@ struct Session {
 
         char *id;
         SessionType type;
+        SessionClass class;
 
         char *state_file;
 
@@ -117,6 +126,9 @@ int session_send_lock(Session *s, bool lock);
 
 const char* session_type_to_string(SessionType t);
 SessionType session_type_from_string(const char *s);
+
+const char* session_class_to_string(SessionClass t);
+SessionClass session_class_from_string(const char *s);
 
 const char *kill_who_to_string(KillWho k);
 KillWho kill_who_from_string(const char *s);

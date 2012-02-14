@@ -145,6 +145,11 @@ int session_save(Session *s) {
                         "TYPE=%s\n",
                         session_type_to_string(s->type));
 
+        if (s->class >= 0)
+                fprintf(f,
+                        "CLASS=%s\n",
+                        session_class_to_string(s->class));
+
         if (s->cgroup_path)
                 fprintf(f,
                         "CGROUP=%s\n",
@@ -225,7 +230,8 @@ int session_load(Session *s) {
                 *vtnr = NULL,
                 *leader = NULL,
                 *audit_id = NULL,
-                *type = NULL;
+                *type = NULL,
+                *class = NULL;
 
         int k, r;
 
@@ -245,6 +251,7 @@ int session_load(Session *s) {
                            "VTNR",           &vtnr,
                            "LEADER",         &leader,
                            "TYPE",           &type,
+                           "CLASS",          &class,
                            NULL);
 
         if (r < 0)
@@ -295,6 +302,14 @@ int session_load(Session *s) {
                 t = session_type_from_string(type);
                 if (t >= 0)
                         s->type = t;
+        }
+
+        if (class) {
+                SessionClass c;
+
+                c = session_class_from_string(class);
+                if (c >= 0)
+                        s->class = c;
         }
 
         if (s->fifo_path) {
@@ -946,6 +961,14 @@ static const char* const session_type_table[_SESSION_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);
+
+static const char* const session_class_table[_SESSION_CLASS_MAX] = {
+        [SESSION_USER] = "user",
+        [SESSION_GREETER] = "greeter",
+        [SESSION_LOCK_SCREEN] = "lock-screen"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(session_class, SessionClass);
 
 static const char* const kill_who_table[_KILL_WHO_MAX] = {
         [KILL_LEADER] = "leader",

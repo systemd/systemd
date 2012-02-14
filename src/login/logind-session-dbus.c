@@ -57,6 +57,7 @@
         "  <property name=\"Leader\" type=\"u\" access=\"read\"/>\n"    \
         "  <property name=\"Audit\" type=\"u\" access=\"read\"/>\n"     \
         "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
+        "  <property name=\"Class\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Active\" type=\"b\" access=\"read\"/>\n"    \
         "  <property name=\"Controllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ResetControllers\" type=\"as\" access=\"read\"/>\n" \
@@ -196,6 +197,7 @@ static int bus_session_append_idle_hint_since(DBusMessageIter *i, const char *pr
 }
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_session_append_type, session_type, SessionType);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_session_append_class, session_class, SessionClass);
 
 static int get_session_for_path(Manager *m, const char *path, Session **_s) {
         Session *s;
@@ -238,6 +240,7 @@ static const BusProperty bus_login_session_properties[] = {
         { "Leader",                 bus_property_append_pid,            "u", offsetof(Session, leader)              },
         { "Audit",                  bus_property_append_uint32,         "u", offsetof(Session, audit_id)            },
         { "Type",                   bus_session_append_type,            "s", offsetof(Session, type)                },
+        { "Class",                  bus_session_append_class,           "s", offsetof(Session, class)               },
         { "Active",                 bus_session_append_active,          "b", 0 },
         { "Controllers",            bus_property_append_strv,          "as", offsetof(Session, controllers),        true },
         { "ResetControllers",       bus_property_append_strv,          "as", offsetof(Session, reset_controllers),  true },
