@@ -334,6 +334,14 @@ static int read_ntp(DBusConnection *bus) {
 
         reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
         if (!reply) {
+
+                if (streq(error.name, "org.freedesktop.DBus.Error.FileNotFound")) {
+                        /* NTP is not installed. */
+                        tz.use_ntp = false;
+                        r = 0;
+                        goto finish;
+                }
+
                 log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
