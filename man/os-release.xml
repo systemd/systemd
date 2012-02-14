@@ -85,10 +85,10 @@
 
                                 <listitem><para>A string identifying
                                 the operating system, without a
-                                version string, and not necessarily
-                                suitable for presentation to the
-                                user. If not set defaults to
-                                <literal>Linux</literal>. Example:
+                                version component, and suitable for
+                                presentation to the user. If not set
+                                defaults to
+                                <literal>NAME=Linux</literal>. Example:
                                 <literal>NAME=Fedora</literal> or
                                 <literal>NAME="Debian
                                 GNU/Linux"</literal>.</para></listitem>
@@ -99,25 +99,26 @@
 
                                 <listitem><para>A string identifying
                                 the operating system version,
-                                excluding any name information and
+                                excluding any OS name information, and
                                 suitable for presentation to the
-                                user. Example:
-                                <literal>VERSION=15</literal> or
-                                <literal>VERSION="15
-                                (Rawhide)"</literal>.</para></listitem>
+                                user. This field is optional. Example:
+                                <literal>VERSION=17</literal> or
+                                <literal>VERSION="17
+                                (Beefy Miracle)"</literal>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>ID=</varname></term>
 
                                 <listitem><para>A lower-case string
-                                (no spaces) identifying the operating
-                                system, excluding any version
-                                information and suitable for
+                                (no spaces or other characters outside of
+                                0-9, a-z, ".", "_" and "-") identifying
+                                the operating system, excluding any
+                                version information and suitable for
                                 processing by scripts or usage in
                                 generated file names. If not set
                                 defaults to
-                                <literal>linux</literal>. Example:
+                                <literal>ID=linux</literal>. Example:
                                 <literal>ID=fedora</literal>.</para></listitem>
                         </varlistentry>
 
@@ -125,11 +126,16 @@
                                 <term><varname>VERSION_ID=</varname></term>
 
                                 <listitem><para>A lower-case string
-                                (mostly numeric, no spaces) identifying the
-                                operating system version, excluding
-                                any name information and suitable for
-                                processing by scripts or usage in generated file names. Example:
-                                <literal>VERSION_ID=15</literal>.</para></listitem>
+                                (mostly numeric, no spaces or other
+                                characters outside of 0-9, a-z, ".",
+                                "_" and "-") identifying the operating
+                                system version, excluding any OS name
+                                information or release code names, and
+                                suitable for processing by scripts or
+                                usage in generated file names. This
+                                field is optional. Example:
+                                <literal>VERSION_ID=17</literal> or
+                                <literal>VERSION_ID=11.04</literal>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -140,9 +146,9 @@
                                 presentation to the user. May or may
                                 not contain an OS version of some
                                 kind, as suitable. If not set defaults
-                                to <literal>Linux</literal>. Example:
-                                <literal>PRETTY_NAME="Fedora 15
-                                (Rawhide)"</literal>.</para></listitem>
+                                to <literal>PRETTY_NAME="Linux"</literal>. Example:
+                                <literal>PRETTY_NAME="Fedora 17
+                                (Beefy Miracle)"</literal>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -154,15 +160,30 @@
                                 should be specified as string suitable
                                 for inclusion in the ESC [ m
                                 ANSI/ECMA-48 escape code for setting
-                                graphical rendition. Example:
-                                <literal>ANSI_COLOR="0;31"</literal> for
-                                red, or
-                                <literal>ANSI_COLOR="1;34"</literal> for
-                                light blue.</para></listitem>
+                                graphical rendition. This field is
+                                optional. Example:
+                                <literal>ANSI_COLOR="0;31"</literal>
+                                for red, or
+                                <literal>ANSI_COLOR="1;34"</literal>
+                                for light blue.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>CPE_NAME=</varname></term>
+
+                                <listitem><para>A CPE name for the
+                                operating system, following the <ulink
+                                url="http://cpe.mitre.org/specification/">Common
+                                Platform Enumeration
+                                Specification</ulink> as proposed by
+                                the MITRE Corporation. This field
+                                is optional. Example:
+                                <literal>CPE_NAME="cpe:/o:fedoraproject:fedora:17"</literal>
+                                </para></listitem>
                         </varlistentry>
                 </variablelist>
 
-                <para>If you are reading this file from code or a
+                <para>If you are reading this file from C code or a
                 shell script to determine the OS or a specific version
                 of it, use the ID and VERSION_ID fields. When looking
                 for an OS identification string for presentation to
@@ -179,11 +200,12 @@
                 <title>Example</title>
 
                 <programlisting>NAME=Fedora
-VERSION="15 (Rawhide)"
+VERSION="17 (Beefy Miracle)"
 ID=fedora
 VERSION_ID=15
-PRETTY_NAME="Fedora 15 (Rawhide)"
-ANSI_COLOR="0;34"</programlisting>
+PRETTY_NAME="Fedora 17 (Beefy Miracle)"
+ANSI_COLOR="0;34"
+CPE_NAME="cpe:/o:fedoraproject:fedora:17"</programlisting>
         </refsect1>
 
         <refsect1>
