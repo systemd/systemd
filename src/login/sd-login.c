@@ -433,18 +433,18 @@ _public_ int sd_session_get_uid(const char *session, uid_t *uid) {
         return r;
 }
 
-_public_ int sd_session_get_seat(const char *session, char **seat) {
+static int session_get_string(const char *session, const char *field, char **value) {
         char *p, *s = NULL;
         int r;
 
-        if (!seat)
+        if (!value)
                 return -EINVAL;
 
         r = file_of_session(session, &p);
         if (r < 0)
                 return r;
 
-        r = parse_env_file(p, NEWLINE, "SEAT", &s, NULL);
+        r = parse_env_file(p, NEWLINE, field, &s, NULL);
         free(p);
 
         if (r < 0) {
@@ -455,34 +455,24 @@ _public_ int sd_session_get_seat(const char *session, char **seat) {
         if (isempty(s))
                 return -ENOENT;
 
-        *seat = s;
+        *value = s;
         return 0;
 }
 
+_public_ int sd_session_get_seat(const char *session, char **seat) {
+        return session_get_string(session, "SEAT", seat);
+}
+
 _public_ int sd_session_get_service(const char *session, char **service) {
-        char *p, *s = NULL;
-        int r;
+        return session_get_string(session, "SERVICE", service);
+}
 
-        if (!service)
-                return -EINVAL;
+_public_ int sd_session_get_type(const char *session, char **type) {
+        return session_get_string(session, "TYPE", type);
+}
 
-        r = file_of_session(session, &p);
-        if (r < 0)
-                return r;
-
-        r = parse_env_file(p, NEWLINE, "SERVICE", &s, NULL);
-        free(p);
-
-        if (r < 0) {
-                free(s);
-                return r;
-        }
-
-        if (isempty(s))
-                return -ENOENT;
-
-        *service = s;
-        return 0;
+_public_ int sd_session_get_class(const char *session, char **class) {
+        return session_get_string(session, "CLASS", class);
 }
 
 static int file_of_seat(const char *seat, char **_p) {

@@ -90,6 +90,12 @@ int sd_session_get_seat(const char *session, char **seat);
 /* Determine the (PAM) service name this session was registered by. */
 int sd_session_get_service(const char *session, char **service);
 
+/* Determine the type of this session, i.e. one of "tty", "x11" or "unspecified". */
+int sd_session_get_type(const char *session, char **type);
+
+/* Determine the class of this session, i.e. one of "user", "greeter" or "lock-screen". */
+int sd_session_get_class(const char *session, char **class);
+
 /* Return active session and user of seat */
 int sd_seat_get_active(const char *seat, char **session, uid_t *uid);
 

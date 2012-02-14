@@ -28,8 +28,6 @@ Features:
 
 * Possibly, detect whether SysV init scripts can do reloading by looking for "echo Usage:" lines
 
-* Add XDG_SESSION_CLASS
-
 * figure out whether we should leave dbus around during shutdown
 
 * support closing all fds via RLIMIT_NOFILE instead of /proc, in order to make chroot stuff work.
