@@ -58,18 +58,37 @@
                 contains operating system identification data.</para>
 
                 <para>The basic file format of
-                <filename>os-release</filename> is a
-                newline-separated list of environment-like
-                shell-compatible variable assignments. It is possible
-                to source the configuration from shell scripts,
-                however, beyond mere variable assignments no shell
-                features are supported, allowing applications to read
-                the file without implementing a shell compatible
-                execution engine.</para>
+                <filename>os-release</filename> is a newline-separated
+                list of environment-like shell-compatible variable
+                assignments. It is possible to source the
+                configuration from shell scripts, however, beyond mere
+                variable assignments no shell features are supported
+                (this means variable expansion is explicitly not
+                supported), allowing applications to read the file
+                without implementing a shell compatible execution
+                engine. Variable assignment values should be enclosed
+                in double or single quotes if they include spaces,
+                semicolons or other special characters outside of A-Z,
+                a-z, 0-9. All strings should be in UTF-8 format, and
+                non-printable characters should not be used. If double
+                or single quotes or backslashes are to be used within
+                variable assignments they should be escaped with
+                backslashes, following shell style. It is not
+                supported to concatenate multiple individually quoted
+                strings. Lines beginning with "#" shall be ignored as
+                comments.</para>
 
                 <para><filename>/etc/os-release</filename> contains
                 data that is defined by the operating system vendor
                 and should not be changed by the administrator.</para>
+
+                <para>As this file only encodes names and identifiers
+                it should not be localized.</para>
+
+                <para>For a longer rationale for
+                <filename>/etc/os-release</filename> please refer to
+                the <ulink
+                url="http://0pointer.de/blog/projects/os-release">Announcement of <filename>/etc/os-release</filename></ulink>.</para>
         </refsect1>
 
         <refsect1>
@@ -99,27 +118,30 @@
 
                                 <listitem><para>A string identifying
                                 the operating system version,
-                                excluding any OS name information, and
-                                suitable for presentation to the
-                                user. This field is optional. Example:
+                                excluding any OS name information,
+                                possibly including a release code
+                                name, and suitable for presentation to
+                                the user. This field is
+                                optional. Example:
                                 <literal>VERSION=17</literal> or
-                                <literal>VERSION="17
-                                (Beefy Miracle)"</literal>.</para></listitem>
+                                <literal>VERSION="17 (Beefy
+                                Miracle)"</literal>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>ID=</varname></term>
 
                                 <listitem><para>A lower-case string
-                                (no spaces or other characters outside of
-                                0-9, a-z, ".", "_" and "-") identifying
-                                the operating system, excluding any
-                                version information and suitable for
-                                processing by scripts or usage in
-                                generated file names. If not set
-                                defaults to
+                                (no spaces or other characters outside
+                                of 0-9, a-z, ".", "_" and "-")
+                                identifying the operating system,
+                                excluding any version information and
+                                suitable for processing by scripts or
+                                usage in generated file names. If not
+                                set defaults to
                                 <literal>ID=linux</literal>. Example:
-                                <literal>ID=fedora</literal>.</para></listitem>
+                                <literal>ID=fedora</literal> or
+                                <literal>ID=debian</literal>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -130,7 +152,7 @@
                                 characters outside of 0-9, a-z, ".",
                                 "_" and "-") identifying the operating
                                 system version, excluding any OS name
-                                information or release code names, and
+                                information or release code name, and
                                 suitable for processing by scripts or
                                 usage in generated file names. This
                                 field is optional. Example:
@@ -144,11 +166,12 @@
                                 <listitem><para>A pretty operating
                                 system name in a format suitable for
                                 presentation to the user. May or may
-                                not contain an OS version of some
-                                kind, as suitable. If not set defaults
-                                to <literal>PRETTY_NAME="Linux"</literal>. Example:
-                                <literal>PRETTY_NAME="Fedora 17
-                                (Beefy Miracle)"</literal>.</para></listitem>
+                                not contain a release code name or OS
+                                version of some kind, as suitable. If
+                                not set defaults to
+                                <literal>PRETTY_NAME="Linux"</literal>. Example:
+                                <literal>PRETTY_NAME="Fedora 17 (Beefy
+                                Miracle)"</literal>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -202,7 +225,7 @@
                 <programlisting>NAME=Fedora
 VERSION="17 (Beefy Miracle)"
 ID=fedora
-VERSION_ID=15
+VERSION_ID=17
 PRETTY_NAME="Fedora 17 (Beefy Miracle)"
 ANSI_COLOR="0;34"
 CPE_NAME="cpe:/o:fedoraproject:fedora:17"</programlisting>
