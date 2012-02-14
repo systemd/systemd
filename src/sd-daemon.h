@@ -58,8 +58,8 @@ extern "C" {
 
   You may find an up-to-date version of these source files online:
 
-  http://cgit.freedesktop.org/systemd/plain/src/sd-daemon.h
-  http://cgit.freedesktop.org/systemd/plain/src/sd-daemon.c
+  http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h
+  http://cgit.freedesktop.org/systemd/systemd/plain/src/sd-daemon.c
 
   This should compile on non-Linux systems, too, but with the
   exception of the sd_is_xxx() calls all functions will become NOPs.
@@ -216,6 +216,11 @@ int sd_is_mq(int fd, const char *path);
 
      MAINPID=...  The main pid of a daemon, in case systemd did not
                   fork off the process itself. Example: "MAINPID=4711"
+
+     WATCHDOG=1   Tells systemd to update the watchdog timestamp.
+                  Services using this feature should do this in
+                  regular intervals. A watchdog framework can use the
+                  timestamps to detect failed services.
 
   Daemons can choose to send additional variables. However, it is
   recommended to prefix variable names not listed above with X_.
