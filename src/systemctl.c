@@ -77,7 +77,7 @@ static bool arg_no_reload = false;
 static bool arg_dry = false;
 static bool arg_quiet = false;
 static bool arg_full = false;
-static bool arg_force = false;
+static int arg_force = 0;
 static bool arg_ask_password = false;
 static bool arg_failed = false;
 static bool arg_runtime = false;
@@ -126,6 +126,7 @@ static OutputMode arg_output = OUTPUT_SHORT;
 static bool private_bus = false;
 
 static int daemon_reload(DBusConnection *bus, char **args);
+static void halt_now(int action);
 
 static bool on_tty(void) {
         static int t = -1;
@@ -1686,6 +1687,15 @@ static int start_special(DBusConnection *bus, char **args) {
 
         assert(bus);
         assert(args);
+
+        if (arg_force >= 2 && streq(args[0], "halt"))
+                halt_now(ACTION_HALT);
+
+        if (arg_force >= 2 && streq(args[0], "poweroff"))
+                halt_now(ACTION_POWEROFF);
+
+        if (arg_force >= 2 && streq(args[0], "reboot"))
+                halt_now(ACTION_POWEROFF);
 
         if (arg_force &&
             (streq(args[0], "halt") ||
@@ -4291,7 +4301,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'f':
-                        arg_force = true;
+                        arg_force ++;
                         break;
 
                 case ARG_NO_RELOAD:
@@ -5171,6 +5181,36 @@ done:
         return 0;
 }
 
+static void halt_now(int action) {
+
+       /* Make sure C-A-D is handled by the kernel from this
+         * point on... */
+        reboot(RB_ENABLE_CAD);
+
+        switch (action) {
+
+        case ACTION_HALT:
+                log_info("Halting.");
+                reboot(RB_HALT_SYSTEM);
+                break;
+
+        case ACTION_POWEROFF:
+                log_info("Powering off.");
+                reboot(RB_POWER_OFF);
+                break;
+
+        case ACTION_REBOOT:
+                log_info("Rebooting.");
+                reboot(RB_AUTOBOOT);
+                break;
+
+        default:
+                assert_not_reached("Unknown halt action.");
+        }
+
+        assert_not_reached("Uh? This shouldn't happen.");
+}
+
 static int halt_main(DBusConnection *bus) {
         int r;
 
@@ -5218,31 +5258,7 @@ static int halt_main(DBusConnection *bus) {
         if (arg_dry)
                 return 0;
 
-        /* Make sure C-A-D is handled by the kernel from this
-         * point on... */
-        reboot(RB_ENABLE_CAD);
-
-        switch (arg_action) {
-
-        case ACTION_HALT:
-                log_info("Halting.");
-                reboot(RB_HALT_SYSTEM);
-                break;
-
-        case ACTION_POWEROFF:
-                log_info("Powering off.");
-                reboot(RB_POWER_OFF);
-                break;
-
-        case ACTION_REBOOT:
-                log_info("Rebooting.");
-                reboot(RB_AUTOBOOT);
-                break;
-
-        default:
-                assert_not_reached("Unknown halt action.");
-        }
-
+        halt_now(arg_action);
         /* We should never reach this. */
         return -ENOSYS;
 }
