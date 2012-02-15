@@ -47,6 +47,9 @@
                 <refname>sd_session_get_uid</refname>
                 <refname>sd_session_get_seat</refname>
                 <refname>sd_session_get_service</refname>
+                <refname>sd_session_get_type</refname>
+                <refname>sd_session_get_class</refname>
+                <refname>sd_session_get_display</refname>
                 <refpurpose>Determine state of a specific session</refpurpose>
         </refnamediv>
 
@@ -75,6 +78,24 @@
                                 <funcdef>int <function>sd_session_get_service</function></funcdef>
                                 <paramdef>const char* <parameter>session</parameter></paramdef>
                                 <paramdef>char** <parameter>service</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_session_get_type</function></funcdef>
+                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                                <paramdef>char** <parameter>type</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_session_get_class</function></funcdef>
+                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                                <paramdef>char** <parameter>class</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_session_get_display</function></funcdef>
+                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                                <paramdef>char** <parameter>display</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
@@ -108,6 +129,34 @@
                 session identified by the specified session
                 identifier. The returned string needs to be freed with
                 the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use.</para>
+
+                <para><function>sd_session_get_type()</function> may
+                be used to determine the type of the session
+                identified by the specified session identifier. The
+                returned string is one of <literal>x11</literal>,
+                <literal>tty</literal> or
+                <literal>unspecified</literal> and needs to be freed
+                with the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use.</para>
+
+                <para><function>sd_session_get_class()</function> may
+                be used to determine the class of the session
+                identified by the specified session identifier. The
+                returned string is one of <literal>user</literal>,
+                <literal>greeter</literal> or
+                <literal>lock-screen</literal> and needs to be freed
+                with the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use.</para>
+
+                <para><function>sd_session_get_display()</function>
+                may be used to determine the X11 display of the
+                session identified by the specified session
+                identifier. The returned string is one of needs to be
+                freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
