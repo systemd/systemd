@@ -1,5 +1,18 @@
 systemd System and Service Manager
 
+CHANGES WITH 43:
+        * This is mostly a bugfix release
+
+        * systems lacking /etc/os-release  are no longer supported.
+
+        * Various functionality updates to libsystemd-login.so
+
+        * Track class of PAM logins to distuingish greeters from
+          normal user logins.
+
+        Contributions from: Kay Sievers, Lennart Poettering, Michael
+        Biebl
+
 CHANGES WITH 42:
         * This is an important bugfix release for v41.
 
