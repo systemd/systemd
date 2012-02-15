@@ -710,20 +710,11 @@ nodist_man_MANS = \
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
 
-XML_IN_FILES = \
-	${patsubst %.1,%.xml.in,${patsubst %.3,%.xml.in,${patsubst %.5,%.xml.in,${patsubst %.7,%.xml.in,${patsubst %.8,%.xml.in,$(nodist_man_MANS)}}}}}
-
 dist_noinst_DATA = \
 	${XML_FILES:.xml=.html}
 
-nodist_noinst_DATA = \
-	${XML_IN_FILES:.xml.in=.html}
-
 EXTRA_DIST += \
-	$(XML_FILES) \
-	$(XML_IN_FILES) \
-	${nodist_man_MANS:=.in} \
-	${XML_IN_FILES:.xml.in=.html.in}
+	$(XML_FILES)
 endif
 
 systemd_SOURCES = \
@@ -2186,7 +2177,6 @@ CLEANFILES += \
 	$(nodist_systemunit_DATA) \
 	$(nodist_userunit_DATA) \
 	$(nodist_man_MANS) \
-	${XML_IN_FILES:.xml.in=.html} \
 	$(pkgconfigdata_DATA) \
 	$(pkgconfiglib_DATA) \
 	$(nodist_polkitpolicy_DATA) \
@@ -2209,61 +2199,31 @@ XSLTPROC_PROCESS_MAN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
-XSLTPROC_PROCESS_MAN_IN = \
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $< && \
-	mv ${@:.in=} $@
-
 XSLTPROC_PROCESS_HTML = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $<
 
-XSLTPROC_PROCESS_HTML_IN = \
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $< && \
-	mv ${@:.in=} $@
-
 man/%.1: man/%.xml
-	$(XSLTPROC_PROCESS_MAN)
-
-man/%.1.in: man/%.xml.in
 	$(XSLTPROC_PROCESS_MAN)
 
 man/%.3: man/%.xml
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.3.in: man/%.xml.in
-	$(XSLTPROC_PROCESS_MAN)
-
 man/%.5: man/%.xml
-	$(XSLTPROC_PROCESS_MAN)
-
-man/%.5.in: man/%.xml.in
 	$(XSLTPROC_PROCESS_MAN)
 
 man/%.7: man/%.xml
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.7.in: man/%.xml.in
-	$(XSLTPROC_PROCESS_MAN_IN)
-
 man/%.8: man/%.xml
 	$(XSLTPROC_PROCESS_MAN)
-
-man/%.8.in: man/%.xml.in
-	$(XSLTPROC_PROCESS_MAN_IN)
 
 man/%.html: man/%.xml
 	$(XSLTPROC_PROCESS_HTML)
 
-man/%.html.in: man/%.xml.in
-	$(XSLTPROC_PROCESS_HTML_IN)
-
 CLEANFILES += \
 	$(dist_man_MANS) \
-	${nodist_man_MANS:=.in} \
-	${XML_FILES:.xml=.html} \
-	${XML_IN_FILES:.xml.in=.html.in}
+	${XML_FILES:.xml=.html}
 endif
 
 DBUS_PREPROCESS = $(CPP) -P $(DBUS_CFLAGS) -imacros dbus/dbus-protocol.h
