@@ -96,6 +96,9 @@ int sd_session_get_type(const char *session, char **type);
 /* Determine the class of this session, i.e. one of "user", "greeter" or "lock-screen". */
 int sd_session_get_class(const char *session, char **class);
 
+/* Determine the X11 display of this session. */
+int sd_session_get_display(const char *session, char **display);
+
 /* Return active session and user of seat */
 int sd_seat_get_active(const char *seat, char **session, uid_t *uid);
 

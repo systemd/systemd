@@ -475,6 +475,10 @@ _public_ int sd_session_get_class(const char *session, char **class) {
         return session_get_string(session, "CLASS", class);
 }
 
+_public_ int sd_session_get_display(const char *session, char **display) {
+        return session_get_string(session, "DISPLAY", display);
+}
+
 static int file_of_seat(const char *seat, char **_p) {
         char *p;
         int r;

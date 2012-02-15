@@ -30,7 +30,7 @@
 int main(int argc, char* argv[]) {
         int r, k;
         uid_t u, u2;
-        char *seat, *type, *class;
+        char *seat, *type, *class, *display;
         char *session;
         char *state;
         char *session2;
@@ -82,6 +82,10 @@ int main(int argc, char* argv[]) {
         assert_se(sd_session_get_class(session, &class) >= 0);
         printf("class = %s\n", class);
         free(class);
+
+        assert_se(sd_session_get_display(session, &display) >= 0);
+        printf("display = %s\n", display);
+        free(display);
 
         assert_se(sd_session_get_seat(session, &seat) >= 0);
         printf("seat = %s\n", seat);
