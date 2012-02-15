@@ -253,11 +253,19 @@ int setup_namespace(
         }
 
         if (need_private) {
+                mode_t u;
+
                 memcpy(private_dir, tmp_dir, sizeof(tmp_dir)-1);
+
+                u = umask(0000);
                 if (mkdir(private_dir, 0777 + S_ISVTX) < 0) {
+                        umask(u);
+
                         r = -errno;
                         goto fail;
                 }
+
+                umask(u);
                 remove_private = true;
         }
 
