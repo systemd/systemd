@@ -33,6 +33,7 @@
 #include "macro.h"
 #include "util.h"
 #include "log.h"
+#include "virt.h"
 
 static int generate(char id[34]) {
         int fd, r;
@@ -40,6 +41,7 @@ static int generate(char id[34]) {
         sd_id128_t buf;
         char *q;
         ssize_t k;
+        const char *vm_id;
 
         assert(id);
 
@@ -47,7 +49,7 @@ static int generate(char id[34]) {
         fd = open("/var/lib/dbus/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd >= 0) {
 
-                k = loop_read(fd, id, 33, false);
+                k = loop_read(fd, id, 32, false);
                 close_nointr_nofail(fd);
 
                 if (k >= 32) {
@@ -56,6 +58,43 @@ static int generate(char id[34]) {
 
                         log_info("Initializing machine ID from D-Bus machine ID.");
                         return 0;
+                }
+        }
+
+        /* If that didn't work, see if we are running in qemu/kvm and a
+         * machine ID was passed in via -uuid on the qemu/kvm command
+         * line */
+
+        r = detect_vm(&vm_id);
+        if (r > 0 && streq(vm_id, "kvm")) {
+                char uuid[37];
+
+                fd = open("/sys/class/dmi/id/product_uuid", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+                if (fd >= 0) {
+                        k = loop_read(fd, uuid, 36, false);
+                        close_nointr_nofail(fd);
+
+                        if (k >= 36) {
+                                unsigned i, j;
+
+                                for (i = 0, j = 0; i < 36 && j < 32; i++) {
+                                        int t;
+
+                                        t = unhexchar(uuid[i]);
+                                        if (t < 0)
+                                                continue;
+
+                                        id[j++] = hexchar(t);
+                                }
+
+                                if (i == 36 && j == 32) {
+                                        id[32] = '\n';
+                                        id[33] = 0;
+
+                                        log_info("Initializing machine ID from KVM UUID");
+                                        return 0;
+                                }
+                        }
                 }
         }
 
