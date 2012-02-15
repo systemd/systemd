@@ -17,7 +17,7 @@ Before=shutdown.target
 Environment=HOME=/root
 WorkingDirectory=/root
 ExecStartPre=-/bin/plymouth quit
-ExecStartPre=-/bin/echo 'Welcome to emergency mode. Use "systemctl default" or ^D to activate default mode.'
+ExecStartPre=-/bin/echo 'Welcome to emergency mode. Use "systemctl default" or ^D to enter default mode.'
 ExecStart=-/sbin/sulogin
 ExecStopPost=/bin/systemctl --fail --no-block default
 StandardInput=tty-force
