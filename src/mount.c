@@ -1578,7 +1578,7 @@ static int mount_load_etc_fstab(Manager *m) {
                 free(what);
                 free(where);
 
-                if (r < 0)
+                if (k < 0)
                         r = k;
         }
 
