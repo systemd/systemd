@@ -44,7 +44,7 @@ EOF
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => "boot_disk" ,
                 rules           => <<EOF
-SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="boot_disk%n", RUN+="socket:@/org/kernel/udev/monitor"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="boot_disk%n"
 KERNEL=="ttyACM0", SYMLINK+="modem"
 EOF
         },
@@ -1319,7 +1319,7 @@ EOF
                 rules           => <<EOF
 KERNEL=="sda", PROGRAM="/bin/true create-envp"
 KERNEL=="sda", ENV{TESTENV}="change-envp"
-KERNEL=="sda", SYMLINK+="%k-%s{[dmi/id]product_name}-end", RUN+="socket:@/org/kernel/udev/monitor"
+KERNEL=="sda", SYMLINK+="%k-%s{[dmi/id]product_name}-end"
 EOF
         },
         {

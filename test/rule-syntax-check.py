@@ -27,7 +27,7 @@ if len(sys.argv) < 2:
 
 no_args_tests = re.compile('(ACTION|DEVPATH|KERNELS?|NAME|SYMLINK|SUBSYSTEMS?|DRIVERS?|TAG|RESULT|TEST)\s*(?:=|!)=\s*"([^"]*)"$')
 args_tests = re.compile('(ATTRS?|ENV|TEST){([a-zA-Z0-9/_.*%-]+)}\s*(?:=|!)=\s*"([^"]*)"$')
-no_args_assign = re.compile('(NAME|SYMLINK|SYMLINK{unique}|OWNER|GROUP|MODE|TAG|PROGRAM|RUN|RUN{ignore_error}|LABEL|GOTO|WAIT_FOR|OPTIONS|IMPORT)\s*(?:\+=|:=|=)\s*"([^"]*)"$')
+no_args_assign = re.compile('(NAME|SYMLINK|OWNER|GROUP|MODE|TAG|PROGRAM|RUN|LABEL|GOTO|WAIT_FOR|OPTIONS|IMPORT)\s*(?:\+=|:=|=)\s*"([^"]*)"$')
 args_assign = re.compile('(ATTR|ENV|IMPORT){([a-zA-Z0-9/_.*%-]+)}\s*=\s*"([^"]*)"$')
 
 result = 0
