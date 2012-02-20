@@ -1,6 +1,14 @@
  - find a way to tell udev to not cancel firmware
    requests in initramfs
 
+ - scsi_id -> sg3_utils?
+
+ - move 'collect' and /dev/z90crypt to s390-utils
+
+ - split-off keymaps?
+
+ - make gtk-doc optional like kmod
+
  - move /lib/udev/devices/ to tmpfiles
 
  - trigger --subsystem-match=usb/usb_device
