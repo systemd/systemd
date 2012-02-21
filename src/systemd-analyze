@@ -164,7 +164,15 @@ elif sys.argv[1] == 'plot':
         context.stroke()
         context.restore()
 
-        banner = "Running on %s (%s %s) %s" % (os.uname()[1], os.uname()[2], os.uname()[3], os.uname()[4])
+        osrel = "Linux"
+        if os.path.exists("/etc/os-release"):
+                for line in open("/etc/os-release"):
+                        if line.startswith('PRETTY_NAME='):
+                                osrel = line[12:]
+                                osrel = osrel.strip('\"\n')
+                                break
+
+        banner = "%s %s (%s %s) %s" % (osrel, os.uname()[1], os.uname()[2], os.uname()[3], os.uname()[4])
         draw_text(context, 0, -15, banner, hcenter = 0, vcenter = 1)
 
         for x in range(0, finish_time/10000 + 100, 100):
