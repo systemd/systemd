@@ -26,9 +26,11 @@ __contains_word () {
 }
 
 __filter_units_by_property () {
-        local property=$1 value=$2 ; shift ; shift
-        local -a units=( $* )
-        local -a props=( $(__systemctl show --property "$property" -- ${units[*]} | grep -v ^$) )
+        local property=$1 value=$2 ; shift 2
+        local units=("$@")
+        local props
+        IFS=$'\n' read -rd '' -a props < \
+            <(__systemctl show --property "$property" -- "${units[@]}")
         for ((i=0; $i < ${#units[*]}; i++)); do
                 if [[ "${props[i]}" = "$property=$value" ]]; then
                         echo "${units[i]}"
@@ -36,13 +38,20 @@ __filter_units_by_property () {
         done
 }
 
-__get_all_units      () { __systemctl list-units --all | awk '                 {print $1}' ; }
-__get_active_units   () { __systemctl list-units       | awk '                 {print $1}' ; }
-__get_inactive_units () { __systemctl list-units --all | awk '$3 == "inactive" {print $1}' ; }
-__get_failed_units   () { __systemctl list-units       | awk '$3 == "failed"   {print $1}' ; }
-__get_enabled_units  () { __systemctl list-unit-files  | awk '$2 == "enabled"  {print $1}' ; }
-__get_disabled_units () { __systemctl list-unit-files  | awk '$2 == "disabled" {print $1}' ; }
-__get_masked_units   () { __systemctl list-unit-files  | awk '$2 == "masked"   {print $1}' ; }
+__get_all_units      () { __systemctl list-units --all \
+        | { while read a b; do echo "$a"; done; }; }
+__get_active_units   () { __systemctl list-units       \
+        | { while read a b; do echo "$a"; done; }; }
+__get_inactive_units () { __systemctl list-units --all \
+        | { while read a b c d; do [[ $c == "inactive" ]] && echo "$a"; done; }; }
+__get_failed_units   () { __systemctl list-units       \
+        | { while read a b c d; do [[ $c == "failed"   ]] && echo "$a"; done; }; }
+__get_enabled_units  () { __systemctl list-unit-files  \
+        | { while read a b c  ; do [[ $b == "enabled"  ]] && echo "$a"; done; }; }
+__get_disabled_units () { __systemctl list-unit-files  \
+        | { while read a b c  ; do [[ $b == "disabled" ]] && echo "$a"; done; }; }
+__get_masked_units   () { __systemctl list-unit-files  \
+        | { while read a b c  ; do [[ $b == "masked"   ]] && echo "$a"; done; }; }
 
 _systemctl () {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -133,11 +142,17 @@ _systemctl () {
 
         elif __contains_word "$verb" ${VERBS[STARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property CanStart yes \
-                      $( __get_inactive_units | grep -Ev '\.(device|snapshot)$' ))
+                      $( __get_inactive_units \
+		        | while read line; do \
+		                [[ "$line" =~ \.(device|snapshot)$ ]] || echo "$line"; \
+		        done ))
 
         elif __contains_word "$verb" ${VERBS[RESTARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property CanStart yes \
-                      $( __get_all_units | grep -Ev '\.(device|snapshot|socket|timer)$' ))
+                      $( __get_all_units \
+		        | while read line; do \
+		                [[ "$line" =~ \.(device|snapshot|socket|timer)$ ]] || echo "$line"; \
+		        done ))
 
         elif __contains_word "$verb" ${VERBS[STOPPABLE_UNITS]}; then
                 comps=$( __filter_units_by_property CanStop yes \
@@ -161,13 +176,15 @@ _systemctl () {
                 comps=''
 
         elif __contains_word "$verb" ${VERBS[JOBS]}; then
-                comps=$( __systemctl list-jobs | awk '{print $1}' )
+                comps=$( __systemctl list-jobs | { while read a b; do echo "$a"; done; } )
 
         elif __contains_word "$verb" ${VERBS[SNAPSHOTS]}; then
-                comps=$( __systemctl list-units --type snapshot --full --all | awk '{print $1}' )
+                comps=$( __systemctl list-units --type snapshot --full --all \
+                        | { while read a b; do echo "$a"; done; } )
 
         elif __contains_word "$verb" ${VERBS[ENVS]}; then
-                comps=$( __systemctl show-environment | sed 's_\([^=]\+=\).*_\1_' )
+                comps=$( __systemctl show-environment \
+                    | while read line; do echo "${line%%=*}=";done )
                 compopt -o nospace
 
         elif __contains_word "$verb" ${VERBS[FILE]}; then
@@ -180,9 +197,9 @@ _systemctl () {
 }
 complete -F _systemctl systemctl
 
-__get_all_sessions () { systemd-loginctl list-sessions | awk '{print $1}' ; }
-__get_all_users    () { systemd-loginctl list-users    | awk '{print $2}' ; }
-__get_all_seats    () { systemd-loginctl list-seats    | awk '{print $1}' ; }
+__get_all_sessions () { systemd-loginctl list-sessions | { while read a b; do echo "$a"; done; } ; }
+__get_all_users    () { systemd-loginctl list-users    | { while read a b; do echo "$b"; done; } ; }
+__get_all_seats    () { systemd-loginctl list-seats    | { while read a b; do echo "$a"; done; } ; }
 
 _systemd_loginctl () {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
