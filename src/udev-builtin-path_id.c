@@ -360,11 +360,6 @@ static struct udev_device *handle_usb(struct udev_device *parent, char **path)
         return parent;
 }
 
-static struct udev_device *handle_cciss(struct udev_device *parent, char **path)
-{
-        return NULL;
-}
-
 static struct udev_device *handle_ccw(struct udev_device *parent, struct udev_device *dev, char **path)
 {
         struct udev_device *scsi_dev;
@@ -414,8 +409,6 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
                         handle_scsi_tape(parent, &path);
                 } else if (strcmp(subsys, "scsi") == 0) {
                         parent = handle_scsi(parent, &path);
-                } else if (strcmp(subsys, "cciss") == 0) {
-                        handle_cciss(parent, &path);
                 } else if (strcmp(subsys, "usb") == 0) {
                         parent = handle_usb(parent, &path);
                 } else if (strcmp(subsys, "serio") == 0) {

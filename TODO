@@ -1,3 +1,5 @@
+ - make "-/usr/bin/foo" non-fail
+
  - find a way to tell udev to not cancel firmware
    requests in initramfs
 
