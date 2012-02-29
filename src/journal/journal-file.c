@@ -238,7 +238,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (fstat(f->fd, &f->last_stat) < 0)
                 return -errno;
 
-        f->header->arena_size = new_size - htole64(f->header->arena_offset);
+        f->header->arena_size = htole64(new_size - le64toh(f->header->arena_offset));
 
         return 0;
 }
