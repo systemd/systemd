@@ -23,6 +23,7 @@
 ***/
 
 #include <assert.h>
+#include <sys/param.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <inttypes.h>

@@ -892,7 +892,7 @@ int load_env_file(
                 char ***rl) {
 
         FILE *f;
-        char **m = 0;
+        char **m = NULL;
         int r;
 
         assert(fname);
@@ -4177,7 +4177,7 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
 
 }
 
-void freeze(void) {
+_noreturn_ void freeze(void) {
 
         /* Make sure nobody waits for us on a socket anymore */
         close_all_fds(NULL, 0);

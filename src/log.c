@@ -625,11 +625,11 @@ _noreturn_ static void log_assert(const char *text, const char *file, int line, 
 }
 #pragma GCC diagnostic pop
 
-void log_assert_failed(const char *text, const char *file, int line, const char *func) {
+_noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func) {
         log_assert(text, file, line, func, "Assertion '%s' failed at %s:%u, function %s(). Aborting.");
 }
 
-void log_assert_failed_unreachable(const char *text, const char *file, int line, const char *func) {
+_noreturn_ void log_assert_failed_unreachable(const char *text, const char *file, int line, const char *func) {
         log_assert(text, file, line, func, "Code should not be reached '%s' at %s:%u, function %s(). Aborting.");
 }
 

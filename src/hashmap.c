@@ -55,10 +55,10 @@ struct pool {
         unsigned n_used;
 };
 
-struct pool *first_hashmap_pool = NULL;
+static struct pool *first_hashmap_pool = NULL;
 static void *first_hashmap_tile = NULL;
 
-struct pool *first_entry_pool = NULL;
+static struct pool *first_entry_pool = NULL;
 static void *first_entry_tile = NULL;
 
 static void* allocate_tile(struct pool **first_pool, void **first_tile, size_t tile_size) {

@@ -28,7 +28,7 @@
 #include "unit-name.h"
 #include "virt.h"
 
-const char *arg_dest = "/tmp";
+static const char *arg_dest = "/tmp";
 
 static int add_symlink(const char *fservice, const char *tservice) {
         char *from = NULL, *to = NULL;

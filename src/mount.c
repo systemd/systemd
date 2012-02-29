@@ -271,7 +271,7 @@ static char* mount_test_option(const char *haystack, const char *needle) {
          * struct mntent */
 
         if (!haystack)
-                return false;
+                return NULL;
 
         zero(me);
         me.mnt_opts = (char*) haystack;
