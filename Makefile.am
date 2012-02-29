@@ -672,6 +672,7 @@ MANPAGES = \
 	man/systemd.device.5 \
 	man/systemd.snapshot.5 \
 	man/systemd.exec.5 \
+	man/systemd.special.7 \
 	man/daemon.7 \
 	man/runlevel.8 \
 	man/telinit.8 \
@@ -703,9 +704,6 @@ if ENABLE_MANPAGES
 dist_man_MANS = \
 	$(MANPAGES) \
 	$(MANPAGES_ALIAS)
-
-nodist_man_MANS = \
-	man/systemd.special.7
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
