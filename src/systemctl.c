@@ -126,7 +126,7 @@ static OutputMode arg_output = OUTPUT_SHORT;
 static bool private_bus = false;
 
 static int daemon_reload(DBusConnection *bus, char **args);
-static void halt_now(int action);
+static void halt_now(enum action a);
 
 static bool on_tty(void) {
         static int t = -1;
@@ -226,7 +226,7 @@ static int translate_bus_error_to_exit_status(int r, const DBusError *error) {
         return EXIT_FAILURE;
 }
 
-static void warn_wall(enum action action) {
+static void warn_wall(enum action a) {
         static const char *table[_ACTION_MAX] = {
                 [ACTION_HALT]      = "The system is going down for system halt NOW!",
                 [ACTION_REBOOT]    = "The system is going down for reboot NOW!",
@@ -256,10 +256,10 @@ static void warn_wall(enum action action) {
                 free(p);
         }
 
-        if (!table[action])
+        if (!table[a])
                 return;
 
-        utmp_wall(table[action], NULL);
+        utmp_wall(table[a], NULL);
 }
 
 static bool avoid_bus(void) {
@@ -1682,33 +1682,125 @@ finish:
         return ret;
 }
 
+/* ask systemd-logind, which might grant access to unprivileged users through polkit */
+static int reboot_with_logind(DBusConnection *bus, enum action a) {
+#ifdef HAVE_LOGIND
+        const char *method;
+        DBusMessage *m = NULL, *reply = NULL;
+        DBusError error;
+        dbus_bool_t interactive = true;
+        int r;
+
+        dbus_error_init(&error);
+
+        switch (a) {
+
+        case ACTION_REBOOT:
+                method = "Reboot";
+                break;
+
+        case ACTION_POWEROFF:
+                method = "PowerOff";
+                break;
+
+        default:
+                return -EINVAL;
+        }
+
+        m = dbus_message_new_method_call(
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                method);
+        if (!m) {
+                log_error("Could not allocate message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (!dbus_message_append_args(m,
+                                      DBUS_TYPE_BOOLEAN, &interactive,
+                                      DBUS_TYPE_INVALID)) {
+                log_error("Could not append arguments to message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+        if (!reply) {
+                if (error_is_no_service(&error)) {
+                        log_debug("Failed to issue method call: %s", bus_error_message(&error));
+                        r = -ENOENT;
+                        goto finish;
+                }
+
+                if (dbus_error_has_name(&error, DBUS_ERROR_ACCESS_DENIED)) {
+                        log_debug("Failed to issue method call: %s", bus_error_message(&error));
+                        r = -EACCES;
+                        goto finish;
+                }
+
+                log_info("Failed to issue method call: %s", bus_error_message(&error));
+                r = -EIO;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return r;
+#else
+        return -ENOSYS;
+#endif
+}
+
 static int start_special(DBusConnection *bus, char **args) {
+        enum action a;
         int r;
 
         assert(bus);
         assert(args);
 
-        if (arg_force >= 2 && streq(args[0], "halt"))
+        a = verb_to_action(args[0]);
+
+        if (arg_force >= 2 && a == ACTION_HALT)
                 halt_now(ACTION_HALT);
 
-        if (arg_force >= 2 && streq(args[0], "poweroff"))
+        if (arg_force >= 2 && a == ACTION_POWEROFF)
                 halt_now(ACTION_POWEROFF);
 
-        if (arg_force >= 2 && streq(args[0], "reboot"))
-                halt_now(ACTION_POWEROFF);
+        if (arg_force >= 2 && a == ACTION_REBOOT)
+                halt_now(ACTION_REBOOT);
 
         if (arg_force &&
-            (streq(args[0], "halt") ||
-             streq(args[0], "poweroff") ||
-             streq(args[0], "reboot") ||
-             streq(args[0], "kexec") ||
-             streq(args[0], "exit")))
+            (a == ACTION_HALT ||
+             a == ACTION_POWEROFF ||
+             a == ACTION_REBOOT ||
+             a == ACTION_KEXEC ||
+             a == ACTION_EXIT))
                 return daemon_reload(bus, args);
 
-        r = start_unit(bus, args);
+        if (geteuid() != 0) {
+                /* first try logind, to allow authentication with polkit */
+                if (a == ACTION_POWEROFF ||
+                    a == ACTION_REBOOT) {
+                        r = reboot_with_logind(bus, a);
+                        if (r >= 0)
+                                return r;
+                }
+        }
 
+        r = start_unit(bus, args);
         if (r >= 0)
-                warn_wall(verb_to_action(args[0]));
+                warn_wall(a);
 
         return r;
 }
@@ -5181,13 +5273,13 @@ done:
         return 0;
 }
 
-static void halt_now(int action) {
+static void halt_now(enum action a) {
 
        /* Make sure C-A-D is handled by the kernel from this
          * point on... */
         reboot(RB_ENABLE_CAD);
 
-        switch (action) {
+        switch (a) {
 
         case ACTION_HALT:
                 log_info("Halting.");
@@ -5215,6 +5307,13 @@ static int halt_main(DBusConnection *bus) {
         int r;
 
         if (geteuid() != 0) {
+                if (arg_action == ACTION_POWEROFF ||
+                    arg_action == ACTION_REBOOT) {
+                        r = reboot_with_logind(bus, arg_action);
+                        if (r >= 0)
+                                return r;
+                }
+
                 log_error("Must be root.");
                 return -EPERM;
         }
