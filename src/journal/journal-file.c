@@ -771,14 +771,14 @@ static int journal_file_append_data(JournalFile *f, const void *data, uint64_t s
 
 uint64_t journal_file_entry_n_items(Object *o) {
         assert(o);
-        assert(o->object.type == htole64(OBJECT_ENTRY));
+        assert(o->object.type == OBJECT_ENTRY);
 
         return (le64toh(o->object.size) - offsetof(Object, entry.items)) / sizeof(EntryItem);
 }
 
 static uint64_t journal_file_entry_array_n_items(Object *o) {
         assert(o);
-        assert(o->object.type == htole64(OBJECT_ENTRY_ARRAY));
+        assert(o->object.type == OBJECT_ENTRY_ARRAY);
 
         return (le64toh(o->object.size) - offsetof(Object, entry_array.items)) / sizeof(uint64_t);
 }
@@ -833,7 +833,7 @@ static int link_entry_into_array(JournalFile *f,
         o->entry_array.items[i] = htole64(p);
 
         if (ap == 0)
-                *first = q;
+                *first = htole64(q);
         else {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, ap, &o);
                 if (r < 0)
@@ -866,7 +866,7 @@ static int link_entry_into_array_plus_one(JournalFile *f,
         else {
                 uint64_t i;
 
-                i = le64toh(*idx) - 1;
+                i = htole64(le64toh(*idx) - 1);
                 r = link_entry_into_array(f, first, &i, p);
                 if (r < 0)
                         return r;
