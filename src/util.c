@@ -3593,7 +3593,8 @@ static int rm_rf_children(int fd, bool only_dirs, bool honour_sticky) {
                 if (is_dir) {
                         int subdir_fd;
 
-                        if ((subdir_fd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC)) < 0) {
+                        subdir_fd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                        if (subdir_fd < 0) {
                                 if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
                                 continue;
