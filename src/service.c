@@ -1436,7 +1436,7 @@ static int service_search_main_pid(Service *s) {
         return 0;
 }
 
-static void service_notify_sockets_dead(Service *s) {
+static void service_notify_sockets_dead(Service *s, bool broken) {
         Iterator i;
         Unit *u;
 
@@ -1449,7 +1449,7 @@ static void service_notify_sockets_dead(Service *s) {
 
         SET_FOREACH(u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY], i)
                 if (u->type == UNIT_SOCKET)
-                        socket_notify_service_dead(SOCKET(u));
+                        socket_notify_service_dead(SOCKET(u), broken);
 
         return;
 }
@@ -1511,7 +1511,7 @@ static void service_set_state(Service *s, ServiceState state) {
             state == SERVICE_FINAL_SIGKILL ||
             state == SERVICE_FAILED ||
             state == SERVICE_AUTO_RESTART)
-                service_notify_sockets_dead(s);
+                service_notify_sockets_dead(s, false);
 
         if (state != SERVICE_START_PRE &&
             state != SERVICE_START &&
@@ -2402,8 +2402,10 @@ static int service_start(Unit *u) {
 
         /* Make sure we don't enter a busy loop of some kind. */
         r = service_start_limit_test(s);
-        if (r < 0)
+        if (r < 0) {
+                service_notify_sockets_dead(s, true);
                 return r;
+        }
 
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
