@@ -21,6 +21,10 @@ Bugfixes:
 
 Features:
 
+* when dumping cgroup contents, include main/control PID of a service, explicitly
+
+* keep an eye on https://bugzilla.gnome.org/show_bug.cgi?id=670100
+
 * D-Bus: always pass cred data along each message
 
 * journal: work on https://fedoraproject.org/wiki/Features/systemd-journal
