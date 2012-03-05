@@ -130,7 +130,7 @@
         <refsect1>
                 <title>Example</title>
 
-                <programlisting>PRETTY_NAME="Lennart's Computer"
+                <programlisting>PRETTY_HOSTNAME="Lennart's Computer"
 ICON_NAME=computer-laptop</programlisting>
         </refsect1>
 
