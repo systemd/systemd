@@ -313,6 +313,12 @@
                 accommodate for rolling releases. In this case VERSION
                 and VERSION_ID may be unset. Applications should not
                 rely on these fields to be set.</para>
+
+                <para>Operating system vendors may extend the file
+                format and introduce new fields. It is highly
+                recommended to prefix new fields with an OS specific
+                name in order to avoid name clashes. Example:
+                <literal>DEBIAN_BTS="debbugs://bugs.debian.org/"</literal></para>
         </refsect1>
 
         <refsect1>
