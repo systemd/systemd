@@ -85,6 +85,11 @@
                 <para>As this file only encodes names and identifiers
                 it should not be localized.</para>
 
+                <para>The file <filename>/etc/os-release</filename> might
+                be a symlink to another file, but it is important that
+                the file is available from earliest boot on, and hence
+                must be located on the root file system.</para>
+
                 <para>For a longer rationale for
                 <filename>/etc/os-release</filename> please refer to
                 the <ulink
