@@ -182,7 +182,7 @@
                                 <literal>ID=centos</literal> an
                                 assignment of <literal>ID_LIKE="rhel
                                 fedora"</literal> would be
-                                appropriate. For an operating systemd
+                                appropriate. For an operating system
                                 with <literal>ID=ubuntu</literal> an
                                 assignment of
                                 <literal>ID_LIKE=debian</literal> is
