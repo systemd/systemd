@@ -317,7 +317,8 @@
                 <para>Operating system vendors may extend the file
                 format and introduce new fields. It is highly
                 recommended to prefix new fields with an OS specific
-                name in order to avoid name clashes. Example:
+                name in order to avoid name clashes. Applications
+                reading this file must ignore unknown fields. Example:
                 <literal>DEBIAN_BTS="debbugs://bugs.debian.org/"</literal></para>
         </refsect1>
 
