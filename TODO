@@ -21,6 +21,8 @@ Bugfixes:
 
 Features:
 
+* prefer /etc over /run?
+
 * when dumping cgroup contents, include main/control PID of a service, explicitly
 
 * keep an eye on https://bugzilla.gnome.org/show_bug.cgi?id=670100
@@ -40,8 +42,6 @@ Features:
 * add option to sockets to avoid activation. Instead just drop packets/connections, see http://cyberelk.net/tim/2012/02/15/portreserve-systemd-solution/
 
 * isolate for getty is still broken, due to logind
-
-* don't umount /usr
 
 * default unix qlen is too small (10). bump sysctl? add sockopt?
 

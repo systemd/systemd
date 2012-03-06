@@ -103,4 +103,6 @@ stamp-*
 /Makefile
 ltmain.sh
 *.tar.xz
+*.tar.gz
+*.tar.bz2
 libtool

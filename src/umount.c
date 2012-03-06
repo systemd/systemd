@@ -410,7 +410,11 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
         assert(head);
 
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
-                if (streq(m->path, "/")) {
+                if (path_equal(m->path, "/")
+#ifndef HAVE_SPLIT_USR
+                    || path_equal(m->path, "/usr")
+#endif
+                ) {
                         n_failed++;
                         continue;
                 }
