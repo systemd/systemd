@@ -156,13 +156,17 @@
                                 operating system in regards to
                                 packaging and programming interfaces,
                                 for example listing one or more
-                                distribution identifiers the local
-                                distribution is a derivative
-                                from. Build scripts and similar should
-                                check this variable if they need to
-                                identify the local operating system
-                                and the value of
-                                <varname>ID=</varname> is not
+                                OS identifiers the local
+                                OS is a derivative from. An
+                                OS should generally only list other OS
+                                identifiers it itself is a derivative
+                                from, and not any OSes that
+                                are derived from it, but symmetric
+                                relationships are possible. Build
+                                scripts and similar should check this
+                                variable if they need to identify the
+                                local operating system and the value
+                                of <varname>ID=</varname> is not
                                 recognized. Operating systems should
                                 be listed in order of how closely the
                                 local operating system relates to the
@@ -215,7 +219,7 @@
 
                                 <listitem><para>A suggested
                                 presentation color when showing the
-                                distribution name on the console. This
+                                OS name on the console. This
                                 should be specified as string suitable
                                 for inclusion in the ESC [ m
                                 ANSI/ECMA-48 escape code for setting
@@ -240,13 +244,64 @@
                                 <literal>CPE_NAME="cpe:/o:fedoraproject:fedora:17"</literal>
                                 </para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>HOME_URL=</varname></term>
+                                <term><varname>SUPPORT_URL=</varname></term>
+                                <term><varname>BUG_REPORT_URL=</varname></term>
+
+                                <listitem><para>Links to resources on
+                                the Internet related the operating
+                                system. <varname>HOME_URL=</varname>
+                                should refer to the homepage of the of
+                                operating system, or alternatively
+                                some homepage of the specific version
+                                of the operating
+                                system. <varname>SUPPORT_URL=</varname>
+                                should refer to the main support page
+                                for the operating system, if there is
+                                any. This is primarily intended for
+                                operating systems which vendors
+                                provide support
+                                for. <varname>BUG_REPORT_URL=</varname>
+                                should refer to the main bug reporting
+                                page for the operating system, if
+                                there is any. This is primarily
+                                intended for operating systems that
+                                rely on community QA. These settings
+                                are optional, and providing only some
+                                of these settings is common. These
+                                URLs are intended to be exposed in
+                                "About this system" UIs behind links
+                                with captions such as "About this
+                                Operating System", "Obtain Support"
+                                resp. "Report a Bug". The values should
+                                be in <ulink
+                                url="https://tools.ietf.org/html/rfc3986">RFC3986
+                                format</ulink>, and should be
+                                <literal>http:</literal> or
+                                <literal>https:</literal> URLs, and
+                                possibly <literal>mailto:</literal> or
+                                <literal>tel:</literal>. Only one URL
+                                shall be listed in each setting. If
+                                multiple resources need to be
+                                referenced it is recommended to
+                                provide an online landing page linking
+                                all available resources. Examples:
+                                <literal>HOME_URL="https://fedoraproject.org/"</literal>
+                                and
+                                <literal>BUG_REPORT_URL="https://bugzilla.redhat.com/"</literal></para></listitem>
+                        </varlistentry>
+
+
                 </variablelist>
 
                 <para>If you are reading this file from C code or a
                 shell script to determine the OS or a specific version
-                of it, use the ID and VERSION_ID fields. When looking
-                for an OS identification string for presentation to
-                the user use the PRETTY_NAME field.</para>
+                of it, use the ID and VERSION_ID fields, possibly with
+                ID_LIKE as fallback for ID. When looking for an OS
+                identification string for presentation to the user use
+                the PRETTY_NAME field.</para>
 
                 <para>Note that operating system vendors may choose
                 not to provide version information, for example to
@@ -264,7 +319,9 @@ ID=fedora
 VERSION_ID=17
 PRETTY_NAME="Fedora 17 (Beefy Miracle)"
 ANSI_COLOR="0;34"
-CPE_NAME="cpe:/o:fedoraproject:fedora:17"</programlisting>
+CPE_NAME="cpe:/o:fedoraproject:fedora:17"
+HOME_URL="https://fedoraproject.org/"
+BUG_REPORT_URL="https://bugzilla.redhat.com/"</programlisting>
         </refsect1>
 
         <refsect1>
