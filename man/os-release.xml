@@ -145,6 +145,42 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>ID_LIKE=</varname></term>
+
+                                <listitem><para>A space-separated list
+                                of operating system identifiers in the
+                                same syntax as the
+                                <varname>ID=</varname> setting. Should
+                                list identifiers of operating systems
+                                that are closely related to the local
+                                operating system in regards to
+                                packaging and programming interfaces,
+                                for example listing one or more
+                                distribution identifiers the local
+                                distribution is a derivative
+                                from. Build scripts and similar should
+                                check this variable if they need to
+                                identify the local operating system
+                                and the value of
+                                <varname>ID=</varname> is not
+                                recognized. Operating systems should
+                                be listed in order of how closely the
+                                local operating system relates to the
+                                listed ones, starting with the
+                                closest. This field is
+                                optional. Example: for an operating
+                                system with
+                                <literal>ID=centos</literal> an
+                                assignment of <literal>ID_LIKE="rhel
+                                fedora"</literal> would be
+                                appropriate. For an operating systemd
+                                with <literal>ID=ubuntu</literal> an
+                                assignment of
+                                <literal>ID_LIKE=debian</literal> is
+                                appropriate.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>VERSION_ID=</varname></term>
 
                                 <listitem><para>A lower-case string
