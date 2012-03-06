@@ -102,7 +102,7 @@ Features:
 
 * support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)
 
-* allow per-entry control on /var vs. /run (think incognito browser mode)
+* journal: allow per-entry control on /var vs. /run (think incognito browser mode)
 
 * clean up session cgroups that remain after logout (think sshd), but eventually run empty
 
@@ -133,10 +133,6 @@ Features:
 
 * add an option to make mounts private/shareable and so on, enable this for root by default
 
-* internal restart counter for units (focus on auto-respawn)
-
-* finer-grained auto-respawn settings (rate-limit)
-
 * be able to specify a forced restart of service A where service B depends on, in case B
   needs to be auto-respawned?
 
@@ -145,8 +141,6 @@ Features:
 * when a bus name of a service disappears from the bus make sure to queue further activation requests
 
 * something like ConditionExec= or ExecStartPre= without failure state
-
-* service restart retry configuration
 
 * tmpfiles: apply "x" on "D" too (see patch from William Douglas)
 
@@ -261,8 +255,6 @@ Features:
 * fingerprint.target, wireless.target, gps.target, netdevice.target
 
 * io priority during initialization
-
-* if a service fails too often, make the service enter failed mode, and the socket, too.
 
 * systemctl list-jobs - show dependencies
 
