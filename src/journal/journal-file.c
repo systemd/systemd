@@ -581,6 +581,8 @@ static int journal_file_link_data(JournalFile *f, Object *o, uint64_t offset, ui
         assert(offset > 0);
         assert(o->object.type == OBJECT_DATA);
 
+        /* This might alter the window we are looking at */
+
         o->data.next_hash_offset = o->data.next_field_offset = 0;
         o->data.entry_offset = o->data.entry_array_offset = 0;
         o->data.n_entries = 0;
@@ -591,18 +593,14 @@ static int journal_file_link_data(JournalFile *f, Object *o, uint64_t offset, ui
                 /* Only entry in the hash table is easy */
                 f->data_hash_table[h].head_hash_offset = htole64(offset);
         } else {
-                /* Temporarily move back to the previous data object,
-                 * to patch in pointer */
+                /* Move back to the previous data object, to patch in
+                 * pointer */
 
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
                 if (r < 0)
                         return r;
 
                 o->data.next_hash_offset = htole64(offset);
-
-                r = journal_file_move_to_object(f, OBJECT_DATA, offset, &o);
-                if (r < 0)
-                        return r;
         }
 
         f->data_hash_table[h].tail_hash_offset = htole64(offset);
@@ -614,6 +612,7 @@ int journal_file_find_data_object_with_hash(
                 JournalFile *f,
                 const void *data, uint64_t size, uint64_t hash,
                 Object **ret, uint64_t *offset) {
+
         uint64_t p, osize, h;
         int r;
 
@@ -702,7 +701,11 @@ int journal_file_find_data_object(
                                                        ret, offset);
 }
 
-static int journal_file_append_data(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *offset) {
+static int journal_file_append_data(
+                JournalFile *f,
+                const void *data, uint64_t size,
+                Object **ret, uint64_t *offset) {
+
         uint64_t hash, p;
         uint64_t osize;
         Object *o;
@@ -757,6 +760,12 @@ static int journal_file_append_data(JournalFile *f, const void *data, uint64_t s
                 memcpy(o->data.payload, data, size);
 
         r = journal_file_link_data(f, o, p, hash);
+        if (r < 0)
+                return r;
+
+        /* The linking might have altered the window, so let's
+         * refresh our pointer */
+        r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
         if (r < 0)
                 return r;
 
