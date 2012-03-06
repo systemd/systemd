@@ -1436,7 +1436,7 @@ static int service_search_main_pid(Service *s) {
         return 0;
 }
 
-static void service_notify_sockets_dead(Service *s, bool broken) {
+static void service_notify_sockets_dead(Service *s, bool failed_permanent) {
         Iterator i;
         Unit *u;
 
@@ -1449,7 +1449,7 @@ static void service_notify_sockets_dead(Service *s, bool broken) {
 
         SET_FOREACH(u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY], i)
                 if (u->type == UNIT_SOCKET)
-                        socket_notify_service_dead(SOCKET(u), broken);
+                        socket_notify_service_dead(SOCKET(u), failed_permanent);
 
         return;
 }
@@ -2359,7 +2359,7 @@ static int service_start_limit_test(Service *s) {
         }
 
         case SERVICE_START_LIMIT_REBOOT_FORCE:
-                log_warning("%s start request repeated too quickly, force rebooting.", UNIT(s)->id);
+                log_warning("%s start request repeated too quickly, forcibly rebooting.", UNIT(s)->id);
                 UNIT(s)->manager->exit_code = MANAGER_REBOOT;
                 break;
 

@@ -2038,7 +2038,7 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
         return 0;
 }
 
-void socket_notify_service_dead(Socket *s, bool broken) {
+void socket_notify_service_dead(Socket *s, bool failed_permanent) {
         assert(s);
 
         /* The service is dead. Dang!
@@ -2047,9 +2047,9 @@ void socket_notify_service_dead(Socket *s, bool broken) {
          * services. */
 
         if (s->state == SOCKET_RUNNING) {
-                log_debug("%s got notified about service death (broken: %s)", UNIT(s)->id, yes_no(broken));
-                if (broken)
-                        socket_enter_stop_pre(s, SOCKET_FAILURE_SERVICE_BROKEN);
+                log_debug("%s got notified about service death (failed permanently: %s)", UNIT(s)->id, yes_no(failed_permanent));
+                if (failed_permanent)
+                        socket_enter_stop_pre(s, SOCKET_FAILURE_SERVICE_FAILED_PERMANENT);
                 else
                         socket_enter_listening(s);
         }
@@ -2160,7 +2160,7 @@ static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
         [SOCKET_FAILURE_EXIT_CODE] = "exit-code",
         [SOCKET_FAILURE_SIGNAL] = "signal",
         [SOCKET_FAILURE_CORE_DUMP] = "core-dump",
-        [SOCKET_FAILURE_SERVICE_BROKEN] = "service-broken"
+        [SOCKET_FAILURE_SERVICE_FAILED_PERMANENT] = "service-failed-permanent"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult);
