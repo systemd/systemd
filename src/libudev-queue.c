@@ -322,7 +322,7 @@ UDEV_EXPORT int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue)
         seqnum_kernel = udev_queue_get_kernel_seqnum(udev_queue);
         if (seqnum_udev < seqnum_kernel) {
                 dbg(udev_queue->udev, "queue is empty but kernel events still pending [%llu]<->[%llu]\n",
-                                        seqnum_kernel, seqnum_udev);
+                                      seqnum_kernel, seqnum_udev);
                 goto out;
         }
 

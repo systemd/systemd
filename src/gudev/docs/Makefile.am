@@ -48,8 +48,8 @@ FIXXREF_OPTIONS=
 # Used for dependencies. The docs will be rebuilt if any of these change.
 # e.g. HFILE_GLOB=$(top_srcdir)/gtk/*.h
 # e.g. CFILE_GLOB=$(top_srcdir)/gtk/*.c
-HFILE_GLOB=$(top_srcdir)/src/extras/gudev/*.h
-CFILE_GLOB=$(top_srcdir)/src/extras/gudev/*.c
+HFILE_GLOB=$(top_srcdir)/src/gudev/*.h
+CFILE_GLOB=$(top_srcdir)/src/gudev/*.c
 
 # Extra header to include when scanning, which are not under DOC_SOURCE_DIR
 # e.g. EXTRA_HFILES=$(top_srcdir}/contrib/extra.h
@@ -80,12 +80,12 @@ expand_content_files=
 GTKDOC_CFLAGS = \
         $(DBUS_GLIB_CFLAGS) \
         $(GLIB_CFLAGS) \
-        -I$(top_srcdir)/src/extras/gudev \
-        -I$(top_builddir)/src/extras/gudev
+        -I$(top_srcdir)/src/gudev \
+        -I$(top_builddir)/src/gudev
 
 GTKDOC_LIBS = \
         $(GLIB_LIBS) \
-        $(top_builddir)/src/extras/gudev/libgudev-1.0.la
+        $(top_builddir)/src/gudev/libgudev-1.0.la
 
 # This includes the standard gtk-doc make rules, copied by gtkdocize.
 include $(top_srcdir)/gtk-doc.make

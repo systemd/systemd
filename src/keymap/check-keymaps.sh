@@ -4,9 +4,9 @@
 # and that all key maps listed in the rules are valid and present in
 # Makefile.am
 SRCDIR=${1:-.}
-KEYLIST=${2:-src/extras/keymap/keys.txt}
-KEYMAPS_DIR=$SRCDIR/src/extras/keymap/keymaps
-RULES=$SRCDIR/src/extras/keymap/95-keymap.rules
+KEYLIST=${2:-src/keymap/keys.txt}
+KEYMAPS_DIR=$SRCDIR/src/keymap/keymaps
+RULES=$SRCDIR/src/keymap/95-keymap.rules
 
 [ -e "$KEYLIST" ] || {
         echo "need $KEYLIST please build first" >&2
@@ -16,7 +16,7 @@ RULES=$SRCDIR/src/extras/keymap/95-keymap.rules
 missing=$(join -v 2 <(awk '{print tolower(substr($1,5))}' $KEYLIST | sort -u) \
                     <(grep -hv '^#' ${KEYMAPS_DIR}/*| awk '{print $2}' | sort -u))
 [ -z "$missing" ] || {
-        echo "ERROR: unknown key names in src/extras/keymap/keymaps/*:" >&2
+        echo "ERROR: unknown key names in src/keymap/keymaps/*:" >&2
         echo "$missing" >&2
         exit 1
 }
@@ -31,7 +31,7 @@ for m in $maps; do
                 echo "ERROR: unknown map name in $RULES: $m" >&2
                 exit 1
         }
-        grep -q "src/extras/keymap/keymaps/$m\>" $SRCDIR/Makefile.am || {
+        grep -q "src/keymap/keymaps/$m\>" $SRCDIR/Makefile.am || {
                 echo "ERROR: map file $m is not added to Makefile.am" >&2
                 exit 1
         }

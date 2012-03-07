@@ -328,58 +328,58 @@ EXTRA_DIST += test/sys.tar.xz
 # ------------------------------------------------------------------------------
 # ata_id - ATA identify
 # ------------------------------------------------------------------------------
-src_extras_ata_id_ata_id_SOURCES = src/extras/ata_id/ata_id.c
-src_extras_ata_id_ata_id_LDADD = src/libudev-private.la
-pkglibexec_PROGRAMS += src/extras/ata_id/ata_id
+src_ata_id_ata_id_SOURCES = src/ata_id/ata_id.c
+src_ata_id_ata_id_LDADD = src/libudev-private.la
+pkglibexec_PROGRAMS += src/ata_id/ata_id
 
 # ------------------------------------------------------------------------------
 # cdrom_id - optical drive/media capability
 # ------------------------------------------------------------------------------
-src_extras_cdrom_id_cdrom_id_SOURCES = src/extras/cdrom_id/cdrom_id.c
-src_extras_cdrom_id_cdrom_id_LDADD = src/libudev-private.la
-pkglibexec_PROGRAMS += src/extras/cdrom_id/cdrom_id
-dist_udevrules_DATA += src/extras/cdrom_id/60-cdrom_id.rules
+src_cdrom_id_cdrom_id_SOURCES = src/cdrom_id/cdrom_id.c
+src_cdrom_id_cdrom_id_LDADD = src/libudev-private.la
+pkglibexec_PROGRAMS += src/cdrom_id/cdrom_id
+dist_udevrules_DATA += src/cdrom_id/60-cdrom_id.rules
 
 # ------------------------------------------------------------------------------
 # collect - trigger action when a collection of devices appeared
 # ------------------------------------------------------------------------------
-src_extras_collect_collect_SOURCES = src/extras/collect/collect.c
-src_extras_collect_collect_LDADD = src/libudev-private.la
-pkglibexec_PROGRAMS += src/extras/collect/collect
+src_collect_collect_SOURCES = src/collect/collect.c
+src_collect_collect_LDADD = src/libudev-private.la
+pkglibexec_PROGRAMS += src/collect/collect
 
 # ------------------------------------------------------------------------------
 # scsi_id - SCSI inquiry to get various serial numbers
 # ------------------------------------------------------------------------------
-src_extras_scsi_id_scsi_id_SOURCES =\
-	src/extras/scsi_id/scsi_id.c \
-	src/extras/scsi_id/scsi_serial.c \
-	src/extras/scsi_id/scsi.h \
-	src/extras/scsi_id/scsi_id.h
-src_extras_scsi_id_scsi_id_LDADD = src/libudev-private.la
-pkglibexec_PROGRAMS += src/extras/scsi_id/scsi_id
-dist_man_MANS += src/extras/scsi_id/scsi_id.8
-EXTRA_DIST += src/extras/scsi_id/README
+src_scsi_id_scsi_id_SOURCES =\
+	src/scsi_id/scsi_id.c \
+	src/scsi_id/scsi_serial.c \
+	src/scsi_id/scsi.h \
+	src/scsi_id/scsi_id.h
+src_scsi_id_scsi_id_LDADD = src/libudev-private.la
+pkglibexec_PROGRAMS += src/scsi_id/scsi_id
+dist_man_MANS += src/scsi_id/scsi_id.8
+EXTRA_DIST += src/scsi_id/README
 
 # ------------------------------------------------------------------------------
 # v4l_id - video4linux capabilities
 # ------------------------------------------------------------------------------
-src_extras_v4l_id_v4l_id_SOURCES = src/extras/v4l_id/v4l_id.c
-src_extras_v4l_id_v4l_id_LDADD = src/libudev-private.la
-pkglibexec_PROGRAMS += src/extras/v4l_id/v4l_id
-dist_udevrules_DATA += src/extras/v4l_id/60-persistent-v4l.rules
+src_v4l_id_v4l_id_SOURCES = src/v4l_id/v4l_id.c
+src_v4l_id_v4l_id_LDADD = src/libudev-private.la
+pkglibexec_PROGRAMS += src/v4l_id/v4l_id
+dist_udevrules_DATA += src/v4l_id/60-persistent-v4l.rules
 
 # ------------------------------------------------------------------------------
 # accelerometer - updates device orientation
 # ------------------------------------------------------------------------------
-src_extras_accelerometer_accelerometer_SOURCES = src/extras/accelerometer/accelerometer.c
-src_extras_accelerometer_accelerometer_LDADD = src/libudev-private.la -lm
-pkglibexec_PROGRAMS += src/extras/accelerometer/accelerometer
-dist_udevrules_DATA += src/extras/accelerometer/61-accelerometer.rules
+src_accelerometer_accelerometer_SOURCES = src/accelerometer/accelerometer.c
+src_accelerometer_accelerometer_LDADD = src/libudev-private.la -lm
+pkglibexec_PROGRAMS += src/accelerometer/accelerometer
+dist_udevrules_DATA += src/accelerometer/61-accelerometer.rules
 
 # ------------------------------------------------------------------------------
 # qemu -- qemu/kvm guest tweaks
 # ------------------------------------------------------------------------------
-dist_udevrules_DATA += src/extras/qemu/42-qemu-usb.rules
+dist_udevrules_DATA += src/qemu/42-qemu-usb.rules
 
 if ENABLE_GUDEV
 # ------------------------------------------------------------------------------
@@ -389,91 +389,91 @@ LIBGUDEV_CURRENT=1
 LIBGUDEV_REVISION=1
 LIBGUDEV_AGE=1
 
-SUBDIRS += src/extras/gudev/docs
+SUBDIRS += src/gudev/docs
 
-src_extras_gudev_libgudev_includedir=$(includedir)/gudev-1.0/gudev
-src_extras_gudev_libgudev_include_HEADERS = \
-	src/extras/gudev/gudev.h \
-	src/extras/gudev/gudevenums.h \
-	src/extras/gudev/gudevenumtypes.h \
-	src/extras/gudev/gudevtypes.h \
-	src/extras/gudev/gudevclient.h \
-	src/extras/gudev/gudevdevice.h \
-	src/extras/gudev/gudevenumerator.h
+src_gudev_libgudev_includedir=$(includedir)/gudev-1.0/gudev
+src_gudev_libgudev_include_HEADERS = \
+	src/gudev/gudev.h \
+	src/gudev/gudevenums.h \
+	src/gudev/gudevenumtypes.h \
+	src/gudev/gudevtypes.h \
+	src/gudev/gudevclient.h \
+	src/gudev/gudevdevice.h \
+	src/gudev/gudevenumerator.h
 
-lib_LTLIBRARIES += src/extras/gudev/libgudev-1.0.la
+lib_LTLIBRARIES += src/gudev/libgudev-1.0.la
 
-pkgconfig_DATA += src/extras/gudev/gudev-1.0.pc
-EXTRA_DIST += src/extras/gudev/gudev-1.0.pc.in
-CLEANFILES += src/extras/gudev/gudev-1.0.pc
+pkgconfig_DATA += src/gudev/gudev-1.0.pc
+EXTRA_DIST += src/gudev/gudev-1.0.pc.in
+CLEANFILES += src/gudev/gudev-1.0.pc
 
-src_extras_gudev_libgudev_1_0_la_SOURCES = \
-	src/extras/gudev/gudevenums.h \
-	src/extras/gudev/gudevenumtypes.h \
-	src/extras/gudev/gudevenumtypes.h\
-	src/extras/gudev/gudevtypes.h \
-	src/extras/gudev/gudevclient.h \
-	src/extras/gudev/gudevclient.c \
-	src/extras/gudev/gudevdevice.h \
-	src/extras/gudev/gudevdevice.c \
-	src/extras/gudev/gudevenumerator.h \
-	src/extras/gudev/gudevenumerator.c \
-	src/extras/gudev/gudevprivate.h
+src_gudev_libgudev_1_0_la_SOURCES = \
+	src/gudev/gudevenums.h \
+	src/gudev/gudevenumtypes.h \
+	src/gudev/gudevenumtypes.h\
+	src/gudev/gudevtypes.h \
+	src/gudev/gudevclient.h \
+	src/gudev/gudevclient.c \
+	src/gudev/gudevdevice.h \
+	src/gudev/gudevdevice.c \
+	src/gudev/gudevenumerator.h \
+	src/gudev/gudevenumerator.c \
+	src/gudev/gudevprivate.h
 
-nodist_src_extras_gudev_libgudev_1_0_la_SOURCES = \
-	src/extras/gudev/gudevmarshal.h \
-	src/extras/gudev/gudevmarshal.c \
-	src/extras/gudev/gudevenumtypes.h \
-	src/extras/gudev/gudevenumtypes.c
-BUILT_SOURCES += $(nodist_src_extras_gudev_libgudev_1_0_la_SOURCES)
+nodist_src_gudev_libgudev_1_0_la_SOURCES = \
+	src/gudev/gudevmarshal.h \
+	src/gudev/gudevmarshal.c \
+	src/gudev/gudevenumtypes.h \
+	src/gudev/gudevenumtypes.c
+BUILT_SOURCES += $(nodist_src_gudev_libgudev_1_0_la_SOURCES)
 
-src_extras_gudev_libgudev_1_0_la_CPPFLAGS = \
+src_gudev_libgudev_1_0_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
-	-I$(top_builddir)/src/extras \
-	-I$(top_srcdir)/src/extras \
-	-I$(top_builddir)/src/extras/gudev \
-	-I$(top_srcdir)/src/extras/gudev \
+	-I$(top_builddir)/src\
+	-I$(top_srcdir)/src\
+	-I$(top_builddir)/src/gudev \
+	-I$(top_srcdir)/src/gudev \
 	-D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT \
 	-D_GUDEV_COMPILATION \
 	-DG_LOG_DOMAIN=\"GUdev\"
 
-src_extras_gudev_libgudev_1_0_la_CFLAGS = \
+src_gudev_libgudev_1_0_la_CFLAGS = \
 	-fvisibility=default \
 	$(GLIB_CFLAGS)
 
-src_extras_gudev_libgudev_1_0_la_LIBADD = src/libudev.la $(GLIB_LIBS)
+src_gudev_libgudev_1_0_la_LIBADD = src/libudev.la $(GLIB_LIBS)
 
-src_extras_gudev_libgudev_1_0_la_LDFLAGS = \
+src_gudev_libgudev_1_0_la_LDFLAGS = \
 	-version-info $(LIBGUDEV_CURRENT):$(LIBGUDEV_REVISION):$(LIBGUDEV_AGE) \
 	-export-dynamic -no-undefined \
 	-export-symbols-regex '^g_udev_.*'
 
 EXTRA_DIST += \
-	src/extras/gudev/COPYING \
-	src/extras/gudev/gudevmarshal.list \
-	src/extras/gudev/gudevenumtypes.h.template \
-	src/extras/gudev/gudevenumtypes.c.template \
-	src/extras/gudev/gjs-example.js \
-	src/extras/gudev/seed-example-enum.js \
-	src/extras/gudev/seed-example.js
+	src/gudev/COPYING \
+	src/gudev/gudevmarshal.list \
+	src/gudev/gudevenumtypes.h.template \
+	src/gudev/gudevenumtypes.c.template \
+	src/gudev/gjs-example.js \
+	src/gudev/seed-example-enum.js \
+	src/gudev/seed-example.js
 
-src/extras/gudev/gudevmarshal.h: src/extras/gudev/gudevmarshal.list
+src/gudev/gudevmarshal.h: src/gudev/gudevmarshal.list
 	$(AM_V_GEN)glib-genmarshal $< --prefix=g_udev_marshal --header > $@
 
-src/extras/gudev/gudevmarshal.c: src/extras/gudev/gudevmarshal.list
+src/gudev/gudevmarshal.c: src/gudev/gudevmarshal.list
 	$(AM_V_GEN)echo "#include \"gudevmarshal.h\"" > $@ && \
 	glib-genmarshal $< --prefix=g_udev_marshal --body >> $@
 
-src/extras/gudev/gudevenumtypes.h: src/extras/gudev/gudevenumtypes.h.template src/extras/gudev/gudevenums.h
+src/gudev/gudevenumtypes.h: src/gudev/gudevenumtypes.h.template src/gudev/gudevenums.h
 	$(AM_V_GEN)glib-mkenums --template $^ > \
 	    $@.tmp && mv $@.tmp $@
 
-src/extras/gudev/gudevenumtypes.c: src/extras/gudev/gudevenumtypes.c.template src/extras/gudev/gudevenums.h
+src/gudev/gudevenumtypes.c: src/gudev/gudevenumtypes.c.template src/gudev/gudevenums.h
 	$(AM_V_GEN)glib-mkenums --template $^ > \
 	    $@.tmp && mv $@.tmp $@
 
 if ENABLE_INTROSPECTION
-src/extras/gudev/GUdev-1.0.gir: src/extras/gudev/libgudev-1.0.la $(G_IR_SCANNER)
+src/gudev/GUdev-1.0.gir: src/gudev/libgudev-1.0.la $(G_IR_SCANNER)
 	$(AM_V_GEN)$(G_IR_SCANNER) -v \
 		--warn-all \
 		--namespace GUdev \
@@ -481,35 +481,35 @@ src/extras/gudev/GUdev-1.0.gir: src/extras/gudev/libgudev-1.0.la $(G_IR_SCANNER)
 		--include=GObject-2.0 \
 		--library=gudev-1.0 \
 		--library-path=$(top_builddir)/src \
-		--library-path=$(top_builddir)/src/extras/gudev \
+		--library-path=$(top_builddir)/src/gudev \
 		--output $@ \
 		--pkg=glib-2.0 \
 		--pkg=gobject-2.0 \
 		--pkg-export=gudev-1.0 \
 		--c-include=gudev/gudev.h \
-		-I$(top_srcdir)/src/extras \
-		-I$(top_builddir)/src/extras \
+		-I$(top_srcdir)/src/\
+		-I$(top_builddir)/src/\
 		-D_GUDEV_COMPILATION \
 		-D_GUDEV_WORK_AROUND_DEV_T_BUG \
-		$(top_srcdir)/src/extras/gudev/gudev.h \
-		$(top_srcdir)/src/extras/gudev/gudevtypes.h \
-		$(top_srcdir)/src/extras/gudev/gudevenums.h \
-		$(or $(wildcard $(top_builddir)/src/extras/gudev/gudevenumtypes.h),$(top_srcdir)/src/extras/gudev/gudevenumtypes.h) \
-		$(top_srcdir)/src/extras/gudev/gudevclient.h \
-		$(top_srcdir)/src/extras/gudev/gudevdevice.h \
-		$(top_srcdir)/src/extras/gudev/gudevenumerator.h \
-		$(top_srcdir)/src/extras/gudev/gudevclient.c \
-		$(top_srcdir)/src/extras/gudev/gudevdevice.c \
-		$(top_srcdir)/src/extras/gudev/gudevenumerator.c
+		$(top_srcdir)/src/gudev/gudev.h \
+		$(top_srcdir)/src/gudev/gudevtypes.h \
+		$(top_srcdir)/src/gudev/gudevenums.h \
+		$(or $(wildcard $(top_builddir)/src/gudev/gudevenumtypes.h),$(top_srcdir)/src/gudev/gudevenumtypes.h) \
+		$(top_srcdir)/src/gudev/gudevclient.h \
+		$(top_srcdir)/src/gudev/gudevdevice.h \
+		$(top_srcdir)/src/gudev/gudevenumerator.h \
+		$(top_srcdir)/src/gudev/gudevclient.c \
+		$(top_srcdir)/src/gudev/gudevdevice.c \
+		$(top_srcdir)/src/gudev/gudevenumerator.c
 
-src/extras/gudev/GUdev-1.0.typelib: src/extras/gudev/GUdev-1.0.gir $(G_IR_COMPILER)
+src/gudev/GUdev-1.0.typelib: src/gudev/GUdev-1.0.gir $(G_IR_COMPILER)
 	$(AM_V_GEN)g-ir-compiler $< -o $@
 
 girdir = $(GIRDIR)
-gir_DATA = src/extras/gudev/GUdev-1.0.gir
+gir_DATA = src/gudev/GUdev-1.0.gir
 
 typelibsdir = $(GIRTYPELIBDIR)
-typelibs_DATA = src/extras/gudev/GUdev-1.0.typelib
+typelibs_DATA = src/gudev/GUdev-1.0.typelib
 
 CLEANFILES += $(gir_DATA) $(typelibs_DATA)
 endif # ENABLE_INTROSPECTION
@@ -535,114 +535,114 @@ if ENABLE_KEYMAP
 # ------------------------------------------------------------------------------
 # keymap - map custom hardware's multimedia keys
 # ------------------------------------------------------------------------------
-src_extras_keymap_keymap_SOURCES = src/extras/keymap/keymap.c
-src_extras_keymap_keymap_CPPFLAGS = $(AM_CPPFLAGS) -I src/extras/keymap
-nodist_src_extras_keymap_keymap_SOURCES = \
-	src/extras/keymap/keys-from-name.h \
-	src/extras/keymap/keys-to-name.h
-BUILT_SOURCES += $(nodist_src_extras_keymap_keymap_SOURCES)
+src_keymap_keymap_SOURCES = src/keymap/keymap.c
+src_keymap_keymap_CPPFLAGS = $(AM_CPPFLAGS) -I src/keymap
+nodist_src_keymap_keymap_SOURCES = \
+	src/keymap/keys-from-name.h \
+	src/keymap/keys-to-name.h
+BUILT_SOURCES += $(nodist_src_keymap_keymap_SOURCES)
 
-pkglibexec_PROGRAMS += src/extras/keymap/keymap
-dist_doc_DATA = src/extras/keymap/README.keymap.txt
+pkglibexec_PROGRAMS += src/keymap/keymap
+dist_doc_DATA = src/keymap/README.keymap.txt
 
 dist_udevrules_DATA += \
-	src/extras/keymap/95-keymap.rules \
-	src/extras/keymap/95-keyboard-force-release.rules
+	src/keymap/95-keymap.rules \
+	src/keymap/95-keyboard-force-release.rules
 
-dist_udevhome_SCRIPTS += src/extras/keymap/findkeyboards
-udevhome_SCRIPTS += src/extras/keymap/keyboard-force-release.sh
+dist_udevhome_SCRIPTS += src/keymap/findkeyboards
+udevhome_SCRIPTS += src/keymap/keyboard-force-release.sh
 
 EXTRA_DIST += \
-	src/extras/keymap/check-keymaps.sh \
-	src/extras/keymap/keyboard-force-release.sh.in
+	src/keymap/check-keymaps.sh \
+	src/keymap/keyboard-force-release.sh.in
 
 CLEANFILES += \
-	src/extras/keymap/keys.txt \
-	src/extras/keymap/keys-from-name.gperf \
-	src/extras/keymap/keyboard-force-release.sh
+	src/keymap/keys.txt \
+	src/keymap/keys-from-name.gperf \
+	src/keymap/keyboard-force-release.sh
 
 udevkeymapdir = $(libexecdir)/udev/keymaps
 dist_udevkeymap_DATA = \
-	src/extras/keymap/keymaps/acer \
-	src/extras/keymap/keymaps/acer-aspire_5720 \
-	src/extras/keymap/keymaps/acer-aspire_8930 \
-	src/extras/keymap/keymaps/acer-aspire_5920g \
-	src/extras/keymap/keymaps/acer-aspire_6920 \
-	src/extras/keymap/keymaps/acer-travelmate_c300 \
-	src/extras/keymap/keymaps/asus \
-	src/extras/keymap/keymaps/compaq-e_evo \
-	src/extras/keymap/keymaps/dell \
-	src/extras/keymap/keymaps/dell-latitude-xt2 \
-	src/extras/keymap/keymaps/everex-xt5000 \
-	src/extras/keymap/keymaps/fujitsu-amilo_li_2732 \
-	src/extras/keymap/keymaps/fujitsu-amilo_pa_2548 \
-	src/extras/keymap/keymaps/fujitsu-amilo_pro_edition_v3505 \
-	src/extras/keymap/keymaps/fujitsu-amilo_pro_v3205 \
-	src/extras/keymap/keymaps/fujitsu-amilo_si_1520 \
-	src/extras/keymap/keymaps/fujitsu-esprimo_mobile_v5 \
-	src/extras/keymap/keymaps/fujitsu-esprimo_mobile_v6 \
-	src/extras/keymap/keymaps/genius-slimstar-320 \
-	src/extras/keymap/keymaps/hewlett-packard \
-	src/extras/keymap/keymaps/hewlett-packard-2510p_2530p \
-	src/extras/keymap/keymaps/hewlett-packard-compaq_elitebook \
-	src/extras/keymap/keymaps/hewlett-packard-pavilion \
-	src/extras/keymap/keymaps/hewlett-packard-presario-2100 \
-	src/extras/keymap/keymaps/hewlett-packard-tablet \
-	src/extras/keymap/keymaps/hewlett-packard-tx2 \
-	src/extras/keymap/keymaps/ibm-thinkpad-usb-keyboard-trackpoint \
-	src/extras/keymap/keymaps/inventec-symphony_6.0_7.0 \
-	src/extras/keymap/keymaps/lenovo-3000 \
-	src/extras/keymap/keymaps/lenovo-ideapad \
-	src/extras/keymap/keymaps/lenovo-thinkpad-usb-keyboard-trackpoint \
-	src/extras/keymap/keymaps/lenovo-thinkpad_x6_tablet \
-	src/extras/keymap/keymaps/lenovo-thinkpad_x200_tablet \
-	src/extras/keymap/keymaps/lg-x110 \
-	src/extras/keymap/keymaps/logitech-wave \
-	src/extras/keymap/keymaps/logitech-wave-cordless \
-	src/extras/keymap/keymaps/logitech-wave-pro-cordless \
-	src/extras/keymap/keymaps/maxdata-pro_7000 \
-	src/extras/keymap/keymaps/medion-fid2060 \
-	src/extras/keymap/keymaps/medionnb-a555 \
-	src/extras/keymap/keymaps/micro-star \
-	src/extras/keymap/keymaps/module-asus-w3j \
-	src/extras/keymap/keymaps/module-ibm \
-	src/extras/keymap/keymaps/module-lenovo \
-	src/extras/keymap/keymaps/module-sony \
-	src/extras/keymap/keymaps/module-sony-old \
-	src/extras/keymap/keymaps/module-sony-vgn \
-	src/extras/keymap/keymaps/olpc-xo \
-	src/extras/keymap/keymaps/onkyo \
-	src/extras/keymap/keymaps/oqo-model2 \
-	src/extras/keymap/keymaps/samsung-other \
-	src/extras/keymap/keymaps/samsung-sq1us \
-	src/extras/keymap/keymaps/samsung-sx20s \
-	src/extras/keymap/keymaps/toshiba-satellite_a100 \
-	src/extras/keymap/keymaps/toshiba-satellite_a110 \
-	src/extras/keymap/keymaps/toshiba-satellite_m30x \
-	src/extras/keymap/keymaps/zepto-znote
+	src/keymap/keymaps/acer \
+	src/keymap/keymaps/acer-aspire_5720 \
+	src/keymap/keymaps/acer-aspire_8930 \
+	src/keymap/keymaps/acer-aspire_5920g \
+	src/keymap/keymaps/acer-aspire_6920 \
+	src/keymap/keymaps/acer-travelmate_c300 \
+	src/keymap/keymaps/asus \
+	src/keymap/keymaps/compaq-e_evo \
+	src/keymap/keymaps/dell \
+	src/keymap/keymaps/dell-latitude-xt2 \
+	src/keymap/keymaps/everex-xt5000 \
+	src/keymap/keymaps/fujitsu-amilo_li_2732 \
+	src/keymap/keymaps/fujitsu-amilo_pa_2548 \
+	src/keymap/keymaps/fujitsu-amilo_pro_edition_v3505 \
+	src/keymap/keymaps/fujitsu-amilo_pro_v3205 \
+	src/keymap/keymaps/fujitsu-amilo_si_1520 \
+	src/keymap/keymaps/fujitsu-esprimo_mobile_v5 \
+	src/keymap/keymaps/fujitsu-esprimo_mobile_v6 \
+	src/keymap/keymaps/genius-slimstar-320 \
+	src/keymap/keymaps/hewlett-packard \
+	src/keymap/keymaps/hewlett-packard-2510p_2530p \
+	src/keymap/keymaps/hewlett-packard-compaq_elitebook \
+	src/keymap/keymaps/hewlett-packard-pavilion \
+	src/keymap/keymaps/hewlett-packard-presario-2100 \
+	src/keymap/keymaps/hewlett-packard-tablet \
+	src/keymap/keymaps/hewlett-packard-tx2 \
+	src/keymap/keymaps/ibm-thinkpad-usb-keyboard-trackpoint \
+	src/keymap/keymaps/inventec-symphony_6.0_7.0 \
+	src/keymap/keymaps/lenovo-3000 \
+	src/keymap/keymaps/lenovo-ideapad \
+	src/keymap/keymaps/lenovo-thinkpad-usb-keyboard-trackpoint \
+	src/keymap/keymaps/lenovo-thinkpad_x6_tablet \
+	src/keymap/keymaps/lenovo-thinkpad_x200_tablet \
+	src/keymap/keymaps/lg-x110 \
+	src/keymap/keymaps/logitech-wave \
+	src/keymap/keymaps/logitech-wave-cordless \
+	src/keymap/keymaps/logitech-wave-pro-cordless \
+	src/keymap/keymaps/maxdata-pro_7000 \
+	src/keymap/keymaps/medion-fid2060 \
+	src/keymap/keymaps/medionnb-a555 \
+	src/keymap/keymaps/micro-star \
+	src/keymap/keymaps/module-asus-w3j \
+	src/keymap/keymaps/module-ibm \
+	src/keymap/keymaps/module-lenovo \
+	src/keymap/keymaps/module-sony \
+	src/keymap/keymaps/module-sony-old \
+	src/keymap/keymaps/module-sony-vgn \
+	src/keymap/keymaps/olpc-xo \
+	src/keymap/keymaps/onkyo \
+	src/keymap/keymaps/oqo-model2 \
+	src/keymap/keymaps/samsung-other \
+	src/keymap/keymaps/samsung-sq1us \
+	src/keymap/keymaps/samsung-sx20s \
+	src/keymap/keymaps/toshiba-satellite_a100 \
+	src/keymap/keymaps/toshiba-satellite_a110 \
+	src/keymap/keymaps/toshiba-satellite_m30x \
+	src/keymap/keymaps/zepto-znote
 
 udevkeymapforcereldir = $(libexecdir)/udev/keymaps/force-release
 dist_udevkeymapforcerel_DATA = \
-	src/extras/keymap/force-release-maps/dell-touchpad \
-	src/extras/keymap/force-release-maps/hp-other \
-	src/extras/keymap/force-release-maps/samsung-other \
-	src/extras/keymap/force-release-maps/common-volume-keys
+	src/keymap/force-release-maps/dell-touchpad \
+	src/keymap/force-release-maps/hp-other \
+	src/keymap/force-release-maps/samsung-other \
+	src/keymap/force-release-maps/common-volume-keys
 
-src/extras/keymap/keys.txt: $(INCLUDE_PREFIX)/linux/input.h
-	$(AM_V_at)mkdir -p src/extras/keymap
+src/keymap/keys.txt: $(INCLUDE_PREFIX)/linux/input.h
+	$(AM_V_at)mkdir -p src/keymap
 	$(AM_V_GEN)$(AWK) '/^#define.*KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' < $< | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
 
-src/extras/keymap/keys-from-name.gperf: src/extras/keymap/keys.txt
+src/keymap/keys-from-name.gperf: src/keymap/keys.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print $$1 ", " $$1 }' < $< > $@
 
-src/extras/keymap/keys-from-name.h: src/extras/keymap/keys-from-name.gperf Makefile
+src/keymap/keys-from-name.h: src/keymap/keys-from-name.gperf Makefile
 	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@
 
-src/extras/keymap/keys-to-name.h: src/extras/keymap/keys.txt Makefile
+src/keymap/keys-to-name.h: src/keymap/keys.txt Makefile
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
 
-keymaps-distcheck-hook: src/extras/keymap/keys.txt
-	$(top_srcdir)/src/extras/keymap/check-keymaps.sh $(top_srcdir) $^
+keymaps-distcheck-hook: src/keymap/keys.txt
+	$(top_srcdir)/src/keymap/check-keymaps.sh $(top_srcdir) $^
 DISTCHECK_HOOKS += keymaps-distcheck-hook
 endif
 
@@ -650,13 +650,13 @@ if ENABLE_MTD_PROBE
 # ------------------------------------------------------------------------------
 # mtd_probe - autoloads FTL module for mtd devices
 # ------------------------------------------------------------------------------
-src_extras_mtd_probe_mtd_probe_SOURCES =  \
-	src/extras/mtd_probe/mtd_probe.c \
-	src/extras/mtd_probe/mtd_probe.h \
-	src/extras/mtd_probe/probe_smartmedia.c
-src_extras_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
-dist_udevrules_DATA += src/extras/mtd_probe/75-probe_mtd.rules
-pkglibexec_PROGRAMS += src/extras/mtd_probe/mtd_probe
+src_mtd_probe_mtd_probe_SOURCES =  \
+	src/mtd_probe/mtd_probe.c \
+	src/mtd_probe/mtd_probe.h \
+	src/mtd_probe/probe_smartmedia.c
+src_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
+dist_udevrules_DATA += src/mtd_probe/75-probe_mtd.rules
+pkglibexec_PROGRAMS += src/mtd_probe/mtd_probe
 endif
 
 if ENABLE_RULE_GENERATOR
@@ -664,35 +664,35 @@ if ENABLE_RULE_GENERATOR
 # rule_generator - persistent network and optical device rule generator
 # ------------------------------------------------------------------------------
 dist_udevhome_SCRIPTS += \
-	src/extras/rule_generator/write_cd_rules \
-	src/extras/rule_generator/write_net_rules
+	src/rule_generator/write_cd_rules \
+	src/rule_generator/write_net_rules
 
 dist_udevhome_DATA += \
-	src/extras/rule_generator/rule_generator.functions
+	src/rule_generator/rule_generator.functions
 
 dist_udevrules_DATA += \
-	src/extras/rule_generator/75-cd-aliases-generator.rules \
-	src/extras/rule_generator/75-persistent-net-generator.rules
+	src/rule_generator/75-cd-aliases-generator.rules \
+	src/rule_generator/75-persistent-net-generator.rules
 endif
 
 if ENABLE_FLOPPY
 # ------------------------------------------------------------------------------
 # create_floppy_devices - historical floppy kernel device nodes (/dev/fd0h1440, ...)
 # ------------------------------------------------------------------------------
-src_create_floppy_devices_SOURCES = src/extras/floppy/create_floppy_devices.c
+src_create_floppy_devices_SOURCES = src/floppy/create_floppy_devices.c
 src_create_floppy_devices_LDADD = src/libudev-private.la
 pkglibexec_PROGRAMS += src/create_floppy_devices
-dist_udevrules_DATA += src/extras/floppy/60-floppy.rules
+dist_udevrules_DATA += src/floppy/60-floppy.rules
 endif
 
 if ENABLE_EDD
 # ------------------------------------------------------------------------------
 # edd_id - create /dev/disk/by-id/edd-* links for BIOS EDD data
 # ------------------------------------------------------------------------------
-src_edd_id_SOURCES = src/extras/edd_id/edd_id.c
-src_edd_id_LDADD = src/libudev-private.la
-pkglibexec_PROGRAMS += src/edd_id
-dist_udevrules_DATA += src/extras/edd_id/61-persistent-storage-edd.rules
+src__edd_id_edd_id_SOURCES = src/edd_id/edd_id.c
+src_edd_id_edd_id_LDADD = src/libudev-private.la
+pkglibexec_PROGRAMS += src/edd_id/edd_id
+dist_udevrules_DATA += src/edd_id/61-persistent-storage-edd.rules
 endif
 
 # ------------------------------------------------------------------------------
@@ -763,5 +763,5 @@ doc-sync:
 	for i in src/*.html; do echo $$i; kup put $$i $$i.sign /pub/linux/utils/kernel/hotplug/udev/; done
 	for i in src/docs/html/*.{html,css,png}; do rm -f $$i.sign; gpg --armor --detach-sign --output=$$i.sign $$i; done
 	for i in src/docs/html/*.{html,css,png}; do echo $$i; kup put $$i $$i.sign /pub/linux/utils/kernel/hotplug/libudev/; done
-	for i in src/extras/gudev/docs/html/*.{html,css,png}; do rm -f $$i.sign; gpg --armor --detach-sign --output=$$i.sign $$i; done
-	for i in src/extras/gudev/docs/html/*.{html,css,png}; do echo $$i; kup put $$i $$i.sign /pub/linux/utils/kernel/hotplug/gudev/; done
+	for i in src/gudev/docs/html/*.{html,css,png}; do rm -f $$i.sign; gpg --armor --detach-sign --output=$$i.sign $$i; done
+	for i in src/gudev/docs/html/*.{html,css,png}; do echo $$i; kup put $$i $$i.sign /pub/linux/utils/kernel/hotplug/gudev/; done

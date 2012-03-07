@@ -205,8 +205,8 @@ AC_CONFIG_FILES([
        Makefile
        src/docs/Makefile
        src/docs/version.xml
-       src/extras/gudev/docs/Makefile
-       src/extras/gudev/docs/version.xml
+       src/gudev/docs/Makefile
+       src/gudev/docs/version.xml
 ])
 
 AC_OUTPUT
