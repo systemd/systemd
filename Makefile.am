@@ -150,18 +150,18 @@ INSTALL_DATA_HOOKS += udev-confdirs
 
 udevrulesdir = $(libexecdir)/udev/rules.d
 dist_udevrules_DATA = \
-	rules/rules.d/42-qemu-usb.rules \
-	rules/rules.d/50-udev-default.rules \
-	rules/rules.d/60-persistent-storage-tape.rules \
-	rules/rules.d/60-persistent-serial.rules \
-	rules/rules.d/60-persistent-input.rules \
-	rules/rules.d/60-persistent-alsa.rules \
-	rules/rules.d/60-persistent-storage.rules \
-	rules/rules.d/75-net-description.rules \
-	rules/rules.d/75-tty-description.rules \
-	rules/rules.d/78-sound-card.rules \
-	rules/rules.d/80-drivers.rules \
-	rules/rules.d/95-udev-late.rules
+	rules/42-qemu-usb.rules \
+	rules/50-udev-default.rules \
+	rules/60-persistent-storage-tape.rules \
+	rules/60-persistent-serial.rules \
+	rules/60-persistent-input.rules \
+	rules/60-persistent-alsa.rules \
+	rules/60-persistent-storage.rules \
+	rules/75-net-description.rules \
+	rules/75-tty-description.rules \
+	rules/78-sound-card.rules \
+	rules/80-drivers.rules \
+	rules/95-udev-late.rules
 
 udevconfdir = $(sysconfdir)/udev
 dist_udevconf_DATA = src/udev.conf
