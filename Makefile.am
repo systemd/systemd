@@ -149,8 +149,7 @@ udev-confdirs:
 INSTALL_DATA_HOOKS += udev-confdirs
 
 EXTRA_DIST += \
-	rules/arch \
-	rules/misc
+	rules/arch
 
 udevrulesdir = $(libexecdir)/udev/rules.d
 dist_udevrules_DATA = \
