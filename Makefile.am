@@ -28,7 +28,6 @@ AM_LDFLAGS = \
 DISTCHECK_CONFIGURE_FLAGS = \
 	--enable-debug \
 	--enable-rule_generator \
-	--enable-udev_acl \
 	--enable-floppy \
 	--enable-edd \
 	--with-selinux \
@@ -674,23 +673,6 @@ dist_udevhome_DATA += \
 dist_udevrules_DATA += \
 	src/extras/rule_generator/75-cd-aliases-generator.rules \
 	src/extras/rule_generator/75-persistent-net-generator.rules
-endif
-
-if ENABLE_UDEV_ACL
-# ------------------------------------------------------------------------------
-# udev_acl - apply ACLs for users with local forground sessions
-# ------------------------------------------------------------------------------
-src_udev_acl_SOURCES = src/extras/udev-acl/udev-acl.c
-src_udev_acl_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
-src_udev_acl_LDADD = src/libudev-private.la -lacl $(GLIB_LIBS)
-dist_udevrules_DATA += src/extras/udev-acl/70-udev-acl.rules
-pkglibexec_PROGRAMS += src/udev-acl
-
-udevacl-install-hook:
-	mkdir -p $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d
-	ln -sf $(libexecdir)/udev/udev-acl $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d/udev-acl.ck
-
-INSTALL_EXEC_HOOKS += udevacl-install-hook
 endif
 
 if ENABLE_FLOPPY

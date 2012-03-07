@@ -177,20 +177,6 @@ AC_ARG_ENABLE([rule_generator],
 AM_CONDITIONAL([ENABLE_RULE_GENERATOR], [test "x$enable_rule_generator" = "xyes"])
 
 # ------------------------------------------------------------------------------
-# udev_acl - apply ACLs for users with local forground sessions
-# ------------------------------------------------------------------------------
-AC_ARG_ENABLE([udev_acl],
-       AS_HELP_STRING([--enable-udev_acl], [enable local user acl permissions support @<:@default=disabled@:>@]),
-       [], [enable_udev_acl=no])
-AS_IF([test "x$enable_udev_acl" = "xyes"], [
-       AC_CHECK_LIB([acl], [acl_init], [:], AC_MSG_ERROR([libacl not found]))
-       AC_CHECK_HEADER([acl/libacl.h], [:], AC_MSG_ERROR([libacl header not found]))
-
-       PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0])
-])
-AM_CONDITIONAL([ENABLE_UDEV_ACL], [test "x$enable_udev_acl" = "xyes"])
-
-# ------------------------------------------------------------------------------
 # create_floppy_devices - historical floppy kernel device nodes (/dev/fd0h1440, ...)
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([floppy],
@@ -260,7 +246,6 @@ AC_MSG_RESULT([
         keymap:                  ${enable_keymap}
         mtd_probe:               ${enable_mtd_probe}
         rule_generator:          ${enable_rule_generator}
-        udev_acl:                ${enable_udev_acl}
         floppy:                  ${enable_floppy}
         edd:                     ${enable_edd}
 ])

@@ -1,5 +1,12 @@
 udev 181
 ========
+The udev-acl tool is no longer provided, it will be part of a future
+ConsoleKit release. On systemd systems, advanced ConsoleKit and udev-acl
+functionality are provided by systemd.
+
+
+udev 181
+========
 Require kmod version 5.
 
 Provide /dev/cdrom symlink for /dev/sr0.
