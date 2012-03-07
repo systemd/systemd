@@ -155,6 +155,7 @@ EXTRA_DIST += \
 
 udevrulesdir = $(libexecdir)/udev/rules.d
 dist_udevrules_DATA = \
+	rules/rules.d/42-qemu-usb.rules \
 	rules/rules.d/50-udev-default.rules \
 	rules/rules.d/60-persistent-storage-tape.rules \
 	rules/rules.d/60-persistent-serial.rules \
@@ -375,11 +376,6 @@ src_accelerometer_accelerometer_SOURCES = src/accelerometer/accelerometer.c
 src_accelerometer_accelerometer_LDADD = src/libudev-private.la -lm
 pkglibexec_PROGRAMS += src/accelerometer/accelerometer
 dist_udevrules_DATA += src/accelerometer/61-accelerometer.rules
-
-# ------------------------------------------------------------------------------
-# qemu -- qemu/kvm guest tweaks
-# ------------------------------------------------------------------------------
-dist_udevrules_DATA += src/qemu/42-qemu-usb.rules
 
 if ENABLE_GUDEV
 # ------------------------------------------------------------------------------
