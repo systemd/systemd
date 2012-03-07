@@ -29,7 +29,6 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--enable-debug \
 	--enable-rule_generator \
 	--enable-floppy \
-	--enable-edd \
 	--with-selinux \
 	--enable-gtk-doc \
 	--with-systemdsystemunitdir=$$dc_install_base/$(systemdsystemunitdir)
@@ -679,16 +678,6 @@ src_create_floppy_devices_SOURCES = src/floppy/create_floppy_devices.c
 src_create_floppy_devices_LDADD = src/libudev-private.la
 pkglibexec_PROGRAMS += src/create_floppy_devices
 dist_udevrules_DATA += src/floppy/60-floppy.rules
-endif
-
-if ENABLE_EDD
-# ------------------------------------------------------------------------------
-# edd_id - create /dev/disk/by-id/edd-* links for BIOS EDD data
-# ------------------------------------------------------------------------------
-src__edd_id_edd_id_SOURCES = src/edd_id/edd_id.c
-src_edd_id_edd_id_LDADD = src/libudev-private.la
-pkglibexec_PROGRAMS += src/edd_id/edd_id
-dist_udevrules_DATA += src/edd_id/61-persistent-storage-edd.rules
 endif
 
 # ------------------------------------------------------------------------------

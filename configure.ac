@@ -184,14 +184,6 @@ AC_ARG_ENABLE([floppy],
        [], [enable_floppy=no])
 AM_CONDITIONAL([ENABLE_FLOPPY], [test "x$enable_floppy" = "xyes"])
 
-# ------------------------------------------------------------------------------
-# edd_id - create /dev/disk/by-id/edd-* links for BIOS EDD data
-# ------------------------------------------------------------------------------
-AC_ARG_ENABLE([edd],
-       AS_HELP_STRING([--enable-edd], [enable disk edd support @<:@default=disabled@:>@]),
-       [], [enable_edd=no])
-AM_CONDITIONAL([ENABLE_EDD], [test "x$enable_edd" = "xyes"])
-
 my_CFLAGS="-Wall \
 -Wmissing-declarations -Wmissing-prototypes \
 -Wnested-externs -Wpointer-arith \
@@ -247,5 +239,4 @@ AC_MSG_RESULT([
         mtd_probe:               ${enable_mtd_probe}
         rule_generator:          ${enable_rule_generator}
         floppy:                  ${enable_floppy}
-        edd:                     ${enable_edd}
 ])
