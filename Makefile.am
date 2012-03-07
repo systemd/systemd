@@ -148,9 +148,6 @@ udev-confdirs:
 
 INSTALL_DATA_HOOKS += udev-confdirs
 
-EXTRA_DIST += \
-	rules/arch
-
 udevrulesdir = $(libexecdir)/udev/rules.d
 dist_udevrules_DATA = \
 	rules/rules.d/42-qemu-usb.rules \
