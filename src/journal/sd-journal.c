@@ -527,6 +527,9 @@ static int next_with_matches(sd_journal *j, JournalFile *f, direction_t directio
                          * matches are not OK */
 
                         r = journal_file_next_entry_for_data(f, c, cp, le64toh(c->entry.items[k].object_offset), direction, &qo, &q);
+                        /* This pointer is invalidated if the window was
+                         * remapped. May need to re-fetch it later */
+                        c = NULL;
                         if (r < 0)
                                 return r;
 
@@ -552,8 +555,15 @@ static int next_with_matches(sd_journal *j, JournalFile *f, direction_t directio
 
                 /* Did this entry match against all matches? */
                 if (found) {
-                        if (ret)
+                        if (ret) {
+                                if (c == NULL) {
+                                        /* Re-fetch the entry */
+                                        r = journal_file_move_to_object(f, OBJECT_ENTRY, cp, &c);
+                                        if (r < 0)
+                                                return r;
+                                }
                                 *ret = c;
+                        }
                         if (offset)
                                 *offset = cp;
                         return 1;
