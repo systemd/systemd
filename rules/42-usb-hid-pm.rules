@@ -1,0 +1,49 @@
+#
+# Enable autosuspend for qemu emulated usb hid devices.
+#
+# Note that there are buggy qemu versions which advertise remote
+# wakeup support but don't actually implement it correctly.  This
+# is the reason why we need a match for the serial number here.
+# The serial number "42" is used to tag the implementations where
+# remote wakeup is working.
+#
+
+ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Mouse", ATTR{serial}=="42", TEST=="power/control", ATTR{power/control}="auto"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Tablet", ATTR{serial}=="42", TEST=="power/control", ATTR{power/control}="auto"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Keyboard", ATTR{serial}=="42", TEST=="power/control", ATTR{power/control}="auto"
+
+#
+# Enable autosuspend for KVM and iLO usb hid devices. These are
+# effectively self-powered (despite what some claim in their USB
+# profiles) and so it's safe to do so.
+#
+
+# AMI 046b:ff10
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="046b", ATTR{idProduct}=="ff10", TEST=="power/control", ATTR{power/control}="auto"
+
+#
+# Catch-all for Avocent HID devices. Keyed off interface in order to only
+# trigger on HID class devices.
+#
+ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="0624", ATTR{bInterfaceClass}=="03", TEST=="../power/control", ATTR{../power/control}="auto"
+
+# Dell DRAC 4
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="413c", ATTR{idProduct}=="2500", TEST=="power/control", ATTR{power/control}="auto"
+
+# Dell DRAC 5
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="413c", ATTR{idProduct}=="0000", TEST=="power/control", ATTR{power/control}="auto"
+
+# Hewlett Packard iLO
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="03f0", ATTR{idProduct}=="7029", TEST=="power/control", ATTR{power/control}="auto"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="03f0", ATTR{idProduct}=="1027", TEST=="power/control", ATTR{power/control}="auto"
+
+# IBM remote access
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="04b3", ATTR{idProduct}=="4001", TEST=="power/control", ATTR{power/control}="auto"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="04b3", ATTR{idProduct}=="4002", TEST=="power/control", ATTR{power/control}="auto"
+ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="04b3", ATTR{idProduct}=="4012", TEST=="power/control", ATTR{power/control}="auto"
+
+# Raritan Computer, Inc KVM.
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="14dd", ATTR{idProduct}="0002", TEST=="power/control", ATTR{power/control}="auto"
+
+# USB HID devices that are internal to the machine should also be safe to autosuspend
+ACTION=="add", SUBSYSTEM=="usb", ATTR{bInterfaceClass}=="03", ATTRS{removable}=="fixed", TEST=="../power/control", ATTR{../power/control}="auto"

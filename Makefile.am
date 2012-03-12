@@ -150,7 +150,7 @@ INSTALL_DATA_HOOKS += udev-confdirs
 
 udevrulesdir = $(libexecdir)/udev/rules.d
 dist_udevrules_DATA = \
-	rules/42-qemu-usb.rules \
+	rules/42-usb-hid-pm.rules \
 	rules/50-udev-default.rules \
 	rules/60-persistent-storage-tape.rules \
 	rules/60-persistent-serial.rules \
