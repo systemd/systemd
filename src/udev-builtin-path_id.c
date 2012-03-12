@@ -317,6 +317,19 @@ static struct udev_device *handle_scsi(struct udev_device *parent, char **path)
                 goto out;
         }
 
+        /*
+         * We do not support the ATA transport class, it creates duplicated link
+         * names as the fake SCSI host adapters are all separated, they are all
+         * re-based as host == 0. ATA should just stop faking two duplicated
+         * hierarchies for a single topology and leave the SCSI stuff alone;
+         * until that happens, there are no by-path/ links for ATA devices behind
+         * an ATA transport class.
+         */
+        if (strstr(name, "/ata") != NULL) {
+                parent = NULL;
+                goto out;
+        }
+
         parent = handle_scsi_default(parent, path);
 out:
         return parent;
