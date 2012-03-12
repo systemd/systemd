@@ -528,10 +528,21 @@
                                 <term><varname>PassCredentials=</varname></term>
                                 <listitem><para>Takes a boolean
                                 value. This controls the SO_PASSCRED
-                                socket option, which allows UNIX sockets to
+                                socket option, which allows AF_UNIX sockets to
                                 receive the credentials of the sending
                                 process in an ancillary message.
                                 Defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>PassSecurity=</varname></term>
+                                <listitem><para>Takes a boolean
+                                value. This controls the SO_PASSSEC
+                                socket option, which allows AF_UNIX
+                                sockets to receive the security
+                                context of the sending process in an
+                                ancillary message.  Defaults to
                                 <option>false</option>.</para></listitem>
                         </varlistentry>
 

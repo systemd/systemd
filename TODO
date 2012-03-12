@@ -18,6 +18,8 @@ Bugfixes:
 
 Features:
 
+* journal: extend sd-journal.h logging calls to implicitly log function names/line numbers/...
+
 * document crypttab(5)
 
 * There's currently no way to cancel fsck (used to be possible via C-c or c on the console)

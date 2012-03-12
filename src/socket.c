@@ -417,6 +417,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTransparent: %s\n"
                 "%sBroadcast: %s\n"
                 "%sPassCredentials: %s\n"
+                "%sPassSecurity: %s\n"
                 "%sTCPCongestion: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
@@ -429,6 +430,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->transparent),
                 prefix, yes_no(s->broadcast),
                 prefix, yes_no(s->pass_cred),
+                prefix, yes_no(s->pass_sec),
                 prefix, strna(s->tcp_congestion));
 
         if (s->control_pid > 0)
@@ -674,6 +676,12 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 int one = 1;
                 if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)
                         log_warning("SO_PASSCRED failed: %m");
+        }
+
+        if (s->pass_sec) {
+                int one = 1;
+                if (setsockopt(fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one)) < 0)
+                        log_warning("SO_PASSSEC failed: %m");
         }
 
         if (s->priority >= 0)

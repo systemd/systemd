@@ -52,6 +52,7 @@
         "  <property name=\"Transparent\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Broadcast\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"PassCredentials\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"PassSecurity\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Mark\" type=\"i\" access=\"read\"/>\n"      \
         "  <property name=\"MaxConnections\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"NAccepted\" type=\"u\" access=\"read\"/>\n" \
@@ -114,6 +115,7 @@ static const BusProperty bus_socket_properties[] = {
         { "Transparent",    bus_property_append_bool,          "b", offsetof(Socket, transparent)     },
         { "Broadcast",      bus_property_append_bool,          "b", offsetof(Socket, broadcast)       },
         { "PassCredentials",bus_property_append_bool,          "b", offsetof(Socket, pass_cred)       },
+        { "PassSecurity",   bus_property_append_bool,          "b", offsetof(Socket, pass_sec)        },
         { "Mark",           bus_property_append_int,           "i", offsetof(Socket, mark)            },
         { "MaxConnections", bus_property_append_unsigned,      "u", offsetof(Socket, max_connections) },
         { "NConnections",   bus_property_append_unsigned,      "u", offsetof(Socket, n_connections)   },

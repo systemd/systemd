@@ -180,4 +180,8 @@ static inline pid_t gettid(void) {
         return (pid_t) syscall(SYS_gettid);
 }
 
+#ifndef SCM_SECURITY
+#define SCM_SECURITY 0x03
+#endif
+
 #endif

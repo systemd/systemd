@@ -2253,6 +2253,11 @@ static int open_syslog_socket(Server *s) {
         }
 
         one = 1;
+        r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
+        if (r < 0)
+                log_warning("SO_PASSSEC failed: %m");
+
+        one = 1;
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
         if (r < 0) {
                 log_error("SO_TIMESTAMP failed: %m");
@@ -2307,6 +2312,11 @@ static int open_native_socket(Server*s) {
                 log_error("SO_PASSCRED failed: %m");
                 return -errno;
         }
+
+        one = 1;
+        r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
+        if (r < 0)
+                log_warning("SO_PASSSEC failed: %m");
 
         one = 1;
         r = setsockopt(s->native_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));

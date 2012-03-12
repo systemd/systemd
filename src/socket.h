@@ -129,6 +129,7 @@ struct Socket {
         bool transparent;
         bool broadcast;
         bool pass_cred;
+        bool pass_sec;
         int priority;
         int mark;
         size_t receive_buffer;
