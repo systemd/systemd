@@ -16,6 +16,9 @@ SUBSYSTEM=="usb", ATTR{bDeviceClass}=="09", TAG+="seat"
 # 'Plugable' USB hub, sound, network, graphics adapter
 SUBSYSTEM=="usb", ATTR{idVendor}=="2230", ATTR{idProduct}=="000[13]", ENV{ID_AUTOSEAT}="1"
 
+# Mimo 720, with integrated USB hub, displaylink graphics, and e2i touchscreen
+SUBSYSTEM=="usb", ATTR{idVendor}=="058f", ATTR{idProduct}=="6254", ENV{ID_AUTOSEAT}="1"
+
 TAG=="seat", ENV{ID_PATH}=="", IMPORT{program}="path_id %p"
 TAG=="seat", ENV{ID_FOR_SEAT}=="", ENV{ID_PATH_TAG}!="", ENV{ID_FOR_SEAT}="$env{SUBSYSTEM}-$env{ID_PATH_TAG}"
 
