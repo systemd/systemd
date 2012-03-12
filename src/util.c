@@ -1833,7 +1833,8 @@ char *cunescape_length(const char *s, size_t length) {
 
         /* Undoes C style string escaping */
 
-        if (!(r = new(char, length+1)))
+        r = new(char, length+1);
+        if (!r)
                 return r;
 
         for (f = s, t = r; f < s + length; f++) {
@@ -1887,8 +1888,10 @@ char *cunescape_length(const char *s, size_t length) {
                         /* hexadecimal encoding */
                         int a, b;
 
-                        if ((a = unhexchar(f[1])) < 0 ||
-                            (b = unhexchar(f[2])) < 0) {
+                        a = unhexchar(f[1]);
+                        b = unhexchar(f[2]);
+
+                        if (a < 0 || b < 0) {
                                 /* Invalid escape code, let's take it literal then */
                                 *(t++) = '\\';
                                 *(t++) = 'x';
@@ -1911,9 +1914,11 @@ char *cunescape_length(const char *s, size_t length) {
                         /* octal encoding */
                         int a, b, c;
 
-                        if ((a = unoctchar(f[0])) < 0 ||
-                            (b = unoctchar(f[1])) < 0 ||
-                            (c = unoctchar(f[2])) < 0) {
+                        a = unoctchar(f[0]);
+                        b = unoctchar(f[1]);
+                        c = unoctchar(f[2]);
+
+                        if (a < 0 || b < 0 || c < 0) {
                                 /* Invalid escape code, let's take it literal then */
                                 *(t++) = '\\';
                                 *(t++) = f[0];

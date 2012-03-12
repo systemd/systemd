@@ -39,6 +39,7 @@
 #include "exit-status.h"
 #include "def.h"
 #include "util.h"
+#include "utf8.h"
 
 #ifdef HAVE_SYSV_COMPAT
 
@@ -3200,11 +3201,19 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         }
 
         /* Interpret STATUS= */
-        if ((e = strv_find_prefix(tags, "STATUS="))) {
+        e = strv_find_prefix(tags, "STATUS=");
+        if (e) {
                 char *t;
 
                 if (e[7]) {
-                        if (!(t = strdup(e+7))) {
+
+                        if (!utf8_is_valid(e+7)) {
+                                log_warning("Status message in notification is not UTF-8 clean.");
+                                return;
+                        }
+
+                        t = strdup(e+7);
+                        if (!t) {
                                 log_error("Failed to allocate string.");
                                 return;
                         }

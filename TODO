@@ -18,6 +18,10 @@ Bugfixes:
 
 Features:
 
+* document crypttab(5)
+
+* There's currently no way to cancel fsck (used to be possible via C-c or c on the console)
+
 * hook up /dev/watchdog with main event loop for embedded, server uses
 
 * man: for some reason the HTML versions of the man pages are currently not being packaged
@@ -114,8 +118,6 @@ Features:
 * logind: allow showing logout dialog from system
 
 * document that %% can be used to write % in a string that is specifier extended
-
-* check utf8 everywhere
 
 * when an instanced service exits, remove its parent cgroup too if possible.
 

@@ -43,6 +43,7 @@
 #include "missing.h"
 #include "unit-name.h"
 #include "bus-errors.h"
+#include "utf8.h"
 
 #ifndef HAVE_SYSV_COMPAT
 int config_parse_warn_compat(
@@ -90,7 +91,6 @@ int config_parse_unit_deps(
 
                 k = unit_name_printf(u, t);
                 free(t);
-
                 if (!k)
                         return -ENOMEM;
 
@@ -128,22 +128,18 @@ int config_parse_unit_names(
                 char *t, *k;
                 int r;
 
-                if (!(t = strndup(w, l)))
+                t = strndup(w, l);
+                if (!t)
                         return -ENOMEM;
 
                 k = unit_name_printf(u, t);
                 free(t);
-
                 if (!k)
                         return -ENOMEM;
 
                 r = unit_merge_by_name(u, k);
-
-                if (r < 0) {
+                if (r < 0)
                         log_error("Failed to add name %s, ignoring: %s", k, strerror(-r));
-                        free(k);
-                        return 0;
-                }
 
                 free(k);
         }
@@ -162,27 +158,22 @@ int config_parse_unit_string_printf(
                 void *userdata) {
 
         Unit *u = userdata;
-        char **s = data;
         char *k;
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(s);
         assert(u);
 
-        if (!(k = unit_full_printf(u, rvalue)))
+        k = unit_full_printf(u, rvalue);
+        if (!k)
                 return -ENOMEM;
 
-        free(*s);
-        if (*k)
-                *s = k;
-        else {
-                free(k);
-                *s = NULL;
-        }
+        r = config_parse_string(filename, line, section, lvalue, ltype, k, data, userdata);
+        free (k);
 
-        return 0;
+        return r;
 }
 
 int config_parse_unit_strv_printf(
@@ -225,30 +216,22 @@ int config_parse_unit_path_printf(
                 void *userdata) {
 
         Unit *u = userdata;
-        char **s = data;
         char *k;
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(s);
         assert(u);
 
-        if (!(k = unit_full_printf(u, rvalue)))
+        k = unit_full_printf(u, rvalue);
+        if (!k)
                 return -ENOMEM;
 
-        if (!path_is_absolute(k)) {
-                log_error("[%s:%u] Not an absolute path: %s", filename, line, k);
-                free(k);
-                return -EINVAL;
-        }
+        r = config_parse_path(filename, line, section, lvalue, ltype, k, data, userdata);
+        free(k);
 
-        path_kill_slashes(k);
-
-        free(*s);
-        *s = k;
-
-        return 0;
+        return r;
 }
 
 int config_parse_socket_listen(
@@ -271,7 +254,8 @@ int config_parse_socket_listen(
 
         s = SOCKET(data);
 
-        if (!(p = new0(SocketPort, 1)))
+        p = new0(SocketPort, 1);
+        if (!p)
                 return -ENOMEM;
 
         if (streq(lvalue, "ListenFIFO")) {
@@ -478,6 +462,7 @@ int config_parse_exec(
         ExecCommand **e = data, *nce;
         char *path, **n;
         unsigned k;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -528,7 +513,8 @@ int config_parse_exec(
                         k++;
                 }
 
-                if (!(n = new(char*, k + !honour_argv0)))
+                n = new(char*, k + !honour_argv0);
+                if (!n)
                         return -ENOMEM;
 
                 k = 0;
@@ -538,11 +524,33 @@ int config_parse_exec(
 
                         if (honour_argv0 && w == rvalue) {
                                 assert(!path);
-                                if (!(path = cunescape_length(w, l)))
+
+                                path = strndup(w, l);
+                                if (!path) {
+                                        r = -ENOMEM;
                                         goto fail;
+                                }
+
+                                if (!utf8_is_valid(path)) {
+                                        log_error("[%s:%u] Path is not UTF-8 clean, ignoring assignment: %s", filename, line, rvalue);
+                                        r = 0;
+                                        goto fail;
+                                }
+
                         } else {
-                                if (!(n[k++] = cunescape_length(w, l)))
+                                char *c;
+
+                                c = n[k++] = cunescape_length(w, l);
+                                if (!c) {
+                                        r = -ENOMEM;
                                         goto fail;
+                                }
+
+                                if (!utf8_is_valid(c)) {
+                                        log_error("[%s:%u] Path is not UTF-8 clean, ignoring assignment: %s", filename, line, rvalue);
+                                        r = 0;
+                                        goto fail;
+                                }
                         }
                 }
 
@@ -550,19 +558,25 @@ int config_parse_exec(
 
                 if (!n[0]) {
                         log_error("[%s:%u] Invalid command line, ignoring: %s", filename, line, rvalue);
-                        strv_free(n);
-                        free(path);
-                        return 0;
+                        r = 0;
+                        goto fail;
                 }
 
-                if (!path)
-                        if (!(path = strdup(n[0])))
+                if (!path) {
+                        path = strdup(n[0]);
+                        if (!path) {
+                                r = -ENOMEM;
                                 goto fail;
+                        }
+                }
 
                 assert(path_is_absolute(path));
 
-                if (!(nce = new0(ExecCommand, 1)))
+                nce = new0(ExecCommand, 1);
+                if (!nce) {
+                        r = -ENOMEM;
                         goto fail;
+                }
 
                 nce->argv = n;
                 nce->path = path;
@@ -583,7 +597,7 @@ fail:
         free(path);
         free(nce);
 
-        return -ENOMEM;
+        return r;
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");

@@ -468,7 +468,8 @@ libsystemd_basic_la_SOURCES = \
 	src/socket-util.c \
 	src/log.c \
 	src/ratelimit.c \
-	src/exit-status.c
+	src/exit-status.c \
+        src/utf8.c
 
 libsystemd_basic_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -649,7 +650,8 @@ EXTRA_DIST += \
 	src/dbus-loop.h \
 	src/spawn-agent.h \
 	src/acl-util.h \
-	src/logs-show.h
+	src/logs-show.h \
+        src/utf8.h
 
 MANPAGES = \
 	man/systemd.1 \
