@@ -182,23 +182,28 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                                 <varlistentry>
                                         <term><varname>z</varname></term>
-                                        <listitem><para>Set ownership, access
-                                        mode and relabel security context of
-                                        a file or directory if it exists.
-                                        Lines of this type accept shell-style
-                                        globs in place of normal path names.
+                                        <listitem><para>Restore
+                                        SELinux security context label
+                                        and set ownership and access
+                                        mode of a file or directory if
+                                        it exists.  Lines of this type
+                                        accept shell-style globs in
+                                        place of normal path names.
                                         </para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>Z</varname></term>
-                                        <listitem><para>Recursively set
-                                        ownership, access mode and relabel
-                                        security context of a path and
-                                        all its subdirectories (if it is a
-                                        directory). Lines of this type accept
-                                        shell-style globs in place of normal
-                                        path names.</para></listitem>
+                                        <listitem><para>Recursively
+                                        restore SELinux security
+                                        context label and set
+                                        ownership and access mode of a
+                                        path and all its
+                                        subdirectories (if it is a
+                                        directory). Lines of this type
+                                        accept shell-style globs in
+                                        place of normal path
+                                        names.</para></listitem>
                                 </varlistentry>
                         </variablelist>
                 </refsect2>
