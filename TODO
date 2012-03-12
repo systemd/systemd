@@ -2,9 +2,6 @@ Bugfixes:
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
-* NM should pull in network.target (PENDING)
-  https://bugzilla.redhat.com/show_bug.cgi?id=692008
-
 * make anaconda write timeout=0 for encrypted devices
 
 * service: pid file reading after reload doesn't work, since we don't reset the pid variable
@@ -20,6 +17,8 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
+
+* hook up /dev/watchdog with main event loop for embedded, server uses
 
 * man: for some reason the HTML versions of the man pages are currently not being packaged
 
