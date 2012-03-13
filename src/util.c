@@ -2207,13 +2207,47 @@ int fd_cloexec(int fd, bool cloexec) {
         return 0;
 }
 
+static bool fd_in_set(int fd, const int fdset[], unsigned n_fdset) {
+        unsigned i;
+
+        assert(n_fdset == 0 || fdset);
+
+        for (i = 0; i < n_fdset; i++)
+                if (fdset[i] == fd)
+                        return true;
+
+        return false;
+}
+
 int close_all_fds(const int except[], unsigned n_except) {
         DIR *d;
         struct dirent *de;
         int r = 0;
 
-        if (!(d = opendir("/proc/self/fd")))
-                return -errno;
+        assert(n_except == 0 || except);
+
+        d = opendir("/proc/self/fd");
+        if (!d) {
+                int fd;
+                struct rlimit rl;
+
+                /* When /proc isn't available (for example in chroots)
+                 * the fallback is brute forcing through the fd
+                 * table */
+
+                assert_se(getrlimit(RLIMIT_NOFILE, &rl) >= 0);
+                for (fd = 3; fd < (int) rl.rlim_max; fd ++) {
+
+                        if (fd_in_set(fd, except, n_except))
+                                continue;
+
+                        if (close_nointr(fd) < 0)
+                                if (errno != EBADF && r == 0)
+                                        r = -errno;
+                }
+
+                return r;
+        }
 
         while ((de = readdir(d))) {
                 int fd = -1;
@@ -2231,20 +2265,8 @@ int close_all_fds(const int except[], unsigned n_except) {
                 if (fd == dirfd(d))
                         continue;
 
-                if (except) {
-                        bool found;
-                        unsigned i;
-
-                        found = false;
-                        for (i = 0; i < n_except; i++)
-                                if (except[i] == fd) {
-                                        found = true;
-                                        break;
-                                }
-
-                        if (found)
-                                continue;
-                }
+                if (fd_in_set(fd, except, n_except))
+                        continue;
 
                 if (close_nointr(fd) < 0) {
                         /* Valgrind has its own FD and doesn't want to have it closed */
