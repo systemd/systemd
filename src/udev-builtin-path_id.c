@@ -265,6 +265,11 @@ static struct udev_device *handle_scsi_default(struct udev_device *parent, char 
                 i = strtoul(&dent->d_name[4], &rest, 10);
                 if (rest[0] != '\0')
                         continue;
+                /*
+                 * find the smallest number; the host really needs to export its
+                 * own instance number per parent device; relying on the global host
+                 * enumeration and plainly rebasing the numbers sounds unreliable
+                 */
                 if (basenum == -1 || i < basenum)
                         basenum = i;
         }
