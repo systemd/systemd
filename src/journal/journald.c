@@ -45,6 +45,7 @@
 #include "conf-parser.h"
 #include "journald.h"
 #include "virt.h"
+#include "missing.h"
 
 #ifdef HAVE_ACL
 #include <sys/acl.h>
@@ -87,6 +88,9 @@ struct StdoutStream {
         int fd;
 
         struct ucred ucred;
+#ifdef HAVE_SELINUX
+        security_context_t security_context;
+#endif
 
         char *identifier;
         int priority;
@@ -430,10 +434,12 @@ static char *shortened_cgroup_path(pid_t pid) {
         return path;
 }
 
-static void dispatch_message_real(Server *s,
-                             struct iovec *iovec, unsigned n, unsigned m,
-                             struct ucred *ucred,
-                             struct timeval *tv) {
+static void dispatch_message_real(
+                Server *s,
+                struct iovec *iovec, unsigned n, unsigned m,
+                struct ucred *ucred,
+                struct timeval *tv,
+                const char *label, size_t label_len) {
 
         char *pid = NULL, *uid = NULL, *gid = NULL,
                 *source_time = NULL, *boot_id = NULL, *machine_id = NULL,
@@ -458,9 +464,6 @@ static void dispatch_message_real(Server *s,
         if (ucred) {
                 uint32_t audit;
                 uid_t owner;
-#ifdef HAVE_SELINUX
-                security_context_t con;
-#endif
 
                 realuid = ucred->uid;
 
@@ -540,12 +543,24 @@ static void dispatch_message_real(Server *s,
                                 IOVEC_SET_STRING(iovec[n++], owner_uid);
 
 #ifdef HAVE_SELINUX
-                if (getpidcon(ucred->pid, &con) >= 0) {
-                        selinux_context = strappend("_SELINUX_CONTEXT=", con);
-                        if (selinux_context)
+                if (label) {
+                        selinux_context = malloc(sizeof("_SELINUX_CONTEXT=") + label_len);
+                        if (selinux_context) {
+                                memcpy(selinux_context, "_SELINUX_CONTEXT=", sizeof("_SELINUX_CONTEXT=")-1);
+                                memcpy(selinux_context+sizeof("_SELINUX_CONTEXT=")-1, label, label_len);
+                                selinux_context[sizeof("_SELINUX_CONTEXT=")-1+label_len] = 0;
                                 IOVEC_SET_STRING(iovec[n++], selinux_context);
+                        }
+                } else {
+                        security_context_t con;
 
-                        freecon(con);
+                        if (getpidcon(ucred->pid, &con) >= 0) {
+                                selinux_context = strappend("_SELINUX_CONTEXT=", con);
+                                if (selinux_context)
+                                        IOVEC_SET_STRING(iovec[n++], selinux_context);
+
+                                freecon(con);
+                        }
                 }
 #endif
         }
@@ -652,13 +667,14 @@ static void driver_message(Server *s, sd_id128_t message_id, const char *format,
         ucred.uid = getuid();
         ucred.gid = getgid();
 
-        dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL);
+        dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0);
 }
 
 static void dispatch_message(Server *s,
                              struct iovec *iovec, unsigned n, unsigned m,
                              struct ucred *ucred,
                              struct timeval *tv,
+                             const char *label, size_t label_len,
                              int priority) {
         int rl;
         char *path = NULL, *c;
@@ -706,7 +722,7 @@ static void dispatch_message(Server *s,
         free(path);
 
 finish:
-        dispatch_message_real(s, iovec, n, m, ucred, tv);
+        dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len);
 }
 
 static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, struct ucred *ucred, struct timeval *tv) {
@@ -1006,7 +1022,7 @@ static void read_identifier(const char **buf, char **identifier, char **pid) {
         *buf += strspn(*buf, WHITESPACE);
 }
 
-static void process_syslog_message(Server *s, const char *buf, struct ucred *ucred, struct timeval *tv) {
+static void process_syslog_message(Server *s, const char *buf, struct ucred *ucred, struct timeval *tv, const char *label, size_t label_len) {
         char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *syslog_pid = NULL;
         struct iovec iovec[N_IOVEC_META_FIELDS + 6];
         unsigned n = 0;
@@ -1054,7 +1070,7 @@ static void process_syslog_message(Server *s, const char *buf, struct ucred *ucr
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, priority);
+        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, label, label_len, priority);
 
         free(message);
         free(identifier);
@@ -1099,7 +1115,13 @@ static bool valid_user_field(const char *p, size_t l) {
         return true;
 }
 
-static void process_native_message(Server *s, const void *buffer, size_t buffer_size, struct ucred *ucred, struct timeval *tv) {
+static void process_native_message(
+                Server *s,
+                const void *buffer, size_t buffer_size,
+                struct ucred *ucred,
+                struct timeval *tv,
+                const char *label, size_t label_len) {
+
         struct iovec *iovec = NULL;
         unsigned n = 0, m = 0, j, tn = (unsigned) -1;
         const char *p;
@@ -1126,7 +1148,7 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
 
                 if (e == p) {
                         /* Entry separator */
-                        dispatch_message(s, iovec, n, m, ucred, tv, priority);
+                        dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, priority);
                         n = 0;
                         priority = LOG_INFO;
 
@@ -1275,7 +1297,7 @@ static void process_native_message(Server *s, const void *buffer, size_t buffer_
                         forward_console(s, identifier, message, ucred);
         }
 
-        dispatch_message(s, iovec, n, m, ucred, tv, priority);
+        dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, priority);
 
 finish:
         for (j = 0; j < n; j++)  {
@@ -1291,7 +1313,13 @@ finish:
         free(message);
 }
 
-static void process_native_file(Server *s, int fd, struct ucred *ucred, struct timeval *tv) {
+static void process_native_file(
+                Server *s,
+                int fd,
+                struct ucred *ucred,
+                struct timeval *tv,
+                const char *label, size_t label_len) {
+
         struct stat st;
         void *p;
         ssize_t n;
@@ -1332,7 +1360,7 @@ static void process_native_file(Server *s, int fd, struct ucred *ucred, struct t
         if (n < 0)
                 log_error("Failed to read file, ignoring: %s", strerror(-n));
         else if (n > 0)
-                process_native_message(s, p, n, ucred, tv);
+                process_native_message(s, p, n, ucred, tv, label, label_len);
 
         free(p);
 }
@@ -1342,6 +1370,8 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_identifier = NULL;
         unsigned n = 0;
         int priority;
+        char *label = NULL;
+        size_t label_len = 0;
 
         assert(s);
         assert(p);
@@ -1382,7 +1412,14 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, priority);
+#ifdef HAVE_SELINUX
+        if (s->security_context) {
+                label = (char*) s->security_context;
+                label_len = strlen((char*) s->security_context);
+        }
+#endif
+
+        dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, label, label_len, priority);
 
         free(message);
         free(syslog_priority);
@@ -1576,6 +1613,11 @@ static void stdout_stream_free(StdoutStream *s) {
                 close_nointr_nofail(s->fd);
         }
 
+#ifdef HAVE_SELINUX
+        if (s->security_context)
+                freecon(s->security_context);
+#endif
+
         free(s->identifier);
         free(s);
 }
@@ -1618,6 +1660,11 @@ static int stdout_stream_new(Server *s) {
                 r = -errno;
                 goto fail;
         }
+
+#ifdef HAVE_SELINUX
+        if (getpeercon(fd, &stream->security_context) < 0)
+                log_error("Failed to determine peer security context.");
+#endif
 
         if (shutdown(fd, SHUT_WR) < 0) {
                 log_error("Failed to shutdown writing side of socket: %m");
@@ -1753,7 +1800,7 @@ static void proc_kmsg_line(Server *s, const char *p) {
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, priority);
+        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, NULL, 0, priority);
 
         free(message);
         free(syslog_priority);
@@ -2079,11 +2126,14 @@ static int process_event(Server *s, struct epoll_event *ev) {
                         struct ucred *ucred = NULL;
                         struct timeval *tv = NULL;
                         struct cmsghdr *cmsg;
+                        char *label = NULL;
+                        size_t label_len = 0;
                         union {
                                 struct cmsghdr cmsghdr;
                                 uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
                                             CMSG_SPACE(sizeof(struct timeval)) +
-                                            CMSG_SPACE(sizeof(int))];
+                                            CMSG_SPACE(sizeof(int)) +
+                                            CMSG_SPACE(LINE_MAX)]; /* selinux label */
                         } control;
                         ssize_t n;
                         int v;
@@ -2139,6 +2189,10 @@ static int process_event(Server *s, struct epoll_event *ev) {
                                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
                                         ucred = (struct ucred*) CMSG_DATA(cmsg);
                                 else if (cmsg->cmsg_level == SOL_SOCKET &&
+                                         cmsg->cmsg_type == SCM_SECURITY) {
+                                        label = (char*) CMSG_DATA(cmsg);
+                                        label_len = cmsg->cmsg_len - CMSG_LEN(0);
+                                } else if (cmsg->cmsg_level == SOL_SOCKET &&
                                          cmsg->cmsg_type == SO_TIMESTAMP &&
                                          cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
                                         tv = (struct timeval*) CMSG_DATA(cmsg);
@@ -2159,15 +2213,15 @@ static int process_event(Server *s, struct epoll_event *ev) {
                                         else
                                                 s->buffer[n] = 0;
 
-                                        process_syslog_message(s, strstrip(s->buffer), ucred, tv);
+                                        process_syslog_message(s, strstrip(s->buffer), ucred, tv, label, label_len);
                                 } else if (n_fds > 0)
                                         log_warning("Got file descriptors via syslog socket. Ignoring.");
 
                         } else {
                                 if (n > 0 && n_fds == 0)
-                                        process_native_message(s, s->buffer, n, ucred, tv);
+                                        process_native_message(s, s->buffer, n, ucred, tv, label, label_len);
                                 else if (n == 0 && n_fds == 1)
-                                        process_native_file(s, fds[0], ucred, tv);
+                                        process_native_file(s, fds[0], ucred, tv, label, label_len);
                                 else if (n_fds > 0)
                                         log_warning("Got too many file descriptors via native socket. Ignoring.");
                         }
