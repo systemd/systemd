@@ -219,8 +219,13 @@ static int parse_line(
                 return 0;
         }
 
-        if (sections && !*section)
+        if (sections && !*section) {
+
+                if (!relaxed)
+                        log_info("[%s:%u] Assignment outside of section. Ignoring.", filename, line);
+
                 return 0;
+        }
 
         e = strchr(l, '=');
         if (!e) {
