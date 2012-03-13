@@ -18,6 +18,8 @@ Bugfixes:
 
 Features:
 
+* support chrony in addition to ntpd in timedated
+
 * journal: extend sd-journal.h logging calls to implicitly log function names/line numbers/...
 
 * document crypttab(5)
