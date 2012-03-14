@@ -210,8 +210,10 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+#ifdef HAVE_ACL
         if (!arg_quiet && geteuid() != 0 && in_group("adm") <= 0)
                 log_warning("Showing user generated messages only. Users in the group 'adm' can see all messages. Pass -q to turn this message off.");
+#endif
 
         r = sd_journal_open(&j, 0);
         if (r < 0) {
