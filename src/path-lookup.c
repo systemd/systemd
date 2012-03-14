@@ -228,8 +228,8 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
                                               "/etc/systemd/system",
                                               "/run/systemd/system",
                                               "/usr/local/lib/systemd/system",
-                                              "/usr/lib/systemd/system",
                                               SYSTEM_DATA_UNIT_PATH,
+                                              "/usr/lib/systemd/system",
 #ifdef HAVE_SPLIT_USR
                                               "/lib/systemd/system",
 #endif
