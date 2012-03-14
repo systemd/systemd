@@ -564,7 +564,8 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                         b = ntohl(remote.in.sin_addr.s_addr);
 
                 if (asprintf(&r,
-                             "%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                             "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                             nr,
                              a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
                              ntohs(local.in.sin_port),
                              b >> 24, (b >> 16) & 0xFF, (b >> 8) & 0xFF, b & 0xFF,
@@ -586,7 +587,8 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                                 *b = remote.in6.sin6_addr.s6_addr+12;
 
                         if (asprintf(&r,
-                                     "%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                                     "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                                     nr,
                                      a[0], a[1], a[2], a[3],
                                      ntohs(local.in6.sin6_port),
                                      b[0], b[1], b[2], b[3],
@@ -596,7 +598,8 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                         char a[INET6_ADDRSTRLEN], b[INET6_ADDRSTRLEN];
 
                         if (asprintf(&r,
-                                     "%s:%u-%s:%u",
+                                     "%u-%s:%u-%s:%u",
+                                     nr,
                                      inet_ntop(AF_INET6, &local.in6.sin6_addr, a, sizeof(a)),
                                      ntohs(local.in6.sin6_port),
                                      inet_ntop(AF_INET6, &remote.in6.sin6_addr, b, sizeof(b)),
