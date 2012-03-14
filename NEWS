@@ -4,6 +4,12 @@ The udev-acl tool is no longer provided, it will be part of a future
 ConsoleKit release. On systemd systems, advanced ConsoleKit and udev-acl
 functionality are provided by systemd.
 
+Rules files in /etc/udev/rules.s/ with the same name as rules files in
+/run/udev/rules.d/ now always have precedence. The stack of files is now:
+/usr/lib (package), /run (runtime, auto-generated), /etc (admin), while
+the later ones override the earlier ones. In other words: the admin has
+always the last say.
+
 
 udev 181
 ========

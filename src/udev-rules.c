@@ -1737,7 +1737,7 @@ static int add_matching_files(struct udev *udev, struct udev_list *file_list, co
                 dbg(udev, "put file '%s' into list\n", filename);
                 /*
                  * the basename is the key, the filename the value
-                 * identical basenames from different directories overwrite each other
+                 * identical basenames from different directories override each other
                  * entries are sorted after basename
                  */
                 udev_list_entry_add(file_list, dent->d_name, filename);

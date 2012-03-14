@@ -72,15 +72,15 @@
     <refsect2><title>Rules files</title>
       <para>The udev rules are read from the files located in the
       system rules directory <filename>/usr/lib/udev/rules.d</filename>,
-      the local administration directory <filename>/etc/udev/rules.d</filename>
-      and the volatile runtime directory <filename>/run/udev/rules.d</filename>.
+      the volatile runtime directory <filename>/run/udev/rules.d</filename>
+      and the local administration directory <filename>/etc/udev/rules.d</filename>.
       All rules files are collectively sorted and processed in lexical order,
       regardless of the directories in which they live. However, files with
-      identical file names replace each other. Files in <filename>/run</filename>
-      have the highest priority, files in <filename>/etc</filename> take precedence
+      identical file names replace each other. Files in <filename>/etc</filename>
+      have the highest priority, files in <filename>/run</filename> take precedence
       over files with the same name in <filename>/lib</filename>. This can be
-      used to overwrite a system rules file if needed; a symlink in
-      <filename>/etc</filename> with the same name as a rules file in
+      used to override a system-supplied rules file with a local file if needed;
+      a symlink in <filename>/etc</filename> with the same name as a rules file in
       <filename>/lib</filename>, pointing to <filename>/dev/null</filename>,
       disables the rules file entirely.</para>
 
@@ -343,7 +343,7 @@
         <varlistentry>
           <term><option>OWNER, GROUP, MODE</option></term>
           <listitem>
-            <para>The permissions for the device node. Every specified value overwrites
+            <para>The permissions for the device node. Every specified value overrides
             the compiled-in default value.</para>
           </listitem>
         </varlistentry>

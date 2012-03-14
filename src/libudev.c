@@ -236,7 +236,7 @@ UDEV_EXPORT struct udev *udev_new(void)
                 fclose(f);
         }
 
-        /* environment overwrites config */
+        /* environment overrides config */
         env = getenv("UDEV_LOG");
         if (env != NULL)
                 udev_set_log_priority(udev, util_log_priority(env));
@@ -260,13 +260,13 @@ UDEV_EXPORT struct udev *udev_new(void)
                 if (!udev->rules_path[0])
                         goto err;
 
+                /* /run/udev -- runtime rules */
+                if (asprintf(&udev->rules_path[2], "%s/rules.d", udev->run_path) < 0)
+                        goto err;
+
                 /* /etc/udev -- local administration rules */
                 udev->rules_path[1] = strdup(SYSCONFDIR "/udev/rules.d");
                 if (!udev->rules_path[1])
-                        goto err;
-
-                /* /run/udev -- runtime rules */
-                if (asprintf(&udev->rules_path[2], "%s/rules.d", udev->run_path) < 0)
                         goto err;
 
                 udev->rules_path_count = 3;
