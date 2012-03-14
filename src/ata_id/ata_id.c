@@ -532,13 +532,8 @@ int main(int argc, char *argv[])
         } else {
                 /* If this fails, then try HDIO_GET_IDENTITY */
                 if (ioctl(fd, HDIO_GET_IDENTITY, &id) != 0) {
-                        if (errno == ENOTTY) {
-                                info(udev, "HDIO_GET_IDENTITY unsupported for '%s'\n", node);
-                                rc = 2;
-                        } else {
-                                err(udev, "HDIO_GET_IDENTITY failed for '%s': %m\n", node);
-                                rc = 3;
-                        }
+                        info(udev, "HDIO_GET_IDENTITY failed for '%s': %m\n", node);
+                        rc = 2;
                         goto close;
                 }
         }
