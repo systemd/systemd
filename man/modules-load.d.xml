@@ -46,9 +46,9 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>/usr/lib/modules-load.d/*.conf</filename></para>
                 <para><filename>/etc/modules-load.d/*.conf</filename></para>
                 <para><filename>/run/modules-load.d/*.conf</filename></para>
+                <para><filename>/usr/lib/modules-load.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

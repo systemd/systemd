@@ -46,9 +46,9 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>/usr/lib/binfmt.d/*.conf</filename></para>
                 <para><filename>/etc/binfmt.d/*.conf</filename></para>
                 <para><filename>/run/binfmt.d/*.conf</filename></para>
+                <para><filename>/usr/lib/binfmt.d/*.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

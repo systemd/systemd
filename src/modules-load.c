@@ -68,8 +68,8 @@ int main(int argc, char *argv[]) {
         kmod_set_log_fn(ctx, systemd_kmod_log, NULL);
 
         if (conf_files_list(&files, ".conf",
-                            "/run/modules-load.d",
                             "/etc/modules-load.d",
+                            "/run/modules-load.d",
                             "/usr/local/lib/modules-load.d",
                             "/usr/lib/modules-load.d",
                             "/lib/modules-load.d",

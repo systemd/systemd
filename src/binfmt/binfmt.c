@@ -138,8 +138,8 @@ int main(int argc, char *argv[]) {
                 write_one_line_file("/proc/sys/fs/binfmt_misc/status", "-1");
 
                 r = conf_files_list(&files, ".conf",
-                                    "/run/binfmt.d",
                                     "/etc/binfmt.d",
+                                    "/run/binfmt.d",
                                     "/usr/local/lib/binfmt.d",
                                     "/usr/lib/binfmt.d",
                                     NULL);

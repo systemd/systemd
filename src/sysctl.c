@@ -236,8 +236,8 @@ int main(int argc, char *argv[]) {
                 char **files, **f;
 
                 r = conf_files_list(&files, ".conf",
-                                    "/run/sysctl.d",
                                     "/etc/sysctl.d",
+                                    "/run/sysctl.d",
                                     "/usr/local/lib/sysctl.d",
                                     "/usr/lib/sysctl.d",
                                     "/lib/sysctl.d",

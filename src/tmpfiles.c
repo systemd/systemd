@@ -1271,8 +1271,8 @@ int main(int argc, char *argv[]) {
                 char **files, **f;
 
                 r = conf_files_list(&files, ".conf",
-                                    "/run/tmpfiles.d",
                                     "/etc/tmpfiles.d",
+                                    "/run/tmpfiles.d",
                                     "/usr/local/lib/tmpfiles.d",
                                     "/usr/lib/tmpfiles.d",
                                     NULL);

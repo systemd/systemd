@@ -54,9 +54,9 @@ int user_config_home(char **config_home) {
 
 static char** user_dirs(void) {
         const char * const config_unit_paths[] = {
-                "/run/systemd/user",
                 USER_CONFIG_UNIT_PATH,
                 "/etc/systemd/user",
+                "/run/systemd/user",
                 NULL
         };
 
@@ -207,9 +207,9 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
                                                 /* If you modify this you also want to modify
                                                  * systemduserunitpath= in systemd.pc.in, and
                                                  * the arrays in user_dirs() above! */
-                                                "/run/systemd/user",
                                                 USER_CONFIG_UNIT_PATH,
                                                 "/etc/systemd/user",
+                                                "/run/systemd/user",
                                                 "/usr/local/lib/systemd/user",
                                                 "/usr/local/share/systemd/user",
                                                 USER_DATA_UNIT_PATH,
@@ -224,9 +224,9 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
                         if (!(p->unit_path = strv_new(
                                               /* If you modify this you also want to modify
                                                * systemdsystemunitpath= in systemd.pc.in! */
-                                              "/run/systemd/system",
                                               SYSTEM_CONFIG_UNIT_PATH,
                                               "/etc/systemd/system",
+                                              "/run/systemd/system",
                                               "/usr/local/lib/systemd/system",
                                               "/usr/lib/systemd/system",
                                               SYSTEM_DATA_UNIT_PATH,
