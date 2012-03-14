@@ -2308,10 +2308,12 @@ static int open_syslog_socket(Server *s) {
                 return -errno;
         }
 
+#ifdef HAVE_SE
         one = 1;
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
         if (r < 0)
                 log_warning("SO_PASSSEC failed: %m");
+#endif
 
         one = 1;
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
@@ -2369,10 +2371,12 @@ static int open_native_socket(Server*s) {
                 return -errno;
         }
 
+#ifdef HAVE_SELINUX
         one = 1;
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
         if (r < 0)
                 log_warning("SO_PASSSEC failed: %m");
+#endif
 
         one = 1;
         r = setsockopt(s->native_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
