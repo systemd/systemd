@@ -29,6 +29,7 @@
 #include <sys/ioctl.h>
 #include <linux/sockios.h>
 #include <sys/statvfs.h>
+#include <sys/user.h>
 
 #include <systemd/sd-journal.h>
 #include <systemd/sd-login.h>
@@ -2133,7 +2134,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
                                 uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
                                             CMSG_SPACE(sizeof(struct timeval)) +
                                             CMSG_SPACE(sizeof(int)) +
-                                            CMSG_SPACE(LINE_MAX)]; /* selinux label */
+                                            CMSG_SPACE(PAGE_SIZE)]; /* selinux label */
                         } control;
                         ssize_t n;
                         int v;
