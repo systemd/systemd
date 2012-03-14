@@ -2308,7 +2308,7 @@ static int open_syslog_socket(Server *s) {
                 return -errno;
         }
 
-#ifdef HAVE_SE
+#ifdef HAVE_SELINUX
         one = 1;
         r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
         if (r < 0)
