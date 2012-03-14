@@ -1310,6 +1310,7 @@ finish:
                         free(iovec[j].iov_base);
         }
 
+        free(iovec);
         free(identifier);
         free(message);
 }
