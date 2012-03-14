@@ -18,6 +18,14 @@ Bugfixes:
 
 Features:
 
+* Add ConditionReadWriteFileSystem= so that systemd-sysctl doesn't get executed when /proc/sys is read-only
+
+* unset container= and container_uuid= for child processes
+
+* when bind mounting /etc/machine-id, do so from /run/machine-id
+
+* introduce mix of BindTo and Requisite
+
 * journalctl: show multiline log messages sanely, expand tabs, and show all valid utf8 messages
 
 * introduce NeedsMounts= or so to create .mount dependencies automatically for a specific path

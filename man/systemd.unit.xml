@@ -780,8 +780,7 @@
                                 <varname>openvz</varname>,
                                 <varname>lxc</varname>,
                                 <varname>lxc-libvirt</varname>,
-                                <varname>systemd-nspawn</varname>,
-                                <varname>pidns</varname> to test
+                                <varname>systemd-nspawn</varname> to test
                                 against a specific implementation. If
                                 multiple virtualization technologies
                                 are nested only the innermost is

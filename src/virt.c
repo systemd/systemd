@@ -236,35 +236,6 @@ int detect_container(const char **id) {
                 fclose(f);
         }
 
-        f = fopen("/proc/self/cgroup", "re");
-        if (f) {
-
-                for (;;) {
-                        char line[LINE_MAX], *p;
-
-                        if (!fgets(line, sizeof(line), f))
-                                break;
-
-                        p = strchr(strstrip(line), ':');
-                        if (!p)
-                                continue;
-
-                        if (strncmp(p, ":ns:", 4))
-                                continue;
-
-                        if (!streq(p, ":ns:/")) {
-                                fclose(f);
-
-                                if (id)
-                                        *id = "pidns";
-
-                                return 1;
-                        }
-                }
-
-                fclose(f);
-        }
-
         return 0;
 }
 
