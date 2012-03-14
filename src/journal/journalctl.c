@@ -45,6 +45,7 @@ static bool arg_no_pager = false;
 static int arg_lines = -1;
 static bool arg_no_tail = false;
 static bool arg_new_id128 = false;
+static bool arg_quiet = false;
 
 static int help(void) {
 
@@ -59,6 +60,7 @@ static int help(void) {
                "     --no-tail        Show all lines, even in follow mode\n"
                "  -o --output=STRING  Change journal output mode (short, short-monotonic,\n"
                "                      verbose, export, json, cat)\n"
+               "  -q --quiet          Don't show privilege warning\n"
                "     --new-id128      Generate a new 128 Bit id\n",
                program_invocation_short_name);
 
@@ -84,6 +86,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "lines",     required_argument, NULL, 'n'           },
                 { "no-tail",   no_argument,       NULL, ARG_NO_TAIL   },
                 { "new-id128", no_argument,       NULL, ARG_NEW_ID128 },
+                { "quiet",     no_argument,       NULL, 'q'           },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -92,7 +95,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hfo:an:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hfo:an:q", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -142,6 +145,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_NEW_ID128:
                         arg_new_id128 = true;
                         break;
+
+                case 'q':
+                        arg_quiet = true;
 
                 case '?':
                         return -EINVAL;
@@ -203,6 +209,9 @@ int main(int argc, char *argv[]) {
                 r = generate_new_id128();
                 goto finish;
         }
+
+        if (!arg_quiet && geteuid() != 0 && in_group("adm") <= 0)
+                log_warning("Showing user generated messages only. Users in the group 'adm' can see all messages. Pass -q to turn this message off.");
 
         r = sd_journal_open(&j, 0);
         if (r < 0) {

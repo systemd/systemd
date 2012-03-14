@@ -5608,6 +5608,36 @@ int get_group_creds(const char **groupname, gid_t *gid) {
         return 0;
 }
 
+int in_group(const char *name) {
+        gid_t gid, *gids;
+        int ngroups_max, r, i;
+
+        r = get_group_creds(&name, &gid);
+        if (r < 0)
+                return r;
+
+        if (getgid() == gid)
+                return 1;
+
+        if (getegid() == gid)
+                return 1;
+
+        ngroups_max = sysconf(_SC_NGROUPS_MAX);
+        assert(ngroups_max > 0);
+
+        gids = alloca(sizeof(gid_t) * ngroups_max);
+
+        r = getgroups(ngroups_max, gids);
+        if (r < 0)
+                return -errno;
+
+        for (i = 0; i < r; i++)
+                if (gids[i] == gid)
+                        return 1;
+
+        return 0;
+}
+
 int glob_exists(const char *path) {
         glob_t g;
         int r, k;
