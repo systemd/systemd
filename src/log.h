@@ -24,6 +24,7 @@
 
 #include <syslog.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 #include "macro.h"
 
@@ -72,6 +73,14 @@ int log_meta(
         int line,
         const char *func,
         const char *format, ...) _printf_attr_(5,6);
+
+int log_metav(
+        int level,
+        const char*file,
+        int line,
+        const char *func,
+        const char *format,
+        va_list ap);
 
 _noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func);
 _noreturn_ void log_assert_failed_unreachable(const char *text, const char *file, int line, const char *func);

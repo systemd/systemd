@@ -582,6 +582,30 @@ int log_dump_internal(
         return r;
 }
 
+int log_metav(
+        int level,
+        const char*file,
+        int line,
+        const char *func,
+        const char *format,
+        va_list ap) {
+
+        char buffer[LINE_MAX];
+        int saved_errno, r;
+
+        if (_likely_(LOG_PRI(level) > log_max_level))
+                return 0;
+
+        saved_errno = errno;
+        vsnprintf(buffer, sizeof(buffer), format, ap);
+        char_array_0(buffer);
+
+        r = log_dispatch(level, file, line, func, buffer);
+        errno = saved_errno;
+
+        return r;
+}
+
 int log_meta(
         int level,
         const char*file,
@@ -589,23 +613,12 @@ int log_meta(
         const char *func,
         const char *format, ...) {
 
-        char buffer[LINE_MAX];
-        int saved_errno, r;
+        int r;
         va_list ap;
 
-        if (_likely_(LOG_PRI(level) > log_max_level))
-                return 0;
-
-        saved_errno = errno;
-
         va_start(ap, format);
-        vsnprintf(buffer, sizeof(buffer), format, ap);
+        r = log_metav(level, file, line, func, format, ap);
         va_end(ap);
-
-        char_array_0(buffer);
-
-        r = log_dispatch(level, file, line, func, buffer);
-        errno = saved_errno;
 
         return r;
 }
