@@ -12,8 +12,8 @@ systemdsystemunitdir=@systemunitdir@
 systemduserunitdir=@userunitdir@
 systemdsystemconfdir=@pkgsysconfdir@/system
 systemduserconfdir=@pkgsysconfdir@/user
-systemdsystemunitpath=${systemdsystemconfdir}:/etc/systemd/system:/run/systemd/system:/usr/local/share/systemd/system:/usr/local/lib/systemd/system:/usr/share/systemd/system:/usr/lib/systemd/system:/lib/systemd/system:${systemdsystemunitdir}
-systemduserunitpath=${systemduserconfdir}:/etc/systemd/user:/run/systemd/user:/usr/local/share/systemd/user:/usr/local/lib/systemd/user:/usr/share/systemd/user:/usr/lib/systemd/user:${systemduserunitdir}
+systemdsystemunitpath=${systemdsystemconfdir}:/etc/systemd/system:/run/systemd/system:/usr/local/lib/systemd/system:${systemdsystemunitdir}:/usr/lib/systemd/system:/lib/systemd/system
+systemduserunitpath=${systemduserconfdir}:/etc/systemd/user:/run/systemd/user:/usr/local/lib/systemd/user:/usr/local/share/systemd/user:${systemduserunitdir}:/usr/lib/systemd/user:/usr/share/systemd/user
 
 Name: systemd
 Description: systemd System and Service Manager
