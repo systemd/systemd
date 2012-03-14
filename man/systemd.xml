@@ -957,7 +957,16 @@
         <refsect1>
                 <title>Kernel Command Line</title>
 
-                <para>When run as system instance systemd parses a few kernel command line arguments:</para>
+                <para>When run as system instance systemd parses a
+                number of kernel command line
+                arguments<footnote><para>If run inside a Linux
+                container these arguments may be passed as command
+                line arguments to systemd itself, next to any of the
+                command line options listed in the Options section
+                above. If run outside of Linux containers, these
+                arguments are parsed from
+                <filename>/proc/cmdline</filename>
+                instead.</para></footnote>:</para>
 
                 <variablelist>
                         <varlistentry>
