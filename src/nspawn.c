@@ -197,10 +197,18 @@ static int mount_all(const char *dest) {
         }
 
         /* Fix the timezone, if possible */
-        if (asprintf(&where, "%s/%s", dest, "/etc/localtime") >= 0) {
+        if (asprintf(&where, "%s/etc/localtime", dest) >= 0) {
 
                 if (mount("/etc/localtime", where, "bind", MS_BIND, NULL) >= 0)
                         mount("/etc/localtime", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+
+                free(where);
+        }
+
+        if (asprintf(&where, "%s/etc/timezone", dest) >= 0) {
+
+                if (mount("/etc/timezone", where, "bind", MS_BIND, NULL) >= 0)
+                        mount("/etc/timezone", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
 
                 free(where);
         }
