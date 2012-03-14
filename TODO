@@ -18,6 +18,8 @@ Bugfixes:
 
 Features:
 
+* introduce NeedsMounts= or so to create .mount dependencies automatically for a specific path
+
 * add DeleteSocketsOnStop=yes|no option to socket units
 
 * add shutdown inhibit API for usage by libvirt and friends
