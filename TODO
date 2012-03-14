@@ -18,6 +18,12 @@ Bugfixes:
 
 Features:
 
+* add DeleteSocketsOnStop=yes|no option to socket units
+
+* add shutdown inhibit API for usage by libvirt and friends
+
+* journal: store euid in journal if it differs from uid
+
 * support chrony in addition to ntpd in timedated
 
 * journal: extend sd-journal.h logging calls to implicitly log function names/line numbers/...
