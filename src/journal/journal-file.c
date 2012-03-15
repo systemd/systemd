@@ -2094,7 +2094,7 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                         break;
 
                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
-                        log_debug("Deleted archived journal %s/%s.", directory, list[i].filename);
+                        log_info("Deleted archived journal %s/%s.", directory, list[i].filename);
                         sum -= list[i].usage;
                 } else if (errno != ENOENT)
                         log_warning("Failed to delete %s/%s: %m", directory, list[i].filename);
@@ -2262,9 +2262,9 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
                         m->keep_free = DEFAULT_KEEP_FREE;
         }
 
-        log_debug("Fixed max_use=%s max_size=%s min_size=%s keep_free=%s",
-                  format_bytes(a, sizeof(a), m->max_use),
-                  format_bytes(b, sizeof(b), m->max_size),
-                  format_bytes(c, sizeof(c), m->min_size),
-                  format_bytes(d, sizeof(d), m->keep_free));
+        log_info("Fixed max_use=%s max_size=%s min_size=%s keep_free=%s",
+                 format_bytes(a, sizeof(a), m->max_use),
+                 format_bytes(b, sizeof(b), m->max_size),
+                 format_bytes(c, sizeof(c), m->min_size),
+                 format_bytes(d, sizeof(d), m->keep_free));
 }
