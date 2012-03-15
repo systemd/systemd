@@ -165,7 +165,8 @@ static uint64_t available_space(Server *s) {
                 if (!de)
                         break;
 
-                if (!dirent_is_file_with_suffix(de, ".journal"))
+                if (!endswith(de->d_name, ".journal") &&
+                    !endswith(de->d_name, ".journal~"))
                         continue;
 
                 if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
