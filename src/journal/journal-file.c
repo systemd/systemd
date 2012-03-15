@@ -2068,7 +2068,7 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                 }
 
                 list[n_list].filename = p;
-                list[n_list].usage = (uint64_t) st.st_blksize * (uint64_t) st.st_blocks;
+                list[n_list].usage = 512UL * (uint64_t) st.st_blocks;
                 list[n_list].seqnum = seqnum;
                 list[n_list].realtime = realtime;
                 list[n_list].seqnum_id = seqnum_id;

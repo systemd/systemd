@@ -171,7 +171,10 @@ static uint64_t available_space(Server *s) {
                 if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
                         continue;
 
-                sum += (uint64_t) st.st_blocks * (uint64_t) st.st_blksize;
+                if (!S_ISREG(st.st_mode))
+                        continue;
+
+                sum += (uint64_t) st.st_blocks * 512UL;
         }
 
         avail = sum >= m->max_use ? 0 : m->max_use - sum;
