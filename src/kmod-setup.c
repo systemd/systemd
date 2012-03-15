@@ -90,7 +90,7 @@ int kmod_setup(void) {
         }
 
         if (ctx)
-                ctx = kmod_unref(ctx);
+                kmod_unref(ctx);
 
         return 0;
 }

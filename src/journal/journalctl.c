@@ -284,7 +284,7 @@ int main(int argc, char *argv[]) {
 
                         line ++;
 
-                        r = output_journal(j, arg_output, line, arg_show_all);
+                        r = output_journal(j, arg_output, line, 0, arg_show_all);
                         if (r < 0)
                                 goto finish;
 

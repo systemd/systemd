@@ -86,7 +86,7 @@ static bool shall_print(bool show_all, char *p, size_t l) {
         return true;
 }
 
-static int output_short(sd_journal *j, unsigned line, bool show_all, bool monotonic_mode) {
+static int output_short(sd_journal *j, unsigned line, unsigned n_columns, bool show_all, bool monotonic_mode) {
         int r;
         const void *data;
         size_t length;
@@ -228,12 +228,12 @@ static int output_short(sd_journal *j, unsigned line, bool show_all, bool monoto
         else if (contains_unprintable(message, message_len)) {
                 char bytes[FORMAT_BYTES_MAX];
                 printf(": [%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
-        } else if (message_len + n < columns())
+        } else if (message_len + n < n_columns)
                 printf(": %.*s\n", (int) message_len, message);
-        else if (n < columns()) {
+        else if (n < n_columns) {
                 char *e;
 
-                e = ellipsize_mem(message, message_len, columns() - n - 2, 90);
+                e = ellipsize_mem(message, message_len, n_columns - n - 2, 90);
 
                 if (!e)
                         printf(": %.*s\n", (int) message_len, message);
@@ -259,15 +259,15 @@ finish:
         return r;
 }
 
-static int output_short_realtime(sd_journal *j, unsigned line, bool show_all) {
-        return output_short(j, line, show_all, false);
+static int output_short_realtime(sd_journal *j, unsigned line, unsigned n_columns, bool show_all) {
+        return output_short(j, line, n_columns, show_all, false);
 }
 
-static int output_short_monotonic(sd_journal *j, unsigned line, bool show_all) {
-        return output_short(j, line, show_all, true);
+static int output_short_monotonic(sd_journal *j, unsigned line, unsigned n_columns, bool show_all) {
+        return output_short(j, line, n_columns, show_all, true);
 }
 
-static int output_verbose(sd_journal *j, unsigned line, bool show_all) {
+static int output_verbose(sd_journal *j, unsigned line, unsigned n_columns, bool show_all) {
         const void *data;
         size_t length;
         char *cursor;
@@ -318,7 +318,7 @@ static int output_verbose(sd_journal *j, unsigned line, bool show_all) {
         return 0;
 }
 
-static int output_export(sd_journal *j, unsigned line, bool show_all) {
+static int output_export(sd_journal *j, unsigned line, unsigned n_columns, bool show_all) {
         sd_id128_t boot_id;
         char sid[33];
         int r;
@@ -424,7 +424,7 @@ static void json_escape(const char* p, size_t l) {
         }
 }
 
-static int output_json(sd_journal *j, unsigned line, bool show_all) {
+static int output_json(sd_journal *j, unsigned line, unsigned n_columns, bool show_all) {
         uint64_t realtime, monotonic;
         char *cursor;
         const void *data;
@@ -491,7 +491,7 @@ static int output_json(sd_journal *j, unsigned line, bool show_all) {
         return 0;
 }
 
-static int output_cat(sd_journal *j, unsigned line, bool show_all) {
+static int output_cat(sd_journal *j, unsigned line, unsigned n_columns, bool show_all) {
         const void *data;
         size_t l;
         int r;
@@ -512,7 +512,7 @@ static int output_cat(sd_journal *j, unsigned line, bool show_all) {
         return 0;
 }
 
-static int (*output_funcs[_OUTPUT_MODE_MAX])(sd_journal*j, unsigned line, bool show_all) = {
+static int (*output_funcs[_OUTPUT_MODE_MAX])(sd_journal*j, unsigned line, unsigned n_columns, bool show_all) = {
         [OUTPUT_SHORT] = output_short_realtime,
         [OUTPUT_SHORT_MONOTONIC] = output_short_monotonic,
         [OUTPUT_VERBOSE] = output_verbose,
@@ -521,17 +521,19 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(sd_journal*j, unsigned line, bool s
         [OUTPUT_CAT] = output_cat
 };
 
-int output_journal(sd_journal *j, OutputMode mode, unsigned line, bool show_all) {
+int output_journal(sd_journal *j, OutputMode mode, unsigned line, unsigned n_columns, bool show_all) {
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
 
-        return output_funcs[mode](j, line, show_all);
+        if (n_columns <= 0)
+                n_columns = columns();
+
+        return output_funcs[mode](j, line, n_columns, show_all);
 }
 
 int show_journal_by_unit(
                 const char *unit,
                 OutputMode mode,
-                const char *prefix,
                 unsigned n_columns,
                 usec_t not_before,
                 unsigned how_many,
@@ -557,12 +559,6 @@ int show_journal_by_unit(
 
         if (how_many <= 0)
                 return 0;
-
-        if (n_columns <= 0)
-                n_columns = columns();
-
-        if (!prefix)
-                prefix = "";
 
         if (asprintf(&m, "_SYSTEMD_UNIT=%s", unit) < 0) {
                 r = -ENOMEM;
@@ -625,7 +621,7 @@ int show_journal_by_unit(
 
                         line ++;
 
-                        r = output_journal(j, mode, line, show_all);
+                        r = output_journal(j, mode, line, n_columns, show_all);
                         if (r < 0)
                                 goto finish;
                 }
