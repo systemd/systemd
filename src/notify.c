@@ -33,6 +33,7 @@
 #include "util.h"
 #include "log.h"
 #include "sd-readahead.h"
+#include "build.h"
 
 static bool arg_ready = false;
 static pid_t arg_pid = 0;
@@ -45,6 +46,7 @@ static int help(void) {
         printf("%s [OPTIONS...] [VARIABLE=VALUE...]\n\n"
                "Notify the init system about service status updates.\n\n"
                "  -h --help             Show this help\n"
+               "     --version          Show package version\n"
                "     --ready            Inform the init system about service start-up completion\n"
                "     --pid[=PID]        Set main pid of daemon\n"
                "     --status=TEXT      Set status text\n"
@@ -59,6 +61,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_READY = 0x100,
+                ARG_VERSION,
                 ARG_PID,
                 ARG_STATUS,
                 ARG_BOOTED,
@@ -67,6 +70,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'           },
+                { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "ready",     no_argument,       NULL, ARG_READY     },
                 { "pid",       optional_argument, NULL, ARG_PID       },
                 { "status",    required_argument, NULL, ARG_STATUS    },
@@ -86,6 +90,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'h':
                         help();
+                        return 0;
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(DISTRIBUTION);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case ARG_READY:

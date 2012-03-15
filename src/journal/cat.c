@@ -59,7 +59,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         static const struct option options[] = {
                 { "help",         no_argument,       NULL, 'h'              },
-                { "version" ,     no_argument,       NULL, ARG_VERSION      },
+                { "version",      no_argument,       NULL, ARG_VERSION      },
                 { "identifier",   required_argument, NULL, 't'              },
                 { "priority",     required_argument, NULL, 'p'              },
                 { "level-prefix", required_argument, NULL, ARG_LEVEL_PREFIX },
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
 
         fd = sd_journal_stream_fd(arg_identifier, arg_priority, arg_level_prefix);
         if (fd < 0) {
-                log_error("Failed to create stream fd: %s", strerror(fd));
+                log_error("Failed to create stream fd: %s", strerror(-fd));
                 r = fd;
                 goto finish;
         }
@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
 
         if (dup3(fd, STDOUT_FILENO, 0) < 0 ||
             dup3(fd, STDERR_FILENO, 0) < 0) {
-                log_error("Failed to duplicate fd: %s", strerror(fd));
+                log_error("Failed to duplicate fd: %m");
                 r = -errno;
                 goto finish;
         }
@@ -163,12 +163,13 @@ int main(int argc, char *argv[]) {
         else
                 execvp(argv[optind], argv + optind);
 
+        r = -errno;
+
         /* Let's try to restore a working stderr, so we can print the error message */
         if (saved_stderr >= 0)
                 dup3(saved_stderr, STDERR_FILENO, 0);
 
-        log_error("Failed to execute process: %m");
-        r = -errno;
+        log_error("Failed to execute process: %s", strerror(-r));
 
 finish:
         if (fd >= 0)

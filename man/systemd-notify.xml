@@ -95,6 +95,13 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Prints a short version
+                                string and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--ready</option></term>
 
                                 <listitem><para>Inform the init system
