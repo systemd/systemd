@@ -1,0 +1,252 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2012 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-journalctl">
+
+        <refentryinfo>
+                <title>systemd-journalctl</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-journalctl</refentrytitle>
+                <manvolnum>1</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-journalctl</refname>
+                <refpurpose>Query the systemd journal</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>systemd-journalctl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt">MATCH</arg></command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>systemd-journalctl</command> may be
+                used to query the contents of the
+                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                journal.</para>
+
+                <para>If called without parameter will show the full
+                contents of the journal, starting with the oldest
+                entry collected.</para>
+
+                <para>If a match argument is passed the output is
+                filtered accordingly. A match is in the format
+                <literal>FIELD=VALUE</literal>,
+                e.g. <literal>_SYSTEMD_UNIT=httpd.service</literal>.</para>
+
+                <para>Output is interleaved from all accessible
+                journal files, whether they are rotated or currently
+                being written, and regardless whether they belong to the
+                system itself or are accessible user journals.</para>
+
+                <para>All users are granted access to their private
+                per-user journals. However, by default only root and
+                users who are members of the <literal>adm</literal>
+                group get access to the system journal and the
+                journals of other users.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following options are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>--help</option></term>
+                                <term><option>-h</option></term>
+
+                                <listitem><para>Prints a short help
+                                text and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Prints a short version
+                                string and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--no-pager</option></term>
+
+				<listitem><para>Do not pipe output into a
+				pager.</para></listitem>
+			</varlistentry>
+
+                        <varlistentry>
+                                <term><option>--all</option></term>
+                                <term><option>-a</option></term>
+
+                                <listitem><para>Show all fields in
+                                full, even if they include unprintable
+                                characters or are very
+                                long.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--follow</option></term>
+                                <term><option>-f</option></term>
+
+                                <listitem><para>Show only most recent
+                                entries, and continously print new
+                                entries as they are appended to the
+                                journal.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--lines=</option></term>
+                                <term><option>-n</option></term>
+
+                                <listitem><para>Controls the number of
+                                journal lines to show, counting from
+                                the most recent ones. Takes a positive
+                                integer argument. In follow mode
+                                defaults to 10, otherwise is unset
+                                thus not limiting how many lines are
+                                shown.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--no-tail</option></term>
+
+                                <listitem><para>Show all stored output
+                                lines, even in follow mode. Undoes the
+                                effect of
+                                <option>--lines=</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--output=</option></term>
+                                <term><option>-o</option></term>
+
+                                <listitem><para>Controls the
+                                formatting of the entries that are
+                                shown. Takes one of
+                                <literal>short</literal>,
+                                <literal>short-monotonic</literal>,
+                                <literal>verbose</literal>,
+                                <literal>export</literal>,
+                                <literal>json</literal>,
+                                <literal>cat</literal>. <literal>short</literal>
+                                is the default and generates an output
+                                that is mostly identical to the
+                                formatting of classic syslog log
+                                files, showing one line per journal
+                                entry. <literal>short-monotonic</literal>
+                                is very similar but shows monotonic
+                                timestamps instead of wallclock
+                                timestamps. <literal>verbose</literal>
+                                shows the full structered entry items
+                                with all
+                                fiels. <literal>export</literal>
+                                serializes the journal into a binary
+                                (but mostly text-based) stream
+                                suitable for backups and network
+                                transfer. <literal>json</literal>
+                                formats entries as JSON data
+                                structures. <literal>cat</literal>
+                                generates a very terse output only
+                                showing the actual message of each
+                                journal entry with no meta data, not
+                                even a timestamp.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--quiet</option></term>
+                                <term><option>-q</option></term>
+
+                                <listitem><para>Suppresses any warning
+                                message regarding inaccessable system
+                                journals when run as normal
+                                user.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--new-id128</option></term>
+
+                                <listitem><para>Instead of showing
+                                journal contents generate a new 128
+                                bit ID suitable for identifying
+                                messages. This is intended for usage
+                                by developers who need a new
+                                identifier for a new message they
+                                introduce and want to make
+                                recognizable. Will print the new ID in
+                                three different formats which can be
+                                copied into source code or
+                                similar.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Exit status</title>
+
+                <para>On success 0 is returned, a non-zero failure
+                code otherwise.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Environment</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>$SYSTEMD_PAGER</varname></term>
+                                <listitem><para>Pager to use when
+                                <option>--no-pager</option> is not given;
+                                overrides <varname>$PAGER</varname>.  Setting
+                                this to an empty string or the value
+                                <literal>cat</literal> is equivalent to passing
+                                <option>--no-pager</option>.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

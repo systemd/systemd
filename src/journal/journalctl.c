@@ -54,7 +54,7 @@ static int help(void) {
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
                "     --no-pager       Do not pipe output into a pager\n"
-               "  -a --all            Show all properties, including long and unprintable\n"
+               "  -a --all            Show all fields, including long and unprintable\n"
                "  -f --follow         Follow journal\n"
                "  -n --lines=INTEGER  Journal entries to show\n"
                "     --no-tail        Show all lines, even in follow mode\n"
