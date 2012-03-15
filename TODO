@@ -19,6 +19,7 @@ Bugfixes:
 Features:
 
 * journald: make configurable "store-on-var", "store-on-run", "dont-store", "auto"
+  (store-persistent, store-volatile?)
 
 * Add ConditionReadWriteFileSystem= so that systemd-sysctl doesn't get executed when /proc/sys is read-only
 
@@ -171,7 +172,7 @@ Features:
 
 * hide PAM/TCPWrap options in fragment parser when compile time disabled
 
-* when we automatically restart a service, ensure we retsart its rdeps, too.
+* when we automatically restart a service, ensure we restart its rdeps, too.
 
 * allow Type=simple with PIDFile=
   https://bugzilla.redhat.com/show_bug.cgi?id=723942
@@ -299,12 +300,9 @@ External:
 
 * systemd --user
     PR_SET_CHILD_REAPER patch: https://lkml.org/lkml/2011/7/28/426
+    (patch in linux-next, on the way to the next kernel)
 
 * fix alsa mixer restore to not print error when no config is stored
-
-* udisks should not use udisks-part-id, instead use blkid. also not probe /dev/loopxxx
-
-* snd-seq should go, https://bugzilla.redhat.com/show_bug.cgi?id=676095
 
 * gnome-shell python script/glxinfo/is-accelerated must die
 
