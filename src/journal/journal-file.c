@@ -162,7 +162,7 @@ static int journal_file_verify_header(JournalFile *f) {
                 return -ENODATA;
 
         if (f->writable) {
-                uint32_t state;
+                uint8_t state;
                 sd_id128_t machine_id;
                 int r;
 
@@ -1866,7 +1866,7 @@ int journal_file_rotate(JournalFile **f) {
         if (r < 0)
                 return -errno;
 
-        old_file->header->state = le32toh(STATE_ARCHIVED);
+        old_file->header->state = STATE_ARCHIVED;
 
         r = journal_file_open(old_file->path, old_file->flags, old_file->mode, old_file, &new_file);
         journal_file_close(old_file);
