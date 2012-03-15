@@ -81,6 +81,11 @@
                 a more useful replacement for the
                 <citerefentry><refentrytitle>gethostid</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call POSIX specifies.</para>
+
+                <para>The
+                <citerefentry><refentrytitle>systemd-machine-id-setup</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                tool may be used by installer tools to initialize the
+                machine ID at install time.</para>
         </refsect1>
 
         <refsect1>
@@ -127,6 +132,7 @@ id[8] = (id[8] &amp; 0x3F) | 0x80;</programlisting>
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-machine-id-setup</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>gethostid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

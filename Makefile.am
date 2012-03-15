@@ -692,7 +692,8 @@ MANPAGES = \
 	man/modules-load.d.5 \
 	man/sysctl.d.5 \
 	man/systemd-ask-password.1 \
-	man/systemd-cat.1
+	man/systemd-cat.1 \
+        man/systemd-machine-id-setup.1
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \

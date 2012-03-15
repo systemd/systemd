@@ -1,0 +1,114 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2012 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-machine-id-setup">
+
+        <refentryinfo>
+                <title>systemd-machine-id-setup</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-machine-id-setup</refentrytitle>
+                <manvolnum>1</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-machine-id-setup</refname>
+                <refpurpose>Initialize the machine ID in <filename>/etc/machine-id</filename></refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>systemd-machine-id-setup</command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>systemd-machine-id-setup</command> may
+                be used by system installer tools to initialize the
+                machine ID stored in
+                <filename>/etc/machine-id</filename> at install time
+                with a randomly generated ID. See
+                <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for more information about this file.</para>
+
+                <para>This tool will execute no operation if
+                <filename>/etc/machine-id</filename> is already
+                initialized.</para>
+
+                <para>If a valid D-Bus machine ID is already
+                configured for the system the D-Bus machine ID is
+                copied and used to initialize the machine ID in
+                <filename>/etc/machine-id</filename>.</para>
+
+                <para>If run inside a KVM virtual machine and a UUID
+                is passed via the <option>-uuid</option> option this
+                UUID is used to initialize the machine ID instead of a
+                randomly generated one. The caller must ensure that the
+                UUID passed is sufficiently unique and is different
+                for every booted instanced of the VM.</para>
+
+                <para>Similar, if run inside a Linux container
+                environment and a UUID is set for the container this
+                is used to initialize the machine ID. For details see
+                the documentation of the <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
+                Interface</ulink>.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>This tool does not take any options or arguments.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Exit status</title>
+
+                <para>On success 0 is returned, a non-zero failure
+                code otherwise.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>dbus-uuidgen</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>
