@@ -285,7 +285,6 @@ dist_systemunit_DATA = \
 	units/dev-mqueue.mount \
 	units/sys-kernel-config.mount \
 	units/sys-kernel-debug.mount \
-	units/sys-kernel-security.mount \
 	units/sys-fs-fuse-connections.mount \
 	units/var-run.mount \
 	units/media.mount \
@@ -2291,7 +2290,6 @@ systemd-install-data-hook:
 			dev-mqueue.mount \
 			sys-kernel-config.mount \
 			sys-kernel-debug.mount \
-			sys-kernel-security.mount \
 			sys-fs-fuse-connections.mount \
 			systemd-modules-load.service \
 			systemd-tmpfiles-setup.service \
@@ -2301,7 +2299,6 @@ systemd-install-data-hook:
 		$(LN_S) ../dev-mqueue.mount dev-mqueue.mount && \
 		$(LN_S) ../sys-kernel-config.mount sys-kernel-config.mount && \
 		$(LN_S) ../sys-kernel-debug.mount sys-kernel-debug.mount && \
-		$(LN_S) ../sys-kernel-security.mount sys-kernel-security.mount && \
 		$(LN_S) ../sys-fs-fuse-connections.mount sys-fs-fuse-connections.mount && \
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
