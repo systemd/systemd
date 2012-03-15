@@ -48,7 +48,7 @@
 #define DEFAULT_MAX_USE_UPPER (4ULL*1024ULL*1024ULL*1024ULL)   /* 4 GiB */
 
 /* This is the upper bound if we deduce max_size from max_use */
-#define DEFAULT_MAX_SIZE_UPPER (16ULL*1024ULL*1024ULL)         /* 16 MiB */
+#define DEFAULT_MAX_SIZE_UPPER (128ULL*1024ULL*1024ULL)        /* 128 MiB */
 
 /* This is the upper bound if we deduce the keep_free value from the
  * file system size */

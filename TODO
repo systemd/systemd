@@ -18,6 +18,8 @@ Bugfixes:
 
 Features:
 
+* journald: make configurable "store-on-var", "store-on-run", "dont-store", "auto"
+
 * Add ConditionReadWriteFileSystem= so that systemd-sysctl doesn't get executed when /proc/sys is read-only
 
 * unset container= and container_uuid= for child processes
