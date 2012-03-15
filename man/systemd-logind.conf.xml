@@ -44,11 +44,11 @@
 
         <refnamediv>
                 <refname>systemd-logind.conf</refname>
-                <refpurpose>login manager configuration file</refpurpose>
+                <refpurpose>Login manager configuration file</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd-login.conf</filename></para>
+                <para><filename>systemd-logind.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

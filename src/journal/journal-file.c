@@ -40,7 +40,7 @@
 #define COMPRESSION_SIZE_THRESHOLD (512ULL)
 
 /* This is the minimum journal file size */
-#define JOURNAL_FILE_SIZE_MIN (64ULL*1024ULL)
+#define JOURNAL_FILE_SIZE_MIN (64ULL*1024ULL)                  /* 64 KiB */
 
 /* These are the lower and upper bounds if we deduce the max_use value
  * from the file system size */
