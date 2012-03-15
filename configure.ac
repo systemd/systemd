@@ -127,6 +127,19 @@ PKG_CHECK_MODULES(UDEV, [ libudev >= 172 ])
 PKG_CHECK_MODULES(DBUS, [ dbus-1 >= 1.3.2 ])
 PKG_CHECK_MODULES(KMOD, [ libkmod >= 5 ])
 
+have_ima=yes
+AC_ARG_ENABLE([ima], AS_HELP_STRING([--disable-ima],[Disable optional IMA support]),
+                [case "${enableval}" in
+                        yes) have_ima=yes ;;
+                        no) have_ima=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --disable-ima) ;;
+                esac],
+                [have_ima=yes])
+
+if test "x${have_ima}" != xno ; then
+        AC_DEFINE(HAVE_IMA, 1, [Define if IMA is available])
+fi
+
 have_selinux=no
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [Disable optional SELINUX support]))
 if test "x$enable_selinux" != "xno"; then
@@ -609,6 +622,7 @@ AC_MSG_RESULT([
         tcpwrap:                 ${have_tcpwrap}
         PAM:                     ${have_pam}
         AUDIT:                   ${have_audit}
+        IMA:                     ${have_ima}
         SELinux:                 ${have_selinux}
         XZ:                      ${have_xz}
         ACL:                     ${have_acl}

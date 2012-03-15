@@ -41,6 +41,7 @@
 #include "kmod-setup.h"
 #include "locale-setup.h"
 #include "selinux-setup.h"
+#include "ima-setup.h"
 #include "machine-id-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
@@ -1203,9 +1204,12 @@ int main(int argc, char *argv[]) {
                 arg_running_as = MANAGER_SYSTEM;
                 log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_JOURNAL_OR_KMSG);
 
-                if (!is_reexec)
+                if (!is_reexec) {
                         if (selinux_setup(&loaded_policy) < 0)
                                 goto finish;
+                        if (ima_setup() < 0)
+                                goto finish;
+                }
 
                 log_open();
 
