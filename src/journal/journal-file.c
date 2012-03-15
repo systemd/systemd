@@ -1727,6 +1727,9 @@ int journal_file_open(
             (flags & O_ACCMODE) != O_RDWR)
                 return -EINVAL;
 
+        if (!endswith(fname, ".journal"))
+                return -EINVAL;
+
         f = new0(JournalFile, 1);
         if (!f)
                 return -ENOMEM;
@@ -1840,7 +1843,7 @@ int journal_file_rotate(JournalFile **f) {
 
         l = strlen(old_file->path);
 
-        p = new(char, l + 1 + 16 + 1 + 32 + 1 + 16 + 1);
+        p = new(char, l + 1 + 32 + 1 + 16 + 1 + 16 + 1);
         if (!p)
                 return -ENOMEM;
 
@@ -1865,6 +1868,44 @@ int journal_file_rotate(JournalFile **f) {
 
         *f = new_file;
         return r;
+}
+
+int journal_file_open_reliably(
+                const char *fname,
+                int flags,
+                mode_t mode,
+                JournalFile *template,
+                JournalFile **ret) {
+
+        int r;
+        size_t l;
+        char *p;
+
+        r = journal_file_open(fname, flags, mode, template, ret);
+        if (r != -EBADMSG)
+                return r;
+
+        if ((flags & O_ACCMODE) == O_RDONLY)
+                return r;
+
+        if (!(flags & O_CREAT))
+                return r;
+
+        l = strlen(fname);
+        if (asprintf(&p, "%.*s@%016llx-%016llx.journal~",
+                     (int) (l-8), fname,
+                     (unsigned long long) now(CLOCK_REALTIME),
+                     random_ull()) < 0)
+                return -ENOMEM;
+
+        r = rename(fname, p);
+        free(p);
+        if (r < 0)
+                return -errno;
+
+        log_warning("File %s corrupted, renaming and replacing.", fname);
+
+        return journal_file_open(fname, flags, mode, template, ret);
 }
 
 struct vacuum_info {

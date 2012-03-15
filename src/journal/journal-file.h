@@ -89,6 +89,8 @@ typedef enum direction {
 int journal_file_open(const char *fname, int flags, mode_t mode, JournalFile *template, JournalFile **ret);
 void journal_file_close(JournalFile *j);
 
+int journal_file_open_reliably(const char *fname, int flags, mode_t mode, JournalFile *template, JournalFile **ret);
+
 int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Object **ret);
 
 uint64_t journal_file_entry_n_items(Object *o);

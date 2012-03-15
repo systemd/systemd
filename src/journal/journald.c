@@ -301,7 +301,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 journal_file_close(f);
         }
 
-        r = journal_file_open(p, O_RDWR|O_CREAT, 0640, s->system_journal, &f);
+        r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, s->system_journal, &f);
         free(p);
 
         if (r < 0)
@@ -604,8 +604,12 @@ retry:
         else {
                 r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
 
-                if (r == -E2BIG && !vacuumed) {
-                        log_info("Allocation limit reached.");
+                if ((r == -EBADMSG || r == -E2BIG) && !vacuumed) {
+
+                        if (r == -E2BIG)
+                                log_info("Allocation limit reached, rotating.");
+                        else
+                                log_warning("Journal file corrupted, rotating.");
 
                         server_rotate(s);
                         server_vacuum(s);
@@ -1875,7 +1879,7 @@ static int system_journal_open(Server *s) {
                 if (!fn)
                         return -ENOMEM;
 
-                r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, NULL, &s->system_journal);
+                r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, NULL, &s->system_journal);
                 free(fn);
 
                 if (r >= 0) {
@@ -1906,7 +1910,7 @@ static int system_journal_open(Server *s) {
                          * if it already exists, so that we can flush
                          * it into the system journal */
 
-                        r = journal_file_open(fn, O_RDWR, 0640, NULL, &s->runtime_journal);
+                        r = journal_file_open_reliably(fn, O_RDWR, 0640, NULL, &s->runtime_journal);
                         free(fn);
 
                         if (r < 0) {
@@ -1922,7 +1926,7 @@ static int system_journal_open(Server *s) {
                          * it if necessary. */
 
                         (void) mkdir_parents(fn, 0755);
-                        r = journal_file_open(fn, O_RDWR|O_CREAT, 0640, NULL, &s->runtime_journal);
+                        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, NULL, &s->runtime_journal);
                         free(fn);
 
                         if (r < 0) {
@@ -2666,10 +2670,6 @@ static int server_init(Server *s) {
         if (r < 0)
                 return r;
 
-        r = system_journal_open(s);
-        if (r < 0)
-                return r;
-
         r = open_signalfd(s);
         if (r < 0)
                 return r;
@@ -2677,6 +2677,10 @@ static int server_init(Server *s) {
         s->rate_limit = journal_rate_limit_new(s->rate_limit_interval, s->rate_limit_burst);
         if (!s->rate_limit)
                 return -ENOMEM;
+
+        r = system_journal_open(s);
+        if (r < 0)
+                return r;
 
         return 0;
 }
