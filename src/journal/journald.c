@@ -1918,7 +1918,7 @@ static int system_journal_open(Server *s) {
                          * if it already exists, so that we can flush
                          * it into the system journal */
 
-                        r = journal_file_open_reliably(fn, O_RDWR, 0640, NULL, &s->runtime_journal);
+                        r = journal_file_open(fn, O_RDWR, 0640, NULL, &s->runtime_journal);
                         free(fn);
 
                         if (r < 0) {
