@@ -1891,6 +1891,8 @@ int journal_file_open_reliably(
         if (!(flags & O_CREAT))
                 return r;
 
+        /* The file is corrupted. Rotate it away and try it again (but only once) */
+
         l = strlen(fname);
         if (asprintf(&p, "%.*s@%016llx-%016llx.journal~",
                      (int) (l-8), fname,
@@ -1915,6 +1917,8 @@ struct vacuum_info {
         uint64_t realtime;
         sd_id128_t seqnum_id;
         uint64_t seqnum;
+
+        bool have_seqnum;
 };
 
 static int vacuum_compare(const void *_a, const void *_b) {
@@ -1923,7 +1927,8 @@ static int vacuum_compare(const void *_a, const void *_b) {
         a = _a;
         b = _b;
 
-        if (sd_id128_equal(a->seqnum_id, b->seqnum_id)) {
+        if (a->have_seqnum && b->have_seqnum &&
+            sd_id128_equal(a->seqnum_id, b->seqnum_id)) {
                 if (a->seqnum < b->seqnum)
                         return -1;
                 else if (a->seqnum > b->seqnum)
@@ -1936,8 +1941,10 @@ static int vacuum_compare(const void *_a, const void *_b) {
                 return -1;
         else if (a->realtime > b->realtime)
                 return 1;
-        else
+        else if (a->have_seqnum && b->have_seqnum)
                 return memcmp(&a->seqnum_id, &b->seqnum_id, 16);
+        else
+                return strcmp(a->filename, b->filename);
 }
 
 int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t min_free) {
@@ -1964,6 +1971,7 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                 char *p;
                 unsigned long long seqnum, realtime;
                 sd_id128_t seqnum_id;
+                bool have_seqnum;
 
                 k = readdir_r(d, &buf, &de);
                 if (k != 0) {
@@ -1974,41 +1982,71 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                 if (!de)
                         break;
 
-                if (!dirent_is_file_with_suffix(de, ".journal"))
-                        continue;
-
-                q = strlen(de->d_name);
-
-                if (q < 1 + 32 + 1 + 16 + 1 + 16 + 8)
-                        continue;
-
-                if (de->d_name[q-8-16-1] != '-' ||
-                    de->d_name[q-8-16-1-16-1] != '-' ||
-                    de->d_name[q-8-16-1-16-1-32-1] != '@')
-                        continue;
-
                 if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
                         continue;
 
                 if (!S_ISREG(st.st_mode))
                         continue;
 
-                p = strdup(de->d_name);
-                if (!p) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                q = strlen(de->d_name);
 
-                de->d_name[q-8-16-1-16-1] = 0;
-                if (sd_id128_from_string(de->d_name + q-8-16-1-16-1-32, &seqnum_id) < 0) {
-                        free(p);
-                        continue;
-                }
+                if (endswith(de->d_name, ".journal")) {
 
-                if (sscanf(de->d_name + q-8-16-1-16, "%16llx-%16llx.journal", &seqnum, &realtime) != 2) {
-                        free(p);
+                        /* Vacuum archived files */
+
+                        if (q < 1 + 32 + 1 + 16 + 1 + 16 + 8)
+                                continue;
+
+                        if (de->d_name[q-8-16-1] != '-' ||
+                            de->d_name[q-8-16-1-16-1] != '-' ||
+                            de->d_name[q-8-16-1-16-1-32-1] != '@')
+                                continue;
+
+                        p = strdup(de->d_name);
+                        if (!p) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        de->d_name[q-8-16-1-16-1] = 0;
+                        if (sd_id128_from_string(de->d_name + q-8-16-1-16-1-32, &seqnum_id) < 0) {
+                                free(p);
+                                continue;
+                        }
+
+                        if (sscanf(de->d_name + q-8-16-1-16, "%16llx-%16llx.journal", &seqnum, &realtime) != 2) {
+                                free(p);
+                                continue;
+                        }
+
+                        have_seqnum = true;
+
+                } else if (endswith(de->d_name, ".journal~")) {
+                        unsigned long long tmp;
+
+                        /* Vacuum corrupted files */
+
+                        if (q < 1 + 16 + 1 + 16 + 8 + 1)
+                                continue;
+
+                        if (de->d_name[q-1-8-16-1] != '-' ||
+                            de->d_name[q-1-8-16-1-16-1] != '@')
+                                continue;
+
+                        p = strdup(de->d_name);
+                        if (!p) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        if (sscanf(de->d_name + q-1-8-16-1-16, "%16llx-%16llx.journal~", &realtime, &tmp) != 2) {
+                                free(p);
+                                continue;
+                        }
+
+                        have_seqnum = false;
+                } else
                         continue;
-                }
 
                 if (n_list >= n_allocated) {
                         struct vacuum_info *j;
@@ -2029,6 +2067,7 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                 list[n_list].seqnum = seqnum;
                 list[n_list].realtime = realtime;
                 list[n_list].seqnum_id = seqnum_id;
+                list[n_list].have_seqnum = have_seqnum;
 
                 sum += list[n_list].usage;
 
