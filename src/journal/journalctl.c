@@ -148,6 +148,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'q':
                         arg_quiet = true;
+                        break;
 
                 case '?':
                         return -EINVAL;
