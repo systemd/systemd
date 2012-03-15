@@ -334,20 +334,26 @@ static void server_rotate(Server *s) {
                 r = journal_file_rotate(&s->runtime_journal);
                 if (r < 0)
                         log_error("Failed to rotate %s: %s", s->runtime_journal->path, strerror(-r));
+                else
+                        server_fix_perms(s, s->runtime_journal, 0);
         }
 
         if (s->system_journal) {
                 r = journal_file_rotate(&s->system_journal);
                 if (r < 0)
                         log_error("Failed to rotate %s: %s", s->system_journal->path, strerror(-r));
+                else
+                        server_fix_perms(s, s->system_journal, 0);
         }
 
         HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
                 r = journal_file_rotate(&f);
                 if (r < 0)
                         log_error("Failed to rotate %s: %s", f->path, strerror(-r));
-                else
+                else {
                         hashmap_replace(s->user_journals, k, f);
+                        server_fix_perms(s, s->system_journal, PTR_TO_UINT32(k));
+                }
         }
 }
 
