@@ -308,8 +308,6 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 return s->system_journal;
 
         server_fix_perms(s, f, uid);
-        f->metrics = s->system_metrics;
-        f->compress = s->compress;
 
         r = hashmap_put(s->user_journals, UINT32_TO_PTR(uid), f);
         if (r < 0) {

@@ -1740,6 +1740,11 @@ int journal_file_open(
         f->writable = (flags & O_ACCMODE) != O_RDONLY;
         f->prot = prot_from_flags(flags);
 
+        if (template) {
+                f->metrics = template->metrics;
+                f->compress = template->compress;
+        }
+
         f->path = strdup(fname);
         if (!f->path) {
                 r = -ENOMEM;
