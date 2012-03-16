@@ -2492,7 +2492,8 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbusinterfacedir=$$dc_install_base/$(dbusinterfacedir) \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir) \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
-	--with-rootprefix=$$dc_install_base/$(prefix)
+        --with-rootprefix=$$dc_install_base \
+        --disable-split-usr
 
 upload: all distcheck
 	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/

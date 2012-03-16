@@ -655,5 +655,5 @@ AC_MSG_RESULT([
         D-Bus system dir:        ${with_dbussystemservicedir}
         D-Bus interfaces dir:    ${with_dbusinterfacedir}
         Split /usr:              ${enable_split_usr}
-        Build man pages:         ${have_manpages}
+        man pages:               ${have_manpages}
 ])
