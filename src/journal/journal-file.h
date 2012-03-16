@@ -26,6 +26,7 @@
 
 #include <systemd/sd-id128.h>
 
+#include "sparse-endian.h"
 #include "journal-def.h"
 #include "util.h"
 

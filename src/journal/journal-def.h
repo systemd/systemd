@@ -22,7 +22,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
+#include "sparse-endian.h"
 
 #include <systemd/sd-id128.h>
 
@@ -60,48 +60,48 @@ _packed_ struct ObjectHeader {
         uint8_t type;
         uint8_t flags;
         uint8_t reserved[6];
-        uint64_t size;
+        le64_t size;
         uint8_t payload[];
 };
 
 _packed_ struct DataObject {
         ObjectHeader object;
-        uint64_t hash;
-        uint64_t next_hash_offset;
-        uint64_t next_field_offset;
-        uint64_t entry_offset; /* the first array entry we store inline */
-        uint64_t entry_array_offset;
-        uint64_t n_entries;
+        le64_t hash;
+        le64_t next_hash_offset;
+        le64_t next_field_offset;
+        le64_t entry_offset; /* the first array entry we store inline */
+        le64_t entry_array_offset;
+        le64_t n_entries;
         uint8_t payload[];
 };
 
 _packed_ struct FieldObject {
         ObjectHeader object;
-        uint64_t hash;
-        uint64_t next_hash_offset;
-        uint64_t head_data_offset;
-        uint64_t tail_data_offset;
+        le64_t hash;
+        le64_t next_hash_offset;
+        le64_t head_data_offset;
+        le64_t tail_data_offset;
         uint8_t payload[];
 };
 
 _packed_ struct EntryItem {
-        uint64_t object_offset;
-        uint64_t hash;
+        le64_t object_offset;
+        le64_t hash;
 };
 
 _packed_ struct EntryObject {
         ObjectHeader object;
-        uint64_t seqnum;
-        uint64_t realtime;
-        uint64_t monotonic;
+        le64_t seqnum;
+        le64_t realtime;
+        le64_t monotonic;
         sd_id128_t boot_id;
-        uint64_t xor_hash;
+        le64_t xor_hash;
         EntryItem items[];
 };
 
 _packed_ struct HashItem {
-        uint64_t head_hash_offset;
-        uint64_t tail_hash_offset;
+        le64_t head_hash_offset;
+        le64_t tail_hash_offset;
 };
 
 _packed_ struct HashTableObject {
@@ -111,8 +111,8 @@ _packed_ struct HashTableObject {
 
 _packed_ struct EntryArrayObject {
         ObjectHeader object;
-        uint64_t next_entry_array_offset;
-        uint64_t items[];
+        le64_t next_entry_array_offset;
+        le64_t items[];
 };
 
 union Object {
@@ -145,21 +145,21 @@ _packed_ struct Header {
         sd_id128_t machine_id;
         sd_id128_t boot_id;
         sd_id128_t seqnum_id;
-        uint64_t arena_offset;
-        uint64_t arena_size;
-        uint64_t data_hash_table_offset;     /* for looking up data objects */
-        uint64_t data_hash_table_size;
-        uint64_t field_hash_table_offset;     /* for looking up field objects */
-        uint64_t field_hash_table_size;
-        uint64_t tail_object_offset;
-        uint64_t n_objects;
-        uint64_t n_entries;
-        uint64_t seqnum;
-        uint64_t first_seqnum;
-        uint64_t entry_array_offset;
-        uint64_t head_entry_realtime;
-        uint64_t tail_entry_realtime;
-        uint64_t tail_entry_monotonic;
+        le64_t arena_offset;
+        le64_t arena_size;
+        le64_t data_hash_table_offset;     /* for looking up data objects */
+        le64_t data_hash_table_size;
+        le64_t field_hash_table_offset;     /* for looking up field objects */
+        le64_t field_hash_table_size;
+        le64_t tail_object_offset;
+        le64_t n_objects;
+        le64_t n_entries;
+        le64_t seqnum;
+        le64_t first_seqnum;
+        le64_t entry_array_offset;
+        le64_t head_entry_realtime;
+        le64_t tail_entry_realtime;
+        le64_t tail_entry_monotonic;
 };
 
 #endif

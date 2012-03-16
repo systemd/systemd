@@ -1258,6 +1258,7 @@ static void process_native_message(
                         p = e + 1;
                         continue;
                 } else {
+                        le64_t l_le;
                         uint64_t l;
                         char *k;
 
@@ -1266,8 +1267,8 @@ static void process_native_message(
                                 break;
                         }
 
-                        memcpy(&l, e + 1, sizeof(uint64_t));
-                        l = le64toh(l);
+                        memcpy(&l_le, e + 1, sizeof(uint64_t));
+                        l = le64toh(l_le);
 
                         if (remaining < e - p + 1 + sizeof(uint64_t) + l + 1 ||
                             e[1+sizeof(uint64_t)+l] != '\n') {

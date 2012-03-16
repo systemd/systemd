@@ -35,7 +35,7 @@ typedef struct Match Match;
 struct Match {
         char *data;
         size_t size;
-        uint64_t le_hash;
+        le64_t le_hash;
 
         LIST_FIELDS(Match, matches);
 };

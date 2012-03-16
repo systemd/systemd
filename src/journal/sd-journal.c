@@ -108,7 +108,7 @@ static int same_field(const void *_a, size_t s, const void *_b, size_t t) {
 
 _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) {
         Match *m, *after = NULL;
-        uint64_t le_hash;
+        le64_t le_hash;
 
         if (!j)
                 return -EINVAL;
@@ -356,7 +356,7 @@ static int find_location(sd_journal *j, JournalFile *f, direction_t direction, O
                         Object *c, *d;
                         uint64_t cp, dp;
 
-                        r = journal_file_find_data_object_with_hash(f, m->data, m->size, m->le_hash, &d, &dp);
+                        r = journal_file_find_data_object_with_hash(f, m->data, m->size, le64toh(m->le_hash), &d, &dp);
                         if (r <= 0)
                                 return r;
 
@@ -1349,7 +1349,8 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 
         n = journal_file_entry_n_items(o);
         for (i = 0; i < n; i++) {
-                uint64_t p, l, le_hash;
+                uint64_t p, l;
+                le64_t le_hash;
                 size_t t;
 
                 p = le64toh(o->entry.items[i].object_offset);
@@ -1410,7 +1411,8 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 
 _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *size) {
         JournalFile *f;
-        uint64_t p, l, n, le_hash;
+        uint64_t p, l, n;
+        le64_t le_hash;
         int r;
         Object *o;
         size_t t;

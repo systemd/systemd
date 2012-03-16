@@ -793,8 +793,8 @@ static uint64_t journal_file_entry_array_n_items(Object *o) {
 }
 
 static int link_entry_into_array(JournalFile *f,
-                                 uint64_t *first,
-                                 uint64_t *idx,
+                                 le64_t *first,
+                                 le64_t *idx,
                                  uint64_t p) {
         int r;
         uint64_t n = 0, ap = 0, q, i, a, hidx;
@@ -857,9 +857,9 @@ static int link_entry_into_array(JournalFile *f,
 }
 
 static int link_entry_into_array_plus_one(JournalFile *f,
-                                          uint64_t *extra,
-                                          uint64_t *first,
-                                          uint64_t *idx,
+                                          le64_t *extra,
+                                          le64_t *first,
+                                          le64_t *idx,
                                           uint64_t p) {
 
         int r;
@@ -873,7 +873,7 @@ static int link_entry_into_array_plus_one(JournalFile *f,
         if (*idx == 0)
                 *extra = htole64(p);
         else {
-                uint64_t i;
+                le64_t i;
 
                 i = htole64(le64toh(*idx) - 1);
                 r = link_entry_into_array(f, first, &i, p);
@@ -2144,7 +2144,8 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         items = alloca(sizeof(EntryItem) * n);
 
         for (i = 0; i < n; i++) {
-                uint64_t le_hash, l, h;
+                uint64_t l, h;
+                le64_t le_hash;
                 size_t t;
                 void *data;
                 Object *u;
