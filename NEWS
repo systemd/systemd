@@ -1,5 +1,50 @@
 systemd System and Service Manager
 
+CHANGES WITH 44:
+        * This is mostly a bugfix release
+
+        * Support optional initialization of the machine ID from the
+          KVM or container configured UUID.
+
+        * Support immediate reboots with "systemctl reboot -ff"
+
+        * Show /etc/os-release data in systemd-analyze output
+
+        * Many bugfixes for the journal, including endianess fixes and
+          ensuring that disk space enforcement works
+
+        * sd-login.h is C++ comptaible again
+
+        * Extend the /etc/os-release format on request of the Debian
+          folks
+
+        * We now refuse non-UTF8 strings used in various configuration
+          and unit files. This is done to ensure we don't pass invalid
+          data over D-Bus or expose it elsewhere.
+
+        * Register Mimo USB Screens as suitable for automatic seat
+          configuration
+
+        * Read SELinux client context from journal clients in a race
+          free fashion
+
+        * Reorder configuration file lookup order. /etc now always
+          overrides /run in order to allow the administrator to always
+          and unconditionally override vendor supplied or
+          automatically generated data.
+
+        * The various user visible bits of the journal now have man
+          pages. We still lack man pages for the journal API calls
+          however.
+
+        * We now ship all man pages in HTML format again in the
+          tarball.
+
+        Contributions from: Dave Reisner, Dirk Eibach, Frederic
+        Crozat, Harald Hoyer, Kay Sievers, Lennart Poettering, Marti
+        Raudsepp, Michal Schmidt, Shawn Landden, Tero Roponen, Thierry
+        Reding
+
 CHANGES WITH 43:
         * This is mostly a bugfix release
 
