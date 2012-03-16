@@ -49,8 +49,6 @@ Features:
 
 * hook up /dev/watchdog with main event loop for embedded, server uses
 
-* man: for some reason the HTML versions of the man pages are currently not being packaged
-
 * when dumping cgroup contents, include main/control PID of a service, explicitly
 
 * keep an eye on https://bugzilla.gnome.org/show_bug.cgi?id=670100

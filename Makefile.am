@@ -706,20 +706,23 @@ man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
 man/init.1: man/systemd.1
 
-if ENABLE_MANPAGES
-dist_man_MANS = \
-	$(MANPAGES) \
-	$(MANPAGES_ALIAS)
-
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
 
-dist_noinst_DATA = \
+if ENABLE_MANPAGES
+man_MANS = \
+	$(MANPAGES) \
+	$(MANPAGES_ALIAS)
+
+noinst_DATA = \
 	${XML_FILES:.xml=.html}
+endif
 
 EXTRA_DIST += \
-	$(XML_FILES)
-endif
+	$(XML_FILES) \
+	${XML_FILES:.xml=.html} \
+	$(MANPAGES) \
+	$(MANPAGES_ALIAS)
 
 systemd_SOURCES = \
 	src/main.c
@@ -2490,7 +2493,6 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir) \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
 	--with-rootprefix=$$dc_install_base/$(prefix)
-
 
 upload: all distcheck
 	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/
