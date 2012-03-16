@@ -125,9 +125,9 @@
                                 <term><option>-f</option></term>
 
                                 <listitem><para>Show only most recent
-                                entries, and continously print new
-                                entries as they are appended to the
-                                journal.</para></listitem>
+                                journal entries, and continously print
+                                new entries as they are appended to
+                                the journal.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -157,7 +157,7 @@
                                 <term><option>-o</option></term>
 
                                 <listitem><para>Controls the
-                                formatting of the entries that are
+                                formatting of the journal entries that are
                                 shown. Takes one of
                                 <literal>short</literal>,
                                 <literal>short-monotonic</literal>,

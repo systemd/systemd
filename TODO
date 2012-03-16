@@ -82,10 +82,6 @@ Features:
 
 * add interface to allow immediate rotation of the journal, and even flushing.
 
-* don't log coredumps of PID 1 into the journal
-
-* if a journal file is corrupt, rotate it and create a new one
-
 * dbus: in fedora, make the machine a symlink to /etc/machine-id
 
 * journald: reuse XZ context
@@ -93,8 +89,6 @@ Features:
 * logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
 
 * write RPM spec macros for presets
-
-* write man pages for systemd-cat
 
 * journal: write man pages for API
 

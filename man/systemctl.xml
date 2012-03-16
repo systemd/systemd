@@ -414,6 +414,45 @@
                                 PolicyKit before executing the
                                 operation.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--lines=</option></term>
+                                <term><option>-n</option></term>
+
+                                <listitem><para>When used with
+                                <command>status</command> controls the
+                                number of journal lines to show,
+                                counting from the most recent
+                                ones. Takes a positive integer
+                                argument. Defaults to
+                                10.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--follow</option></term>
+                                <term><option>-f</option></term>
+
+                                <listitem><para>When used with
+                                <command>status</command> continously
+                                prints new journal entries as they are
+                                appended to the
+                                journal.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--output=</option></term>
+                                <term><option>-o</option></term>
+
+                                <listitem><para>When used with
+                                <command>status</command> controls the
+                                formatting of the journal entries that
+                                are shown. For the available choices
+                                see
+                                <citerefentry><refentrytitle>systemd-journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Defaults
+                                to
+                                <literal>short</literal>.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
                 <para>The following commands are understood:</para>
@@ -558,14 +597,15 @@
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
-                                units. This function is intended to
-                                generate human-readable output. If you
-                                are looking for computer-parsable
-                                output, use <command>show</command>
-                                instead. If a PID is passed
-                                information about the unit the process
-                                of the PID belongs to is
-                                shown.</para></listitem>
+                                units, followed by its most recent log
+                                data from the journal. This function
+                                is intended to generate human-readable
+                                output. If you are looking for
+                                computer-parsable output, use
+                                <command>show</command> instead. If a
+                                PID is passed information about the
+                                unit the process of the PID belongs to
+                                is shown.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>show [NAME...|JOB...]</command></term>
@@ -1139,6 +1179,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemadm</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
