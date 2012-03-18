@@ -1,13 +1,19 @@
-# ------------------------------------------------------------------------------
 # Copyright (C) 2008-2012 Kay Sievers <kay.sievers@vrfy.org>
 # Copyright (C) 2009 Diego Elio 'Flameeyes' Pettenò <flameeyes@gmail.com>
-# ------------------------------------------------------------------------------
 
 SUBDIRS = .
 
 ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 
 AM_MAKEFLAGS = --no-print-directory
+
+LIBUDEV_CURRENT=13
+LIBUDEV_REVISION=1
+LIBUDEV_AGE=13
+
+LIBGUDEV_CURRENT=1
+LIBGUDEV_REVISION=1
+LIBGUDEV_AGE=1
 
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
@@ -78,18 +84,13 @@ SED_PROCESS = \
 	$(AM_V_GEN)chmod +x $@
 
 # ------------------------------------------------------------------------------
-# libudev
-# ------------------------------------------------------------------------------
-LIBUDEV_CURRENT=13
-LIBUDEV_REVISION=1
-LIBUDEV_AGE=13
-
 SUBDIRS += src/docs
 
 include_HEADERS = src/libudev.h
-lib_LTLIBRARIES = src/libudev.la
+lib_LTLIBRARIES = libudev.la
+noinst_LTLIBRARIES = libudev-private.la
 
-src_libudev_la_SOURCES =\
+libudev_la_SOURCES =\
 	src/libudev-private.h \
 	src/libudev.c \
 	src/libudev-list.c \
@@ -99,22 +100,19 @@ src_libudev_la_SOURCES =\
 	src/libudev-monitor.c \
 	src/libudev-queue.c
 
-src_libudev_la_LDFLAGS = \
+libudev_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	-version-info $(LIBUDEV_CURRENT):$(LIBUDEV_REVISION):$(LIBUDEV_AGE)
 
-noinst_LTLIBRARIES = \
-	src/libudev-private.la
-
-src_libudev_private_la_SOURCES =\
-	$(src_libudev_la_SOURCES) \
+libudev_private_la_SOURCES =\
+	$(libudev_la_SOURCES) \
 	src/libudev-util-private.c \
 	src/libudev-device-private.c \
 	src/libudev-queue-private.c
 
 if WITH_SELINUX
-src_libudev_private_la_SOURCES += src/libudev-selinux-private.c
-src_libudev_private_la_LIBADD = $(SELINUX_LIBS)
+libudev_private_la_SOURCES += src/libudev-selinux-private.c
+libudev_private_la_LIBADD = $(SELINUX_LIBS)
 endif
 
 pkgconfigdir = $(libdir)/pkgconfig
@@ -139,8 +137,6 @@ libudev-uninstall-move-hook:
 INSTALL_EXEC_HOOKS += libudev-install-move-hook
 UNINSTALL_EXEC_HOOKS += libudev-uninstall-move-hook
 
-# ------------------------------------------------------------------------------
-# main udev
 # ------------------------------------------------------------------------------
 udev-confdirs:
 	-mkdir -p $(DESTDIR)$(sysconfdir)/udev/rules.d
@@ -203,10 +199,10 @@ INSTALL_DATA_HOOKS += systemd-install-hook
 endif
 
 bin_PROGRAMS = \
-	src/udevadm
+	udevadm
 
 pkglibexec_PROGRAMS = \
-	src/udevd
+	udevd
 
 udev_common_sources = \
 	src/udev.h \
@@ -229,7 +225,7 @@ udev_common_CFLAGS = \
 	$(KMOD_CFLAGS)
 
 udev_common_LDADD = \
-	src/libudev-private.la \
+	libudev-private.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
 
@@ -238,16 +234,16 @@ udev_common_CPPFLAGS = \
 	-DFIRMWARE_PATH="$(FIRMWARE_PATH)" \
 	-DUSB_DATABASE=\"$(USB_DATABASE)\" -DPCI_DATABASE=\"$(PCI_DATABASE)\"
 
-src_udevd_SOURCES = \
+udevd_SOURCES = \
 	$(udev_common_sources) \
 	src/udevd.c \
 	src/sd-daemon.h \
 	src/sd-daemon.c
-src_udevd_CFLAGS = $(udev_common_CFLAGS)
-src_udevd_LDADD = $(udev_common_LDADD)
-src_udevd_CPPFLAGS = $(udev_common_CPPFLAGS)
+udevd_CFLAGS = $(udev_common_CFLAGS)
+udevd_LDADD = $(udev_common_LDADD)
+udevd_CPPFLAGS = $(udev_common_CPPFLAGS)
 
-src_udevadm_SOURCES = \
+udevadm_SOURCES = \
 	$(udev_common_sources) \
 	src/udevadm.c \
 	src/udevadm-info.c \
@@ -257,12 +253,10 @@ src_udevadm_SOURCES = \
 	src/udevadm-trigger.c \
 	src/udevadm-test.c \
 	src/udevadm-test-builtin.c
-src_udevadm_CFLAGS = $(udev_common_CFLAGS)
-src_udevadm_LDADD = $(udev_common_LDADD)
-src_udevadm_CPPFLAGS = $(udev_common_CPPFLAGS)
+udevadm_CFLAGS = $(udev_common_CFLAGS)
+udevadm_LDADD = $(udev_common_LDADD)
+udevadm_CPPFLAGS = $(udev_common_CPPFLAGS)
 
-# ------------------------------------------------------------------------------
-# udev man pages
 # ------------------------------------------------------------------------------
 if ENABLE_MANPAGES
 dist_man_MANS += \
@@ -290,26 +284,24 @@ src/%.html : src/%.xml
 endif
 
 # ------------------------------------------------------------------------------
-# udev tests
-# ------------------------------------------------------------------------------
 TESTS = \
 	test/udev-test.pl \
 	test/rules-test.sh
 
 check_PROGRAMS = \
-	src/test-libudev \
-	src/test-udev
+	test-libudev \
+	test-udev
 
-src_test_libudev_SOURCES = src/test-libudev.c
-src_test_libudev_LDADD = src/libudev.la
+test_libudev_SOURCES = src/test-libudev.c
+test_libudev_LDADD = libudev.la
 
-src_test_udev_SOURCES = \
+test_udev_SOURCES = \
 	$(udev_common_sources) \
 	src/test-udev.c
-src_test_udev_CFLAGS = $(udev_common_CFLAGS)
-src_test_udev_LDADD = $(udev_common_LDADD)
-src_test_udev_CPPFLAGS = $(udev_common_CPPFLAGS)
-src_test_udev_DEPENDENCIES = test/sys
+test_udev_CFLAGS = $(udev_common_CFLAGS)
+test_udev_LDADD = $(udev_common_LDADD)
+test_udev_CPPFLAGS = $(udev_common_CPPFLAGS)
+test_udev_DEPENDENCIES = test/sys
 
 # packed sysfs test tree
 test/sys:
@@ -322,68 +314,50 @@ DISTCLEAN_LOCAL_HOOKS += test-sys-distclean
 EXTRA_DIST += test/sys.tar.xz
 
 # ------------------------------------------------------------------------------
-# ata_id - ATA identify
-# ------------------------------------------------------------------------------
-src_ata_id_ata_id_SOURCES = src/ata_id/ata_id.c
-src_ata_id_ata_id_LDADD = src/libudev-private.la
-pkglibexec_PROGRAMS += src/ata_id/ata_id
+ata_id_SOURCES = src/ata_id/ata_id.c
+ata_id_LDADD = libudev-private.la
+pkglibexec_PROGRAMS += ata_id
 
 # ------------------------------------------------------------------------------
-# cdrom_id - optical drive/media capability
-# ------------------------------------------------------------------------------
-src_cdrom_id_cdrom_id_SOURCES = src/cdrom_id/cdrom_id.c
-src_cdrom_id_cdrom_id_LDADD = src/libudev-private.la
-pkglibexec_PROGRAMS += src/cdrom_id/cdrom_id
+cdrom_id_SOURCES = src/cdrom_id/cdrom_id.c
+cdrom_id_LDADD = libudev-private.la
+pkglibexec_PROGRAMS += cdrom_id
 dist_udevrules_DATA += src/cdrom_id/60-cdrom_id.rules
 
 # ------------------------------------------------------------------------------
-# collect - trigger action when a collection of devices appeared
-# ------------------------------------------------------------------------------
-src_collect_collect_SOURCES = src/collect/collect.c
-src_collect_collect_LDADD = src/libudev-private.la
-pkglibexec_PROGRAMS += src/collect/collect
+collect_SOURCES = src/collect/collect.c
+collect_LDADD = libudev-private.la
+pkglibexec_PROGRAMS += collect
 
 # ------------------------------------------------------------------------------
-# scsi_id - SCSI inquiry to get various serial numbers
-# ------------------------------------------------------------------------------
-src_scsi_id_scsi_id_SOURCES =\
+scsi_id_SOURCES =\
 	src/scsi_id/scsi_id.c \
 	src/scsi_id/scsi_serial.c \
 	src/scsi_id/scsi.h \
 	src/scsi_id/scsi_id.h
-src_scsi_id_scsi_id_LDADD = src/libudev-private.la
-pkglibexec_PROGRAMS += src/scsi_id/scsi_id
+scsi_id_LDADD = libudev-private.la
+pkglibexec_PROGRAMS += scsi_id
 dist_man_MANS += src/scsi_id/scsi_id.8
 EXTRA_DIST += src/scsi_id/README
 
 # ------------------------------------------------------------------------------
-# v4l_id - video4linux capabilities
-# ------------------------------------------------------------------------------
-src_v4l_id_v4l_id_SOURCES = src/v4l_id/v4l_id.c
-src_v4l_id_v4l_id_LDADD = src/libudev-private.la
-pkglibexec_PROGRAMS += src/v4l_id/v4l_id
+v4l_id_SOURCES = src/v4l_id/v4l_id.c
+v4l_id_LDADD = libudev-private.la
+pkglibexec_PROGRAMS += v4l_id
 dist_udevrules_DATA += src/v4l_id/60-persistent-v4l.rules
 
 # ------------------------------------------------------------------------------
-# accelerometer - updates device orientation
-# ------------------------------------------------------------------------------
-src_accelerometer_accelerometer_SOURCES = src/accelerometer/accelerometer.c
-src_accelerometer_accelerometer_LDADD = src/libudev-private.la -lm
-pkglibexec_PROGRAMS += src/accelerometer/accelerometer
+accelerometer_SOURCES = src/accelerometer/accelerometer.c
+accelerometer_LDADD = libudev-private.la -lm
+pkglibexec_PROGRAMS += accelerometer
 dist_udevrules_DATA += src/accelerometer/61-accelerometer.rules
 
+# ------------------------------------------------------------------------------
 if ENABLE_GUDEV
-# ------------------------------------------------------------------------------
-# GUdev - libudev gobject interface
-# ------------------------------------------------------------------------------
-LIBGUDEV_CURRENT=1
-LIBGUDEV_REVISION=1
-LIBGUDEV_AGE=1
-
 SUBDIRS += src/gudev/docs
 
-src_gudev_libgudev_includedir=$(includedir)/gudev-1.0/gudev
-src_gudev_libgudev_include_HEADERS = \
+libgudev_includedir=$(includedir)/gudev-1.0/gudev
+libgudev_include_HEADERS = \
 	src/gudev/gudev.h \
 	src/gudev/gudevenums.h \
 	src/gudev/gudevenumtypes.h \
@@ -392,13 +366,13 @@ src_gudev_libgudev_include_HEADERS = \
 	src/gudev/gudevdevice.h \
 	src/gudev/gudevenumerator.h
 
-lib_LTLIBRARIES += src/gudev/libgudev-1.0.la
+lib_LTLIBRARIES += libgudev-1.0.la
 
 pkgconfig_DATA += src/gudev/gudev-1.0.pc
 EXTRA_DIST += src/gudev/gudev-1.0.pc.in
 CLEANFILES += src/gudev/gudev-1.0.pc
 
-src_gudev_libgudev_1_0_la_SOURCES = \
+libgudev_1_0_la_SOURCES = \
 	src/gudev/gudevenums.h \
 	src/gudev/gudevenumtypes.h \
 	src/gudev/gudevenumtypes.h\
@@ -411,14 +385,14 @@ src_gudev_libgudev_1_0_la_SOURCES = \
 	src/gudev/gudevenumerator.c \
 	src/gudev/gudevprivate.h
 
-nodist_src_gudev_libgudev_1_0_la_SOURCES = \
+nodist_libgudev_1_0_la_SOURCES = \
 	src/gudev/gudevmarshal.h \
 	src/gudev/gudevmarshal.c \
 	src/gudev/gudevenumtypes.h \
 	src/gudev/gudevenumtypes.c
-BUILT_SOURCES += $(nodist_src_gudev_libgudev_1_0_la_SOURCES)
+BUILT_SOURCES += $(nodist_libgudev_1_0_la_SOURCES)
 
-src_gudev_libgudev_1_0_la_CPPFLAGS = \
+libgudev_1_0_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-I$(top_builddir)/src\
 	-I$(top_srcdir)/src\
@@ -428,13 +402,13 @@ src_gudev_libgudev_1_0_la_CPPFLAGS = \
 	-D_GUDEV_COMPILATION \
 	-DG_LOG_DOMAIN=\"GUdev\"
 
-src_gudev_libgudev_1_0_la_CFLAGS = \
+libgudev_1_0_la_CFLAGS = \
 	-fvisibility=default \
 	$(GLIB_CFLAGS)
 
-src_gudev_libgudev_1_0_la_LIBADD = src/libudev.la $(GLIB_LIBS)
+libgudev_1_0_la_LIBADD = libudev.la $(GLIB_LIBS)
 
-src_gudev_libgudev_1_0_la_LDFLAGS = \
+libgudev_1_0_la_LDFLAGS = \
 	-version-info $(LIBGUDEV_CURRENT):$(LIBGUDEV_REVISION):$(LIBGUDEV_AGE) \
 	-export-dynamic -no-undefined \
 	-export-symbols-regex '^g_udev_.*'
@@ -464,7 +438,7 @@ src/gudev/gudevenumtypes.c: src/gudev/gudevenumtypes.c.template src/gudev/gudeve
 	    $@.tmp && mv $@.tmp $@
 
 if ENABLE_INTROSPECTION
-src/gudev/GUdev-1.0.gir: src/gudev/libgudev-1.0.la $(G_IR_SCANNER)
+src/gudev/GUdev-1.0.gir: libgudev-1.0.la $(G_IR_SCANNER)
 	$(AM_V_GEN)$(G_IR_SCANNER) -v \
 		--warn-all \
 		--namespace GUdev \
@@ -522,18 +496,16 @@ INSTALL_EXEC_HOOKS += libgudev-install-move-hook
 UNINSTALL_EXEC_HOOKS += libgudev-uninstall-move-hook
 endif
 
+# ------------------------------------------------------------------------------
 if ENABLE_KEYMAP
-# ------------------------------------------------------------------------------
-# keymap - map custom hardware's multimedia keys
-# ------------------------------------------------------------------------------
-src_keymap_keymap_SOURCES = src/keymap/keymap.c
-src_keymap_keymap_CPPFLAGS = $(AM_CPPFLAGS) -I src/keymap
-nodist_src_keymap_keymap_SOURCES = \
+keymap_SOURCES = src/keymap/keymap.c
+keymap_CPPFLAGS = $(AM_CPPFLAGS) -I src/keymap
+nodist_keymap_SOURCES = \
 	src/keymap/keys-from-name.h \
 	src/keymap/keys-to-name.h
-BUILT_SOURCES += $(nodist_src_keymap_keymap_SOURCES)
+BUILT_SOURCES += $(nodist_keymap_SOURCES)
 
-pkglibexec_PROGRAMS += src/keymap/keymap
+pkglibexec_PROGRAMS += keymap
 dist_doc_DATA = src/keymap/README.keymap.txt
 
 dist_udevrules_DATA += \
@@ -639,21 +611,17 @@ endif
 
 if ENABLE_MTD_PROBE
 # ------------------------------------------------------------------------------
-# mtd_probe - autoloads FTL module for mtd devices
-# ------------------------------------------------------------------------------
-src_mtd_probe_mtd_probe_SOURCES =  \
+mtd_probe_SOURCES =  \
 	src/mtd_probe/mtd_probe.c \
 	src/mtd_probe/mtd_probe.h \
 	src/mtd_probe/probe_smartmedia.c
-src_mtd_probe_mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
+mtd_probe_CPPFLAGS = $(AM_CPPFLAGS)
 dist_udevrules_DATA += src/mtd_probe/75-probe_mtd.rules
-pkglibexec_PROGRAMS += src/mtd_probe/mtd_probe
+pkglibexec_PROGRAMS += mtd_probe
 endif
 
+# ------------------------------------------------------------------------------
 if ENABLE_RULE_GENERATOR
-# ------------------------------------------------------------------------------
-# rule_generator - persistent network and optical device rule generator
-# ------------------------------------------------------------------------------
 dist_udevhome_SCRIPTS += \
 	src/rule_generator/write_cd_rules \
 	src/rule_generator/write_net_rules
@@ -666,18 +634,14 @@ dist_udevrules_DATA += \
 	src/rule_generator/75-persistent-net-generator.rules
 endif
 
+# ------------------------------------------------------------------------------
 if ENABLE_FLOPPY
-# ------------------------------------------------------------------------------
-# create_floppy_devices - historical floppy kernel device nodes (/dev/fd0h1440, ...)
-# ------------------------------------------------------------------------------
-src_create_floppy_devices_SOURCES = src/floppy/create_floppy_devices.c
-src_create_floppy_devices_LDADD = src/libudev-private.la
-pkglibexec_PROGRAMS += src/create_floppy_devices
+create_floppy_devices_SOURCES = src/floppy/create_floppy_devices.c
+create_floppy_devices_LDADD = libudev-private.la
+pkglibexec_PROGRAMS += create_floppy_devices
 dist_udevrules_DATA += src/floppy/60-floppy.rules
 endif
 
-# ------------------------------------------------------------------------------
-# install, uninstall, clean hooks
 # ------------------------------------------------------------------------------
 clean-local:
 	rm -rf udev-test-install
@@ -702,8 +666,6 @@ distcheck-hook: $(DISTCHECK_HOOKS)
 
 distclean-local: $(DISTCLEAN_LOCAL_HOOKS)
 
-# ------------------------------------------------------------------------------
-# custom release helpers
 # ------------------------------------------------------------------------------
 PREVIOUS_VERSION = `expr $(VERSION) - 1`
 changelog:
