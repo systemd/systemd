@@ -1,3 +1,34 @@
+Summary of changes from v181 to v182
+============================================
+
+Kay Sievers (22):
+      build-sys: unpack test sysfs only for 'make check'
+      build-sys: add --disable-manpages
+      update sd-daemon files
+      test: remove outdated key attributes
+      update TOO
+      builtin: path_id - remove dead cciss code
+      rules: do not create by-id/scsi-* links for ATA devices
+      remove udev-acl
+      udev.conf - do not set any value by default
+      move src/extras subdirectories to src/
+      rules: delete outdated 30-kernel-compat.rules
+      rules: move 42-qemu-usb.rules to rules/ dir
+      remove edd_id extra
+      build-sys: remove empty directory
+      rules: delete s390 rules, they will move to s390utils
+      update TODO
+      rules: move all rules to top level rules/ dir
+      extras: path_id - skip ATA transport class devices
+      extras: path_id - add comment about readdir() rebase logic
+      extras: ata_id - do not log error if HDIO_GET_IDENTITY fails
+      rules sort order: /lib, /run, /etc
+      build-sys: place build binaries in the root
+
+Matthew Garrett (1):
+      rules: Enable USB autosuspend on more USB HID devices
+
+
 Summary of changes from v180 to v181
 ============================================
 

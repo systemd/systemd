@@ -1,15 +1,28 @@
-udev 181
+udev 182
 ========
-The udev-acl tool is no longer provided, it will be part of a future
-ConsoleKit release. On systemd systems, advanced ConsoleKit and udev-acl
-functionality are provided by systemd.
-
 Rules files in /etc/udev/rules.s/ with the same name as rules files in
 /run/udev/rules.d/ now always have precedence. The stack of files is now:
 /usr/lib (package), /run (runtime, auto-generated), /etc (admin), while
 the later ones override the earlier ones. In other words: the admin has
 always the last say.
 
+USB auto-suspend is now enabled by default for some built-in USB HID
+devices.
+
+/dev/disk/by-path/ links are no longer created for ATA devices behind
+an 'ATA transport class', the logic to extract predictable numbers does
+not exist in the kernel at this moment.
+
+/dev/disk/by-id/scsi-* compatibility links are no longer created for
+ATA devices, they have their own ata-* prefix.
+
+The s390 rule to set mode == 0666 for /dev/z90crypt is is removed from
+the udev tree and will be part of s390utils (or alternatively could be
+done by the kernel driver itself).
+
+The udev-acl tool is no longer provided, it will be part of a future
+ConsoleKit release. On systemd systems, advanced ConsoleKit and udev-acl
+functionality are provided by systemd.
 
 udev 181
 ========
