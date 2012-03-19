@@ -102,10 +102,13 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -fno-strict-aliasing \
         -fvisibility=hidden \
         -ffunction-sections \
-        -fdata-sections \
+        -fdata-sections])
+AC_SUBST([WARNINGFLAGS], $with_cflags)
+
+CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--as-needed \
         -Wl,--gc-sections])
-AC_SUBST([WARNINGFLAGS], $with_cflags)
+AC_SUBST([GCLDFLAGS], $with_ldflags)
 
 LT_PREREQ(2.2)
 LT_INIT

@@ -107,6 +107,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/systemd
 
 AM_CFLAGS = $(WARNINGFLAGS)
+AM_LDFLAGS = $(GCLDFLAGS)
 
 if TARGET_GENTOO
 AM_CPPFLAGS += \
