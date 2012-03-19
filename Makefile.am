@@ -106,6 +106,8 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/journal \
 	-I $(top_srcdir)/src/systemd
 
+AM_CFLAGS = $(WARNINGFLAGS)
+
 if TARGET_GENTOO
 AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/usr/bin/loadkeys\" \

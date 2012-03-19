@@ -1,6 +1,7 @@
 dnl Macros to check the presence of generic (non-typed) symbols.
 dnl Copyright (c) 2006-2008 Diego Pettenò <flameeyes@gmail.com>
 dnl Copyright (c) 2006-2008 xine project
+dnl Copyright (c) 2012 Lucas De Marchi <lucas.de.marchi@gmail.com>
 dnl
 dnl This program is free software; you can redistribute it and/or modify
 dnl it under the terms of the GNU General Public License as published by
@@ -32,52 +33,28 @@ dnl distribute a modified version of the Autoconf Macro, you may extend
 dnl this special exception to the GPL to apply to your modified version as
 dnl well.
 
-dnl Check if the flag is supported by compiler
-dnl CC_CHECK_CFLAGS_SILENT([FLAG], [ACTION-IF-FOUND],[ACTION-IF-NOT-FOUND])
+dnl Check if FLAG in ENV-VAR is supported by compiler and append it
+dnl to WHERE-TO-APPEND variable
+dnl CC_CHECK_FLAG_APPEND([WHERE-TO-APPEND], [ENV-VAR], [FLAG])
 
-AC_DEFUN([CC_CHECK_CFLAGS_SILENT], [
-  AC_CACHE_VAL(AS_TR_SH([cc_cv_cflags_$1]),
-    [ac_save_CFLAGS="$CFLAGS"
-     CFLAGS="$CFLAGS $1"
-     AC_COMPILE_IFELSE([AC_LANG_SOURCE([int a;])],
-       [eval "AS_TR_SH([cc_cv_cflags_$1])='yes'"],
-       [eval "AS_TR_SH([cc_cv_cflags_$1])='no'"])
-     CFLAGS="$ac_save_CFLAGS"
-    ])
+AC_DEFUN([CC_CHECK_FLAG_APPEND], [
+  AC_CACHE_CHECK([if $CC supports flag $3 in envvar $2],
+                 AS_TR_SH([cc_cv_$2_$3]),
+		 [eval "AS_TR_SH([cc_save_$2])='${$2}'"
+		  eval "AS_TR_SH([$2])='$3'"
+		  AC_COMPILE_IFELSE([AC_LANG_SOURCE([int a = 0; int main(void) { return a; } ])],
+                                    [eval "AS_TR_SH([cc_cv_$2_$3])='yes'"],
+                                    [eval "AS_TR_SH([cc_cv_$2_$3])='no'"])
+		  eval "AS_TR_SH([$2])='$cc_save_$2'"])
 
-  AS_IF([eval test x$]AS_TR_SH([cc_cv_cflags_$1])[ = xyes],
-    [$2], [$3])
+  AS_IF([eval test x$]AS_TR_SH([cc_cv_$2_$3])[ = xyes],
+        [eval "$1='${$1} $3'"])
 ])
 
-dnl Check if the flag is supported by compiler (cacheable)
-dnl CC_CHECK_CFLAGS([FLAG], [ACTION-IF-FOUND],[ACTION-IF-NOT-FOUND])
-
-AC_DEFUN([CC_CHECK_CFLAGS], [
-  AC_CACHE_CHECK([if $CC supports $1 flag],
-    AS_TR_SH([cc_cv_cflags_$1]),
-    CC_CHECK_CFLAGS_SILENT([$1]) dnl Don't execute actions here!
-  )
-
-  AS_IF([eval test x$]AS_TR_SH([cc_cv_cflags_$1])[ = xyes],
-    [$2], [$3])
-])
-
-dnl CC_CHECK_CFLAG_APPEND(FLAG, [action-if-found], [action-if-not-found])
-dnl Check for CFLAG and appends them to CFLAGS if supported
-AC_DEFUN([CC_CHECK_CFLAG_APPEND], [
-  AC_CACHE_CHECK([if $CC supports $1 flag],
-    AS_TR_SH([cc_cv_cflags_$1]),
-    CC_CHECK_CFLAGS_SILENT([$1]) dnl Don't execute actions here!
-  )
-
-  AS_IF([eval test x$]AS_TR_SH([cc_cv_cflags_$1])[ = xyes],
-    [CFLAGS="$CFLAGS $1"; DEBUG_CFLAGS="$DEBUG_CFLAGS $1"; $2], [$3])
-])
-
-dnl CC_CHECK_CFLAGS_APPEND([FLAG1 FLAG2], [action-if-found], [action-if-not])
-AC_DEFUN([CC_CHECK_CFLAGS_APPEND], [
-  for flag in $1; do
-    CC_CHECK_CFLAG_APPEND($flag, [$2], [$3])
+dnl CC_CHECK_FLAGS_APPEND([WHERE-TO-APPEND], [ENV-VAR], [FLAG1 FLAG2])
+AC_DEFUN([CC_CHECK_FLAGS_APPEND], [
+  for flag in $3; do
+    CC_CHECK_FLAG_APPEND($1, $2, $flag)
   done
 ])
 

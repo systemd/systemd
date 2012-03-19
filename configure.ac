@@ -60,7 +60,7 @@ if test -z "$GPERF" ; then
         AC_MSG_ERROR([*** gperf not found])
 fi
 
-CC_CHECK_CFLAGS_APPEND([ \
+CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -pipe \
         -Wall \
         -W \
@@ -105,6 +105,7 @@ CC_CHECK_CFLAGS_APPEND([ \
         -fdata-sections \
         -Wl,--as-needed \
         -Wl,--gc-sections])
+AC_SUBST([WARNINGFLAGS], $with_cflags)
 
 LT_PREREQ(2.2)
 LT_INIT
