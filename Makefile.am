@@ -177,12 +177,6 @@ bin_PROGRAMS = \
 dist_bin_SCRIPTS = \
 	src/systemd-analyze
 
-if HAVE_GTK
-bin_PROGRAMS += \
-	systemadm \
-	systemd-gnome-ask-password-agent
-endif
-
 rootlibexec_PROGRAMS = \
 	systemd \
 	systemd-cgroups-agent \
@@ -656,7 +650,6 @@ EXTRA_DIST += \
 MANPAGES = \
 	man/systemd.1 \
 	man/systemctl.1 \
-	man/systemadm.1 \
 	man/systemd-cgls.1 \
 	man/systemd-cgtop.1 \
 	man/systemd-nspawn.1 \
@@ -1035,52 +1028,6 @@ systemd_stdio_bridge_SOURCES = \
 
 systemd_stdio_bridge_LDADD = \
 	libsystemd-basic.la
-
-systemadm_SOURCES = \
-	src/systemadm.vala \
-	src/systemd-interfaces.vala \
-	src/wraplabel.vala
-
-systemadm_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(GTK_CFLAGS) \
-	-Wno-unused-variable \
-	-Wno-unused-function \
-	-Wno-shadow \
-	-Wno-format-nonliteral
-
-systemadm_VALAFLAGS = \
-	--pkg=posix \
-	--pkg=gtk+-2.0 \
-	--pkg=gee-1.0 \
-	-g
-
-systemadm_LDADD = \
-	$(GTK_LIBS)
-
-systemd_gnome_ask_password_agent_SOURCES = \
-	src/gnome-ask-password-agent.vala
-
-systemd_gnome_ask_password_agent_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(LIBNOTIFY_CFLAGS) \
-	$(GTK_CFLAGS) \
-	-Wno-unused-variable \
-	-Wno-unused-function \
-	-Wno-shadow \
-	-Wno-format-nonliteral
-
-systemd_gnome_ask_password_agent_VALAFLAGS = \
-	--pkg=posix \
-	--pkg=gtk+-2.0 \
-	--pkg=linux \
-	--pkg=gio-unix-2.0 \
-	--pkg=libnotify \
-	-g
-
-systemd_gnome_ask_password_agent_LDADD = \
-	$(LIBNOTIFY_LIBS) \
-	$(GTK_LIBS)
 
 systemd_tty_ask_password_agent_SOURCES = \
 	src/tty-ask-password-agent.c \
@@ -2191,11 +2138,6 @@ CLEANFILES += \
 	src/load-fragment-gperf.c \
 	src/load-fragment-gperf-nulstr.c \
 	src/99-systemd.rules
-
-if HAVE_VALAC
-CLEANFILES += \
-	${systemadm_SOURCES:.vala=.c}
-endif
 
 if HAVE_XSLTPROC
 XSLTPROC_FLAGS = \

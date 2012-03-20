@@ -372,25 +372,6 @@ if test "x$enable_manpages" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_MANPAGES, [test "$have_manpages" = "yes"])
 
-have_gtk=no
-AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
-if test "x$enable_gtk" != "xno"; then
-        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 glib-2.0 > 2.26 gio-unix-2.0 gee-1.0],
-                [AC_DEFINE(HAVE_GTK, 1, [Define if GTK is available]) have_gtk=yes], have_gtk=no)
-        if test "x$have_gtk" = xno -a "x$enable_gtk" = xyes; then
-                AC_MSG_ERROR([*** gtk support requested but libraries not found])
-        fi
-fi
-AM_CONDITIONAL(HAVE_GTK, [test "$have_gtk" = "yes"])
-
-if test "$have_gtk" = "yes"; then
-        PKG_CHECK_MODULES(LIBNOTIFY, [ libnotify ])
-fi
-
-AM_PROG_VALAC([0.10])
-AC_SUBST(VAPIDIR)
-AM_CONDITIONAL(HAVE_VALAC, test x"$VALAC" != x)
-
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
@@ -624,7 +605,6 @@ AC_MSG_RESULT([
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
         SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
-        Gtk:                     ${have_gtk}
         libcryptsetup:           ${have_libcryptsetup}
         tcpwrap:                 ${have_tcpwrap}
         PAM:                     ${have_pam}
