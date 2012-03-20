@@ -118,11 +118,6 @@ finish:
 int main(int argc, char *argv[]) {
         int r = 0;
 
-        if (argc > 2) {
-                log_error("This program expects one or no arguments.");
-                return EXIT_FAILURE;
-        }
-
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
@@ -130,24 +125,34 @@ int main(int argc, char *argv[]) {
         umask(0022);
 
         if (argc > 1) {
-                r = apply_file(argv[1], false);
+                int i;
+
+                for (i = 1; i < argc; i++) {
+                        int k;
+
+                        k = apply_file(argv[1], false);
+                        if (k < 0 && r == 0)
+                                r = k;
+                }
         } else {
                 char **files, **f;
-
-                /* Flush out all rules */
-                write_one_line_file("/proc/sys/fs/binfmt_misc/status", "-1");
 
                 r = conf_files_list(&files, ".conf",
                                     "/etc/binfmt.d",
                                     "/run/binfmt.d",
                                     "/usr/local/lib/binfmt.d",
                                     "/usr/lib/binfmt.d",
+#ifdef HAVE_SPLIT_USR
+                                    "/lib/binfmt.d",
+#endif
                                     NULL);
-
                 if (r < 0) {
                         log_error("Failed to enumerate binfmt.d files: %s", strerror(-r));
                         goto finish;
                 }
+
+                /* Flush out all rules */
+                write_one_line_file("/proc/sys/fs/binfmt_misc/status", "-1");
 
                 STRV_FOREACH(f, files) {
                         int k;
