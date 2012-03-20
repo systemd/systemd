@@ -18,6 +18,10 @@ Bugfixes:
 
 Features:
 
+* show getty in container mode, not sulogin
+
+* support container_ttys=
+
 * journald: make configurable "store-on-var", "store-on-run", "dont-store", "auto"
   (store-persistent, store-volatile?)
 
