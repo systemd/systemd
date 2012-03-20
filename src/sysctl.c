@@ -219,28 +219,34 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
-        if (argc-optind > 1) {
-                log_error("This program expects one or no arguments.");
-                return EXIT_FAILURE;
-        }
-
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 
         umask(0022);
 
-        if (argc > optind)
-                r = apply_file(argv[optind], false);
-        else {
+        if (argc > optind) {
+                int i;
+
+                for (i = optind; i < argc; i++) {
+                        int k;
+
+                        k = apply_file(argv[i], false);
+                        if (k < 0 && r == 0)
+                                r = k;
+                }
+        } else {
                 char **files, **f;
+                int k;
 
                 r = conf_files_list(&files, ".conf",
                                     "/etc/sysctl.d",
                                     "/run/sysctl.d",
                                     "/usr/local/lib/sysctl.d",
                                     "/usr/lib/sysctl.d",
+#ifdef HAVE_SPLIT_USR
                                     "/lib/sysctl.d",
+#endif
                                     NULL);
                 if (r < 0) {
                         log_error("Failed to enumerate sysctl.d files: %s", strerror(-r));
@@ -248,14 +254,14 @@ int main(int argc, char *argv[]) {
                 }
 
                 STRV_FOREACH(f, files) {
-                        int k;
-
                         k = apply_file(*f, true);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
 
-                apply_file("/etc/sysctl.conf", true);
+                k = apply_file("/etc/sysctl.conf", true);
+                if (k < 0 && r == 0)
+                        r = k;
 
                 strv_free(files);
         }
