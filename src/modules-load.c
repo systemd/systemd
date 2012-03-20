@@ -58,7 +58,8 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (!(ctx = kmod_new(NULL, NULL))) {
+        ctx = kmod_new(NULL, NULL);
+        if (!ctx) {
                 log_error("Failed to allocate memory for kmod.");
                 goto finish;
         }
@@ -72,7 +73,9 @@ int main(int argc, char *argv[]) {
                             "/run/modules-load.d",
                             "/usr/local/lib/modules-load.d",
                             "/usr/lib/modules-load.d",
+#ifdef HAVE_SPLIT_USR
                             "/lib/modules-load.d",
+#endif
                             NULL) < 0) {
                 log_error("Failed to enumerate modules-load.d files: %s", strerror(-r));
                 goto finish;
@@ -99,7 +102,7 @@ int main(int argc, char *argv[]) {
                         struct kmod_list *itr, *modlist = NULL;
                         int err;
 
-                        if (!(fgets(line, sizeof(line), f)))
+                        if (!fgets(line, sizeof(line), f))
                                 break;
 
                         l = strstrip(line);
@@ -114,7 +117,9 @@ int main(int argc, char *argv[]) {
                         }
 
                         kmod_list_foreach(itr, modlist) {
-                                struct kmod_module *mod = kmod_module_get_module(itr);
+                                struct kmod_module *mod;
+
+                                mod = kmod_module_get_module(itr);
                                 err = kmod_module_probe_insert_module(mod, probe_flags,
                                                                       NULL, NULL, NULL, NULL);
 
