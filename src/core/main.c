@@ -86,6 +86,7 @@ static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 static usec_t arg_runtime_watchdog = 0;
 static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
+static struct rlimit *arg_default_rlimit[RLIMIT_NLIMITS] = {};
 
 static FILE* serialization = NULL;
 
@@ -666,6 +667,22 @@ static int parse_config_file(void) {
                 { "Manager", "JoinControllers",       config_parse_join_controllers, 0, &arg_join_controllers },
                 { "Manager", "RuntimeWatchdogSec",    config_parse_usec,         0, &arg_runtime_watchdog    },
                 { "Manager", "ShutdownWatchdogSec",   config_parse_usec,         0, &arg_shutdown_watchdog   },
+                { "Manager", "DefaultLimitCPU",       config_parse_limit,        0, &arg_default_rlimit[RLIMIT_CPU]},
+                { "Manager", "DefaultLimitFSIZE",     config_parse_limit,        0, &arg_default_rlimit[RLIMIT_FSIZE]},
+                { "Manager", "DefaultLimitDATA",      config_parse_limit,        0, &arg_default_rlimit[RLIMIT_DATA]},
+                { "Manager", "DefaultLimitSTACK",     config_parse_limit,        0, &arg_default_rlimit[RLIMIT_STACK]},
+                { "Manager", "DefaultLimitCORE",      config_parse_limit,        0, &arg_default_rlimit[RLIMIT_CORE]},
+                { "Manager", "DefaultLimitRSS",       config_parse_limit,        0, &arg_default_rlimit[RLIMIT_RSS]},
+                { "Manager", "DefaultLimitNOFILE",    config_parse_limit,        0, &arg_default_rlimit[RLIMIT_NOFILE]},
+                { "Manager", "DefaultLimitAS",        config_parse_limit,        0, &arg_default_rlimit[RLIMIT_AS]},
+                { "Manager", "DefaultLimitNPROC",     config_parse_limit,        0, &arg_default_rlimit[RLIMIT_NPROC]},
+                { "Manager", "DefaultLimitMEMLOCK",   config_parse_limit,        0, &arg_default_rlimit[RLIMIT_MEMLOCK]},
+                { "Manager", "DefaultLimitLOCKS",     config_parse_limit,        0, &arg_default_rlimit[RLIMIT_LOCKS]},
+                { "Manager", "DefaultLimitSIGPENDING",config_parse_limit,        0, &arg_default_rlimit[RLIMIT_SIGPENDING]},
+                { "Manager", "DefaultLimitMSGQUEUE",  config_parse_limit,        0, &arg_default_rlimit[RLIMIT_MSGQUEUE]},
+                { "Manager", "DefaultLimitNICE",      config_parse_limit,        0, &arg_default_rlimit[RLIMIT_NICE]},
+                { "Manager", "DefaultLimitRTPRIO",    config_parse_limit,        0, &arg_default_rlimit[RLIMIT_RTPRIO]},
+                { "Manager", "DefaultLimitRTTIME",    config_parse_limit,        0, &arg_default_rlimit[RLIMIT_RTTIME]},
                 { NULL, NULL, NULL, 0, NULL }
         };
 
@@ -1470,6 +1487,8 @@ int main(int argc, char *argv[]) {
         m->runtime_watchdog = arg_runtime_watchdog;
         m->shutdown_watchdog = arg_shutdown_watchdog;
 
+        manager_set_default_rlimits(m, arg_default_rlimit);
+
         if (dual_timestamp_is_set(&initrd_timestamp))
                 m->initrd_timestamp = initrd_timestamp;
 
@@ -1628,6 +1647,9 @@ int main(int argc, char *argv[]) {
 finish:
         if (m)
                 manager_free(m);
+
+        for (j = 0; j < RLIMIT_NLIMITS; j++)
+                free (arg_default_rlimit[j]);
 
         free(arg_default_unit);
         strv_free(arg_default_controllers);

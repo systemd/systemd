@@ -226,6 +226,8 @@ struct Manager {
 
         ExecOutput default_std_output, default_std_error;
 
+        struct rlimit *rlimit[RLIMIT_NLIMITS];
+
         /* non-zero if we are reloading or reexecuting, */
         int n_reloading;
 
@@ -268,6 +270,7 @@ unsigned manager_dispatch_run_queue(Manager *m);
 unsigned manager_dispatch_dbus_queue(Manager *m);
 
 int manager_set_default_controllers(Manager *m, char **controllers);
+int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
 
 int manager_loop(Manager *m);
 

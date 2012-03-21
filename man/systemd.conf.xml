@@ -182,6 +182,33 @@
                                 effect if a hardware watchdog is not
                                 available.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DefaultLimitCPU=</varname></term>
+                                <term><varname>DefaultLimitFSIZE=</varname></term>
+                                <term><varname>DefaultLimitDATA=</varname></term>
+                                <term><varname>DefaultLimitSTACK=</varname></term>
+                                <term><varname>DefaultLimitCORE=</varname></term>
+                                <term><varname>DefaultLimitRSS=</varname></term>
+                                <term><varname>DefaultLimitNOFILE=</varname></term>
+                                <term><varname>DefaultLimitAS=</varname></term>
+                                <term><varname>DefaultLimitNPROC=</varname></term>
+                                <term><varname>DefaultLimitMEMLOCK=</varname></term>
+                                <term><varname>DefaultLimitLOCKS=</varname></term>
+                                <term><varname>DefaultLimitSIGPENDING=</varname></term>
+                                <term><varname>DefaultLimitMSGQUEUE=</varname></term>
+                                <term><varname>DefaultLimitNICE=</varname></term>
+                                <term><varname>DefaultLimitRTPRIO=</varname></term>
+                                <term><varname>DefaultLimitRTTIME=</varname></term>
+                                <listitem><para>These settings control
+                                various default resource limits for units. See
+                                <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details. Use the string
+                                <varname>infinity</varname> to
+                                configure no limit on a specific
+				resource. They can be overriden in units files
+				using corresponding LimitXXXX parameter.</para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 

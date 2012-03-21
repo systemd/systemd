@@ -110,6 +110,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
 
 static void service_init(Unit *u) {
         Service *s = SERVICE(u);
+        int i;
 
         assert(u);
         assert(u->load_state == UNIT_STUB);
@@ -129,6 +130,9 @@ static void service_init(Unit *u) {
         s->guess_main_pid = true;
 
         exec_context_init(&s->exec_context);
+        for (i = 0; i < RLIMIT_NLIMITS; i++)
+                if (UNIT(s)->manager->rlimit[i])
+                        s->exec_context.rlimit[i] = newdup(struct rlimit, UNIT(s)->manager->rlimit[i], 1);
 
         RATELIMIT_INIT(s->start_limit, 10*USEC_PER_SEC, 5);
 

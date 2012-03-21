@@ -476,6 +476,7 @@ static void manager_clear_jobs_and_units(Manager *m) {
 
 void manager_free(Manager *m) {
         UnitType c;
+        int i;
 
         assert(m);
 
@@ -524,6 +525,9 @@ void manager_free(Manager *m) {
 
         free(m->switch_root);
         free(m->switch_root_init);
+
+        for (i = 0; i < RLIMIT_NLIMITS; i++)
+                free(m->rlimit[i]);
 
         free(m);
 }
@@ -2135,6 +2139,24 @@ int manager_set_default_controllers(Manager *m, char **controllers) {
 
         return 0;
 }
+
+int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
+        int i;
+
+        assert(m);
+
+        for (i = 0; i < RLIMIT_NLIMITS; i++) {
+                if (default_rlimit[i]) {
+                        m->rlimit[i] = newdup(struct rlimit, default_rlimit[i], 1);
+
+                        if (!m->rlimit[i])
+                                return -ENOMEM;
+                }
+        }
+
+        return 0;
+}
+
 
 void manager_recheck_journal(Manager *m) {
         Unit *u;
