@@ -588,7 +588,6 @@ UDEV_EXPORT struct udev_device *udev_monitor_receive_device(struct udev_monitor 
 retry:
         if (udev_monitor == NULL)
                 return NULL;
-        memset(buf, 0x00, sizeof(buf));
         iov.iov_base = &buf;
         iov.iov_len = sizeof(buf);
         memset (&smsg, 0x00, sizeof(struct msghdr));
