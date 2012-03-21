@@ -54,38 +54,51 @@
         <refsect1>
                 <title>Description</title>
 
-		<para><command>systemd</command> uses configuration files
-		from the above directories to configure
+		<para><command>systemd</command> uses configuration
+		files from the above directories to configure
 		<citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-		kernel parameters to load during boot.</para>
+		kernel parameters during boot.</para>
         </refsect1>
 
         <refsect1>
 		<title>Configuration Format</title>
 
-		<para>The configuration files should simply contain a
-		list of variable assignments, separated by
-		newlines. Empty lines and lines whose first
-		non-whitespace character is # or ; are ignored.</para>
+		<para>The configuration files contain a list of
+		variable assignments, separated by newlines. Empty
+		lines and lines whose first non-whitespace character
+		is # or ; are ignored.</para>
 
-                <para>Note that both / and . are accepted as
-                separators in sysctl variable names.</para>
+                <para>Note that both / and . are accepted as label
+                separators within sysctl variable
+                names. <literal>kernel.domainname=foo</literal> and
+                <literal>kernel/domainname=foo</literal> hence are
+                entirely equivalent.</para>
 
-                <para>Each configuration file is named in the style of
-                <filename>&lt;program&gt;.conf</filename>.
-                Files in <filename>/etc/</filename> overwrite
-                files with the same name in <filename>/usr/lib/</filename>.
-                Files in <filename>/run</filename> overwrite files with
-                the same name in <filename>/etc/</filename> and
-                <filename>/usr/lib/</filename>. Packages should install their
-                configuration files in <filename>/usr/lib/</filename>, files
-                in <filename>/etc/</filename> are reserved for the local
-                administration, which possibly decides to overwrite the
-                configurations installed from packages. All files are sorted
-                by filename in alphabetical order, regardless in which of the
-                directories they reside, to ensure that a specific
-                configuration file takes precedence over another file with
-                an alphabetically later name.</para>
+                <para>Each configuration file shall be named in the
+                style of <filename>&lt;program&gt;.conf</filename>.
+                Files in <filename>/run/</filename> override files
+                with the same name in <filename>/usr/lib/</filename>.
+                Files in <filename>/etc</filename> override files with
+                the same name in <filename>/run/</filename> and
+                <filename>/usr/lib/</filename>. Packages should
+                install their configuration files in
+                <filename>/usr/lib/</filename>. Files in
+                <filename>/etc/</filename> are reserved for the local
+                administrator, who may use this logic to override the
+                configuration installed by vendor packages. All
+                configuration files are sorted by their name in
+                alphabetical order, regardless in which of the
+                directories they reside, to guarantee that a specific
+                configuration file takes precedence over another file
+                with an alphabetically earlier name, if both files
+                contain the same variable setting.</para>
+
+                <para>If the administrator wants to disable a
+                configuration file supplied by the vendor the
+                recommended way is to place a symlink to
+                <filename>/dev/null</filename> in
+                <filename>/etc/sysctl.d</filename> carrying with the
+                same name.</para>
         </refsect1>
 
         <refsect1>
