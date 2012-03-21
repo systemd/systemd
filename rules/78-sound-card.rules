@@ -41,6 +41,10 @@ SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id"
 SUBSYSTEMS=="usb", IMPORT{builtin}="usb-db"
 SUBSYSTEMS=="usb", GOTO="skip_pci"
 
+SUBSYSTEMS=="firewire", ATTRS{vendor_name}=="?*", ATTRS{model_name}=="?*", \
+  ENV{ID_BUS}="firewire", ENV{ID_VENDOR}="$attr{vendor_name}", ENV{ID_MODEL}="$attr{model_name}"
+SUBSYSTEMS=="firewire", GOTO="skip_pci"
+
 SUBSYSTEMS=="pci", IMPORT{builtin}="pci-db"
 SUBSYSTEMS=="pci", ENV{ID_BUS}="pci", ENV{ID_VENDOR_ID}="$attr{vendor}", ENV{ID_MODEL_ID}="$attr{device}"
 
