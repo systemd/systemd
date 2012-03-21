@@ -609,7 +609,15 @@ retry:
         else {
                 r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
 
-                if ((r == -EBADMSG || r == -E2BIG) && !vacuumed) {
+                if ((r == -E2BIG || /* hit limit */
+                     r == -EFBIG || /* hit fs limit */
+                     r == -EDQUOT || /* quota hit */
+                     r == -ENOSPC || /* disk full */
+                     r == -EBADMSG || /* corrupted */
+                     r == -ENODATA || /* truncated */
+                     r == -EHOSTDOWN || /* other machine */
+                     r == -EPROTONOSUPPORT) && /* unsupported feature */
+                    !vacuumed) {
 
                         if (r == -E2BIG)
                                 log_info("Allocation limit reached, rotating.");

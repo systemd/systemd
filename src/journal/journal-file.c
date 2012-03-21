@@ -1887,7 +1887,10 @@ int journal_file_open_reliably(
         char *p;
 
         r = journal_file_open(fname, flags, mode, template, ret);
-        if (r != -EBADMSG)
+        if (r != -EBADMSG && /* corrupted */
+            r != -ENODATA && /* truncated */
+            r != -EHOSTDOWN && /* other machine */
+            r != -EPROTONOSUPPORT) /* incompatible feature */
                 return r;
 
         if ((flags & O_ACCMODE) == O_RDONLY)
