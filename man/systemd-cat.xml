@@ -66,7 +66,7 @@
                 generates to the journal.</para>
 
                 <para>If no parameter is passed
-                <command>systemd-command</command> will write
+                <command>systemd-cat</command> will write
                 everything it reads from standard input (STDIN) to the journal.</para>
 
                 <para>If parameters are passed they are executed as
