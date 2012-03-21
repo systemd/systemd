@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
                 for (i = 1; i < argc; i++) {
                         int k;
 
-                        k = apply_file(argv[1], false);
+                        k = apply_file(argv[i], false);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
