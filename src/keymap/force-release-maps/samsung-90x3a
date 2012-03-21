@@ -1,0 +1,6 @@
+# list of scancodes (hex or decimal), optional comment
+0xCE # Fn+F8 keyboard backlit up
+0x8D # Fn+F7 keyboard backlit down
+0x97 # Fn+F12 wifi on/off
+0x96 # Fn+F1 performance mode (?)
+0xD5 # Fn+F6 battery life extender

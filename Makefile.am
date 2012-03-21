@@ -577,6 +577,7 @@ dist_udevkeymap_DATA = \
 	src/keymap/keymaps/onkyo \
 	src/keymap/keymaps/oqo-model2 \
 	src/keymap/keymaps/samsung-other \
+	src/keymap/keymaps/samsung-90x3a \
 	src/keymap/keymaps/samsung-sq1us \
 	src/keymap/keymaps/samsung-sx20s \
 	src/keymap/keymaps/toshiba-satellite_a100 \
@@ -589,6 +590,7 @@ dist_udevkeymapforcerel_DATA = \
 	src/keymap/force-release-maps/dell-touchpad \
 	src/keymap/force-release-maps/hp-other \
 	src/keymap/force-release-maps/samsung-other \
+	src/keymap/force-release-maps/samsung-90x3a \
 	src/keymap/force-release-maps/common-volume-keys
 
 src/keymap/keys.txt: $(INCLUDE_PREFIX)/linux/input.h
