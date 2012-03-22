@@ -391,6 +391,10 @@ static int session_link_x11_socket(Session *s) {
                 return -ENOENT;
         }
 
+        /* Note that this cannot be in a subdir to avoid
+         * vulnerabilities since we are privileged but the runtime
+         * path is owned by the user */
+
         t = strappend(s->user->runtime_path, "/X11-display");
         if (!t) {
                 log_error("Out of memory");
