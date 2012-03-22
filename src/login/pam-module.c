@@ -414,7 +414,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         "CreateSession");
-
         if (!m) {
                 pam_syslog(handle, LOG_ERR, "Could not allocate create session message.");
                 r = PAM_BUF_ERR;
@@ -620,11 +619,77 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 int argc, const char **argv) {
 
         const void *p = NULL;
+        const char *id;
+        DBusConnection *bus = NULL;
+        DBusMessage *m = NULL, *reply = NULL;
+        DBusError error;
+        int r;
 
+        assert(handle);
+
+        dbus_error_init(&error);
+
+        id = pam_getenv(handle, "XDG_SESSION_ID");
+        if (id) {
+
+                /* Before we go and close the FIFO we need to tell
+                 * logind that this is a clean session shutdown, so
+                 * that it doesn't just go and slaughter us
+                 * immediately after closing the fd */
+
+                bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
+                if (!bus) {
+                        pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", bus_error_message(&error));
+                        r = PAM_SESSION_ERR;
+                        goto finish;
+                }
+
+                m = dbus_message_new_method_call(
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "ReleaseSession");
+                if (!m) {
+                        pam_syslog(handle, LOG_ERR, "Could not allocate release session message.");
+                        r = PAM_BUF_ERR;
+                        goto finish;
+                }
+
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_STRING, &id,
+                                              DBUS_TYPE_INVALID)) {
+                        pam_syslog(handle, LOG_ERR, "Could not attach parameters to message.");
+                        r = PAM_BUF_ERR;
+                        goto finish;
+                }
+
+                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+                if (!reply) {
+                        pam_syslog(handle, LOG_ERR, "Failed to release session: %s", bus_error_message(&error));
+                        r = PAM_SESSION_ERR;
+                        goto finish;
+                }
+        }
+
+        r = PAM_SUCCESS;
+
+finish:
         pam_get_data(handle, "systemd.session-fd", &p);
-
         if (p)
                 close_nointr(PTR_TO_INT(p) - 1);
 
-        return PAM_SUCCESS;
+        dbus_error_free(&error);
+
+        if (bus) {
+                dbus_connection_close(bus);
+                dbus_connection_unref(bus);
+        }
+
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        return r;
 }

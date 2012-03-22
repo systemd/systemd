@@ -80,6 +80,9 @@
         "   <arg name=\"seat\" type=\"s\" direction=\"out\"/>\n"        \
         "   <arg name=\"vtnr\" type=\"u\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
+        "  <method name=\"ReleaseSession\">\n"                          \
+        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
+        "  </method>\n"                                                 \
         "  <method name=\"ActivateSession\">\n"                         \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "  </method>\n"                                                 \
@@ -1074,6 +1077,33 @@ static DBusHandlerResult manager_message_handler(
 
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ReleaseSession")) {
+                const char *name;
+                Session *session;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                session = hashmap_get(m->sessions, name);
+                if (!session)
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+
+                /* We use the FIFO to detect stray sessions where the
+                process invoking PAM dies abnormally. We need to make
+                sure that that process is not killed if at the clean
+                end of the session it closes the FIFO. Hence, with
+                this call explicitly turn off the FIFO logic, so that
+                the PAM code can finish clean up on its own */
+                session_remove_fifo(session);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ActivateSession")) {
                 const char *name;
