@@ -18,6 +18,8 @@ Bugfixes:
 
 Features:
 
+* add man page documenting all kernel cmdline options, including stuff like fsck.mode=
+
 * show getty in container mode, not sulogin
 
 * support container_ttys=
