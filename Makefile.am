@@ -645,7 +645,9 @@ EXTRA_DIST += \
 	src/spawn-agent.h \
 	src/acl-util.h \
 	src/logs-show.h \
-        src/utf8.h
+        src/utf8.h \
+        src/journal/sparse-endian.h \
+        src/ima-setup.h
 
 MANPAGES = \
 	man/systemd.1 \
