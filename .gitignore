@@ -4,7 +4,7 @@
 /systemd-cat
 /systemd-rc-local-generator
 /libsystemd-id128.pc
-systemd-journalctl
+journalctl
 systemd-journald
 test-id128
 test-journal
@@ -14,7 +14,7 @@ org.freedesktop.locale1.xml
 libsystemd-daemon.pc
 libsystemd-login.pc
 test-login
-systemd-loginctl
+loginctl
 systemd-localed
 systemd-timedated
 org.freedesktop.timedate1.xml

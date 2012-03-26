@@ -18,6 +18,10 @@ Bugfixes:
 
 Features:
 
+* ensure that logind sets the syslog facility to AUTH when logging
+
+* when a service has the same env var set twice we actually store it twice and return that in systemctl show -p... We should only show the last setting
+
 * add man page documenting all kernel cmdline options, including stuff like fsck.mode=
 
 * show getty in container mode, not sulogin

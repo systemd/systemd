@@ -21,10 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-journalctl">
+<refentry id="journalctl">
 
         <refentryinfo>
-                <title>systemd-journalctl</title>
+                <title>journalctl</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -38,25 +38,26 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-journalctl</refentrytitle>
+                <refentrytitle>journalctl</refentrytitle>
                 <manvolnum>1</manvolnum>
         </refmeta>
 
         <refnamediv>
+                <refname>journalctl</refname>
                 <refname>systemd-journalctl</refname>
                 <refpurpose>Query the systemd journal</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>systemd-journalctl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt">MATCH</arg></command>
+                        <command>journalctl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt">MATCH</arg></command>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para><command>systemd-journalctl</command> may be
+                <para><command>journalctl</command> may be
                 used to query the contents of the
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 journal.</para>

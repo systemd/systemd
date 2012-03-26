@@ -690,16 +690,22 @@ MANPAGES = \
 	man/systemd-cat.1 \
         man/systemd-machine-id-setup.1 \
         man/systemd-journald.conf.5 \
-        man/systemd-journalctl.1
+        man/journalctl.1
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
 	man/poweroff.8 \
-	man/init.1
+	man/init.1 \
+        man/systemd-systemctl.1 \
+        man/systemd-loginctl.1 \
+        man/systemd-journalctl.1
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
 man/init.1: man/systemd.1
+man/systemd-systemctl.1: man/systemctl.1
+man/systemd-loginctl.1: man/loginctl.1
+man/systemd-journalctl.1: man/journalctl.1
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
@@ -979,6 +985,14 @@ systemctl_LDADD = \
 	libsystemd-id128.la \
 	$(DBUS_LIBS)
 
+systemctl-install-hook:
+	cd $(DESTDIR)$(rootbindir) && \
+		rm -f systemd-systemctl && \
+		$(LN_S) systemctl systemd-systemctl
+
+INSTALL_EXEC_HOOKS += \
+        systemctl-install-hook
+
 systemd_notify_SOURCES = \
 	src/notify.c \
 	src/readahead/sd-readahead.c
@@ -1207,25 +1221,33 @@ systemd_cat_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-journal.la
 
-systemd_journalctl_SOURCES = \
+journalctl_SOURCES = \
 	src/journal/journalctl.c \
 	src/pager.c \
 	src/logs-show.c
 
-systemd_journalctl_LDADD = \
+journalctl_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-journal.la \
 	libsystemd-id128.la
 
 if HAVE_XZ
-systemd_journalctl_SOURCES += \
+journalctl_SOURCES += \
 	src/journal/compress.c
-systemd_journalctl_CFLAGS = \
+journalctl_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(XZ_CFLAGS)
-systemd_journalctl_LDADD += \
+journalctl_LDADD += \
 	$(XZ_LIBS)
 endif
+
+journalctl-install-hook:
+	cd $(DESTDIR)$(rootbindir) && \
+		rm -f systemd-journalctl && \
+		$(LN_S) journalctl systemd-journalctl
+
+INSTALL_EXEC_HOOKS += \
+        journalctl-install-hook
 
 test_journal_SOURCES = \
 	src/journal/test-journal.c \
@@ -1313,7 +1335,7 @@ rootlibexec_PROGRAMS += \
 	systemd-journald
 
 rootbin_PROGRAMS += \
-	systemd-journalctl
+	journalctl
 
 bin_PROGRAMS += \
 	systemd-cat
@@ -1813,7 +1835,7 @@ rootlibexec_PROGRAMS += \
 	systemd-logind \
 	systemd-user-sessions
 
-systemd_loginctl_SOURCES = \
+loginctl_SOURCES = \
 	src/login/loginctl.c \
 	src/login/sysfs-show.c \
 	src/dbus-common.c \
@@ -1821,18 +1843,26 @@ systemd_loginctl_SOURCES = \
 	src/cgroup-util.c \
 	src/pager.c
 
-systemd_loginctl_CFLAGS = \
+loginctl_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
 	$(UDEV_CFLAGS)
 
-systemd_loginctl_LDADD = \
+loginctl_LDADD = \
 	libsystemd-basic.la \
 	$(DBUS_LIBS) \
 	$(UDEV_LIBS)
 
 rootbin_PROGRAMS += \
-	systemd-loginctl
+	loginctl
+
+loginctl-install-hook:
+	cd $(DESTDIR)$(rootbindir) && \
+		rm -f systemd-loginctl && \
+		$(LN_S) loginctl systemd-loginctl
+
+INSTALL_EXEC_HOOKS += \
+        loginctl-install-hook
 
 test_login_SOURCES = \
 	src/login/test-login.c
@@ -1997,7 +2027,7 @@ nodist_udevrules_DATA += \
 MANPAGES += \
 	man/systemd-logind.conf.5 \
 	man/sd-login.7 \
-	man/systemd-loginctl.1 \
+	man/loginctl.1 \
 	man/sd_login_monitor_new.3 \
 	man/sd_pid_get_session.3 \
 	man/sd_uid_get_state.3 \

@@ -21,10 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-loginctl">
+<refentry id="loginctl">
 
         <refentryinfo>
-                <title>systemd-loginctl</title>
+                <title>loginctl</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -38,25 +38,26 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-loginctl</refentrytitle>
+                <refentrytitle>loginctl</refentrytitle>
                 <manvolnum>1</manvolnum>
         </refmeta>
 
         <refnamediv>
+                <refname>loginctl</refname>
                 <refname>systemd-loginctl</refname>
                 <refpurpose>Control the systemd login manager</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>systemd-loginctl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
+                        <command>loginctl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para><command>systemd-loginctl</command> may be used to
+                <para><command>loginctl</command> may be used to
                 introspect and control the state of the
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 login manager.</para>

@@ -44,6 +44,7 @@
 
         <refnamediv>
                 <refname>systemctl</refname>
+                <refname>systemd-systemctl</refname>
                 <refpurpose>Control the systemd system and service manager</refpurpose>
         </refnamediv>
 
@@ -448,7 +449,7 @@
                                 formatting of the journal entries that
                                 are shown. For the available choices
                                 see
-                                <citerefentry><refentrytitle>systemd-journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Defaults
+                                <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Defaults
                                 to
                                 <literal>short</literal>.</para></listitem>
                         </varlistentry>
@@ -1179,8 +1180,8 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemadm</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>
