@@ -200,6 +200,14 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--local</option></term>
+                                <term><option>-l</option></term>
+
+                                <listitem><para>Show only locally
+                                generated messages.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--new-id128</option></term>
 
                                 <listitem><para>Instead of showing
