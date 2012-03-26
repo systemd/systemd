@@ -33,7 +33,7 @@
 #include "build.h"
 
 static char *arg_identifier = NULL;
-static char arg_priority = LOG_INFO;
+static int arg_priority = LOG_INFO;
 static bool arg_level_prefix = true;
 
 static int help(void) {
