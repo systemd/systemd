@@ -289,7 +289,6 @@ dist_systemunit_DATA = \
 	units/sys-kernel-config.mount \
 	units/sys-kernel-debug.mount \
 	units/sys-fs-fuse-connections.mount \
-	units/var-run.mount \
 	units/remount-rootfs.service \
 	units/printer.target \
 	units/sound.target \
@@ -300,11 +299,6 @@ dist_systemunit_DATA = \
 	units/systemd-ask-password-wall.path \
 	units/systemd-ask-password-console.path \
 	units/syslog.target
-
-if HAVE_SYSV_COMPAT
-dist_systemunit_DATA += \
-	units/var-lock.mount
-endif
 
 nodist_systemunit_DATA = \
 	units/getty@.service \
@@ -2281,12 +2275,10 @@ systemd-install-data-hook:
 	( cd $(DESTDIR)$(systemunitdir)/local-fs.target.wants && \
 		rm -f systemd-remount-api-vfs.service \
 			fsck-root.service \
-			remount-rootfs.service \
-			var-run.mount && \
+			remount-rootfs.service && \
 		$(LN_S) ../systemd-remount-api-vfs.service systemd-remount-api-vfs.service && \
 		$(LN_S) ../fsck-root.service fsck-root.service && \
-		$(LN_S) ../remount-rootfs.service remount-rootfs.service && \
-		$(LN_S) ../var-run.mount var-run.mount )
+		$(LN_S) ../remount-rootfs.service remount-rootfs.service )
 	( cd $(DESTDIR)$(userunitdir) && \
 		rm -f shutdown.target sockets.target bluetooth.target printer.target sound.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
@@ -2443,12 +2435,6 @@ if TARGET_MAGEIA
 	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
-endif
-
-if HAVE_SYSV_COMPAT
-	( cd $(DESTDIR)$(systemunitdir)/local-fs.target.wants && \
-		rm -f var-lock.mount && \
-		$(LN_S) ../var-lock.mount var-lock.mount )
 endif
 
 install-exec-hook: $(INSTALL_EXEC_HOOKS)
