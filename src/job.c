@@ -355,6 +355,14 @@ bool job_is_runnable(Job *j) {
         return true;
 }
 
+static void job_change_type(Job *j, JobType newtype) {
+        log_debug("Converting job %s/%s -> %s/%s",
+                  j->unit->id, job_type_to_string(j->type),
+                  j->unit->id, job_type_to_string(newtype));
+
+        j->type = newtype;
+}
+
 int job_run_and_invalidate(Job *j) {
         int r;
         uint32_t id;
@@ -389,11 +397,11 @@ int job_run_and_invalidate(Job *j) {
 
                 case JOB_RELOAD_OR_START:
                         if (unit_active_state(j->unit) == UNIT_ACTIVE) {
-                                j->type = JOB_RELOAD;
+                                job_change_type(j, JOB_RELOAD);
                                 r = unit_reload(j->unit);
                                 break;
                         }
-                        j->type = JOB_START;
+                        job_change_type(j, JOB_START);
                         /* fall through */
 
                 case JOB_START:
@@ -420,7 +428,7 @@ int job_run_and_invalidate(Job *j) {
                                 r = -ENOEXEC;
                                 break;
                         }
-                        j->type = JOB_RESTART;
+                        job_change_type(j, JOB_RESTART);
                         /* fall through */
 
                 case JOB_STOP:
@@ -516,12 +524,8 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
         /* Patch restart jobs so that they become normal start jobs */
         if (result == JOB_DONE && j->type == JOB_RESTART) {
 
-                log_debug("Converting job %s/%s -> %s/%s",
-                          j->unit->id, job_type_to_string(j->type),
-                          j->unit->id, job_type_to_string(JOB_START));
-
+                job_change_type(j, JOB_START);
                 j->state = JOB_WAITING;
-                j->type = JOB_START;
 
                 job_add_to_run_queue(j);
 
