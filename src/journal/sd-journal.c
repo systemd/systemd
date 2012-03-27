@@ -325,9 +325,17 @@ static int find_location(sd_journal *j, JournalFile *f, direction_t direction, O
                 else if (j->current_location.seqnum_set &&
                          sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
                         r = journal_file_move_to_entry_by_seqnum(f, j->current_location.seqnum, direction, &o, &p);
-                else if (j->current_location.monotonic_set)
+                else if (j->current_location.monotonic_set) {
                         r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id, j->current_location.monotonic, direction, &o, &p);
-                else if (j->current_location.realtime_set)
+
+                        if (r == -ENOENT) {
+                                /* boot id unknown in this file */
+                                if (j->current_location.realtime_set)
+                                        r = journal_file_move_to_entry_by_realtime(f, j->current_location.realtime, direction, &o, &p);
+                                else
+                                        r = journal_file_next_entry(f, NULL, 0, direction, &o, &p);
+                        }
+                } else if (j->current_location.realtime_set)
                         r = journal_file_move_to_entry_by_realtime(f, j->current_location.realtime, direction, &o, &p);
                 else
                         r = journal_file_next_entry(f, NULL, 0, direction, &o, &p);
