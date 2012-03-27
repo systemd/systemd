@@ -387,14 +387,21 @@ int job_run_and_invalidate(Job *j) {
 
         switch (j->type) {
 
+                case JOB_RELOAD_OR_START:
+                        if (unit_active_state(j->unit) == UNIT_ACTIVE) {
+                                j->type = JOB_RELOAD;
+                                r = unit_reload(j->unit);
+                                break;
+                        }
+                        j->type = JOB_START;
+                        /* fall through */
+
                 case JOB_START:
                         r = unit_start(j->unit);
 
-                        /* If this unit cannot be started, then simply
-                         * wait */
+                        /* If this unit cannot be started, then simply wait */
                         if (r == -EBADR)
                                 r = 0;
-
                         break;
 
                 case JOB_VERIFY_ACTIVE: {
@@ -408,11 +415,19 @@ int job_run_and_invalidate(Job *j) {
                         break;
                 }
 
+                case JOB_TRY_RESTART:
+                        if (UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(j->unit))) {
+                                r = -ENOEXEC;
+                                break;
+                        }
+                        j->type = JOB_RESTART;
+                        /* fall through */
+
                 case JOB_STOP:
+                case JOB_RESTART:
                         r = unit_stop(j->unit);
 
-                        /* If this unit cannot stopped, then simply
-                         * wait. */
+                        /* If this unit cannot stopped, then simply wait. */
                         if (r == -EBADR)
                                 r = 0;
                         break;
@@ -420,43 +435,6 @@ int job_run_and_invalidate(Job *j) {
                 case JOB_RELOAD:
                         r = unit_reload(j->unit);
                         break;
-
-                case JOB_RELOAD_OR_START:
-                        if (unit_active_state(j->unit) == UNIT_ACTIVE) {
-                                j->type = JOB_RELOAD;
-                                r = unit_reload(j->unit);
-                        } else {
-                                j->type = JOB_START;
-                                r = unit_start(j->unit);
-
-                                if (r == -EBADR)
-                                        r = 0;
-                        }
-                        break;
-
-                case JOB_RESTART: {
-                        UnitActiveState t = unit_active_state(j->unit);
-                        if (t == UNIT_INACTIVE || t == UNIT_FAILED || t == UNIT_ACTIVATING) {
-                                j->type = JOB_START;
-                                r = unit_start(j->unit);
-                        } else
-                                r = unit_stop(j->unit);
-                        break;
-                }
-
-                case JOB_TRY_RESTART: {
-                        UnitActiveState t = unit_active_state(j->unit);
-                        if (t == UNIT_INACTIVE || t == UNIT_FAILED || t == UNIT_DEACTIVATING)
-                                r = -ENOEXEC;
-                        else if (t == UNIT_ACTIVATING) {
-                                j->type = JOB_START;
-                                r = unit_start(j->unit);
-                        } else {
-                                j->type = JOB_RESTART;
-                                r = unit_stop(j->unit);
-                        }
-                        break;
-                }
 
                 default:
                         assert_not_reached("Unknown job type");
@@ -536,7 +514,7 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
         job_add_to_dbus_queue(j);
 
         /* Patch restart jobs so that they become normal start jobs */
-        if (result == JOB_DONE && (j->type == JOB_RESTART || j->type == JOB_TRY_RESTART)) {
+        if (result == JOB_DONE && j->type == JOB_RESTART) {
 
                 log_debug("Converting job %s/%s -> %s/%s",
                           j->unit->id, job_type_to_string(j->type),
