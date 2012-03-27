@@ -290,7 +290,6 @@ dist_systemunit_DATA = \
 	units/sys-kernel-debug.mount \
 	units/sys-fs-fuse-connections.mount \
 	units/var-run.mount \
-	units/media.mount \
 	units/remount-rootfs.service \
 	units/printer.target \
 	units/sound.target \
@@ -2283,13 +2282,11 @@ systemd-install-data-hook:
 		rm -f systemd-remount-api-vfs.service \
 			fsck-root.service \
 			remount-rootfs.service \
-			var-run.mount \
-			media.mount && \
+			var-run.mount && \
 		$(LN_S) ../systemd-remount-api-vfs.service systemd-remount-api-vfs.service && \
 		$(LN_S) ../fsck-root.service fsck-root.service && \
 		$(LN_S) ../remount-rootfs.service remount-rootfs.service && \
-		$(LN_S) ../var-run.mount var-run.mount && \
-		$(LN_S) ../media.mount media.mount )
+		$(LN_S) ../var-run.mount var-run.mount )
 	( cd $(DESTDIR)$(userunitdir) && \
 		rm -f shutdown.target sockets.target bluetooth.target printer.target sound.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \

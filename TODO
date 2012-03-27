@@ -18,6 +18,8 @@ Bugfixes:
 
 Features:
 
+* dbus upstream still refers to dbus.target and shouldn't
+
 * Make -f in systemctl enable both --follow and --force
 
 * ensure that logind sets the syslog facility to AUTH when logging
