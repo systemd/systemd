@@ -1,5 +1,14 @@
 systemd System and Service Manager
 
+CHANGES WITH:
+        * systemd-logingctl and systemd-journalctl have been renamed
+          to logingctl and journalctl to match systemctl.
+
+        * The config files: /etc/systemd/systemd-logind.conf and
+          /etc/systemd/systemd-journald.conf have been renamed to
+          logind.conf and journald.conf. Package updates should rename
+          the files to the new names on upgrade.
+
 CHANGES WITH 44:
         * This is mostly a bugfix release
 

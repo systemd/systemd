@@ -685,24 +685,18 @@ MANPAGES = \
 	man/sysctl.d.5 \
 	man/systemd-ask-password.1 \
 	man/systemd-cat.1 \
-        man/systemd-machine-id-setup.1 \
-        man/systemd-journald.conf.5 \
-        man/journalctl.1
+	man/systemd-machine-id-setup.1 \
+	man/journald.conf.5 \
+	man/journalctl.1
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
 	man/poweroff.8 \
-	man/init.1 \
-        man/systemd-systemctl.1 \
-        man/systemd-loginctl.1 \
-        man/systemd-journalctl.1
+	man/init.1
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
 man/init.1: man/systemd.1
-man/systemd-systemctl.1: man/systemctl.1
-man/systemd-loginctl.1: man/loginctl.1
-man/systemd-journalctl.1: man/journalctl.1
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
@@ -982,14 +976,6 @@ systemctl_LDADD = \
 	libsystemd-id128.la \
 	$(DBUS_LIBS)
 
-systemctl-install-hook:
-	cd $(DESTDIR)$(rootbindir) && \
-		rm -f systemd-systemctl && \
-		$(LN_S) systemctl systemd-systemctl
-
-INSTALL_EXEC_HOOKS += \
-        systemctl-install-hook
-
 systemd_notify_SOURCES = \
 	src/notify.c \
 	src/readahead/sd-readahead.c
@@ -1238,14 +1224,6 @@ journalctl_LDADD += \
 	$(XZ_LIBS)
 endif
 
-journalctl-install-hook:
-	cd $(DESTDIR)$(rootbindir) && \
-		rm -f systemd-journalctl && \
-		$(LN_S) journalctl systemd-journalctl
-
-INSTALL_EXEC_HOOKS += \
-        journalctl-install-hook
-
 test_journal_SOURCES = \
 	src/journal/test-journal.c \
 	src/journal/sd-journal.c \
@@ -1344,7 +1322,7 @@ nodist_systemunit_DATA += \
 	units/systemd-journald.service
 
 dist_pkgsysconf_DATA += \
-	src/journal/systemd-journald.conf
+	src/journal/journald.conf
 
 pkgconfiglib_DATA += \
 	src/journal/libsystemd-journal.pc
@@ -1853,14 +1831,6 @@ loginctl_LDADD = \
 rootbin_PROGRAMS += \
 	loginctl
 
-loginctl-install-hook:
-	cd $(DESTDIR)$(rootbindir) && \
-		rm -f systemd-loginctl && \
-		$(LN_S) loginctl systemd-loginctl
-
-INSTALL_EXEC_HOOKS += \
-        loginctl-install-hook
-
 test_login_SOURCES = \
 	src/login/test-login.c
 
@@ -1945,7 +1915,7 @@ dist_dbuspolicy_DATA += \
 	src/login/org.freedesktop.login1.conf
 
 dist_pkgsysconf_DATA += \
-	src/login/systemd-logind.conf
+	src/login/logind.conf
 
 pkginclude_HEADERS += \
 	src/systemd/sd-login.h
@@ -2022,7 +1992,7 @@ nodist_udevrules_DATA += \
 	src/login/73-seat-late.rules
 
 MANPAGES += \
-	man/systemd-logind.conf.5 \
+	man/logind.conf.5 \
 	man/sd-login.7 \
 	man/loginctl.1 \
 	man/sd_login_monitor_new.3 \

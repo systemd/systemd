@@ -44,7 +44,6 @@
 
         <refnamediv>
                 <refname>loginctl</refname>
-                <refname>systemd-loginctl</refname>
                 <refpurpose>Control the systemd login manager</refpurpose>
         </refnamediv>
 
@@ -451,7 +450,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

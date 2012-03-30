@@ -22,9 +22,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-journald.conf">
+<refentry id="journald.conf">
         <refentryinfo>
-                <title>systemd-journald.conf</title>
+                <title>journald.conf</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -38,17 +38,17 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-journald.conf</refentrytitle>
+                <refentrytitle>journald.conf</refentrytitle>
                 <manvolnum>5</manvolnum>
         </refmeta>
 
         <refnamediv>
-                <refname>systemd-journald.conf</refname>
+                <refname>journald.conf</refname>
                 <refpurpose>Journal service configuration file</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd-journald.conf</filename></para>
+                <para><filename>journald.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

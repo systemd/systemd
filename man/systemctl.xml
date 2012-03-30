@@ -44,7 +44,6 @@
 
         <refnamediv>
                 <refname>systemctl</refname>
-                <refname>systemd-systemctl</refname>
                 <refpurpose>Control the systemd system and service manager</refpurpose>
         </refnamediv>
 

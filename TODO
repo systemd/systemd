@@ -17,6 +17,7 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
+* cleanup syslog 'priority' vs. 'level' wording
 
 * dbus upstream still refers to dbus.target and shouldn't
 

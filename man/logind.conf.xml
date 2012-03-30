@@ -22,9 +22,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-logind.conf">
+<refentry id="logind.conf">
         <refentryinfo>
-                <title>systemd-logind.conf</title>
+                <title>logind.conf</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -38,17 +38,17 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-logind.conf</refentrytitle>
+                <refentrytitle>logind.conf</refentrytitle>
                 <manvolnum>5</manvolnum>
         </refmeta>
 
         <refnamediv>
-                <refname>systemd-logind.conf</refname>
+                <refname>logind.conf</refname>
                 <refpurpose>Login manager configuration file</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd-logind.conf</filename></para>
+                <para><filename>logind.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

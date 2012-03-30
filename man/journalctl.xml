@@ -44,7 +44,6 @@
 
         <refnamediv>
                 <refname>journalctl</refname>
-                <refname>systemd-journalctl</refname>
                 <refpurpose>Query the systemd journal</refpurpose>
         </refnamediv>
 
@@ -254,7 +253,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

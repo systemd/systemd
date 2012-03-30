@@ -1216,7 +1216,7 @@ static int manager_parse_config_file(Manager *m) {
 
         assert(m);
 
-        fn = "/etc/systemd/systemd-logind.conf";
+        fn = "/etc/systemd/logind.conf";
         f = fopen(fn, "re");
         if (!f) {
                 if (errno == ENOENT)

@@ -2584,7 +2584,7 @@ static int server_parse_config_file(Server *s) {
 
         assert(s);
 
-        fn = "/etc/systemd/systemd-journald.conf";
+        fn = "/etc/systemd/journald.conf";
         f = fopen(fn, "re");
         if (!f) {
                 if (errno == ENOENT)
