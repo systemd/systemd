@@ -201,7 +201,7 @@ __get_all_sessions () { systemd-loginctl list-sessions | { while read a b; do ec
 __get_all_users    () { systemd-loginctl list-users    | { while read a b; do echo "$b"; done; } ; }
 __get_all_seats    () { systemd-loginctl list-seats    | { while read a b; do echo "$a"; done; } ; }
 
-_systemd_loginctl () {
+_loginctl () {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local verb comps
 
@@ -278,4 +278,4 @@ _systemd_loginctl () {
         COMPREPLY=( $(compgen -W "$comps" -- "$cur") )
         return 0
 }
-complete -F _systemd_loginctl systemd-loginctl
+complete -F _loginctl loginctl
