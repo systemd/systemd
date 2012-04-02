@@ -4,8 +4,6 @@ Bugfixes:
 
 * make anaconda write timeout=0 for encrypted devices
 
-* service: pid file reading after reload doesn't work, since we don't reset the pid variable
-
 * make sure timeouts are applied to Type=oneshot services.
 
 * Dangling symlinks of .automount unit files in .wants/ directories, set up
@@ -17,13 +15,16 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
+
+* PrivateTmp should apply to both /tmp and /var/tmp
+
+* fstab should take priority over units in /usr
+
 * cleanup syslog 'priority' vs. 'level' wording
 
 * journal: if mmap() fails for mapping window try to unmap a a few older maps
 
 * add flag file for shutdownd so that clients can check whether a shutdown is queued
-
-* new env var for /var/tmp? glib?
 
 * dbus upstream still refers to dbus.target and shouldn't
 
@@ -62,8 +63,6 @@ Features:
 
 * support chrony in addition to ntpd in timedated
 
-* journal: extend sd-journal.h logging calls to implicitly log function names/line numbers/...
-
 * document crypttab(5)
 
 * There's currently no way to cancel fsck (used to be possible via C-c or c on the console)
@@ -75,8 +74,6 @@ Features:
 * keep an eye on https://bugzilla.gnome.org/show_bug.cgi?id=670100
 
 * D-Bus: always pass cred data along each message
-
-* journal: work on https://fedoraproject.org/wiki/Features/systemd-journal
 
 * journal: allow turning off logging entirely
 
