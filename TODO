@@ -19,6 +19,8 @@ Bugfixes:
 Features:
 * cleanup syslog 'priority' vs. 'level' wording
 
+* journal: if mmap() fails for mapping window try to unmap a a few older maps
+
 * add flag file for shutdownd so that clients can check whether a shutdown is queued
 
 * new env var for /var/tmp? glib?

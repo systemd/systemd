@@ -1247,6 +1247,13 @@ test_journal_LDADD += \
 	$(XZ_LIBS)
 endif
 
+test_journal_send_SOURCES = \
+	src/journal/test-journal-send.c
+
+test_journal_send_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-journal.la
+
 libsystemd_journal_la_SOURCES = \
 	src/journal/sd-journal.c \
 	src/journal/journal-file.c \
@@ -1297,7 +1304,8 @@ UNINSTALL_EXEC_HOOKS += \
 	libsystemd-journal-uninstall-hook
 
 noinst_PROGRAMS += \
-	test-journal
+	test-journal \
+        test-journal-send
 
 pkginclude_HEADERS += \
 	src/systemd/sd-journal.h \

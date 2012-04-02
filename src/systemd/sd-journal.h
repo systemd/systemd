@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include <stdarg.h>
 #include <sys/uio.h>
+#include <syslog.h>
 
 #include <systemd/sd-id128.h>
 
@@ -34,12 +35,29 @@ extern "C" {
 #endif
 
 /* Write to daemon */
-
 int sd_journal_print(int piority, const char *format, ...) __attribute__ ((format (printf, 2, 3)));
 int sd_journal_printv(int priority, const char *format, va_list ap);
-
 int sd_journal_send(const char *format, ...) __attribute__((sentinel));
 int sd_journal_sendv(const struct iovec *iov, int n);
+
+/* Used by the macros below */
+int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) __attribute__ ((format (printf, 5, 6)));
+int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list ap);
+int sd_journal_send_with_location(const char *file, const char *line, const char *func, const char *format, ...) __attribute__((sentinel));
+int sd_journal_sendv_with_location(const char *file, const char *line, const char *func, const struct iovec *iov, int n);
+
+/* implicitly add code location to messages sent, if this is enabled */
+#ifndef SD_JOURNAL_SUPPRESS_LOCATION
+
+#define _sd_XSTRINGIFY(x) #x
+#define _sd_STRINGIFY(x) _sd_XSTRINGIFY(x)
+
+#define sd_journal_print(priority, ...) sd_journal_print_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
+#define sd_journal_printv(priority, format, ap) sd_journal_printv_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, format, ap)
+#define sd_journal_send(...) sd_journal_send_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
+#define sd_journal_sendv(iovec, n) sd_journal_sendv_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, iovec, n)
+
+#endif
 
 int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix);
 

@@ -43,3 +43,11 @@ global:
 local:
         *;
 };
+
+LIBSYSTEMD_JOURNAL_45 {
+global:
+        sd_journal_print_with_location;
+        sd_journal_printv_with_location;
+        sd_journal_send_with_location;
+        sd_journal_sendv_with_location;
+} LIBSYSTEMD_JOURNAL_38;
