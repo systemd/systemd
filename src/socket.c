@@ -1494,6 +1494,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
 fail:
         log_warning("%s failed to queue socket startup job: %s", UNIT(s)->id, bus_error(&error, r));
+        socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
 
         if (cfd >= 0)
                 close_nointr_nofail(cfd);
