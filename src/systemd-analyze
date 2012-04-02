@@ -31,6 +31,10 @@ def acquire_start_time():
         startup_time = int(properties.Get('org.freedesktop.systemd1.Manager', 'StartupTimestampMonotonic'))
         finish_time = int(properties.Get('org.freedesktop.systemd1.Manager', 'FinishTimestampMonotonic'))
 
+        if finish_time == 0:
+                sys.stderr.write("Bootup is not yet finished. Please try again later.\n")
+                sys.exit(1)
+
         assert initrd_time <= startup_time
         assert startup_time <= finish_time
 
