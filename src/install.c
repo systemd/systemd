@@ -1853,7 +1853,7 @@ int unit_file_get_list(
 
                         r = dirent_ensure_type(d, de);
                         if (r < 0) {
-                                if (errno == ENOENT)
+                                if (r == -ENOENT)
                                         continue;
 
                                 goto finish;
