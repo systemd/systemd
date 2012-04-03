@@ -43,6 +43,7 @@ typedef enum LogTarget{
 
 void log_set_target(LogTarget target);
 void log_set_max_level(int level);
+void log_set_facility(int facility);
 
 int log_set_target_from_string(const char *e);
 int log_set_max_level_from_string(const char *e);

@@ -37,6 +37,7 @@
 
 static LogTarget log_target = LOG_TARGET_CONSOLE;
 static int log_max_level = LOG_INFO;
+static int log_facility = LOG_DAEMON;
 
 static int console_fd = STDERR_FILENO;
 static int syslog_fd = -1;
@@ -310,6 +311,10 @@ void log_set_max_level(int level) {
         log_max_level = level;
 }
 
+void log_set_facility(int facility) {
+        log_facility = facility;
+}
+
 static int write_to_console(
                 int level,
                 const char*file,
@@ -457,11 +462,13 @@ static int write_to_journal(
 
         snprintf(header, sizeof(header),
                  "PRIORITY=%i\n"
+                 "SYSLOG_FACILITY=%i\n"
                  "CODE_FILE=%s\n"
                  "CODE_LINE=%i\n"
                  "CODE_FUNCTION=%s\n"
                  "MESSAGE=",
                  LOG_PRI(level),
+                 LOG_FAC(level),
                  file,
                  line,
                  func);
@@ -497,7 +504,7 @@ static int log_dispatch(
 
         /* Patch in LOG_DAEMON facility if necessary */
         if ((level & LOG_FACMASK) == 0)
-                level = LOG_DAEMON | LOG_PRI(level);
+                level = log_facility | LOG_PRI(level);
 
         do {
                 char *e;
