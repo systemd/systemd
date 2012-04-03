@@ -151,7 +151,7 @@ static int log_open_syslog(void) {
                 goto fail;
         }
 
-        if (connect(syslog_fd, &sa.sa, sizeof(sa)) < 0) {
+        if (connect(syslog_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
                 close_nointr_nofail(syslog_fd);
 
                 /* Some legacy syslog systems still use stream
@@ -163,7 +163,7 @@ static int log_open_syslog(void) {
                         goto fail;
                 }
 
-                if (connect(syslog_fd, &sa.sa, sizeof(sa)) < 0) {
+                if (connect(syslog_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
                         r = -errno;
                         goto fail;
                 }

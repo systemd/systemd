@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
         sa.un.sun_family = AF_UNIX;
         strncpy(sa.un.sun_path, "/run/dbus/system_bus_socket", sizeof(sa.un.sun_path));
 
-        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
+        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
                 log_error("Failed to connect: %m");
                 goto finish;
         }
