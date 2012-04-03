@@ -261,6 +261,31 @@
                                         originating host.</para>
                                 </listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term>_TRANSPORT=</term>
+                                <listitem>
+                                        <para>How the entry was
+                                        received by the journal
+                                        service. One of
+                                        <literal>driver</literal>,
+                                        <literal>syslog</literal>,
+                                        <literal>journal</literal>,
+                                        <literal>stdout</literal>,
+                                        <literal>kernel</literal> for
+                                        internally generated messages,
+                                        for those received via the
+                                        local syslog socket with the
+                                        syslog protocol, for those
+                                        received via the native
+                                        journal protocol, for the
+                                        those read from a services'
+                                        standard output or error
+                                        output, resp. for those read
+                                        from the kernel.
+                                        </para>
+                                </listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 
