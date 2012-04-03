@@ -430,6 +430,7 @@
 
                         <varlistentry>
                                 <term><option>--follow</option></term>
+                                <term><option>-f</option></term>
 
                                 <listitem><para>When used with
                                 <command>status</command> continously

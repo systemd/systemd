@@ -4247,7 +4247,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_FAILED,
                 ARG_RUNTIME,
-                ARG_FOLLOW
+                ARG_FOLLOW,
+                ARG_FORCE
         };
 
         static const struct option options[] = {
@@ -4271,7 +4272,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "order",     no_argument,       NULL, ARG_ORDER     },
                 { "require",   no_argument,       NULL, ARG_REQUIRE   },
                 { "root",      required_argument, NULL, ARG_ROOT      },
-                { "force",     no_argument,       NULL, 'f'           },
+                { "force",     no_argument,       NULL, ARG_FORCE     },
                 { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
                 { "kill-mode", required_argument, NULL, ARG_KILL_MODE }, /* undocumented on purpose */
                 { "kill-who",  required_argument, NULL, ARG_KILL_WHO  },
@@ -4392,8 +4393,18 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_quiet = true;
                         break;
 
-                case 'f':
+                case ARG_FORCE:
                         arg_force ++;
+                        break;
+
+                case ARG_FOLLOW:
+                        arg_follow = true;
+                        break;
+
+                case 'f':
+                        /* -f is short for both --follow and --force! */
+                        arg_force ++;
+                        arg_follow = true;
                         break;
 
                 case ARG_NO_RELOAD:
@@ -4437,10 +4448,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 log_error("Failed to parse lines '%s'", optarg);
                                 return -EINVAL;
                         }
-                        break;
-
-                case ARG_FOLLOW:
-                        arg_follow = true;
                         break;
 
                 case 'o':
