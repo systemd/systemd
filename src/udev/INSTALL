@@ -1,0 +1,44 @@
+The options used usually look like:
+  %configure \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --bindir=/usr/bin \
+    --libdir=/usr/lib64 \
+    --libexecdir=/usr/lib \
+    --with-systemdsystemunitdir=/usr/lib/systemd/system \
+    --with-selinux
+
+The options used in a RPM spec file look like:
+  %configure \
+    --prefix=%{_prefix} \
+    --sysconfdir=%{_sysconfdir} \
+    --bindir=%{_bindir} \
+    --libdir=%{_libdir} \
+    --libexecdir=%{_prefix}/lib \
+    --with-systemdsystemunitdir=%{_prefix}/lib/systemd/system \
+    --with-selinux
+
+The options to install udev in the rootfs instead of /usr,
+and udevadm in /sbin:
+    --prefix=%{_prefix} \
+    --with-rootprefix= \
+    --sysconfdir=%{_sysconfdir} \
+    --bindir=/sbin \
+    --libdir=%{_libdir} \
+    --with-rootlibdir=/lib64 \
+    --libexecdir=/lib \
+    --with-systemdsystemunitdir=/lib/systemd/system \
+    --with-selinux
+
+Some tools expect udevadm in 'sbin'. A symlink to udevadm in 'bin'
+needs to be manually created if needed.
+
+The defined location for scripts and binaries which are called
+from rules is (/usr)/lib/udev/ on all systems and architectures. Any
+other location will break other packages, who rightfully expect
+the (/usr)/lib/udev/ directory, to install their rule helper and udev
+rule files.
+
+Default udev rules and persistent device naming rules may be required
+by other software that depends on the data udev collects from the
+devices.

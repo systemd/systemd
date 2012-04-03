@@ -1,0 +1,5 @@
+0x67 f24 # FIXME: rotate screen
+0x68 up
+0x69 down
+0x6B fn
+0x6C screenlock # FIXME: lock tablet device/buttons

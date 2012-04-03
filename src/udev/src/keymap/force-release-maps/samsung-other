@@ -1,0 +1,10 @@
+# list of scancodes (hex or decimal), optional comment
+0x82 # Fn+F4 CRT/LCD
+0x83 # Fn+F2 battery
+0x84 # Fn+F5 backlight on/off
+0x86 # Fn+F9 WLAN
+0x88 # Fn-Up brightness up
+0x89 # Fn-Down brightness down
+0xB3 # Fn+F8 switch power mode (battery/dynamic/performance)
+0xF7 # Fn+F10 Touchpad on
+0xF9 # Fn+F10 Touchpad off

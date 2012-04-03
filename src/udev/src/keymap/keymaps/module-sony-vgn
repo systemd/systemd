@@ -1,0 +1,8 @@
+0x00 brightnessdown # Fn+F5
+0x10 brightnessup # Fn+F6
+0x11 switchvideomode # Fn+F7
+0x12 zoomout
+0x14 zoomin
+0x15 suspend # Fn+F12
+0x17 prog1
+0x20 media

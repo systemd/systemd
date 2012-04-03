@@ -1,0 +1,29 @@
+0x81 playpause # Play/Pause
+0x82 stopcd # Stop
+0x83 previoussong # Previous song
+0x84 nextsong # Next song
+0x85 brightnessdown # Fn+Down arrow Brightness Down
+0x86 brightnessup # Fn+Up arrow Brightness Up
+0x87 battery # Fn+F3 battery icon
+0x88 unknown # Fn+F2 Turn On/Off Wireless - handled in hardware
+0x89 ejectclosecd # Fn+F10 Eject CD
+0x8A suspend # Fn+F1 hibernate
+0x8B switchvideomode # Fn+F8 CRT/LCD (high keycode: "displaytoggle")
+0x8C f23 # Fn+Right arrow Auto Brightness
+0x8F switchvideomode # Fn+F7 aspect ratio
+0x90 previoussong # Front panel previous song
+0x91 prog1 # Wifi Catcher (DELL Specific)
+0x92 media # MediaDirect button (house icon)
+0x93 f23 # FIXME Fn+Left arrow Auto Brightness
+0x95 camera # Shutter button Takes a picture if optional camera available
+0x97 email # Tablet email button
+0x98 f21 # FIXME: Tablet screen rotatation
+0x99 nextsong # Front panel next song
+0x9A setup # Tablet tools button
+0x9B switchvideomode # Display Toggle button
+0x9E f21 #touchpad toggle
+0xA2 playpause # Front panel play/pause
+0xA4 stopcd # Front panel stop
+0xED media # MediaDirect button
+0xD8 screenlock # FIXME: Tablet lock button
+0xD9 f21 # touchpad toggle

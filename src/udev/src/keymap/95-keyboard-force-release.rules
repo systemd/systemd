@@ -1,0 +1,54 @@
+# Set model specific atkbd force_release quirk
+#
+# Several laptops have hotkeys which don't generate release events,
+# which can cause problems with software key repeat.
+# The atkbd driver has a quirk handler for generating synthetic
+# release events, which can be configured via sysfs since 2.6.32.
+# Simply add a file with a list of scancodes for your laptop model
+# in /usr/lib/udev/keymaps, and add a rule here.
+# If the hotkeys also need a keymap assignment you can copy the
+# scancodes from the keymap file, otherwise you can run
+# /usr/lib/udev/keymap -i /dev/input/eventX
+# on a Linux vt to find out.
+
+ACTION=="remove", GOTO="force_release_end"
+SUBSYSTEM!="serio", GOTO="force_release_end"
+KERNEL!="serio*", GOTO="force_release_end"
+DRIVER!="atkbd", GOTO="force_release_end"
+
+ENV{DMI_VENDOR}="$attr{[dmi/id]sys_vendor}"
+
+ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", RUN+="keyboard-force-release.sh $devpath samsung-other"
+ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*90X3A*", RUN+="keyboard-force-release.sh $devpath samsung-90x3a"
+
+ENV{DMI_VENDOR}=="Dell Inc.", ATTR{[dmi/id]product_name}=="Studio 1557|Studio 1558", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+ENV{DMI_VENDOR}=="Dell Inc.", ATTR{[dmi/id]product_name}=="Latitude E*|Precision M*", RUN+="keyboard-force-release.sh $devpath dell-touchpad"
+
+ENV{DMI_VENDOR}=="FUJITSU SIEMENS", ATTR{[dmi/id]product_name}=="AMILO Si 1848+u|AMILO Xi 2428", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
+ENV{DMI_VENDOR}=="FOXCONN", ATTR{[dmi/id]product_name}=="QBOOK", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
+ENV{DMI_VENDOR}=="MTC", ATTR{[dmi/id]product_version}=="A0", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
+ENV{DMI_VENDOR}=="PEGATRON CORP.", ATTR{[dmi/id]product_name}=="Spring Peak", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
+ENV{DMI_VENDOR}=="TOSHIBA", ATTR{[dmi/id]product_name}=="Satellite [uU]300*|Satellite Pro [uU]300*|Satellite [uU]305*|SATELLITE [uU]500*", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
+ENV{DMI_VENDOR}=="Viooo Corporation", ATTR{[dmi/id]product_name}=="PT17", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
+# These are all the HP laptops that setup a touchpad toggle key
+ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[pP][aA][vV][iI][lL][iI][oO][nN]*", RUN+="keyboard-force-release.sh $devpath hp-other"
+ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[tT][xX]2*", RUN+="keyboard-force-release.sh $devpath hp-other"
+ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*2510p*|*2530p*|HP G60 Notebook PC", RUN+="keyboard-force-release.sh $devpath hp-other"
+
+ENV{DMI_VENDOR}=="Zepto", ATTR{[dmi/id]product_name}=="Znote 6615WD", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
+ENV{DMI_VENDOR}=="Zepto", ATTR{[dmi/id]product_name}=="Znote", ATTR{[dmi/id]product_version}=="6625WD", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
+ENV{DMI_VENDOR}=="HANNspree", ATTR{[dmi/id]product_name}=="SN10E100", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
+ENV{DMI_VENDOR}=="GIGABYTE", ATTR{[dmi/id]product_name}=="i1520M", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
+ENV{DMI_VENDOR}=="BenQ", ATTR{[dmi/id]product_name}=="*nScreen*", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
+LABEL="force_release_end"

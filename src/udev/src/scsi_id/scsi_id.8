@@ -1,0 +1,119 @@
+.TH SCSI_ID 8 "December 2003" "" "Linux Administrator's Manual"
+.SH NAME
+scsi_id \- retrieve and generate a unique SCSI identifier
+.SH SYNOPSIS
+.BI scsi_id
+[\fIoptions\fP]
+.SH "DESCRIPTION"
+.B scsi_id
+queries a SCSI device via the SCSI INQUIRY vital product data (VPD) page 0x80 or
+0x83 and uses the resulting data to generate a value that is unique across
+all SCSI devices that properly support page 0x80 or page 0x83.
+
+If a result is generated it is sent to standard output, and the program
+exits with a zero value. If no identifier is output, the program exits
+with a non\-zero value.
+
+\fBscsi_id\fP is primarily for use by other utilities such as \fBudev\fP
+that require a unique SCSI identifier.
+
+By default all devices are assumed black listed, the \fB\-\-whitelisted\fP option must
+be specified on the command line or in the config file for any useful
+behaviour.
+
+SCSI commands are sent directly to the device via the SG_IO ioctl
+interface.
+
+In order to generate unique values for either page 0x80 or page 0x83, the
+serial numbers or world wide names are prefixed as follows.
+
+Identifiers based on page 0x80 are prefixed by the character 'S', the SCSI
+vendor, the SCSI product (model) and then the the serial number returned
+by page 0x80. For example:
+
+.sp
+.nf
+# /usr/lib/udev/scsi_id \-\-page=0x80 \-\-whitelisted \-\-device=/dev/sda
+SIBM     3542           1T05078453
+.fi
+.P
+
+Identifiers based on page 0x83 are prefixed by the identifier type
+followed by the page 0x83 identifier. For example, a device with a NAA
+(Name Address Authority) type of 3 (also in this case the page 0x83
+identifier starts with the NAA value of 6):
+
+.sp
+.nf
+# /usr/lib/udev/scsi_id \-\-page=0x83 \-\-whitelisted \-\-device=/dev/sda
+3600a0b80000b174b000000d63efc5c8c
+.fi
+.P
+
+.SH OPTIONS
+.TP
+.BI \-\-blacklisted
+The default behaviour \- treat the device as black listed, and do nothing
+unless a white listed device is found in the scsi_id config\-file.
+.TP
+.BI \-\-device=\| device\^
+Send SG_IO commands to \fBdevice\fP, such as \fB/dev/sdc\fP.
+.TP
+.BI \-\-config=\| config\-file
+Read configuration and black/white list entries from
+.B config\-file
+rather than the default
+.B /etc/scsi_id.config
+file.
+.TP
+.BI \-\-whitelisted
+Treat the device as white listed. The \fB\-\-whitelisted\fP option must be specified
+on the command line or in the scsi_id configuration file for
+.B scsi_id
+to generate any output.
+.TP
+.BI \-\-page=\| 0x80 | 0x83 | pre-spc3-83
+Use SCSI INQUIRY VPD page code 0x80, 0x83, or pre-spc3-83.
+.sp
+The default
+behaviour is to query the available VPD pages, and use page 0x83 if found,
+else page 0x80 if found, else nothing.
+.sp
+Page pre-spc3-83 should only be utilized for those scsi devices which
+are not compliant with the SPC-2 or SPC-3 format for page 83.  While this
+option is used for older model 4, 5, and 6 EMC Symmetrix devices, its
+use with SPC-2 or SPC-3 compliant devices will fallback to the page 83
+format supported by these devices.
+.TP
+.BI \-\-replace-whitespace
+Reformat the output : replace all whitespaces by underscores.
+.TP
+.BI \-\-export
+Export all data in KEY=<value> format used to import in other programs.
+.TP
+.BI \-\-verbose
+Generate verbose debugging output.
+.TP
+.BI \-\-version
+Display version number and exit.
+.RE
+
+.SH "FILES"
+.nf
+.ft B
+.ft
+.TP
+\fI/etc/scsi_id.config\fP
+Configuration of black/white list entries and per device options:
+# one config per line, short match strings match longer strings
+# vendor=string[,model=string],options=<per-device scsi_id command line options>
+vendor="ATA",options=-p 0x80
+.RE
+.fi
+.LP
+.SH "SEE ALSO"
+.BR udev (7)
+.SH AUTHORS
+Developed by Patrick Mansfield <patmans@us.ibm.com> based on SCSI ID
+source included in earlier linux 2.5 kernels, sg_utils source, and SCSI
+specifications.

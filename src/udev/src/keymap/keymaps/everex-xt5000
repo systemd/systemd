@@ -1,0 +1,7 @@
+0x5C media
+0x65 f21 # Fn+F5 Touchpad toggle
+0x67 prog3 # Fan Speed Control button
+0x6F brightnessup
+0x7F brightnessdown
+0xB2 www
+0xEC mail

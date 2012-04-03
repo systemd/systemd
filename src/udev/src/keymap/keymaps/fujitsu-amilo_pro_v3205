@@ -1,0 +1,2 @@
+0xF4 f21 # FIXME: silent-mode decrease CPU/GPU clock
+0xF7 switchvideomode # Fn+F3

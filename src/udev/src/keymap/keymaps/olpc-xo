@@ -1,0 +1,74 @@
+0x59 fn
+0x81 fn_esc
+0xF9 camera
+0xF8 sound # Fn-CAMERA = Mic
+
+
+# Function key mappings, as per
+#    http://dev.laptop.org/ticket/10213#comment:20
+#
+# Unmodified F1-F8 produce F1-F8, so no remap necessary.
+# Unmodified F9-F12 control brightness and volume.
+0x43 brightnessdown
+0x44 brightnessup
+0x57 volumedown
+0x58 volumeup
+
+# fn-modified fkeys all produce the unmodified version of the key.
+0xBB f1
+0xBC f2
+0xBD f3
+0xBE f4
+0xBF f5
+0xC0 f6
+0xC1 f7
+0xC2 f8
+0xC3 f9
+0xC4 f10
+0xD7 f11
+0xD8 f12
+
+
+# Using F13-F21 for the .5 F keys right now.
+0xF7 f13
+0xF6 f14
+0xF5 f15
+0xF4 f16
+0xF3 f17
+0xF2 f18
+0xF1 f19
+0xF0 f20
+0xEF f21
+
+0xEE chat
+0xE4 chat # Just mapping Fn-Chat to Chat for now
+0xDD menu # Frame
+0xDA prog1 # Fn-Frame
+
+# The FN of some keys is other keys
+0xD3 delete
+0xD2 insert
+0xC9 pageup
+0xD1 pagedown
+0xC7 home
+0xCF end
+
+# Language key - don't ask what they are doing as KEY_HP
+0x73 hp
+0x7E hp
+
+0xDB leftmeta # left grab
+0xDC rightmeta # right grab
+0x85 rightmeta # Right grab releases on a different scancode
+0xD6 kbdillumtoggle # Fn-space
+0x69 switchvideomode # Brightness key
+
+# Game keys
+0x65 kp8 # up
+0x66 kp2 # down
+0x67 kp4 # left
+0x68 kp6 # right
+0xE5 kp9 # pgup
+0xE6 kp3 # pgdn
+0xE7 kp7 # home
+0xE8 kp1 # end

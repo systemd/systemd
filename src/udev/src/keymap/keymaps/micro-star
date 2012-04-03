@@ -1,0 +1,13 @@
+0xA0 mute # Fn-F9
+0xAE volumedown # Fn-F7
+0xB0 volumeup # Fn-F8
+0xB2 www # e button
+0xDF sleep # Fn-F12
+0xE2 bluetooth # satellite dish2
+0xE4 f21 # Fn-F3   Touchpad disable
+0xEC email # envelope button
+0xEE camera # Fn-F6 camera disable
+0xF6 wlan # satellite dish1
+0xF7 brightnessdown # Fn-F4
+0xF8 brightnessup # Fn-F5
+0xF9 search

@@ -1,0 +1,12 @@
+0x81 fn_esc
+0x89 battery # FnF8
+0x8A screenlock # FnF6
+0x8B camera
+0x8C media # music
+0x8E dvd
+0xB1 help
+0xB3 f23 # FIXME: Auto brightness
+0xD7 wlan
+0x92 brightnessdown # FnF7 (FnF9 on 6730b)
+0x97 brightnessup # FnF8 (FnF10 on 6730b)
+0xEE switchvideomode # FnF4

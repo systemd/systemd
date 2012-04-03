@@ -1,0 +1,151 @@
+<?xml version='1.0'?>
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<refentry id="udevd">
+  <refentryinfo>
+    <title>udevd</title>
+    <productname>udev</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>udevd</refentrytitle>
+    <manvolnum>8</manvolnum>
+    <refmiscinfo class="version"></refmiscinfo>
+  </refmeta>
+
+  <refnamediv>
+    <refname>udevd</refname><refpurpose>event managing daemon</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>udevd</command>
+      <arg><option>--daemon</option></arg>
+      <arg><option>--debug</option></arg>
+      <arg><option>--children-max=</option></arg>
+      <arg><option>--exec-delay=</option></arg>
+      <arg><option>--resolve-names=early|late|never</option></arg>
+      <arg><option>--version</option></arg>
+      <arg><option>--help</option></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1><title>Description</title>
+    <para>udevd listens to kernel uevents. For every event, udevd executes matching
+    instructions specified in udev rules. See <citerefentry>
+        <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
+      </citerefentry>.</para>
+    <para>On startup the content of the directory <filename>/usr/lib/udev/devices</filename>
+    is copied to <filename>/dev</filename>. If kernel modules specify static device
+    nodes, these nodes are created even without a corresponding kernel device, to
+    allow on-demand loading of kernel modules. Matching permissions specified in udev
+    rules are applied to these static device nodes.</para>
+    <para>The behavior of the running daemon can be changed with
+    <command>udevadm control</command>.</para>
+  </refsect1>
+
+  <refsect1><title>Options</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>--daemon</option></term>
+        <listitem>
+          <para>Detach and run in the background.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--debug</option></term>
+        <listitem>
+          <para>Print debug messages to stderr.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--children-max=</option></term>
+        <listitem>
+          <para>Limit the number of parallel executed events.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--exec-delay=</option></term>
+        <listitem>
+          <para>Number of seconds to delay the execution of RUN instructions.
+          This might be useful when debugging system crashes during coldplug
+          cause by loading non-working kernel modules.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--resolve-names=</option></term>
+        <listitem>
+          <para>Specify when udevd should resolve names of users and groups.
+          When set to <option>early</option> (the default) names will be
+          resolved when the rules are parsed.  When set to
+          <option>late</option> names will be resolved for every event.
+          When set to <option>never</option> names will never be resolved
+          and all devices will be owned by root.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--version</option></term>
+        <listitem>
+          <para>Print version number.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--help</option></term>
+        <listitem>
+          <para>Print help text.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1><title>Environment</title>
+    <variablelist>
+      <varlistentry>
+        <term><varname>UDEV_LOG=</varname></term>
+        <listitem>
+          <para>Set the logging priority.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+ </refsect1>
+
+  <refsect1><title>Kernel command line</title>
+    <variablelist>
+      <varlistentry>
+        <term><varname>udev.log-priority=</varname></term>
+        <listitem>
+          <para>Set the logging priority.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>udev.children-max=</varname></term>
+        <listitem>
+          <para>Limit the number of parallel executed events.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>udev.exec-delay=</varname></term>
+        <listitem>
+          <para>Number of seconds to delay the execution of RUN instructions.
+          This might be useful when debugging system crashes during coldplug
+          cause by loading non-working kernel modules.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+ </refsect1>
+
+  <refsect1><title>Author</title>
+    <para>Written by Kay Sievers <email>kay.sievers@vrfy.org</email>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><citerefentry>
+        <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
+      </citerefentry>, <citerefentry>
+        <refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum>
+    </citerefentry></para>
+  </refsect1>
+</refentry>

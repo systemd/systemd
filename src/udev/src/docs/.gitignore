@@ -1,0 +1,17 @@
+libudev-overrides.txt
+html/
+tmpl/
+xml/
+*.stamp
+*.bak
+version.xml
+libudev-decl-list.txt
+libudev-decl.txt
+libudev-undeclared.txt
+libudev-undocumented.txt
+libudev-unused.txt
+libudev.args
+libudev.hierarchy
+libudev.interfaces
+libudev.prerequisites
+libudev.signals

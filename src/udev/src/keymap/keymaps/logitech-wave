@@ -1,0 +1,16 @@
+0x9001C scale #expo
+0x9001F zoomout #zoom out
+0x90020 zoomin #zoom in
+0x9003D prog1 #gadget
+0x90005 camera #camera
+0x90018 media #media center
+0x90041 wordprocessor #fn+f1 (word)
+0x90042 spreadsheet #fn+f2 (excel)
+0x90043 calendar #fn+f3 (calendar)
+0x90044 prog2 #fn+f4 (program a)
+0x90045 prog3 #fn+f5 (program b)
+0x90046 prog4 #fn+f6 (program c)
+0x90048 messenger #fn+f8 (msn messenger)
+0x9002D find #fn+f10 (search www)
+0x9004B search #fn+f11 (search pc)
+0x9004C ejectclosecd #fn+f12 (eject)

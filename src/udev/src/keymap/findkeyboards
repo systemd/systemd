@@ -1,0 +1,68 @@
+#!/bin/sh -e
+# Find "real" keyboard devices and print their device path.
+# Author: Martin Pitt <martin.pitt@ubuntu.com>
+#
+# Copyright (C) 2009, Canonical Ltd.
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+
+# returns OK if $1 contains $2
+strstr() {
+        [ "${1#*$2*}" != "$1" ]
+}
+
+# returns OK if $1 contains $2 at the beginning
+str_starts() {
+        [ "${1#$2*}" != "$1" ]
+}
+
+str_line_starts() {
+        while read a; do str_starts "$a" "$1" && return 0;done
+        return 1;
+}
+
+# print a list of input devices which are keyboard-like
+keyboard_devices() {
+        # standard AT keyboard
+        for dev in `udevadm trigger --dry-run --verbose --property-match=ID_INPUT_KEYBOARD=1`; do
+                walk=`udevadm info --attribute-walk --path=$dev`
+                env=`udevadm info --query=env --path=$dev`
+                # filter out non-event devices, such as the parent input devices which have no devnode
+                if ! echo "$env" | str_line_starts 'DEVNAME='; then
+                        continue
+                fi
+                if strstr "$walk" 'DRIVERS=="atkbd"'; then
+                        echo -n 'AT keyboard: '
+                elif echo "$env" | str_line_starts 'ID_USB_DRIVER=usbhid'; then
+                        echo -n 'USB keyboard: '
+                else
+                        echo -n 'Unknown type: '
+               fi
+                       udevadm info --query=name --path=$dev
+        done
+
+        # modules
+        module=$(udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='*Extra Buttons')
+        module="$module
+        $(udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='*extra buttons')"
+        module="$module
+        $(udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='Sony Vaio Keys')"
+        for m in $module; do
+                for evdev in $m/event*/dev; do
+                        if [ -e "$evdev" ]; then
+                                echo -n 'module: '
+                                udevadm info --query=name --path=${evdev%%/dev}
+                        fi
+                done
+        done
+}
+
+keyboard_devices

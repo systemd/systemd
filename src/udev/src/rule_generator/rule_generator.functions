@@ -1,0 +1,113 @@
+# functions used by the udev rule generator
+
+# Copyright (C) 2006 Marco d'Itri <md@Linux.IT>
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+PATH='/usr/bin:/bin:/usr/sbin:/sbin'
+
+# Read a single line from file $1 in the $DEVPATH directory.
+# The function must not return an error even if the file does not exist.
+sysread() {
+        local file="$1"
+        [ -e "/sys$DEVPATH/$file" ] || return 0
+        local value
+        read value < "/sys$DEVPATH/$file" || return 0
+        echo "$value"
+}
+
+sysreadlink() {
+        local file="$1"
+        [ -e "/sys$DEVPATH/$file" ] || return 0
+        readlink -f /sys$DEVPATH/$file 2> /dev/null || true
+}
+
+# Return true if a directory is writeable.
+writeable() {
+        if ln -s test-link $1/.is-writeable 2> /dev/null; then
+                rm -f $1/.is-writeable
+                return 0
+        else
+                return 1
+        fi
+}
+
+# Create a lock file for the current rules file.
+lock_rules_file() {
+        RUNDIR=$(udevadm info --run)
+        [ -e "$RUNDIR" ] || return 0
+
+        RULES_LOCK="$RUNDIR/.lock-${RULES_FILE##*/}"
+
+        retry=30
+        while ! mkdir $RULES_LOCK 2> /dev/null; do
+                if [ $retry -eq 0 ]; then
+                         echo "Cannot lock $RULES_FILE!" >&2
+                         exit 2
+                fi
+                sleep 1
+                retry=$(($retry - 1))
+        done
+}
+
+unlock_rules_file() {
+        [ "$RULES_LOCK" ] || return 0
+        rmdir $RULES_LOCK || true
+}
+
+# Choose the real rules file if it is writeable or a temporary file if not.
+# Both files should be checked later when looking for existing rules.
+choose_rules_file() {
+        RUNDIR=$(udevadm info --run)
+        local tmp_rules_file="$RUNDIR/tmp-rules--${RULES_FILE##*/}"
+        [ -e "$RULES_FILE" -o -e "$tmp_rules_file" ] || PRINT_HEADER=1
+
+        if writeable ${RULES_FILE%/*}; then
+                RO_RULES_FILE='/dev/null'
+        else
+                RO_RULES_FILE=$RULES_FILE
+                RULES_FILE=$tmp_rules_file
+        fi
+}
+
+# Return the name of the first free device.
+raw_find_next_available() {
+        local links="$1"
+
+        local basename=${links%%[ 0-9]*}
+        local max=-1
+        for name in $links; do
+                local num=${name#$basename}
+                [ "$num" ] || num=0
+                [ $num -gt $max ] && max=$num
+        done
+
+        local max=$(($max + 1))
+        # "name0" actually is just "name"
+        [ $max -eq 0 ] && return
+        echo "$max"
+}
+
+# Find all rules matching a key (with action) and a pattern.
+find_all_rules() {
+        local key="$1"
+        local linkre="$2"
+        local match="$3"
+
+        local search='.*[[:space:],]'"$key"'"('"$linkre"')".*'
+        echo $(sed -n -r -e 's/^#.*//' -e "${match}s/${search}/\1/p" \
+                $RO_RULES_FILE \
+                $([ -e $RULES_FILE ] && echo $RULES_FILE) \
+                2>/dev/null)
+}

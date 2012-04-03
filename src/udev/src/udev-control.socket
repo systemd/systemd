@@ -1,0 +1,10 @@
+[Unit]
+Description=udev Control Socket
+DefaultDependencies=no
+ConditionCapability=CAP_MKNOD
+
+[Socket]
+Service=udev.service
+ListenSequentialPacket=/run/udev/control
+SocketMode=0600
+PassCredentials=yes

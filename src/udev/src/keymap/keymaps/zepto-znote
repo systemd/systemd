@@ -1,0 +1,11 @@
+0x93 switchvideomode    # Fn+F3 Toggle Video Output
+0x95 brightnessdown     # Fn+F4 Brightness Down
+0x91 brightnessup       # Fn+F5 Brightness Up
+0xA5 f23                # Fn+F6 Disable Touchpad
+0xA6 f22                # Fn+F6 Enable Touchpad
+0xA7 bluetooth          # Fn+F10 Enable Bluetooth
+0XA9 bluetooth          # Fn+F10 Disable Bluetooth
+0xF1 wlan               # RF Switch Off
+0xF2 wlan               # RF Switch On
+0xF4 prog1              # P1 Button
+0xF3 prog2              # P2 Button

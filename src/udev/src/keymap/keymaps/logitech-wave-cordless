@@ -1,0 +1,15 @@
+0xD4 zoomin
+0xCC zoomout
+0xC0183 media
+0xC1005 camera
+0xC101F zoomout
+0xC1020 zoomin
+0xC1041 wordprocessor
+0xC1042 spreadsheet
+0xC1043 calendar
+0xC1044 prog2 #fn+f4 (program a)
+0xC1045 prog3 #fn+f5 (program b)
+0xC1046 prog4 #fn+f6 (program c)
+0xC1048 messenger
+0xC104A find #fn+f10 (search www)
+0xC104C ejectclosecd

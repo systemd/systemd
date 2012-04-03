@@ -1,0 +1,5 @@
+*.[78]
+*.html
+udev.pc
+libudev.pc
+udev*.service

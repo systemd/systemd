@@ -1,0 +1,8 @@
+# Key codes observed on S10-3, assumed valid on other IdeaPad models
+0x81 rfkill             # does nothing in BIOS
+0x83 display_off        # BIOS toggles screen state
+0xB9 brightnessup       # does nothing in BIOS
+0xBA brightnessdown     # does nothing in BIOS
+0xF1 camera             # BIOS toggles camera power
+0xf2 f21                # touchpad toggle (key alternately emits f2 and f3)
+0xf3 f21

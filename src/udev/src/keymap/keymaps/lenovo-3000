@@ -1,0 +1,5 @@
+0x8B switchvideomode # Fn+F7 video
+0x96 wlan # Fn+F5 wireless
+0x97 sleep # Fn+F4 suspend
+0x98 suspend # Fn+F12 hibernate
+0xB4 prog1 # Lenovo Care

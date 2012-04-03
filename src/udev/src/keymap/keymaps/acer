@@ -1,0 +1,22 @@
+0xA5 help # Fn+F1
+0xA6 setup # Fn+F2 Acer eSettings
+0xA7 battery # Fn+F3 Power Management
+0xA9 switchvideomode # Fn+F5
+0xB3 euro
+0xB4 dollar
+0xCE brightnessup # Fn+Right
+0xD4 bluetooth # (toggle) off-to-on
+0xD5 wlan # (toggle) on-to-off
+0xD6 wlan # (toggle) off-to-on
+0xD7 bluetooth # (toggle) on-to-off
+0xD8 bluetooth # (toggle) off-to-on
+0xD9 brightnessup # Fn+Right
+0xEE brightnessup # Fn+Right
+0xEF brightnessdown # Fn+Left
+0xF1 f22 # Fn+F7 Touchpad toggle (off-to-on)
+0xF2 f23 # Fn+F7 Touchpad toggle (on-to-off)
+0xF3 prog2 # "P2" programmable button
+0xF4 prog1 # "P1" programmable button
+0xF5 presentation
+0xF8 fn
+0xF9 f23 # Launch NTI shadow

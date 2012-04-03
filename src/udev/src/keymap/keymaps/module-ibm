@@ -1,0 +1,16 @@
+0x01 battery # Fn+F2
+0x02 screenlock # Fn+F3
+0x03 sleep # Fn+F4
+0x04 wlan # Fn+F5
+0x06 switchvideomode # Fn+F7
+0x07 zoom # Fn+F8 screen expand
+0x08 f24 # Fn+F9 undock
+0x0B suspend # Fn+F12
+0x0F brightnessup # Fn+Home
+0x10 brightnessdown # Fn+End
+0x11 kbdillumtoggle # Fn+PgUp - ThinkLight
+0x13 zoom # Fn+Space
+0x14 volumeup
+0x15 volumedown
+0x16 mute
+0x17 prog1 # ThinkPad/ThinkVantage button  (high keycode: "vendor")

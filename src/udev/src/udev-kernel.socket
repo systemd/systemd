@@ -1,0 +1,10 @@
+[Unit]
+Description=udev Kernel Socket
+DefaultDependencies=no
+ConditionCapability=CAP_MKNOD
+
+[Socket]
+Service=udev.service
+ReceiveBuffer=134217728
+ListenNetlink=kobject-uevent 1
+PassCredentials=yes

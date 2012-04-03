@@ -1,0 +1,5 @@
+0x96 kbdillumup         # Fn+F8 keyboard backlit up
+0x97 kbdillumdown       # Fn+F7 keyboard backlit down
+0xD5 wlan               # Fn+F12 wifi on/off
+0xCE prog1              # Fn+F1 performance mode
+0x8D prog2              # Fn+F6 battery life extender

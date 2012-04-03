@@ -1,0 +1,25 @@
+# This service is usually not enabled by default. If enabled, it
+# acts as a barrier for basic.target -- so all later services will
+# wait for udev completely finishing its coldplug run.
+#
+# If needed, to work around broken or non-hotplug-aware services,
+# it might be enabled unconditionally, or pulled-in on-demand by
+# the services that assume a fully populated /dev at startup. It
+# should not be used or pulled-in ever on systems without such
+# legacy services running.
+
+[Unit]
+Description=udev Wait for Complete Device Initialization
+DefaultDependencies=no
+Wants=udev.service
+After=udev-trigger.service
+Before=basic.target
+
+[Service]
+Type=oneshot
+TimeoutSec=180
+RemainAfterExit=yes
+ExecStart=@bindir@/udevadm settle
+
+[Install]
+WantedBy=basic.target

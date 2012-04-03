@@ -1,0 +1,9 @@
+# these rules generate rules for the /dev/{cdrom,dvd,...} symlinks
+
+# the "path" of usb/ieee1394 devices changes frequently, use "id"
+ACTION=="add", SUBSYSTEM=="block", SUBSYSTEMS=="usb|ieee1394", ENV{ID_CDROM}=="?*", ENV{GENERATED}!="?*", \
+  PROGRAM="write_cd_rules by-id", SYMLINK+="%c", GOTO="persistent_cd_end"
+
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_CDROM}=="?*", ENV{GENERATED}!="?*", PROGRAM="write_cd_rules", SYMLINK+="%c"
+
+LABEL="persistent_cd_end"
