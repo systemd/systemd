@@ -16,6 +16,8 @@ Bugfixes:
 
 Features:
 
+* allow configuration of console width/height in vconsole.conf
+
 * PrivateTmp should apply to both /tmp and /var/tmp
 
 * fstab should take priority over units in /usr
