@@ -226,9 +226,10 @@
                                         timestamp of the message, if
                                         any is known that is different
                                         from the reception time of the
-                                        journal. The time in usec
-                                        since the epoch formatted as
-                                        decimal string.</para>
+                                        journal. This is the time in
+                                        usec since the epoch UTC
+                                        formatted as decimal
+                                        string.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -293,7 +294,9 @@
                                         <para>The wallclock time
                                         (CLOCK_REALTIME) at the point
                                         in time the entry was received
-                                        by the journal. This has
+                                        by the journal, in usec since
+                                        the epoch UTC formatted as
+                                        decimal string. This has
                                         different properties from
                                         <literal>_SOURCE_REALTIME_TIMESTAMP=</literal>
                                         as it is usually a bit later
@@ -308,10 +311,12 @@
                                         <para>The monotonic time
                                         (CLOCK_MONOTONIC) at the point
                                         in time the entry was received
-                                        by the journal. To be useful
-                                        as an address for the entry
-                                        this should be combined with
-                                        with boot ID in
+                                        by the journal in usec
+                                        formatted as decimal
+                                        string. To be useful as an
+                                        address for the entry this
+                                        should be combined with with
+                                        boot ID in
                                         <literal>_BOOT_ID=</literal>.</para>
                                 </listitem>
                         </varlistentry>
