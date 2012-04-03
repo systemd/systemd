@@ -348,8 +348,8 @@ static int output_export(sd_journal *j, unsigned line, unsigned n_columns, bool 
         }
 
         printf("__CURSOR=%s\n"
-               "__REALTIME=%llu\n"
-               "__MONOTONIC=%llu\n"
+               "__REALTIME_TIMESTAMP=%llu\n"
+               "__MONOTONIC_TIMESTAMP=%llu\n"
                "__BOOT_ID=%s\n",
                cursor,
                (unsigned long long) realtime,
@@ -460,8 +460,8 @@ static int output_json(sd_journal *j, unsigned line, unsigned n_columns, bool sh
 
         printf("{\n"
                "\t\"__CURSOR\" : \"%s\",\n"
-               "\t\"__REALTIME\" : \"%llu\",\n"
-               "\t\"__MONOTONIC\" : \"%llu\",\n"
+               "\t\"__REALTIME_TIMESTAMP\" : \"%llu\",\n"
+               "\t\"__MONOTONIC_TIMESTAMP\" : \"%llu\",\n"
                "\t\"__BOOT_ID\" : \"%s\"",
                cursor,
                (unsigned long long) realtime,
