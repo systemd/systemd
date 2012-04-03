@@ -194,7 +194,7 @@ unsigned long long ts_usec(const struct timespec *ts);
 unsigned long long now_usec(void);
 
 /* libudev-selinux-private.c */
-#ifndef WITH_SELINUX
+#ifndef HAVE_SELINUX
 static inline void udev_selinux_init(struct udev *udev) {}
 static inline void udev_selinux_exit(struct udev *udev) {}
 static inline void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode) {}

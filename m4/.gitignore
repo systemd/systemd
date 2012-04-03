@@ -4,3 +4,4 @@ ltoptions.m4
 ltsugar.m4
 ltversion.m4
 lt~obsolete.m4
+gtk-doc.m4

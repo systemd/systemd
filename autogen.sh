@@ -21,6 +21,7 @@ if [ -f .git/hooks/pre-commit.sample -a ! -f .git/hooks/pre-commit ] ; then
     echo "Activated pre-commit hook."
 fi
 
+gtkdocize
 intltoolize --force --automake
 autoreconf --force --install --symlink
 
@@ -32,7 +33,8 @@ args="\
 --sysconfdir=/etc \
 --localstatedir=/var \
 --libdir=$(libdir /usr/lib) \
---libexecdir=/usr/lib"
+--libexecdir=/usr/lib \
+--enable-gtk-doc"
 
 if [ ! -L /bin ]; then
 args="$args \

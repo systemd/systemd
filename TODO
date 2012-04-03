@@ -342,3 +342,28 @@ Regularly:
 * pahole
 
 * set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
+
+udev:
+ - find a way to tell udev to not cancel firmware
+   requests in initramfs
+
+ - scsi_id -> sg3_utils?
+
+ - make gtk-doc optional like kmod
+
+ - move /usr/lib/udev/devices/ to tmpfiles
+
+ - trigger --subsystem-match=usb/usb_device
+
+ - kill rules_generator
+
+ - have a $attrs{} ?
+
+ - remove RUN+="socket:"
+
+ - libudev.so.1
+     - symbol versioning
+     - return object with *_unref()
+     - udev_monitor_from_socket()
+     - udev_queue_get_failed_list_entry()
+

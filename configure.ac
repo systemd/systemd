@@ -1,6 +1,7 @@
 #  This file is part of systemd.
 #
-#  Copyright 2010 Lennart Poettering
+#  Copyright 2010-2012 Lennart Poettering
+#  Copyright 2010-2012 Kay Sievers
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU General Public License as published by
@@ -18,6 +19,7 @@
 AC_PREREQ(2.63)
 
 AC_INIT([systemd],[44],[systemd-devel@lists.freedesktop.org])
+AC_SUBST(PACKAGE_URL, [http://www.freedesktop.org/wiki/Software/systemd])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -25,16 +27,15 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
 AC_PREFIX_DEFAULT([/usr])
 AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-dist-gzip dist-xz subdir-objects check-news])
-
-AC_SUBST(PACKAGE_URL, [http://www.freedesktop.org/wiki/Software/systemd])
-
+AM_SILENT_RULES([yes])
 AC_CANONICAL_HOST
 AC_DEFINE_UNQUOTED([CANONICAL_HOST], "$host", [Canonical host string.])
 AS_IF([test "x$host_cpu" = "xmips" || test "x$host_cpu" = "xmipsel" ||
        test "x$host_cpu" = "xmips64" || test "x$host_cpu" = "xmips64el"],
       [AC_DEFINE(ARCH_MIPS, [], [Whether on mips arch])])
 
-AM_SILENT_RULES([yes])
+LT_PREREQ(2.2)
+LT_INIT
 
 # i18n stuff for the PolicyKit policy files
 IT_PROG_INTLTOOL([0.40.0])
@@ -52,6 +53,9 @@ AC_PROG_CC
 AC_PROG_CC_C99
 AM_PROG_CC_C_O
 AC_PROG_GCC_TRADITIONAL
+
+AC_PATH_PROG([M4], [m4])
+GTK_DOC_CHECK(1.10)
 
 AC_CHECK_TOOL(OBJCOPY, objcopy)
 AC_CHECK_TOOL(STRINGS, strings)
@@ -110,9 +114,6 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--gc-sections])
 AC_SUBST([GCLDFLAGS], $with_ldflags)
 
-LT_PREREQ(2.2)
-LT_INIT
-
 AC_SEARCH_LIBS([clock_gettime], [rt], [], [AC_MSG_ERROR([*** POSIX RT library not found])])
 AC_SEARCH_LIBS([dlsym], [dl], [], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
 
@@ -127,10 +128,11 @@ AC_SUBST(CAP_LIBS)
 # This makes sure pkg.m4 is available.
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
 
-PKG_CHECK_MODULES(UDEV, [ libudev >= 172 ])
-PKG_CHECK_MODULES(DBUS, [ dbus-1 >= 1.3.2 ])
-PKG_CHECK_MODULES(KMOD, [ libkmod >= 5 ])
+PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2])
+PKG_CHECK_MODULES(KMOD, [libkmod >= 5])
+PKG_CHECK_MODULES(BLKID,[blkid >= 2.20])
 
+# ------------------------------------------------------------------------------
 have_ima=yes
 AC_ARG_ENABLE([ima], AS_HELP_STRING([--disable-ima],[Disable optional IMA support]),
                 [case "${enableval}" in
@@ -144,6 +146,7 @@ if test "x${have_ima}" != xno ; then
         AC_DEFINE(HAVE_IMA, 1, [Define if IMA is available])
 fi
 
+# ------------------------------------------------------------------------------
 have_selinux=no
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [Disable optional SELINUX support]))
 if test "x$enable_selinux" != "xno"; then
@@ -155,6 +158,7 @@ if test "x$enable_selinux" != "xno"; then
 fi
 AM_CONDITIONAL(HAVE_SELINUX, [test "$have_selinux" = "yes"])
 
+# ------------------------------------------------------------------------------
 have_xz=no
 AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [Disable optional XZ support]))
 if test "x$enable_xz" != "xno"; then
@@ -166,6 +170,7 @@ if test "x$enable_xz" != "xno"; then
 fi
 AM_CONDITIONAL(HAVE_XZ, [test "$have_xz" = "yes"])
 
+# ------------------------------------------------------------------------------
 AC_ARG_ENABLE([tcpwrap],
         AS_HELP_STRING([--disable-tcpwrap],[Disable optional TCP wrappers support]),
                 [case "${enableval}" in
@@ -190,6 +195,7 @@ else
 fi
 AC_SUBST(LIBWRAP_LIBS)
 
+# ------------------------------------------------------------------------------
 AC_ARG_ENABLE([pam],
         AS_HELP_STRING([--disable-pam],[Disable optional PAM support]),
                 [case "${enableval}" in
@@ -227,6 +233,7 @@ fi
 AC_SUBST(PAM_LIBS)
 AM_CONDITIONAL([HAVE_PAM], [test "x$have_pam" != xno])
 
+# ------------------------------------------------------------------------------
 AC_ARG_ENABLE([acl],
         AS_HELP_STRING([--disable-acl],[Disable optional ACL support]),
                 [case "${enableval}" in
@@ -264,6 +271,7 @@ fi
 AC_SUBST(ACL_LIBS)
 AM_CONDITIONAL([HAVE_ACL], [test "x$have_acl" != xno])
 
+# ------------------------------------------------------------------------------
 AC_ARG_ENABLE([audit],
         AS_HELP_STRING([--disable-audit],[Disable optional AUDIT support]),
                 [case "${enableval}" in
@@ -300,6 +308,7 @@ else
 fi
 AC_SUBST(AUDIT_LIBS)
 
+# ------------------------------------------------------------------------------
 have_libcryptsetup=no
 AC_ARG_ENABLE(libcryptsetup, AS_HELP_STRING([--disable-libcryptsetup], [disable libcryptsetup tools]))
 if test "x$enable_libcryptsetup" != "xno"; then
@@ -311,6 +320,7 @@ if test "x$enable_libcryptsetup" != "xno"; then
 fi
 AM_CONDITIONAL(HAVE_LIBCRYPTSETUP, [test "$have_libcryptsetup" = "yes"])
 
+# ------------------------------------------------------------------------------
 have_binfmt=no
 AC_ARG_ENABLE(binfmt, AS_HELP_STRING([--disable-binfmt], [disable binfmt tool]))
 if test "x$enable_binfmt" != "xno"; then
@@ -318,6 +328,7 @@ if test "x$enable_binfmt" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_BINFMT, [test "$have_binfmt" = "yes"])
 
+# ------------------------------------------------------------------------------
 have_vconsole=no
 AC_ARG_ENABLE(vconsole, AS_HELP_STRING([--disable-vconsole], [disable vconsole tool]))
 if test "x$enable_vconsole" != "xno"; then
@@ -325,6 +336,7 @@ if test "x$enable_vconsole" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_VCONSOLE, [test "$have_vconsole" = "yes"])
 
+# ------------------------------------------------------------------------------
 have_readahead=no
 AC_ARG_ENABLE(readahead, AS_HELP_STRING([--disable-readahead], [disable readahead tools]))
 if test "x$enable_readahead" != "xno"; then
@@ -332,6 +344,7 @@ if test "x$enable_readahead" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_READAHEAD, [test "$have_readahead" = "yes"])
 
+# ------------------------------------------------------------------------------
 have_quotacheck=no
 AC_ARG_ENABLE(quotacheck, AS_HELP_STRING([--disable-quotacheck], [disable quotacheck tools]))
 if test "x$enable_quotacheck" != "xno"; then
@@ -339,6 +352,7 @@ if test "x$enable_quotacheck" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_QUOTACHECK, [test "$have_quotacheck" = "yes"])
 
+# ------------------------------------------------------------------------------
 have_randomseed=no
 AC_ARG_ENABLE(randomseed, AS_HELP_STRING([--disable-randomseed], [disable randomseed tools]))
 if test "x$enable_randomseed" != "xno"; then
@@ -346,6 +360,7 @@ if test "x$enable_randomseed" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_RANDOMSEED, [test "$have_randomseed" = "yes"])
 
+# ------------------------------------------------------------------------------
 have_logind=no
 AC_ARG_ENABLE(logind, AS_HELP_STRING([--disable-logind], [disable login daemon]))
 if test "x$enable_logind" != "xno"; then
@@ -354,6 +369,7 @@ fi
 AM_CONDITIONAL(ENABLE_LOGIND, [test "$have_logind" = "yes"])
 AS_IF([test "$have_logind" = "yes"], [ AC_DEFINE(HAVE_LOGIND, [1], [Logind support available]) ])
 
+# ------------------------------------------------------------------------------
 have_hostnamed=no
 AC_ARG_ENABLE(hostnamed, AS_HELP_STRING([--disable-hostnamed], [disable hostname daemon]))
 if test "x$enable_hostnamed" != "xno"; then
@@ -361,6 +377,7 @@ if test "x$enable_hostnamed" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_HOSTNAMED, [test "$have_hostnamed" = "yes"])
 
+# ------------------------------------------------------------------------------
 have_timedated=no
 AC_ARG_ENABLE(timedated, AS_HELP_STRING([--disable-timedated], [disable timedate daemon]))
 if test "x$enable_timedated" != "xno"; then
@@ -368,6 +385,7 @@ if test "x$enable_timedated" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_TIMEDATED, [test "$have_timedated" = "yes"])
 
+# ------------------------------------------------------------------------------
 have_localed=no
 AC_ARG_ENABLE(localed, AS_HELP_STRING([--disable-localed], [disable locale daemon]))
 if test "x$enable_localed" != "xno"; then
@@ -375,6 +393,7 @@ if test "x$enable_localed" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_LOCALED, [test "$have_localed" = "yes"])
 
+# ------------------------------------------------------------------------------
 have_coredump=no
 AC_ARG_ENABLE(coredump, AS_HELP_STRING([--disable-coredump], [disable coredump hook]))
 if test "x$enable_coredump" != "xno"; then
@@ -382,6 +401,92 @@ if test "x$enable_coredump" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_COREDUMP, [test "$have_coredump" = "yes"])
 
+# ------------------------------------------------------------------------------
+if test "x$cross_compiling" = "xno" ; then
+       AC_CHECK_FILES([/usr/share/pci.ids], [pciids=/usr/share/pci.ids])
+       AC_CHECK_FILES([/usr/share/hwdata/pci.ids], [pciids=/usr/share/hwdata/pci.ids])
+       AC_CHECK_FILES([/usr/share/misc/pci.ids], [pciids=/usr/share/misc/pci.ids])
+fi
+
+AC_ARG_WITH(usb-ids-path,
+       [AS_HELP_STRING([--with-usb-ids-path=DIR], [Path to usb.ids file])],
+       [USB_DATABASE=${withval}],
+       [if test -n "$usbids" ; then
+              USB_DATABASE="$usbids"
+       else
+              PKG_CHECK_MODULES(USBUTILS, usbutils >= 0.82)
+              AC_SUBST([USB_DATABASE], [$($PKG_CONFIG --variable=usbids usbutils)])
+       fi])
+AC_MSG_CHECKING([for USB database location])
+AC_MSG_RESULT([$USB_DATABASE])
+AC_SUBST(USB_DATABASE)
+
+AC_ARG_WITH(pci-ids-path,
+       [AS_HELP_STRING([--with-pci-ids-path=DIR], [Path to pci.ids file])],
+       [PCI_DATABASE=${withval}],
+       [if test -n "$pciids" ; then
+              PCI_DATABASE="$pciids"
+       else
+              AC_MSG_ERROR([pci.ids not found, try --with-pci-ids-path=])
+       fi])
+AC_MSG_CHECKING([for PCI database location])
+AC_MSG_RESULT([$PCI_DATABASE])
+AC_SUBST(PCI_DATABASE)
+
+# ------------------------------------------------------------------------------
+AC_ARG_WITH(firmware-path,
+       AS_HELP_STRING([--with-firmware-path=DIR[[[:DIR[...]]]]],
+          [Firmware search path (default=ROOTPREFIX/lib/firmware/updates:ROOTPREFIX/lib/firmware)]),
+       [], [with_firmware_path="$rootprefix/lib/firmware/updates:$rootprefix/lib/firmware"])
+OLD_IFS=$IFS
+IFS=:
+for i in $with_firmware_path; do
+       if test "x${FIRMWARE_PATH}" = "x"; then
+              FIRMWARE_PATH="\\\"${i}/\\\""
+       else
+              FIRMWARE_PATH="${FIRMWARE_PATH}, \\\"${i}/\\\""
+       fi
+done
+IFS=$OLD_IFS
+AC_SUBST([FIRMWARE_PATH], [$FIRMWARE_PATH])
+
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE([gudev],
+       AS_HELP_STRING([--disable-gudev], [disable Gobject libudev support @<:@default=enabled@:>@]),
+       [], [enable_gudev=yes])
+AS_IF([test "x$enable_gudev" = "xyes"], [ PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0]) ])
+
+AC_ARG_ENABLE([introspection],
+       AS_HELP_STRING([--disable-introspection], [disable GObject introspection @<:@default=enabled@:>@]),
+       [], [enable_introspection=yes])
+AS_IF([test "x$enable_introspection" = "xyes"], [
+       PKG_CHECK_MODULES([INTROSPECTION], [gobject-introspection-1.0 >= 0.6.2])
+       AC_DEFINE([ENABLE_INTROSPECTION], [1], [enable GObject introspection support])
+       AC_SUBST([G_IR_SCANNER], [$($PKG_CONFIG --variable=g_ir_scanner gobject-introspection-1.0)])
+       AC_SUBST([G_IR_COMPILER], [$($PKG_CONFIG --variable=g_ir_compiler gobject-introspection-1.0)])
+       AC_SUBST([G_IR_GENERATE], [$($PKG_CONFIG --variable=g_ir_generate gobject-introspection-1.0)])
+       AC_SUBST([GIRDIR], [$($PKG_CONFIG --define-variable=datadir=${datadir} --variable=girdir gobject-introspection-1.0)])
+       AC_SUBST([GIRTYPELIBDIR], [$($PKG_CONFIG --define-variable=libdir=${libdir} --variable=typelibdir gobject-introspection-1.0)])
+])
+AM_CONDITIONAL([ENABLE_INTROSPECTION], [test "x$enable_introspection" = "xyes"])
+AM_CONDITIONAL([ENABLE_GUDEV], [test "x$enable_gudev" = "xyes"])
+
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE([keymap],
+       AS_HELP_STRING([--disable-keymap], [disable keymap fixup support @<:@default=enabled@:>@]),
+       [], [enable_keymap=yes])
+AS_IF([test "x$enable_keymap" = "xyes"], [
+       AC_PATH_PROG([GPERF], [gperf])
+       if test -z "$GPERF"; then
+              AC_MSG_ERROR([gperf is needed])
+       fi
+
+       AC_CHECK_HEADER([linux/input.h], [:], AC_MSG_ERROR([kernel headers not found]))
+       AC_SUBST([INCLUDE_PREFIX], [$(echo '#include <linux/input.h>' | eval $ac_cpp -E - | sed -n '/linux\/input.h/ {s:.*"\(.*\)/linux/input.h".*:\1:; p; q}')])
+])
+AM_CONDITIONAL([ENABLE_KEYMAP], [test "x$enable_keymap" = "xyes"])
+
+# ------------------------------------------------------------------------------
 have_manpages=no
 AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
 if test "x$enable_manpages" != "xno"; then
@@ -389,10 +494,9 @@ if test "x$enable_manpages" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_MANPAGES, [test "$have_manpages" = "yes"])
 
+# ------------------------------------------------------------------------------
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
-
-AC_PATH_PROG([M4], [m4])
 
 AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware, altlinux, mandriva, meego, mageia, angstrom or other]))
 if test "z$with_distro" = "z"; then
@@ -572,11 +676,6 @@ AC_ARG_WITH([dbusinterfacedir],
         [],
         [with_dbusinterfacedir=`pkg-config --variable=session_bus_services_dir dbus-1`/../interfaces])
 
-AC_ARG_WITH([udevrulesdir],
-        AS_HELP_STRING([--with-udevrulesdir=DIR], [Directory for udev rules]),
-        [],
-        [with_udevrulesdir=`pkg-config --variable=udevdir udev`/rules.d])
-
 AC_ARG_WITH([rootprefix],
         AS_HELP_STRING([--with-rootprefix=DIR], [rootfs directory prefix for config files and kernel modules]),
         [], [with_rootprefix=${ac_default_prefix}])
@@ -608,12 +707,18 @@ AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
 AC_SUBST([dbusinterfacedir], [$with_dbusinterfacedir])
-AC_SUBST([udevrulesdir], [$with_udevrulesdir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
 AC_SUBST([rootprefix], [$with_rootprefix])
 AC_SUBST([rootlibdir], [$with_rootlibdir])
 
-AC_CONFIG_FILES([Makefile po/Makefile.in])
+AC_CONFIG_FILES([
+        Makefile po/Makefile.in
+        src/udev/docs/Makefile
+        src/udev/docs/version.xml
+        src/udev/gudev/docs/Makefile
+        src/udev/gudev/docs/version.xml
+])
+
 AC_OUTPUT
 AC_MSG_RESULT([
         $PACKAGE_NAME $VERSION
@@ -641,13 +746,23 @@ AC_MSG_RESULT([
         localed:                 ${have_localed}
         coredump:                ${have_coredump}
         plymouth:                ${have_plymouth}
+        firmware path:           ${FIRMWARE_PATH}
+        usb.ids:                 ${USB_DATABASE}
+        pci.ids:                 ${PCI_DATABASE}
+        gudev:                   ${enable_gudev}
+        gintrospection:          ${enable_introspection}
+        keymap:                  ${enable_keymap}
+
         prefix:                  ${prefix}
         rootprefix:              ${with_rootprefix}
+        sysconf dir:             ${sysconfdir}
+        datarootdir:             ${datarootdir}
+        includedir:              ${includedir}
+        include_prefix:          ${INCLUDE_PREFIX}
         libexec dir:             ${libexecdir}
         lib dir:                 ${libdir}
         rootlib dir:             ${with_rootlibdir}
         PAM modules dir:         ${with_pamlibdir}
-        udev rules dir:          ${with_udevrulesdir}
         D-Bus policy dir:        ${with_dbuspolicydir}
         D-Bus session dir:       ${with_dbussessionservicedir}
         D-Bus system dir:        ${with_dbussystemservicedir}

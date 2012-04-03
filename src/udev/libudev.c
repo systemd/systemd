@@ -256,7 +256,7 @@ UDEV_EXPORT struct udev *udev_new(void)
 
         if (udev->rules_path[0] == NULL) {
                 /* /usr/lib/udev -- system rules */
-                udev->rules_path[0] = strdup(PKGLIBEXECDIR "/rules.d");
+                udev->rules_path[0] = strdup(UDEVLIBEXECDIR "/rules.d");
                 if (!udev->rules_path[0])
                         goto err;
 

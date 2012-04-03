@@ -40,3 +40,6 @@ systemd-update-utmp-runlevel.service
 systemd-update-utmp-shutdown.service
 test-env-replace
 systemd-binfmt.service
+/udev-settle.service
+/udev-trigger.service
+/udev.service

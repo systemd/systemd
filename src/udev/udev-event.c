@@ -727,7 +727,7 @@ int udev_event_spawn(struct udev_event *event,
 
         /* allow programs in /usr/lib/udev/ to be called without the path */
         if (argv[0][0] != '/') {
-                util_strscpyl(program, sizeof(program), PKGLIBEXECDIR "/", argv[0], NULL);
+                util_strscpyl(program, sizeof(program), UDEVLIBEXECDIR "/", argv[0], NULL);
                 argv[0] = program;
         }
 

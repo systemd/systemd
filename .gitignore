@@ -107,3 +107,14 @@ ltmain.sh
 *.tar.gz
 *.tar.bz2
 libtool
+/accelerometer
+/ata_id
+/cdrom_id
+/collect
+/gtk-doc.make
+/keymap
+/mtd_probe
+/scsi_id
+/udevadm
+/udevd
+/v4l_id
