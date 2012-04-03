@@ -2208,9 +2208,12 @@ static void service_enter_restart(Service *s) {
                         goto fail;
         }
 
-        service_enter_dead(s, SERVICE_SUCCESS, false);
-
-        if ((r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(s), JOB_FAIL, false, &error, NULL)) < 0)
+        /* Any units that are bound to this service must also be
+         * restarted. We use JOB_RESTART (instead of the more obvious
+         * JOB_START) here so that those dependency jobs will be added
+         * as well. */
+        r = manager_add_job(UNIT(s)->manager, JOB_RESTART, UNIT(s), JOB_FAIL, false, &error, NULL);
+        if (r < 0)
                 goto fail;
 
         log_debug("%s scheduled restart job.", UNIT(s)->id);
