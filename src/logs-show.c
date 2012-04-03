@@ -347,10 +347,10 @@ static int output_export(sd_journal *j, unsigned line, unsigned n_columns, bool 
                 return r;
         }
 
-        printf(".cursor=%s\n"
-               ".realtime=%llu\n"
-               ".monotonic=%llu\n"
-               ".boot_id=%s\n",
+        printf("__CURSOR=%s\n"
+               "__REALTIME=%llu\n"
+               "__MONOTONIC=%llu\n"
+               "__BOOT_ID=%s\n",
                cursor,
                (unsigned long long) realtime,
                (unsigned long long) monotonic,
@@ -459,10 +459,10 @@ static int output_json(sd_journal *j, unsigned line, unsigned n_columns, bool sh
                 fputs(",\n", stdout);
 
         printf("{\n"
-               "\t\".cursor\" : \"%s\",\n"
-               "\t\".realtime\" : %llu,\n"
-               "\t\".monotonic\" : %llu,\n"
-               "\t\".boot_id\" : \"%s\"",
+               "\t\"__CURSOR\" : \"%s\",\n"
+               "\t\"__REALTIME\" : \"%llu\",\n"
+               "\t\"__MONOTONIC\" : \"%llu\",\n"
+               "\t\"__BOOT_ID\" : \"%s\"",
                cursor,
                (unsigned long long) realtime,
                (unsigned long long) monotonic,
