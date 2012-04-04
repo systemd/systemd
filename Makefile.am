@@ -63,15 +63,17 @@ tmpfilesdir=$(prefix)/lib/tmpfiles.d
 sysctldir=$(prefix)/lib/sysctl.d
 usergeneratordir=$(pkglibexecdir)/user-generators
 pkgincludedir=$(includedir)/systemd
+systemgeneratordir=$(rootlibexecdir)/system-generators
+systemshutdowndir=$(rootlibexecdir)/system-shutdown
+systemunitdir=$(rootprefix)/lib/systemd/system
 udevlibexecdir=$(rootprefix)/lib/udev
+udevhomedir = $(libexecdir)/udev
+udevrulesdir = $(libexecdir)/udev/rules.d
 
 # And these are the special ones for /
 rootprefix=@rootprefix@
 rootbindir=$(rootprefix)/bin
 rootlibexecdir=$(rootprefix)/lib/systemd
-systemgeneratordir=$(rootlibexecdir)/system-generators
-systemshutdowndir=$(rootlibexecdir)/system-shutdown
-systemunitdir=$(rootprefix)/lib/systemd/system
 
 CLEANFILES =
 EXTRA_DIST =
@@ -88,10 +90,6 @@ pkgconfiglib_DATA =
 polkitpolicy_in_files =
 dist_udevrules_DATA =
 nodist_udevrules_DATA =
-udevhomedir = $(libexecdir)/udev
-udevhome_SCRIPTS =
-dist_udevhome_SCRIPTS =
-dist_udevhome_DATA =
 dist_man_MANS =
 
 AM_CPPFLAGS = \
@@ -477,17 +475,29 @@ noinst_LTLIBRARIES = \
 
 libsystemd_basic_la_SOURCES = \
 	src/util.c \
+	src/util.h \
 	src/virt.c \
+	src/virt.h \
 	src/label.c \
+	src/label.h \
 	src/hashmap.c \
+	src/hashmap.h \
 	src/set.c \
+	src/set.h \
 	src/strv.c \
+	src/strv.h \
 	src/conf-parser.c \
+	src/conf-parser.h \
 	src/socket-util.c \
+	src/socket-util.h \
 	src/log.c \
+	src/log.h \
+	src/ratelimit.h \
 	src/ratelimit.c \
 	src/exit-status.c \
-        src/utf8.c
+	src/exit-status.h \
+	src/utf8.c \
+	src/utf8.h
 
 libsystemd_basic_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -499,59 +509,131 @@ libsystemd_basic_la_LIBADD = \
 
 libsystemd_core_la_SOURCES = \
 	src/unit.c \
+	src/unit.h \
 	src/job.c \
+	src/job.h \
 	src/manager.c \
+	src/manager.h \
 	src/path-lookup.c \
+	src/path-lookup.h \
 	src/load-fragment.c \
+	src/load-fragment.h \
 	src/service.c \
+	src/service.h \
 	src/automount.c \
+	src/automount.h \
 	src/mount.c \
+	src/mount.h \
 	src/swap.c \
+	src/swap.h \
 	src/device.c \
+	src/device.h \
 	src/target.c \
+	src/target.h \
 	src/snapshot.c \
+	src/snapshot.h \
 	src/socket.c \
+	src/socket.h \
 	src/timer.c \
+	src/timer.h \
 	src/path.c \
+	src/path.h \
 	src/load-dropin.c \
+	src/load-dropin.h \
 	src/execute.c \
+	src/execute.h \
 	src/utmp-wtmp.c \
+	src/utmp-wtmp.h \
 	src/dbus.c \
+	src/dbus.h \
 	src/dbus-manager.c \
+	src/dbus-manager.h \
 	src/dbus-unit.c \
+	src/dbus-unit.h \
 	src/dbus-job.c \
+	src/dbus-job.h \
 	src/dbus-service.c \
+	src/dbus-service.h \
 	src/dbus-socket.c \
+	src/dbus-socket.h \
 	src/dbus-timer.c \
+	src/dbus-timer.h \
 	src/dbus-target.c \
+	src/dbus-target.h \
 	src/dbus-mount.c \
+	src/dbus-mount.h \
 	src/dbus-automount.c \
+	src/dbus-automount.h \
 	src/dbus-swap.c \
+	src/dbus-swap.h \
 	src/dbus-snapshot.c \
+	src/dbus-snapshot.h \
 	src/dbus-device.c \
+	src/dbus-device.h \
 	src/dbus-execute.c \
+	src/dbus-execute.h \
 	src/dbus-path.c \
+	src/dbus-path.h \
 	src/cgroup.c \
+	src/cgroup.h \
 	src/mount-setup.c \
+	src/mount-setup.h \
 	src/hostname-setup.c \
+	src/hostname-setup.h \
 	src/selinux-setup.c \
+	src/selinux-setup.h \
 	src/ima-setup.c \
+	src/ima-setup.h \
+	src/loopback-setup.h \
 	src/loopback-setup.c \
 	src/kmod-setup.c \
+	src/kmod-setup.h \
+	src/locale-setup.h \
 	src/locale-setup.c \
 	src/machine-id-setup.c \
-	src/specifier.c \
-	src/unit-name.c \
+	src/machine-id-setup.h \
 	src/fdset.c \
-	src/namespace.c \
-	src/tcpwrap.c \
+	src/fdset.h \
 	src/cgroup-util.c \
+	src/cgroup-util.h \
 	src/condition.c \
+	src/condition.h \
 	src/dbus-common.c \
-	src/sd-daemon.c \
+	src/dbus-common.h \
 	src/install.c \
+	src/install.h \
+	src/specifier.c \
+	src/namespace.c \
+	src/unit-name.c \
+	src/tcpwrap.c \
+	src/sd-daemon.c \
 	src/cgroup-attr.c \
-	src/sd-id128.c
+	src/sd-id128.c \
+	src/cgroup-attr.h \
+	src/macro.h \
+	src/def.h \
+	src/ioprio.h \
+	src/missing.h \
+	src/list.h \
+	src/securebits.h \
+	src/linux/auto_dev-ioctl.h \
+	src/linux/fanotify.h \
+	src/initreq.h \
+	src/special.h \
+	src/dbus-common.h \
+	src/bus-errors.h \
+	src/cgroup-show.h \
+	src/build.h \
+	src/shutdownd.h \
+	src/umount.h \
+	src/ask-password-api.h \
+	src/pager.h \
+	src/sysfs-show.h \
+	src/polkit.h \
+	src/dbus-loop.h \
+	src/spawn-agent.h \
+	src/acl-util.h \
+	src/logs-show.h
 
 nodist_libsystemd_core_la_SOURCES = \
 	src/load-fragment-gperf.c \
@@ -577,101 +659,6 @@ libsystemd_core_la_LIBADD = \
 	$(AUDIT_LIBS) \
 	$(CAP_LIBS) \
 	$(KMOD_LIBS)
-
-# This is needed because automake is buggy in how it generates the
-# rules for C programs, but not Vala programs.	We therefore can't
-# list the .h files as dependencies if we want make dist to work.
-
-EXTRA_DIST += \
-	src/util.h \
-	src/virt.h \
-	src/label.h \
-	src/hashmap.h \
-	src/set.h \
-	src/strv.h \
-	src/conf-parser.h \
-	src/socket-util.h \
-	src/log.h \
-	src/ratelimit.h \
-	src/exit-status.h \
-	src/unit.h \
-	src/job.h \
-	src/manager.h \
-	src/path-lookup.h \
-	src/load-fragment.h \
-	src/service.h \
-	src/automount.h \
-	src/mount.h \
-	src/swap.h \
-	src/device.h \
-	src/target.h \
-	src/snapshot.h \
-	src/socket.h \
-	src/timer.h \
-	src/path.h \
-	src/load-dropin.h \
-	src/execute.h \
-	src/utmp-wtmp.h \
-	src/dbus.h \
-	src/dbus-manager.h \
-	src/dbus-unit.h \
-	src/dbus-job.h \
-	src/dbus-service.h \
-	src/dbus-socket.h \
-	src/dbus-timer.h \
-	src/dbus-target.h \
-	src/dbus-mount.h \
-	src/dbus-automount.h \
-	src/dbus-swap.h \
-	src/dbus-snapshot.h \
-	src/dbus-device.h \
-	src/dbus-execute.h \
-	src/dbus-path.h \
-	src/cgroup.h \
-	src/mount-setup.h \
-	src/hostname-setup.h \
-	src/selinux-setup.h \
-	src/loopback-setup.h \
-	src/kmod-setup.h \
-	src/locale-setup.h \
-	src/machine-id-setup.h \
-	src/specifier.h \
-	src/unit-name.h \
-	src/fdset.h \
-	src/namespace.h \
-	src/tcpwrap.h \
-	src/cgroup-util.h \
-	src/condition.h \
-	src/dbus-common.h \
-	src/install.h \
-	src/cgroup-attr.h \
-	src/macro.h \
-	src/def.h \
-	src/ioprio.h \
-	src/missing.h \
-	src/list.h \
-	src/securebits.h \
-	src/linux/auto_dev-ioctl.h \
-	src/linux/fanotify.h \
-	src/initreq.h \
-	src/special.h \
-	src/dbus-common.h \
-	src/bus-errors.h \
-	src/cgroup-show.h \
-	src/build.h \
-	src/shutdownd.h \
-	src/umount.h \
-	src/ask-password-api.h \
-	src/pager.h \
-	src/sysfs-show.h \
-	src/polkit.h \
-	src/dbus-loop.h \
-	src/spawn-agent.h \
-	src/acl-util.h \
-	src/logs-show.h \
-	src/utf8.h \
-	src/journal/sparse-endian.h \
-	src/ima-setup.h
 
 MANPAGES = \
 	man/systemd.1 \
@@ -1196,7 +1183,6 @@ udev-confdirs:
 
 INSTALL_DATA_HOOKS += udev-confdirs
 
-udevrulesdir = $(libexecdir)/udev/rules.d
 dist_udevrules_DATA += \
 	rules/99-systemd.rules \
 	rules/42-usb-hid-pm.rules \
@@ -1623,10 +1609,10 @@ dist_udevrules_DATA += \
 	src/udev/keymap/95-keymap.rules \
 	src/udev/keymap/95-keyboard-force-release.rules
 
-dist_udevhome_SCRIPTS += \
+dist_udevhome_SCRIPTS = \
 	src/udev/keymap/findkeyboards
 
-udevhome_SCRIPTS += \
+udevhome_SCRIPTS = \
 	src/udev/keymap/keyboard-force-release.sh
 
 EXTRA_DIST += \
@@ -1806,6 +1792,7 @@ systemd_journald_SOURCES = \
 	src/journal/journal-file.c \
 	src/journal/lookup3.c \
 	src/journal/journal-rate-limit.c \
+	src/journal/sparse-endian.h \
 	src/sd-id128.c \
 	src/cgroup-util.c
 
