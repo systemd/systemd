@@ -1152,8 +1152,12 @@ libudev_private_la_SOURCES =\
 	$(libudev_la_SOURCES) \
 	src/udev/libudev-util-private.c \
 	src/udev/libudev-device-private.c \
-	src/udev/libudev-queue-private.c \
+	src/udev/libudev-queue-private.c
+
+if HAVE_SELINUX
+libudev_private_la_SOURCES +=\
 	src/udev/libudev-selinux-private.c
+endif
 
 libudev_private_la_LIBADD = \
 	$(SELINUX_LIBS)
