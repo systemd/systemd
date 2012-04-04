@@ -31,19 +31,13 @@ udev_log_null(struct udev *udev, const char *format, ...) {}
       udev_log(udev, prio, __FILE__, __LINE__, __FUNCTION__, ## arg); \
   } while (0)
 
-#ifdef ENABLE_LOGGING
-#  ifdef ENABLE_DEBUG
-#    define dbg(udev, arg...) udev_log_cond(udev, LOG_DEBUG, ## arg)
-#  else
-#    define dbg(udev, arg...) udev_log_null(udev, ## arg)
-#  endif
-#  define info(udev, arg...) udev_log_cond(udev, LOG_INFO, ## arg)
-#  define err(udev, arg...) udev_log_cond(udev, LOG_ERR, ## arg)
+#ifdef ENABLE_DEBUG
+#  define dbg(udev, arg...) udev_log_cond(udev, LOG_DEBUG, ## arg)
 #else
 #  define dbg(udev, arg...) udev_log_null(udev, ## arg)
-#  define info(udev, arg...) udev_log_null(udev, ## arg)
-#  define err(udev, arg...) udev_log_null(udev, ## arg)
 #endif
+#define info(udev, arg...) udev_log_cond(udev, LOG_INFO, ## arg)
+#define err(udev, arg...) udev_log_cond(udev, LOG_ERR, ## arg)
 
 #define UDEV_EXPORT __attribute__ ((visibility("default")))
 
