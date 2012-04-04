@@ -68,7 +68,9 @@
                 <para>If a match argument is passed the output is
                 filtered accordingly. A match is in the format
                 <literal>FIELD=VALUE</literal>,
-                e.g. <literal>_SYSTEMD_UNIT=httpd.service</literal>.</para>
+                e.g. <literal>_SYSTEMD_UNIT=httpd.service</literal>. See
+                <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                for a list of well-known fields.</para>
 
                 <para>Output is interleaved from all accessible
                 journal files, whether they are rotated or currently
@@ -253,6 +255,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>

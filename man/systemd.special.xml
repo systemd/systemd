@@ -44,20 +44,24 @@
 
         <refnamediv>
                 <refname>systemd.special</refname>
-                <refpurpose>special systemd units</refpurpose>
+                <refpurpose>Special systemd units</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <para><filename>basic.target</filename>,
                 <filename>ctrl-alt-del.target</filename>,
                 <filename>dbus.service</filename>,
+                <filename>dbus.socket</filename>,
                 <filename>default.target</filename>,
                 <filename>display-manager.service</filename>,
                 <filename>emergency.target</filename>,
                 <filename>exit.service</filename>,
+                <filename>final.service</filename>,
                 <filename>graphical.target</filename>,
+                <filename>http-daemon.target</filename>,
                 <filename>halt.target</filename>,
                 <filename>kbrequest.target</filename>,
+                <filename>kexec.target</filename>,
                 <filename>local-fs.target</filename>,
                 <filename>local-fs-pre.target</filename>,
                 <filename>mail-transfer-agent.target</filename>,
@@ -79,11 +83,9 @@
                 <filename>sockets.target</filename>,
                 <filename>swap.target</filename>,
                 <filename>sysinit.target</filename>,
+                <filename>syslog.service</filename>,
+                <filename>syslog.socket</filename>,
                 <filename>syslog.target</filename>,
-                <filename>systemd-initctl.service</filename>,
-                <filename>systemd-initctl.socket</filename>,
-                <filename>systemd-stdout-syslog-bridge.service</filename>,
-                <filename>systemd-stdout-syslog-bridge.socket</filename>,
                 <filename>time-sync.target</filename>,
                 <filename>umount.target</filename></para>
         </refsynopsisdiv>
@@ -146,6 +148,18 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>dbus.socket</filename></term>
+                                <listitem>
+                                        <para>A special unit for the
+                                        D-Bus system bus socket. All
+                                        units with
+                                        <literal>Type=dbus</literal>
+                                        automatically gain a
+                                        dependency on this
+                                        unit.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>default.target</filename></term>
                                 <listitem>
                                         <para>The default unit systemd
@@ -168,7 +182,7 @@
                                         <para>The display manager
                                         service. Usually this should
                                         be aliased (symlinked) to
-                                        <filename>xdm.service</filename>
+                                        <filename>gdm.service</filename>
                                         or a similar display manager
                                         service.</para>
                                         <para>systemd automatically
@@ -197,6 +211,19 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>final.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        that is used during the
+                                        shutdown logic and may be used
+                                        to pull in late services after
+                                        all normal services are
+                                        already terminated and all
+                                        mounts unmounted.
+                                        </para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>graphical.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
@@ -210,6 +237,22 @@
                                         unit to this unit (or
                                         <filename>multi-user.target</filename>)
                                         during installation.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>http-daemon.target</filename></term>
+                                <listitem>
+                                        <para>A target for pulling in
+                                        an HTTP server if there is
+                                        any.</para>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After for this target unit to
+                                        all SysV init script service
+                                        units with a LSB header
+                                        referring to the
+                                        <literal>$httpd</literal>
+                                        facility.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -232,6 +275,17 @@
                                         is a good candidate to be
                                         aliased (symlinked) to
                                         <filename>rescue.target</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>kexec.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        for shutting down and rebooting the system via kexec.</para>
+
+                                        <para>Applications wanting to
+                                        reboot the system with kexec should start
+                                        this unit.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -555,6 +609,28 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>syslog.service</filename></term>
+                                <listitem>
+                                        <para>The syslog service if
+                                        any. Implementations should
+                                        create a symlink from the
+                                        actual syslog implementation
+                                        to this generic name for
+                                        activating it.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>syslog.socket</filename></term>
+                                <listitem>
+                                        <para>The socket unit where
+                                        syslog implementations should
+                                        listen on. All userspace log
+                                        messages will be made
+                                        available on this
+                                        socket.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>syslog.target</filename></term>
                                 <listitem>
                                         <para>systemd automatically
@@ -565,74 +641,6 @@
                                         referring to the
                                         <literal>$syslog</literal>
                                         facility.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>systemd-initctl.service</filename></term>
-                                <listitem>
-                                        <para>This provides
-                                        compatibility with the SysV
-                                        /dev/initctl file system FIFO
-                                        for communication with the
-                                        init system.</para>
-                                        <para>This is a
-                                        socket-activated service, see
-                                        <filename>system-initctl.socket</filename>.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>systemd-initctl.socket</filename></term>
-                                <listitem>
-                                        <para>Socket activation unit
-                                        for
-                                        <filename>system-initctl.service</filename>.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>systemd-stdout-syslog-bridge.service</filename></term>
-                                <listitem>
-                                        <para>This is internally used
-                                        by systemd to provide syslog
-                                        logging to the processes it
-                                        maintains.</para>
-                                        <para>This is a
-                                        socket-activated service, see
-                                        <filename>system-stdout-syslog-bridge.socket</filename>.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>systemd-stdout-syslog-bridge.socket</filename></term>
-                                <listitem>
-                                        <para>Socket activation unit
-                                        for
-                                        <filename>system-stdout-syslog-bridge.service</filename>. systemd
-                                        will automatically add
-                                        dependencies of types Requires
-                                        and After to all units that
-                                        have been configured for
-                                        stdout or stderr to be
-                                        connected to syslog or the
-                                        kernel log buffer.</para>
-                                </listitem>
-                        </varlistentry>
-                         <varlistentry>
-                                <term><filename>systemd-shutdownd.service</filename></term>
-                                <listitem>
-                                        <para>This is internally used
-                                        by
-                                        <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                                        to implement delayed shutdowns.</para>
-                                        <para>This is a
-                                        socket-activated service, see
-                                        <filename>system-shutdownd.socket</filename>.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>systemd-shutdownd.socket</filename></term>
-                                <listitem>
-                                        <para>Socket activation unit
-                                        for
-                                        <filename>system-shutdownd.service</filename>.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -676,11 +684,8 @@
                 following special units are available, which have
                 similar definitions as their system counterparts:
                 <filename>default.target</filename>,
-                <filename>local-fs.target</filename>,
-                <filename>remote-fs.target</filename>,
                 <filename>shutdown.target</filename>,
-                <filename>sockets.target</filename>,
-                <filename>swap.target</filename>.</para>
+                <filename>sockets.target</filename></para>
 
                 <para>In addition the following special unit is
                 understood only when systemd runs as service instance:</para>
@@ -715,6 +720,7 @@
         <refsect1>
                   <title>See Also</title>
                   <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

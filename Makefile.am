@@ -692,6 +692,7 @@ MANPAGES = \
 	man/systemd.snapshot.5 \
 	man/systemd.exec.5 \
 	man/systemd.special.7 \
+        man/systemd.journal-fields.7 \
 	man/daemon.7 \
 	man/runlevel.8 \
 	man/telinit.8 \

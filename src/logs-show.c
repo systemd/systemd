@@ -348,9 +348,9 @@ static int output_export(sd_journal *j, unsigned line, unsigned n_columns, bool 
         }
 
         printf("__CURSOR=%s\n"
-               "__REALTIME=%llu\n"
-               "__MONOTONIC=%llu\n"
-               "__BOOT_ID=%s\n",
+               "__REALTIME_TIMESTAMP=%llu\n"
+               "__MONOTONIC_TIMESTAMP=%llu\n"
+               "_BOOT_ID=%s\n",
                cursor,
                (unsigned long long) realtime,
                (unsigned long long) monotonic,
@@ -359,6 +359,12 @@ static int output_export(sd_journal *j, unsigned line, unsigned n_columns, bool 
         free(cursor);
 
         SD_JOURNAL_FOREACH_DATA(j, data, length) {
+
+                /* We already printed the boot id, from the data in
+                 * the header, hence let's suppress it here */
+                if (length >= 9 &&
+                    memcmp(data, "_BOOT_ID=", 9) == 0)
+                        continue;
 
                 if (contains_unprintable(data, length)) {
                         const char *c;
@@ -460,9 +466,9 @@ static int output_json(sd_journal *j, unsigned line, unsigned n_columns, bool sh
 
         printf("{\n"
                "\t\"__CURSOR\" : \"%s\",\n"
-               "\t\"__REALTIME\" : \"%llu\",\n"
-               "\t\"__MONOTONIC\" : \"%llu\",\n"
-               "\t\"__BOOT_ID\" : \"%s\"",
+               "\t\"__REALTIME_TIMESTAMP\" : \"%llu\",\n"
+               "\t\"__MONOTONIC_TIMESTAMP\" : \"%llu\",\n"
+               "\t\"_BOOT_ID\" : \"%s\"",
                cursor,
                (unsigned long long) realtime,
                (unsigned long long) monotonic,
@@ -472,6 +478,12 @@ static int output_json(sd_journal *j, unsigned line, unsigned n_columns, bool sh
 
         SD_JOURNAL_FOREACH_DATA(j, data, length) {
                 const char *c;
+
+                /* We already printed the boot id, from the data in
+                 * the header, hence let's suppress it here */
+                if (length >= 9 &&
+                    memcmp(data, "_BOOT_ID=", 9) == 0)
+                        continue;
 
                 c = memchr(data, '=', length);
                 if (!c) {
