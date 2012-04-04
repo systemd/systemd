@@ -16,6 +16,7 @@
 #include <signal.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "macro.h"
 #include "libudev.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -38,8 +39,6 @@ udev_log_null(struct udev *udev, const char *format, ...) {}
 #endif
 #define info(udev, arg...) udev_log_cond(udev, LOG_INFO, ## arg)
 #define err(udev, arg...) udev_log_cond(udev, LOG_ERR, ## arg)
-
-#define UDEV_EXPORT __attribute__ ((visibility("default")))
 
 static inline void udev_log_init(const char *program_name)
 {

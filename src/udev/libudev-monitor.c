@@ -122,7 +122,7 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
  *
  * Returns: a new udev monitor, or #NULL, in case of an error
  **/
-UDEV_EXPORT struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path)
+_public_ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path)
 {
         struct udev_monitor *udev_monitor;
         struct stat statbuf;
@@ -227,7 +227,7 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
  *
  * Returns: a new udev monitor, or #NULL, in case of an error
  **/
-UDEV_EXPORT struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name)
+_public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name)
 {
         return udev_monitor_new_from_netlink_fd(udev, name, -1);
 }
@@ -264,7 +264,7 @@ static inline void bpf_jmp(struct sock_filter *inss, unsigned int *i,
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-UDEV_EXPORT int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
+_public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
 {
         struct sock_filter ins[512];
         struct sock_fprog filter;
@@ -376,7 +376,7 @@ int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct 
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-UDEV_EXPORT int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
+_public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 {
         int err = 0;
         const int on = 1;
@@ -433,7 +433,7 @@ UDEV_EXPORT int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
  *
  * Returns: 0 on success, otherwise -1 on error.
  */
-UDEV_EXPORT int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size)
+_public_ int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size)
 {
         if (udev_monitor == NULL)
                 return -1;
@@ -457,7 +457,7 @@ int udev_monitor_disconnect(struct udev_monitor *udev_monitor)
  *
  * Returns: the passed udev monitor
  **/
-UDEV_EXPORT struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor)
+_public_ struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor)
 {
         if (udev_monitor == NULL)
                 return NULL;
@@ -474,7 +474,7 @@ UDEV_EXPORT struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_moni
  * will be released.
  *
  **/
-UDEV_EXPORT void udev_monitor_unref(struct udev_monitor *udev_monitor)
+_public_ void udev_monitor_unref(struct udev_monitor *udev_monitor)
 {
         if (udev_monitor == NULL)
                 return;
@@ -497,7 +497,7 @@ UDEV_EXPORT void udev_monitor_unref(struct udev_monitor *udev_monitor)
  *
  * Returns: the udev library context
  **/
-UDEV_EXPORT struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor)
+_public_ struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor)
 {
         if (udev_monitor == NULL)
                 return NULL;
@@ -512,7 +512,7 @@ UDEV_EXPORT struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor
  *
  * Returns: the socket file descriptor
  **/
-UDEV_EXPORT int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
+_public_ int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
 {
         if (udev_monitor == NULL)
                 return -1;
@@ -571,7 +571,7 @@ tag:
  *
  * Returns: a new udev device, or #NULL, in case of an error
  **/
-UDEV_EXPORT struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monitor)
+_public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monitor)
 {
         struct udev_device *udev_device;
         struct msghdr smsg;
@@ -823,7 +823,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-UDEV_EXPORT int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_monitor, const char *subsystem, const char *devtype)
+_public_ int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_monitor, const char *subsystem, const char *devtype)
 {
         if (udev_monitor == NULL)
                 return -EINVAL;
@@ -846,7 +846,7 @@ UDEV_EXPORT int udev_monitor_filter_add_match_subsystem_devtype(struct udev_moni
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-UDEV_EXPORT int udev_monitor_filter_add_match_tag(struct udev_monitor *udev_monitor, const char *tag)
+_public_ int udev_monitor_filter_add_match_tag(struct udev_monitor *udev_monitor, const char *tag)
 {
         if (udev_monitor == NULL)
                 return -EINVAL;
@@ -865,7 +865,7 @@ UDEV_EXPORT int udev_monitor_filter_add_match_tag(struct udev_monitor *udev_moni
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-UDEV_EXPORT int udev_monitor_filter_remove(struct udev_monitor *udev_monitor)
+_public_ int udev_monitor_filter_remove(struct udev_monitor *udev_monitor)
 {
         static struct sock_fprog filter = { 0, NULL };
 

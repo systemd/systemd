@@ -98,7 +98,7 @@ struct udev_device {
  *
  * Returns: the kernel event sequence number, or 0 if there is no sequence number available.
  **/
-UDEV_EXPORT unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device)
+_public_ unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return 0;
@@ -138,7 +138,7 @@ static int udev_device_set_ifindex(struct udev_device *udev_device, int ifindex)
  *
  * Returns: the device major/minor number.
  **/
-UDEV_EXPORT dev_t udev_device_get_devnum(struct udev_device *udev_device)
+_public_ dev_t udev_device_get_devnum(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return makedev(0, 0);
@@ -187,7 +187,7 @@ static int udev_device_set_devpath_old(struct udev_device *udev_device, const ch
  *
  * Returns: the driver string, or #NULL if there is no driver attached.
  **/
-UDEV_EXPORT const char *udev_device_get_driver(struct udev_device *udev_device)
+_public_ const char *udev_device_get_driver(struct udev_device *udev_device)
 {
         char driver[UTIL_NAME_SIZE];
 
@@ -220,7 +220,7 @@ static int udev_device_set_driver(struct udev_device *udev_device, const char *d
  *
  * Returns: the devtype name of the udev device, or #NULL if it can not be determined
  **/
-UDEV_EXPORT const char *udev_device_get_devtype(struct udev_device *udev_device)
+_public_ const char *udev_device_get_devtype(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return NULL;
@@ -262,7 +262,7 @@ static int udev_device_set_subsystem(struct udev_device *udev_device, const char
  *
  * Returns: the subsystem name of the udev device, or #NULL if it can not be determined
  **/
-UDEV_EXPORT const char *udev_device_get_subsystem(struct udev_device *udev_device)
+_public_ const char *udev_device_get_subsystem(struct udev_device *udev_device)
 {
         char subsystem[UTIL_NAME_SIZE];
 
@@ -442,7 +442,7 @@ int udev_device_add_property_from_string_parse_finish(struct udev_device *udev_d
  *
  * Returns: the value of a device property, or #NULL if there is no such property.
  **/
-UDEV_EXPORT const char *udev_device_get_property_value(struct udev_device *udev_device, const char *key)
+_public_ const char *udev_device_get_property_value(struct udev_device *udev_device, const char *key)
 {
         struct udev_list_entry *list_entry;
 
@@ -623,7 +623,7 @@ struct udev_device *udev_device_new(struct udev *udev)
  *
  * Returns: a new udev device, or #NULL, if it does not exist
  **/
-UDEV_EXPORT struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath)
+_public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath)
 {
         size_t len;
         const char *subdir;
@@ -699,7 +699,7 @@ UDEV_EXPORT struct udev_device *udev_device_new_from_syspath(struct udev *udev, 
  *
  * Returns: a new udev device, or #NULL, if it does not exist
  **/
-UDEV_EXPORT struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum)
+_public_ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum)
 {
         char path[UTIL_PATH_SIZE];
         const char *type_str;
@@ -787,7 +787,7 @@ struct udev_device *udev_device_new_from_id_filename(struct udev *udev, char *id
  *
  * Returns: a new udev device, or #NULL, if it does not exist
  **/
-UDEV_EXPORT struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev, const char *subsystem, const char *sysname)
+_public_ struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev, const char *subsystem, const char *sysname)
 {
         char path_full[UTIL_PATH_SIZE];
         char *path;
@@ -871,7 +871,7 @@ found:
  *
  * Returns: a new udev device, or #NULL, if it does not exist
  **/
-UDEV_EXPORT struct udev_device *udev_device_new_from_environment(struct udev *udev)
+_public_ struct udev_device *udev_device_new_from_environment(struct udev *udev)
 {
         int i;
         struct udev_device *udev_device;
@@ -934,7 +934,7 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
  *
  * Returns: a new udev device, or #NULL, if it no parent exist.
  **/
-UDEV_EXPORT struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
+_public_ struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return NULL;
@@ -969,7 +969,7 @@ UDEV_EXPORT struct udev_device *udev_device_get_parent(struct udev_device *udev_
  *
  * Returns: a new udev device, or #NULL if no matching parent exists.
  **/
-UDEV_EXPORT struct udev_device *udev_device_get_parent_with_subsystem_devtype(struct udev_device *udev_device, const char *subsystem, const char *devtype)
+_public_ struct udev_device *udev_device_get_parent_with_subsystem_devtype(struct udev_device *udev_device, const char *subsystem, const char *devtype)
 {
         struct udev_device *parent;
 
@@ -1002,7 +1002,7 @@ UDEV_EXPORT struct udev_device *udev_device_get_parent_with_subsystem_devtype(st
  *
  * Returns: the udev library context
  **/
-UDEV_EXPORT struct udev *udev_device_get_udev(struct udev_device *udev_device)
+_public_ struct udev *udev_device_get_udev(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return NULL;
@@ -1017,7 +1017,7 @@ UDEV_EXPORT struct udev *udev_device_get_udev(struct udev_device *udev_device)
  *
  * Returns: the passed udev device
  **/
-UDEV_EXPORT struct udev_device *udev_device_ref(struct udev_device *udev_device)
+_public_ struct udev_device *udev_device_ref(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return NULL;
@@ -1033,7 +1033,7 @@ UDEV_EXPORT struct udev_device *udev_device_ref(struct udev_device *udev_device)
  * the resources of the device will be released.
  *
  **/
-UDEV_EXPORT void udev_device_unref(struct udev_device *udev_device)
+_public_ void udev_device_unref(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return;
@@ -1071,7 +1071,7 @@ UDEV_EXPORT void udev_device_unref(struct udev_device *udev_device)
  *
  * Returns: the devpath of the udev device
  **/
-UDEV_EXPORT const char *udev_device_get_devpath(struct udev_device *udev_device)
+_public_ const char *udev_device_get_devpath(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return NULL;
@@ -1087,7 +1087,7 @@ UDEV_EXPORT const char *udev_device_get_devpath(struct udev_device *udev_device)
  *
  * Returns: the sys path of the udev device
  **/
-UDEV_EXPORT const char *udev_device_get_syspath(struct udev_device *udev_device)
+_public_ const char *udev_device_get_syspath(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return NULL;
@@ -1100,7 +1100,7 @@ UDEV_EXPORT const char *udev_device_get_syspath(struct udev_device *udev_device)
  *
  * Returns: the sys name of the device device
  **/
-UDEV_EXPORT const char *udev_device_get_sysname(struct udev_device *udev_device)
+_public_ const char *udev_device_get_sysname(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return NULL;
@@ -1113,7 +1113,7 @@ UDEV_EXPORT const char *udev_device_get_sysname(struct udev_device *udev_device)
  *
  * Returns: the trailing number of of the device name
  **/
-UDEV_EXPORT const char *udev_device_get_sysnum(struct udev_device *udev_device)
+_public_ const char *udev_device_get_sysnum(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return NULL;
@@ -1129,7 +1129,7 @@ UDEV_EXPORT const char *udev_device_get_sysnum(struct udev_device *udev_device)
  *
  * Returns: the device node file name of the udev device, or #NULL if no device node exists
  **/
-UDEV_EXPORT const char *udev_device_get_devnode(struct udev_device *udev_device)
+_public_ const char *udev_device_get_devnode(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return NULL;
@@ -1153,7 +1153,7 @@ UDEV_EXPORT const char *udev_device_get_devnode(struct udev_device *udev_device)
  *
  * Returns: the first entry of the device node link list
  **/
-UDEV_EXPORT struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *udev_device)
+_public_ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return NULL;
@@ -1180,7 +1180,7 @@ void udev_device_cleanup_devlinks_list(struct udev_device *udev_device)
  *
  * Returns: the first entry of the property list
  **/
-UDEV_EXPORT struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device *udev_device)
+_public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return NULL;
@@ -1233,7 +1233,7 @@ UDEV_EXPORT struct udev_list_entry *udev_device_get_properties_list_entry(struct
  *
  * Returns: the kernel action value, or #NULL if there is no action value available.
  **/
-UDEV_EXPORT const char *udev_device_get_action(struct udev_device *udev_device)
+_public_ const char *udev_device_get_action(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return NULL;
@@ -1252,7 +1252,7 @@ UDEV_EXPORT const char *udev_device_get_action(struct udev_device *udev_device)
  *
  * Returns: the number of microseconds since the device was first seen.
  **/
-UDEV_EXPORT unsigned long long int udev_device_get_usec_since_initialized(struct udev_device *udev_device)
+_public_ unsigned long long int udev_device_get_usec_since_initialized(struct udev_device *udev_device)
 {
         unsigned long long now;
 
@@ -1292,7 +1292,7 @@ void udev_device_set_usec_initialized(struct udev_device *udev_device, unsigned 
  *
  * Returns: the content of a sys attribute file, or #NULL if there is no sys attribute value.
  **/
-UDEV_EXPORT const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const char *sysattr)
+_public_ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const char *sysattr)
 {
         struct udev_list_entry *list_entry;
         char path[UTIL_PATH_SIZE];
@@ -1439,7 +1439,7 @@ static int udev_device_sysattr_list_read(struct udev_device *udev_device)
  *
  * Returns: the first entry of the property list
  **/
-UDEV_EXPORT struct udev_list_entry *udev_device_get_sysattr_list_entry(struct udev_device *udev_device)
+_public_ struct udev_list_entry *udev_device_get_sysattr_list_entry(struct udev_device *udev_device)
 {
         if (!udev_device->sysattr_list_read) {
                 int ret;
@@ -1564,7 +1564,7 @@ const char *udev_device_get_id_filename(struct udev_device *udev_device)
  *
  * Returns: 1 if the device is set up. 0 otherwise.
  **/
-UDEV_EXPORT int udev_device_get_is_initialized(struct udev_device *udev_device)
+_public_ int udev_device_get_is_initialized(struct udev_device *udev_device)
 {
         if (!udev_device->info_loaded)
                 udev_device_read_db(udev_device, NULL);
@@ -1603,7 +1603,7 @@ void udev_device_cleanup_tags_list(struct udev_device *udev_device)
  *
  * Returns: the first entry of the tag list
  **/
-UDEV_EXPORT struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_device *udev_device)
+_public_ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
                 return NULL;
@@ -1612,7 +1612,7 @@ UDEV_EXPORT struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_
         return udev_list_get_entry(&udev_device->tags_list);
 }
 
-UDEV_EXPORT int udev_device_has_tag(struct udev_device *udev_device, const char *tag)
+_public_ int udev_device_has_tag(struct udev_device *udev_device, const char *tag)
 {
         struct udev_list_entry *list_entry;
 

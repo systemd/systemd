@@ -443,7 +443,7 @@ int util_replace_chars(char *str, const char *white)
  *
  * Returns: 0 if the entire string was copied, non-zero otherwise.
  **/
-UDEV_EXPORT int udev_util_encode_string(const char *str, char *str_enc, size_t len)
+_public_ int udev_util_encode_string(const char *str, char *str_enc, size_t len)
 {
         size_t i, j;
 

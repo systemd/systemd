@@ -79,7 +79,7 @@ static void log_stderr(struct udev *udev,
  *
  * Returns: stored userdata
  **/
-UDEV_EXPORT void *udev_get_userdata(struct udev *udev)
+_public_ void *udev_get_userdata(struct udev *udev)
 {
         if (udev == NULL)
                 return NULL;
@@ -93,7 +93,7 @@ UDEV_EXPORT void *udev_get_userdata(struct udev *udev)
  *
  * Store custom @userdata in the library context.
  **/
-UDEV_EXPORT void udev_set_userdata(struct udev *udev, void *userdata)
+_public_ void udev_set_userdata(struct udev *udev, void *userdata)
 {
         if (udev == NULL)
                 return;
@@ -119,7 +119,7 @@ static char *set_value(char **s, const char *v)
  *
  * Returns: a new udev library context
  **/
-UDEV_EXPORT struct udev *udev_new(void)
+_public_ struct udev *udev_new(void)
 {
         struct udev *udev;
         const char *env;
@@ -296,7 +296,7 @@ err:
  *
  * Returns: the passed udev library context
  **/
-UDEV_EXPORT struct udev *udev_ref(struct udev *udev)
+_public_ struct udev *udev_ref(struct udev *udev)
 {
         if (udev == NULL)
                 return NULL;
@@ -312,7 +312,7 @@ UDEV_EXPORT struct udev *udev_ref(struct udev *udev)
  * reaches zero, the resources of the context will be released.
  *
  **/
-UDEV_EXPORT void udev_unref(struct udev *udev)
+_public_ void udev_unref(struct udev *udev)
 {
         if (udev == NULL)
                 return;
@@ -340,7 +340,7 @@ UDEV_EXPORT void udev_unref(struct udev *udev)
  * into the users' logging functionality.
  *
  **/
-UDEV_EXPORT void udev_set_log_fn(struct udev *udev,
+_public_ void udev_set_log_fn(struct udev *udev,
                      void (*log_fn)(struct udev *udev,
                                     int priority, const char *file, int line, const char *fn,
                                     const char *format, va_list args))
@@ -358,7 +358,7 @@ UDEV_EXPORT void udev_set_log_fn(struct udev *udev,
  *
  * Returns: the current logging priority
  **/
-UDEV_EXPORT int udev_get_log_priority(struct udev *udev)
+_public_ int udev_get_log_priority(struct udev *udev)
 {
         return udev->log_priority;
 }
@@ -371,7 +371,7 @@ UDEV_EXPORT int udev_get_log_priority(struct udev *udev)
  * Set the current logging priority. The value controls which messages
  * are logged.
  **/
-UDEV_EXPORT void udev_set_log_priority(struct udev *udev, int priority)
+_public_ void udev_set_log_priority(struct udev *udev, int priority)
 {
         char num[32];
 
@@ -398,7 +398,7 @@ int udev_get_rules_path(struct udev *udev, char **path[], unsigned long long *st
  *
  * Returns: the sys mount point
  **/
-UDEV_EXPORT const char *udev_get_sys_path(struct udev *udev)
+_public_ const char *udev_get_sys_path(struct udev *udev)
 {
         if (udev == NULL)
                 return NULL;
@@ -415,7 +415,7 @@ UDEV_EXPORT const char *udev_get_sys_path(struct udev *udev)
  *
  * Returns: the device directory path
  **/
-UDEV_EXPORT const char *udev_get_dev_path(struct udev *udev)
+_public_ const char *udev_get_dev_path(struct udev *udev)
 {
         if (udev == NULL)
                 return NULL;
@@ -430,7 +430,7 @@ UDEV_EXPORT const char *udev_get_dev_path(struct udev *udev)
  *
  * Returns: the runtime directory path
  **/
-UDEV_EXPORT const char *udev_get_run_path(struct udev *udev)
+_public_ const char *udev_get_run_path(struct udev *udev)
 {
         if (udev == NULL)
                 return NULL;
