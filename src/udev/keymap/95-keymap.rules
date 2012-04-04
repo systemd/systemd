@@ -83,6 +83,7 @@ ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="ThinkPad X2[02]* Tab
 ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="*IdeaPad*", RUN+="keymap $name lenovo-ideapad"
 ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_name}=="S10-*", RUN+="keymap $name lenovo-ideapad"
 ENV{DMI_VENDOR}=="LENOVO", ATTR{[dmi/id]product_version}=="*IdeaPad Y550*", RUN+="keymap $name 0x95 media 0xA3 play"
+ENV{DMI_VENDOR}=="LENOVO", ATTR{[dmi/id]product_version}=="*Lenovo V480*", RUN+="keymap $name 0xf1 f21"
 
 ENV{DMI_VENDOR}=="Hewlett-Packard*", RUN+="keymap $name hewlett-packard"
 ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[tT][aA][bB][lL][eE][tT]*", RUN+="keymap $name hewlett-packard-tablet"
