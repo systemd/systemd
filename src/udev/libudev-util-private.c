@@ -116,11 +116,11 @@ int util_delete_path(struct udev *udev, const char *path)
 uid_t util_lookup_user(struct udev *udev, const char *user)
 {
         char *endptr;
-        size_t buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
-        char buf[buflen];
         struct passwd pwbuf;
         struct passwd *pw;
         uid_t uid;
+        size_t buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+        char *buf = alloca(buflen);
 
         if (strcmp(user, "root") == 0)
                 return 0;
@@ -141,11 +141,11 @@ uid_t util_lookup_user(struct udev *udev, const char *user)
 gid_t util_lookup_group(struct udev *udev, const char *group)
 {
         char *endptr;
-        size_t buflen = sysconf(_SC_GETGR_R_SIZE_MAX);
-        char *buf;
         struct group grbuf;
         struct group *gr;
         gid_t gid = 0;
+        size_t buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+        char *buf = alloca(buflen);
 
         if (strcmp(group, "root") == 0)
                 return 0;

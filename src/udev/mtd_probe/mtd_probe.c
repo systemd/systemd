@@ -28,19 +28,22 @@
 
 int main(int argc, char** argv)
 {
+        int mtd_fd;
+        int error;
+        mtd_info_t mtd_info;
+
         if (argc != 2) {
                 printf("usage: mtd_probe /dev/mtd[n]\n");
                 return 1;
         }
 
-        int mtd_fd = open(argv[1], O_RDONLY);
+        mtd_fd = open(argv[1], O_RDONLY);
         if (mtd_fd == -1) {
                 perror("open");
                 exit(-1);
         }
 
-        mtd_info_t mtd_info;
-        int error = ioctl(mtd_fd, MEMGETINFO, &mtd_info);
+        error = ioctl(mtd_fd, MEMGETINFO, &mtd_info);
         if (error == -1) {
                 perror("ioctl");
                 exit(-1);

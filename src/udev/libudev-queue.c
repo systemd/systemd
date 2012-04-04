@@ -171,7 +171,7 @@ ssize_t udev_queue_skip_devpath(FILE *queue_file)
         unsigned short int len;
 
         if (fread(&len, sizeof(unsigned short int), 1, queue_file) == 1) {
-                char devpath[len];
+                char *devpath = alloca(len);
 
                 /* use fread to skip, fseek might drop buffered data */
                 if (fread(devpath, 1, len, queue_file) == len)
@@ -197,7 +197,7 @@ ssize_t udev_queue_read_devpath(FILE *queue_file, char *devpath, size_t size)
         /* if devpath was too long, skip unread characters */
         if (read_bytes != len) {
                 unsigned short int skip_bytes = len - read_bytes;
-                char buf[skip_bytes];
+                char *buf = alloca(skip_bytes);
 
                 if (fread(buf, 1, skip_bytes, queue_file) != skip_bytes)
                         return -1;

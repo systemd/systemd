@@ -418,8 +418,9 @@ int main(int argc, char **argv)
                         /* Keymap file argument is a filename */
                         /* Open override file if present, otherwise default file */
                         char keymap_path[PATH_MAX];
+                        FILE *f;
                         snprintf(keymap_path, sizeof(keymap_path), "%s%s", SYSCONFDIR "/udev/keymaps/", filearg);
-                        FILE *f = fopen(keymap_path, "r");
+                        f = fopen(keymap_path, "r");
                         if (f) {
                                 merge_table(fd, f);
                         } else {

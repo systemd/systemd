@@ -36,7 +36,13 @@ static const uint8_t cis_signature[] = {
 
 void probe_smart_media(int mtd_fd, mtd_info_t* info)
 {
+        int sector_size;
+        int block_size;
+        int size_in_megs;
+        int spare_count;
         char* cis_buffer = malloc(SM_SECTOR_SIZE);
+        int offset;
+        int cis_found = 0;
 
         if (!cis_buffer)
                 return;
@@ -44,11 +50,9 @@ void probe_smart_media(int mtd_fd, mtd_info_t* info)
         if (info->type != MTD_NANDFLASH)
                 goto exit;
 
-        int sector_size = info->writesize;
-        int block_size = info->erasesize;
-        int size_in_megs = info->size / (1024 * 1024);
-        int spare_count;
-
+        sector_size = info->writesize;
+        block_size = info->erasesize;
+        size_in_megs = info->size / (1024 * 1024);
 
         if (sector_size != SM_SECTOR_SIZE && sector_size != SM_SMALL_PAGE)
                 goto exit;
@@ -66,13 +70,8 @@ void probe_smart_media(int mtd_fd, mtd_info_t* info)
                 break;
         }
 
-
-        int offset;
-        int cis_found = 0;
-
         for (offset = 0 ; offset < block_size * spare_count ;
                                                 offset += sector_size) {
-
                 lseek(mtd_fd, SEEK_SET, offset);
                 if (read(mtd_fd, cis_buffer, SM_SECTOR_SIZE) == SM_SECTOR_SIZE){
                         cis_found = 1;

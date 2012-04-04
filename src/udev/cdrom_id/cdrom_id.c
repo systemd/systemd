@@ -138,7 +138,7 @@ static bool is_mounted(const char *device)
         return mounted;
 }
 
-static void info_scsi_cmd_err(struct udev *udev, char *cmd, int err)
+static void info_scsi_cmd_err(struct udev *udev, const char *cmd, int err)
 {
         if (err == -1) {
                 info(udev, "%s failed\n", cmd);
