@@ -11,4 +11,4 @@ Type=notify
 OOMScoreAdjust=-1000
 Sockets=udev-control.socket udev-kernel.socket
 Restart=on-failure
-ExecStart=@pkglibexecdir@/udevd
+ExecStart=@udevlibexecdir@/udevd
