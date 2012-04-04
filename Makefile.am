@@ -603,13 +603,17 @@ libsystemd_core_la_SOURCES = \
 	src/install.c \
 	src/install.h \
 	src/specifier.c \
+	src/specifier.h \
 	src/namespace.c \
+	src/namespace.h \
 	src/unit-name.c \
+	src/unit-name.h \
 	src/tcpwrap.c \
-	src/sd-daemon.c \
+	src/tcpwrap.h \
 	src/cgroup-attr.c \
-	src/sd-id128.c \
 	src/cgroup-attr.h \
+	src/sd-daemon.c \
+	src/sd-id128.c \
 	src/macro.h \
 	src/def.h \
 	src/ioprio.h \
