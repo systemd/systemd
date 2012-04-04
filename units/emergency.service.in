@@ -8,35 +8,23 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=Rescue Shell
+Description=Emergency Shell
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=basic.target plymouth-start.service
 Before=shutdown.target
 
 [Service]
 Environment=HOME=/root
 WorkingDirectory=/root
 ExecStartPre=-/bin/plymouth quit
-ExecStartPre=-/bin/echo 'Welcome to rescue mode. Use "systemctl default" or ^D to enter default mode.'
-m4_ifdef(`TARGET_FEDORA',
-`EnvironmentFile=/etc/sysconfig/init
-ExecStart=-/bin/bash -c "exec ${SINGLE}"',
-m4_ifdef(`TARGET_MANDRIVA',
-`EnvironmentFile=/etc/sysconfig/init
-ExecStart=-/bin/bash -c "exec ${SINGLE}"',
-m4_ifdef(`TARGET_MAGEIA',
-`EnvironmentFile=/etc/sysconfig/init
-ExecStart=-/bin/bash -c "exec ${SINGLE}"',
-m4_ifdef(`TARGET_MEEGO',
-`EnvironmentFile=/etc/sysconfig/init
-ExecStart=-/bin/bash -c "exec ${SINGLE}"',
-`ExecStart=-/sbin/sulogin'))))
-ExecStopPost=-/bin/systemctl --fail --no-block default
+ExecStartPre=-/bin/echo 'Welcome to emergency mode. Use "systemctl default" or ^D to enter default mode.'
+ExecStart=-/sbin/sulogin
+ExecStopPost=@SYSTEMCTL@ --fail --no-block default
 StandardInput=tty-force
 StandardOutput=inherit
 StandardError=inherit
 KillMode=process
+IgnoreSIGPIPE=no
 
 # Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
 # terminates cleanly.

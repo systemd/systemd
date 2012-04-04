@@ -338,6 +338,7 @@ nodist_systemunit_DATA = \
 	units/systemd-ask-password-console.service \
 	units/systemd-sysctl.service \
 	units/halt.service \
+	units/emergency.service \
 	units/poweroff.service \
 	units/reboot.service \
 	units/kexec.service \
@@ -359,8 +360,8 @@ nodist_userunit_DATA = \
 EXTRA_DIST += \
 	units/getty@.service.m4 \
 	units/serial-getty@.service.m4 \
-	units/console-shell.service.m4 \
-	units/rescue.service.m4 \
+	units/console-shell.service.m4.in \
+	units/rescue.service.m4.in \
 	units/systemd-initctl.service.in \
 	units/systemd-shutdownd.service.in \
 	units/systemd-modules-load.service.in \
@@ -372,6 +373,7 @@ EXTRA_DIST += \
 	units/systemd-ask-password-wall.service.in \
 	units/systemd-ask-password-console.service.in \
 	units/systemd-sysctl.service.in \
+	units/emergency.service.in \
 	units/halt.service.in \
 	units/poweroff.service.in \
 	units/reboot.service.in \

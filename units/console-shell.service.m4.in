@@ -5,21 +5,34 @@
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
 
-# See systemd.special(7) for details
-
 [Unit]
-Description=Emergency Shell
-DefaultDependencies=no
-Conflicts=shutdown.target
-Before=shutdown.target
+Description=Console Shell
+After=systemd-user-sessions.service plymouth-quit-wait.service
+m4_ifdef(`TARGET_FEDORA',
+After=rc-local.service
+)m4_dnl
+m4_ifdef(`TARGET_ARCH',
+After=rc-local.service
+)m4_dnl
+m4_ifdef(`TARGET_FRUGALWARE',
+After=local.service
+)m4_dnl
+m4_ifdef(`TARGET_ALTLINUX',
+After=rc-local.service
+)m4_dnl
+m4_ifdef(`TARGET_MANDRIVA',
+After=rc-local.service
+)m4_dnl
+m4_ifdef(`TARGET_MAGEIA',
+After=rc-local.service
+)m4_dnl
+Before=getty.target
 
 [Service]
 Environment=HOME=/root
 WorkingDirectory=/root
-ExecStartPre=-/bin/plymouth quit
-ExecStartPre=-/bin/echo 'Welcome to emergency mode. Use "systemctl default" or ^D to enter default mode.'
 ExecStart=-/sbin/sulogin
-ExecStopPost=/bin/systemctl --fail --no-block default
+ExecStopPost=-@SYSTEMCTL@ poweroff
 StandardInput=tty-force
 StandardOutput=inherit
 StandardError=inherit
@@ -29,3 +42,6 @@ IgnoreSIGPIPE=no
 # Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
 # terminates cleanly.
 KillSignal=SIGHUP
+
+[Install]
+WantedBy=getty.target
