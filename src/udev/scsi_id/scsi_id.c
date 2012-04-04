@@ -78,7 +78,7 @@ static void set_type(const char *from, char *to, size_t len)
 {
         int type_num;
         char *eptr;
-        char *type = "generic";
+        const char *type = "generic";
 
         type_num = strtoul(from, &eptr, 0);
         if (eptr != from) {
@@ -122,10 +122,10 @@ static void set_type(const char *from, char *to, size_t len)
  */
 static char *get_value(char **buffer)
 {
-        static char *quote_string = "\"\n";
-        static char *comma_string = ",\n";
+        static const char *quote_string = "\"\n";
+        static const char *comma_string = ",\n";
         char *val;
-        char *end;
+        const char *end;
 
         if (**buffer == '"') {
                 /*

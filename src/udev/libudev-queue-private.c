@@ -119,7 +119,7 @@ static int skip_to(FILE *file, long offset)
         old_offset = ftell(file);
         if (offset > old_offset && offset - old_offset <= BUFSIZ) {
                 size_t skip_bytes = offset - old_offset;
-                char buf[skip_bytes];
+                char *buf = alloca(skip_bytes);
 
                 if (fread(buf, skip_bytes, 1, file) != skip_bytes)
                         return -1;
