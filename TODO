@@ -16,6 +16,26 @@ Bugfixes:
 
 Features:
 
+* make gtk-doc optional (like kmod?)
+
+* udev: find a way to tell udev to not cancel firmware requests in initramfs
+
+* udev: scsi_id -> sg3_utils?
+
+* udev: kill /usr/lib/udev/devices/ and use tmpfiles for it
+
+* udev: add trigger --subsystem-match=usb/usb_device
+
+* udev: remove RUN+="socket:"
+
+* udev: libudev.so.1
+  - use symbol versioning
+  - return object with *_unref()
+  - kill: udev_monitor_from_socket()
+  - kill: udev_queue_get_failed_list_entry()
+
+* udev: use systemd log.h
+
 * allow configuration of console width/height in vconsole.conf
 
 * PrivateTmp should apply to both /tmp and /var/tmp
@@ -342,28 +362,3 @@ Regularly:
 * pahole
 
 * set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
-
-udev:
- - find a way to tell udev to not cancel firmware
-   requests in initramfs
-
- - scsi_id -> sg3_utils?
-
- - make gtk-doc optional like kmod
-
- - move /usr/lib/udev/devices/ to tmpfiles
-
- - trigger --subsystem-match=usb/usb_device
-
- - kill rules_generator
-
- - have a $attrs{} ?
-
- - remove RUN+="socket:"
-
- - libudev.so.1
-     - symbol versioning
-     - return object with *_unref()
-     - udev_monitor_from_socket()
-     - udev_queue_get_failed_list_entry()
-
