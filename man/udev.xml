@@ -6,7 +6,21 @@
 <refentry id="udev">
   <refentryinfo>
     <title>udev</title>
-    <productname>udev</productname>
+    <productname>systemd</productname>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Greg</firstname>
+        <surname>Kroah-Hartmann</surname>
+        <email>greg@kroah.com</email>
+      </author>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Kay</firstname>
+        <surname>Sievers</surname>
+        <email>kay@vrfy.org</email>
+      </author>
+    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -675,12 +689,6 @@
         </varlistentry>
       </variablelist>
     </refsect2>
-  </refsect1>
-
-  <refsect1><title>Author</title>
-    <para>Written by Greg Kroah-Hartman <email>greg@kroah.com</email> and
-    Kay Sievers <email>kay.sievers@vrfy.org</email>. With much help from
-    Dan Stekloff and many others.</para>
   </refsect1>
 
   <refsect1>

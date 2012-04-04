@@ -6,7 +6,15 @@
 <refentry id="udevadm">
   <refentryinfo>
     <title>udevadm</title>
-    <productname>udev</productname>
+    <productname>systemd</productname>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Kay</firstname>
+        <surname>Sievers</surname>
+        <email>kay@vrfy.org</email>
+      </author>
+    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -454,10 +462,6 @@
         </varlistentry>
       </variablelist>
     </refsect2>
-  </refsect1>
-
-  <refsect1><title>Author</title>
-    <para>Written by Kay Sievers <email>kay.sievers@vrfy.org</email>.</para>
   </refsect1>
 
   <refsect1>
