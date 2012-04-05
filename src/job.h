@@ -24,6 +24,7 @@
 
 #include <stdbool.h>
 #include <inttypes.h>
+#include <errno.h>
 
 typedef struct Job Job;
 typedef struct JobDependency JobDependency;
@@ -37,6 +38,7 @@ typedef enum JobResult JobResult;
 #include "hashmap.h"
 #include "list.h"
 
+/* Be careful when changing the job types! Adjust job_merging_table[] accordingly! */
 enum JobType {
         JOB_START,                  /* if a unit does not support being started, we'll just wait until it becomes active */
         JOB_VERIFY_ACTIVE,
@@ -145,10 +147,29 @@ bool job_is_anchor(Job *j);
 
 int job_merge(Job *j, Job *other);
 
-int job_type_merge(JobType *a, JobType b);
-bool job_type_is_mergeable(JobType a, JobType b);
-bool job_type_is_superset(JobType a, JobType b);
-bool job_type_is_conflicting(JobType a, JobType b);
+JobType job_type_lookup_merge(JobType a, JobType b);
+
+static inline int job_type_merge(JobType *a, JobType b) {
+        JobType t = job_type_lookup_merge(*a, b);
+        if (t < 0)
+                return -EEXIST;
+        *a = t;
+        return 0;
+}
+
+static inline bool job_type_is_mergeable(JobType a, JobType b) {
+        return job_type_lookup_merge(a, b) >= 0;
+}
+
+static inline bool job_type_is_conflicting(JobType a, JobType b) {
+        return !job_type_is_mergeable(a, b);
+}
+
+static inline bool job_type_is_superset(JobType a, JobType b) {
+        /* Checks whether operation a is a "superset" of b in its actions */
+        return a == job_type_lookup_merge(a, b);
+}
+
 bool job_type_is_redundant(JobType a, UnitActiveState b);
 
 bool job_is_runnable(Job *j);
