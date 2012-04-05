@@ -144,6 +144,9 @@ struct Manager {
         char **environment;
         char **default_controllers;
 
+        usec_t runtime_watchdog;
+        usec_t shutdown_watchdog;
+
         dual_timestamp initrd_timestamp;
         dual_timestamp startup_timestamp;
         dual_timestamp finish_timestamp;

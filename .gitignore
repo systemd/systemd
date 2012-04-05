@@ -1,3 +1,4 @@
+/test-watchdog
 /test-journal-send
 /systemd-multi-seat-x
 /systemd-cgtop

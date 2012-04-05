@@ -85,8 +85,6 @@ Features:
 
 * There's currently no way to cancel fsck (used to be possible via C-c or c on the console)
 
-* hook up /dev/watchdog with main event loop for embedded, server uses
-
 * when dumping cgroup contents, include main/control PID of a service, explicitly
 
 * keep an eye on https://bugzilla.gnome.org/show_bug.cgi?id=670100

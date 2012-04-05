@@ -229,7 +229,8 @@ noinst_PROGRAMS = \
 	test-cgroup \
 	test-env-replace \
 	test-strv \
-	test-install
+	test-install \
+        test-watchdog
 
 dist_pkgsysconf_DATA = \
 	src/system.conf \
@@ -612,6 +613,8 @@ libsystemd_core_la_SOURCES = \
 	src/tcpwrap.h \
 	src/cgroup-attr.c \
 	src/cgroup-attr.h \
+        src/watchdog.c \
+        src/watchdog.h \
 	src/sd-daemon.c \
 	src/sd-id128.c \
 	src/macro.h \
@@ -820,6 +823,14 @@ test_install_CFLAGS = \
 test_install_LDADD = \
 	libsystemd-basic.la
 
+test_watchdog_SOURCES = \
+        src/test-watchdog.c \
+	src/watchdog.c \
+        src/watchdog.h
+
+test_watchdog_LDADD = \
+	libsystemd-basic.la
+
 systemd_initctl_SOURCES = \
 	src/initctl.c \
 	src/dbus-common.c
@@ -862,7 +873,9 @@ systemd_shutdownd_LDADD = \
 systemd_shutdown_SOURCES = \
 	src/mount-setup.c \
 	src/umount.c \
-	src/shutdown.c
+	src/shutdown.c \
+        src/watchdog.c \
+        src/watchdog.h
 
 systemd_shutdown_LDADD = \
 	libsystemd-basic.la \

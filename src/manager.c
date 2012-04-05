@@ -61,6 +61,7 @@
 #include "bus-errors.h"
 #include "exit-status.h"
 #include "virt.h"
+#include "watchdog.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -2433,6 +2434,7 @@ static int process_event(Manager *m, struct epoll_event *ev) {
 
 int manager_loop(Manager *m) {
         int r;
+        int wait_msec = -1;
 
         RATELIMIT_DEFINE(rl, 1*USEC_PER_SEC, 50000);
 
@@ -2447,17 +2449,29 @@ int manager_loop(Manager *m) {
 
         /* There might still be some zombies hanging around from
          * before we were exec()'ed. Leat's reap them */
-        if ((r = manager_dispatch_sigchld(m)) < 0)
+        r = manager_dispatch_sigchld(m);
+        if (r < 0)
                 return r;
+
+        /* Sleep for half the watchdog time */
+        if (m->runtime_watchdog > 0 && m->running_as == MANAGER_SYSTEM)  {
+                wait_msec = (int) (m->runtime_watchdog / 2 / USEC_PER_MSEC);
+                if (wait_msec <= 0)
+                        wait_msec = 1;
+        }
 
         while (m->exit_code == MANAGER_RUNNING) {
                 struct epoll_event event;
                 int n;
 
+                if (wait_msec >= 0)
+                        watchdog_ping();
+
                 if (!ratelimit_test(&rl)) {
                         /* Yay, something is going seriously wrong, pause a little */
                         log_warning("Looping too fast. Throttling execution a little.");
                         sleep(1);
+                        continue;
                 }
 
                 if (manager_dispatch_load_queue(m) > 0)
@@ -2481,17 +2495,20 @@ int manager_loop(Manager *m) {
                 if (swap_dispatch_reload(m) > 0)
                         continue;
 
-                if ((n = epoll_wait(m->epoll_fd, &event, 1, -1)) < 0) {
+                n = epoll_wait(m->epoll_fd, &event, 1, wait_msec);
+                if (n < 0) {
 
                         if (errno == EINTR)
                                 continue;
 
                         return -errno;
-                }
+                } else if (n == 0)
+                        continue;
 
                 assert(n == 1);
 
-                if ((r = process_event(m, &event)) < 0)
+                r = process_event(m, &event);
+                if (r < 0)
                         return r;
         }
 

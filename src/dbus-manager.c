@@ -240,7 +240,9 @@
         "  <property name=\"SwapAuto\" type=\"b\" access=\"read\"/>\n"  \
         "  <property name=\"DefaultControllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardOutput\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"DefaultStandardError\" type=\"s\" access=\"read\"/>\n"
+        "  <property name=\"DefaultStandardError\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"RuntimeWatchdogUSec\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"ShutdownWatchdogUSec\" type=\"s\" access=\"read\"/>\n"
 
 #ifdef HAVE_SYSV_COMPAT
 #define BUS_MANAGER_INTERFACE_PROPERTIES_SYSV                           \
@@ -491,7 +493,10 @@ static int bus_manager_send_unit_files_changed(Manager *m) {
         return r;
 }
 
-static const char systemd_property_string[] = PACKAGE_STRING "\0" DISTRIBUTION "\0" SYSTEMD_FEATURES;
+static const char systemd_property_string[] =
+        PACKAGE_STRING "\0"
+        DISTRIBUTION "\0"
+        SYSTEMD_FEATURES;
 
 static const BusProperty bus_systemd_properties[] = {
         { "Version",       bus_property_append_string,    "s",  0                                             },
@@ -502,7 +507,7 @@ static const BusProperty bus_systemd_properties[] = {
 
 static const BusProperty bus_manager_properties[] = {
         { "RunningAs",     bus_manager_append_running_as,          "s", offsetof(Manager, running_as)                  },
-        { "Tainted",       bus_manager_append_tainted,             "s", 0 },
+        { "Tainted",       bus_manager_append_tainted,             "s", 0                                              },
         { "InitRDTimestamp", bus_property_append_uint64,           "t", offsetof(Manager, initrd_timestamp.realtime)   },
         { "InitRDTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, initrd_timestamp.monotonic)  },
         { "StartupTimestamp", bus_property_append_uint64,          "t", offsetof(Manager, startup_timestamp.realtime)  },
@@ -511,11 +516,11 @@ static const BusProperty bus_manager_properties[] = {
         { "FinishTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, finish_timestamp.monotonic)  },
         { "LogLevel",      bus_manager_append_log_level,           "s", 0,                                             0, bus_manager_set_log_level },
         { "LogTarget",     bus_manager_append_log_target,          "s", 0,                                             0, bus_manager_set_log_target },
-        { "NNames",        bus_manager_append_n_names,             "u", 0 },
-        { "NJobs",         bus_manager_append_n_jobs,              "u", 0 },
+        { "NNames",        bus_manager_append_n_names,             "u", 0                                              },
+        { "NJobs",         bus_manager_append_n_jobs,              "u", 0                                              },
         { "NInstalledJobs",bus_property_append_uint32,             "u", offsetof(Manager, n_installed_jobs)            },
         { "NFailedJobs",   bus_property_append_uint32,             "u", offsetof(Manager, n_failed_jobs)               },
-        { "Progress",      bus_manager_append_progress,            "d", 0 },
+        { "Progress",      bus_manager_append_progress,            "d", 0                                              },
         { "Environment",   bus_property_append_strv,              "as", offsetof(Manager, environment),                true },
         { "ConfirmSpawn",  bus_property_append_bool,               "b", offsetof(Manager, confirm_spawn)               },
         { "ShowStatus",    bus_property_append_bool,               "b", offsetof(Manager, show_status)                 },
@@ -527,6 +532,8 @@ static const BusProperty bus_manager_properties[] = {
         { "DefaultControllers", bus_property_append_strv,         "as", offsetof(Manager, default_controllers),        true },
         { "DefaultStandardOutput", bus_manager_append_exec_output, "s", offsetof(Manager, default_std_output)          },
         { "DefaultStandardError",  bus_manager_append_exec_output, "s", offsetof(Manager, default_std_error)           },
+        { "RuntimeWatchdogUSec", bus_property_append_usec,         "t", offsetof(Manager, runtime_watchdog),           },
+        { "ShutdownWatchdogUSec", bus_property_append_usec,        "t", offsetof(Manager, shutdown_watchdog),          },
 #ifdef HAVE_SYSV_COMPAT
         { "SysVConsole",   bus_property_append_bool,               "b", offsetof(Manager, sysv_console)                },
         { "SysVInitPath",  bus_property_append_strv,              "as", offsetof(Manager, lookup_paths.sysvinit_path), true },

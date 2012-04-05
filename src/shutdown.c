@@ -42,6 +42,7 @@
 #include "umount.h"
 #include "util.h"
 #include "virt.h"
+#include "watchdog.h"
 
 #define TIMEOUT_USEC (5 * USEC_PER_SEC)
 #define FINALIZE_ATTEMPTS 50
@@ -306,7 +307,7 @@ int main(int argc, char *argv[]) {
         int cmd, r;
         unsigned retries;
         bool need_umount = true, need_swapoff = true, need_loop_detach = true, need_dm_detach = true;
-        bool killed_everbody = false, in_container;
+        bool killed_everbody = false, in_container, use_watchdog = false;
 
         log_parse_environment();
         log_set_target(LOG_TARGET_CONSOLE); /* syslog will die if not gone yet */
@@ -342,6 +343,8 @@ int main(int argc, char *argv[]) {
                 goto error;
         }
 
+        use_watchdog = !!getenv("WATCHDOG_USEC");
+
         /* lock us into memory */
         if (mlockall(MCL_CURRENT|MCL_FUTURE) != 0)
                 log_warning("Cannot lock process memory: %m");
@@ -358,6 +361,9 @@ int main(int argc, char *argv[]) {
         /* Unmount all mountpoints, swaps, and loopback devices */
         for (retries = 0; retries < FINALIZE_ATTEMPTS; retries++) {
                 bool changed = false;
+
+                if (use_watchdog)
+                        watchdog_ping();
 
                 if (need_umount) {
                         log_info("Unmounting file systems.");

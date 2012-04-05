@@ -54,6 +54,7 @@
 #include "strv.h"
 #include "def.h"
 #include "virt.h"
+#include "watchdog.h"
 
 static enum {
         ACTION_RUN,
@@ -80,6 +81,8 @@ static char **arg_default_controllers = NULL;
 static char ***arg_join_controllers = NULL;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
+static usec_t arg_runtime_watchdog = 0;
+static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
 
 static FILE* serialization = NULL;
 
@@ -660,6 +663,8 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output  },
                 { "Manager", "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error   },
                 { "Manager", "JoinControllers",       config_parse_join_controllers, 0, &arg_join_controllers },
+                { "Manager", "RuntimeWatchdogSec",    config_parse_usec,         0, &arg_runtime_watchdog    },
+                { "Manager", "ShutdownWatchdogSec",   config_parse_usec,         0, &arg_shutdown_watchdog   },
                 { NULL, NULL, NULL, 0, NULL }
         };
 
@@ -1163,6 +1168,7 @@ int main(int argc, char *argv[]) {
         bool is_reexec = false;
         int j;
         bool loaded_policy = false;
+        bool arm_reboot_watchdog = false;
 
 #ifdef HAVE_SYSV_COMPAT
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
@@ -1391,7 +1397,11 @@ int main(int argc, char *argv[]) {
                 test_cgroups();
         }
 
-        if ((r = manager_new(arg_running_as, &m)) < 0) {
+        if (arg_running_as == MANAGER_SYSTEM && arg_runtime_watchdog > 0)
+                watchdog_set_timeout(&arg_runtime_watchdog);
+
+        r = manager_new(arg_running_as, &m);
+        if (r < 0) {
                 log_error("Failed to allocate manager object: %s", strerror(-r));
                 goto finish;
         }
@@ -1404,6 +1414,8 @@ int main(int argc, char *argv[]) {
         m->swap_auto = arg_swap_auto;
         m->default_std_output = arg_default_std_output;
         m->default_std_error = arg_default_std_error;
+        m->runtime_watchdog = arg_runtime_watchdog;
+        m->shutdown_watchdog = arg_shutdown_watchdog;
 
         if (dual_timestamp_is_set(&initrd_timestamp))
                 m->initrd_timestamp = initrd_timestamp;
@@ -1415,7 +1427,8 @@ int main(int argc, char *argv[]) {
 
         before_startup = now(CLOCK_MONOTONIC);
 
-        if ((r = manager_startup(m, serialization, fds)) < 0)
+        r = manager_startup(m, serialization, fds);
+        if (r < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));
 
         if (fds) {
@@ -1438,7 +1451,8 @@ int main(int argc, char *argv[]) {
 
                 log_debug("Activating default unit: %s", arg_default_unit);
 
-                if ((r = manager_load_unit(m, arg_default_unit, NULL, &error, &target)) < 0) {
+                r = manager_load_unit(m, arg_default_unit, NULL, &error, &target);
+                if (r < 0) {
                         log_error("Failed to load default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
                 } else if (target->load_state == UNIT_ERROR)
@@ -1449,7 +1463,8 @@ int main(int argc, char *argv[]) {
                 if (!target || target->load_state != UNIT_LOADED) {
                         log_info("Trying to load rescue target...");
 
-                        if ((r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target)) < 0) {
+                        r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target);
+                        if (r < 0) {
                                 log_error("Failed to load rescue target: %s", bus_error(&error, r));
                                 dbus_error_free(&error);
                                 goto finish;
@@ -1491,7 +1506,8 @@ int main(int argc, char *argv[]) {
         }
 
         for (;;) {
-                if ((r = manager_loop(m)) < 0) {
+                r = manager_loop(m);
+                if (r < 0) {
                         log_error("Failed to run mainloop: %s", strerror(-r));
                         goto finish;
                 }
@@ -1505,7 +1521,8 @@ int main(int argc, char *argv[]) {
 
                 case MANAGER_RELOAD:
                         log_info("Reloading.");
-                        if ((r = manager_reload(m)) < 0)
+                        r = manager_reload(m);
+                        if (r < 0)
                                 log_error("Failed to reload: %s", strerror(-r));
                         break;
 
@@ -1529,6 +1546,7 @@ int main(int argc, char *argv[]) {
                         };
 
                         assert_se(shutdown_verb = table[m->exit_code]);
+                        arm_reboot_watchdog = m->exit_code == MANAGER_REBOOT;
 
                         log_notice("Shutting down.");
                         goto finish;
@@ -1615,13 +1633,33 @@ finish:
                 fdset_free(fds);
 
         if (shutdown_verb) {
+                char e[32];
+
                 const char * command_line[] = {
                         SYSTEMD_SHUTDOWN_BINARY_PATH,
                         shutdown_verb,
                         NULL
                 };
+                const char * env_block[] = {
+                        NULL,
+                        NULL
+                };
 
-                execv(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line);
+                if (arm_reboot_watchdog && arg_shutdown_watchdog > 0) {
+                        /* If we reboot let's set the shutdown
+                         * watchdog and tell the shutdown binary to
+                         * repeatedly ping it */
+                        watchdog_set_timeout(&arg_shutdown_watchdog);
+                        watchdog_close(false);
+
+                        /* Tell the binary how often to ping */
+                        snprintf(e, sizeof(e), "WATCHDOG_USEC=%llu", (unsigned long long) arg_shutdown_watchdog);
+                        char_array_0(e);
+                        env_block[0] = e;
+                } else
+                        watchdog_close(true);
+
+                execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, (char**) env_block);
                 log_error("Failed to execute shutdown binary, freezing: %m");
         }
 

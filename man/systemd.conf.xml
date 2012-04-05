@@ -149,6 +149,51 @@
                                 controllers in separate
                                 hierarchies.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>RuntimeWatchdogSec=</varname></term>
+                                <term><varname>ShutdownWatchdogSec=</varname></term>
+
+                                <listitem><para>Configure the hardware
+                                watchdog at runtime and at
+                                reboot. Takes a timeout value in
+                                seconds (or in other time units if
+                                suffixed with <literal>ms</literal>,
+                                <literal>min</literal>,
+                                <literal>h</literal>,
+                                <literal>d</literal>,
+                                <literal>w</literal>). If
+                                <varname>RuntimeWatchdogSec=</varname>
+                                is set to a non-zero value the
+                                watchdog hardware
+                                (<filename>/dev/watchdog</filename>)
+                                will be programmed to automatically
+                                reboot the system if it is not
+                                contacted within the specified timeout
+                                interval. The system manager will
+                                ensure to contact it at least once in
+                                half the specified timeout
+                                interval. This feature requires a
+                                hardware watchdog device to be
+                                present, as it is commonly the case in
+                                embedded and server systems. Not all
+                                hardware watchdogs allow configuration
+                                of the reboot timeout, in which case
+                                the closest available timeout is
+                                picked. <varname>ShutdownWatchdogSec=</varname>
+                                may be used to configure the hardware
+                                watchdog when the system is asked to
+                                reboot. It works as a safety net to
+                                ensure that the reboot takes place
+                                even if a clean reboot attempt times
+                                out. By default
+                                <varname>RuntimeWatchdogSec=</varname>
+                                defaults to 0 (off), and
+                                <varname>ShutdownWatchdogSec=</varname>
+                                to 10min. These settings have no
+                                effect if a hardware watchdog is not
+                                available.</para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 
