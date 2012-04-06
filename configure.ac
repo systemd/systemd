@@ -18,7 +18,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[44],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[182],[systemd-devel@lists.freedesktop.org])
 AC_SUBST(PACKAGE_URL, [http://www.freedesktop.org/wiki/Software/systemd])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])

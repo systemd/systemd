@@ -1,6 +1,8 @@
 systemd System and Service Manager
 
-CHANGES WITH:
+CHANGES WITH 182:
+        * udev sources merged
+
         * systemd-logingctl and systemd-journalctl have been renamed
           to logingctl and journalctl to match systemctl.
 
