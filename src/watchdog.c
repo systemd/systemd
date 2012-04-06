@@ -98,6 +98,7 @@ static int open_watchdog(void) {
 }
 
 int watchdog_set_timeout(usec_t *usec) {
+        int r;
 
         watchdog_timeout = *usec;
 
@@ -107,11 +108,13 @@ int watchdog_set_timeout(usec_t *usec) {
                 return 0;
 
         if (watchdog_fd < 0)
-                return open_watchdog();
+                r = open_watchdog();
         else
-                return update_timeout();
+                r = update_timeout();
 
         *usec = watchdog_timeout;
+
+        return r;
 }
 
 int watchdog_ping(void) {
