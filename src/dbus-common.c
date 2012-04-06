@@ -402,6 +402,7 @@ get_prop:
                 const BusProperty *p;
                 DBusMessageIter sub;
                 char *sig;
+                void *data;
 
                 if (!dbus_message_iter_init(message, &iter) ||
                     dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
@@ -456,7 +457,10 @@ set_prop:
 
                 dbus_free(sig);
 
-                r = p->set(&sub, property);
+                data = (char*)bp->base + p->offset;
+                if (p->indirect)
+                        data = *(void**)data;
+                r = p->set(&sub, property, data);
                 if (r < 0) {
                         if (r == -ENOMEM)
                                 goto oom;

@@ -326,7 +326,7 @@ static int bus_manager_append_log_target(DBusMessageIter *i, const char *propert
         return 0;
 }
 
-static int bus_manager_set_log_target(DBusMessageIter *i, const char *property) {
+static int bus_manager_set_log_target(DBusMessageIter *i, const char *property, void *data) {
         const char *t;
 
         assert(i);
@@ -351,7 +351,7 @@ static int bus_manager_append_log_level(DBusMessageIter *i, const char *property
         return 0;
 }
 
-static int bus_manager_set_log_level(DBusMessageIter *i, const char *property) {
+static int bus_manager_set_log_level(DBusMessageIter *i, const char *property, void *data) {
         const char *t;
 
         assert(i);

@@ -93,7 +93,7 @@ int bus_connect_system_polkit(DBusConnection **_bus, DBusError *error);
 const char *bus_error_message(const DBusError *error);
 
 typedef int (*BusPropertyCallback)(DBusMessageIter *iter, const char *property, void *data);
-typedef int (*BusPropertySetCallback)(DBusMessageIter *iter, const char *property);
+typedef int (*BusPropertySetCallback)(DBusMessageIter *iter, const char *property, void *data);
 
 typedef struct BusProperty {
         const char *property;            /* name of the property */
