@@ -160,6 +160,21 @@ int bus_property_append_long(DBusMessageIter *i, const char *property, void *dat
                 return 0;                                               \
         }
 
+#define DEFINE_BUS_PROPERTY_SET_ENUM(function,name,type)                \
+        int function(DBusMessageIter *i, const char *property, void *data) { \
+                const char *value;                                      \
+                type *field = data;                                     \
+                                                                        \
+                assert(i);                                              \
+                assert(property);                                       \
+                                                                        \
+                dbus_message_iter_get_basic(i, &value);                 \
+                                                                        \
+                *field = name##_from_string(value);                     \
+                                                                        \
+                return 0;                                               \
+        }
+
 const char *bus_errno_to_dbus(int error);
 
 DBusMessage* bus_properties_changed_new(const char *path, const char *interface, const char *properties);
