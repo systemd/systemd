@@ -261,12 +261,12 @@ _public_ struct udev *udev_new(void)
                         goto err;
 
                 /* /run/udev -- runtime rules */
-                if (asprintf(&udev->rules_path[2], "%s/rules.d", udev->run_path) < 0)
+                if (asprintf(&udev->rules_path[1], "%s/rules.d", udev->run_path) < 0)
                         goto err;
 
                 /* /etc/udev -- local administration rules */
-                udev->rules_path[1] = strdup(SYSCONFDIR "/udev/rules.d");
-                if (!udev->rules_path[1])
+                udev->rules_path[2] = strdup(SYSCONFDIR "/udev/rules.d");
+                if (!udev->rules_path[2])
                         goto err;
 
                 udev->rules_path_count = 3;
