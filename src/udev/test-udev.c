@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 
         udev = udev_new();
         if (udev == NULL)
-                exit(1);
+                exit(EXIT_FAILURE);
         log_debug("version %s\n", VERSION);
         udev_selinux_init(udev);
 
@@ -116,6 +116,6 @@ out:
         udev_selinux_exit(udev);
         udev_unref(udev);
         if (err != 0)
-                return 1;
-        return 0;
+                return EXIT_FAILURE;
+        return EXIT_SUCCESS;
 }

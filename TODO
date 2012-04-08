@@ -1,4 +1,6 @@
 Bugfixes:
+* fix Fedora's cups.rpm to use tmpfiles instead of /lib/udev/devices/
+
 * do not link selinux and attr against all binaries
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken

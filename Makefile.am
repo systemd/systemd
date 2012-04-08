@@ -1347,7 +1347,8 @@ test_udev_CFLAGS = \
 	$(udev_common_CFLAGS)
 
 test_udev_LDADD = \
-	$(udev_common_LDADD)
+	$(udev_common_LDADD) \
+	libsystemd-basic.la
 
 test_udev_CPPFLAGS = \
 	$(udev_common_CPPFLAGS)
