@@ -513,10 +513,9 @@
                 <term><option>static_node=</option></term>
                 <listitem>
                   <para>Apply the permissions specified in this rule to the static device node with
-                  the specified name. Static device nodes might be provided by kernel modules
-                  or copied from <filename>/usr/lib/udev/devices</filename>. These nodes might not have
-                  a corresponding kernel device at the time udevd is started; they can trigger
-                  automatic kernel module loading.</para>
+                  the specified name. Static device node creation can be requested by kernel modules.
+                  These nodes might not have a corresponding kernel device at the time udevd is
+                  started; they can trigger automatic kernel module loading.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>

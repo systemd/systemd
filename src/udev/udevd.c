@@ -876,71 +876,15 @@ static void static_dev_create_from_modules(struct udev *udev)
         fclose(f);
 }
 
-static int copy_dev_dir(struct udev *udev, DIR *dir_from, DIR *dir_to, int maxdepth)
+/* needed for standalone udev operations */
+static void static_dev_create_links(struct udev *udev)
 {
-        struct dirent *dent;
+        DIR *dir;
 
-        for (dent = readdir(dir_from); dent != NULL; dent = readdir(dir_from)) {
-                struct stat stats;
+        dir = opendir(udev_get_dev_path(udev));
+        if (dir == NULL)
+                return;
 
-                if (dent->d_name[0] == '.')
-                        continue;
-                if (fstatat(dirfd(dir_from), dent->d_name, &stats, AT_SYMLINK_NOFOLLOW) != 0)
-                        continue;
-
-                if (S_ISBLK(stats.st_mode) || S_ISCHR(stats.st_mode)) {
-                        udev_selinux_setfscreateconat(udev, dirfd(dir_to), dent->d_name, stats.st_mode & 0777);
-                        if (mknodat(dirfd(dir_to), dent->d_name, stats.st_mode, stats.st_rdev) == 0) {
-                                fchmodat(dirfd(dir_to), dent->d_name, stats.st_mode & 0777, 0);
-                                fchownat(dirfd(dir_to), dent->d_name, stats.st_uid, stats.st_gid, 0);
-                        } else {
-                                utimensat(dirfd(dir_to), dent->d_name, NULL, 0);
-                        }
-                        udev_selinux_resetfscreatecon(udev);
-                } else if (S_ISLNK(stats.st_mode)) {
-                        char target[UTIL_PATH_SIZE];
-                        ssize_t len;
-
-                        len = readlinkat(dirfd(dir_from), dent->d_name, target, sizeof(target));
-                        if (len <= 0 || len == (ssize_t)sizeof(target))
-                                continue;
-                        target[len] = '\0';
-                        udev_selinux_setfscreateconat(udev, dirfd(dir_to), dent->d_name, S_IFLNK);
-                        if (symlinkat(target, dirfd(dir_to), dent->d_name) < 0 && errno == EEXIST)
-                                utimensat(dirfd(dir_to), dent->d_name, NULL, AT_SYMLINK_NOFOLLOW);
-                        udev_selinux_resetfscreatecon(udev);
-                } else if (S_ISDIR(stats.st_mode)) {
-                        DIR *dir2_from, *dir2_to;
-
-                        if (maxdepth == 0)
-                                continue;
-
-                        udev_selinux_setfscreateconat(udev, dirfd(dir_to), dent->d_name, S_IFDIR|0755);
-                        mkdirat(dirfd(dir_to), dent->d_name, 0755);
-                        udev_selinux_resetfscreatecon(udev);
-
-                        dir2_to = fdopendir(openat(dirfd(dir_to), dent->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
-                        if (dir2_to == NULL)
-                                continue;
-
-                        dir2_from = fdopendir(openat(dirfd(dir_from), dent->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
-                        if (dir2_from == NULL) {
-                                closedir(dir2_to);
-                                continue;
-                        }
-
-                        copy_dev_dir(udev, dir2_from, dir2_to, maxdepth-1);
-
-                        closedir(dir2_to);
-                        closedir(dir2_from);
-                }
-        }
-
-        return 0;
-}
-
-static void static_dev_create_links(struct udev *udev, DIR *dir)
-{
         struct stdlinks {
                 const char *link;
                 const char *target;
@@ -964,29 +908,6 @@ static void static_dev_create_links(struct udev *udev, DIR *dir)
                         udev_selinux_resetfscreatecon(udev);
                 }
         }
-}
-
-static void static_dev_create_from_devices(struct udev *udev, DIR *dir)
-{
-        DIR *dir_from;
-
-        dir_from = opendir(UDEVLIBEXECDIR "/devices");
-        if (dir_from == NULL)
-                return;
-        copy_dev_dir(udev, dir_from, dir, 8);
-        closedir(dir_from);
-}
-
-static void static_dev_create(struct udev *udev)
-{
-        DIR *dir;
-
-        dir = opendir(udev_get_dev_path(udev));
-        if (dir == NULL)
-                return;
-
-        static_dev_create_links(udev, dir);
-        static_dev_create_from_devices(udev, dir);
 
         closedir(dir);
 }
@@ -1309,7 +1230,7 @@ int main(int argc, char *argv[])
         mkdir(udev_get_run_path(udev), 0755);
 
         /* create standard links, copy static nodes, create nodes from modules */
-        static_dev_create(udev);
+        static_dev_create_links(udev);
         static_dev_create_from_modules(udev);
 
         /* before opening new files, make sure std{in,out,err} fds are in a sane state */

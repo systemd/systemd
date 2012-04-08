@@ -35,8 +35,6 @@ Features:
   - kill: udev_monitor_from_socket()
   - kill: udev_queue_get_failed_list_entry()
 
-* udev: use systemd log.h
-
 * allow configuration of console width/height in vconsole.conf
 
 * PrivateTmp should apply to both /tmp and /var/tmp

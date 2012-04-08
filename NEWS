@@ -1,7 +1,10 @@
 systemd System and Service Manager
 
 CHANGES WITH 182:
-        * udev sources merged
+        * udev: sources merged into the systemd sources
+
+        * udev: /lib/udev/devices/ are not read anymore; tmpfiles should
+          be used to create workarounds for broken subsystems.
 
         * systemd-logingctl and systemd-journalctl have been renamed
           to logingctl and journalctl to match systemctl.
