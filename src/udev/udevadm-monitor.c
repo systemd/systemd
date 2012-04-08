@@ -162,7 +162,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[])
 
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
         if (fd_ep < 0) {
-                err(udev, "error creating epoll fd: %m\n");
+                log_error("error creating epoll fd: %m\n");
                 goto out;
         }
 
@@ -204,7 +204,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[])
                 ep_udev.events = EPOLLIN;
                 ep_udev.data.fd = fd_udev;
                 if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_udev, &ep_udev) < 0) {
-                        err(udev, "fail to add fd to epoll: %m\n");
+                        log_error("fail to add fd to epoll: %m\n");
                         goto out;
                 }
 
@@ -240,7 +240,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[])
                 ep_kernel.events = EPOLLIN;
                 ep_kernel.data.fd = fd_kernel;
                 if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_kernel, &ep_kernel) < 0) {
-                        err(udev, "fail to add fd to epoll: %m\n");
+                        log_error("fail to add fd to epoll: %m\n");
                         goto out;
                 }
 

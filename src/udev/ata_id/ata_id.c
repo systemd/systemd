@@ -43,6 +43,7 @@
 
 #include "libudev.h"
 #include "libudev-private.h"
+#include "log.h"
 
 #define COMMAND_TIMEOUT_MSEC (30 * 1000)
 
@@ -462,7 +463,7 @@ int main(int argc, char *argv[])
         if (udev == NULL)
                 goto exit;
 
-        udev_log_init("ata_id");
+        log_open();
         udev_set_log_fn(udev, log_fn);
 
         while (1) {
@@ -486,14 +487,14 @@ int main(int argc, char *argv[])
 
         node = argv[optind];
         if (node == NULL) {
-                err(udev, "no node specified\n");
+                log_error("no node specified\n");
                 rc = 1;
                 goto exit;
         }
 
         fd = open(node, O_RDONLY|O_NONBLOCK);
         if (fd < 0) {
-                err(udev, "unable to open '%s'\n", node);
+                log_error("unable to open '%s'\n", node);
                 rc = 1;
                 goto exit;
         }
@@ -525,7 +526,7 @@ int main(int argc, char *argv[])
         } else {
                 /* If this fails, then try HDIO_GET_IDENTITY */
                 if (ioctl(fd, HDIO_GET_IDENTITY, &id) != 0) {
-                        info(udev, "HDIO_GET_IDENTITY failed for '%s': %m\n", node);
+                        log_info("HDIO_GET_IDENTITY failed for '%s': %m\n", node);
                         rc = 2;
                         goto close;
                 }
@@ -709,6 +710,6 @@ close:
         close(fd);
 exit:
         udev_unref(udev);
-        udev_log_close();
+        log_close();
         return rc;
 }

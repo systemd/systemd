@@ -148,17 +148,14 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                 if (i >= 0) {
                         entry = list->entries[i];
 
-                        dbg(list->udev, "'%s' is already in the list\n", name);
                         free(entry->value);
                         if (value == NULL) {
                                 entry->value = NULL;
-                                dbg(list->udev, "'%s' value unset\n", name);
                                 return entry;
                         }
                         entry->value = strdup(value);
                         if (entry->value == NULL)
                                 return NULL;
-                        dbg(list->udev, "'%s' value replaced with '%s'\n", name, value);
                         return entry;
                 }
         }
@@ -216,7 +213,6 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                 udev_list_entry_append(entry, list);
         }
 
-        dbg(list->udev, "'%s=%s' added\n", entry->name, entry->value);
         return entry;
 }
 

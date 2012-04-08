@@ -208,15 +208,11 @@ static int rebuild_queue_file(struct udev_queue_export *udev_queue_export)
 
         /* read old queue file */
         if (udev_queue_export->queue_file != NULL) {
-                dbg(udev_queue_export->udev, "compacting queue file, freeing %d bytes\n",
-                                                udev_queue_export->waste_bytes);
-
                 devpaths = build_index(udev_queue_export);
                 if (devpaths != NULL)
                         udev_queue_export->seqnum_max += devpaths->devpaths_first;
         }
         if (devpaths == NULL) {
-                dbg(udev_queue_export->udev, "creating empty queue file\n");
                 udev_queue_export->queued_count = 0;
                 udev_queue_export->seqnum_max = udev_queue_export->seqnum_min;
         }
@@ -292,10 +288,8 @@ static int write_queue_record(struct udev_queue_export *udev_queue_export,
 {
         unsigned short len;
 
-        if (udev_queue_export->queue_file == NULL) {
-                dbg(udev_queue_export->udev, "can't record event: queue file not available\n");
+        if (udev_queue_export->queue_file == NULL)
                 return -1;
-        }
 
         if (fwrite(&seqnum, sizeof(unsigned long long int), 1, udev_queue_export->queue_file) != 1)
                 goto write_error;

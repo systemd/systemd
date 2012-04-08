@@ -67,7 +67,6 @@ static void print_all_attributes(struct udev_device *device, const char *key)
                 value = udev_device_get_sysattr_value(device, name);
                 if (value == NULL)
                         continue;
-                dbg(udev, "attr '%s'='%s'\n", name, value);
 
                 /* skip any values that look like a path */
                 if (value[0] == '/')
@@ -77,10 +76,8 @@ static void print_all_attributes(struct udev_device *device, const char *key)
                 len = strlen(value);
                 while (len > 0 && isprint(value[len-1]))
                         len--;
-                if (len > 0) {
-                        dbg(udev, "attribute value of '%s' non-printable, skip\n", name);
+                if (len > 0)
                         continue;
-                }
 
                 printf("    %s{%s}==\"%s\"\n", key, name, value);
         }
@@ -332,7 +329,6 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
                 if (option == -1)
                         break;
 
-                dbg(udev, "option '%c'\n", option);
                 switch (option) {
                 case 'n':
                         if (device != NULL) {

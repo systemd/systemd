@@ -196,10 +196,8 @@ static int scsi_dump_sense(struct udev *udev,
          * we'll retry the command.
          */
 
-        dbg(udev, "got check condition\n");
-
         if (sb_len < 1) {
-                info(udev, "%s: sense buffer empty\n", dev_scsi->kernel);
+                log_debug("%s: sense buffer empty\n", dev_scsi->kernel);
                 return -1;
         }
 
@@ -212,7 +210,7 @@ static int scsi_dump_sense(struct udev *udev,
                  */
                 s = sense_buffer[7] + 8;
                 if (sb_len < s) {
-                        info(udev, "%s: sense buffer too small %d bytes, %d bytes too short\n",
+                        log_debug("%s: sense buffer too small %d bytes, %d bytes too short\n",
                             dev_scsi->kernel, sb_len, s - sb_len);
                         return -1;
                 }
@@ -222,7 +220,7 @@ static int scsi_dump_sense(struct udev *udev,
                                 /*
                                  * Possible?
                                  */
-                                info(udev, "%s: sense result too" " small %d bytes\n",
+                                log_debug("%s: sense result too" " small %d bytes\n",
                                     dev_scsi->kernel, s);
                                 return -1;
                         }
@@ -233,39 +231,38 @@ static int scsi_dump_sense(struct udev *udev,
                         asc = sense_buffer[2];
                         ascq = sense_buffer[3];
                 } else {
-                        info(udev, "%s: invalid sense code 0x%x\n",
+                        log_debug("%s: invalid sense code 0x%x\n",
                             dev_scsi->kernel, code);
                         return -1;
                 }
-                info(udev, "%s: sense key 0x%x ASC 0x%x ASCQ 0x%x\n",
+                log_debug("%s: sense key 0x%x ASC 0x%x ASCQ 0x%x\n",
                     dev_scsi->kernel, sense_key, asc, ascq);
         } else {
                 if (sb_len < 4) {
-                        info(udev, "%s: sense buffer too small %d bytes, %d bytes too short\n",
+                        log_debug("%s: sense buffer too small %d bytes, %d bytes too short\n",
                             dev_scsi->kernel, sb_len, 4 - sb_len);
                         return -1;
                 }
 
                 if (sense_buffer[0] < 15)
-                        info(udev, "%s: old sense key: 0x%x\n", dev_scsi->kernel, sense_buffer[0] & 0x0f);
+                        log_debug("%s: old sense key: 0x%x\n", dev_scsi->kernel, sense_buffer[0] & 0x0f);
                 else
-                        info(udev, "%s: sense = %2x %2x\n",
+                        log_debug("%s: sense = %2x %2x\n",
                             dev_scsi->kernel, sense_buffer[0], sense_buffer[2]);
-                info(udev, "%s: non-extended sense class %d code 0x%0x\n",
+                log_debug("%s: non-extended sense class %d code 0x%0x\n",
                     dev_scsi->kernel, sense_class, code);
 
         }
 
 #ifdef DUMP_SENSE
         for (i = 0, j = 0; (i < s) && (j < 254); i++) {
-                dbg(udev, "i %d, j %d\n", i, j);
                 out_buffer[j++] = hex_str[(sense_buffer[i] & 0xf0) >> 4];
                 out_buffer[j++] = hex_str[sense_buffer[i] & 0x0f];
                 out_buffer[j++] = ' ';
         }
         out_buffer[j] = '\0';
-        info(udev, "%s: sense dump:\n", dev_scsi->kernel);
-        info(udev, "%s: %s\n", dev_scsi->kernel, out_buffer);
+        log_debug("%s: sense dump:\n", dev_scsi->kernel);
+        log_debug("%s: %s\n", dev_scsi->kernel, out_buffer);
 
 #endif
         return -1;
@@ -279,11 +276,11 @@ static int scsi_dump(struct udev *udev,
                 /*
                  * Impossible, should not be called.
                  */
-                info(udev, "%s: called with no error\n", __FUNCTION__);
+                log_debug("%s: called with no error\n", __FUNCTION__);
                 return -1;
         }
 
-        info(udev, "%s: sg_io failed status 0x%x 0x%x 0x%x 0x%x\n",
+        log_debug("%s: sg_io failed status 0x%x 0x%x 0x%x 0x%x\n",
             dev_scsi->kernel, io->driver_status, io->host_status, io->msg_status, io->status);
         if (io->status == SCSI_CHECK_CONDITION)
                 return scsi_dump_sense(udev, dev_scsi, io->sbp, io->sb_len_wr);
@@ -299,11 +296,11 @@ static int scsi_dump_v4(struct udev *udev,
                 /*
                  * Impossible, should not be called.
                  */
-                info(udev, "%s: called with no error\n", __FUNCTION__);
+                log_debug("%s: called with no error\n", __FUNCTION__);
                 return -1;
         }
 
-        info(udev, "%s: sg_io failed status 0x%x 0x%x 0x%x\n",
+        log_debug("%s: sg_io failed status 0x%x 0x%x 0x%x\n",
             dev_scsi->kernel, io->driver_status, io->transport_status,
              io->device_status);
         if (io->device_status == SCSI_CHECK_CONDITION)
@@ -328,13 +325,11 @@ static int scsi_inquiry(struct udev *udev,
         int retval;
 
         if (buflen > SCSI_INQ_BUFF_LEN) {
-                info(udev, "buflen %d too long\n", buflen);
+                log_debug("buflen %d too long\n", buflen);
                 return -1;
         }
 
 resend:
-        dbg(udev, "%s evpd %d, page 0x%x\n", dev_scsi->kernel, evpd, page);
-
         if (dev_scsi->use_sg == 4) {
                 memset(&io_v4, 0, sizeof(struct sg_io_v4));
                 io_v4.guard = 'Q';
@@ -367,7 +362,7 @@ resend:
                         dev_scsi->use_sg = 3;
                         goto resend;
                 }
-                info(udev, "%s: ioctl failed: %s\n", dev_scsi->kernel, strerror(errno));
+                log_debug("%s: ioctl failed: %s\n", dev_scsi->kernel, strerror(errno));
                 goto error;
         }
 
@@ -395,16 +390,14 @@ resend:
         if (!retval) {
                 retval = buflen;
         } else if (retval > 0) {
-                if (--retry > 0) {
-                        dbg(udev, "%s: Retrying ...\n", dev_scsi->kernel);
+                if (--retry > 0)
                         goto resend;
-                }
                 retval = -1;
         }
 
 error:
         if (retval < 0)
-                info(udev, "%s: Unable to get INQUIRY vpd %d page 0x%x.\n",
+                log_debug("%s: Unable to get INQUIRY vpd %d page 0x%x.\n",
                     dev_scsi->kernel, evpd, page);
 
         return retval;
@@ -423,11 +416,11 @@ static int do_scsi_page0_inquiry(struct udev *udev,
                 return 1;
 
         if (buffer[1] != 0) {
-                info(udev, "%s: page 0 not available.\n", dev_scsi->kernel);
+                log_debug("%s: page 0 not available.\n", dev_scsi->kernel);
                 return 1;
         }
         if (buffer[3] > len) {
-                info(udev, "%s: page 0 buffer too long %d\n", dev_scsi->kernel,         buffer[3]);
+                log_debug("%s: page 0 buffer too long %d\n", dev_scsi->kernel,         buffer[3]);
                 return 1;
         }
 
@@ -444,7 +437,7 @@ static int do_scsi_page0_inquiry(struct udev *udev,
                  * invalid.
                  */
                 if (!strncmp((char *)&buffer[VENDOR_LENGTH], dev_scsi->vendor, VENDOR_LENGTH)) {
-                        info(udev, "%s: invalid page0 data\n", dev_scsi->kernel);
+                        log_debug("%s: invalid page0 data\n", dev_scsi->kernel);
                         return 1;
                 }
         }
@@ -469,7 +462,7 @@ static int prepend_vendor_model(struct udev *udev,
          * above, ind will never be too large.
          */
         if (ind != (VENDOR_LENGTH + MODEL_LENGTH)) {
-                info(udev, "%s: expected length %d, got length %d\n",
+                log_debug("%s: expected length %d, got length %d\n",
                      dev_scsi->kernel, (VENDOR_LENGTH + MODEL_LENGTH), ind);
                 return -1;
         }
@@ -535,7 +528,7 @@ static int check_fill_0x83_id(struct udev *udev,
                 len += VENDOR_LENGTH + MODEL_LENGTH;
 
         if (max_len < len) {
-                info(udev, "%s: length %d too short - need %d\n",
+                log_debug("%s: length %d too short - need %d\n",
                     dev_scsi->kernel, max_len, len);
                 return 1;
         }
@@ -557,10 +550,8 @@ static int check_fill_0x83_id(struct udev *udev,
          * included in the identifier.
          */
         if (id_search->id_type == SCSI_ID_VENDOR_SPECIFIC)
-                if (prepend_vendor_model(udev, dev_scsi, &serial[1]) < 0) {
-                        dbg(udev, "prepend failed\n");
+                if (prepend_vendor_model(udev, dev_scsi, &serial[1]) < 0)
                         return 1;
-                }
 
         i = 4; /* offset to the start of the identifier */
         s = j = strlen(serial);
@@ -603,7 +594,6 @@ static int check_fill_0x83_prespc3(struct udev *udev,
 {
         int i, j;
 
-        dbg(udev, "using pre-spc3-83 for %s\n", dev_scsi->kernel);
         serial[0] = hex_str[id_search->id_type];
         /* serial has been memset to zero before */
         j = strlen(serial);        /* j = 1; */
@@ -639,7 +629,7 @@ static int do_scsi_page83_inquiry(struct udev *udev,
                 return 1;
 
         if (page_83[1] != PAGE_83) {
-                info(udev, "%s: Invalid page 0x83\n", dev_scsi->kernel);
+                log_debug("%s: Invalid page 0x83\n", dev_scsi->kernel);
                 return 1;
         }
 
@@ -695,19 +685,10 @@ static int do_scsi_page83_inquiry(struct udev *udev,
                                                     serial, serial_short, len,
                                                     wwn, wwn_vendor_extension,
                                                     tgpt_group);
-                        dbg(udev, "%s id desc %d/%d/%d\n", dev_scsi->kernel,
-                                id_search_list[id_ind].id_type,
-                                id_search_list[id_ind].naa_type,
-                                id_search_list[id_ind].code_set);
-                        if (!retval) {
-                                dbg(udev, "  used\n");
+                        if (!retval)
                                 return retval;
-                        } else if (retval < 0) {
-                                dbg(udev, "  failed\n");
+                        else if (retval < 0)
                                 return retval;
-                        } else {
-                                dbg(udev, "  not used\n");
-                        }
                 }
         }
         return 1;
@@ -734,7 +715,7 @@ static int do_scsi_page83_prespc3_inquiry(struct udev *udev,
                 return 1;
 
         if (page_83[1] != PAGE_83) {
-                info(udev, "%s: Invalid page 0x83\n", dev_scsi->kernel);
+                log_debug("%s: Invalid page 0x83\n", dev_scsi->kernel);
                 return 1;
         }
         /*
@@ -778,7 +759,6 @@ static int do_scsi_page83_prespc3_inquiry(struct udev *udev,
                 serial[j++] = hex_str[page_83[i] & 0x0f];
                 i++;
         }
-        dbg(udev, "using pre-spc3-83 for %s\n", dev_scsi->kernel);
         return 0;
 }
 
@@ -799,13 +779,13 @@ static int do_scsi_page80_inquiry(struct udev *udev,
                 return retval;
 
         if (buf[1] != PAGE_80) {
-                info(udev, "%s: Invalid page 0x80\n", dev_scsi->kernel);
+                log_debug("%s: Invalid page 0x80\n", dev_scsi->kernel);
                 return 1;
         }
 
         len = 1 + VENDOR_LENGTH + MODEL_LENGTH + buf[3];
         if (max_len < len) {
-                info(udev, "%s: length %d too short - need %d\n",
+                log_debug("%s: length %d too short - need %d\n",
                      dev_scsi->kernel, max_len, len);
                 return 1;
         }
@@ -837,16 +817,15 @@ int scsi_std_inquiry(struct udev *udev,
         struct stat statbuf;
         int err = 0;
 
-        dbg(udev, "opening %s\n", devname);
         fd = open(devname, O_RDONLY | O_NONBLOCK);
         if (fd < 0) {
-                info(udev, "scsi_id: cannot open %s: %s\n",
+                log_debug("scsi_id: cannot open %s: %s\n",
                      devname, strerror(errno));
                 return 1;
         }
 
         if (fstat(fd, &statbuf) < 0) {
-                info(udev, "scsi_id: cannot stat %s: %s\n",
+                log_debug("scsi_id: cannot stat %s: %s\n",
                      devname, strerror(errno));
                 err = 2;
                 goto out;
@@ -884,7 +863,6 @@ int scsi_get_serial(struct udev *udev,
         int retval;
 
         memset(dev_scsi->serial, 0, len);
-        dbg(udev, "opening %s\n", devname);
         srand((unsigned int)getpid());
         for (cnt = 20; cnt > 0; cnt--) {
                 struct timespec duration;
@@ -941,7 +919,7 @@ int scsi_get_serial(struct udev *udev,
                         goto completed;
                 }
         } else if (page_code != 0x00) {
-                info(udev, "%s: unsupported page code 0x%d\n", dev_scsi->kernel, page_code);
+                log_debug("%s: unsupported page code 0x%d\n", dev_scsi->kernel, page_code);
                 return 1;
         }
 
@@ -958,8 +936,6 @@ int scsi_get_serial(struct udev *udev,
                 retval = 1;
                 goto completed;
         }
-
-        dbg(udev, "%s: Checking page0\n", dev_scsi->kernel);
 
         for (ind = 4; ind <= page0[3] + 3; ind++)
                 if (page0[ind] == PAGE_83)

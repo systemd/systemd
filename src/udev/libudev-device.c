@@ -479,7 +479,7 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
 
         f = fopen(dbfile, "re");
         if (f == NULL) {
-                info(udev_device->udev, "no db file to read %s: %m\n", dbfile);
+                dbg(udev_device->udev, "no db file to read %s: %m\n", dbfile);
                 return -1;
         }
         udev_device->is_initialized = true;
@@ -519,7 +519,7 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
         }
         fclose(f);
 
-        info(udev_device->udev, "device %p filled with db file data\n", udev_device);
+        dbg(udev_device->udev, "device %p filled with db file data\n", udev_device);
         return 0;
 }
 
@@ -605,7 +605,6 @@ struct udev_device *udev_device_new(struct udev *udev)
                 udev_device_add_property(udev_device,
                                          udev_list_entry_get_name(list_entry),
                                          udev_list_entry_get_value(list_entry));
-        dbg(udev_device->udev, "udev_device: %p created\n", udev_device);
         return udev_device;
 }
 
@@ -640,17 +639,15 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
         /* path starts in sys */
         len = strlen(udev_get_sys_path(udev));
         if (strncmp(syspath, udev_get_sys_path(udev), len) != 0) {
-                info(udev, "not in sys :%s\n", syspath);
+                dbg(udev, "not in sys :%s\n", syspath);
                 return NULL;
         }
 
         /* path is not a root directory */
         subdir = &syspath[len+1];
         pos = strrchr(subdir, '/');
-        if (pos == NULL || pos[1] == '\0' || pos < &subdir[2]) {
-                dbg(udev, "not a subdir :%s\n", syspath);
+        if (pos == NULL || pos[1] == '\0' || pos < &subdir[2])
                 return NULL;
-        }
 
         /* resolve possible symlink to real path */
         util_strscpy(path, sizeof(path), syspath);
@@ -661,16 +658,12 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
 
                 /* all "devices" require a "uevent" file */
                 util_strscpyl(file, sizeof(file), path, "/uevent", NULL);
-                if (stat(file, &statbuf) != 0) {
-                        dbg(udev, "not a device: %s\n", syspath);
+                if (stat(file, &statbuf) != 0)
                         return NULL;
-                }
         } else {
                 /* everything else just needs to be a directory */
-                if (stat(path, &statbuf) != 0 || !S_ISDIR(statbuf.st_mode)) {
-                        dbg(udev, "directory not found: %s\n", syspath);
+                if (stat(path, &statbuf) != 0 || !S_ISDIR(statbuf.st_mode))
                         return NULL;
-                }
         }
 
         udev_device = udev_device_new(udev);
@@ -678,7 +671,7 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
                 return NULL;
 
         udev_device_set_syspath(udev_device, path);
-        info(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
+        dbg(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
 
         return udev_device;
 }
@@ -885,7 +878,7 @@ _public_ struct udev_device *udev_device_new_from_environment(struct udev *udev)
                 udev_device_add_property_from_string_parse(udev_device, environ[i]);
 
         if (udev_device_add_property_from_string_parse_finish(udev_device) < 0) {
-                info(udev, "missing values, invalid device\n");
+                dbg(udev, "missing values, invalid device\n");
                 udev_device_unref(udev_device);
                 udev_device = NULL;
         }
@@ -942,8 +935,6 @@ _public_ struct udev_device *udev_device_get_parent(struct udev_device *udev_dev
                 udev_device->parent_set = true;
                 udev_device->parent_device = device_new_from_parent(udev_device);
         }
-        if (udev_device->parent_device != NULL)
-                dbg(udev_device->udev, "returning existing parent %p\n", udev_device->parent_device);
         return udev_device->parent_device;
 }
 
@@ -1058,7 +1049,6 @@ _public_ void udev_device_unref(struct udev_device *udev_device)
         free(udev_device->id_filename);
         free(udev_device->envp);
         free(udev_device->monitor_buf);
-        dbg(udev_device->udev, "udev_device: %p released\n", udev_device);
         free(udev_device);
 }
 
@@ -1310,15 +1300,11 @@ _public_ const char *udev_device_get_sysattr_value(struct udev_device *udev_devi
         /* look for possibly already cached result */
         list_entry = udev_list_get_entry(&udev_device->sysattr_value_list);
         list_entry = udev_list_entry_get_by_name(list_entry, sysattr);
-        if (list_entry != NULL) {
-                dbg(udev_device->udev, "got '%s' (%s) from cache\n",
-                    sysattr, udev_list_entry_get_value(list_entry));
+        if (list_entry != NULL)
                 return udev_list_entry_get_value(list_entry);
-        }
 
         util_strscpyl(path, sizeof(path), udev_device_get_syspath(udev_device), "/", sysattr, NULL);
         if (lstat(path, &statbuf) != 0) {
-                dbg(udev_device->udev, "no attribute '%s', keep negative entry\n", path);
                 udev_list_entry_add(&udev_device->sysattr_value_list, sysattr, NULL);
                 goto out;
         }
@@ -1336,7 +1322,6 @@ _public_ const char *udev_device_get_sysattr_value(struct udev_device *udev_devi
                         if (util_get_sys_core_link_value(udev_device->udev, sysattr,
                                                          udev_device->syspath, value, sizeof(value)) < 0)
                                 return NULL;
-                        dbg(udev_device->udev, "cache '%s' with link value '%s'\n", sysattr, value);
                         list_entry = udev_list_entry_add(&udev_device->sysattr_value_list, sysattr, value);
                         val = udev_list_entry_get_value(list_entry);
                         goto out;
@@ -1365,10 +1350,8 @@ _public_ const char *udev_device_get_sysattr_value(struct udev_device *udev_devi
 
         /* read attribute value */
         fd = open(path, O_RDONLY|O_CLOEXEC);
-        if (fd < 0) {
-                dbg(udev_device->udev, "attribute '%s' can not be opened\n", path);
+        if (fd < 0)
                 goto out;
-        }
         size = read(fd, value, sizeof(value));
         close(fd);
         if (size < 0)
@@ -1379,7 +1362,6 @@ _public_ const char *udev_device_get_sysattr_value(struct udev_device *udev_devi
         /* got a valid value, store it in cache and return it */
         value[size] = '\0';
         util_remove_trailing_chars(value, '\n');
-        dbg(udev_device->udev, "'%s' has attribute value '%s'\n", path, value);
         list_entry = udev_list_entry_add(&udev_device->sysattr_value_list, sysattr, value);
         val = udev_list_entry_get_value(list_entry);
 out:
@@ -1398,11 +1380,8 @@ static int udev_device_sysattr_list_read(struct udev_device *udev_device)
                 return 0;
 
         dir = opendir(udev_device_get_syspath(udev_device));
-        if (!dir) {
-                dbg(udev_device->udev, "sysfs dir '%s' can not be opened\n",
-                                udev_device_get_syspath(udev_device));
+        if (!dir)
                 return -1;
-        }
 
         for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
                 char path[UTIL_PATH_SIZE];
@@ -1423,7 +1402,6 @@ static int udev_device_sysattr_list_read(struct udev_device *udev_device)
         }
 
         closedir(dir);
-        dbg(udev_device->udev, "found %d sysattrs for '%s'\n", num, udev_device_get_syspath(udev_device));
         udev_device->sysattr_list_read = true;
 
         return num;
@@ -1675,8 +1653,6 @@ static int update_envp_monitor_buf(struct udev_device *udev_device)
         udev_device->envp[i] = NULL;
         udev_device->monitor_buf_len = s - udev_device->monitor_buf;
         udev_device->envp_uptodate = true;
-        dbg(udev_device->udev, "filled envp/monitor buffer, %u properties, %zu bytes\n",
-            i, udev_device->monitor_buf_len);
         return 0;
 }
 

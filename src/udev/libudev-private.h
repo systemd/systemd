@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008-2010 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2012 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -20,35 +20,19 @@
 #include "libudev.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-#define READ_END                                0
-#define WRITE_END                                1
+#define READ_END 0
+#define WRITE_END 1
 
-static inline void __attribute__((always_inline, format(printf, 2, 3)))
-udev_log_null(struct udev *udev, const char *format, ...) {}
-
+/* avoid (sometimes expensive) calculations of parameters for debug output */
 #define udev_log_cond(udev, prio, arg...) \
   do { \
     if (udev_get_log_priority(udev) >= prio) \
       udev_log(udev, prio, __FILE__, __LINE__, __FUNCTION__, ## arg); \
   } while (0)
 
-#ifdef ENABLE_DEBUG
-#  define dbg(udev, arg...) udev_log_cond(udev, LOG_DEBUG, ## arg)
-#else
-#  define dbg(udev, arg...) udev_log_null(udev, ## arg)
-#endif
+#define dbg(udev, arg...) udev_log_cond(udev, LOG_DEBUG, ## arg)
 #define info(udev, arg...) udev_log_cond(udev, LOG_INFO, ## arg)
 #define err(udev, arg...) udev_log_cond(udev, LOG_ERR, ## arg)
-
-static inline void udev_log_init(const char *program_name)
-{
-        openlog(program_name, LOG_PID | LOG_CONS, LOG_DAEMON);
-}
-
-static inline void udev_log_close(void)
-{
-        closelog();
-}
 
 /* libudev.c */
 void udev_log(struct udev *udev,

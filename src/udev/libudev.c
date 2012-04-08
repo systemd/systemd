@@ -272,13 +272,6 @@ _public_ struct udev *udev_new(void)
                 udev->rules_path_count = 3;
         }
 
-        dbg(udev, "context %p created\n", udev);
-        dbg(udev, "log_priority=%d\n", udev->log_priority);
-        dbg(udev, "config_file='%s'\n", config_file);
-        dbg(udev, "dev_path='%s'\n", udev->dev_path);
-        dbg(udev, "sys_path='%s'\n", udev->sys_path);
-        dbg(udev, "run_path='%s'\n", udev->run_path);
-        dbg(udev, "rules_path='%s':'%s':'%s'\n", udev->rules_path[0], udev->rules_path[1], udev->rules_path[2]);
         free(config_file);
         return udev;
 err:
@@ -326,7 +319,6 @@ _public_ void udev_unref(struct udev *udev)
         free(udev->rules_path[1]);
         free(udev->rules_path[2]);
         free(udev->run_path);
-        dbg(udev, "context %p released\n", udev);
         free(udev);
 }
 
@@ -346,7 +338,7 @@ _public_ void udev_set_log_fn(struct udev *udev,
                                     const char *format, va_list args))
 {
         udev->log_fn = log_fn;
-        info(udev, "custom logging function %p registered\n", log_fn);
+        dbg(udev, "custom logging function %p registered\n", log_fn);
 }
 
 /**

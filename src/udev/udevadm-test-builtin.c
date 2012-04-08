@@ -55,8 +55,6 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[])
         enum udev_builtin_cmd cmd;
         int rc = EXIT_SUCCESS;
 
-        dbg(udev, "version %s\n", VERSION);
-
         for (;;) {
                 int option;
 

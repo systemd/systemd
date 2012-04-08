@@ -1,4 +1,5 @@
 Bugfixes:
+* do not link selinux and attr against all binaries
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 

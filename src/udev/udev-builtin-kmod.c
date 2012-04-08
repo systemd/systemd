@@ -44,18 +44,18 @@ static int load_module(struct udev *udev, const char *alias)
                 return err;
 
         if (list == NULL)
-                info(udev, "no module matches '%s'\n", alias);
+                log_debug("no module matches '%s'\n", alias);
 
         kmod_list_foreach(l, list) {
                 struct kmod_module *mod = kmod_module_get_module(l);
 
                 err = kmod_module_probe_insert_module(mod, KMOD_PROBE_APPLY_BLACKLIST, NULL, NULL, NULL, NULL);
                 if (err == KMOD_PROBE_APPLY_BLACKLIST)
-                        info(udev, "module '%s' is blacklisted\n", kmod_module_get_name(mod));
+                        log_debug("module '%s' is blacklisted\n", kmod_module_get_name(mod));
                 else if (err == 0)
-                        info(udev, "inserted '%s'\n", kmod_module_get_name(mod));
+                        log_debug("inserted '%s'\n", kmod_module_get_name(mod));
                 else
-                        info(udev, "failed to insert '%s'\n", kmod_module_get_name(mod));
+                        log_debug("failed to insert '%s'\n", kmod_module_get_name(mod));
 
                 kmod_module_unref(mod);
         }
@@ -81,18 +81,18 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
                 if (!ctx)
                         return -ENOMEM;
 
-                info(udev, "load module index\n");
+                log_debug("load module index\n");
                 kmod_set_log_fn(ctx, udev_kmod_log, udev);
                 kmod_load_resources(ctx);
         }
 
         if (argc < 3 || strcmp(argv[1], "load")) {
-                err(udev, "expect: %s load <module>\n", argv[0]);
+                log_error("expect: %s load <module>\n", argv[0]);
                 return EXIT_FAILURE;
         }
 
         for (i = 2; argv[i]; i++) {
-                info(udev, "execute '%s' '%s'\n", argv[1], argv[i]);
+                log_debug("execute '%s' '%s'\n", argv[1], argv[i]);
                 load_module(udev, argv[i]);
         }
 
@@ -109,7 +109,7 @@ static int builtin_kmod_init(struct udev *udev)
         if (!ctx)
                 return -ENOMEM;
 
-        info(udev, "load module index\n");
+        log_debug("load module index\n");
         kmod_set_log_fn(ctx, udev_kmod_log, udev);
         kmod_load_resources(ctx);
         return 0;
@@ -118,14 +118,14 @@ static int builtin_kmod_init(struct udev *udev)
 /* called on udev shutdown and reload request */
 static void builtin_kmod_exit(struct udev *udev)
 {
-        info(udev, "unload module index\n");
+        log_debug("unload module index\n");
         ctx = kmod_unref(ctx);
 }
 
 /* called every couple of seconds during event activity; 'true' if config has changed */
 static bool builtin_kmod_validate(struct udev *udev)
 {
-        info(udev, "validate module index\n");
+        log_debug("validate module index\n");
         if (kmod_validate_resources(ctx) != KMOD_RESOURCES_OK)
                 return true;
         return false;

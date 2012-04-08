@@ -52,7 +52,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
                 {}
         };
 
-        info(udev, "version %s\n", VERSION);
+        log_debug("version %s\n", VERSION);
 
         for (;;) {
                 int option;
@@ -61,7 +61,6 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
                 if (option == -1)
                         break;
 
-                dbg(udev, "option '%c'\n", option);
                 switch (option) {
                 case 'a':
                         action = optarg;
@@ -75,7 +74,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
                                 resolve_names = -1;
                         } else {
                                 fprintf(stderr, "resolve-names must be early, late or never\n");
-                                err(udev, "resolve-names must be early, late or never\n");
+                                log_error("resolve-names must be early, late or never\n");
                                 exit(EXIT_FAILURE);
                         }
                         break;
@@ -96,7 +95,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
                 goto out;
         }
 
-        printf("This program is for debugging only, it does not run any program,\n"
+        printf("This program is for debugging only, it does not run any program\n"
                "specified by a RUN key. It may show incorrect results, because\n"
                "some values may be different, or not available at a simulation run.\n"
                "\n");

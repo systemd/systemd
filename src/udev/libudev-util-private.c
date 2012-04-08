@@ -41,7 +41,6 @@ static int create_path(struct udev *udev, const char *path, bool selinux)
                 return 0;
         pos[0] = '\0';
 
-        dbg(udev, "stat '%s'\n", p);
         if (stat(p, &stats) == 0) {
                 if ((stats.st_mode & S_IFMT) == S_IFDIR)
                         return 0;
@@ -53,7 +52,6 @@ static int create_path(struct udev *udev, const char *path, bool selinux)
         if (err != 0)
                 return err;
 
-        dbg(udev, "mkdir '%s'\n", p);
         if (selinux)
                 udev_selinux_setfscreatecon(udev, p, S_IFDIR|0755);
         err = mkdir(p, 0755);
@@ -226,7 +224,7 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
                         util_strscpy(result, maxsize, val);
                 else
                         result[0] = '\0';
-                info(udev, "value '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
+                dbg(udev, "value '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
         } else {
                 size_t l;
                 char *s;
@@ -235,7 +233,7 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
                 l = util_strpcpyl(&s, maxsize, udev_device_get_syspath(dev), NULL);
                 if (attr != NULL)
                         util_strpcpyl(&s, l, "/", attr, NULL);
-                info(udev, "path '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
+                dbg(udev, "path '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
         }
         udev_device_unref(dev);
         return 0;

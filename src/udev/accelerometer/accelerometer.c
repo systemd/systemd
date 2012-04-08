@@ -263,7 +263,7 @@ int main (int argc, char** argv)
         if (udev == NULL)
                 return 1;
 
-        udev_log_init("input_id");
+        log_open();
         udev_set_log_fn(udev, log_fn);
 
         /* CLI argument parsing */
@@ -349,9 +349,9 @@ int main (int argc, char** argv)
                 return 0;
         }
 
-        info(udev, "Opening accelerometer device %s\n", devnode);
+        log_debug("opening accelerometer device %s\n", devnode);
         test_orientation(udev, dev, devnode);
         free(devnode);
-
+        log_close();
         return 0;
 }

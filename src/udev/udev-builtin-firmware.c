@@ -33,7 +33,7 @@ static bool set_loading(struct udev *udev, char *loadpath, const char *state)
 
         ldfile = fopen(loadpath, "we");
         if (ldfile == NULL) {
-                err(udev, "error: can not open '%s'\n", loadpath);
+                log_error("error: can not open '%s'\n", loadpath);
                 return false;
         };
         fprintf(ldfile, "%s\n", state);
@@ -49,11 +49,11 @@ static bool copy_firmware(struct udev *udev, const char *source, const char *tar
 
         buf = malloc(size);
         if (buf == NULL) {
-                err(udev,"No memory available to load firmware file");
+                log_error("No memory available to load firmware file");
                 return false;
         }
 
-        info(udev, "writing '%s' (%zi) to '%s'\n", source, size, target);
+        log_debug("writing '%s' (%zi) to '%s'\n", source, size, target);
 
         fsource = fopen(source, "re");
         if (fsource == NULL)
@@ -92,7 +92,7 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
 
         firmware = udev_device_get_property_value(dev, "FIRMWARE");
         if (firmware == NULL) {
-                err(udev, "firmware parameter missing\n\n");
+                log_error("firmware parameter missing\n\n");
                 rc = EXIT_FAILURE;
                 goto exit;
         }
@@ -101,13 +101,11 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
         uname(&kernel);
         for (i = 0; i < ARRAY_SIZE(searchpath); i++) {
                 util_strscpyl(fwpath, sizeof(fwpath), searchpath[i], kernel.release, "/", firmware, NULL);
-                dbg(udev, "trying %s\n", fwpath);
                 fwfile = fopen(fwpath, "re");
                 if (fwfile != NULL)
                         break;
 
                 util_strscpyl(fwpath, sizeof(fwpath), searchpath[i], firmware, NULL);
-                dbg(udev, "trying %s\n", fwpath);
                 fwfile = fopen(fwpath, "re");
                 if (fwfile != NULL)
                         break;
@@ -121,7 +119,7 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
                 int err;
 
                 /* This link indicates the missing firmware file and the associated device */
-                info(udev, "did not find firmware file '%s'\n", firmware);
+                log_debug("did not find firmware file '%s'\n", firmware);
                 do {
                         err = util_create_path(udev, misspath);
                         if (err != 0 && err != -ENOENT)
@@ -147,7 +145,7 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
 
         util_strscpyl(datapath, sizeof(datapath), udev_device_get_syspath(dev), "/data", NULL);
         if (!copy_firmware(udev, fwpath, datapath, statbuf.st_size)) {
-                err(udev, "error sending firmware '%s' to device\n", firmware);
+                log_error("error sending firmware '%s' to device\n", firmware);
                 set_loading(udev, loadpath, "-1");
                 rc = EXIT_FAILURE;
                 goto exit;

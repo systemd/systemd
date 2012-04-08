@@ -83,7 +83,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd)
         if (fd < 0) {
                 uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
                 if (uctrl->sock < 0) {
-                        err(udev, "error getting socket: %m\n");
+                        log_error("error getting socket: %m\n");
                         udev_ctrl_unref(uctrl);
                         return NULL;
                 }
@@ -117,14 +117,14 @@ int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl)
 
                 if (err < 0) {
                         err = -errno;
-                        err(uctrl->udev, "bind failed: %m\n");
+                        log_error("bind failed: %m\n");
                         return err;
                 }
 
                 err = listen(uctrl->sock, 0);
                 if (err < 0) {
                         err = -errno;
-                        err(uctrl->udev, "listen failed: %m\n");
+                        log_error("listen failed: %m\n");
                         return err;
                 }
 
@@ -192,18 +192,18 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl)
         conn->sock = accept4(uctrl->sock, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK);
         if (conn->sock < 0) {
                 if (errno != EINTR)
-                        err(uctrl->udev, "unable to receive ctrl connection: %m\n");
+                        log_error("unable to receive ctrl connection: %m\n");
                 goto err;
         }
 
         /* check peer credential of connection */
         slen = sizeof(ucred);
         if (getsockopt(conn->sock, SOL_SOCKET, SO_PEERCRED, &ucred, &slen) < 0) {
-                err(uctrl->udev, "unable to receive credentials of ctrl connection: %m\n");
+                log_error("unable to receive credentials of ctrl connection: %m\n");
                 goto err;
         }
         if (ucred.uid > 0) {
-                err(uctrl->udev, "sender uid=%i, message ignored\n", ucred.uid);
+                log_error("sender uid=%i, message ignored\n", ucred.uid);
                 goto err;
         }
 
@@ -367,11 +367,11 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
                                 continue;
                         goto err;
                 } else if (r == 0) {
-                        err(udev, "timeout waiting for ctrl message\n");
+                        log_error("timeout waiting for ctrl message\n");
                         goto err;
                 } else {
                         if (!(pfd[0].revents & POLLIN)) {
-                                err(udev, "ctrl connection error: %m\n");
+                                log_error("ctrl connection error: %m\n");
                                 goto err;
                         }
                 }
@@ -388,28 +388,27 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
         smsg.msg_controllen = sizeof(cred_msg);
         size = recvmsg(conn->sock, &smsg, 0);
         if (size <  0) {
-                err(udev, "unable to receive ctrl message: %m\n");
+                log_error("unable to receive ctrl message: %m\n");
                 goto err;
         }
         cmsg = CMSG_FIRSTHDR(&smsg);
         cred = (struct ucred *) CMSG_DATA(cmsg);
 
         if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
-                err(udev, "no sender credentials received, message ignored\n");
+                log_error("no sender credentials received, message ignored\n");
                 goto err;
         }
 
         if (cred->uid != 0) {
-                err(udev, "sender uid=%i, message ignored\n", cred->uid);
+                log_error("sender uid=%i, message ignored\n", cred->uid);
                 goto err;
         }
 
         if (uctrl_msg->ctrl_msg_wire.magic != UDEV_CTRL_MAGIC) {
-                err(udev, "message magic 0x%08x doesn't match, ignore it\n", uctrl_msg->ctrl_msg_wire.magic);
+                log_error("message magic 0x%08x doesn't match, ignore it\n", uctrl_msg->ctrl_msg_wire.magic);
                 goto err;
         }
 
-        dbg(udev, "created ctrl_msg %p (%i)\n", uctrl_msg, uctrl_msg->ctrl_msg_wire.type);
         return uctrl_msg;
 err:
         udev_ctrl_msg_unref(uctrl_msg);
@@ -431,7 +430,6 @@ struct udev_ctrl_msg *udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg)
         ctrl_msg->refcount--;
         if (ctrl_msg->refcount > 0)
                 return ctrl_msg;
-        dbg(ctrl_msg->conn->uctrl->udev, "release ctrl_msg %p\n", ctrl_msg);
         udev_ctrl_connection_unref(ctrl_msg->conn);
         free(ctrl_msg);
         return NULL;

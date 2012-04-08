@@ -273,8 +273,6 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
         type_str[0] = '\0';
         instance_str[0] = '\0';
 
-        dbg(udev, "syspath %s\n", udev_device_get_syspath(dev));
-
         /* shortcut, if we are called directly for a "usb_device" type */
         if (udev_device_get_devtype(dev) != NULL && strcmp(udev_device_get_devtype(dev), "usb_device") == 0) {
                 dev_if_packed_info(dev, packed_if_str, sizeof(packed_if_str));
@@ -285,7 +283,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
         /* usb interface directory */
         dev_interface = udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_interface");
         if (dev_interface == NULL) {
-                info(udev, "unable to access usb_interface device of '%s'\n",
+                log_debug("unable to access usb_interface device of '%s'\n",
                      udev_device_get_syspath(dev));
                 return EXIT_FAILURE;
         }
@@ -295,7 +293,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
 
         if_class = udev_device_get_sysattr_value(dev_interface, "bInterfaceClass");
         if (!if_class) {
-                info(udev, "%s: cannot get bInterfaceClass attribute\n",
+                log_debug("%s: cannot get bInterfaceClass attribute\n",
                      udev_device_get_sysname(dev));
                 return EXIT_FAILURE;
         }
@@ -310,13 +308,13 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
                 set_usb_iftype(type_str, if_class_num, sizeof(type_str)-1);
         }
 
-        info(udev, "%s: if_class %d protocol %d\n",
+        log_debug("%s: if_class %d protocol %d\n",
              udev_device_get_syspath(dev_interface), if_class_num, protocol);
 
         /* usb device directory */
         dev_usb = udev_device_get_parent_with_subsystem_devtype(dev_interface, "usb", "usb_device");
         if (!dev_usb) {
-                info(udev, "unable to find parent 'usb' device of '%s'\n",
+                log_debug("unable to find parent 'usb' device of '%s'\n",
                      udev_device_get_syspath(dev));
                 return EXIT_FAILURE;
         }
@@ -333,19 +331,19 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
                 /* get scsi device */
                 dev_scsi = udev_device_get_parent_with_subsystem_devtype(dev, "scsi", "scsi_device");
                 if (dev_scsi == NULL) {
-                        info(udev, "unable to find parent 'scsi' device of '%s'\n",
+                        log_debug("unable to find parent 'scsi' device of '%s'\n",
                              udev_device_get_syspath(dev));
                         goto fallback;
                 }
                 if (sscanf(udev_device_get_sysname(dev_scsi), "%d:%d:%d:%d", &host, &bus, &target, &lun) != 4) {
-                        info(udev, "invalid scsi device '%s'\n", udev_device_get_sysname(dev_scsi));
+                        log_debug("invalid scsi device '%s'\n", udev_device_get_sysname(dev_scsi));
                         goto fallback;
                 }
 
                 /* Generic SPC-2 device */
                 scsi_vendor = udev_device_get_sysattr_value(dev_scsi, "vendor");
                 if (!scsi_vendor) {
-                        info(udev, "%s: cannot get SCSI vendor attribute\n",
+                        log_debug("%s: cannot get SCSI vendor attribute\n",
                              udev_device_get_sysname(dev_scsi));
                         goto fallback;
                 }
@@ -355,7 +353,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
 
                 scsi_model = udev_device_get_sysattr_value(dev_scsi, "model");
                 if (!scsi_model) {
-                        info(udev, "%s: cannot get SCSI model attribute\n",
+                        log_debug("%s: cannot get SCSI model attribute\n",
                              udev_device_get_sysname(dev_scsi));
                         goto fallback;
                 }
@@ -365,7 +363,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
 
                 scsi_type = udev_device_get_sysattr_value(dev_scsi, "type");
                 if (!scsi_type) {
-                        info(udev, "%s: cannot get SCSI type attribute\n",
+                        log_debug("%s: cannot get SCSI type attribute\n",
                              udev_device_get_sysname(dev_scsi));
                         goto fallback;
                 }
@@ -373,7 +371,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
 
                 scsi_rev = udev_device_get_sysattr_value(dev_scsi, "rev");
                 if (!scsi_rev) {
-                        info(udev, "%s: cannot get SCSI revision attribute\n",
+                        log_debug("%s: cannot get SCSI revision attribute\n",
                              udev_device_get_sysname(dev_scsi));
                         goto fallback;
                 }
@@ -399,7 +397,7 @@ fallback:
                 if (!usb_vendor)
                         usb_vendor = vendor_id;
                 if (!usb_vendor) {
-                        info(udev, "No USB vendor information available\n");
+                        log_debug("No USB vendor information available\n");
                         return EXIT_FAILURE;
                 }
                 udev_util_encode_string(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));
@@ -413,10 +411,8 @@ fallback:
                 usb_model = udev_device_get_sysattr_value(dev_usb, "product");
                 if (!usb_model)
                         usb_model = product_id;
-                if (!usb_model) {
-                        dbg(udev, "No USB model information available\n");
+                if (!usb_model)
                         return EXIT_FAILURE;
-                }
                 udev_util_encode_string(usb_model, model_str_enc, sizeof(model_str_enc));
                 util_replace_whitespace(usb_model, model_str, sizeof(model_str)-1);
                 util_replace_chars(model_str, NULL);

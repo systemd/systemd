@@ -51,12 +51,10 @@ static void exec_list(struct udev_enumerate *udev_enumerate, const char *action)
                         continue;
                 util_strscpyl(filename, sizeof(filename), udev_list_entry_get_name(entry), "/uevent", NULL);
                 fd = open(filename, O_WRONLY);
-                if (fd < 0) {
-                        dbg(udev, "error on opening %s: %m\n", filename);
+                if (fd < 0)
                         continue;
-                }
                 if (write(fd, action, strlen(action)) < 0)
-                        info(udev, "error writing '%s' to '%s': %m\n", action, filename);
+                        log_debug("error writing '%s' to '%s': %m\n", action, filename);
                 close(fd);
         }
 }
@@ -101,7 +99,6 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
         struct udev_enumerate *udev_enumerate;
         int rc = 0;
 
-        dbg(udev, "version %s\n", VERSION);
         udev_enumerate = udev_enumerate_new(udev);
         if (udev_enumerate == NULL) {
                 rc = 1;
@@ -131,7 +128,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                         } else if (strcmp(optarg, "subsystems") == 0) {
                                 device_type = TYPE_SUBSYSTEMS;
                         } else {
-                                err(udev, "unknown type --type=%s\n", optarg);
+                                log_error("unknown type --type=%s\n", optarg);
                                 rc = 2;
                                 goto exit;
                         }
@@ -175,7 +172,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                         util_remove_trailing_chars(path, '/');
                         dev = udev_device_new_from_syspath(udev, path);
                         if (dev == NULL) {
-                                err(udev, "unable to open the device '%s'\n", optarg);
+                                log_error("unable to open the device '%s'\n", optarg);
                                 rc = 2;
                                 goto exit;
                         }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2007-2012 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,23 +25,11 @@
 
 #include "udev.h"
 
-static bool debug;
-
 void udev_main_log(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
                    const char *format, va_list args)
 {
-        if (debug) {
-                fprintf(stderr, "%s: ", fn);
-                vfprintf(stderr, format, args);
-        } else {
-                va_list args2;
-
-                va_copy(args2, args);
-                vfprintf(stderr, format, args2);
-                va_end(args2);
-                vsyslog(priority, format, args);
-        }
+        log_metav(priority, file, line, fn, format, args);
 }
 
 static int adm_version(struct udev *udev, int argc, char *argv[])
@@ -49,12 +37,14 @@ static int adm_version(struct udev *udev, int argc, char *argv[])
         printf("%s\n", VERSION);
         return 0;
 }
+
 static const struct udevadm_cmd udevadm_version = {
         .name = "version",
         .cmd = adm_version,
 };
 
 static int adm_help(struct udev *udev, int argc, char *argv[]);
+
 static const struct udevadm_cmd udevadm_help = {
         .name = "help",
         .cmd = adm_help,
@@ -86,12 +76,9 @@ static int adm_help(struct udev *udev, int argc, char *argv[])
 
 static int run_command(struct udev *udev, const struct udevadm_cmd *cmd, int argc, char *argv[])
 {
-        if (cmd->debug) {
-                debug = true;
-                if (udev_get_log_priority(udev) < LOG_INFO)
-                        udev_set_log_priority(udev, LOG_INFO);
-        }
-        info(udev, "calling: %s\n", cmd->name);
+        if (cmd->debug)
+                log_set_max_level(LOG_DEBUG);
+        log_debug("calling: %s\n", cmd->name);
         return cmd->cmd(udev, argc, argv);
 }
 
@@ -112,7 +99,8 @@ int main(int argc, char *argv[])
         if (udev == NULL)
                 goto out;
 
-        udev_log_init("udevadm");
+        log_open();
+        log_parse_environment();
         udev_set_log_fn(udev, udev_main_log);
         udev_selinux_init(udev);
 
@@ -125,9 +113,8 @@ int main(int argc, char *argv[])
 
                 switch (option) {
                 case 'd':
-                        debug = true;
-                        if (udev_get_log_priority(udev) < LOG_INFO)
-                                udev_set_log_priority(udev, LOG_INFO);
+                        log_set_max_level(LOG_DEBUG);
+                        udev_set_log_priority(udev, LOG_DEBUG);
                         break;
                 case 'h':
                         rc = adm_help(udev, argc, argv);
@@ -141,7 +128,7 @@ int main(int argc, char *argv[])
         }
         command = argv[optind];
 
-        info(udev, "runtime dir '%s'\n", udev_get_run_path(udev));
+        log_debug("runtime dir '%s'\n", udev_get_run_path(udev));
 
         if (command != NULL)
                 for (i = 0; i < ARRAY_SIZE(udevadm_cmds); i++) {
@@ -160,6 +147,6 @@ int main(int argc, char *argv[])
 out:
         udev_selinux_exit(udev);
         udev_unref(udev);
-        udev_log_close();
+        log_close();
         return rc;
 }

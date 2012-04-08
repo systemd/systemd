@@ -45,7 +45,6 @@ ssize_t util_get_sys_core_link_value(struct udev *udev, const char *slink, const
         if (pos == NULL)
                 return -1;
         pos = &pos[1];
-        dbg(udev, "resolved link to: '%s'\n", pos);
         return util_strscpy(value, size, pos);
 }
 
@@ -62,11 +61,9 @@ int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)
         if (len <= 0 || len == (ssize_t)sizeof(link_target))
                 return -1;
         link_target[len] = '\0';
-        dbg(udev, "path link '%s' points to '%s'\n", syspath, link_target);
 
         for (back = 0; strncmp(&link_target[back * 3], "../", 3) == 0; back++)
                 ;
-        dbg(udev, "base '%s', tail '%s', back %i\n", syspath, &link_target[back * 3], back);
         for (i = 0; i <= back; i++) {
                 base = strrchr(syspath, '/');
                 if (base == NULL)
@@ -75,7 +72,6 @@ int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)
         }
         if (base == NULL)
                 return -EINVAL;
-        dbg(udev, "after moving back '%s'\n", syspath);
         util_strscpyl(base, size - (base - syspath), "/", &link_target[back * 3], NULL);
         return 0;
 }

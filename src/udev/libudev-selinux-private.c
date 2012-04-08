@@ -26,7 +26,7 @@ void udev_selinux_init(struct udev *udev)
 {
         /* record the present security context */
         selinux_enabled = (is_selinux_enabled() > 0);
-        info(udev, "selinux=%i\n", selinux_enabled);
+        dbg(udev, "selinux=%i\n", selinux_enabled);
         if (!selinux_enabled)
                 return;
         matchpathcon_init_prefix(NULL, udev_get_dev_path(udev));

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2011 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004-2012 Kay Sievers <kay.sievers@vrfy.org>
  * Copyright (C) 2004 Chris Friesen <chris_friesen@sympatico.ca>
  * Copyright (C) 2009 Canonical Ltd.
  * Copyright (C) 2009 Scott James Remnant <scott@netsplit.com>
@@ -53,18 +53,7 @@ void udev_main_log(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
                    const char *format, va_list args)
 {
-        if (debug) {
-                char buf[1024];
-                struct timespec ts;
-
-                vsnprintf(buf, sizeof(buf), format, args);
-                clock_gettime(CLOCK_MONOTONIC, &ts);
-                fprintf(stderr, "[%llu.%06u] [%u] %s: %s",
-                        (unsigned long long) ts.tv_sec, (unsigned int) ts.tv_nsec/1000,
-                        (int) getpid(), fn, buf);
-        } else {
-                vsyslog(priority, format, args);
-        }
+        log_metav(priority, file, line, fn, format, args);
 }
 
 static struct udev_rules *rules;
@@ -157,7 +146,7 @@ static void event_queue_delete(struct event *event, bool export)
 
         if (export) {
                 udev_queue_export_device_finished(udev_queue_export, event->dev);
-                info(event->udev, "seq %llu done with %i\n", udev_device_get_seqnum(event->dev), event->exitcode);
+                log_debug("seq %llu done with %i\n", udev_device_get_seqnum(event->dev), event->exitcode);
         }
         udev_device_unref(event->dev);
         free(event);
@@ -182,7 +171,7 @@ static void worker_unref(struct worker *worker)
         worker->refcount--;
         if (worker->refcount > 0)
                 return;
-        info(worker->udev, "worker [%u] cleaned up\n", worker->pid);
+        log_debug("worker [%u] cleaned up\n", worker->pid);
         worker_cleanup(worker);
 }
 
@@ -247,14 +236,14 @@ static void worker_new(struct event *event)
                 sigfillset(&mask);
                 fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
                 if (fd_signal < 0) {
-                        err(udev, "error creating signalfd %m\n");
+                        log_error("error creating signalfd %m\n");
                         rc = 2;
                         goto out;
                 }
 
                 fd_ep = epoll_create1(EPOLL_CLOEXEC);
                 if (fd_ep < 0) {
-                        err(udev, "error creating epoll fd: %m\n");
+                        log_error("error creating epoll fd: %m\n");
                         rc = 3;
                         goto out;
                 }
@@ -270,7 +259,7 @@ static void worker_new(struct event *event)
 
                 if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
                     epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_monitor, &ep_monitor) < 0) {
-                        err(udev, "fail to add fds to epoll: %m\n");
+                        log_error("fail to add fds to epoll: %m\n");
                         rc = 4;
                         goto out;
                 }
@@ -283,7 +272,7 @@ static void worker_new(struct event *event)
                         struct worker_message msg;
                         int err;
 
-                        info(udev, "seq %llu running\n", udev_device_get_seqnum(dev));
+                        log_debug("seq %llu running\n", udev_device_get_seqnum(dev));
                         udev_event = udev_event_new(dev);
                         if (udev_event == NULL) {
                                 rc = 5;
@@ -318,7 +307,7 @@ static void worker_new(struct event *event)
                         msg.pid = getpid();
                         send(worker_watch[WRITE_END], &msg, sizeof(struct worker_message), 0);
 
-                        info(udev, "seq %llu processed with %i\n", udev_device_get_seqnum(dev), err);
+                        log_debug("seq %llu processed with %i\n", udev_device_get_seqnum(dev), err);
 
                         udev_device_unref(dev);
                         dev = NULL;
@@ -341,7 +330,7 @@ static void worker_new(struct event *event)
                                         if (errno == EINTR)
                                                 continue;
                                         err = -errno;
-                                        err(udev, "failed to poll: %m\n");
+                                        log_error("failed to poll: %m\n");
                                         goto out;
                                 }
 
@@ -376,14 +365,14 @@ out:
                 udev_builtin_exit(udev);
                 udev_monitor_unref(worker_monitor);
                 udev_unref(udev);
-                udev_log_close();
+                log_close();
                 exit(rc);
         }
         case -1:
                 udev_monitor_unref(worker_monitor);
                 event->state = EVENT_QUEUED;
                 free(worker);
-                err(udev, "fork of child failed: %m\n");
+                log_error("fork of child failed: %m\n");
                 break;
         default:
                 /* close monitor, but keep address around */
@@ -396,7 +385,7 @@ out:
                 event->state = EVENT_RUNNING;
                 udev_list_node_append(&worker->node, &worker_list);
                 children++;
-                info(udev, "seq %llu forked new worker [%u]\n", udev_device_get_seqnum(event->dev), pid);
+                log_debug("seq %llu forked new worker [%u]\n", udev_device_get_seqnum(event->dev), pid);
                 break;
         }
 }
@@ -414,7 +403,7 @@ static void event_run(struct event *event)
 
                 count = udev_monitor_send_device(monitor, worker->monitor, event->dev);
                 if (count < 0) {
-                        err(event->udev, "worker [%u] did not accept message %zi (%m), kill it\n", worker->pid, count);
+                        log_error("worker [%u] did not accept message %zi (%m), kill it\n", worker->pid, count);
                         kill(worker->pid, SIGKILL);
                         worker->state = WORKER_KILLED;
                         continue;
@@ -429,7 +418,7 @@ static void event_run(struct event *event)
 
         if (children >= children_max) {
                 if (children_max > 1)
-                        info(event->udev, "maximum number (%i) of children reached\n", children);
+                        log_debug("maximum number (%i) of children reached\n", children);
                 return;
         }
 
@@ -456,7 +445,7 @@ static int event_queue_insert(struct udev_device *dev)
         event->ifindex = udev_device_get_ifindex(dev);
 
         udev_queue_export_device_queued(udev_queue_export, dev);
-        info(event->udev, "seq %llu queued, '%s' '%s'\n", udev_device_get_seqnum(dev),
+        log_debug("seq %llu queued, '%s' '%s'\n", udev_device_get_seqnum(dev),
              udev_device_get_action(dev), udev_device_get_subsystem(dev));
 
         event->state = EVENT_QUEUED;
@@ -572,10 +561,8 @@ static void event_queue_start(struct udev *udev)
                         continue;
 
                 /* do not start event if parent or child event is still running */
-                if (is_devpath_busy(event)) {
-                        dbg(udev, "delay seq %llu (%s)\n", event->seqnum, event->devpath);
+                if (is_devpath_busy(event))
                         continue;
-                }
 
                 event_run(event);
         }
@@ -646,23 +633,24 @@ static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl)
 
         i = udev_ctrl_get_set_log_level(ctrl_msg);
         if (i >= 0) {
-                info(udev, "udevd message (SET_LOG_PRIORITY) received, log_priority=%i\n", i);
+                log_debug("udevd message (SET_LOG_PRIORITY) received, log_priority=%i\n", i);
+                log_set_max_level(i);
                 udev_set_log_priority(udev, i);
                 worker_kill(udev, 0);
         }
 
         if (udev_ctrl_get_stop_exec_queue(ctrl_msg) > 0) {
-                info(udev, "udevd message (STOP_EXEC_QUEUE) received\n");
+                log_debug("udevd message (STOP_EXEC_QUEUE) received\n");
                 stop_exec_queue = true;
         }
 
         if (udev_ctrl_get_start_exec_queue(ctrl_msg) > 0) {
-                info(udev, "udevd message (START_EXEC_QUEUE) received\n");
+                log_debug("udevd message (START_EXEC_QUEUE) received\n");
                 stop_exec_queue = false;
         }
 
         if (udev_ctrl_get_reload(ctrl_msg) > 0) {
-                info(udev, "udevd message (RELOAD) received\n");
+                log_debug("udevd message (RELOAD) received\n");
                 reload = true;
         }
 
@@ -679,14 +667,14 @@ static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl)
                                 val[0] = '\0';
                                 val = &val[1];
                                 if (val[0] == '\0') {
-                                        info(udev, "udevd message (ENV) received, unset '%s'\n", key);
+                                        log_debug("udevd message (ENV) received, unset '%s'\n", key);
                                         udev_add_property(udev, key, NULL);
                                 } else {
-                                        info(udev, "udevd message (ENV) received, set '%s=%s'\n", key, val);
+                                        log_debug("udevd message (ENV) received, set '%s=%s'\n", key, val);
                                         udev_add_property(udev, key, val);
                                 }
                         } else {
-                                err(udev, "wrong key format '%s'\n", key);
+                                log_error("wrong key format '%s'\n", key);
                         }
                         free(key);
                 }
@@ -695,15 +683,15 @@ static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl)
 
         i = udev_ctrl_get_set_children_max(ctrl_msg);
         if (i >= 0) {
-                info(udev, "udevd message (SET_MAX_CHILDREN) received, children_max=%i\n", i);
+                log_debug("udevd message (SET_MAX_CHILDREN) received, children_max=%i\n", i);
                 children_max = i;
         }
 
         if (udev_ctrl_get_ping(ctrl_msg) > 0)
-                info(udev, "udevd message (SYNC) received\n");
+                log_debug("udevd message (SYNC) received\n");
 
         if (udev_ctrl_get_exit(ctrl_msg) > 0) {
-                info(udev, "udevd message (EXIT) received\n");
+                log_debug("udevd message (EXIT) received\n");
                 udev_exit = true;
                 /* keep reference to block the client until we exit */
                 udev_ctrl_connection_ref(ctrl_conn);
@@ -725,7 +713,7 @@ static int handle_inotify(struct udev *udev)
 
         buf = malloc(nbytes);
         if (buf == NULL) {
-                err(udev, "error getting buffer for inotify\n");
+                log_error("error getting buffer for inotify\n");
                 return -1;
         }
 
@@ -737,17 +725,17 @@ static int handle_inotify(struct udev *udev)
                 ev = (struct inotify_event *)(buf + pos);
                 dev = udev_watch_lookup(udev, ev->wd);
                 if (dev != NULL) {
-                        info(udev, "inotify event: %x for %s\n", ev->mask, udev_device_get_devnode(dev));
+                        log_debug("inotify event: %x for %s\n", ev->mask, udev_device_get_devnode(dev));
                         if (ev->mask & IN_CLOSE_WRITE) {
                                 char filename[UTIL_PATH_SIZE];
                                 int fd;
 
-                                info(udev, "device %s closed, synthesising 'change'\n", udev_device_get_devnode(dev));
+                                log_debug("device %s closed, synthesising 'change'\n", udev_device_get_devnode(dev));
                                 util_strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
                                 fd = open(filename, O_WRONLY);
                                 if (fd >= 0) {
                                         if (write(fd, "change", 6) < 0)
-                                                info(udev, "error writing uevent: %m\n");
+                                                log_debug("error writing uevent: %m\n");
                                         close(fd);
                                 }
                         }
@@ -785,26 +773,26 @@ static void handle_signal(struct udev *udev, int signo)
 
                                 if (worker->pid != pid)
                                         continue;
-                                info(udev, "worker [%u] exit\n", pid);
+                                log_debug("worker [%u] exit\n", pid);
 
                                 if (WIFEXITED(status)) {
                                         if (WEXITSTATUS(status) != 0)
-                                                err(udev, "worker [%u] exit with return code %i\n", pid, WEXITSTATUS(status));
+                                                log_error("worker [%u] exit with return code %i\n", pid, WEXITSTATUS(status));
                                 } else if (WIFSIGNALED(status)) {
-                                        err(udev, "worker [%u] terminated by signal %i (%s)\n",
+                                        log_error("worker [%u] terminated by signal %i (%s)\n",
                                             pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
                                 } else if (WIFSTOPPED(status)) {
-                                        err(udev, "worker [%u] stopped\n", pid);
+                                        log_error("worker [%u] stopped\n", pid);
                                 } else if (WIFCONTINUED(status)) {
-                                        err(udev, "worker [%u] continued\n", pid);
+                                        log_error("worker [%u] continued\n", pid);
                                 } else {
-                                        err(udev, "worker [%u] exit with status 0x%04x\n", pid, status);
+                                        log_error("worker [%u] exit with status 0x%04x\n", pid, status);
                                 }
 
                                 if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
                                         if (worker->event) {
-                                                err(udev, "worker [%u] failed while handling '%s'\n",
-                                                    pid, worker->event->devpath);
+                                                log_error("worker [%u] failed while handling '%s'\n",
+                                                          pid, worker->event->devpath);
                                                 worker->event->exitcode = -32;
                                                 event_queue_delete(worker->event, true);
                                                 /* drop reference taken for state 'running' */
@@ -879,7 +867,7 @@ static void static_dev_create_from_modules(struct udev *udev)
                 util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/", devname, NULL);
                 util_create_path_selinux(udev, filename);
                 udev_selinux_setfscreatecon(udev, filename, mode);
-                info(udev, "mknod '%s' %c%u:%u\n", filename, type, maj, min);
+                log_debug("mknod '%s' %c%u:%u\n", filename, type, maj, min);
                 if (mknod(filename, mode, makedev(maj, min)) < 0 && errno == EEXIST)
                         utimensat(AT_FDCWD, filename, NULL, 0);
                 udev_selinux_resetfscreatecon(udev);
@@ -1148,7 +1136,7 @@ static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink)
         if (ctrl < 0 || netlink < 0)
                 return -1;
 
-        info(udev, "ctrl=%i netlink=%i\n", ctrl, netlink);
+        log_debug("ctrl=%i netlink=%i\n", ctrl, netlink);
         *rctrl = ctrl;
         *rnetlink = netlink;
         return 0;
@@ -1173,7 +1161,7 @@ static bool check_rules_timestamp(struct udev *udev)
 
                 /* first check */
                 if (stamp_usec[i] != 0) {
-                        info(udev, "reload - timestamp of '%s' changed\n", p[i]);
+                        log_debug("reload - timestamp of '%s' changed\n", p[i]);
                         changed = true;
                 }
 
@@ -1213,9 +1201,10 @@ int main(int argc, char *argv[])
         if (udev == NULL)
                 goto exit;
 
-        udev_log_init("udevd");
+        log_open();
+        log_parse_environment();
         udev_set_log_fn(udev, udev_main_log);
-        info(udev, "version %s\n", VERSION);
+        log_debug("version %s\n", VERSION);
         udev_selinux_init(udev);
 
         for (;;) {
@@ -1249,7 +1238,7 @@ int main(int argc, char *argv[])
                                 resolve_names = -1;
                         } else {
                                 fprintf(stderr, "resolve-names must be early, late or never\n");
-                                err(udev, "resolve-names must be early, late or never\n");
+                                log_error("resolve-names must be early, late or never\n");
                                 goto exit;
                         }
                         break;
@@ -1308,7 +1297,7 @@ int main(int argc, char *argv[])
 
         if (getuid() != 0) {
                 fprintf(stderr, "root privileges required\n");
-                err(udev, "root privileges required\n");
+                log_error("root privileges required\n");
                 goto exit;
         }
 
@@ -1337,7 +1326,7 @@ int main(int argc, char *argv[])
                                 close(fd);
                 } else {
                         fprintf(stderr, "cannot open /dev/null\n");
-                        err(udev, "cannot open /dev/null\n");
+                        log_error("cannot open /dev/null\n");
                 }
         }
 
@@ -1345,14 +1334,14 @@ int main(int argc, char *argv[])
                 /* get control and netlink socket from from systemd */
                 udev_ctrl = udev_ctrl_new_from_fd(udev, fd_ctrl);
                 if (udev_ctrl == NULL) {
-                        err(udev, "error taking over udev control socket");
+                        log_error("error taking over udev control socket");
                         rc = 1;
                         goto exit;
                 }
 
                 monitor = udev_monitor_new_from_netlink_fd(udev, "kernel", fd_netlink);
                 if (monitor == NULL) {
-                        err(udev, "error taking over netlink socket\n");
+                        log_error("error taking over netlink socket\n");
                         rc = 3;
                         goto exit;
                 }
@@ -1361,7 +1350,7 @@ int main(int argc, char *argv[])
                 udev_ctrl = udev_ctrl_new(udev);
                 if (udev_ctrl == NULL) {
                         fprintf(stderr, "error initializing udev control socket");
-                        err(udev, "error initializing udev control socket");
+                        log_error("error initializing udev control socket");
                         rc = 1;
                         goto exit;
                 }
@@ -1370,7 +1359,7 @@ int main(int argc, char *argv[])
                 monitor = udev_monitor_new_from_netlink(udev, "kernel");
                 if (monitor == NULL) {
                         fprintf(stderr, "error initializing netlink socket\n");
-                        err(udev, "error initializing netlink socket\n");
+                        log_error("error initializing netlink socket\n");
                         rc = 3;
                         goto exit;
                 }
@@ -1379,14 +1368,14 @@ int main(int argc, char *argv[])
 
         if (udev_monitor_enable_receiving(monitor) < 0) {
                 fprintf(stderr, "error binding netlink socket\n");
-                err(udev, "error binding netlink socket\n");
+                log_error("error binding netlink socket\n");
                 rc = 3;
                 goto exit;
         }
 
         if (udev_ctrl_enable_receiving(udev_ctrl) < 0) {
                 fprintf(stderr, "error binding udev control socket\n");
-                err(udev, "error binding udev control socket\n");
+                log_error("error binding udev control socket\n");
                 rc = 1;
                 goto exit;
         }
@@ -1396,7 +1385,7 @@ int main(int argc, char *argv[])
         /* create queue file before signalling 'ready', to make sure we block 'settle' */
         udev_queue_export = udev_queue_export_new(udev);
         if (udev_queue_export == NULL) {
-                err(udev, "error creating queue file\n");
+                log_error("error creating queue file\n");
                 goto exit;
         }
 
@@ -1409,7 +1398,7 @@ int main(int argc, char *argv[])
                 case 0:
                         break;
                 case -1:
-                        err(udev, "fork of daemon failed: %m\n");
+                        log_error("fork of daemon failed: %m\n");
                         rc = 4;
                         goto exit;
                 default:
@@ -1424,7 +1413,7 @@ int main(int argc, char *argv[])
                         /* Fallback to old interface */
                         fd = open("/proc/self/oom_adj", O_RDWR);
                         if (fd < 0) {
-                                err(udev, "error disabling OOM: %m\n");
+                                log_error("error disabling OOM: %m\n");
                         } else {
                                 /* OOM_DISABLE == -17 */
                                 write(fd, "-17", 3);
@@ -1459,7 +1448,7 @@ int main(int argc, char *argv[])
         fd_inotify = udev_watch_init(udev);
         if (fd_inotify < 0) {
                 fprintf(stderr, "error initializing inotify\n");
-                err(udev, "error initializing inotify\n");
+                log_error("error initializing inotify\n");
                 rc = 4;
                 goto exit;
         }
@@ -1471,7 +1460,7 @@ int main(int argc, char *argv[])
         fd_signal = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
         if (fd_signal < 0) {
                 fprintf(stderr, "error creating signalfd\n");
-                err(udev, "error creating signalfd\n");
+                log_error("error creating signalfd\n");
                 rc = 5;
                 goto exit;
         }
@@ -1479,7 +1468,7 @@ int main(int argc, char *argv[])
         /* unnamed socket from workers to the main daemon */
         if (socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, worker_watch) < 0) {
                 fprintf(stderr, "error creating socketpair\n");
-                err(udev, "error creating socketpair\n");
+                log_error("error creating socketpair\n");
                 rc = 6;
                 goto exit;
         }
@@ -1489,7 +1478,7 @@ int main(int argc, char *argv[])
 
         rules = udev_rules_new(udev, resolve_names);
         if (rules == NULL) {
-                err(udev, "error reading rules\n");
+                log_error("error reading rules\n");
                 goto exit;
         }
 
@@ -1515,7 +1504,7 @@ int main(int argc, char *argv[])
 
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
         if (fd_ep < 0) {
-                err(udev, "error creating epoll fd: %m\n");
+                log_error("error creating epoll fd: %m\n");
                 goto exit;
         }
         if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_ctrl, &ep_ctrl) < 0 ||
@@ -1523,7 +1512,7 @@ int main(int argc, char *argv[])
             epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_signal, &ep_signal) < 0 ||
             epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_netlink, &ep_netlink) < 0 ||
             epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_worker, &ep_worker) < 0) {
-                err(udev, "fail to add fds to epoll: %m\n");
+                log_error("fail to add fds to epoll: %m\n");
                 goto exit;
         }
 
@@ -1539,7 +1528,7 @@ int main(int argc, char *argv[])
                 else
                         children_max = 128;
         }
-        info(udev, "set children_max to %u\n", children_max);
+        log_debug("set children_max to %u\n", children_max);
 
         udev_rules_apply_static_dev_perms(rules);
 
@@ -1597,13 +1586,13 @@ int main(int argc, char *argv[])
 
                         /* timeout */
                         if (udev_exit) {
-                                err(udev, "timeout, giving up waiting for workers to finish\n");
+                                log_error("timeout, giving up waiting for workers to finish\n");
                                 break;
                         }
 
                         /* kill idle workers */
                         if (udev_list_node_is_empty(&event_list)) {
-                                info(udev, "cleanup idle workers\n");
+                                log_debug("cleanup idle workers\n");
                                 worker_kill(udev, 2);
                         }
 
@@ -1615,15 +1604,15 @@ int main(int argc, char *argv[])
                                         continue;
 
                                 if ((now_usec() - worker->event_start_usec) > 30 * 1000 * 1000) {
-                                        err(udev, "worker [%u] timeout, kill it\n", worker->pid,
+                                        log_error("worker [%u] timeout, kill it\n", worker->pid,
                                             worker->event ? worker->event->devpath : "<idle>");
                                         kill(worker->pid, SIGKILL);
                                         worker->state = WORKER_KILLED;
                                         /* drop reference taken for state 'running' */
                                         worker_unref(worker);
                                         if (worker->event) {
-                                                err(udev, "seq %llu '%s' killed\n",
-                                                    udev_device_get_seqnum(worker->event->dev), worker->event->devpath);
+                                                log_error("seq %llu '%s' killed\n",
+                                                          udev_device_get_seqnum(worker->event->dev), worker->event->devpath);
                                                 worker->event->exitcode = -64;
                                                 event_queue_delete(worker->event, true);
                                                 worker->event = NULL;
@@ -1741,6 +1730,6 @@ exit_daemonize:
         udev_ctrl_unref(udev_ctrl);
         udev_selinux_exit(udev);
         udev_unref(udev);
-        udev_log_close();
+        log_close();
         return rc;
 }

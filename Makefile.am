@@ -1297,7 +1297,8 @@ udevd_CFLAGS = \
 	$(udev_common_CFLAGS)
 
 udevd_LDADD = \
-	$(udev_common_LDADD)
+	$(udev_common_LDADD) \
+	libsystemd-basic.la
 
 udevd_CPPFLAGS = \
 	$(udev_common_CPPFLAGS)
@@ -1317,7 +1318,8 @@ udevadm_CFLAGS = \
 	$(udev_common_CFLAGS)
 
 udevadm_LDADD = \
-	$(udev_common_LDADD)
+	$(udev_common_LDADD) \
+	libsystemd-basic.la
 
 udevadm_CPPFLAGS = \
 	$(udev_common_CPPFLAGS)
@@ -1371,7 +1373,8 @@ ata_id_SOURCES = \
 	src/udev/ata_id/ata_id.c
 
 ata_id_LDADD = \
-	libudev-private.la
+	libudev-private.la \
+	libsystemd-basic.la
 
 udevlibexec_PROGRAMS += \
 	ata_id
@@ -1381,7 +1384,8 @@ cdrom_id_SOURCES = \
 	src/udev/cdrom_id/cdrom_id.c
 
 cdrom_id_LDADD = \
-	libudev-private.la
+	libudev-private.la \
+	libsystemd-basic.la
 
 udevlibexec_PROGRAMS += \
 	cdrom_id
@@ -1407,7 +1411,8 @@ scsi_id_SOURCES =\
 	src/udev/scsi_id/scsi_id.h
 
 scsi_id_LDADD = \
-	libudev-private.la
+	libudev-private.la \
+	libsystemd-basic.la
 
 udevlibexec_PROGRAMS += \
 	scsi_id
@@ -1433,7 +1438,8 @@ accelerometer_SOURCES = \
 	src/udev/accelerometer/accelerometer.c
 
 accelerometer_LDADD = \
-	libudev-private.la -lm
+	libudev-private.la -lm \
+	libsystemd-basic.la
 
 udevlibexec_PROGRAMS += \
 	accelerometer

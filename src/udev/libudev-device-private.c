@@ -165,7 +165,7 @@ int udev_device_update_db(struct udev_device *udev_device)
 
         fclose(f);
         rename(filename_tmp, filename);
-        info(udev, "created %s file '%s' for '%s'\n", has_info ? "db" : "empty",
+        dbg(udev, "created %s file '%s' for '%s'\n", has_info ? "db" : "empty",
              filename, udev_device_get_devpath(udev_device));
         return 0;
 }

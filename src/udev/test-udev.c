@@ -49,20 +49,20 @@ int main(int argc, char *argv[])
         udev = udev_new();
         if (udev == NULL)
                 exit(1);
-        info(udev, "version %s\n", VERSION);
+        log_debug("version %s\n", VERSION);
         udev_selinux_init(udev);
 
         sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
 
         action = argv[1];
         if (action == NULL) {
-                err(udev, "action missing\n");
+                log_error("action missing\n");
                 goto out;
         }
 
         devpath = argv[2];
         if (devpath == NULL) {
-                err(udev, "devpath missing\n");
+                log_error("devpath missing\n");
                 goto out;
         }
 
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
         util_strscpyl(syspath, sizeof(syspath), udev_get_sys_path(udev), devpath, NULL);
         dev = udev_device_new_from_syspath(udev, syspath);
         if (dev == NULL) {
-                info(udev, "unknown device '%s'\n", devpath);
+                log_debug("unknown device '%s'\n", devpath);
                 goto out;
         }
 

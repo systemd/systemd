@@ -50,7 +50,6 @@ struct udev_event *udev_event_new(struct udev_device *dev)
         event->fd_signal = -1;
         event->birth_usec = now_usec();
         event->timeout_usec = 30 * 1000 * 1000;
-        dbg(event->udev, "allocated event %p\n", event);
         return event;
 }
 
@@ -61,7 +60,6 @@ void udev_event_unref(struct udev_event *event)
         udev_list_cleanup(&event->run_list);
         free(event->program_result);
         free(event->name);
-        dbg(event->udev, "free event %p\n", event);
         free(event);
 }
 
@@ -138,7 +136,6 @@ size_t udev_event_apply_format(struct udev_event *event, const char *src, char *
                                         if (strncmp(&from[1], map[i].name, strlen(map[i].name)) == 0) {
                                                 type = map[i].type;
                                                 from += strlen(map[i].name)+1;
-                                                dbg(event->udev, "will substitute format name '%s'\n", map[i].name);
                                                 goto subst;
                                         }
                                 }
@@ -155,7 +152,6 @@ size_t udev_event_apply_format(struct udev_event *event, const char *src, char *
                                         if (from[1] == map[i].fmt) {
                                                 type = map[i].type;
                                                 from += 2;
-                                                dbg(event->udev, "will substitute format char '%c'\n", map[i].fmt);
                                                 goto subst;
                                         }
                                 }
@@ -179,7 +175,7 @@ subst:
                         from++;
                         for (i = 0; from[i] != '}'; i++) {
                                 if (from[i] == '\0') {
-                                        err(event->udev, "missing closing brace for format '%s'\n", src);
+                                        log_error("missing closing brace for format '%s'\n", src);
                                         goto out;
                                 }
                         }
@@ -196,23 +192,19 @@ subst:
                 switch (type) {
                 case SUBST_DEVPATH:
                         l = util_strpcpy(&s, l, udev_device_get_devpath(dev));
-                        dbg(event->udev, "substitute devpath '%s'\n", udev_device_get_devpath(dev));
                         break;
                 case SUBST_KERNEL:
                         l = util_strpcpy(&s, l, udev_device_get_sysname(dev));
-                        dbg(event->udev, "substitute kernel name '%s'\n", udev_device_get_sysname(dev));
                         break;
                 case SUBST_KERNEL_NUMBER:
                         if (udev_device_get_sysnum(dev) == NULL)
                                 break;
                         l = util_strpcpy(&s, l, udev_device_get_sysnum(dev));
-                        dbg(event->udev, "substitute kernel number '%s'\n", udev_device_get_sysnum(dev));
                         break;
                 case SUBST_ID:
                         if (event->dev_parent == NULL)
                                 break;
                         l = util_strpcpy(&s, l, udev_device_get_sysname(event->dev_parent));
-                        dbg(event->udev, "substitute id '%s'\n", udev_device_get_sysname(event->dev_parent));
                         break;
                 case SUBST_DRIVER: {
                         const char *driver;
@@ -224,7 +216,6 @@ subst:
                         if (driver == NULL)
                                 break;
                         l = util_strpcpy(&s, l, driver);
-                        dbg(event->udev, "substitute driver '%s'\n", driver);
                         break;
                 }
                 case SUBST_MAJOR: {
@@ -232,7 +223,6 @@ subst:
 
                         sprintf(num, "%d", major(udev_device_get_devnum(dev)));
                         l = util_strpcpy(&s, l, num);
-                        dbg(event->udev, "substitute major number '%s'\n", num);
                         break;
                 }
                 case SUBST_MINOR: {
@@ -240,7 +230,6 @@ subst:
 
                         sprintf(num, "%d", minor(udev_device_get_devnum(dev)));
                         l = util_strpcpy(&s, l, num);
-                        dbg(event->udev, "substitute minor number '%s'\n", num);
                         break;
                 }
                 case SUBST_RESULT: {
@@ -258,7 +247,6 @@ subst:
                                 char tmp[UTIL_PATH_SIZE];
                                 char *cpos;
 
-                                dbg(event->udev, "request part #%d of result string\n", i);
                                 util_strscpy(result, sizeof(result), event->program_result);
                                 cpos = result;
                                 while (--i) {
@@ -268,7 +256,7 @@ subst:
                                                 cpos++;
                                 }
                                 if (i > 0) {
-                                        err(event->udev, "requested part of result string not found\n");
+                                        log_error("requested part of result string not found\n");
                                         break;
                                 }
                                 util_strscpy(tmp, sizeof(tmp), cpos);
@@ -279,10 +267,8 @@ subst:
                                                 cpos[0] = '\0';
                                 }
                                 l = util_strpcpy(&s, l, tmp);
-                                dbg(event->udev, "substitute part of result string '%s'\n", tmp);
                         } else {
                                 l = util_strpcpy(&s, l, event->program_result);
-                                dbg(event->udev, "substitute result string '%s'\n", event->program_result);
                         }
                         break;
                 }
@@ -293,7 +279,7 @@ subst:
                         int count;
 
                         if (attr == NULL) {
-                                err(event->udev, "missing file parameter for attr\n");
+                                log_error("missing file parameter for attr\n");
                                 break;
                         }
 
@@ -320,9 +306,8 @@ subst:
                                 vbuf[len] = '\0';
                         count = util_replace_chars(vbuf, UDEV_ALLOWED_CHARS_INPUT);
                         if (count > 0)
-                                info(event->udev, "%i character(s) replaced\n" , count);
+                                log_debug("%i character(s) replaced\n" , count);
                         l = util_strpcpy(&s, l, vbuf);
-                        dbg(event->udev, "substitute sysfs value '%s'\n", vbuf);
                         break;
                 }
                 case SUBST_PARENT: {
@@ -337,8 +322,6 @@ subst:
                                 size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
 
                                 l = util_strpcpy(&s, l, &devnode[devlen]);
-                                dbg(event->udev, "found parent '%s', got node name '%s'\n",
-                                    udev_device_get_syspath(dev_parent), &devnode[devlen]);
                         }
                         break;
                 }
@@ -349,15 +332,12 @@ subst:
                 case SUBST_NAME: {
                         if (event->name != NULL) {
                                 l = util_strpcpy(&s, l, event->name);
-                                dbg(event->udev, "substitute custom node name '%s'\n", event->name);
                         } else if (udev_device_get_devnode(dev) != NULL) {
                                 size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
 
                                 l = util_strpcpy(&s, l, &udev_device_get_devnode(dev)[devlen]);
-                                dbg(event->udev, "substitute node name'%s'\n", &udev_device_get_devnode(dev)[devlen]);
                         } else {
                                 l = util_strpcpy(&s, l, udev_device_get_sysname(dev));
-                                dbg(event->udev, "substitute device name'%s'\n", udev_device_get_sysname(dev));
                         }
                         break;
                 }
@@ -375,15 +355,12 @@ subst:
                 }
                 case SUBST_ROOT:
                         l = util_strpcpy(&s, l, udev_get_dev_path(event->udev));
-                        dbg(event->udev, "substitute udev_root '%s'\n", udev_get_dev_path(event->udev));
                         break;
                 case SUBST_SYS:
                         l = util_strpcpy(&s, l, udev_get_sys_path(event->udev));
-                        dbg(event->udev, "substitute sys_path '%s'\n", udev_get_sys_path(event->udev));
                         break;
                 case SUBST_ENV:
                         if (attr == NULL) {
-                                dbg(event->udev, "missing attribute\n");
                                 break;
                         } else {
                                 const char *value;
@@ -391,19 +368,17 @@ subst:
                                 value = udev_device_get_property_value(event->dev, attr);
                                 if (value == NULL)
                                         break;
-                                dbg(event->udev, "substitute env '%s=%s'\n", attr, value);
                                 l = util_strpcpy(&s, l, value);
                                 break;
                         }
                 default:
-                        err(event->udev, "unknown substitution type=%i\n", type);
+                        log_error("unknown substitution type=%i\n", type);
                         break;
                 }
         }
 
 out:
         s[0] = '\0';
-        dbg(event->udev, "'%s' -> '%s' (%zu)\n", src, dest, l);
         return l;
 }
 
@@ -425,7 +400,7 @@ static int spawn_exec(struct udev_event *event,
                         dup2(fd, STDERR_FILENO);
                 close(fd);
         } else {
-                err(udev, "open /dev/null failed: %m\n");
+                log_error("open /dev/null failed: %m\n");
         }
 
         /* connect pipes to std{out,err} */
@@ -449,7 +424,7 @@ static int spawn_exec(struct udev_event *event,
 
         /* exec failed */
         err = -errno;
-        err(udev, "failed to execute '%s' '%s': %m\n", argv[0], cmd);
+        log_error("failed to execute '%s' '%s': %m\n", argv[0], cmd);
         return err;
 }
 
@@ -469,7 +444,7 @@ static void spawn_read(struct udev_event *event,
 
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
         if (fd_ep < 0) {
-                err(udev, "error creating epoll fd: %m\n");
+                log_error("error creating epoll fd: %m\n");
                 goto out;
         }
 
@@ -478,7 +453,7 @@ static void spawn_read(struct udev_event *event,
                 ep_outpipe.events = EPOLLIN;
                 ep_outpipe.data.ptr = &fd_stdout;
                 if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stdout, &ep_outpipe) < 0) {
-                        err(udev, "fail to add fd to epoll: %m\n");
+                        log_error("fail to add fd to epoll: %m\n");
                         goto out;
                 }
         }
@@ -488,7 +463,7 @@ static void spawn_read(struct udev_event *event,
                 ep_errpipe.events = EPOLLIN;
                 ep_errpipe.data.ptr = &fd_stderr;
                 if (epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_stderr, &ep_errpipe) < 0) {
-                        err(udev, "fail to add fd to epoll: %m\n");
+                        log_error("fail to add fd to epoll: %m\n");
                         goto out;
                 }
         }
@@ -505,7 +480,7 @@ static void spawn_read(struct udev_event *event,
 
                         age_usec = now_usec() - event->birth_usec;
                         if (age_usec >= event->timeout_usec) {
-                                err(udev, "timeout '%s'\n", cmd);
+                                log_error("timeout '%s'\n", cmd);
                                 goto out;
                         }
                         timeout = ((event->timeout_usec - age_usec) / 1000) + 1000;
@@ -517,11 +492,11 @@ static void spawn_read(struct udev_event *event,
                 if (fdcount < 0) {
                         if (errno == EINTR)
                                 continue;
-                        err(udev, "failed to poll: %m\n");
+                        log_error("failed to poll: %m\n");
                         goto out;
                 }
                 if (fdcount == 0) {
-                        err(udev, "timeout '%s'\n", cmd);
+                        log_error("timeout '%s'\n", cmd);
                         goto out;
                 }
 
@@ -543,7 +518,7 @@ static void spawn_read(struct udev_event *event,
                                                 memcpy(&result[respos], buf, count);
                                                 respos += count;
                                         } else {
-                                                err(udev, "'%s' ressize %zd too short\n", cmd, ressize);
+                                                log_error("'%s' ressize %zd too short\n", cmd, ressize);
                                         }
                                 }
 
@@ -555,12 +530,12 @@ static void spawn_read(struct udev_event *event,
                                         pos = buf;
                                         while ((line = strsep(&pos, "\n"))) {
                                                 if (pos != NULL || line[0] != '\0')
-                                                        info(udev, "'%s'(%s) '%s'\n", cmd, *fd == fd_stdout ? "out" : "err" , line);
+                                                        log_debug("'%s'(%s) '%s'\n", cmd, *fd == fd_stdout ? "out" : "err" , line);
                                         }
                                 }
                         } else if (ev[i].events & EPOLLHUP) {
                                 if (epoll_ctl(fd_ep, EPOLL_CTL_DEL, *fd, NULL) < 0) {
-                                        err(udev, "failed to remove fd from epoll: %m\n");
+                                        log_error("failed to remove fd from epoll: %m\n");
                                         goto out;
                                 }
                                 *fd = -1;
@@ -569,10 +544,8 @@ static void spawn_read(struct udev_event *event,
         }
 
         /* return the child's stdout string */
-        if (result != NULL) {
+        if (result != NULL)
                 result[respos] = '\0';
-                dbg(udev, "result='%s'\n", result);
-        }
 out:
         if (fd_ep >= 0)
                 close(fd_ep);
@@ -608,11 +581,11 @@ static int spawn_wait(struct udev_event *event, const char *cmd, pid_t pid)
                         if (errno == EINTR)
                                 continue;
                         err = -errno;
-                        err(udev, "failed to poll: %m\n");
+                        log_error("failed to poll: %m\n");
                         goto out;
                 }
                 if (fdcount == 0) {
-                        err(udev, "timeout: killing '%s' [%u]\n", cmd, pid);
+                        log_error("timeout: killing '%s' [%u]\n", cmd, pid);
                         kill(pid, SIGKILL);
                 }
 
@@ -633,20 +606,20 @@ static int spawn_wait(struct udev_event *event, const char *cmd, pid_t pid)
                                 if (waitpid(pid, &status, WNOHANG) < 0)
                                         break;
                                 if (WIFEXITED(status)) {
-                                        info(udev, "'%s' [%u] exit with return code %i\n", cmd, pid, WEXITSTATUS(status));
+                                        log_debug("'%s' [%u] exit with return code %i\n", cmd, pid, WEXITSTATUS(status));
                                         if (WEXITSTATUS(status) != 0)
                                                 err = -1;
                                 } else if (WIFSIGNALED(status)) {
-                                        err(udev, "'%s' [%u] terminated by signal %i (%s)\n", cmd, pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
+                                        log_error("'%s' [%u] terminated by signal %i (%s)\n", cmd, pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
                                         err = -1;
                                 } else if (WIFSTOPPED(status)) {
-                                        err(udev, "'%s' [%u] stopped\n", cmd, pid);
+                                        log_error("'%s' [%u] stopped\n", cmd, pid);
                                         err = -1;
                                 } else if (WIFCONTINUED(status)) {
-                                        err(udev, "'%s' [%u] continued\n", cmd, pid);
+                                        log_error("'%s' [%u] continued\n", cmd, pid);
                                         err = -1;
                                 } else {
-                                        err(udev, "'%s' [%u] exit with status 0x%04x\n", cmd, pid, status);
+                                        log_error("'%s' [%u] exit with status 0x%04x\n", cmd, pid, status);
                                         err = -1;
                                 }
                                 pid = 0;
@@ -683,7 +656,6 @@ int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[])
                                 while (pos[0] == ' ')
                                         pos++;
                 }
-                dbg(udev, "argv[%i] '%s'\n", i, argv[i]);
                 i++;
         }
 out:
@@ -713,14 +685,14 @@ int udev_event_spawn(struct udev_event *event,
         if (result != NULL || udev_get_log_priority(udev) >= LOG_INFO) {
                 if (pipe2(outpipe, O_NONBLOCK) != 0) {
                         err = -errno;
-                        err(udev, "pipe failed: %m\n");
+                        log_error("pipe failed: %m\n");
                         goto out;
                 }
         }
         if (udev_get_log_priority(udev) >= LOG_INFO) {
                 if (pipe2(errpipe, O_NONBLOCK) != 0) {
                         err = -errno;
-                        err(udev, "pipe failed: %m\n");
+                        log_error("pipe failed: %m\n");
                         goto out;
                 }
         }
@@ -744,14 +716,14 @@ int udev_event_spawn(struct udev_event *event,
                         errpipe[READ_END] = -1;
                 }
 
-                info(udev, "starting '%s'\n", cmd);
+                log_debug("starting '%s'\n", cmd);
 
                 err = spawn_exec(event, cmd, argv, envp, sigmask,
                                  outpipe[WRITE_END], errpipe[WRITE_END]);
 
                 _exit(2 );
         case -1:
-                err(udev, "fork of '%s' failed: %m\n", cmd);
+                log_error("fork of '%s' failed: %m\n", cmd);
                 err = -1;
                 goto out;
         default:
@@ -812,13 +784,13 @@ static int rename_netif(struct udev_event *event)
         int loop;
         int err;
 
-        info(event->udev, "changing net interface name from '%s' to '%s'\n",
-             udev_device_get_sysname(dev), event->name);
+        log_debug("changing net interface name from '%s' to '%s'\n",
+                  udev_device_get_sysname(dev), event->name);
 
         sk = socket(PF_INET, SOCK_DGRAM, 0);
         if (sk < 0) {
                 err = -errno;
-                err(event->udev, "error opening socket: %m\n");
+                log_error("error opening socket: %m\n");
                 return err;
         }
 
@@ -854,8 +826,6 @@ static int rename_netif(struct udev_event *event)
         while (loop--) {
                 const struct timespec duration = { 0, 1000 * 1000 * 1000 / 20 };
 
-                dbg(event->udev, "wait for netif '%s' to become free, loop=%i\n",
-                    event->name, (90 * 20) - loop);
                 nanosleep(&duration, NULL);
 
                 err = ioctl(sk, SIOCSIFNAME, &ifr);
@@ -870,7 +840,7 @@ static int rename_netif(struct udev_event *event)
 
 out:
         if (err < 0)
-                err(event->udev, "error changing net interface name %s to %s: %m\n", ifr.ifr_name, ifr.ifr_newname);
+                log_error("error changing net interface name %s to %s: %m\n", ifr.ifr_name, ifr.ifr_newname);
         close(sk);
         return err;
 }
@@ -916,7 +886,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
 
                         err = rename_netif(event);
                         if (err == 0) {
-                                info(event->udev, "renamed netif to '%s'\n", event->name);
+                                log_debug("renamed netif to '%s'\n", event->name);
 
                                 /* remember old name */
                                 udev_device_add_property(dev, "INTERFACE_OLD", udev_device_get_sysname(dev));
@@ -929,7 +899,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                                         util_strscpy(pos, sizeof(syspath) - (pos - syspath), event->name);
                                         udev_device_set_syspath(event->dev, syspath);
                                         udev_device_add_property(dev, "INTERFACE", udev_device_get_sysname(dev));
-                                        info(event->udev, "changed devpath to '%s'\n", udev_device_get_devpath(dev));
+                                        log_debug("changed devpath to '%s'\n", udev_device_get_devpath(dev));
                                 }
                         }
                 }
@@ -978,7 +948,6 @@ int udev_event_execute_run(struct udev_event *event, const sigset_t *sigmask)
         struct udev_list_entry *list_entry;
         int err = 0;
 
-        dbg(event->udev, "executing run list\n");
         udev_list_entry_foreach(list_entry, udev_list_get_entry(&event->run_list)) {
                 const char *cmd = udev_list_entry_get_name(list_entry);
 
@@ -995,7 +964,7 @@ int udev_event_execute_run(struct udev_event *event, const sigset_t *sigmask)
                         char **envp;
 
                         if (event->exec_delay > 0) {
-                                info(event->udev, "delay execution of '%s'\n", program);
+                                log_debug("delay execution of '%s'\n", program);
                                 sleep(event->exec_delay);
                         }
 

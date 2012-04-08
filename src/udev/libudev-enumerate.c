@@ -209,10 +209,8 @@ static bool devices_delay_end(struct udev *udev, const char *syspath)
 
         len = strlen(udev_get_sys_path(udev));
         for (i = 0; delay_device_list[i] != NULL; i++) {
-                if (strstr(&syspath[len], delay_device_list[i]) != NULL) {
-                        dbg(udev, "delaying: %s\n", syspath);
+                if (strstr(&syspath[len], delay_device_list[i]) != NULL)
                         return true;
-                }
         }
         return false;
 }
@@ -870,12 +868,9 @@ static int scan_devices_all(struct udev_enumerate *udev_enumerate)
         util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/subsystem", NULL);
         if (stat(base, &statbuf) == 0) {
                 /* we have /subsystem/, forget all the old stuff */
-                dbg(udev, "searching '/subsystem/*/devices/*' dir\n");
                 scan_dir(udev_enumerate, "subsystem", "devices", NULL);
         } else {
-                dbg(udev, "searching '/bus/*/devices/*' dir\n");
                 scan_dir(udev_enumerate, "bus", "devices", NULL);
-                dbg(udev, "searching '/class/*' dir\n");
                 scan_dir(udev_enumerate, "class", NULL, NULL);
         }
         return 0;
@@ -921,10 +916,8 @@ _public_ int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerat
                 return -EINVAL;
 
         /* all kernel modules */
-        if (match_subsystem(udev_enumerate, "module")) {
-                dbg(udev, "searching 'modules/*' dir\n");
+        if (match_subsystem(udev_enumerate, "module"))
                 scan_dir_and_add_devices(udev_enumerate, "module", NULL, NULL);
-        }
 
         util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/subsystem", NULL);
         if (stat(base, &statbuf) == 0)
@@ -933,15 +926,11 @@ _public_ int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerat
                 subsysdir = "bus";
 
         /* all subsystems (only buses support coldplug) */
-        if (match_subsystem(udev_enumerate, "subsystem")) {
-                dbg(udev, "searching '%s/*' dir\n", subsysdir);
+        if (match_subsystem(udev_enumerate, "subsystem"))
                 scan_dir_and_add_devices(udev_enumerate, subsysdir, NULL, NULL);
-        }
 
         /* all subsystem drivers */
-        if (match_subsystem(udev_enumerate, "drivers")) {
-                dbg(udev, "searching '%s/*/drivers/*' dir\n", subsysdir);
+        if (match_subsystem(udev_enumerate, "drivers"))
                 scan_dir(udev_enumerate, subsysdir, "drivers", "drivers");
-        }
         return 0;
 }

@@ -154,7 +154,6 @@ _public_ unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *
                 return -EINVAL;
 
         seqnum = udev_get_kernel_seqnum(udev_queue->udev);
-        dbg(udev_queue->udev, "seqnum=%llu\n", seqnum);
         return seqnum;
 }
 
@@ -314,19 +313,13 @@ _public_ int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue)
                 }
         }
 
-        if (queued > 0) {
-                dbg(udev_queue->udev, "queue is not empty\n");
+        if (queued > 0)
                 goto out;
-        }
 
         seqnum_kernel = udev_queue_get_kernel_seqnum(udev_queue);
-        if (seqnum_udev < seqnum_kernel) {
-                dbg(udev_queue->udev, "queue is empty but kernel events still pending [%llu]<->[%llu]\n",
-                                      seqnum_kernel, seqnum_udev);
+        if (seqnum_udev < seqnum_kernel)
                 goto out;
-        }
 
-        dbg(udev_queue->udev, "queue is empty\n");
         is_empty = 1;
 
 out:
@@ -409,7 +402,6 @@ _public_ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, un
         if (!udev_queue_get_seqnum_sequence_is_finished(udev_queue, seqnum, seqnum))
                 return 0;
 
-        dbg(udev_queue->udev, "seqnum: %llu finished\n", seqnum);
         return 1;
 }
 

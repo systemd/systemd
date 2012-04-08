@@ -127,7 +127,7 @@ int udev_builtin_add_property(struct udev_device *dev, bool test, const char *ke
         if (key[0] != '.')
                 udev_list_entry_set_num(entry, true);
 
-        info(udev_device_get_udev(dev), "%s=%s\n", key, val);
+        log_debug("%s=%s\n", key, val);
         if (test)
                 printf("%s=%s\n", key, val);
         return 0;
