@@ -1634,20 +1634,16 @@ dist_udevrules_DATA += \
 	src/udev/keymap/95-keyboard-force-release.rules
 
 dist_udevhome_SCRIPTS = \
-	src/udev/keymap/findkeyboards
-
-udevhome_SCRIPTS = \
+	src/udev/keymap/findkeyboards \
 	src/udev/keymap/keyboard-force-release.sh
 
 EXTRA_DIST += \
-	src/udev/keymap/check-keymaps.sh \
-	src/udev/keymap/keyboard-force-release.sh.in
+	src/udev/keymap/check-keymaps.sh
 
 CLEANFILES += \
 	$(nodist_keymap_SOURCES) \
 	src/udev/keymap/keys.txt \
-	src/udev/keymap/keys-from-name.gperf \
-	src/udev/keymap/keyboard-force-release.sh
+	src/udev/keymap/keys-from-name.gperf
 
 udevkeymapdir = $(libexecdir)/udev/keymaps
 dist_udevkeymap_DATA = \
