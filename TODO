@@ -18,6 +18,12 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
+* start polkit agent in systemctl, similar to the password agent, to allow
+  gaining authorizations for privileged operations by entering a password:
+  Interface:
+   http://hal.freedesktop.org/docs/polkit/eggdbus-interface-org.freedesktop.PolicyKit1.AuthenticationAgent.html
+  Example:
+   http://cgit.freedesktop.org/PolicyKit/commit/?id=42177383585e1e01cd6150f891176afcd4538a82
 
 * make gtk-doc optional (like kmod?)
 
