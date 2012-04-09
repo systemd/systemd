@@ -1271,7 +1271,9 @@ udev_common_sources = \
 	src/udev/udev-builtin-input_id.c \
 	src/udev/udev-builtin-kmod.c \
 	src/udev/udev-builtin-path_id.c \
-	src/udev/udev-builtin-usb_id.c
+	src/udev/udev-builtin-usb_id.c \
+	src/systemd/sd-daemon.h \
+	src/sd-daemon.c
 
 udev_common_CFLAGS = \
 	$(BLKID_CFLAGS) \
@@ -1287,11 +1289,23 @@ udev_common_CPPFLAGS = \
 	-DFIRMWARE_PATH="$(FIRMWARE_PATH)" \
 	-DUSB_DATABASE=\"$(USB_DATABASE)\" -DPCI_DATABASE=\"$(PCI_DATABASE)\"
 
+if HAVE_ACL
+udev_common_sources += \
+	src/udev/udev-builtin-uaccess.c \
+	src/login/logind-acl.c \
+	src/acl-util.c
+
+udev_common_CFLAGS += \
+	$(ACL_CFLAGS)
+
+udev_common_LDADD += \
+	libsystemd-login.la \
+	$(ACL_LIBS)
+endif
+
 udevd_SOURCES = \
 	$(udev_common_sources) \
-	src/udev/udevd.c \
-	src/systemd/sd-daemon.h \
-	src/sd-daemon.c
+	src/udev/udevd.c
 
 udevd_CFLAGS = \
 	$(udev_common_CFLAGS)
@@ -2596,29 +2610,6 @@ systemd_multi_seat_x_LDADD = \
 
 rootlibexec_PROGRAMS += \
 	systemd-multi-seat-x
-
-systemd_uaccess_SOURCES = \
-	src/login/uaccess.c
-
-if HAVE_ACL
-systemd_uaccess_SOURCES += \
-	src/login/logind-acl.c \
-	src/acl-util.c
-endif
-
-systemd_uaccess_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(ACL_CFLAGS)
-
-systemd_uaccess_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-daemon.la \
-	libsystemd-login.la \
-	libudev.la \
-	$(ACL_LIBS)
-
-rootlibexec_PROGRAMS += \
-	systemd-uaccess
 
 dist_udevrules_DATA += \
 	src/login/70-uaccess.rules

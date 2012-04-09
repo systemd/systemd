@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 
         /* do what devtmpfs usually provides us */
         if (udev_device_get_devnode(dev) != NULL) {
-                mode_t mode;
+                mode_t mode = 0600;
 
                 if (strcmp(udev_device_get_subsystem(dev), "block") == 0)
                         mode |= S_IFBLK;

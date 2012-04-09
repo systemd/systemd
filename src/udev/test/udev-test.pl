@@ -21,8 +21,8 @@ use warnings;
 use strict;
 
 my $PWD                 = $ENV{PWD};
-my $sysfs               = "test/sys";
-my $udev_bin            = "./test-udev";
+my $sysfs               = "src/udev/test/sys";
+my $udev_bin            = ".libs/test-udev";
 my $valgrind            = 0;
 my $udev_bin_valgrind   = "valgrind --tool=memcheck --leak-check=yes --quiet $udev_bin";
 my $udev_root           = "udev-root";
@@ -1347,7 +1347,7 @@ sub udev {
         if ($valgrind > 0) {
                 system("$udev_bin_valgrind $action $devpath");
         } else {
-                system("$udev_bin $action $devpath");
+                system("$udev_bin", "$action", "$devpath");
         }
 }
 

@@ -9,7 +9,7 @@ ACTION=="remove", GOTO="uaccess_end"
 ENV{MAJOR}=="", GOTO="uaccess_end"
 
 # PTP/MTP protocol devices, cameras, portable media players
-SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="", ENV{DEVTYPE}=="usb_device", IMPORT{program}="usb_id --export %p"
+SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="", ENV{DEVTYPE}=="usb_device", IMPORT{builtin}="usb_id"
 SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:060101:*", TAG+="uaccess"
 
 # Digicams with proprietary protocol

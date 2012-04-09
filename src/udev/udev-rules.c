@@ -168,7 +168,8 @@ enum token_type {
         TK_A_NAME,                      /* val */
         TK_A_DEVLINK,                   /* val */
         TK_A_ATTR,                      /* val, attr */
-        TK_A_RUN,                       /* val, bool */
+        TK_A_RUN_BUILTIN,               /* val, bool */
+        TK_A_RUN_PROGRAM,               /* val, bool */
         TK_A_GOTO,                      /* size_t */
 
         TK_END,
@@ -305,7 +306,8 @@ static const char *token_str(enum token_type type)
                 [TK_A_NAME] =                   "A NAME",
                 [TK_A_DEVLINK] =                "A DEVLINK",
                 [TK_A_ATTR] =                   "A ATTR",
-                [TK_A_RUN] =                    "A RUN",
+                [TK_A_RUN_BUILTIN] =            "A RUN_BUILTIN",
+                [TK_A_RUN_PROGRAM] =            "A RUN_PROGRAM",
                 [TK_A_GOTO] =                   "A GOTO",
 
                 [TK_END] =                      "END",
@@ -359,7 +361,8 @@ static void dump_token(struct udev_rules *rules, struct token *token)
         case TK_A_OWNER:
         case TK_A_GROUP:
         case TK_A_MODE:
-        case TK_A_RUN:
+        case TK_A_RUN_BUILTIN:
+        case TK_A_RUN_PROGRAM:
                 log_debug("%s %s '%s'(%s)\n",
                           token_str(type), operation_str(op), value, string_glob_str(glob));
                 break;
@@ -1049,7 +1052,9 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
         case TK_A_STRING_ESCAPE_REPLACE:
         case TK_A_DB_PERSIST:
                 break;
-        case TK_A_RUN:
+        case TK_A_RUN_BUILTIN:
+                token->key.builtin_cmd = *(enum udev_builtin_cmd *)data;
+        case TK_A_RUN_PROGRAM:
                 token->key.value_off = add_string(rule_tmp->rules, value);
                 break;
         case TK_A_INOTIFY_WATCH:
@@ -1379,7 +1384,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                                 log_error("IMPORT{} type missing, ignoring IMPORT %s:%u\n", filename, lineno);
                                 continue;
                         }
-                        if (strstr(attr, "program")) {
+                        if (strcmp(attr, "program") == 0) {
                                 /* find known built-in command */
                                 if (value[0] != '/') {
                                         enum udev_builtin_cmd cmd;
@@ -1393,22 +1398,23 @@ static int add_rule(struct udev_rules *rules, char *line,
                                         }
                                 }
                                 rule_add_key(&rule_tmp, TK_M_IMPORT_PROG, op, value, NULL);
-                        } else if (strstr(attr, "builtin")) {
+                        } else if (strcmp(attr, "builtin") == 0) {
                                 enum udev_builtin_cmd cmd = udev_builtin_lookup(value);
 
                                 if (cmd < UDEV_BUILTIN_MAX)
                                         rule_add_key(&rule_tmp, TK_M_IMPORT_BUILTIN, op, value, &cmd);
                                 else
                                         log_error("IMPORT{builtin}: '%s' unknown %s:%u\n", value, filename, lineno);
-                        } else if (strstr(attr, "file")) {
+                        } else if (strcmp(attr, "file") == 0) {
                                 rule_add_key(&rule_tmp, TK_M_IMPORT_FILE, op, value, NULL);
-                        } else if (strstr(attr, "db")) {
+                        } else if (strcmp(attr, "db") == 0) {
                                 rule_add_key(&rule_tmp, TK_M_IMPORT_DB, op, value, NULL);
-                        } else if (strstr(attr, "cmdline")) {
+                        } else if (strcmp(attr, "cmdline") == 0) {
                                 rule_add_key(&rule_tmp, TK_M_IMPORT_CMDLINE, op, value, NULL);
-                        } else if (strstr(attr, "parent")) {
+                        } else if (strcmp(attr, "parent") == 0) {
                                 rule_add_key(&rule_tmp, TK_M_IMPORT_PARENT, op, value, NULL);
-                        }
+                        } else
+                                log_error("IMPORT{} unknown type, ignoring IMPORT %s:%u\n", filename, lineno);
                         continue;
                 }
 
@@ -1429,11 +1435,29 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "RUN") == 0) {
-                        if (strncmp(value, "socket:", 7) == 0)
-                                log_error("RUN+=\"socket:...\" support will be removed from a future udev release. "
-                                    "Please remove it from: %s:%u and use libudev to subscribe to events.\n", filename, lineno);
-                        rule_add_key(&rule_tmp, TK_A_RUN, op, value, NULL);
+                if (strncmp(key, "RUN", sizeof("RUN")-1) == 0) {
+                        attr = get_key_attribute(rules->udev, key + sizeof("RUN")-1);
+                        if (attr == NULL)
+                                attr = "program";
+
+                        if (strcmp(attr, "builtin") == 0) {
+                                enum udev_builtin_cmd cmd = udev_builtin_lookup(value);
+
+                                if (cmd < UDEV_BUILTIN_MAX)
+                                        rule_add_key(&rule_tmp, TK_A_RUN_BUILTIN, op, value, &cmd);
+                                else
+                                        log_error("IMPORT{builtin}: '%s' unknown %s:%u\n", value, filename, lineno);
+                        } else if (strcmp(attr, "program") == 0) {
+                                enum udev_builtin_cmd cmd = UDEV_BUILTIN_MAX;
+
+                                if (strncmp(value, "socket:", 7) == 0)
+                                        log_error("RUN+=\"socket:...\" support will be removed from a future udev release. "
+                                            "Please remove it from: %s:%u and use libudev to subscribe to events.\n", filename, lineno);
+                                rule_add_key(&rule_tmp, TK_A_RUN_PROGRAM, op, value, &cmd);
+                        } else {
+                                log_error("RUN{} unknown type, ignoring RUN %s:%u\n", filename, lineno);
+                        }
+
                         continue;
                 }
 
@@ -2602,14 +2626,18 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                         }
                         break;
                 }
-                case TK_A_RUN: {
+                case TK_A_RUN_BUILTIN:
+                case TK_A_RUN_PROGRAM: {
+                        struct udev_list_entry *entry;
+
                         if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
                                 udev_list_cleanup(&event->run_list);
                         log_debug("RUN '%s' %s:%u\n",
                                   &rules->buf[cur->key.value_off],
                                   &rules->buf[rule->rule.filename_off],
                                   rule->rule.filename_line);
-                        udev_list_entry_add(&event->run_list, &rules->buf[cur->key.value_off], NULL);
+                        entry = udev_list_entry_add(&event->run_list, &rules->buf[cur->key.value_off], NULL);
+                        udev_list_entry_set_num(entry, cur->key.builtin_cmd);
                         break;
                 }
                 case TK_A_GOTO:

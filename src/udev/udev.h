@@ -78,7 +78,7 @@ int udev_event_spawn(struct udev_event *event,
                      const char *cmd, char **envp, const sigset_t *sigmask,
                      char *result, size_t ressize);
 int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigset);
-int udev_event_execute_run(struct udev_event *event, const sigset_t *sigset);
+void udev_event_execute_run(struct udev_event *event, const sigset_t *sigset);
 int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[]);
 
 /* udev-watch.c */
@@ -138,6 +138,9 @@ enum udev_builtin_cmd {
         UDEV_BUILTIN_PCI_DB,
         UDEV_BUILTIN_USB_DB,
         UDEV_BUILTIN_USB_ID,
+#ifdef HAVE_ACL
+        UDEV_BUILTIN_UACCESS,
+#endif
         UDEV_BUILTIN_MAX
 };
 struct udev_builtin {
@@ -157,6 +160,7 @@ extern const struct udev_builtin udev_builtin_path_id;
 extern const struct udev_builtin udev_builtin_pci_db;
 extern const struct udev_builtin udev_builtin_usb_db;
 extern const struct udev_builtin udev_builtin_usb_id;
+extern const struct udev_builtin udev_builtin_uaccess;
 int udev_builtin_init(struct udev *udev);
 void udev_builtin_exit(struct udev *udev);
 enum udev_builtin_cmd udev_builtin_lookup(const char *command);
