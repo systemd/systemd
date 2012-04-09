@@ -1450,9 +1450,6 @@ static int add_rule(struct udev_rules *rules, char *line,
                         } else if (strcmp(attr, "program") == 0) {
                                 enum udev_builtin_cmd cmd = UDEV_BUILTIN_MAX;
 
-                                if (strncmp(value, "socket:", 7) == 0)
-                                        log_error("RUN+=\"socket:...\" support will be removed from a future udev release. "
-                                            "Please remove it from: %s:%u and use libudev to subscribe to events.\n", filename, lineno);
                                 rule_add_key(&rule_tmp, TK_A_RUN_PROGRAM, op, value, &cmd);
                         } else {
                                 log_error("RUN{} unknown type, ignoring RUN %s:%u\n", filename, lineno);

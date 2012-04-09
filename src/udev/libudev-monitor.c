@@ -46,7 +46,6 @@ struct udev_monitor {
         struct sockaddr_nl snl;
         struct sockaddr_nl snl_trusted_sender;
         struct sockaddr_nl snl_destination;
-        struct sockaddr_un sun;
         socklen_t addrlen;
         struct udev_list filter_subsystem_list;
         struct udev_list filter_tag_list;
@@ -102,62 +101,13 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
  * @udev: udev library context
  * @socket_path: unix socket path
  *
- * This function should not be used in any new application. The
- * kernel's netlink socket multiplexes messages to all interested
- * clients. Creating custom sockets from udev to applications
- * should be avoided.
+ * This function is removed from libudev and will not do anything.
  *
- * Create a new udev monitor and connect to a specified socket. The
- * path to a socket either points to an existing socket file, or if
- * the socket path starts with a '@' character, an abstract namespace
- * socket will be used.
- *
- * A socket file will not be created. If it does not already exist,
- * it will fall-back and connect to an abstract namespace socket with
- * the given path. The permissions adjustment of a socket file, as
- * well as the later cleanup, needs to be done by the caller.
- *
- * The initial refcount is 1, and needs to be decremented to
- * release the resources of the udev monitor.
- *
- * Returns: a new udev monitor, or #NULL, in case of an error
+ * Returns: #NULL
  **/
 _public_ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path)
 {
-        struct udev_monitor *udev_monitor;
-        struct stat statbuf;
-
-        if (udev == NULL)
-                return NULL;
-        if (socket_path == NULL)
-                return NULL;
-        udev_monitor = udev_monitor_new(udev);
-        if (udev_monitor == NULL)
-                return NULL;
-
-        udev_monitor->sun.sun_family = AF_LOCAL;
-        if (socket_path[0] == '@') {
-                /* translate leading '@' to abstract namespace */
-                util_strscpy(udev_monitor->sun.sun_path, sizeof(udev_monitor->sun.sun_path), socket_path);
-                udev_monitor->sun.sun_path[0] = '\0';
-                udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(socket_path);
-        } else if (stat(socket_path, &statbuf) == 0 && S_ISSOCK(statbuf.st_mode)) {
-                /* existing socket file */
-                util_strscpy(udev_monitor->sun.sun_path, sizeof(udev_monitor->sun.sun_path), socket_path);
-                udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(socket_path);
-        } else {
-                /* no socket file, assume abstract namespace socket */
-                util_strscpy(&udev_monitor->sun.sun_path[1], sizeof(udev_monitor->sun.sun_path)-1, socket_path);
-                udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(socket_path)+1;
-        }
-        udev_monitor->sock = socket(AF_LOCAL, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
-        if (udev_monitor->sock == -1) {
-                err(udev, "error getting socket: %m\n");
-                free(udev_monitor);
-                return NULL;
-        }
-
-        return udev_monitor;
+        return NULL;
 }
 
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd)
@@ -379,39 +329,31 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
         int err = 0;
         const int on = 1;
 
-        if (udev_monitor->sun.sun_family != 0) {
-                if (!udev_monitor->bound) {
-                        err = bind(udev_monitor->sock,
-                                   (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
-                        if (err == 0)
-                                udev_monitor->bound = true;
-                }
-        } else if (udev_monitor->snl.nl_family != 0) {
-                udev_monitor_filter_update(udev_monitor);
-                if (!udev_monitor->bound) {
-                        err = bind(udev_monitor->sock,
-                                   (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
-                        if (err == 0)
-                                udev_monitor->bound = true;
-                }
-                if (err == 0) {
-                        struct sockaddr_nl snl;
-                        socklen_t addrlen;
-
-                        /*
-                         * get the address the kernel has assigned us
-                         * it is usually, but not necessarily the pid
-                         */
-                        addrlen = sizeof(struct sockaddr_nl);
-                        err = getsockname(udev_monitor->sock, (struct sockaddr *)&snl, &addrlen);
-                        if (err == 0)
-                                udev_monitor->snl.nl_pid = snl.nl_pid;
-                }
-        } else {
+        if (udev_monitor->snl.nl_family == 0)
                 return -EINVAL;
+
+        udev_monitor_filter_update(udev_monitor);
+
+        if (!udev_monitor->bound) {
+                err = bind(udev_monitor->sock,
+                           (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
+                if (err == 0)
+                        udev_monitor->bound = true;
         }
 
-        if (err < 0) {
+        if (err >= 0) {
+                struct sockaddr_nl snl;
+                socklen_t addrlen;
+
+                /*
+                 * get the address the kernel has assigned us
+                 * it is usually, but not necessarily the pid
+                 */
+                addrlen = sizeof(struct sockaddr_nl);
+                err = getsockname(udev_monitor->sock, (struct sockaddr *)&snl, &addrlen);
+                if (err == 0)
+                        udev_monitor->snl.nl_pid = snl.nl_pid;
+        } else {
                 err(udev_monitor->udev, "bind failed: %m\n");
                 return err;
         }
@@ -713,98 +655,65 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
         const char *buf;
         ssize_t blen;
         ssize_t count;
+        struct msghdr smsg;
+        struct iovec iov[2];
+        const char *val;
+        struct udev_monitor_netlink_header nlh;
+        struct udev_list_entry *list_entry;
+        uint64_t tag_bloom_bits;
+
+        if (udev_monitor->snl.nl_family == 0)
+                return -EINVAL;
 
         blen = udev_device_get_properties_monitor_buf(udev_device, &buf);
         if (blen < 32)
                 return -EINVAL;
 
-        if (udev_monitor->sun.sun_family != 0) {
-                struct msghdr smsg;
-                struct iovec iov[2];
-                const char *action;
-                char header[2048];
-                char *s;
+        /* add versioned header */
+        memset(&nlh, 0x00, sizeof(struct udev_monitor_netlink_header));
+        memcpy(nlh.prefix, "libudev", 8);
+        nlh.magic = htonl(UDEV_MONITOR_MAGIC);
+        nlh.header_size = sizeof(struct udev_monitor_netlink_header);
+        val = udev_device_get_subsystem(udev_device);
+        nlh.filter_subsystem_hash = htonl(util_string_hash32(val));
+        val = udev_device_get_devtype(udev_device);
+        if (val != NULL)
+                nlh.filter_devtype_hash = htonl(util_string_hash32(val));
+        iov[0].iov_base = &nlh;
+        iov[0].iov_len = sizeof(struct udev_monitor_netlink_header);
 
-                /* header <action>@<devpath> */
-                action = udev_device_get_action(udev_device);
-                if (action == NULL)
-                        return -EINVAL;
-                s = header;
-                if (util_strpcpyl(&s, sizeof(header), action, "@", udev_device_get_devpath(udev_device), NULL) == 0)
-                        return -EINVAL;
-                iov[0].iov_base = header;
-                iov[0].iov_len = (s - header)+1;
-
-                /* add properties list */
-                iov[1].iov_base = (char *)buf;
-                iov[1].iov_len = blen;
-
-                memset(&smsg, 0x00, sizeof(struct msghdr));
-                smsg.msg_iov = iov;
-                smsg.msg_iovlen = 2;
-                smsg.msg_name = &udev_monitor->sun;
-                smsg.msg_namelen = udev_monitor->addrlen;
-                count = sendmsg(udev_monitor->sock, &smsg, 0);
-                dbg(udev_monitor->udev, "passed %zi bytes to socket monitor %p\n", count, udev_monitor);
-                return count;
+        /* add tag bloom filter */
+        tag_bloom_bits = 0;
+        udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device))
+                tag_bloom_bits |= util_string_bloom64(udev_list_entry_get_name(list_entry));
+        if (tag_bloom_bits > 0) {
+                nlh.filter_tag_bloom_hi = htonl(tag_bloom_bits >> 32);
+                nlh.filter_tag_bloom_lo = htonl(tag_bloom_bits & 0xffffffff);
         }
 
-        if (udev_monitor->snl.nl_family != 0) {
-                struct msghdr smsg;
-                struct iovec iov[2];
-                const char *val;
-                struct udev_monitor_netlink_header nlh;
-                struct udev_list_entry *list_entry;
-                uint64_t tag_bloom_bits;
+        /* add properties list */
+        nlh.properties_off = iov[0].iov_len;
+        nlh.properties_len = blen;
+        iov[1].iov_base = (char *)buf;
+        iov[1].iov_len = blen;
 
-                /* add versioned header */
-                memset(&nlh, 0x00, sizeof(struct udev_monitor_netlink_header));
-                memcpy(nlh.prefix, "libudev", 8);
-                nlh.magic = htonl(UDEV_MONITOR_MAGIC);
-                nlh.header_size = sizeof(struct udev_monitor_netlink_header);
-                val = udev_device_get_subsystem(udev_device);
-                nlh.filter_subsystem_hash = htonl(util_string_hash32(val));
-                val = udev_device_get_devtype(udev_device);
-                if (val != NULL)
-                        nlh.filter_devtype_hash = htonl(util_string_hash32(val));
-                iov[0].iov_base = &nlh;
-                iov[0].iov_len = sizeof(struct udev_monitor_netlink_header);
-
-                /* add tag bloom filter */
-                tag_bloom_bits = 0;
-                udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(udev_device))
-                        tag_bloom_bits |= util_string_bloom64(udev_list_entry_get_name(list_entry));
-                if (tag_bloom_bits > 0) {
-                        nlh.filter_tag_bloom_hi = htonl(tag_bloom_bits >> 32);
-                        nlh.filter_tag_bloom_lo = htonl(tag_bloom_bits & 0xffffffff);
-                }
-
-                /* add properties list */
-                nlh.properties_off = iov[0].iov_len;
-                nlh.properties_len = blen;
-                iov[1].iov_base = (char *)buf;
-                iov[1].iov_len = blen;
-
-                memset(&smsg, 0x00, sizeof(struct msghdr));
-                smsg.msg_iov = iov;
-                smsg.msg_iovlen = 2;
-                /*
-                 * Use custom address for target, or the default one.
-                 *
-                 * If we send to a multicast group, we will get
-                 * ECONNREFUSED, which is expected.
-                 */
-                if (destination != NULL)
-                        smsg.msg_name = &destination->snl;
-                else
-                        smsg.msg_name = &udev_monitor->snl_destination;
-                smsg.msg_namelen = sizeof(struct sockaddr_nl);
-                count = sendmsg(udev_monitor->sock, &smsg, 0);
-                dbg(udev_monitor->udev, "passed %zi bytes to netlink monitor %p\n", count, udev_monitor);
-                return count;
-        }
-
-        return -EINVAL;
+        memset(&smsg, 0x00, sizeof(struct msghdr));
+        smsg.msg_iov = iov;
+        smsg.msg_iovlen = 2;
+        /*
+         * Use custom address for target, or the default one.
+         *
+         * If we send to a multicast group, we will get
+         * ECONNREFUSED, which is expected.
+         */
+        if (destination != NULL)
+                smsg.msg_name = &destination->snl;
+        else
+                smsg.msg_name = &udev_monitor->snl_destination;
+        smsg.msg_namelen = sizeof(struct sockaddr_nl);
+        count = sendmsg(udev_monitor->sock, &smsg, 0);
+        dbg(udev_monitor->udev, "passed %zi bytes to netlink monitor %p\n", count, udev_monitor);
+        return count;
 }
 
 /**

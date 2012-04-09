@@ -956,14 +956,6 @@ void udev_event_execute_run(struct udev_event *event, const sigset_t *sigmask)
 
                         udev_event_apply_format(event, cmd, command, sizeof(command));
                         udev_builtin_run(event->dev, builtin_cmd, command, false);
-                } else if (strncmp(cmd, "socket:", strlen("socket:")) == 0) {
-                        struct udev_monitor *monitor;
-
-                        monitor = udev_monitor_new_from_socket(event->udev, &cmd[strlen("socket:")]);
-                        if (monitor == NULL)
-                                continue;
-                        udev_monitor_send_device(monitor, NULL, event->dev);
-                        udev_monitor_unref(monitor);
                 } else {
                         char program[UTIL_PATH_SIZE];
                         char **envp;

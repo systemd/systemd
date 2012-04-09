@@ -6,6 +6,10 @@ CHANGES WITH 182:
         * udev: /lib/udev/devices/ are not read anymore; tmpfiles should
           be used to create workarounds for broken subsystems.
 
+        * udev: RUN+="socket:..."  and udev_monitor_new_from_socket() is
+          no longer supported. udev_monitor_new_from_netlink() needs to be
+          used to subscribe to events.
+
         * systemd-logingctl and systemd-journalctl have been renamed
           to logingctl and journalctl to match systemctl.
 

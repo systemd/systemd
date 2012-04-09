@@ -25,13 +25,10 @@ Features:
 
 * udev: scsi_id -> sg3_utils?
 
-* udev: kill /usr/lib/udev/devices/ and use tmpfiles for it
-
 * udev: add trigger --subsystem-match=usb/usb_device
 
-* udev: remove RUN+="socket:"
-
 * udev: libudev.so.1
+  - remove deprecated symbols
   - use symbol versioning
   - return object with *_unref()
   - kill: udev_monitor_from_socket()
