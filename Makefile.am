@@ -579,7 +579,9 @@ libsystemd_basic_la_SOURCES = \
 	src/shared/utf8.c \
 	src/shared/utf8.h \
 	src/shared/cgroup-util.c \
-	src/shared/cgroup-util.h
+	src/shared/cgroup-util.h \
+	src/shared/pager.c \
+	src/shared/pager.h
 
 libsystemd_basic_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -755,7 +757,6 @@ libsystemd_core_la_SOURCES = \
 	src/shutdownd.h \
 	src/umount.h \
 	src/ask-password-api.h \
-	src/pager.h \
 	src/sysfs-show.h \
 	src/polkit.h \
 	src/dbus-loop.h \
@@ -1055,7 +1056,6 @@ systemctl_SOURCES = \
 	src/path-lookup.c \
 	src/cgroup-show.c \
 	src/unit-name.c \
-	src/pager.c \
 	src/install.c \
 	src/spawn-agent.c \
 	src/logs-show.c
@@ -1098,8 +1098,7 @@ systemd_reply_password_LDADD = \
 # ------------------------------------------------------------------------------
 systemd_cgls_SOURCES = \
 	src/cgls.c \
-	src/cgroup-show.c \
-	src/pager.c
+	src/cgroup-show.c
 
 systemd_cgls_LDADD = \
 	libsystemd-basic.la
@@ -1930,7 +1929,6 @@ systemd_cat_LDADD = \
 
 journalctl_SOURCES = \
 	src/journal/journalctl.c \
-	src/pager.c \
 	src/logs-show.c
 
 journalctl_LDADD = \
@@ -2536,8 +2534,7 @@ loginctl_SOURCES = \
 	src/login/loginctl.c \
 	src/login/sysfs-show.c \
 	src/dbus-common.c \
-	src/cgroup-show.c \
-	src/pager.c
+	src/cgroup-show.c
 
 loginctl_CFLAGS = \
 	$(AM_CFLAGS) \
