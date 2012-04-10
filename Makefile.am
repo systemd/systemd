@@ -517,10 +517,7 @@ MANPAGES = \
 	man/systemd-cat.1 \
 	man/systemd-machine-id-setup.1 \
 	man/journald.conf.5 \
-	man/journalctl.1 \
-	man/udev.7 \
-	man/udevadm.8 \
-	man/udevd.8
+	man/journalctl.1
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -1278,6 +1275,11 @@ libudev_private_la_LIBADD = \
 endif
 
 # ------------------------------------------------------------------------------
+MANPAGES += \
+	man/udev.7 \
+	man/udevadm.8 \
+	man/udevd.8
+
 udev-confdirs:
 	-mkdir -p $(DESTDIR)$(sysconfdir)/udev/rules.d
 	-mkdir -p $(DESTDIR)$(libexecdir)/udev/devices
@@ -2671,9 +2673,7 @@ rootlibexec_PROGRAMS += \
 	systemd-multi-seat-x
 
 dist_udevrules_DATA += \
-	src/login/70-uaccess.rules
-
-dist_udevrules_DATA += \
+	src/login/70-uaccess.rules \
 	src/login/71-seat.rules
 
 nodist_udevrules_DATA += \
