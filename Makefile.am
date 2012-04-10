@@ -473,6 +473,82 @@ EXTRA_DIST += \
 
 @INTLTOOL_POLICY_RULE@
 
+# ------------------------------------------------------------------------------
+MANPAGES = \
+	man/systemd.1 \
+	man/systemctl.1 \
+	man/systemd-cgls.1 \
+	man/systemd-cgtop.1 \
+	man/systemd-nspawn.1 \
+	man/systemd-tmpfiles.8 \
+	man/systemd-notify.1 \
+	man/systemd.unit.5 \
+	man/systemd.service.5 \
+	man/systemd.socket.5 \
+	man/systemd.mount.5 \
+	man/systemd.automount.5 \
+	man/systemd.swap.5 \
+	man/systemd.timer.5 \
+	man/systemd.path.5 \
+	man/systemd.target.5 \
+	man/systemd.device.5 \
+	man/systemd.snapshot.5 \
+	man/systemd.exec.5 \
+	man/systemd.special.7 \
+	man/systemd.journal-fields.7 \
+	man/daemon.7 \
+	man/runlevel.8 \
+	man/telinit.8 \
+	man/halt.8 \
+	man/shutdown.8 \
+	man/pam_systemd.8 \
+	man/systemd.conf.5 \
+	man/tmpfiles.d.5 \
+	man/hostname.5 \
+	man/timezone.5 \
+	man/machine-id.5 \
+	man/locale.conf.5 \
+	man/os-release.5 \
+	man/machine-info.5 \
+	man/modules-load.d.5 \
+	man/sysctl.d.5 \
+	man/systemd-ask-password.1 \
+	man/systemd-cat.1 \
+	man/systemd-machine-id-setup.1 \
+	man/journald.conf.5 \
+	man/journalctl.1 \
+	man/udev.7 \
+	man/udevadm.8 \
+	man/udevd.8
+
+MANPAGES_ALIAS = \
+	man/reboot.8 \
+	man/poweroff.8 \
+	man/init.1
+
+man/reboot.8: man/halt.8
+man/poweroff.8: man/halt.8
+man/init.1: man/systemd.1
+
+XML_FILES = \
+	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
+
+if ENABLE_MANPAGES
+man_MANS = \
+	$(MANPAGES) \
+	$(MANPAGES_ALIAS)
+
+noinst_DATA = \
+	${XML_FILES:.xml=.html}
+endif
+
+EXTRA_DIST += \
+	$(XML_FILES) \
+	${XML_FILES:.xml=.html} \
+	$(MANPAGES) \
+	$(MANPAGES_ALIAS)
+
+# ------------------------------------------------------------------------------
 noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
 	libsystemd-capability.la \
@@ -480,7 +556,6 @@ noinst_LTLIBRARIES = \
 	libsystemd-acl.la \
 	libsystemd-core.la
 
-# ------------------------------------------------------------------------------
 libsystemd_basic_la_SOURCES = \
 	src/shared/util.c \
 	src/shared/util.h \
@@ -707,81 +782,6 @@ libsystemd_core_la_LIBADD = \
 	$(KMOD_LIBS)
 
 # ------------------------------------------------------------------------------
-MANPAGES = \
-	man/systemd.1 \
-	man/systemctl.1 \
-	man/systemd-cgls.1 \
-	man/systemd-cgtop.1 \
-	man/systemd-nspawn.1 \
-	man/systemd-tmpfiles.8 \
-	man/systemd-notify.1 \
-	man/systemd.unit.5 \
-	man/systemd.service.5 \
-	man/systemd.socket.5 \
-	man/systemd.mount.5 \
-	man/systemd.automount.5 \
-	man/systemd.swap.5 \
-	man/systemd.timer.5 \
-	man/systemd.path.5 \
-	man/systemd.target.5 \
-	man/systemd.device.5 \
-	man/systemd.snapshot.5 \
-	man/systemd.exec.5 \
-	man/systemd.special.7 \
-        man/systemd.journal-fields.7 \
-	man/daemon.7 \
-	man/runlevel.8 \
-	man/telinit.8 \
-	man/halt.8 \
-	man/shutdown.8 \
-	man/pam_systemd.8 \
-	man/systemd.conf.5 \
-	man/tmpfiles.d.5 \
-	man/hostname.5 \
-	man/timezone.5 \
-	man/machine-id.5 \
-	man/locale.conf.5 \
-	man/os-release.5 \
-	man/machine-info.5 \
-	man/modules-load.d.5 \
-	man/sysctl.d.5 \
-	man/systemd-ask-password.1 \
-	man/systemd-cat.1 \
-	man/systemd-machine-id-setup.1 \
-	man/journald.conf.5 \
-	man/journalctl.1 \
-	man/udev.7 \
-	man/udevadm.8 \
-	man/udevd.8
-
-MANPAGES_ALIAS = \
-	man/reboot.8 \
-	man/poweroff.8 \
-	man/init.1
-
-man/reboot.8: man/halt.8
-man/poweroff.8: man/halt.8
-man/init.1: man/systemd.1
-
-XML_FILES = \
-	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
-
-if ENABLE_MANPAGES
-man_MANS = \
-	$(MANPAGES) \
-	$(MANPAGES_ALIAS)
-
-noinst_DATA = \
-	${XML_FILES:.xml=.html}
-endif
-
-EXTRA_DIST += \
-	$(XML_FILES) \
-	${XML_FILES:.xml=.html} \
-	$(MANPAGES) \
-	$(MANPAGES_ALIAS)
-
-# ------------------------------------------------------------------------------
 systemd_SOURCES = \
 	src/main.c
 
@@ -796,20 +796,28 @@ systemd_LDADD = \
 test_engine_SOURCES = \
 	src/test-engine.c
 
-test_engine_CFLAGS = $(systemd_CFLAGS)
-test_engine_LDADD = $(systemd_LDADD)
+test_engine_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+test_engine_LDADD = \
+	libsystemd-core.la
 
 test_job_type_SOURCES = \
 	src/test-job-type.c
 
-test_job_type_CFLAGS = $(systemd_CFLAGS)
-test_job_type_LDADD = $(systemd_LDADD)
+test_job_type_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+test_job_type_LDADD = \
+	libsystemd-core.la
 
 test_ns_SOURCES = \
 	src/test-ns.c
 
-test_ns_CFLAGS = $(systemd_CFLAGS)
-test_ns_LDADD = $(systemd_LDADD)
+test_ns_LDADD = \
+	libsystemd-core.la
 
 test_loopback_SOURCES = \
 	src/test-loopback.c \
@@ -866,9 +874,9 @@ test_install_LDADD = \
 	libsystemd-basic.la
 
 test_watchdog_SOURCES = \
-        src/test-watchdog.c \
+	src/test-watchdog.c \
 	src/watchdog.c \
-        src/watchdog.h
+	src/watchdog.h
 
 test_watchdog_LDADD = \
 	libsystemd-basic.la
@@ -908,9 +916,6 @@ systemd_shutdownd_SOURCES = \
 	src/utmp-wtmp.c \
 	src/shutdownd.c
 
-systemd_shutdownd_CFLAGS = \
-	$(AM_CFLAGS)
-
 systemd_shutdownd_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la
@@ -919,8 +924,8 @@ systemd_shutdown_SOURCES = \
 	src/mount-setup.c \
 	src/umount.c \
 	src/shutdown.c \
-        src/watchdog.c \
-        src/watchdog.h
+	src/watchdog.c \
+	src/watchdog.h
 
 systemd_shutdown_LDADD = \
 	libsystemd-basic.la \
@@ -931,6 +936,7 @@ systemd_modules_load_SOURCES = \
 	src/modules-load.c
 
 systemd_modules_load_CFLAGS = \
+	$(AM_CFLAGS) \
 	$(KMOD_CFLAGS)
 
 systemd_modules_load_LDADD = \
@@ -1341,6 +1347,7 @@ udev_common_sources = \
 	src/sd-daemon.c
 
 udev_common_CFLAGS = \
+	$(AM_CFLAGS) \
 	$(BLKID_CFLAGS) \
 	$(KMOD_CFLAGS)
 
@@ -1584,6 +1591,7 @@ libgudev_1_0_la_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\"GUdev\"
 
 libgudev_1_0_la_CFLAGS = \
+	$(AM_CFLAGS) \
 	-fvisibility=default \
 	$(GLIB_CFLAGS)
 
@@ -1912,6 +1920,7 @@ systemd_journald_SOURCES += \
 	src/journal/compress.c
 
 systemd_journald_CFLAGS += \
+	$(AM_CFLAGS) \
 	$(XZ_CFLAGS)
 
 systemd_journald_LDADD += \
@@ -1999,6 +2008,7 @@ libsystemd_journal_la_SOURCES += \
 	src/journal/compress.c
 
 libsystemd_journal_la_CFLAGS += \
+	$(AM_CFLAGS) \
 	$(XZ_CFLAGS)
 
 libsystemd_journal_la_LIBADD += \
