@@ -213,7 +213,8 @@ static int output_short(sd_journal *j, unsigned line, unsigned n_columns, bool s
         } else if (comm && shall_print(show_all, comm, comm_len)) {
                 printf(" %.*s", (int) comm_len, comm);
                 n += comm_len + 1;
-        }
+        } else
+                putchar(' ');
 
         if (pid && shall_print(show_all, pid, pid_len)) {
                 printf("[%.*s]", (int) pid_len, pid);
