@@ -25,7 +25,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
-#include "acl-util.h"
+#include "acl.h"
 
 int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry) {
         acl_entry_t i;

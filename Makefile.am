@@ -477,6 +477,7 @@ noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
 	libsystemd-capability.la \
 	libsystemd-audit.la \
+	libsystemd-acl.la \
 	libsystemd-core.la
 
 # ------------------------------------------------------------------------------
@@ -533,6 +534,18 @@ libsystemd_audit_la_SOURCES = \
 
 libsystemd_audit_la_LIBADD = \
 	libsystemd-capability.la
+
+# ------------------------------------------------------------------------------
+libsystemd_acl_la_SOURCES = \
+	src/shared/acl.c \
+	src/shared/acl.h
+
+libsystemd_acl_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(ACL_CFLAGS)
+
+libsystemd_acl_la_LIBADD = \
+	$(ACL_LIBS)
 
 # ------------------------------------------------------------------------------
 libsystemd_core_la_SOURCES = \
@@ -666,7 +679,6 @@ libsystemd_core_la_SOURCES = \
 	src/polkit.h \
 	src/dbus-loop.h \
 	src/spawn-agent.h \
-	src/acl-util.h \
 	src/logs-show.h
 
 nodist_libsystemd_core_la_SOURCES = \
@@ -1345,15 +1357,11 @@ udev_common_CPPFLAGS = \
 if HAVE_ACL
 udev_common_sources += \
 	src/udev/udev-builtin-uaccess.c \
-	src/login/logind-acl.c \
-	src/acl-util.c
-
-udev_common_CFLAGS += \
-	$(ACL_CFLAGS)
+	src/login/logind-acl.c
 
 udev_common_LDADD += \
 	libsystemd-login.la \
-	$(ACL_LIBS)
+	libsystemd-acl.la
 endif
 
 udevd_SOURCES = \
@@ -1883,30 +1891,29 @@ systemd_journald_SOURCES = \
 	src/sd-id128.c \
 	src/cgroup-util.c
 
-if HAVE_ACL
-systemd_journald_SOURCES += \
-	src/acl-util.c
-endif
-
 nodist_systemd_journald_SOURCES = \
 	src/journal/journald-gperf.c
 
-systemd_journald_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(ACL_CFLAGS)
+systemd_journald_CFLAGS =
 
 systemd_journald_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-audit.la \
 	libsystemd-daemon.la \
-	libsystemd-login.la \
-	$(ACL_LIBS)
+	libsystemd-login.la
+
+if HAVE_ACL
+systemd_journald_LDADD += \
+	libsystemd-acl.la
+endif
 
 if HAVE_XZ
 systemd_journald_SOURCES += \
 	src/journal/compress.c
+
 systemd_journald_CFLAGS += \
 	$(XZ_CFLAGS)
+
 systemd_journald_LDADD += \
 	$(XZ_LIBS)
 endif
@@ -2493,24 +2500,24 @@ systemd_logind_SOURCES = \
 nodist_systemd_logind_SOURCES = \
 	src/login/logind-gperf.c
 
-if HAVE_ACL
-systemd_logind_SOURCES += \
-	src/login/logind-acl.c \
-	src/acl-util.c
-endif
-
 systemd_logind_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS) \
-	$(ACL_CFLAGS)
+	$(DBUS_CFLAGS)
 
 systemd_logind_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-audit.la \
 	libsystemd-daemon.la \
 	libudev.la \
-	$(DBUS_LIBS) \
-	$(ACL_LIBS)
+	$(DBUS_LIBS)
+
+if HAVE_ACL
+systemd_logind_SOURCES += \
+	src/login/logind-acl.c
+
+systemd_logind_LDADD += \
+	libsystemd-acl.la
+endif
 
 systemd_user_sessions_SOURCES = \
 	src/login/user-sessions.c \
