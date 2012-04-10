@@ -581,7 +581,10 @@ libsystemd_basic_la_SOURCES = \
 	src/shared/cgroup-util.c \
 	src/shared/cgroup-util.h \
 	src/shared/pager.c \
-	src/shared/pager.h
+	src/shared/pager.h \
+	src/shared/ioprio.h \
+	src/shared/list.h \
+	src/shared/macro.h
 
 libsystemd_basic_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -740,11 +743,8 @@ libsystemd_core_la_SOURCES = \
 	src/cgroup-attr.h \
 	src/watchdog.c \
 	src/watchdog.h \
-	src/macro.h \
 	src/def.h \
-	src/ioprio.h \
 	src/missing.h \
-	src/list.h \
 	src/securebits.h \
 	src/linux/auto_dev-ioctl.h \
 	src/linux/fanotify.h \
