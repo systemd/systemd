@@ -739,7 +739,6 @@ libsystemd_core_la_SOURCES = \
 	src/watchdog.c \
 	src/watchdog.h \
 	src/sd-daemon.c \
-	src/sd-id128.c \
 	src/macro.h \
 	src/def.h \
 	src/ioprio.h \
@@ -799,7 +798,8 @@ systemd_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_LDADD = \
-	libsystemd-core.la
+	libsystemd-core.la \
+	libsystemd-id128.la
 
 # ------------------------------------------------------------------------------
 test_engine_SOURCES = \
@@ -961,11 +961,11 @@ systemd_tmpfiles_LDADD = \
 # ------------------------------------------------------------------------------
 systemd_machine_id_setup_SOURCES = \
 	src/machine-id-setup.c \
-	src/machine-id-main.c \
-	src/sd-id128.c
+	src/machine-id-main.c
 
 systemd_machine_id_setup_LDADD = \
-	libsystemd-basic.la
+	libsystemd-basic.la \
+	libsystemd-id128.la
 
 # ------------------------------------------------------------------------------
 systemd_sysctl_SOURCES = \
@@ -1841,11 +1841,11 @@ libsystemd_id128_la_LIBADD = \
 	libsystemd-basic.la
 
 test_id128_SOURCES = \
-	src/test-id128.c \
-	src/sd-id128.c
+	src/test-id128.c
 
 test_id128_LDADD = \
-	libsystemd-basic.la
+	libsystemd-basic.la \
+	libsystemd-id128.la
 
 noinst_PROGRAMS += \
 	test-id128
@@ -1889,8 +1889,7 @@ systemd_journald_SOURCES = \
 	src/journal/journal-file.c \
 	src/journal/lookup3.c \
 	src/journal/journal-rate-limit.c \
-	src/journal/sparse-endian.h \
-	src/sd-id128.c
+	src/journal/sparse-endian.h
 
 nodist_systemd_journald_SOURCES = \
 	src/journal/journald-gperf.c
@@ -1901,7 +1900,8 @@ systemd_journald_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-audit.la \
 	libsystemd-daemon.la \
-	libsystemd-login.la
+	libsystemd-login.la \
+	libsystemd-id128.la
 
 if HAVE_ACL
 systemd_journald_LDADD += \
@@ -1952,11 +1952,11 @@ test_journal_SOURCES = \
 	src/journal/sd-journal.c \
 	src/journal/journal-file.c \
 	src/journal/lookup3.c \
-	src/journal/journal-send.c \
-	src/sd-id128.c
+	src/journal/journal-send.c
 
 test_journal_LDADD = \
-	libsystemd-basic.la
+	libsystemd-basic.la \
+	libsystemd-id128.la
 
 if HAVE_XZ
 test_journal_SOURCES += \
