@@ -107,6 +107,7 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
  **/
 _public_ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path)
 {
+        errno = ENOSYS;
         return NULL;
 }
 
