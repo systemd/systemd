@@ -41,6 +41,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "mkdir.h"
 #include "strv.h"
 #include "label.h"
 #include "set.h"

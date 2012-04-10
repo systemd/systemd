@@ -29,6 +29,7 @@
 #include "log.h"
 #include "strv.h"
 #include "cgroup.h"
+#include "mkdir.h"
 #include "dbus-unit.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"

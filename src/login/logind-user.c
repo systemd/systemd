@@ -25,6 +25,7 @@
 
 #include "logind-user.h"
 #include "util.h"
+#include "mkdir.h"
 #include "cgroup-util.h"
 #include "hashmap.h"
 #include "strv.h"

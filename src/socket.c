@@ -36,6 +36,7 @@
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "strv.h"
+#include "mkdir.h"
 #include "unit-name.h"
 #include "dbus-socket.h"
 #include "missing.h"

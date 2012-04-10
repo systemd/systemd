@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #include "util.h"
+#include "mkdir.h"
 #include "strv.h"
 #include "dbus-common.h"
 #include "polkit.h"

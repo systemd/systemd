@@ -32,6 +32,7 @@
 #include "machine-id-setup.h"
 #include "macro.h"
 #include "util.h"
+#include "mkdir.h"
 #include "log.h"
 #include "virt.h"
 

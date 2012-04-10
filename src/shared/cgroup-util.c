@@ -34,6 +34,7 @@
 #include "set.h"
 #include "macro.h"
 #include "util.h"
+#include "mkdir.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
         char *fs;

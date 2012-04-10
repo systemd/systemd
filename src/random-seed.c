@@ -27,6 +27,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "mkdir.h"
 
 #define POOL_SIZE_MIN 512
 

@@ -26,6 +26,7 @@
 #include <errno.h>
 
 #include "util.h"
+#include "mkdir.h"
 #include "strv.h"
 
 #include "path-lookup.h"

@@ -25,6 +25,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "mkdir.h"
 #include "unit-name.h"
 #include "virt.h"
 

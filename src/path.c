@@ -28,6 +28,7 @@
 #include "unit.h"
 #include "unit-name.h"
 #include "path.h"
+#include "mkdir.h"
 #include "dbus-path.h"
 #include "special.h"
 #include "bus-errors.h"

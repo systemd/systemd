@@ -242,9 +242,6 @@ char *delete_chars(char *s, const char *bad);
 char *truncate_nl(char *s);
 
 char *file_in_same_dir(const char *path, const char *filename);
-int safe_mkdir(const char *path, mode_t mode, uid_t uid, gid_t gid);
-int mkdir_parents(const char *path, mode_t mode);
-int mkdir_p(const char *path, mode_t mode);
 
 int parent_of_path(const char *path, char **parent);
 

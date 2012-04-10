@@ -26,6 +26,7 @@
 #include <fnmatch.h>
 
 #include "util.h"
+#include "mkdir.h"
 #include "hashmap.h"
 #include "set.h"
 #include "path-lookup.h"

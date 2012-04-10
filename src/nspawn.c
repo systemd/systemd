@@ -43,6 +43,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "mkdir.h"
 #include "audit.h"
 #include "missing.h"
 #include "cgroup-util.h"

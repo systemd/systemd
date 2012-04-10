@@ -36,6 +36,7 @@
 #include "label.h"
 #include "set.h"
 #include "strv.h"
+#include "mkdir.h"
 
 #ifndef TTY_GID
 #define TTY_GID 5

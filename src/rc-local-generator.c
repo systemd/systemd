@@ -26,6 +26,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "mkdir.h"
 
 #if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
 #define SCRIPT_PATH "/etc/rc.d/rc.local"

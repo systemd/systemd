@@ -548,15 +548,13 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
-libsystemd_basic_la_SOURCES = \
+libsystemd_shared_la_SOURCES = \
 	src/shared/util.c \
 	src/shared/util.h \
 	src/shared/virt.c \
 	src/shared/virt.h \
-	src/shared/label.c \
-	src/shared/label.h \
 	src/shared/hashmap.c \
 	src/shared/hashmap.h \
 	src/shared/set.c \
@@ -565,8 +563,6 @@ libsystemd_basic_la_SOURCES = \
 	src/shared/strv.h \
 	src/shared/conf-parser.c \
 	src/shared/conf-parser.h \
-	src/shared/socket-util.c \
-	src/shared/socket-util.h \
 	src/shared/log.c \
 	src/shared/log.h \
 	src/shared/ratelimit.h \
@@ -575,19 +571,32 @@ libsystemd_basic_la_SOURCES = \
 	src/shared/exit-status.h \
 	src/shared/utf8.c \
 	src/shared/utf8.h \
-	src/shared/cgroup-util.c \
-	src/shared/cgroup-util.h \
 	src/shared/pager.c \
 	src/shared/pager.h \
 	src/shared/ioprio.h \
 	src/shared/list.h \
 	src/shared/macro.h
 
-libsystemd_basic_la_CFLAGS = \
+# ------------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
+	libsystemd-shared-selinux.la
+
+libsystemd_shared_selinux_la_SOURCES = \
+	src/shared/cgroup-util.c \
+	src/shared/cgroup-util.h \
+	src/shared/socket-util.c \
+	src/shared/socket-util.h \
+	src/shared/label.c \
+	src/shared/label.h \
+	src/shared/mkdir.c \
+	src/shared/mkdir.h
+
+libsystemd_shared_selinux_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(SELINUX_CFLAGS)
 
-libsystemd_basic_la_LIBADD = \
+libsystemd_shared_selinux_la_LIBADD = \
+	libsystemd-shared.la \
 	$(SELINUX_LIBS)
 
 # ------------------------------------------------------------------------------
@@ -776,7 +785,7 @@ libsystemd_core_la_CFLAGS = \
 	$(KMOD_CFLAGS)
 
 libsystemd_core_la_LIBADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-capability.la \
 	libudev.la \
 	$(DBUS_LIBS) \
@@ -832,40 +841,40 @@ test_loopback_SOURCES = \
 	src/loopback-setup.c
 
 test_loopback_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 test_hostname_SOURCES = \
 	src/test-hostname.c \
 	src/hostname-setup.c
 
 test_hostname_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 test_daemon_SOURCES = \
 	src/test-daemon.c
 
 test_daemon_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	libsystemd-daemon.la
 
 test_cgroup_SOURCES = \
 	src/test-cgroup.c
 
 test_cgroup_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 test_env_replace_SOURCES = \
 	src/test-env-replace.c
 
 test_env_replace_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 test_strv_SOURCES = \
 	src/test-strv.c \
 	src/specifier.c
 
 test_strv_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 test_install_SOURCES = \
 	src/test-install.c \
@@ -878,7 +887,7 @@ test_install_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 test_install_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 test_watchdog_SOURCES = \
 	src/test-watchdog.c \
@@ -886,7 +895,7 @@ test_watchdog_SOURCES = \
 	src/watchdog.h
 
 test_watchdog_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_initctl_SOURCES = \
@@ -898,7 +907,7 @@ systemd_initctl_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_initctl_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
 
@@ -914,7 +923,7 @@ systemd_update_utmp_CFLAGS = \
 	$(AUDIT_CFLAGS)
 
 systemd_update_utmp_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	$(DBUS_LIBS) \
 	$(AUDIT_LIBS)
 
@@ -924,7 +933,7 @@ systemd_shutdownd_SOURCES = \
 	src/shutdownd.c
 
 systemd_shutdownd_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	libsystemd-daemon.la
 
 systemd_shutdown_SOURCES = \
@@ -935,7 +944,7 @@ systemd_shutdown_SOURCES = \
 	src/watchdog.h
 
 systemd_shutdown_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libudev.la
 
 # ------------------------------------------------------------------------------
@@ -947,7 +956,7 @@ systemd_modules_load_CFLAGS = \
 	$(KMOD_CFLAGS)
 
 systemd_modules_load_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	$(KMOD_LIBS)
 
 # ------------------------------------------------------------------------------
@@ -955,7 +964,7 @@ systemd_tmpfiles_SOURCES = \
 	src/tmpfiles.c
 
 systemd_tmpfiles_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 # ------------------------------------------------------------------------------
 systemd_machine_id_setup_SOURCES = \
@@ -963,7 +972,7 @@ systemd_machine_id_setup_SOURCES = \
 	src/machine-id-main.c
 
 systemd_machine_id_setup_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-id128.la
 
 # ------------------------------------------------------------------------------
@@ -971,7 +980,7 @@ systemd_sysctl_SOURCES = \
 	src/sysctl.c
 
 systemd_sysctl_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_fsck_SOURCES = \
@@ -983,7 +992,7 @@ systemd_fsck_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_fsck_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	libudev.la \
 	$(DBUS_LIBS)
 
@@ -992,14 +1001,14 @@ systemd_timestamp_SOURCES = \
 	src/timestamp.c
 
 systemd_timestamp_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_ac_power_SOURCES = \
 	src/ac-power.c
 
 systemd_ac_power_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	libudev.la
 
 # ------------------------------------------------------------------------------
@@ -1007,7 +1016,7 @@ systemd_detect_virt_SOURCES = \
 	src/detect-virt.c
 
 systemd_detect_virt_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_getty_generator_SOURCES = \
@@ -1015,14 +1024,14 @@ systemd_getty_generator_SOURCES = \
 	src/unit-name.c
 
 systemd_getty_generator_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 # ------------------------------------------------------------------------------
 systemd_rc_local_generator_SOURCES = \
 	src/rc-local-generator.c
 
 systemd_rc_local_generator_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 # ------------------------------------------------------------------------------
 systemd_remount_api_vfs_SOURCES = \
@@ -1030,7 +1039,7 @@ systemd_remount_api_vfs_SOURCES = \
 	src/mount-setup.c
 
 systemd_remount_api_vfs_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_cgroups_agent_SOURCES = \
@@ -1042,7 +1051,7 @@ systemd_cgroups_agent_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_cgroups_agent_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	$(DBUS_LIBS)
 
 # ------------------------------------------------------------------------------
@@ -1062,7 +1071,7 @@ systemctl_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemctl_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-daemon.la \
 	libsystemd-journal.la \
 	libsystemd-id128.la \
@@ -1074,7 +1083,7 @@ systemd_notify_SOURCES = \
 	src/readahead/sd-readahead.c
 
 systemd_notify_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	libsystemd-daemon.la
 
 # ------------------------------------------------------------------------------
@@ -1083,14 +1092,14 @@ systemd_ask_password_SOURCES = \
 	src/ask-password-api.c
 
 systemd_ask_password_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 # ------------------------------------------------------------------------------
 systemd_reply_password_SOURCES = \
 	src/reply-password.c
 
 systemd_reply_password_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_cgls_SOURCES = \
@@ -1098,14 +1107,14 @@ systemd_cgls_SOURCES = \
 	src/cgroup-show.c
 
 systemd_cgls_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 # ------------------------------------------------------------------------------
 systemd_cgtop_SOURCES = \
 	src/cgtop.c
 
 systemd_cgtop_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 # ------------------------------------------------------------------------------
 systemd_nspawn_SOURCES = \
@@ -1113,7 +1122,7 @@ systemd_nspawn_SOURCES = \
 	src/loopback-setup.c
 
 systemd_nspawn_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-capability.la \
 	libsystemd-daemon.la
 
@@ -1122,7 +1131,7 @@ systemd_stdio_bridge_SOURCES = \
 	src/bridge.c
 
 systemd_stdio_bridge_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_tty_ask_password_agent_SOURCES = \
@@ -1131,7 +1140,7 @@ systemd_tty_ask_password_agent_SOURCES = \
 	src/utmp-wtmp.c
 
 systemd_tty_ask_password_agent_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 # ------------------------------------------------------------------------------
 libsystemd_daemon_la_SOURCES = \
@@ -1262,17 +1271,18 @@ libudev_private_la_SOURCES =\
 	src/udev/libudev-device-private.c \
 	src/udev/libudev-queue-private.c
 
-libudev_private_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	-fvisibility=default
-
 if HAVE_SELINUX
 libudev_private_la_SOURCES +=\
 	src/udev/libudev-selinux-private.c
+endif
+
+libudev_private_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SELINUX_CFLAGS)
+	-fvisibility=default
 
 libudev_private_la_LIBADD = \
 	$(SELINUX_LIBS)
-endif
 
 # ------------------------------------------------------------------------------
 MANPAGES += \
@@ -1369,8 +1379,8 @@ libudev_core_la_CFLAGS = \
 
 libudev_core_la_LIBADD = \
 	libudev-private.la \
-	libsystemd-basic.la \
 	libsystemd-daemon.la \
+	libsystemd-shared-selinux.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
 
@@ -1406,7 +1416,8 @@ udevadm_SOURCES = \
 	src/udev/udevadm-test-builtin.c
 
 udevadm_LDADD = \
-	libudev-core.la
+	libudev-core.la \
+	libsystemd-shared-selinux.la
 
 # ------------------------------------------------------------------------------
 TESTS = \
@@ -1429,7 +1440,7 @@ test_udev_SOURCES = \
 test_udev_LDADD = \
 	libudev-core.la \
 	libudev-private.la \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 test_udev_DEPENDENCIES = \
 	src/udev/test/sys
@@ -1453,7 +1464,7 @@ ata_id_SOURCES = \
 
 ata_id_LDADD = \
 	libudev-private.la \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 udevlibexec_PROGRAMS += \
 	ata_id
@@ -1464,7 +1475,7 @@ cdrom_id_SOURCES = \
 
 cdrom_id_LDADD = \
 	libudev.la \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 udevlibexec_PROGRAMS += \
 	cdrom_id
@@ -1491,7 +1502,7 @@ scsi_id_SOURCES =\
 
 scsi_id_LDADD = \
 	libudev-private.la \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 udevlibexec_PROGRAMS += \
 	scsi_id
@@ -1518,7 +1529,7 @@ accelerometer_SOURCES = \
 
 accelerometer_LDADD = \
 	libudev.la -lm \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 udevlibexec_PROGRAMS += \
 	accelerometer
@@ -1840,13 +1851,13 @@ libsystemd_id128_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd-id128.sym
 
 libsystemd_id128_la_LIBADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 test_id128_SOURCES = \
 	src/test-id128.c
 
 test_id128_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-id128.la
 
 noinst_PROGRAMS += \
@@ -1899,7 +1910,7 @@ nodist_systemd_journald_SOURCES = \
 systemd_journald_CFLAGS =
 
 systemd_journald_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-audit.la \
 	libsystemd-daemon.la \
 	libsystemd-login.la \
@@ -1926,7 +1937,7 @@ systemd_cat_SOURCES = \
 	src/journal/cat.c
 
 systemd_cat_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-journal.la
 
 journalctl_SOURCES = \
@@ -1934,7 +1945,7 @@ journalctl_SOURCES = \
 	src/logs-show.c
 
 journalctl_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-journal.la \
 	libsystemd-id128.la
 
@@ -1956,7 +1967,7 @@ test_journal_SOURCES = \
 	src/journal/journal-send.c
 
 test_journal_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-id128.la
 
 if HAVE_XZ
@@ -1975,7 +1986,7 @@ test_journal_send_SOURCES = \
 	src/journal/test-journal-send.c
 
 test_journal_send_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-journal.la
 
 libsystemd_journal_la_SOURCES = \
@@ -1994,7 +2005,7 @@ libsystemd_journal_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/journal/libsystemd-journal.sym
 
 libsystemd_journal_la_LIBADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-id128.la
 
 if HAVE_XZ
@@ -2030,7 +2041,7 @@ UNINSTALL_EXEC_HOOKS += \
 
 noinst_PROGRAMS += \
 	test-journal \
-        test-journal-send
+	test-journal-send
 
 pkginclude_HEADERS += \
 	src/systemd/sd-journal.h \
@@ -2096,9 +2107,9 @@ systemd_coredump_SOURCES = \
 	src/journal/coredump.c
 
 systemd_coredump_LDADD = \
-	libsystemd-basic.la \
 	libsystemd-journal.la \
-	libsystemd-login.la
+	libsystemd-login.la \
+	libsystemd-shared-selinux.la
 
 rootlibexec_PROGRAMS += \
 	systemd-coredump
@@ -2119,7 +2130,7 @@ systemd_binfmt_SOURCES = \
 	src/binfmt/binfmt.c
 
 systemd_binfmt_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 rootlibexec_PROGRAMS += \
 	systemd-binfmt
@@ -2158,7 +2169,7 @@ systemd_vconsole_setup_SOURCES = \
 	src/vconsole/vconsole-setup.c
 
 systemd_vconsole_setup_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 
 rootlibexec_PROGRAMS += \
 	systemd-vconsole-setup
@@ -2190,7 +2201,7 @@ systemd_readahead_collect_SOURCES = \
 	src/readahead/readahead-common.c
 
 systemd_readahead_collect_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	libsystemd-daemon.la \
 	libudev.la
 
@@ -2199,7 +2210,7 @@ systemd_readahead_replay_SOURCES = \
 	src/readahead/readahead-common.c
 
 systemd_readahead_replay_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	libsystemd-daemon.la \
 	libudev.la
 
@@ -2242,7 +2253,7 @@ systemd_quotacheck_SOURCES = \
 	src/quotacheck.c
 
 systemd_quotacheck_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared.la
 endif
 
 # ------------------------------------------------------------------------------
@@ -2262,7 +2273,7 @@ systemd_random_seed_SOURCES = \
 	src/random-seed.c
 
 systemd_random_seed_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 randomseed-install-data-hook:
 	$(MKDIR_P) -m 0755 \
@@ -2299,16 +2310,16 @@ systemd_cryptsetup_CFLAGS = \
 	$(LIBCRYPTSETUP_CFLAGS)
 
 systemd_cryptsetup_LDADD = \
-	$(LIBCRYPTSETUP_LIBS) \
+	libsystemd-shared-selinux.la \
 	libudev.la \
-	libsystemd-basic.la
+	$(LIBCRYPTSETUP_LIBS)
 
 systemd_cryptsetup_generator_SOURCES = \
 	src/cryptsetup/cryptsetup-generator.c \
 	src/unit-name.c
 
 systemd_cryptsetup_generator_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 cryptsetup-install-data-hook:
 	$(MKDIR_P) -m 0755 \
@@ -2333,7 +2344,7 @@ systemd_hostnamed_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_hostnamed_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
 
@@ -2384,7 +2395,7 @@ systemd_localed_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_localed_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
 
@@ -2445,7 +2456,7 @@ systemd_timedated_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_timedated_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
 
@@ -2508,7 +2519,7 @@ systemd_logind_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_logind_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-audit.la \
 	libsystemd-daemon.la \
 	libudev.la \
@@ -2526,7 +2537,7 @@ systemd_user_sessions_SOURCES = \
 	src/login/user-sessions.c
 
 systemd_user_sessions_LDADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 rootlibexec_PROGRAMS += \
 	systemd-logind \
@@ -2543,7 +2554,7 @@ loginctl_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 loginctl_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libudev.la \
 	$(DBUS_LIBS)
 
@@ -2554,8 +2565,8 @@ test_login_SOURCES = \
 	src/login/test-login.c
 
 test_login_LDADD = \
-	libsystemd-basic.la \
-	libsystemd-login.la
+	libsystemd-login.la \
+	libsystemd-shared-selinux.la
 
 noinst_PROGRAMS += \
 	test-login
@@ -2573,7 +2584,7 @@ libsystemd_login_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/login/libsystemd-login.sym
 
 libsystemd_login_la_LIBADD = \
-	libsystemd-basic.la
+	libsystemd-shared-selinux.la
 
 if HAVE_PAM
 pam_systemd_la_SOURCES = \
@@ -2594,7 +2605,7 @@ pam_systemd_la_LDFLAGS = \
 	-export-symbols-regex '^pam_sm_.*'
 
 pam_systemd_la_LIBADD = \
-	libsystemd-basic.la \
+	libsystemd-shared.la \
 	libsystemd-daemon.la \
 	$(PAM_LIBS) \
 	$(DBUS_LIBS)
@@ -2666,7 +2677,7 @@ systemd_multi_seat_x_SOURCES = \
 	src/login/multi-seat-x.c
 
 systemd_multi_seat_x_LDADD = \
-	libsystemd-basic.la \
+	libsystemd-shared-selinux.la \
 	libudev.la
 
 rootlibexec_PROGRAMS += \

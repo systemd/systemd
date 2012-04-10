@@ -28,6 +28,7 @@
 #include "logind-session.h"
 #include "strv.h"
 #include "util.h"
+#include "mkdir.h"
 #include "cgroup-util.h"
 
 #define IDLE_THRESHOLD_USEC (5*USEC_PER_MINUTE)

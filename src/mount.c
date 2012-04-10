@@ -31,6 +31,7 @@
 #include "load-dropin.h"
 #include "log.h"
 #include "strv.h"
+#include "mkdir.h"
 #include "mount-setup.h"
 #include "unit-name.h"
 #include "dbus-mount.h"

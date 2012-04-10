@@ -35,6 +35,7 @@
 #include <systemd/sd-messages.h>
 #include <systemd/sd-daemon.h>
 
+#include "mkdir.h"
 #include "hashmap.h"
 #include "journal-file.h"
 #include "socket-util.h"

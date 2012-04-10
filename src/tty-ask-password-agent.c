@@ -33,6 +33,7 @@
 #include <fcntl.h>
 
 #include "util.h"
+#include "mkdir.h"
 #include "conf-parser.h"
 #include "utmp-wtmp.h"
 #include "socket-util.h"

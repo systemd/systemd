@@ -29,6 +29,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "mkdir.h"
 #include "special.h"
 
 #define COREDUMP_MAX (24*1024*1024)

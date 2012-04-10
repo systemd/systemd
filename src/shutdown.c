@@ -41,6 +41,7 @@
 #include "log.h"
 #include "umount.h"
 #include "util.h"
+#include "mkdir.h"
 #include "virt.h"
 #include "watchdog.h"
 

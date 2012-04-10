@@ -27,6 +27,7 @@
 #include "logind.h"
 #include "dbus-common.h"
 #include "strv.h"
+#include "mkdir.h"
 #include "polkit.h"
 #include "special.h"
 
