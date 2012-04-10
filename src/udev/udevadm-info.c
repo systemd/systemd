@@ -52,7 +52,6 @@ static bool skip_attribute(const char *name)
 
 static void print_all_attributes(struct udev_device *device, const char *key)
 {
-        struct udev *udev = udev_device_get_udev(device);
         struct udev_list_entry *sysattr;
 
         udev_list_entry_foreach(sysattr, udev_device_get_sysattr_list_entry(device)) {

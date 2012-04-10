@@ -337,7 +337,6 @@ int udev_ctrl_send_exit(struct udev_ctrl *uctrl, int timeout)
 
 struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
 {
-        struct udev *udev = conn->uctrl->udev;
         struct udev_ctrl_msg *uctrl_msg;
         ssize_t size;
         struct msghdr smsg;

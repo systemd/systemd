@@ -38,7 +38,6 @@ static int dry_run;
 
 static void exec_list(struct udev_enumerate *udev_enumerate, const char *action)
 {
-        struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
         struct udev_list_entry *entry;
 
         udev_list_entry_foreach(entry, udev_enumerate_get_list_entry(udev_enumerate)) {

@@ -880,11 +880,6 @@ static void static_dev_create_from_modules(struct udev *udev)
 static void static_dev_create_links(struct udev *udev)
 {
         DIR *dir;
-
-        dir = opendir(udev_get_dev_path(udev));
-        if (dir == NULL)
-                return;
-
         struct stdlinks {
                 const char *link;
                 const char *target;
@@ -897,6 +892,10 @@ static void static_dev_create_links(struct udev *udev)
                 { "stderr", "/proc/self/fd/2" },
         };
         unsigned int i;
+
+        dir = opendir(udev_get_dev_path(udev));
+        if (dir == NULL)
+                return;
 
         for (i = 0; i < ARRAY_SIZE(stdlinks); i++) {
                 struct stat sb;
@@ -1115,7 +1114,6 @@ int main(int argc, char *argv[])
         int fd_worker = -1;
         struct epoll_event ep_ctrl, ep_inotify, ep_signal, ep_netlink, ep_worker;
         struct udev_ctrl_connection *ctrl_conn = NULL;
-        char **s;
         int rc = 1;
 
         udev = udev_new();
@@ -1525,7 +1523,7 @@ int main(int argc, char *argv[])
                                         continue;
 
                                 if ((now_usec() - worker->event_start_usec) > 30 * 1000 * 1000) {
-                                        log_error("worker [%u] timeout, kill it\n", worker->pid,
+                                        log_error("worker [%u] %s timeout; kill it\n", worker->pid,
                                             worker->event ? worker->event->devpath : "<idle>");
                                         kill(worker->pid, SIGKILL);
                                         worker->state = WORKER_KILLED;

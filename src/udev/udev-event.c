@@ -86,8 +86,8 @@ size_t udev_event_apply_format(struct udev_event *event, const char *src, char *
                 SUBST_SYS,
         };
         static const struct subst_map {
-                char *name;
-                char fmt;
+                const char *name;
+                const char fmt;
                 enum subst_type type;
         } map[] = {
                 { .name = "devnode",        .fmt = 'N',        .type = SUBST_DEVNODE },
@@ -386,7 +386,6 @@ static int spawn_exec(struct udev_event *event,
                       const char *cmd, char *const argv[], char **envp, const sigset_t *sigmask,
                       int fd_stdout, int fd_stderr)
 {
-        struct udev *udev = event->udev;
         int err;
         int fd;
 
@@ -433,7 +432,6 @@ static void spawn_read(struct udev_event *event,
                       int fd_stdout, int fd_stderr,
                       char *result, size_t ressize)
 {
-        struct udev *udev = event->udev;
         size_t respos = 0;
         int fd_ep = -1;
         struct epoll_event ep_outpipe, ep_errpipe;
@@ -553,7 +551,6 @@ out:
 
 static int spawn_wait(struct udev_event *event, const char *cmd, pid_t pid)
 {
-        struct udev *udev = event->udev;
         struct pollfd pfd[1];
         int err = 0;
 
@@ -939,7 +936,6 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                 udev_device_unref(event->dev_db);
                 event->dev_db = NULL;
         }
-out:
         return err;
 }
 

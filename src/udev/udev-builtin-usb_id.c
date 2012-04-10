@@ -33,7 +33,7 @@
 
 static void set_usb_iftype(char *to, int if_class_num, size_t len)
 {
-        char *type = "generic";
+        const char *type = "generic";
 
         switch (if_class_num) {
         case 1:
@@ -86,7 +86,7 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
 {
         int type_num = 0;
         char *eptr;
-        char *type = "generic";
+        const char *type = "generic";
 
         type_num = strtoul(from, &eptr, 0);
         if (eptr != from) {
@@ -119,7 +119,7 @@ static void set_scsi_type(char *to, const char *from, size_t len)
 {
         int type_num;
         char *eptr;
-        char *type = "generic";
+        const char *type = "generic";
 
         type_num = strtoul(from, &eptr, 0);
         if (eptr != from) {
@@ -256,7 +256,6 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
         const char *driver = NULL;
         char serial[256];
 
-        struct udev *udev = udev_device_get_udev(dev);
         struct udev_device *dev_interface = NULL;
         struct udev_device *dev_usb = NULL;
         const char *if_class, *if_subclass;

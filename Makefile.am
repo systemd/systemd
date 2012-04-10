@@ -84,6 +84,7 @@ INSTALL_DATA_HOOKS =
 DISTCHECK_HOOKS =
 DISTCLEAN_LOCAL_HOOKS =
 pkginclude_HEADERS =
+noinst_LTLIBRARIES =
 lib_LTLIBRARIES =
 include_HEADERS =
 pkgconfiglib_DATA =
@@ -549,12 +550,8 @@ EXTRA_DIST += \
 	$(MANPAGES_ALIAS)
 
 # ------------------------------------------------------------------------------
-noinst_LTLIBRARIES = \
-	libsystemd-basic.la \
-	libsystemd-capability.la \
-	libsystemd-audit.la \
-	libsystemd-acl.la \
-	libsystemd-core.la
+noinst_LTLIBRARIES += \
+	libsystemd-basic.la
 
 libsystemd_basic_la_SOURCES = \
 	src/shared/util.c \
@@ -591,6 +588,9 @@ libsystemd_basic_la_LIBADD = \
 	$(SELINUX_LIBS)
 
 # ------------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
+	libsystemd-capability.la
+
 libsystemd_capability_la_SOURCES = \
 	src/shared/capability.c \
 	src/shared/capability.h
@@ -603,6 +603,9 @@ libsystemd_capability_la_LIBADD = \
 	$(CAP_LIBS)
 
 # ------------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
+	libsystemd-audit.la
+
 libsystemd_audit_la_SOURCES = \
 	src/shared/audit.c \
 	src/shared/audit.h
@@ -611,6 +614,9 @@ libsystemd_audit_la_LIBADD = \
 	libsystemd-capability.la
 
 # ------------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
+	libsystemd-acl.la
+
 libsystemd_acl_la_SOURCES = \
 	src/shared/acl.c \
 	src/shared/acl.h
@@ -623,6 +629,9 @@ libsystemd_acl_la_LIBADD = \
 	$(ACL_LIBS)
 
 # ------------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
+	libsystemd-core.la
+
 libsystemd_core_la_SOURCES = \
 	src/unit.c \
 	src/unit.h \
@@ -1208,9 +1217,6 @@ include_HEADERS += \
 lib_LTLIBRARIES += \
 	libudev.la
 
-noinst_LTLIBRARIES += \
-	libudev-private.la
-
 libudev_la_SOURCES =\
 	src/udev/libudev-private.h \
 	src/udev/libudev.c \
@@ -1221,23 +1227,13 @@ libudev_la_SOURCES =\
 	src/udev/libudev-monitor.c \
 	src/udev/libudev-queue.c
 
+libudev_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	-fvisibility=hidden
+
 libudev_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	-version-info $(LIBUDEV_CURRENT):$(LIBUDEV_REVISION):$(LIBUDEV_AGE)
-
-libudev_private_la_SOURCES =\
-	$(libudev_la_SOURCES) \
-	src/udev/libudev-util-private.c \
-	src/udev/libudev-device-private.c \
-	src/udev/libudev-queue-private.c
-
-if HAVE_SELINUX
-libudev_private_la_SOURCES +=\
-	src/udev/libudev-selinux-private.c
-endif
-
-libudev_private_la_LIBADD = \
-	$(SELINUX_LIBS)
 
 pkgconfiglib_DATA += \
 	src/udev/libudev.pc
@@ -1263,6 +1259,28 @@ libudev-uninstall-move-hook:
 
 INSTALL_EXEC_HOOKS += libudev-install-move-hook
 UNINSTALL_EXEC_HOOKS += libudev-uninstall-move-hook
+
+# ------------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
+	libudev-private.la
+
+libudev_private_la_SOURCES =\
+	$(libudev_la_SOURCES) \
+	src/udev/libudev-util-private.c \
+	src/udev/libudev-device-private.c \
+	src/udev/libudev-queue-private.c
+
+libudev_private_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	-fvisibility=default
+
+if HAVE_SELINUX
+libudev_private_la_SOURCES +=\
+	src/udev/libudev-selinux-private.c
+
+libudev_private_la_LIBADD = \
+	$(SELINUX_LIBS)
+endif
 
 # ------------------------------------------------------------------------------
 udev-confdirs:
@@ -1328,7 +1346,10 @@ bin_PROGRAMS += \
 udevlibexec_PROGRAMS = \
 	udevd
 
-udev_common_sources = \
+noinst_LTLIBRARIES += \
+	libudev-core.la
+
+libudev_core_la_SOURCES = \
 	src/udev/udev.h \
 	src/udev/udev-event.c \
 	src/udev/udev-watch.c \
@@ -1342,51 +1363,43 @@ udev_common_sources = \
 	src/udev/udev-builtin-input_id.c \
 	src/udev/udev-builtin-kmod.c \
 	src/udev/udev-builtin-path_id.c \
-	src/udev/udev-builtin-usb_id.c \
-	src/systemd/sd-daemon.h \
-	src/sd-daemon.c
+	src/udev/udev-builtin-usb_id.c
 
-udev_common_CFLAGS = \
+libudev_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(BLKID_CFLAGS) \
 	$(KMOD_CFLAGS)
 
-udev_common_LDADD = \
+libudev_core_la_LIBADD = \
 	libudev-private.la \
+	libsystemd-daemon.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
 
-udev_common_CPPFLAGS = \
+libudev_core_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-DFIRMWARE_PATH="$(FIRMWARE_PATH)" \
 	-DUSB_DATABASE=\"$(USB_DATABASE)\" -DPCI_DATABASE=\"$(PCI_DATABASE)\"
 
 if HAVE_ACL
-udev_common_sources += \
+libudev_core_la_SOURCES += \
 	src/udev/udev-builtin-uaccess.c \
 	src/login/logind-acl.c
 
-udev_common_LDADD += \
+libudev_core_la_LIBADD += \
 	libsystemd-login.la \
 	libsystemd-acl.la
 endif
 
 udevd_SOURCES = \
-	$(udev_common_sources) \
 	src/udev/udevd.c
 
-udevd_CFLAGS = \
-	$(udev_common_CFLAGS)
-
 udevd_LDADD = \
-	$(udev_common_LDADD) \
-	libsystemd-basic.la
-
-udevd_CPPFLAGS = \
-	$(udev_common_CPPFLAGS)
+	libudev-core.la \
+	libsystemd-basic.la \
+	libsystemd-daemon.la
 
 udevadm_SOURCES = \
-	$(udev_common_sources) \
 	src/udev/udevadm.c \
 	src/udev/udevadm-info.c \
 	src/udev/udevadm-control.c \
@@ -1396,15 +1409,11 @@ udevadm_SOURCES = \
 	src/udev/udevadm-test.c \
 	src/udev/udevadm-test-builtin.c
 
-udevadm_CFLAGS = \
-	$(udev_common_CFLAGS)
-
 udevadm_LDADD = \
-	$(udev_common_LDADD) \
-	libsystemd-basic.la
-
-udevadm_CPPFLAGS = \
-	$(udev_common_CPPFLAGS)
+	libudev-core.la \
+	libudev-private.la \
+	libsystemd-basic.la \
+	libsystemd-daemon.la
 
 # ------------------------------------------------------------------------------
 TESTS = \
@@ -1422,18 +1431,12 @@ test_libudev_LDADD = \
 	libudev.la
 
 test_udev_SOURCES = \
-	$(udev_common_sources) \
 	src/udev/test-udev.c
 
-test_udev_CFLAGS = \
-	$(udev_common_CFLAGS)
-
 test_udev_LDADD = \
-	$(udev_common_LDADD) \
+	libudev-core.la \
+	libudev-private.la \
 	libsystemd-basic.la
-
-test_udev_CPPFLAGS = \
-	$(udev_common_CPPFLAGS)
 
 test_udev_DEPENDENCIES = \
 	src/udev/test/sys
@@ -1467,7 +1470,7 @@ cdrom_id_SOURCES = \
 	src/udev/cdrom_id/cdrom_id.c
 
 cdrom_id_LDADD = \
-	libudev-private.la \
+	libudev.la \
 	libsystemd-basic.la
 
 udevlibexec_PROGRAMS += \
@@ -1508,7 +1511,7 @@ v4l_id_SOURCES = \
 	src/udev/v4l_id/v4l_id.c
 
 v4l_id_LDADD = \
-	libudev-private.la
+	libudev.la
 
 udevlibexec_PROGRAMS += \
 	v4l_id
@@ -1521,7 +1524,7 @@ accelerometer_SOURCES = \
 	src/udev/accelerometer/accelerometer.c
 
 accelerometer_LDADD = \
-	libudev-private.la -lm \
+	libudev.la -lm \
 	libsystemd-basic.la
 
 udevlibexec_PROGRAMS += \

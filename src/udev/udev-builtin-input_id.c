@@ -38,6 +38,8 @@
 #define LONG(x) ((x)/BITS_PER_LONG)
 #define test_bit(bit, array)    ((array[LONG(bit)] >> OFF(bit)) & 1)
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 /*
  * Read a capability attribute and return bitmask.
  * @param dev udev_device
@@ -49,7 +51,6 @@ static void get_cap_mask(struct udev_device *dev,
                          unsigned long *bitmask, size_t bitmask_size,
                          bool test)
 {
-        struct udev *udev = udev_device_get_udev(dev);
         char text[4096];
         unsigned i;
         char* word;
@@ -87,6 +88,7 @@ static void get_cap_mask(struct udev_device *dev,
                         log_debug(text, i * BITS_PER_LONG, bitmask[i]);
         }
 }
+#pragma GCC diagnostic pop
 
 /* pointer devices */
 static void test_pointers (struct udev_device *dev,
@@ -143,7 +145,6 @@ static void test_key (struct udev_device *dev,
                       const unsigned long* bitmask_key,
                       bool test)
 {
-        struct udev *udev = udev_device_get_udev(dev);
         unsigned i;
         unsigned long found;
         unsigned long mask;

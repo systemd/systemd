@@ -781,7 +781,6 @@ static int import_program_into_properties(struct udev_event *event, const char *
 
 static int import_parent_into_properties(struct udev_device *dev, const char *filter)
 {
-        struct udev *udev = udev_device_get_udev(dev);
         struct udev_device *dev_parent;
         struct udev_list_entry *list_entry;
 
@@ -969,7 +968,7 @@ static int get_key(struct udev *udev, char **line, char **key, enum operation_ty
 }
 
 /* extract possible KEY{attr} */
-static char *get_key_attribute(struct udev *udev, char *str)
+static const char *get_key_attribute(struct udev *udev, char *str)
 {
         char *pos;
         char *attr;
@@ -1178,7 +1177,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                     const char *filename, unsigned int filename_off, unsigned int lineno)
 {
         char *linepos;
-        char *attr;
+        const char *attr;
         struct rule_tmp rule_tmp;
 
         memset(&rule_tmp, 0x00, sizeof(struct rule_tmp));

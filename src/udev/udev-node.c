@@ -240,7 +240,6 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
 
 void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old)
 {
-        struct udev *udev = udev_device_get_udev(dev);
         struct udev_list_entry *list_entry;
 
         /* update possible left-over symlinks */
@@ -322,7 +321,6 @@ void udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
         struct udev *udev = udev_device_get_udev(dev);
         char filename[UTIL_PATH_SIZE];
         struct udev_list_entry *list_entry;
-        int err = 0;
 
         log_debug("handling device node '%s', devnum=%s, mode=%#o, uid=%d, gid=%d\n",
                   udev_device_get_devnode(dev), udev_device_get_id_filename(dev), mode, uid, gid);
@@ -351,9 +349,6 @@ void udev_node_remove(struct udev_device *dev)
 {
         struct udev *udev = udev_device_get_udev(dev);
         struct udev_list_entry *list_entry;
-        const char *devnode;
-        struct stat stats;
-        struct udev_device *dev_check;
         char filename[UTIL_PATH_SIZE];
 
         /* remove/update symlinks, remove symlinks from name index */

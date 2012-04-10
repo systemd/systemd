@@ -115,7 +115,6 @@ static int probe_superblocks(blkid_probe pr)
 
 static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool test)
 {
-        struct udev *udev = udev_device_get_udev(dev);
         int64_t offset = 0;
         bool noraid = false;
         int fd = -1;
