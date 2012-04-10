@@ -242,7 +242,8 @@ static void warn_wall(enum action a) {
         if (arg_wall) {
                 char *p;
 
-                if (!(p = strv_join(arg_wall, " "))) {
+                p = strv_join(arg_wall, " ");
+                if (!p) {
                         log_error("Failed to join strings.");
                         return;
                 }
@@ -1682,7 +1683,8 @@ finish:
         return ret;
 }
 
-/* ask systemd-logind, which might grant access to unprivileged users through polkit */
+/* Ask systemd-logind, which might grant access to unprivileged users
+ * through PolicyKit */
 static int reboot_with_logind(DBusConnection *bus, enum action a) {
 #ifdef HAVE_LOGIND
         const char *method;
@@ -1771,16 +1773,13 @@ static int start_special(DBusConnection *bus, char **args) {
 
         a = verb_to_action(args[0]);
 
-        if (arg_force >= 2 && a == ACTION_HALT)
-                halt_now(ACTION_HALT);
+        if (arg_force >= 2 &&
+            (a == ACTION_HALT ||
+             a == ACTION_POWEROFF ||
+             a == ACTION_REBOOT))
+                halt_now(a);
 
-        if (arg_force >= 2 && a == ACTION_POWEROFF)
-                halt_now(ACTION_POWEROFF);
-
-        if (arg_force >= 2 && a == ACTION_REBOOT)
-                halt_now(ACTION_REBOOT);
-
-        if (arg_force &&
+        if (arg_force >= 1 &&
             (a == ACTION_HALT ||
              a == ACTION_POWEROFF ||
              a == ACTION_REBOOT ||
@@ -1788,14 +1787,13 @@ static int start_special(DBusConnection *bus, char **args) {
              a == ACTION_EXIT))
                 return daemon_reload(bus, args);
 
-        if (geteuid() != 0) {
-                /* first try logind, to allow authentication with polkit */
-                if (a == ACTION_POWEROFF ||
-                    a == ACTION_REBOOT) {
-                        r = reboot_with_logind(bus, a);
-                        if (r >= 0)
-                                return r;
-                }
+        /* first try logind, to allow authentication with polkit */
+        if (geteuid() != 0 &&
+            (a == ACTION_POWEROFF ||
+             a == ACTION_REBOOT)) {
+                r = reboot_with_logind(bus, a);
+                if (r >= 0)
+                        return r;
         }
 
         r = start_unit(bus, args);
@@ -4693,7 +4691,8 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
         }
 
         if (argc > optind) {
-                if ((r = parse_time_spec(argv[optind], &arg_when)) < 0) {
+                r = parse_time_spec(argv[optind], &arg_when);
+                if (r < 0) {
                         log_error("Failed to parse time specification: %s", argv[optind]);
                         return r;
                 }
@@ -5314,8 +5313,15 @@ static int halt_main(DBusConnection *bus) {
         int r;
 
         if (geteuid() != 0) {
-                if (arg_action == ACTION_POWEROFF ||
-                    arg_action == ACTION_REBOOT) {
+                /* Try logind if we are a normal user and no special
+                 * mode applies. Maybe PolicyKit allows us to shutdown
+                 * the machine. */
+
+                if (arg_when <= 0 &&
+                    !arg_dry &&
+                    !arg_immediate &&
+                    (arg_action == ACTION_POWEROFF ||
+                     arg_action == ACTION_REBOOT)) {
                         r = reboot_with_logind(bus, arg_action);
                         if (r >= 0)
                                 return r;
@@ -5327,7 +5333,6 @@ static int halt_main(DBusConnection *bus) {
 
         if (arg_when > 0) {
                 char *m;
-                char date[FORMAT_TIMESTAMP_MAX];
 
                 m = strv_join(arg_wall, " ");
                 r = send_shutdownd(arg_when,
@@ -5342,6 +5347,8 @@ static int halt_main(DBusConnection *bus) {
                 if (r < 0)
                         log_warning("Failed to talk to shutdownd, proceeding with immediate shutdown: %s", strerror(-r));
                 else {
+                        char date[FORMAT_TIMESTAMP_MAX];
+
                         log_info("Shutdown scheduled for %s, use 'shutdown -c' to cancel.",
                                  format_timestamp(date, sizeof(date), arg_when));
                         return 0;
@@ -5354,8 +5361,11 @@ static int halt_main(DBusConnection *bus) {
         if (!arg_no_wtmp) {
                 if (sd_booted() > 0)
                         log_debug("Not writing utmp record, assuming that systemd-update-utmp is used.");
-                else if ((r = utmp_put_shutdown()) < 0)
-                        log_warning("Failed to write utmp record: %s", strerror(-r));
+                else {
+                        r = utmp_put_shutdown();
+                        if (r < 0)
+                                log_warning("Failed to write utmp record: %s", strerror(-r));
+                }
         }
 
         if (!arg_no_sync)
