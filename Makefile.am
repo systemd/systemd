@@ -738,7 +738,6 @@ libsystemd_core_la_SOURCES = \
 	src/cgroup-attr.h \
 	src/watchdog.c \
 	src/watchdog.h \
-	src/sd-daemon.c \
 	src/macro.h \
 	src/def.h \
 	src/ioprio.h \
@@ -799,6 +798,7 @@ systemd_CFLAGS = \
 
 systemd_LDADD = \
 	libsystemd-core.la \
+	libsystemd-daemon.la \
 	libsystemd-id128.la
 
 # ------------------------------------------------------------------------------
@@ -810,7 +810,8 @@ test_engine_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 test_engine_LDADD = \
-	libsystemd-core.la
+	libsystemd-core.la \
+	libsystemd-daemon.la
 
 test_job_type_SOURCES = \
 	src/test-job-type.c
