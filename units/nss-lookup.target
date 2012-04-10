@@ -11,5 +11,5 @@
 # implementations lacking socket/bus activation.
 
 [Unit]
-Description=Name Lookups
+Description=Host and Network Name Lookups
 After=network.target

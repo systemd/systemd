@@ -290,6 +290,7 @@ dist_systemunit_DATA = \
 	units/remote-fs-pre.target \
 	units/network.target \
 	units/nss-lookup.target \
+	units/nss-user-lookup.target \
 	units/mail-transfer-agent.target \
 	units/http-daemon.target \
 	units/poweroff.target \

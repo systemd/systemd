@@ -7,6 +7,9 @@
 
 # See systemd.special(7) for details
 
+# This exists mostly for implementations lacking socket/bus
+# activation.
+
 [Unit]
-Description=Remote File Systems (Pre)
-After=network.target nss-lookup.target
+Description=User and Group Name Lookups
+After=network.target

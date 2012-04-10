@@ -9,6 +9,7 @@
 
 [Unit]
 Description=Login Service
+After=nss-user-lookup.target
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-logind

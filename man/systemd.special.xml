@@ -383,14 +383,36 @@
                         <varlistentry>
                                 <term><filename>nss-lookup.target</filename></term>
                                 <listitem>
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        After for this target unit to
-                                        all SysV init script service
-                                        units with an LSB header
-                                        referring to the
+                                        <para>A target that should be
+                                        used as synchronization point
+                                        for all host/network name
+                                        service lookups. Note that
+                                        this is independent of
+                                        user/group name lookups for
+                                        which
+                                        <filename>nss-user-lookup.target</filename>
+                                        should be used. systemd
+                                        automatically adds
+                                        dependencies of type After for
+                                        this target unit to all SysV
+                                        init script service units with
+                                        an LSB header referring to the
                                         <literal>$named</literal>
                                         facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>nss-user-lookup.target</filename></term>
+                                <listitem>
+                                        <para>A target that should be
+                                        used as synchronization point
+                                        for all user/group name
+                                        service lookups. Note that
+                                        this is independent of
+                                        host/network name lookups for
+                                        which
+                                        <filename>nss-lookup.target</filename>
+                                        should be used. </para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
