@@ -586,7 +586,6 @@ libsystemd_basic_la_CFLAGS = \
 	$(SELINUX_CFLAGS)
 
 libsystemd_basic_la_LIBADD = \
-	libsystemd-capability.la \
 	$(SELINUX_LIBS)
 
 # ------------------------------------------------------------------------------
@@ -782,6 +781,7 @@ libsystemd_core_la_CFLAGS = \
 
 libsystemd_core_la_LIBADD = \
 	libsystemd-basic.la \
+	libsystemd-capability.la \
 	libudev.la \
 	$(DBUS_LIBS) \
 	$(LIBWRAP_LIBS) \
