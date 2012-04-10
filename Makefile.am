@@ -234,7 +234,7 @@ noinst_PROGRAMS = \
 	test-env-replace \
 	test-strv \
 	test-install \
-        test-watchdog
+	test-watchdog
 
 dist_pkgsysconf_DATA = \
 	src/system.conf \
@@ -577,7 +577,9 @@ libsystemd_basic_la_SOURCES = \
 	src/shared/exit-status.c \
 	src/shared/exit-status.h \
 	src/shared/utf8.c \
-	src/shared/utf8.h
+	src/shared/utf8.h \
+	src/shared/cgroup-util.c \
+	src/shared/cgroup-util.h
 
 libsystemd_basic_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -719,8 +721,6 @@ libsystemd_core_la_SOURCES = \
 	src/machine-id-setup.h \
 	src/fdset.c \
 	src/fdset.h \
-	src/cgroup-util.c \
-	src/cgroup-util.h \
 	src/condition.c \
 	src/condition.h \
 	src/dbus-common.c \
@@ -850,8 +850,7 @@ test_daemon_LDADD = \
 	libsystemd-daemon.la
 
 test_cgroup_SOURCES = \
-	src/test-cgroup.c \
-	src/cgroup-util.c
+	src/test-cgroup.c
 
 test_cgroup_LDADD = \
 	libsystemd-basic.la
@@ -1054,7 +1053,6 @@ systemctl_SOURCES = \
 	src/dbus-common.c \
 	src/path-lookup.c \
 	src/cgroup-show.c \
-	src/cgroup-util.c \
 	src/unit-name.c \
 	src/pager.c \
 	src/install.c \
@@ -1100,7 +1098,6 @@ systemd_reply_password_LDADD = \
 systemd_cgls_SOURCES = \
 	src/cgls.c \
 	src/cgroup-show.c \
-	src/cgroup-util.c \
 	src/pager.c
 
 systemd_cgls_LDADD = \
@@ -1108,8 +1105,7 @@ systemd_cgls_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_cgtop_SOURCES = \
-	src/cgtop.c \
-        src/cgroup-util.c
+	src/cgtop.c
 
 systemd_cgtop_LDADD = \
 	libsystemd-basic.la
@@ -1117,7 +1113,6 @@ systemd_cgtop_LDADD = \
 # ------------------------------------------------------------------------------
 systemd_nspawn_SOURCES = \
 	src/nspawn.c \
-	src/cgroup-util.c \
 	src/loopback-setup.c
 
 systemd_nspawn_LDADD = \
@@ -1895,8 +1890,7 @@ systemd_journald_SOURCES = \
 	src/journal/lookup3.c \
 	src/journal/journal-rate-limit.c \
 	src/journal/sparse-endian.h \
-	src/sd-id128.c \
-	src/cgroup-util.c
+	src/sd-id128.c
 
 nodist_systemd_journald_SOURCES = \
 	src/journal/journald-gperf.c
@@ -2503,7 +2497,6 @@ systemd_logind_SOURCES = \
 	src/login/logind-user-dbus.c \
 	src/dbus-common.c \
 	src/dbus-loop.c \
-	src/cgroup-util.c \
 	src/polkit.c
 
 nodist_systemd_logind_SOURCES = \
@@ -2529,8 +2522,7 @@ systemd_logind_LDADD += \
 endif
 
 systemd_user_sessions_SOURCES = \
-	src/login/user-sessions.c \
-	src/cgroup-util.c
+	src/login/user-sessions.c
 
 systemd_user_sessions_LDADD = \
 	libsystemd-basic.la
@@ -2544,7 +2536,6 @@ loginctl_SOURCES = \
 	src/login/sysfs-show.c \
 	src/dbus-common.c \
 	src/cgroup-show.c \
-	src/cgroup-util.c \
 	src/pager.c
 
 loginctl_CFLAGS = \
@@ -2570,8 +2561,7 @@ noinst_PROGRAMS += \
 	test-login
 
 libsystemd_login_la_SOURCES = \
-	src/login/sd-login.c \
-	src/cgroup-util.c
+	src/login/sd-login.c
 
 libsystemd_login_la_CFLAGS = \
 	$(AM_CFLAGS) \
