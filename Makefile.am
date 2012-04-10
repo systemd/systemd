@@ -1372,6 +1372,7 @@ libudev_core_la_CFLAGS = \
 
 libudev_core_la_LIBADD = \
 	libudev-private.la \
+	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
@@ -1395,9 +1396,7 @@ udevd_SOURCES = \
 	src/udev/udevd.c
 
 udevd_LDADD = \
-	libudev-core.la \
-	libsystemd-basic.la \
-	libsystemd-daemon.la
+	libudev-core.la
 
 udevadm_SOURCES = \
 	src/udev/udevadm.c \
@@ -1410,10 +1409,7 @@ udevadm_SOURCES = \
 	src/udev/udevadm-test-builtin.c
 
 udevadm_LDADD = \
-	libudev-core.la \
-	libudev-private.la \
-	libsystemd-basic.la \
-	libsystemd-daemon.la
+	libudev-core.la
 
 # ------------------------------------------------------------------------------
 TESTS = \
