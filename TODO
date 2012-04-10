@@ -1,8 +1,6 @@
 Bugfixes:
 * fix Fedora's cups.rpm to use tmpfiles instead of /lib/udev/devices/
 
-* do not link selinux and attr against all binaries
-
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
 * make anaconda write timeout=0 for encrypted devices
@@ -171,8 +169,6 @@ Features:
 * document that %% can be used to write % in a string that is specifier extended
 
 * when an instanced service exits, remove its parent cgroup too if possible.
-
-* Make libselinux, libattr, libcap, libdl dependencies only of the tools which actually need them.
 
 * as Tom Gundersen pointed out there's a always a dep loop if people use crypto file systems with random keys
 
