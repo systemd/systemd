@@ -120,6 +120,7 @@ AM_CPPFLAGS = \
 	-DX_SERVER=\"$(bindir)/X\" \
 	-DUDEVLIBEXECDIR=\""$(libexecdir)/udev"\" \
 	-I $(top_srcdir)/src \
+	-I $(top_srcdir)/src/shared \
 	-I $(top_srcdir)/src/readahead \
 	-I $(top_srcdir)/src/login \
 	-I $(top_srcdir)/src/journal \
@@ -129,6 +130,7 @@ AM_CPPFLAGS = \
 AM_CFLAGS = $(WARNINGFLAGS)
 AM_LDFLAGS = $(GCLDFLAGS)
 
+# ------------------------------------------------------------------------------
 if TARGET_GENTOO
 AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/usr/bin/loadkeys\" \
@@ -183,6 +185,7 @@ endif
 endif
 endif
 
+# ------------------------------------------------------------------------------
 rootbin_PROGRAMS = \
 	systemctl \
 	systemd-notify \
@@ -472,42 +475,66 @@ EXTRA_DIST += \
 
 noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
+	libsystemd-capability.la \
+	libsystemd-audit.la \
 	libsystemd-core.la
 
+# ------------------------------------------------------------------------------
 libsystemd_basic_la_SOURCES = \
-	src/util.c \
-	src/util.h \
-	src/virt.c \
-	src/virt.h \
-	src/label.c \
-	src/label.h \
-	src/hashmap.c \
-	src/hashmap.h \
-	src/set.c \
-	src/set.h \
-	src/strv.c \
-	src/strv.h \
-	src/conf-parser.c \
-	src/conf-parser.h \
-	src/socket-util.c \
-	src/socket-util.h \
-	src/log.c \
-	src/log.h \
-	src/ratelimit.h \
-	src/ratelimit.c \
-	src/exit-status.c \
-	src/exit-status.h \
-	src/utf8.c \
-	src/utf8.h
+	src/shared/util.c \
+	src/shared/util.h \
+	src/shared/virt.c \
+	src/shared/virt.h \
+	src/shared/label.c \
+	src/shared/label.h \
+	src/shared/hashmap.c \
+	src/shared/hashmap.h \
+	src/shared/set.c \
+	src/shared/set.h \
+	src/shared/strv.c \
+	src/shared/strv.h \
+	src/shared/conf-parser.c \
+	src/shared/conf-parser.h \
+	src/shared/socket-util.c \
+	src/shared/socket-util.h \
+	src/shared/log.c \
+	src/shared/log.h \
+	src/shared/ratelimit.h \
+	src/shared/ratelimit.c \
+	src/shared/exit-status.c \
+	src/shared/exit-status.h \
+	src/shared/utf8.c \
+	src/shared/utf8.h
 
 libsystemd_basic_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(SELINUX_CFLAGS)
 
 libsystemd_basic_la_LIBADD = \
-	$(SELINUX_LIBS) \
+	libsystemd-capability.la \
+	$(SELINUX_LIBS)
+
+# ------------------------------------------------------------------------------
+libsystemd_capability_la_SOURCES = \
+	src/shared/capability.c \
+	src/shared/capability.h
+
+libsystemd_capability_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(CAP_CFLAGS)
+
+libsystemd_capability_la_LIBADD = \
 	$(CAP_LIBS)
 
+# ------------------------------------------------------------------------------
+libsystemd_audit_la_SOURCES = \
+	src/shared/audit.c \
+	src/shared/audit.h
+
+libsystemd_audit_la_LIBADD = \
+	libsystemd-capability.la
+
+# ------------------------------------------------------------------------------
 libsystemd_core_la_SOURCES = \
 	src/unit.c \
 	src/unit.h \
@@ -613,8 +640,8 @@ libsystemd_core_la_SOURCES = \
 	src/tcpwrap.h \
 	src/cgroup-attr.c \
 	src/cgroup-attr.h \
-        src/watchdog.c \
-        src/watchdog.h \
+	src/watchdog.c \
+	src/watchdog.h \
 	src/sd-daemon.c \
 	src/sd-id128.c \
 	src/macro.h \
@@ -667,6 +694,7 @@ libsystemd_core_la_LIBADD = \
 	$(CAP_LIBS) \
 	$(KMOD_LIBS)
 
+# ------------------------------------------------------------------------------
 MANPAGES = \
 	man/systemd.1 \
 	man/systemctl.1 \
@@ -741,6 +769,7 @@ EXTRA_DIST += \
 	$(MANPAGES) \
 	$(MANPAGES_ALIAS)
 
+# ------------------------------------------------------------------------------
 systemd_SOURCES = \
 	src/main.c
 
@@ -751,6 +780,7 @@ systemd_CFLAGS = \
 systemd_LDADD = \
 	libsystemd-core.la
 
+# ------------------------------------------------------------------------------
 test_engine_SOURCES = \
 	src/test-engine.c
 
@@ -831,6 +861,7 @@ test_watchdog_SOURCES = \
 test_watchdog_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_initctl_SOURCES = \
 	src/initctl.c \
 	src/dbus-common.c
@@ -844,6 +875,7 @@ systemd_initctl_LDADD = \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
 
+# ------------------------------------------------------------------------------
 systemd_update_utmp_SOURCES = \
 	src/update-utmp.c \
 	src/dbus-common.c \
@@ -859,6 +891,7 @@ systemd_update_utmp_LDADD = \
 	$(DBUS_LIBS) \
 	$(AUDIT_LIBS)
 
+# ------------------------------------------------------------------------------
 systemd_shutdownd_SOURCES = \
 	src/utmp-wtmp.c \
 	src/shutdownd.c
@@ -881,6 +914,7 @@ systemd_shutdown_LDADD = \
 	libsystemd-basic.la \
 	libudev.la
 
+# ------------------------------------------------------------------------------
 systemd_modules_load_SOURCES = \
 	src/modules-load.c
 
@@ -891,12 +925,14 @@ systemd_modules_load_LDADD = \
 	libsystemd-basic.la \
 	$(KMOD_LIBS)
 
+# ------------------------------------------------------------------------------
 systemd_tmpfiles_SOURCES = \
 	src/tmpfiles.c
 
 systemd_tmpfiles_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_machine_id_setup_SOURCES = \
 	src/machine-id-setup.c \
 	src/machine-id-main.c \
@@ -905,12 +941,14 @@ systemd_machine_id_setup_SOURCES = \
 systemd_machine_id_setup_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_sysctl_SOURCES = \
 	src/sysctl.c
 
 systemd_sysctl_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_fsck_SOURCES = \
 	src/fsck.c \
 	src/dbus-common.c
@@ -924,12 +962,14 @@ systemd_fsck_LDADD = \
 	libudev.la \
 	$(DBUS_LIBS)
 
+# ------------------------------------------------------------------------------
 systemd_timestamp_SOURCES = \
 	src/timestamp.c
 
 systemd_timestamp_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_ac_power_SOURCES = \
 	src/ac-power.c
 
@@ -937,12 +977,14 @@ systemd_ac_power_LDADD = \
 	libsystemd-basic.la \
 	libudev.la
 
+# ------------------------------------------------------------------------------
 systemd_detect_virt_SOURCES = \
 	src/detect-virt.c
 
 systemd_detect_virt_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_getty_generator_SOURCES = \
 	src/getty-generator.c \
 	src/unit-name.c
@@ -950,20 +992,22 @@ systemd_getty_generator_SOURCES = \
 systemd_getty_generator_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_rc_local_generator_SOURCES = \
 	src/rc-local-generator.c
 
 systemd_rc_local_generator_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_remount_api_vfs_SOURCES = \
 	src/remount-api-vfs.c \
-	src/mount-setup.c \
-	src/exit-status.c
+	src/mount-setup.c
 
 systemd_remount_api_vfs_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_cgroups_agent_SOURCES = \
 	src/cgroups-agent.c \
 	src/dbus-common.c
@@ -976,6 +1020,7 @@ systemd_cgroups_agent_LDADD = \
 	libsystemd-basic.la \
 	$(DBUS_LIBS)
 
+# ------------------------------------------------------------------------------
 systemctl_SOURCES = \
 	src/systemctl.c \
 	src/utmp-wtmp.c \
@@ -983,7 +1028,6 @@ systemctl_SOURCES = \
 	src/path-lookup.c \
 	src/cgroup-show.c \
 	src/cgroup-util.c \
-	src/exit-status.c \
 	src/unit-name.c \
 	src/pager.c \
 	src/install.c \
@@ -1001,6 +1045,7 @@ systemctl_LDADD = \
 	libsystemd-id128.la \
 	$(DBUS_LIBS)
 
+# ------------------------------------------------------------------------------
 systemd_notify_SOURCES = \
 	src/notify.c \
 	src/readahead/sd-readahead.c
@@ -1009,6 +1054,7 @@ systemd_notify_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la
 
+# ------------------------------------------------------------------------------
 systemd_ask_password_SOURCES = \
 	src/ask-password.c \
 	src/ask-password-api.c
@@ -1016,12 +1062,14 @@ systemd_ask_password_SOURCES = \
 systemd_ask_password_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_reply_password_SOURCES = \
 	src/reply-password.c
 
 systemd_reply_password_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_cgls_SOURCES = \
 	src/cgls.c \
 	src/cgroup-show.c \
@@ -1031,6 +1079,7 @@ systemd_cgls_SOURCES = \
 systemd_cgls_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_cgtop_SOURCES = \
 	src/cgtop.c \
         src/cgroup-util.c
@@ -1038,6 +1087,7 @@ systemd_cgtop_SOURCES = \
 systemd_cgtop_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_nspawn_SOURCES = \
 	src/nspawn.c \
 	src/cgroup-util.c \
@@ -1045,14 +1095,17 @@ systemd_nspawn_SOURCES = \
 
 systemd_nspawn_LDADD = \
 	libsystemd-basic.la \
+	libsystemd-capability.la \
 	libsystemd-daemon.la
 
+# ------------------------------------------------------------------------------
 systemd_stdio_bridge_SOURCES = \
 	src/bridge.c
 
 systemd_stdio_bridge_LDADD = \
 	libsystemd-basic.la
 
+# ------------------------------------------------------------------------------
 systemd_tty_ask_password_agent_SOURCES = \
 	src/tty-ask-password-agent.c \
 	src/ask-password-api.c \
@@ -1844,6 +1897,7 @@ systemd_journald_CFLAGS = \
 
 systemd_journald_LDADD = \
 	libsystemd-basic.la \
+	libsystemd-audit.la \
 	libsystemd-daemon.la \
 	libsystemd-login.la \
 	$(ACL_LIBS)
@@ -2452,6 +2506,7 @@ systemd_logind_CFLAGS = \
 
 systemd_logind_LDADD = \
 	libsystemd-basic.la \
+	libsystemd-audit.la \
 	libsystemd-daemon.la \
 	libudev.la \
 	$(DBUS_LIBS) \

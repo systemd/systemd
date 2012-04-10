@@ -28,6 +28,7 @@
 #include <libudev.h>
 
 #include "util.h"
+#include "audit.h"
 #include "list.h"
 #include "hashmap.h"
 #include "cgroup-util.h"

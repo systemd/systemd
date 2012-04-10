@@ -4716,23 +4716,6 @@ void skip_syslog_date(char **buf) {
         *buf = p;
 }
 
-int have_effective_cap(int value) {
-        cap_t cap;
-        cap_flag_value_t fv;
-        int r;
-
-        if (!(cap = cap_get_proc()))
-                return -errno;
-
-        if (cap_get_flag(cap, value, CAP_EFFECTIVE, &fv) < 0)
-                r = -errno;
-        else
-                r = fv == CAP_SET;
-
-        cap_free(cap);
-        return r;
-}
-
 char* strshorten(char *s, size_t l) {
         assert(s);
 
@@ -5399,89 +5382,6 @@ int symlink_or_copy_atomic(const char *from, const char *to) {
         return r;
 }
 
-int audit_session_from_pid(pid_t pid, uint32_t *id) {
-        char *s;
-        uint32_t u;
-        int r;
-
-        assert(id);
-
-        if (have_effective_cap(CAP_AUDIT_CONTROL) <= 0)
-                return -ENOENT;
-
-        if (pid == 0)
-                r = read_one_line_file("/proc/self/sessionid", &s);
-        else {
-                char *p;
-
-                if (asprintf(&p, "/proc/%lu/sessionid", (unsigned long) pid) < 0)
-                        return -ENOMEM;
-
-                r = read_one_line_file(p, &s);
-                free(p);
-        }
-
-        if (r < 0)
-                return r;
-
-        r = safe_atou32(s, &u);
-        free(s);
-
-        if (r < 0)
-                return r;
-
-        if (u == (uint32_t) -1 || u <= 0)
-                return -ENOENT;
-
-        *id = u;
-        return 0;
-}
-
-int audit_loginuid_from_pid(pid_t pid, uid_t *uid) {
-        char *s;
-        uid_t u;
-        int r;
-
-        assert(uid);
-
-        /* Only use audit login uid if we are executed with sufficient
-         * capabilities so that pam_loginuid could do its job. If we
-         * are lacking the CAP_AUDIT_CONTROL capabality we most likely
-         * are being run in a container and /proc/self/loginuid is
-         * useless since it probably contains a uid of the host
-         * system. */
-
-        if (have_effective_cap(CAP_AUDIT_CONTROL) <= 0)
-                return -ENOENT;
-
-        if (pid == 0)
-                r = read_one_line_file("/proc/self/loginuid", &s);
-        else {
-                char *p;
-
-                if (asprintf(&p, "/proc/%lu/loginuid", (unsigned long) pid) < 0)
-                        return -ENOMEM;
-
-                r = read_one_line_file(p, &s);
-                free(p);
-        }
-
-        if (r < 0)
-                return r;
-
-        r = parse_uid(s, &u);
-        free(s);
-
-        if (r < 0)
-                return r;
-
-        if (u == (uid_t) -1)
-                return -ENOENT;
-
-        *uid = (uid_t) u;
-        return 0;
-}
-
 bool display_is_local(const char *display) {
         assert(display);
 
@@ -6135,39 +6035,6 @@ int prot_from_flags(int flags) {
         default:
                 return -EINVAL;
         }
-}
-
-unsigned long cap_last_cap(void) {
-        static __thread unsigned long saved;
-        static __thread bool valid = false;
-        unsigned long p;
-
-        if (valid)
-                return saved;
-
-        p = (unsigned long) CAP_LAST_CAP;
-
-        if (prctl(PR_CAPBSET_READ, p) < 0) {
-
-                /* Hmm, look downwards, until we find one that
-                 * works */
-                for (p--; p > 0; p --)
-                        if (prctl(PR_CAPBSET_READ, p) >= 0)
-                                break;
-
-        } else {
-
-                /* Hmm, look upwards, until we find one that doesn't
-                 * work */
-                for (;; p++)
-                        if (prctl(PR_CAPBSET_READ, p+1) < 0)
-                                break;
-        }
-
-        saved = p;
-        valid = true;
-
-        return p;
 }
 
 char *format_bytes(char *buf, size_t l, off_t t) {

@@ -45,6 +45,7 @@
 #include "execute.h"
 #include "strv.h"
 #include "macro.h"
+#include "capability.h"
 #include "util.h"
 #include "log.h"
 #include "ioprio.h"

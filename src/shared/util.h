@@ -431,8 +431,6 @@ void parse_syslog_priority(char **p, int *priority);
 void skip_syslog_pid(char **buf);
 void skip_syslog_date(char **buf);
 
-int have_effective_cap(int value);
-
 bool hostname_is_valid(const char *s);
 char* hostname_cleanup(char *s);
 
@@ -456,9 +454,6 @@ int hwclock_apply_localtime_delta(int *min);
 int hwclock_reset_localtime_delta(void);
 int hwclock_get_time(struct tm *tm);
 int hwclock_set_time(const struct tm *tm);
-
-int audit_session_from_pid(pid_t pid, uint32_t *id);
-int audit_loginuid_from_pid(pid_t pid, uid_t *uid);
 
 bool display_is_local(const char *display);
 int socket_from_display(const char *display, char **path);
@@ -526,8 +521,6 @@ bool kexec_loaded(void);
 
 int prot_from_flags(int flags);
 
-unsigned long cap_last_cap(void);
-
 char *format_bytes(char *buf, size_t l, off_t t);
 
 int fd_wait_for_event(int fd, int event, usec_t timeout);
@@ -540,5 +533,4 @@ int is_kernel_thread(pid_t pid);
 
 int fd_inc_sndbuf(int fd, size_t n);
 int fd_inc_rcvbuf(int fd, size_t n);
-
 #endif

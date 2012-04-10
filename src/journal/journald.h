@@ -29,6 +29,7 @@
 #include "journal-file.h"
 #include "hashmap.h"
 #include "util.h"
+#include "audit.h"
 #include "journal-rate-limit.h"
 #include "list.h"
 

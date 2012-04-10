@@ -35,6 +35,7 @@
 #include <systemd/sd-daemon.h>
 
 #include "util.h"
+#include "audit.h"
 #include "macro.h"
 #include "strv.h"
 #include "dbus-common.h"

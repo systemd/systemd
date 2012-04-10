@@ -43,6 +43,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "audit.h"
 #include "missing.h"
 #include "cgroup-util.h"
 #include "strv.h"
