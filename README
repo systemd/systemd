@@ -24,11 +24,15 @@ BUG REPORTS:
         https://bugs.freedesktop.org/enter_bug.cgi?product=systemd
 
 AUTHOR:
-        Lennart Poettering with major support from Kay Sievers
+        Lennart Poettering
+        Kay Sievers
+        ...and many others
 
 LICENSE:
-        GPLv2+ for all code, except sd-daemon.[ch] and
-        sd-readahead.[ch] which are MIT
+        LGPLv2.1+ for all code
+        - except sd-daemon.[ch] and sd-readahead.[ch] which are MIT
+        - except src/udev/ which is GPLv2.0+, excluding
+          src/udev/libudev* which is LGPLv2.1+
 
 REQUIREMENTS:
         Linux kernel >= 2.6.39
