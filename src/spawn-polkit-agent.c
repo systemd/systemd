@@ -26,6 +26,8 @@
 #include <sys/prctl.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <sys/poll.h>
 
 #include "log.h"
 #include "util.h"
@@ -35,6 +37,8 @@ static pid_t agent_pid = 0;
 
 int polkit_agent_open(void) {
         int r;
+        int pipe_fd[2];
+        char notify_fd[10 + 1];
 
         if (agent_pid > 0)
                 return 0;
@@ -44,9 +48,27 @@ int polkit_agent_open(void) {
         if (!isatty(STDIN_FILENO))
                 return 0;
 
-        r = fork_agent(&agent_pid, POLKIT_AGENT_BINARY_PATH, POLKIT_AGENT_BINARY_PATH, NULL);
+        if (pipe2(pipe_fd, 0) < 0)
+                return -errno;
+
+        snprintf(notify_fd, sizeof(notify_fd), "%i", pipe_fd[1]);
+        char_array_0(notify_fd);
+
+        r = fork_agent(&agent_pid,
+                       &pipe_fd[1], 1,
+                       POLKIT_AGENT_BINARY_PATH,
+                       POLKIT_AGENT_BINARY_PATH, "--notify-fd", notify_fd, NULL);
+
+        /* Close the writing side, because that's the one for the agent */
+        close_nointr_nofail(pipe_fd[1]);
+
         if (r < 0)
                 log_error("Failed to fork TTY ask password agent: %s", strerror(-r));
+        else
+                /* Wait until the agent closes the fd */
+                fd_wait_for_event(pipe_fd[0], POLLHUP, (usec_t) -1);
+
+        close_nointr_nofail(pipe_fd[0]);
 
         return r;
 }

@@ -6036,7 +6036,7 @@ int fd_inc_rcvbuf(int fd, size_t n) {
         return 1;
 }
 
-int fork_agent(pid_t *pid, const char *path, ...) {
+int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...) {
         pid_t parent_pid, agent_pid;
         int fd;
         bool stdout_is_tty, stderr_is_tty;
@@ -6073,7 +6073,7 @@ int fork_agent(pid_t *pid, const char *path, ...) {
                 _exit(EXIT_SUCCESS);
 
         /* Don't leak fds to the agent */
-        close_all_fds(NULL, 0);
+        close_all_fds(except, n_except);
 
         stdout_is_tty = isatty(STDOUT_FILENO);
         stderr_is_tty = isatty(STDERR_FILENO);
