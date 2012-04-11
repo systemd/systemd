@@ -16,6 +16,9 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
+
+* Make RuntimeWatchdogUSec= property writable
+
 * start polkit agent in systemctl, similar to the password agent, to allow
   gaining authorizations for privileged operations by entering a password:
   Interface:

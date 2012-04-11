@@ -1631,6 +1631,11 @@ finish:
 
                 assert(i <= ELEMENTSOF(args));
 
+                /* Close and disarm the watchdog, so that the new
+                 * instance can reinitialize it, but doesn't get
+                 * rebooted while we do that */
+                watchdog_close(true);
+
                 execv(args[0], (char* const*) args);
 
                 log_error("Failed to reexecute: %m");
