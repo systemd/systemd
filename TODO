@@ -17,6 +17,8 @@ Bugfixes:
 
 Features:
 
+* place start-pre/start-post/... scripts in sub cgrouprs
+
 * Make RuntimeWatchdogUSec= property writable
 
 * start polkit agent in systemctl, similar to the password agent, to allow
@@ -99,8 +101,6 @@ Features:
 * make logind reserve tty10 or so for text logins, so that gdm never picks it up
 
 * add option to sockets to avoid activation. Instead just drop packets/connections, see http://cyberelk.net/tim/2012/02/15/portreserve-systemd-solution/
-
-* isolate for getty is still broken, due to logind
 
 * default unix qlen is too small (10). bump sysctl? add sockopt?
 

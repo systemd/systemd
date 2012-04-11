@@ -32,6 +32,7 @@ After=rc-local.service
 # sure that this is synchronized before getty.target, even though
 # getty.target didn't actually pull it in.
 Before=getty.target
+IgnoreOnIsolate=yes
 
 [Service]
 Environment=TERM=vt100
