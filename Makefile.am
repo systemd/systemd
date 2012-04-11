@@ -2503,17 +2503,23 @@ endif
 if ENABLE_LOGIND
 systemd_logind_SOURCES = \
 	src/login/logind.c \
+	src/login/logind.h \
 	src/login/logind-dbus.c \
 	src/login/logind-device.c \
+	src/login/logind-device.h \
 	src/login/logind-seat.c \
-	src/login/logind-seat-dbus.c \
+	src/login/logind-seat.h \
 	src/login/logind-session.c \
-	src/login/logind-session-dbus.c \
+	src/login/logind-session.h \
 	src/login/logind-user.c \
+	src/login/logind-user.h \
+	src/login/logind-session-dbus.c \
+	src/login/logind-seat-dbus.c \
 	src/login/logind-user-dbus.c \
 	src/dbus-common.c \
 	src/dbus-loop.c \
-	src/polkit.c
+	src/polkit.c \
+	src/login/logind-acl.h
 
 nodist_systemd_logind_SOURCES = \
 	src/login/logind-gperf.c
@@ -2609,8 +2615,9 @@ pam_systemd_la_LDFLAGS = \
 	-export-symbols-regex '^pam_sm_.*'
 
 pam_systemd_la_LIBADD = \
-	libsystemd-shared.la \
 	libsystemd-daemon.la \
+	libsystemd-audit.la \
+	libsystemd-shared-selinux.la \
 	$(PAM_LIBS) \
 	$(DBUS_LIBS)
 
@@ -2748,12 +2755,6 @@ EXTRA_DIST += \
 	src/login/logind-gperf.gperf \
 	src/login/libsystemd-login.pc.in \
 	src/login/libsystemd-login.sym \
-	src/login/logind.h \
-	src/login/logind-device.h \
-	src/login/logind-seat.h \
-	src/login/logind-session.h \
-	src/login/logind-user.h \
-	src/login/logind-acl.h \
 	src/login/73-seat-late.rules.in \
 	units/systemd-logind.service.in \
 	units/systemd-user-sessions.service.in
