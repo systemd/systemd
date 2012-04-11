@@ -1905,11 +1905,18 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 systemd_journald_SOURCES = \
 	src/journal/journald.c \
+	src/journal/journald.h \
 	src/journal/sd-journal.c \
 	src/journal/journal-file.c \
+	src/journal/journal-file.h \
 	src/journal/lookup3.c \
+	src/journal/lookup3.h \
 	src/journal/journal-rate-limit.c \
-	src/journal/sparse-endian.h
+	src/journal/journal-rate-limit.h \
+	src/journal/sparse-endian.h \
+	src/journal/journal-def.h \
+	src/journal/journal-internal.h \
+	src/journal/compress.h
 
 nodist_systemd_journald_SOURCES = \
 	src/journal/journald-gperf.c
@@ -2094,13 +2101,6 @@ INSTALL_DATA_HOOKS += \
 	journal-install-data-hook
 
 EXTRA_DIST += \
-	src/journal/journald.h \
-	src/journal/journal-def.h \
-	src/journal/journal-internal.h \
-	src/journal/journal-file.h \
-	src/journal/lookup3.h \
-	src/journal/compress.h \
-	src/journal/journal-rate-limit.h \
 	src/journal/libsystemd-journal.pc.in \
 	src/journal/libsystemd-journal.sym \
 	units/systemd-journald.service.in \
@@ -2206,7 +2206,8 @@ endif
 if ENABLE_READAHEAD
 systemd_readahead_collect_SOURCES = \
 	src/readahead/readahead-collect.c \
-	src/readahead/readahead-common.c
+	src/readahead/readahead-common.c \
+	src/readahead/readahead-common.h
 
 systemd_readahead_collect_LDADD = \
 	libsystemd-shared.la \
@@ -2222,6 +2223,9 @@ systemd_readahead_replay_LDADD = \
 	libsystemd-daemon.la \
 	libudev.la
 
+pkginclude_HEADERS += \
+	src/systemd/sd-readahead.h
+
 rootlibexec_PROGRAMS += \
 	systemd-readahead-collect \
 	systemd-readahead-replay
@@ -2235,8 +2239,6 @@ nodist_systemunit_DATA += \
 	units/systemd-readahead-done.service
 
 EXTRA_DIST += \
-	src/systemd/sd-readahead.h \
-	src/readahead/readahead-common.h \
 	units/systemd-readahead-collect.service.in \
 	units/systemd-readahead-replay.service.in \
 	units/systemd-readahead-done.service.in
