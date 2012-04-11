@@ -36,6 +36,7 @@
 #include <dbus/dbus.h>
 
 #include <systemd/sd-daemon.h>
+#include <systemd/sd-shutdown.h>
 
 #include "log.h"
 #include "util.h"
@@ -51,7 +52,6 @@
 #include "list.h"
 #include "path-lookup.h"
 #include "conf-parser.h"
-#include "shutdownd.h"
 #include "exit-status.h"
 #include "bus-errors.h"
 #include "build.h"
@@ -4628,6 +4628,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 { "halt",      no_argument,       NULL, 'H'         },
                 { "poweroff",  no_argument,       NULL, 'P'         },
                 { "reboot",    no_argument,       NULL, 'r'         },
+                { "kexec",     no_argument,       NULL, 'K'         }, /* not documented extension */
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
                 { NULL,        0,                 NULL, 0           }
         };
@@ -4657,6 +4658,10 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                                 arg_action = ACTION_KEXEC;
                         else
                                 arg_action = ACTION_REBOOT;
+                        break;
+
+                case 'K':
+                        arg_action = ACTION_KEXEC;
                         break;
 
                 case 'h':
@@ -5191,39 +5196,42 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
 }
 
 static int send_shutdownd(usec_t t, char mode, bool dry_run, bool warn, const char *message) {
-        int fd = -1;
+        int fd;
         struct msghdr msghdr;
-        struct iovec iovec;
+        struct iovec iovec[2];
         union sockaddr_union sockaddr;
-        struct shutdownd_command c;
+        struct sd_shutdown_command c;
+
+        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        if (fd < 0)
+                return -errno;
 
         zero(c);
-        c.elapse = t;
+        c.usec = t;
         c.mode = mode;
         c.dry_run = dry_run;
         c.warn_wall = warn;
 
-        if (message)
-                strncpy(c.wall_message, message, sizeof(c.wall_message));
-
-        if ((fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0)
-                return -errno;
-
         zero(sockaddr);
         sockaddr.sa.sa_family = AF_UNIX;
-        sockaddr.un.sun_path[0] = 0;
         strncpy(sockaddr.un.sun_path, "/run/systemd/shutdownd", sizeof(sockaddr.un.sun_path));
-
-        zero(iovec);
-        iovec.iov_base = (char*) &c;
-        iovec.iov_len = sizeof(c);
 
         zero(msghdr);
         msghdr.msg_name = &sockaddr;
         msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + sizeof("/run/systemd/shutdownd") - 1;
 
-        msghdr.msg_iov = &iovec;
-        msghdr.msg_iovlen = 1;
+        zero(iovec);
+        iovec[0].iov_base = (char*) &c;
+        iovec[0].iov_len = offsetof(struct sd_shutdown_command, wall_message);
+
+        if (isempty(message))
+                msghdr.msg_iovlen = 1;
+        else {
+                iovec[1].iov_base = (char*) message;
+                iovec[1].iov_len = strlen(message);
+                msghdr.msg_iovlen = 2;
+        }
+        msghdr.msg_iov = iovec;
 
         if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) < 0) {
                 close_nointr_nofail(fd);
@@ -5338,6 +5346,7 @@ static int halt_main(DBusConnection *bus) {
                 r = send_shutdownd(arg_when,
                                    arg_action == ACTION_HALT     ? 'H' :
                                    arg_action == ACTION_POWEROFF ? 'P' :
+                                   arg_action == ACTION_KEXEC    ? 'K' :
                                                                    'r',
                                    arg_dry,
                                    !arg_no_wall,
@@ -5405,7 +5414,8 @@ int main(int argc, char*argv[]) {
         log_parse_environment();
         log_open();
 
-        if ((r = parse_argv(argc, argv)) < 0)
+        r = parse_argv(argc, argv);
+        if (r < 0)
                 goto finish;
         else if (r == 0) {
                 retval = EXIT_SUCCESS;

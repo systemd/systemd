@@ -761,7 +761,6 @@ libsystemd_core_la_SOURCES = \
 	src/bus-errors.h \
 	src/cgroup-show.h \
 	src/build.h \
-	src/shutdownd.h \
 	src/umount.h \
 	src/ask-password-api.h \
 	src/sysfs-show.h \
@@ -934,9 +933,13 @@ systemd_shutdownd_SOURCES = \
 	src/shutdownd.c
 
 systemd_shutdownd_LDADD = \
-	libsystemd-shared.la \
+	libsystemd-shared-selinux.la \
 	libsystemd-daemon.la
 
+pkginclude_HEADERS += \
+	src/systemd/sd-shutdown.h
+
+# ------------------------------------------------------------------------------
 systemd_shutdown_SOURCES = \
 	src/mount-setup.c \
 	src/umount.c \

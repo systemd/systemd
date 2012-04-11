@@ -28,16 +28,23 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <stddef.h>
 
 #include <systemd/sd-daemon.h>
+#include <systemd/sd-shutdown.h>
 
-#include "shutdownd.h"
 #include "log.h"
 #include "macro.h"
 #include "util.h"
 #include "utmp-wtmp.h"
+#include "mkdir.h"
 
-static int read_packet(int fd, struct shutdownd_command *_c) {
+union shutdown_buffer {
+        struct sd_shutdown_command command;
+        char space[offsetof(struct sd_shutdown_command, wall_message) + LINE_MAX];
+};
+
+static int read_packet(int fd, union shutdown_buffer *_b) {
         struct msghdr msghdr;
         struct iovec iovec;
         struct ucred *ucred;
@@ -45,15 +52,15 @@ static int read_packet(int fd, struct shutdownd_command *_c) {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
         } control;
-        struct shutdownd_command c;
         ssize_t n;
+        union shutdown_buffer b; /* We maintain our own copy here, in order not to corrupt the last message */
 
         assert(fd >= 0);
-        assert(_c);
+        assert(_b);
 
         zero(iovec);
-        iovec.iov_base = &c;
-        iovec.iov_len = sizeof(c);
+        iovec.iov_base = &b;
+        iovec.iov_len = sizeof(b) - 1;
 
         zero(control);
         zero(msghdr);
@@ -62,8 +69,9 @@ static int read_packet(int fd, struct shutdownd_command *_c) {
         msghdr.msg_control = &control;
         msghdr.msg_controllen = sizeof(control);
 
-        if ((n = recvmsg(fd, &msghdr, MSG_DONTWAIT)) <= 0) {
-                if (n >= 0) {
+        n = recvmsg(fd, &msghdr, MSG_DONTWAIT);
+        if (n <= 0) {
+                if (n == 0) {
                         log_error("Short read");
                         return -EIO;
                 }
@@ -89,18 +97,27 @@ static int read_packet(int fd, struct shutdownd_command *_c) {
                 return 0;
         }
 
-        if (n != sizeof(c)) {
-                log_warning("Message has invalid size. Ignoring");
+        if ((size_t) n < offsetof(struct sd_shutdown_command, wall_message)) {
+                log_warning("Message has invalid size. Ignoring.");
                 return 0;
         }
 
-        char_array_0(c.wall_message);
+        if (b.command.mode != SD_SHUTDOWN_NONE &&
+            b.command.mode != SD_SHUTDOWN_REBOOT &&
+            b.command.mode != SD_SHUTDOWN_POWEROFF &&
+            b.command.mode != SD_SHUTDOWN_HALT &&
+            b.command.mode != SD_SHUTDOWN_KEXEC) {
+                log_warning("Message has invalid mode. Ignoring.");
+                return 0;
+        }
 
-        *_c = c;
+        b.space[n] = 0;
+
+        *_b = b;
         return 1;
 }
 
-static void warn_wall(usec_t n, struct shutdownd_command *c) {
+static void warn_wall(usec_t n, struct sd_shutdown_command *c) {
         char date[FORMAT_TIMESTAMP_MAX];
         const char *prefix;
         char *l = NULL;
@@ -108,20 +125,22 @@ static void warn_wall(usec_t n, struct shutdownd_command *c) {
         assert(c);
         assert(c->warn_wall);
 
-        if (n >= c->elapse)
+        if (n >= c->usec)
                 return;
 
-        if (c->mode == 'H')
+        if (c->mode == SD_SHUTDOWN_HALT)
                 prefix = "The system is going down for system halt at ";
-        else if (c->mode == 'P')
+        else if (c->mode == SD_SHUTDOWN_POWEROFF)
                 prefix = "The system is going down for power-off at ";
-        else if (c->mode == 'r')
+        else if (c->mode == SD_SHUTDOWN_REBOOT)
                 prefix = "The system is going down for reboot at ";
+        else if (c->mode == SD_SHUTDOWN_KEXEC)
+                prefix = "The system is going down for kexec reboot at ";
         else
                 assert_not_reached("Unknown mode!");
 
         if (asprintf(&l, "%s%s%s%s!", c->wall_message, c->wall_message[0] ? "\n" : "",
-                     prefix, format_timestamp(date, sizeof(date), c->elapse)) < 0)
+                     prefix, format_timestamp(date, sizeof(date), c->usec)) < 0)
                 log_error("Failed to allocate wall message");
         else {
                 utmp_wall(l, NULL);
@@ -164,6 +183,85 @@ static usec_t when_nologin(usec_t elapse) {
         return elapse > 5*USEC_PER_MINUTE ? elapse - 5*USEC_PER_MINUTE : 1;
 }
 
+static const char *mode_to_string(enum sd_shutdown_mode m) {
+        switch (m) {
+        case SD_SHUTDOWN_REBOOT:
+                return "reboot";
+        case SD_SHUTDOWN_POWEROFF:
+                return "poweroff";
+        case SD_SHUTDOWN_HALT:
+                return "halt";
+        case SD_SHUTDOWN_KEXEC:
+                return "kexec";
+        default:
+                return NULL;
+        }
+}
+
+static int update_schedule_file(struct sd_shutdown_command *c) {
+        int r;
+        FILE *f;
+        char *temp_path, *t;
+
+        assert(c);
+
+        r = safe_mkdir("/run/systemd/shutdown", 0755, 0, 0);
+        if (r < 0) {
+                log_error("Failed to create shutdown subdirectory: %s", strerror(-r));
+                return r;
+        }
+
+        t = cescape(c->wall_message);
+        if (!t) {
+                log_error("Out of memory");
+                return -ENOMEM;
+        }
+
+        r = fopen_temporary("/run/systemd/shutdown/scheduled", &f, &temp_path);
+        if (r < 0) {
+                log_error("Failed to save information about scheduled shutdowns: %s", strerror(-r));
+                free(t);
+                return r;
+        }
+
+        fchmod(fileno(f), 0644);
+
+        fprintf(f,
+                "USEC=%llu\n"
+                "WARN_WALL=%i\n"
+                "MODE=%s\n",
+                (unsigned long long) c->usec,
+                c->warn_wall,
+                mode_to_string(c->mode));
+
+        if (c->dry_run)
+                fputs("DRY_RUN=1\n", f);
+
+        if (!isempty(t))
+                fprintf(f, "WALL_MESSAGE=%s\n", t);
+
+        free(t);
+
+        fflush(f);
+
+        if (ferror(f) || rename(temp_path, "/run/systemd/shutdown/scheduled") < 0) {
+                log_error("Failed to write information about scheduled shutdowns: %m");
+                r = -errno;
+
+                unlink(temp_path);
+                unlink("/run/systemd/shutdown/scheduled");
+        }
+
+        fclose(f);
+        free(temp_path);
+
+        return r;
+}
+
+static bool scheduled(struct sd_shutdown_command *c) {
+        return c->usec > 0 && c->mode != SD_SHUTDOWN_NONE;
+}
+
 int main(int argc, char *argv[]) {
         enum {
                 FD_SOCKET,
@@ -174,9 +272,9 @@ int main(int argc, char *argv[]) {
         };
 
         int r = EXIT_FAILURE, n_fds;
-        struct shutdownd_command c;
+        union shutdown_buffer b;
         struct pollfd pollfd[_FD_MAX];
-        bool exec_shutdown = false, unlink_nologin = false, failed = false;
+        bool exec_shutdown = false, unlink_nologin = false;
         unsigned i;
 
         if (getppid() != 1) {
@@ -195,7 +293,8 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if ((n_fds = sd_listen_fds(true)) < 0) {
+        n_fds = sd_listen_fds(true);
+        if (n_fds < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
                 return EXIT_FAILURE;
         }
@@ -205,27 +304,20 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        zero(c);
+        zero(b);
         zero(pollfd);
 
         pollfd[FD_SOCKET].fd = SD_LISTEN_FDS_START;
         pollfd[FD_SOCKET].events = POLLIN;
 
-        for (i = 0; i < _FD_MAX; i++) {
-
-                if (i == FD_SOCKET)
-                        continue;
-
+        for (i = FD_WALL_TIMER; i < _FD_MAX; i++) {
                 pollfd[i].events = POLLIN;
-
-                if ((pollfd[i].fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC)) < 0) {
+                pollfd[i].fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
+                if (pollfd[i].fd < 0) {
                         log_error("timerfd_create(): %m");
-                        failed = true;
+                        goto finish;
                 }
         }
-
-        if (failed)
-                goto finish;
 
         log_debug("systemd-shutdownd running as pid %lu", (unsigned long) getpid());
 
@@ -233,11 +325,12 @@ int main(int argc, char *argv[]) {
                   "READY=1\n"
                   "STATUS=Processing requests...");
 
-        do {
+        for (;;) {
                 int k;
                 usec_t n;
 
-                if (poll(pollfd, _FD_MAX, -1) < 0) {
+                k = poll(pollfd, _FD_MAX, scheduled(&b.command) ? -1 : 0);
+                if (k < 0) {
 
                         if (errno == EAGAIN || errno == EINTR)
                                 continue;
@@ -246,34 +339,44 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
+                /* Exit on idle */
+                if (k == 0)
+                        break;
+
                 n = now(CLOCK_REALTIME);
 
                 if (pollfd[FD_SOCKET].revents) {
 
-                        if ((k = read_packet(pollfd[FD_SOCKET].fd, &c)) < 0)
+                        k = read_packet(pollfd[FD_SOCKET].fd, &b);
+                        if (k < 0)
                                 goto finish;
-                        else if (k > 0 && c.elapse > 0) {
+                        else if (k > 0) {
                                 struct itimerspec its;
                                 char date[FORMAT_TIMESTAMP_MAX];
 
-                                if (c.warn_wall) {
+                                if (!scheduled(&b.command)) {
+                                        log_info("Shutdown canceled.");
+                                        break;
+                                }
+
+                                zero(its);
+                                if (b.command.warn_wall) {
                                         /* Send wall messages every so often */
-                                        zero(its);
-                                        timespec_store(&its.it_value, when_wall(n, c.elapse));
-                                        if (timerfd_settime(pollfd[FD_WALL_TIMER].fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
-                                                log_error("timerfd_settime(): %m");
-                                                goto finish;
-                                        }
+                                        timespec_store(&its.it_value, when_wall(n, b.command.usec));
 
                                         /* Warn immediately if less than 15 minutes are left */
-                                        if (n < c.elapse &&
-                                            n + 15*USEC_PER_MINUTE >= c.elapse)
-                                                warn_wall(n, &c);
+                                        if (n < b.command.usec &&
+                                            n + 15*USEC_PER_MINUTE >= b.command.usec)
+                                                warn_wall(n, &b.command);
+                                }
+                                if (timerfd_settime(pollfd[FD_WALL_TIMER].fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
+                                        log_error("timerfd_settime(): %m");
+                                        goto finish;
                                 }
 
                                 /* Disallow logins 5 minutes prior to shutdown */
                                 zero(its);
-                                timespec_store(&its.it_value, when_nologin(c.elapse));
+                                timespec_store(&its.it_value, when_nologin(b.command.usec));
                                 if (timerfd_settime(pollfd[FD_NOLOGIN_TIMER].fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
                                         log_error("timerfd_settime(): %m");
                                         goto finish;
@@ -281,27 +384,32 @@ int main(int argc, char *argv[]) {
 
                                 /* Shutdown after the specified time is reached */
                                 zero(its);
-                                timespec_store(&its.it_value, c.elapse);
+                                timespec_store(&its.it_value, b.command.usec);
                                 if (timerfd_settime(pollfd[FD_SHUTDOWN_TIMER].fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
                                         log_error("timerfd_settime(): %m");
                                         goto finish;
                                 }
 
+                                update_schedule_file(&b.command);
+
                                 sd_notifyf(false,
-                                           "STATUS=Shutting down at %s...",
-                                           format_timestamp(date, sizeof(date), c.elapse));
+                                           "STATUS=Shutting down at %s (%s)...",
+                                           format_timestamp(date, sizeof(date), b.command.usec),
+                                           mode_to_string(b.command.mode));
+
+                                log_info("Shutting down at %s (%s)...", date, mode_to_string(b.command.mode));
                         }
                 }
 
                 if (pollfd[FD_WALL_TIMER].revents) {
                         struct itimerspec its;
 
-                        warn_wall(n, &c);
+                        warn_wall(n, &b.command);
                         flush_fd(pollfd[FD_WALL_TIMER].fd);
 
                         /* Restart timer */
                         zero(its);
-                        timespec_store(&its.it_value, when_wall(n, c.elapse));
+                        timespec_store(&its.it_value, when_wall(n, b.command.usec));
                         if (timerfd_settime(pollfd[FD_WALL_TIMER].fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
                                 log_error("timerfd_settime(): %m");
                                 goto finish;
@@ -313,7 +421,8 @@ int main(int argc, char *argv[]) {
 
                         log_info("Creating /run/nologin, blocking further logins...");
 
-                        if ((e = write_one_line_file_atomic("/run/nologin", "System is going down.")) < 0)
+                        e = write_one_line_file_atomic("/run/nologin", "System is going down.");
+                        if (e < 0)
                                 log_error("Failed to create /run/nologin: %s", strerror(-e));
                         else
                                 unlink_nologin = true;
@@ -325,8 +434,7 @@ int main(int argc, char *argv[]) {
                         exec_shutdown = true;
                         goto finish;
                 }
-
-        } while (c.elapse > 0);
+        }
 
         r = EXIT_SUCCESS;
 
@@ -341,19 +449,21 @@ finish:
         if (unlink_nologin)
                 unlink("/run/nologin");
 
-        if (exec_shutdown && !c.dry_run) {
+        unlink("/run/systemd/shutdown/scheduled");
+
+        if (exec_shutdown && !b.command.dry_run) {
                 char sw[3];
 
                 sw[0] = '-';
-                sw[1] = c.mode;
+                sw[1] = b.command.mode;
                 sw[2] = 0;
 
                 execl(SYSTEMCTL_BINARY_PATH,
                       "shutdown",
                       sw,
                       "now",
-                      (c.warn_wall && c.wall_message[0]) ? c.wall_message :
-                      (c.warn_wall ? NULL : "--no-wall"),
+                      (b.command.warn_wall && b.command.wall_message[0]) ? b.command.wall_message :
+                      (b.command.warn_wall ? NULL : "--no-wall"),
                       NULL);
 
                 log_error("Failed to execute /sbin/shutdown: %m");
