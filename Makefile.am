@@ -126,6 +126,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/login \
 	-I $(top_srcdir)/src/journal \
 	-I $(top_srcdir)/src/systemd \
+	-I $(top_srcdir)/src/core \
 	-I $(top_srcdir)/src/udev
 
 AM_CFLAGS = $(WARNINGFLAGS)
@@ -647,128 +648,124 @@ noinst_LTLIBRARIES += \
 	libsystemd-core.la
 
 libsystemd_core_la_SOURCES = \
-	src/unit.c \
-	src/unit.h \
-	src/job.c \
-	src/job.h \
-	src/manager.c \
-	src/manager.h \
-	src/path-lookup.c \
-	src/path-lookup.h \
-	src/load-fragment.c \
-	src/load-fragment.h \
-	src/service.c \
-	src/service.h \
-	src/automount.c \
-	src/automount.h \
-	src/mount.c \
-	src/mount.h \
-	src/swap.c \
-	src/swap.h \
-	src/device.c \
-	src/device.h \
-	src/target.c \
-	src/target.h \
-	src/snapshot.c \
-	src/snapshot.h \
-	src/socket.c \
-	src/socket.h \
-	src/timer.c \
-	src/timer.h \
-	src/path.c \
-	src/path.h \
-	src/load-dropin.c \
-	src/load-dropin.h \
-	src/execute.c \
-	src/execute.h \
-	src/utmp-wtmp.c \
-	src/utmp-wtmp.h \
-	src/dbus.c \
-	src/dbus.h \
-	src/dbus-manager.c \
-	src/dbus-manager.h \
-	src/dbus-unit.c \
-	src/dbus-unit.h \
-	src/dbus-job.c \
-	src/dbus-job.h \
-	src/dbus-service.c \
-	src/dbus-service.h \
-	src/dbus-socket.c \
-	src/dbus-socket.h \
-	src/dbus-timer.c \
-	src/dbus-timer.h \
-	src/dbus-target.c \
-	src/dbus-target.h \
-	src/dbus-mount.c \
-	src/dbus-mount.h \
-	src/dbus-automount.c \
-	src/dbus-automount.h \
-	src/dbus-swap.c \
-	src/dbus-swap.h \
-	src/dbus-snapshot.c \
-	src/dbus-snapshot.h \
-	src/dbus-device.c \
-	src/dbus-device.h \
-	src/dbus-execute.c \
-	src/dbus-execute.h \
-	src/dbus-path.c \
-	src/dbus-path.h \
-	src/cgroup.c \
-	src/cgroup.h \
-	src/mount-setup.c \
-	src/mount-setup.h \
-	src/hostname-setup.c \
-	src/hostname-setup.h \
-	src/selinux-setup.c \
-	src/selinux-setup.h \
-	src/ima-setup.c \
-	src/ima-setup.h \
-	src/loopback-setup.h \
-	src/loopback-setup.c \
-	src/kmod-setup.c \
-	src/kmod-setup.h \
-	src/locale-setup.h \
-	src/locale-setup.c \
-	src/machine-id-setup.c \
-	src/machine-id-setup.h \
-	src/fdset.c \
-	src/fdset.h \
-	src/condition.c \
-	src/condition.h \
-	src/dbus-common.c \
-	src/dbus-common.h \
-	src/install.c \
-	src/install.h \
-	src/specifier.c \
-	src/specifier.h \
-	src/namespace.c \
-	src/namespace.h \
-	src/unit-name.c \
-	src/unit-name.h \
-	src/tcpwrap.c \
-	src/tcpwrap.h \
-	src/cgroup-attr.c \
-	src/cgroup-attr.h \
-	src/watchdog.c \
-	src/watchdog.h \
 	src/def.h \
 	src/missing.h \
-	src/securebits.h \
+	src/dbus-common.c \
+	src/dbus-common.h \
+	src/watchdog.c \
+	src/watchdog.h \
+	src/loopback-setup.h \
+	src/loopback-setup.c \
+	src/hostname-setup.c \
+	src/hostname-setup.h \
+	src/specifier.c \
+	src/specifier.h \
+	src/install.c \
+	src/install.h \
+	src/path-lookup.c \
+	src/path-lookup.h \
+	src/unit-name.c \
+	src/unit-name.h \
+	src/utmp-wtmp.c \
+	src/utmp-wtmp.h \
+	src/machine-id-setup.c \
+	src/machine-id-setup.h \
+	src/mount-setup.c \
+	src/mount-setup.h \
 	src/linux/auto_dev-ioctl.h \
 	src/linux/fanotify.h \
-	src/initreq.h \
-	src/special.h \
-	src/dbus-common.h \
-	src/bus-errors.h \
-	src/cgroup-show.h \
-	src/build.h \
-	src/umount.h \
-	src/ask-password-api.h \
-	src/sysfs-show.h \
-	src/polkit.h \
-	src/dbus-loop.h \
-	src/spawn-agent.h \
-	src/logs-show.h
+	src/core/unit.c \
+	src/core/unit.h \
+	src/core/job.c \
+	src/core/job.h \
+	src/core/manager.c \
+	src/core/manager.h \
+	src/core/load-fragment.c \
+	src/core/load-fragment.h \
+	src/core/service.c \
+	src/core/service.h \
+	src/core/automount.c \
+	src/core/automount.h \
+	src/core/mount.c \
+	src/core/mount.h \
+	src/core/swap.c \
+	src/core/swap.h \
+	src/core/device.c \
+	src/core/device.h \
+	src/core/target.c \
+	src/core/target.h \
+	src/core/snapshot.c \
+	src/core/snapshot.h \
+	src/core/socket.c \
+	src/core/socket.h \
+	src/core/timer.c \
+	src/core/timer.h \
+	src/core/path.c \
+	src/core/path.h \
+	src/core/load-dropin.c \
+	src/core/load-dropin.h \
+	src/core/execute.c \
+	src/core/execute.h \
+	src/core/dbus.c \
+	src/core/dbus.h \
+	src/core/dbus-manager.c \
+	src/core/dbus-manager.h \
+	src/core/dbus-unit.c \
+	src/core/dbus-unit.h \
+	src/core/dbus-job.c \
+	src/core/dbus-job.h \
+	src/core/dbus-service.c \
+	src/core/dbus-service.h \
+	src/core/dbus-socket.c \
+	src/core/dbus-socket.h \
+	src/core/dbus-timer.c \
+	src/core/dbus-timer.h \
+	src/core/dbus-target.c \
+	src/core/dbus-target.h \
+	src/core/dbus-mount.c \
+	src/core/dbus-mount.h \
+	src/core/dbus-automount.c \
+	src/core/dbus-automount.h \
+	src/core/dbus-swap.c \
+	src/core/dbus-swap.h \
+	src/core/dbus-snapshot.c \
+	src/core/dbus-snapshot.h \
+	src/core/dbus-device.c \
+	src/core/dbus-device.h \
+	src/core/dbus-execute.c \
+	src/core/dbus-execute.h \
+	src/core/dbus-path.c \
+	src/core/dbus-path.h \
+	src/core/cgroup.c \
+	src/core/cgroup.h \
+	src/core/selinux-setup.c \
+	src/core/selinux-setup.h \
+	src/core/ima-setup.c \
+	src/core/ima-setup.h \
+	src/core/kmod-setup.c \
+	src/core/kmod-setup.h \
+	src/core/locale-setup.h \
+	src/core/locale-setup.c \
+	src/core/fdset.c \
+	src/core/fdset.h \
+	src/core/condition.c \
+	src/core/condition.h \
+	src/core/namespace.c \
+	src/core/namespace.h \
+	src/core/tcpwrap.c \
+	src/core/tcpwrap.h \
+	src/core/cgroup-attr.c \
+	src/core/cgroup-attr.h \
+	src/core/securebits.h \
+	src/core/initreq.h \
+	src/core/special.h \
+	src/core/bus-errors.h \
+	src/core/build.h \
+	src/core/ask-password-api.h \
+	src/core/sysfs-show.h \
+	src/core/polkit.h \
+	src/core/dbus-loop.h \
+	src/core/spawn-agent.h
 
 nodist_libsystemd_core_la_SOURCES = \
 	src/load-fragment-gperf.c \
@@ -948,6 +945,7 @@ pkginclude_HEADERS += \
 systemd_shutdown_SOURCES = \
 	src/mount-setup.c \
 	src/umount.c \
+	src/umount.h \
 	src/shutdown.c \
 	src/watchdog.c \
 	src/watchdog.h
@@ -1075,10 +1073,12 @@ systemctl_SOURCES = \
 	src/dbus-common.c \
 	src/path-lookup.c \
 	src/cgroup-show.c \
+	src/cgroup-show.h \
 	src/unit-name.c \
 	src/install.c \
 	src/spawn-agent.c \
-	src/logs-show.c
+	src/logs-show.c \
+	src/logs-show.h
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1120,7 +1120,8 @@ systemd_reply_password_LDADD = \
 # ------------------------------------------------------------------------------
 systemd_cgls_SOURCES = \
 	src/cgls.c \
-	src/cgroup-show.c
+	src/cgroup-show.c \
+	src/cgroup-show.h
 
 systemd_cgls_LDADD = \
 	libsystemd-shared.la
@@ -1971,7 +1972,8 @@ systemd_cat_LDADD = \
 
 journalctl_SOURCES = \
 	src/journal/journalctl.c \
-	src/logs-show.c
+	src/logs-show.c \
+	src/logs-show.h
 
 journalctl_LDADD = \
 	libsystemd-shared.la \
@@ -2585,7 +2587,8 @@ loginctl_SOURCES = \
 	src/login/loginctl.c \
 	src/login/sysfs-show.c \
 	src/dbus-common.c \
-	src/cgroup-show.c
+	src/cgroup-show.c \
+	src/cgroup-show.h
 
 loginctl_CFLAGS = \
 	$(AM_CFLAGS) \
