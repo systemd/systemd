@@ -1052,8 +1052,8 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
         case TK_A_DB_PERSIST:
                 break;
         case TK_A_RUN_BUILTIN:
-                token->key.builtin_cmd = *(enum udev_builtin_cmd *)data;
         case TK_A_RUN_PROGRAM:
+                token->key.builtin_cmd = *(enum udev_builtin_cmd *)data;
                 token->key.value_off = add_string(rule_tmp->rules, value);
                 break;
         case TK_A_INOTIFY_WATCH:
