@@ -57,7 +57,8 @@
 #include "build.h"
 #include "unit-name.h"
 #include "pager.h"
-#include "spawn-agent.h"
+#include "spawn-ask-password-agent.h"
+#include "spawn-polkit-agent.h"
 #include "install.h"
 #include "logs-show.h"
 
@@ -78,7 +79,7 @@ static bool arg_dry = false;
 static bool arg_quiet = false;
 static bool arg_full = false;
 static int arg_force = 0;
-static bool arg_ask_password = false;
+static bool arg_ask_password = true;
 static bool arg_failed = false;
 static bool arg_runtime = false;
 static char **arg_wall = NULL;
@@ -154,7 +155,7 @@ static void pager_open_if_enabled(void) {
         pager_open();
 }
 
-static void agent_open_if_enabled(void) {
+static void ask_password_agent_open_if_enabled(void) {
 
         /* Open the password agent as a child process if necessary */
 
@@ -164,7 +165,20 @@ static void agent_open_if_enabled(void) {
         if (arg_scope != UNIT_FILE_SYSTEM)
                 return;
 
-        agent_open();
+        ask_password_agent_open();
+}
+
+static void polkit_agent_open_if_enabled(void) {
+
+        /* Open the polkit agent as a child process if necessary */
+
+        if (!arg_ask_password)
+                return;
+
+        if (arg_scope != UNIT_FILE_SYSTEM)
+                return;
+
+        polkit_agent_open();
 }
 
 static const char *ansi_highlight_red(bool b) {
@@ -1601,7 +1615,7 @@ static int start_unit(DBusConnection *bus, char **args) {
 
         assert(bus);
 
-        agent_open_if_enabled();
+        ask_password_agent_open_if_enabled();
 
         if (arg_action == ACTION_SYSTEMCTL) {
                 method =
@@ -1694,6 +1708,8 @@ static int reboot_with_logind(DBusConnection *bus, enum action a) {
         int r;
 
         dbus_error_init(&error);
+
+        polkit_agent_open_if_enabled();
 
         switch (a) {
 
@@ -4290,9 +4306,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        /* Only when running as systemctl we ask for passwords */
-        arg_ask_password = true;
-
         while ((c = getopt_long(argc, argv, "ht:p:aqfs:H:Pn:o:", options, NULL)) >= 0) {
 
                 switch (c) {
@@ -5503,7 +5516,8 @@ finish:
         strv_free(arg_property);
 
         pager_close();
-        agent_close();
+        ask_password_agent_close();
+        polkit_agent_close();
 
         return retval;
 }

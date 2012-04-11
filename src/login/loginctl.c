@@ -35,6 +35,7 @@
 #include "strv.h"
 #include "cgroup-show.h"
 #include "sysfs-show.h"
+#include "spawn-polkit-agent.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -46,6 +47,7 @@ static enum transport {
         TRANSPORT_SSH,
         TRANSPORT_POLKIT
 } arg_transport = TRANSPORT_NORMAL;
+static bool arg_ask_password = true;
 static const char *arg_host = NULL;
 
 static bool on_tty(void) {
@@ -68,8 +70,20 @@ static void pager_open_if_enabled(void) {
         /* Cache result before we open the pager */
         on_tty();
 
-        if (!arg_no_pager)
-                pager_open();
+        if (arg_no_pager)
+                return;
+
+        pager_open();
+}
+
+static void polkit_agent_open_if_enabled(void) {
+
+        /* Open the polkit agent as a child process if necessary */
+
+        if (!arg_ask_password)
+                return;
+
+        polkit_agent_open();
 }
 
 static int list_sessions(DBusConnection *bus, char **args, unsigned n) {
@@ -1286,6 +1300,8 @@ static int enable_linger(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_error_init(&error);
 
+        polkit_agent_open_if_enabled();
+
         b = streq(args[0], "enable-linger");
 
         for (i = 1; i < n; i++) {
@@ -1490,6 +1506,8 @@ static int attach(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_error_init(&error);
 
+        polkit_agent_open_if_enabled();
+
         for (i = 2; i < n; i++) {
                 DBusMessage *reply;
 
@@ -1545,6 +1563,8 @@ static int flush_devices(DBusConnection *bus, char **args, unsigned n) {
         assert(args);
 
         dbus_error_init(&error);
+
+        polkit_agent_open_if_enabled();
 
         m = dbus_message_new_method_call(
                         "org.freedesktop.login1",
@@ -1684,7 +1704,8 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
-                ARG_KILL_WHO
+                ARG_KILL_WHO,
+                ARG_NO_ASK_PASSWORD
         };
 
         static const struct option options[] = {
@@ -1697,6 +1718,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "signal",    required_argument, NULL, 's'           },
                 { "host",      required_argument, NULL, 'H'           },
                 { "privileged",no_argument,       NULL, 'P'           },
+                { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -1743,6 +1765,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
                         break;
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
 
                 case ARG_KILL_WHO:
                         arg_kill_who = optarg;

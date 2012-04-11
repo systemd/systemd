@@ -299,11 +299,13 @@
                                 <command>systemctl</command> will
                                 query the user on the terminal for the
                                 necessary secrets. Use this option to
-                                switch this behavior off. In this
-                                case the password must be supplied by
-                                some other means (for example
-                                graphical password agents) or the
-                                service might fail.</para></listitem>
+                                switch this behavior off. In this case
+                                the password must be supplied by some
+                                other means (for example graphical
+                                password agents) or the service might
+                                fail. This also disables querying the
+                                user for authentication for privileged
+                                operations.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

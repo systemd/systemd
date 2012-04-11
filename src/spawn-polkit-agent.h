@@ -1,12 +1,12 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foospawnagenthfoo
-#define foospawnagenthfoo
+#ifndef foospawnpolkitagenthfoo
+#define foospawnpolkitagenthfoo
 
 /***
   This file is part of systemd.
 
-  Copyright 2011 Lennart Poettering
+  Copyright 2012 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-void agent_open(void);
-void agent_close(void);
+int polkit_agent_open(void);
+void polkit_agent_close(void);
 
 #endif

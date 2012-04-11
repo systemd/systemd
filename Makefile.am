@@ -120,6 +120,7 @@ AM_CPPFLAGS = \
 	-DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
 	-DX_SERVER=\"$(bindir)/X\" \
 	-DUDEVLIBEXECDIR=\""$(libexecdir)/udev"\" \
+        -DPOLKIT_AGENT_BINARY_PATH=\"$(bindir)/pkttyagent\" \
 	-I $(top_srcdir)/src \
 	-I $(top_srcdir)/src/shared \
 	-I $(top_srcdir)/src/readahead \
@@ -766,8 +767,7 @@ libsystemd_core_la_SOURCES = \
 	src/core/ask-password-api.h \
 	src/core/sysfs-show.h \
 	src/core/polkit.h \
-	src/core/dbus-loop.h \
-	src/core/spawn-agent.h
+	src/core/dbus-loop.h
 
 nodist_libsystemd_core_la_SOURCES = \
 	src/load-fragment-gperf.c \
@@ -1078,7 +1078,10 @@ systemctl_SOURCES = \
 	src/cgroup-show.h \
 	src/unit-name.c \
 	src/install.c \
-	src/spawn-agent.c \
+	src/spawn-ask-password-agent.c \
+	src/spawn-ask-password-agent.h \
+	src/spawn-polkit-agent.c \
+	src/spawn-polkit-agent.h \
 	src/logs-show.c \
 	src/logs-show.h
 
@@ -2589,6 +2592,8 @@ loginctl_SOURCES = \
 	src/login/loginctl.c \
 	src/login/sysfs-show.c \
 	src/dbus-common.c \
+	src/spawn-polkit-agent.c \
+	src/spawn-polkit-agent.h \
 	src/cgroup-show.c \
 	src/cgroup-show.h
 

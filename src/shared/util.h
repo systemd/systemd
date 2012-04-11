@@ -528,4 +528,7 @@ int is_kernel_thread(pid_t pid);
 
 int fd_inc_sndbuf(int fd, size_t n);
 int fd_inc_rcvbuf(int fd, size_t n);
+
+int fork_agent(pid_t *pid, const char *path, ...);
+
 #endif
