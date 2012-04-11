@@ -1594,6 +1594,8 @@ libgudev_1_0_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-I$(top_builddir)/src\
 	-I$(top_srcdir)/src\
+	-I$(top_builddir)/src/udev \
+	-I$(top_srcdir)/src/udev \
 	-I$(top_builddir)/src/udev/gudev \
 	-I$(top_srcdir)/src/udev/gudev \
 	-D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT \
@@ -1642,43 +1644,45 @@ src/udev/gudev/gudevenumtypes.c: src/udev/gudev/gudevenumtypes.c.template src/ud
 	    $@.tmp && mv $@.tmp $@
 
 if ENABLE_INTROSPECTION
-src/udev/gudev/GUdev-1.0.gir: libgudev-1.0.la $(G_IR_SCANNER)
-	$(AM_V_GEN)$(G_IR_SCANNER) -v \
-		--warn-all \
-		--namespace GUdev \
-		--nsversion=1.0 \
-		--include=GObject-2.0 \
-		--library=gudev-1.0 \
-		--library-path=$(top_builddir)/src/udev \
-		--library-path=$(top_builddir)/src/udev/gudev \
-		--output $@ \
-		--pkg=glib-2.0 \
-		--pkg=gobject-2.0 \
-		--pkg-export=gudev-1.0 \
-		--c-include=gudev/gudev.h \
-		-I$(top_srcdir)/src/udev \
-		-I$(top_builddir)/src/udev \
-		-D_GUDEV_COMPILATION \
-		-D_GUDEV_WORK_AROUND_DEV_T_BUG \
-		$(top_srcdir)/src/udev/gudev/gudev.h \
-		$(top_srcdir)/src/udev/gudev/gudevtypes.h \
-		$(top_srcdir)/src/udev/gudev/gudevenums.h \
-		$(or $(wildcard $(top_builddir)/src/udev/gudev/gudevenumtypes.h),$(top_srcdir)/src/udev/gudev/gudevenumtypes.h) \
-		$(top_srcdir)/src/udev/gudev/gudevclient.h \
-		$(top_srcdir)/src/udev/gudev/gudevdevice.h \
-		$(top_srcdir)/src/udev/gudev/gudevenumerator.h \
-		$(top_srcdir)/src/udev/gudev/gudevclient.c \
-		$(top_srcdir)/src/udev/gudev/gudevdevice.c \
-		$(top_srcdir)/src/udev/gudev/gudevenumerator.c
+-include $(INTROSPECTION_MAKEFILE)
 
-src/udev/gudev/GUdev-1.0.typelib: src/udev/gudev/GUdev-1.0.gir $(G_IR_COMPILER)
-	$(AM_V_GEN)g-ir-compiler $< -o $@
+src/udev/gudev/GUdev-1.0.gir: libgudev-1.0.la
 
-girdir = $(GIRDIR)
+src_udev_gudev_GUdev_1_0_gir_INCLUDES = GObject-2.0
+
+src_udev_gudev_GUdev_1_0_gir_CFLAGS = \
+	$(INCLUDES) \
+	-D_GUDEV_COMPILATION \
+	-D_GUDEV_WORK_AROUND_DEV_T_BUG \
+	-I$(top_srcdir)/src/udev \
+	-I$(top_builddir)/src/udev
+
+src_udev_gudev_GUdev_1_0_gir_LIBS = libgudev-1.0.la
+
+src_udev_gudev_GUdev_1_0_gir_SCANNERFLAGS = \
+	--pkg-export=gudev-1.0 \
+	--warn-all
+
+src_udev_gudev_GUdev_1_0_gir_FILES = \
+	$(top_srcdir)/src/udev/gudev/gudev.h \
+	$(top_srcdir)/src/udev/gudev/gudevtypes.h \
+	$(top_srcdir)/src/udev/gudev/gudevenums.h \
+	$(or $(wildcard $(top_builddir)/src/udev/gudev/gudevenumtypes.h),$(top_srcdir)/src/udev/gudev/gudevenumtypes.h) \
+	$(top_srcdir)/src/udev/gudev/gudevclient.h \
+	$(top_srcdir)/src/udev/gudev/gudevdevice.h \
+	$(top_srcdir)/src/udev/gudev/gudevenumerator.h \
+	$(top_srcdir)/src/udev/gudev/gudevclient.c \
+	$(top_srcdir)/src/udev/gudev/gudevdevice.c \
+	$(top_srcdir)/src/udev/gudev/gudevenumerator.c
+
+INTROSPECTION_GIRS = src/udev/gudev/GUdev-1.0.gir
+INTROSPECTION_SCANNER_ARGS = --c-include=gudev/gudev.h
+
+girdir = $(datadir)/gir-1.0
 gir_DATA = \
 	src/udev/gudev/GUdev-1.0.gir
 
-typelibsdir = $(GIRTYPELIBDIR)
+typelibsdir = $(libdir)/girepository-1.0
 typelibs_DATA = \
 	src/udev/gudev/GUdev-1.0.typelib
 
