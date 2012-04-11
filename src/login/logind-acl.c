@@ -27,7 +27,7 @@
 
 #include "logind-acl.h"
 #include "util.h"
-#include "acl.h"
+#include "acl-util.h"
 
 static int flush_acl(acl_t acl) {
         acl_entry_t i;

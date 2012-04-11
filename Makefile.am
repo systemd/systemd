@@ -629,12 +629,13 @@ libsystemd_audit_la_LIBADD = \
 	libsystemd-capability.la
 
 # ------------------------------------------------------------------------------
+if HAVE_ACL
 noinst_LTLIBRARIES += \
 	libsystemd-acl.la
 
 libsystemd_acl_la_SOURCES = \
-	src/shared/acl.c \
-	src/shared/acl.h
+	src/shared/acl-util.c \
+	src/shared/acl-util.h
 
 libsystemd_acl_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -642,6 +643,7 @@ libsystemd_acl_la_CFLAGS = \
 
 libsystemd_acl_la_LIBADD = \
 	$(ACL_LIBS)
+endif
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \

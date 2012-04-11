@@ -51,7 +51,7 @@
 #ifdef HAVE_ACL
 #include <sys/acl.h>
 #include <acl/libacl.h>
-#include "acl.h"
+#include "acl-util.h"
 #endif
 
 #ifdef HAVE_SELINUX
