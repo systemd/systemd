@@ -13,4 +13,4 @@ Before=local-fs.target
 What=tmpfs
 Where=/tmp
 Type=tmpfs
-Options=mode=1777
+Options=mode=1777,strictatime
