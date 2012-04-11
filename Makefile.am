@@ -1831,7 +1831,7 @@ dist_udevkeymapforcerel_DATA = \
 	src/udev/keymap/force-release-maps/common-volume-keys
 
 src/udev/keymap/keys.txt: $(INCLUDE_PREFIX)/linux/input.h
-	$(AM_V_at)mkdir -p src/keymap
+	$(AM_V_at)mkdir -p src/udev/keymap
 	$(AM_V_GEN)$(AWK) '/^#define.*KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' < $< | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
 
 src/udev/keymap/keys-from-name.gperf: src/udev/keymap/keys.txt
