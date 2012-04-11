@@ -120,7 +120,7 @@ AM_CPPFLAGS = \
 	-DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
 	-DX_SERVER=\"$(bindir)/X\" \
 	-DUDEVLIBEXECDIR=\""$(libexecdir)/udev"\" \
-        -DPOLKIT_AGENT_BINARY_PATH=\"$(bindir)/pkttyagent\" \
+	-DPOLKIT_AGENT_BINARY_PATH=\"$(bindir)/pkttyagent\" \
 	-I $(top_srcdir)/src \
 	-I $(top_srcdir)/src/shared \
 	-I $(top_srcdir)/src/readahead \
@@ -458,8 +458,8 @@ dist_doc_DATA = \
 	README \
 	NEWS \
 	LICENSE.LGPL2.1 \
-        LICENSE.GPL2 \
-        LICENSE.MIT \
+	LICENSE.GPL2 \
+	LICENSE.MIT \
 	DISTRO_PORTING
 
 pkgconfigdata_DATA = \
@@ -583,14 +583,50 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/socket-util.h \
 	src/shared/cgroup-util.c \
 	src/shared/cgroup-util.h \
+	src/shared/dbus-common.c \
+	src/shared/dbus-common.h \
+	src/shared/hostname-setup.c \
+	src/shared/hostname-setup.h \
+	src/shared/logs-show.c \
+	src/shared/logs-show.h \
+	src/shared/cgroup-show.c \
+	src/shared/cgroup-show.h \
+	src/shared/unit-name.c \
+	src/shared/unit-name.h \
+	src/shared/utmp-wtmp.c \
+	src/shared/utmp-wtmp.h \
+	src/shared/watchdog.c \
+	src/shared/watchdog.h \
+	src/shared/umount.c \
+	src/shared/umount.h \
+	src/shared/spawn-ask-password-agent.c \
+	src/shared/spawn-ask-password-agent.h \
+	src/shared/mount-setup.c \
+	src/shared/mount-setup.h \
+	src/shared/machine-id-setup.c \
+	src/shared/machine-id-setup.h \
+	src/shared/loopback-setup.h \
+	src/shared/loopback-setup.c \
+	src/shared/specifier.c \
+	src/shared/specifier.h \
+	src/shared/spawn-polkit-agent.c \
+	src/shared/spawn-polkit-agent.h \
 	src/shared/list.h \
 	src/shared/macro.h
+
+libsystemd_shared_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
 	libsystemd-label.la
 
 libsystemd_label_la_SOURCES = \
+	src/shared/install.c \
+	src/shared/install.h \
+	src/shared/path-lookup.c \
+	src/shared/path-lookup.h \
 	src/shared/cgroup-label.c \
 	src/shared/socket-label.c \
 	src/shared/label.c \
@@ -600,6 +636,7 @@ libsystemd_label_la_SOURCES = \
 
 libsystemd_label_la_CFLAGS = \
 	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS) \
 	$(SELINUX_CFLAGS)
 
 libsystemd_label_la_LIBADD = \
@@ -655,28 +692,6 @@ noinst_LTLIBRARIES += \
 libsystemd_core_la_SOURCES = \
 	src/def.h \
 	src/missing.h \
-	src/dbus-common.c \
-	src/dbus-common.h \
-	src/watchdog.c \
-	src/watchdog.h \
-	src/loopback-setup.h \
-	src/loopback-setup.c \
-	src/hostname-setup.c \
-	src/hostname-setup.h \
-	src/specifier.c \
-	src/specifier.h \
-	src/install.c \
-	src/install.h \
-	src/path-lookup.c \
-	src/path-lookup.h \
-	src/unit-name.c \
-	src/unit-name.h \
-	src/utmp-wtmp.c \
-	src/utmp-wtmp.h \
-	src/machine-id-setup.c \
-	src/machine-id-setup.h \
-	src/mount-setup.c \
-	src/mount-setup.h \
 	src/linux/auto_dev-ioctl.h \
 	src/linux/fanotify.h \
 	src/core/unit.c \
@@ -840,15 +855,13 @@ test_ns_LDADD = \
 	libsystemd-core.la
 
 test_loopback_SOURCES = \
-	src/test-loopback.c \
-	src/loopback-setup.c
+	src/test-loopback.c
 
 test_loopback_LDADD = \
 	libsystemd-shared.la
 
 test_hostname_SOURCES = \
-	src/test-hostname.c \
-	src/hostname-setup.c
+	src/test-hostname.c
 
 test_hostname_LDADD = \
 	libsystemd-shared.la
@@ -874,17 +887,13 @@ test_env_replace_LDADD = \
 	libsystemd-shared.la
 
 test_strv_SOURCES = \
-	src/test-strv.c \
-	src/specifier.c
+	src/test-strv.c
 
 test_strv_LDADD = \
 	libsystemd-shared.la
 
 test_install_SOURCES = \
-	src/test-install.c \
-	src/install.c \
-	src/path-lookup.c \
-	src/unit-name.c
+	src/test-install.c
 
 test_install_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -895,17 +904,14 @@ test_install_LDADD = \
 	libsystemd-shared.la
 
 test_watchdog_SOURCES = \
-	src/test-watchdog.c \
-	src/watchdog.c \
-	src/watchdog.h
+	src/test-watchdog.c
 
 test_watchdog_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_initctl_SOURCES = \
-	src/initctl.c \
-	src/dbus-common.c
+	src/initctl.c
 
 systemd_initctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -918,9 +924,7 @@ systemd_initctl_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_update_utmp_SOURCES = \
-	src/update-utmp.c \
-	src/dbus-common.c \
-	src/utmp-wtmp.c
+	src/update-utmp.c
 
 systemd_update_utmp_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -934,7 +938,6 @@ systemd_update_utmp_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_shutdownd_SOURCES = \
-	src/utmp-wtmp.c \
 	src/shutdownd.c
 
 systemd_shutdownd_LDADD = \
@@ -947,12 +950,7 @@ pkginclude_HEADERS += \
 
 # ------------------------------------------------------------------------------
 systemd_shutdown_SOURCES = \
-	src/mount-setup.c \
-	src/umount.c \
-	src/umount.h \
-	src/shutdown.c \
-	src/watchdog.c \
-	src/watchdog.h
+	src/shutdown.c
 
 systemd_shutdown_LDADD = \
 	libsystemd-label.la \
@@ -981,7 +979,6 @@ systemd_tmpfiles_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_machine_id_setup_SOURCES = \
-	src/machine-id-setup.c \
 	src/machine-id-main.c
 
 systemd_machine_id_setup_LDADD = \
@@ -998,8 +995,7 @@ systemd_sysctl_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_fsck_SOURCES = \
-	src/fsck.c \
-	src/dbus-common.c
+	src/fsck.c
 
 systemd_fsck_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1034,8 +1030,7 @@ systemd_detect_virt_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_getty_generator_SOURCES = \
-	src/getty-generator.c \
-	src/unit-name.c
+	src/getty-generator.c
 
 systemd_getty_generator_LDADD = \
 	libsystemd-label.la \
@@ -1051,16 +1046,14 @@ systemd_rc_local_generator_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_remount_api_vfs_SOURCES = \
-	src/remount-api-vfs.c \
-	src/mount-setup.c
+	src/remount-api-vfs.c
 
 systemd_remount_api_vfs_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_cgroups_agent_SOURCES = \
-	src/cgroups-agent.c \
-	src/dbus-common.c
+	src/cgroups-agent.c
 
 systemd_cgroups_agent_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1072,20 +1065,7 @@ systemd_cgroups_agent_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemctl_SOURCES = \
-	src/systemctl.c \
-	src/utmp-wtmp.c \
-	src/dbus-common.c \
-	src/path-lookup.c \
-	src/cgroup-show.c \
-	src/cgroup-show.h \
-	src/unit-name.c \
-	src/install.c \
-	src/spawn-ask-password-agent.c \
-	src/spawn-ask-password-agent.h \
-	src/spawn-polkit-agent.c \
-	src/spawn-polkit-agent.h \
-	src/logs-show.c \
-	src/logs-show.h
+	src/systemctl.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1126,9 +1106,7 @@ systemd_reply_password_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_cgls_SOURCES = \
-	src/cgls.c \
-	src/cgroup-show.c \
-	src/cgroup-show.h
+	src/cgls.c
 
 systemd_cgls_LDADD = \
 	libsystemd-shared.la
@@ -1142,13 +1120,12 @@ systemd_cgtop_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_nspawn_SOURCES = \
-	src/nspawn.c \
-	src/loopback-setup.c
+	src/nspawn.c
 
 systemd_nspawn_LDADD = \
 	libsystemd-label.la \
-	libsystemd-shared.la \
 	libsystemd-capability.la \
+	libsystemd-shared.la \
 	libsystemd-daemon.la
 
 # ------------------------------------------------------------------------------
@@ -1161,8 +1138,7 @@ systemd_stdio_bridge_LDADD = \
 # ------------------------------------------------------------------------------
 systemd_tty_ask_password_agent_SOURCES = \
 	src/tty-ask-password-agent.c \
-	src/ask-password-api.c \
-	src/utmp-wtmp.c
+	src/ask-password-api.c
 
 systemd_tty_ask_password_agent_LDADD = \
 	libsystemd-label.la \
@@ -1978,9 +1954,7 @@ systemd_cat_LDADD = \
 	libsystemd-journal.la
 
 journalctl_SOURCES = \
-	src/journal/journalctl.c \
-	src/logs-show.c \
-	src/logs-show.h
+	src/journal/journalctl.c
 
 journalctl_LDADD = \
 	libsystemd-shared.la \
@@ -2353,8 +2327,7 @@ systemd_cryptsetup_LDADD = \
 	$(LIBCRYPTSETUP_LIBS)
 
 systemd_cryptsetup_generator_SOURCES = \
-	src/cryptsetup/cryptsetup-generator.c \
-	src/unit-name.c
+	src/cryptsetup/cryptsetup-generator.c
 
 systemd_cryptsetup_generator_LDADD = \
 	libsystemd-label.la \
@@ -2375,7 +2348,6 @@ endif
 if ENABLE_HOSTNAMED
 systemd_hostnamed_SOURCES = \
 	src/hostname/hostnamed.c \
-	src/dbus-common.c \
 	src/polkit.c
 
 systemd_hostnamed_CFLAGS = \
@@ -2426,7 +2398,6 @@ endif
 if ENABLE_LOCALED
 systemd_localed_SOURCES = \
 	src/locale/localed.c \
-	src/dbus-common.c \
 	src/polkit.c
 
 systemd_localed_CFLAGS = \
@@ -2488,7 +2459,6 @@ endif
 if ENABLE_TIMEDATED
 systemd_timedated_SOURCES = \
 	src/timedate/timedated.c \
-	src/dbus-common.c \
 	src/polkit.c
 
 systemd_timedated_CFLAGS = \
@@ -2552,7 +2522,6 @@ systemd_logind_SOURCES = \
 	src/login/logind-session-dbus.c \
 	src/login/logind-seat-dbus.c \
 	src/login/logind-user-dbus.c \
-	src/dbus-common.c \
 	src/dbus-loop.c \
 	src/polkit.c \
 	src/login/logind-acl.h
@@ -2592,12 +2561,7 @@ rootlibexec_PROGRAMS += \
 
 loginctl_SOURCES = \
 	src/login/loginctl.c \
-	src/login/sysfs-show.c \
-	src/dbus-common.c \
-	src/spawn-polkit-agent.c \
-	src/spawn-polkit-agent.h \
-	src/cgroup-show.c \
-	src/cgroup-show.h
+	src/login/sysfs-show.c
 
 loginctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2639,8 +2603,7 @@ libsystemd_login_la_LIBADD = \
 
 if HAVE_PAM
 pam_systemd_la_SOURCES = \
-	src/login/pam-module.c \
-	src/dbus-common.c
+	src/login/pam-module.c
 
 pam_systemd_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2714,7 +2677,7 @@ polkitpolicy_in_files += \
 logind-install-data-hook:
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(systemunitdir)/multi-user.target.wants \
-                $(DESTDIR)$(localstatedir)/lib/systemd
+		$(DESTDIR)$(localstatedir)/lib/systemd
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f dbus-org.freedesktop.login1.service && \
 		$(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service)
