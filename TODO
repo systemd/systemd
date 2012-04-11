@@ -17,6 +17,8 @@ Bugfixes:
 
 Features:
 
+* cg_create_and_attach() should fail for non-available controllers
+
 * place start-pre/start-post/... scripts in sub cgrouprs
 
 * Make RuntimeWatchdogUSec= property writable

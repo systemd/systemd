@@ -52,16 +52,18 @@
 
 static char *arg_directory = NULL;
 static char *arg_user = NULL;
+static char **arg_controllers = NULL;
 static bool arg_private_network = false;
 
 static int help(void) {
 
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
-               "  -h --help            Show this help\n"
-               "  -D --directory=NAME  Root directory for the container\n"
-               "  -u --user=USER       Run the command under specified user or uid\n"
-               "     --private-network Disable network in container\n",
+               "  -h --help             Show this help\n"
+               "  -D --directory=NAME   Root directory for the container\n"
+               "  -u --user=USER        Run the command under specified user or uid\n"
+               "  -C --controllers=LIST Put the container in specified comma-separated cgroup hierarchies\n"
+               "     --private-network  Disable network in container\n",
                program_invocation_short_name);
 
         return 0;
@@ -77,6 +79,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",            no_argument,       NULL, 'h'                 },
                 { "directory",       required_argument, NULL, 'D'                 },
                 { "user",            required_argument, NULL, 'u'                 },
+                { "controllers",     required_argument, NULL, 'C'                 },
                 { "private-network", no_argument,       NULL, ARG_PRIVATE_NETWORK },
                 { NULL,              0,                 NULL, 0                   }
         };
@@ -86,7 +89,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:u:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hD:u:C:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -109,6 +112,17 @@ static int parse_argv(int argc, char *argv[]) {
                                 log_error("Failed to duplicate user name.");
                                 return -ENOMEM;
                         }
+
+                        break;
+
+                case 'C':
+                        strv_free(arg_controllers);
+                        arg_controllers = strv_split(optarg, ",");
+                        if (!arg_controllers) {
+                                log_error("Failed to split controllers list.");
+                                return -ENOMEM;
+                        }
+                        strv_uniq(arg_controllers);
 
                         break;
 
@@ -612,6 +626,7 @@ int main(int argc, char *argv[]) {
         pid_t pid = 0;
         int r = EXIT_FAILURE, k;
         char *oldcg = NULL, *newcg = NULL;
+        char **controller = NULL;
         int master = -1;
         const char *console = NULL;
         struct termios saved_attr, raw_attr;
@@ -671,9 +686,16 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if ((k = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, newcg, 0)) < 0)  {
+        k = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, newcg, 0);
+        if (k < 0)  {
                 log_error("Failed to create cgroup: %s", strerror(-k));
                 goto finish;
+        }
+
+        STRV_FOREACH(controller,arg_controllers) {
+                k = cg_create_and_attach(*controller, newcg, 0);
+                if (k < 0)
+                        log_warning("Failed to create cgroup in controller %s: %s", *controller, strerror(-k));
         }
 
         if ((master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY)) < 0) {
@@ -889,6 +911,7 @@ finish:
                 cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, newcg, true);
 
         free(arg_directory);
+        strv_free(arg_controllers);
         free(oldcg);
         free(newcg);
 

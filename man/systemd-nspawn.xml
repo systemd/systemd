@@ -155,6 +155,16 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--controllers=</option></term>
+                                <term><option>-C</option></term>
+
+                                <listitem><para>Makes the container appear in
+                                other hierarchies that the name=systemd:/ one.
+                                Takes a comma-separated list of controllers.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--private-network</option></term>
 
                                 <listitem><para>Turn off networking in
