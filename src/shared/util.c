@@ -4276,24 +4276,6 @@ char *fstab_node_to_udev_node(const char *p) {
         return strdup(p);
 }
 
-void filter_environ(const char *prefix) {
-        int i, j;
-        assert(prefix);
-
-        if (!environ)
-                return;
-
-        for (i = 0, j = 0; environ[i]; i++) {
-
-                if (startswith(environ[i], prefix))
-                        continue;
-
-                environ[j++] = environ[i];
-        }
-
-        environ[j] = NULL;
-}
-
 bool tty_is_vc(const char *tty) {
         assert(tty);
 

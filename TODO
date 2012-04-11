@@ -48,8 +48,6 @@ Features:
 
 * journal: if mmap() fails for mapping window try to unmap a a few older maps
 
-* add flag file for shutdownd so that clients can check whether a shutdown is queued
-
 * dbus upstream still refers to dbus.target and shouldn't
 
 * when a service has the same env var set twice we actually store it twice and return that in systemctl show -p... We should only show the last setting
@@ -64,10 +62,6 @@ Features:
   (store-persistent, store-volatile?)
 
 * Add ConditionReadWriteFileSystem= so that systemd-sysctl doesn't get executed when /proc/sys is read-only
-
-* unset container= and container_uuid= for child processes
-
-* when bind mounting /etc/machine-id, do so from /run/machine-id
 
 * introduce mix of BindTo and Requisite
 
@@ -171,8 +165,6 @@ Features:
 * when an instanced service exits, remove its parent cgroup too if possible.
 
 * as Tom Gundersen pointed out there's a always a dep loop if people use crypto file systems with random keys
-
-* unset container=, container_uuid= in PID1?
 
 * automatically escape unit names passed on the service (i.e. think "systemctl start serial-getty.service@serial/by-path/jshdfjsdfhkjh" being automatically escaped as necessary.
 
@@ -317,7 +309,6 @@ Features:
 External:
 
 * dbus:
-   - get process transport into dbus for systemctl -P/-H (PENDING)
    - dbus --user
    - natively watch for dbus-*.service symlinks (PENDING)
    - allow specification of socket mode/umask when allocating DBusServer

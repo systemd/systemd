@@ -221,6 +221,21 @@ static int manager_setup_signals(Manager *m) {
         return 0;
 }
 
+static void manager_strip_environment(Manager *m) {
+        assert(m);
+
+        /* Remove variables from the inherited set that are part of
+         * the container interface:
+         * http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface */
+        strv_remove_prefix(m->environment, "container=");
+        strv_remove_prefix(m->environment, "container_");
+
+        /* Remove variables from the inherited set that are part of
+         * the initrd interface:
+         * http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface */
+        strv_remove_prefix(m->environment, "RD_");
+}
+
 int manager_new(ManagerRunningAs running_as, Manager **_m) {
         Manager *m;
         int r = -ENOMEM;
@@ -246,8 +261,11 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = m->dev_autofs_fd = m->swap_watch.fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
-        if (!(m->environment = strv_copy(environ)))
+        m->environment = strv_copy(environ);
+        if (!m->environment)
                 goto fail;
+
+        manager_strip_environment(m);
 
         if (running_as == MANAGER_SYSTEM) {
                 m->default_controllers = strv_new("cpu", NULL);

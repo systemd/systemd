@@ -39,6 +39,7 @@ char **strv_merge_concat(char **a, char **b, const char *suffix);
 char **strv_append(char **l, const char *s);
 
 char **strv_remove(char **l, const char *s);
+char **strv_remove_prefix(char **l, const char *s);
 char **strv_uniq(char **l);
 
 #define strv_contains(l, s) (!!strv_find((l), (s)))

@@ -386,6 +386,31 @@ char **strv_remove(char **l, const char *s) {
         return l;
 }
 
+char **strv_remove_prefix(char **l, const char *s) {
+        char **f, **t;
+
+        if (!l)
+                return NULL;
+
+        assert(s);
+
+        /* Drops every occurrence of a string prefixed with s in the
+         * string list, edits in-place. */
+
+        for (f = t = l; *f; f++) {
+
+                if (startswith(*f, s)) {
+                        free(*f);
+                        continue;
+                }
+
+                *(t++) = *f;
+        }
+
+        *t = NULL;
+        return l;
+}
+
 static int env_append(char **r, char ***k, char **a) {
         assert(r);
         assert(k);

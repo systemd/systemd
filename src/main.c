@@ -1333,9 +1333,10 @@ int main(int argc, char *argv[]) {
                arg_running_as == MANAGER_SYSTEM);
 
         if (arg_running_as == MANAGER_SYSTEM) {
-                /* Parse the data passed to us by the initrd and unset it */
+                /* Parse the data passed to us. We leave this
+                 * variables set, but the manager later on will not
+                 * pass them on to our children. */
                 parse_initrd_timestamp(&initrd_timestamp);
-                filter_environ("RD_");
 
                 /* Unset some environment variables passed in from the
                  * kernel that don't really make sense for us. */
