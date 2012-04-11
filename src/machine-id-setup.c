@@ -235,28 +235,25 @@ int machine_id_setup(void) {
         fd = -1;
 
         /* Hmm, we couldn't write it? So let's write it to
-         * /run/systemd/machine-id as a replacement */
-
-        mkdir_p("/run/systemd", 0755);
+         * /run/machine-id as a replacement */
 
         m = umask(0022);
-        r = write_one_line_file("/run/systemd/machine-id", id);
+        r = write_one_line_file("/run/machine-id", id);
         umask(m);
 
         if (r < 0) {
-                log_error("Cannot write /run/systemd/machine-id: %s", strerror(-r));
+                log_error("Cannot write /run/machine-id: %s", strerror(-r));
 
-                unlink("/run/systemd/machine-id");
+                unlink("/run/machine-id");
                 goto finish;
         }
 
         /* And now, let's mount it over */
-        r = mount("/run/systemd/machine-id", "/etc/machine-id", "bind", MS_BIND|MS_RDONLY, NULL) < 0 ? -errno : 0;
-        unlink("/run/systemd/machine-id");
-
-        if (r < 0)
+        r = mount("/run/machine-id", "/etc/machine-id", "bind", MS_BIND|MS_RDONLY, NULL) < 0 ? -errno : 0;
+        if (r < 0) {
+                unlink("/run/machine-id");
                 log_error("Failed to mount /etc/machine-id: %s", strerror(-r));
-        else
+        } else
                 log_info("Installed transient /etc/machine-id file.");
 
 finish:
