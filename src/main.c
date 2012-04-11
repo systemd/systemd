@@ -1343,6 +1343,12 @@ int main(int argc, char *argv[]) {
                 unsetenv("HOME");
                 unsetenv("TERM");
 
+                /* When we are invoked by a shell, these might be set,
+                 * but make little sense to pass on */
+                unsetenv("PWD");
+                unsetenv("SHLVL");
+                unsetenv("_");
+
                 /* All other variables are left as is, so that clients
                  * can still read them via /proc/1/environ */
         }
