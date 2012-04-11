@@ -1156,6 +1156,7 @@ libsystemd_daemon_la_CFLAGS = \
 	-DSD_EXPORT_SYMBOLS
 
 libsystemd_daemon_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
 	-shared \
 	-version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd-daemon.sym
@@ -1611,6 +1612,7 @@ libgudev_1_0_la_LIBADD = \
 	$(GLIB_LIBS)
 
 libgudev_1_0_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
 	-version-info $(LIBGUDEV_CURRENT):$(LIBGUDEV_REVISION):$(LIBGUDEV_AGE) \
 	-export-dynamic -no-undefined \
 	-export-symbols-regex '^g_udev_.*'
@@ -1850,6 +1852,7 @@ libsystemd_id128_la_CFLAGS = \
 	-fvisibility=hidden
 
 libsystemd_id128_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
 	-shared \
 	-version-info $(LIBSYSTEMD_ID128_CURRENT):$(LIBSYSTEMD_ID128_REVISION):$(LIBSYSTEMD_ID128_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd-id128.sym
@@ -2004,6 +2007,7 @@ libsystemd_journal_la_CFLAGS = \
 	-fvisibility=hidden
 
 libsystemd_journal_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
 	-shared \
 	-version-info $(LIBSYSTEMD_JOURNAL_CURRENT):$(LIBSYSTEMD_JOURNAL_REVISION):$(LIBSYSTEMD_JOURNAL_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/journal/libsystemd-journal.sym
@@ -2589,6 +2593,7 @@ libsystemd_login_la_CFLAGS = \
 	-fvisibility=hidden
 
 libsystemd_login_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
 	-shared \
 	-version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/login/libsystemd-login.sym
@@ -2608,6 +2613,7 @@ pam_systemd_la_CFLAGS = \
 	-fvisibility=hidden
 
 pam_systemd_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
 	-module \
 	-export-dynamic \
 	-avoid-version \
