@@ -34,7 +34,6 @@
 #include "set.h"
 #include "macro.h"
 #include "util.h"
-#include "mkdir.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
         char *fs;
@@ -638,32 +637,6 @@ int cg_delete(const char *controller, const char *path) {
         return r == -ENOENT ? 0 : r;
 }
 
-int cg_create(const char *controller, const char *path) {
-        char *fs;
-        int r;
-
-        assert(controller);
-        assert(path);
-
-        if ((r = cg_get_path(controller, path, NULL, &fs)) < 0)
-                return r;
-
-        r = mkdir_parents(fs, 0755);
-
-        if (r >= 0) {
-                if (mkdir(fs, 0755) >= 0)
-                        r = 1;
-                else if (errno == EEXIST)
-                        r = 0;
-                else
-                        r = -errno;
-        }
-
-        free(fs);
-
-        return r;
-}
-
 int cg_attach(const char *controller, const char *path, pid_t pid) {
         char *fs;
         int r;
@@ -684,24 +657,6 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
 
         r = write_one_line_file(fs, c);
         free(fs);
-
-        return r;
-}
-
-int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
-        int r, q;
-
-        assert(controller);
-        assert(path);
-        assert(pid >= 0);
-
-        if ((r = cg_create(controller, path)) < 0)
-                return r;
-
-        if ((q = cg_attach(controller, path, pid)) < 0)
-                return q;
-
-        /* This does not remove the cgroup on failure */
 
         return r;
 }
