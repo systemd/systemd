@@ -1648,19 +1648,16 @@ finish:
                 fdset_free(fds);
 
         if (shutdown_verb) {
-                char e[32];
-
                 const char * command_line[] = {
                         SYSTEMD_SHUTDOWN_BINARY_PATH,
                         shutdown_verb,
                         NULL
                 };
-                const char * env_block[] = {
-                        NULL,
-                        NULL
-                };
+                char **env_block;
 
                 if (arm_reboot_watchdog && arg_shutdown_watchdog > 0) {
+                        char e[32];
+
                         /* If we reboot let's set the shutdown
                          * watchdog and tell the shutdown binary to
                          * repeatedly ping it */
@@ -1670,11 +1667,15 @@ finish:
                         /* Tell the binary how often to ping */
                         snprintf(e, sizeof(e), "WATCHDOG_USEC=%llu", (unsigned long long) arg_shutdown_watchdog);
                         char_array_0(e);
-                        env_block[0] = e;
-                } else
-                        watchdog_close(true);
 
-                execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, (char**) env_block);
+                        env_block = strv_append(environ, e);
+                } else {
+                        env_block = strv_copy(environ);
+                        watchdog_close(true);
+                }
+
+                execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
+                free(env_block);
                 log_error("Failed to execute shutdown binary, freezing: %m");
         }
 
