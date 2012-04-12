@@ -554,10 +554,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/socket-util.h \
 	src/shared/cgroup-util.c \
 	src/shared/cgroup-util.h \
-	src/shared/dbus-common.c \
-	src/shared/dbus-common.h \
-	src/shared/dbus-loop.c \
-	src/shared/dbus-loop.h \
 	src/shared/logs-show.c \
 	src/shared/logs-show.h \
 	src/shared/cgroup-show.c \
@@ -579,13 +575,30 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/specifier.c \
 	src/shared/specifier.h \
 	src/shared/spawn-polkit-agent.c \
-	src/shared/spawn-polkit-agent.h \
-	src/shared/polkit.c \
-	src/shared/polkit.h
+	src/shared/spawn-polkit-agent.h
 
 libsystemd_shared_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS)
+
+#-------------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
+	libsystemd-dbus.la
+
+libsystemd_dbus_la_SOURCES = \
+	src/shared/dbus-common.c \
+	src/shared/dbus-common.h \
+	src/shared/dbus-loop.c \
+	src/shared/dbus-loop.h \
+	src/shared/polkit.c \
+	src/shared/polkit.h
+
+libsystemd_dbus_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+libsystemd_dbus_la_LIBADD = \
+	$(DBUS_LIBS)
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -768,6 +781,7 @@ libsystemd_core_la_LIBADD = \
 	libsystemd-capability.la \
 	libsystemd-label.la \
 	libsystemd-shared.la \
+	libsystemd-dbus.la \
 	libudev.la \
 	$(DBUS_LIBS) \
 	$(LIBWRAP_LIBS) \
@@ -799,7 +813,8 @@ systemd_CFLAGS = \
 systemd_LDADD = \
 	libsystemd-core.la \
 	libsystemd-daemon.la \
-	libsystemd-id128.la
+	libsystemd-id128.la \
+	libsystemd-dbus.la
 
 dist_pkgsysconf_DATA += \
 	src/core/system.conf \
@@ -850,7 +865,8 @@ test_engine_CFLAGS = \
 
 test_engine_LDADD = \
 	libsystemd-core.la \
-	libsystemd-daemon.la
+	libsystemd-daemon.la \
+	libsystemd-dbus.la
 
 test_job_type_SOURCES = \
 	src/test/test-job-type.c
@@ -934,6 +950,7 @@ systemd_initctl_CFLAGS = \
 systemd_initctl_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
+	libsystemd-dbus.la \
 	$(DBUS_LIBS)
 
 # ------------------------------------------------------------------------------
@@ -947,6 +964,7 @@ systemd_update_utmp_CFLAGS = \
 
 systemd_update_utmp_LDADD = \
 	libsystemd-shared.la \
+	libsystemd-dbus.la \
 	$(DBUS_LIBS) \
 	$(AUDIT_LIBS)
 
@@ -1019,6 +1037,7 @@ systemd_fsck_CFLAGS = \
 
 systemd_fsck_LDADD = \
 	libsystemd-shared.la \
+	libsystemd-dbus.la \
 	libudev.la \
 	$(DBUS_LIBS)
 
@@ -1077,6 +1096,7 @@ systemd_cgroups_agent_CFLAGS = \
 
 systemd_cgroups_agent_LDADD = \
 	libsystemd-shared.la \
+	libsystemd-dbus.la \
 	$(DBUS_LIBS)
 
 # ------------------------------------------------------------------------------
@@ -1093,6 +1113,7 @@ systemctl_LDADD = \
 	libsystemd-daemon.la \
 	libsystemd-journal.la \
 	libsystemd-id128.la \
+	libsystemd-dbus.la \
 	$(DBUS_LIBS)
 
 # ------------------------------------------------------------------------------
@@ -2373,6 +2394,7 @@ systemd_hostnamed_CFLAGS = \
 systemd_hostnamed_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
+	libsystemd-dbus.la \
 	$(DBUS_LIBS)
 
 rootlibexec_PROGRAMS += \
@@ -2423,6 +2445,7 @@ systemd_localed_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
+	libsystemd-dbus.la \
 	$(DBUS_LIBS)
 
 nodist_systemunit_DATA += \
@@ -2482,6 +2505,7 @@ systemd_timedated_CFLAGS = \
 systemd_timedated_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
+	libsystemd-dbus.la \
 	$(DBUS_LIBS)
 
 rootlibexec_PROGRAMS += \
@@ -2550,6 +2574,7 @@ systemd_logind_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-audit.la \
 	libsystemd-daemon.la \
+	libsystemd-dbus.la \
 	libudev.la \
 	$(DBUS_LIBS)
 
@@ -2581,6 +2606,7 @@ loginctl_CFLAGS = \
 
 loginctl_LDADD = \
 	libsystemd-shared.la \
+	libsystemd-dbus.la \
 	libudev.la \
 	$(DBUS_LIBS)
 
