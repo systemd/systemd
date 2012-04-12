@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include "machine-id-setup.h"
+#include "machine-id-util.h"
 #include "log.h"
 
 int main(int argc, char *argv[]) {

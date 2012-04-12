@@ -603,8 +603,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/spawn-ask-password-agent.h \
 	src/shared/mount-setup.c \
 	src/shared/mount-setup.h \
-	src/shared/machine-id-setup.c \
-	src/shared/machine-id-setup.h \
+	src/shared/machine-id-util.c \
+	src/shared/machine-id-util.h \
 	src/shared/loopback-setup.h \
 	src/shared/loopback-setup.c \
 	src/shared/specifier.c \
@@ -815,7 +815,7 @@ libsystemd_core_la_LIBADD = \
 
 # ------------------------------------------------------------------------------
 systemd_SOURCES = \
-	src/main.c
+	src/core/main.c
 
 systemd_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -979,7 +979,7 @@ systemd_tmpfiles_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_machine_id_setup_SOURCES = \
-	src/machine-id-main.c
+	src/machine-id-setup.c
 
 systemd_machine_id_setup_LDADD = \
 	libsystemd-label.la \

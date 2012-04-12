@@ -42,7 +42,7 @@
 #include "locale-setup.h"
 #include "selinux-setup.h"
 #include "ima-setup.h"
-#include "machine-id-setup.h"
+#include "machine-id-util.h"
 #include "load-fragment.h"
 #include "fdset.h"
 #include "special.h"
