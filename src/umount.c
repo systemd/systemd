@@ -119,7 +119,7 @@ static int mount_points_list_get(MountPoint **head) {
                  * /dev/console) */
                 if (mount_point_is_api(p) ||
                     mount_point_ignore(p) ||
-                    path_streq(p, "/dev/console")) {
+                    path_equal(p, "/dev/console")) {
                         free(p);
                         continue;
                 }
