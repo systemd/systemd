@@ -114,7 +114,12 @@ static int mount_points_list_get(MountPoint **head) {
                         goto finish;
                 }
 
-                if (mount_point_is_api(p) || mount_point_ignore(p)) {
+                /* Ignore mount points we can't unmount because they
+                 * are API or because we are keeping them open (like
+                 * /dev/console) */
+                if (mount_point_is_api(p) ||
+                    mount_point_ignore(p) ||
+                    path_streq(p, "/dev/console")) {
                         free(p);
                         continue;
                 }
