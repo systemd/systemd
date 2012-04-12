@@ -184,7 +184,8 @@ static int mount_all(const char *dest) {
                         break;
                 }
 
-                if ((t = path_is_mount_point(where, false)) < 0) {
+                t = path_is_mount_point(where, false);
+                if (t < 0) {
                         log_error("Failed to detect whether %s is a mount point: %s", where, strerror(-t));
                         free(where);
 
@@ -226,6 +227,11 @@ static int mount_all(const char *dest) {
                 if (mount("/etc/timezone", where, "bind", MS_BIND, NULL) >= 0)
                         mount("/etc/timezone", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
 
+                free(where);
+        }
+
+        if (asprintf(&where, "%s/proc/kmsg", dest) >= 0) {
+                mount("/dev/null", where, "bind", MS_BIND, NULL);
                 free(where);
         }
 
