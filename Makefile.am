@@ -588,8 +588,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/cgroup-util.h \
 	src/shared/dbus-common.c \
 	src/shared/dbus-common.h \
-	src/shared/hostname-setup.c \
-	src/shared/hostname-setup.h \
 	src/shared/logs-show.c \
 	src/shared/logs-show.h \
 	src/shared/cgroup-show.c \
@@ -765,6 +763,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/kmod-setup.h \
 	src/core/locale-setup.h \
 	src/core/locale-setup.c \
+	src/core/hostname-setup.c \
+	src/core/hostname-setup.h \
 	src/core/fdset.c \
 	src/core/fdset.h \
 	src/core/condition.c \
@@ -860,7 +860,7 @@ test_hostname_SOURCES = \
 	src/test/test-hostname.c
 
 test_hostname_LDADD = \
-	libsystemd-shared.la
+	libsystemd-core.la
 
 test_daemon_SOURCES = \
 	src/test/test-daemon.c
