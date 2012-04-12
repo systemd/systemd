@@ -796,7 +796,6 @@ libsystemd_core_la_LIBADD = \
 	libsystemd-shared.la \
 	libsystemd-dbus.la \
 	libudev.la \
-	$(DBUS_LIBS) \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
 	$(AUDIT_LIBS) \
@@ -964,8 +963,7 @@ systemd_initctl_CFLAGS = \
 systemd_initctl_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-dbus.la \
-	$(DBUS_LIBS)
+	libsystemd-dbus.la
 
 # ------------------------------------------------------------------------------
 systemd_update_utmp_SOURCES = \
@@ -979,7 +977,6 @@ systemd_update_utmp_CFLAGS = \
 systemd_update_utmp_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-dbus.la \
-	$(DBUS_LIBS) \
 	$(AUDIT_LIBS)
 
 # ------------------------------------------------------------------------------
@@ -1056,8 +1053,7 @@ systemd_fsck_CFLAGS = \
 systemd_fsck_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-dbus.la \
-	libudev.la \
-	$(DBUS_LIBS)
+	libudev.la
 
 # ------------------------------------------------------------------------------
 systemd_timestamp_SOURCES = \
@@ -1116,8 +1112,7 @@ systemd_cgroups_agent_CFLAGS = \
 
 systemd_cgroups_agent_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-dbus.la \
-	$(DBUS_LIBS)
+	libsystemd-dbus.la
 
 # ------------------------------------------------------------------------------
 systemctl_SOURCES = \
@@ -1135,7 +1130,6 @@ systemctl_LDADD = \
 	libsystemd-id128.la \
 	libsystemd-dbus.la \
 	libsystemd-logs.la
-	$(DBUS_LIBS)
 
 # ------------------------------------------------------------------------------
 systemd_notify_SOURCES = \
@@ -2410,8 +2404,7 @@ systemd_hostnamed_CFLAGS = \
 systemd_hostnamed_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-dbus.la \
-	$(DBUS_LIBS)
+	libsystemd-dbus.la
 
 rootlibexec_PROGRAMS += \
 	systemd-hostnamed
@@ -2461,8 +2454,7 @@ systemd_localed_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-dbus.la \
-	$(DBUS_LIBS)
+	libsystemd-dbus.la
 
 nodist_systemunit_DATA += \
 	units/systemd-localed.service
@@ -2521,8 +2513,7 @@ systemd_timedated_CFLAGS = \
 systemd_timedated_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-dbus.la \
-	$(DBUS_LIBS)
+	libsystemd-dbus.la
 
 rootlibexec_PROGRAMS += \
 	systemd-timedated
@@ -2591,8 +2582,7 @@ systemd_logind_LDADD = \
 	libsystemd-audit.la \
 	libsystemd-daemon.la \
 	libsystemd-dbus.la \
-	libudev.la \
-	$(DBUS_LIBS)
+	libudev.la
 
 if HAVE_ACL
 systemd_logind_SOURCES += \
@@ -2623,8 +2613,7 @@ loginctl_CFLAGS = \
 loginctl_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-dbus.la \
-	libudev.la \
-	$(DBUS_LIBS)
+	libudev.la
 
 rootbin_PROGRAMS += \
 	loginctl
@@ -2678,8 +2667,7 @@ pam_systemd_la_LIBADD = \
 	libsystemd-audit.la \
 	libsystemd-dbus.la \
 	libsystemd-shared.la \
-	$(PAM_LIBS) \
-	$(DBUS_LIBS)
+	$(PAM_LIBS)
 
 pamlib_LTLIBRARIES = \
 	pam_systemd.la
