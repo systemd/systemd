@@ -2676,6 +2676,7 @@ pam_systemd_la_LDFLAGS = \
 pam_systemd_la_LIBADD = \
 	libsystemd-daemon.la \
 	libsystemd-audit.la \
+	libsystemd-dbus.la \
 	libsystemd-shared.la \
 	$(PAM_LIBS) \
 	$(DBUS_LIBS)
