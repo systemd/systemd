@@ -1139,7 +1139,7 @@ systemd_nspawn_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_stdio_bridge_SOURCES = \
-	src/bridge.c
+	src/stdio-bridge/stdio-bridge.c
 
 systemd_stdio_bridge_LDADD = \
 	libsystemd-shared.la
