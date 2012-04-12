@@ -34,6 +34,7 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <sys/resource.h>
 
 #include "macro.h"
 
@@ -530,5 +531,7 @@ int fd_inc_sndbuf(int fd, size_t n);
 int fd_inc_rcvbuf(int fd, size_t n);
 
 int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...);
+
+int setrlimit_closest(int resource, const struct rlimit *rlim);
 
 #endif

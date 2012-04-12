@@ -1367,7 +1367,7 @@ int exec_spawn(ExecCommand *command,
                                 if (!context->rlimit[i])
                                         continue;
 
-                                if (setrlimit(i, context->rlimit[i]) < 0) {
+                                if (setrlimit_closest(i, context->rlimit[i]) < 0) {
                                         err = -errno;
                                         r = EXIT_LIMITS;
                                         goto fail_child;
