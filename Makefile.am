@@ -83,7 +83,6 @@ BUILT_SOURCES =
 INSTALL_EXEC_HOOKS =
 UNINSTALL_EXEC_HOOKS =
 INSTALL_DATA_HOOKS =
-DISTCHECK_HOOKS =
 DISTCLEAN_LOCAL_HOOKS =
 pkginclude_HEADERS =
 noinst_LTLIBRARIES =
@@ -99,6 +98,7 @@ dist_dbuspolicy_DATA =
 dbusinterface_DATA =
 dist_dbussystemservice_DATA =
 check_PROGRAMS =
+TESTS =
 
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
@@ -1478,7 +1478,7 @@ udevadm_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
-TESTS = \
+TESTS += \
 	src/udev/test/udev-test.pl \
 	src/udev/test/rules-test.sh
 
@@ -1513,8 +1513,9 @@ DISTCLEAN_LOCAL_HOOKS += test-sys-distclean
 
 EXTRA_DIST += \
 	src/udev/test/sys.tar.xz \
-	$(TESTS) \
-	src/udev/test/rule-syntax-check.py
+	src/udev/test/rule-syntax-check.py \
+	src/udev/test/udev-test.pl \
+	src/udev/test/rules-test.sh
 
 # ------------------------------------------------------------------------------
 ata_id_SOURCES = \
@@ -1790,6 +1791,9 @@ dist_udevhome_SCRIPTS = \
 	src/udev/keymap/findkeyboards \
 	src/udev/keymap/keyboard-force-release.sh
 
+TESTS += \
+	src/udev/keymap/check-keymaps.sh
+
 EXTRA_DIST += \
 	src/udev/keymap/check-keymaps.sh
 
@@ -1879,10 +1883,6 @@ src/udev/keymap/keys-from-name.h: src/udev/keymap/keys-from-name.gperf Makefile
 
 src/udev/keymap/keys-to-name.h: src/udev/keymap/keys.txt Makefile
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
-
-keymaps-distcheck-hook: src/udev/keymap/keys.txt
-	$(top_srcdir)/src/udev/keymap/check-keymaps.sh $(top_srcdir) $^
-DISTCHECK_HOOKS += keymaps-distcheck-hook
 endif
 
 # ------------------------------------------------------------------------------
@@ -3171,8 +3171,6 @@ install-exec-hook: $(INSTALL_EXEC_HOOKS)
 uninstall-hook: $(UNINSTALL_EXEC_HOOKS)
 
 install-data-hook: systemd-install-data-hook $(INSTALL_DATA_HOOKS)
-
-distcheck-hook: $(DISTCHECK_HOOKS)
 
 distclean-local: $(DISTCLEAN_LOCAL_HOOKS)
 
