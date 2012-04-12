@@ -33,6 +33,11 @@ After=rc-local.service
 Before=getty.target
 IgnoreOnIsolate=yes
 
+# On systems without virtual consoles, don't start any getty. (Note
+# that serial gettys are covered by serial-getty@.service, not this
+# unit
+ConditionPathExists=/dev/tty0
+
 [Service]
 Environment=TERM=linux
 ExecStart=-/sbin/agetty %I 38400
