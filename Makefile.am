@@ -521,12 +521,12 @@ noinst_LTLIBRARIES += \
 	libsystemd-shared.la
 
 libsystemd_shared_la_SOURCES = \
-	src/linux/auto_dev-ioctl.h \
-	src/linux/fanotify.h \
+	src/shared/linux/auto_dev-ioctl.h \
+	src/shared/linux/fanotify.h \
+	src/shared/missing.h \
 	src/shared/list.h \
 	src/shared/macro.h \
 	src/shared/def.h \
-	src/shared/missing.h \
 	src/shared/util.c \
 	src/shared/util.h \
 	src/shared/virt.c \
