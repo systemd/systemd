@@ -564,10 +564,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/watchdog.h \
 	src/shared/spawn-ask-password-agent.c \
 	src/shared/spawn-ask-password-agent.h \
-	src/shared/mount-setup.c \
-	src/shared/mount-setup.h \
-	src/shared/loopback-setup.h \
-	src/shared/loopback-setup.c \
 	src/shared/specifier.c \
 	src/shared/specifier.h \
 	src/shared/spawn-polkit-agent.c \
@@ -759,8 +755,12 @@ libsystemd_core_la_SOURCES = \
 	src/core/locale-setup.c \
 	src/core/hostname-setup.c \
 	src/core/hostname-setup.h \
-	src/shared/machine-id-setup.c \
-	src/shared/machine-id-setup.h \
+	src/core/machine-id-setup.c \
+	src/core/machine-id-setup.h \
+	src/core/mount-setup.c \
+	src/core/mount-setup.h \
+	src/core/loopback-setup.h \
+	src/core/loopback-setup.c \
 	src/core/fdset.c \
 	src/core/fdset.h \
 	src/core/condition.c \
@@ -901,7 +901,8 @@ test_loopback_SOURCES = \
 	src/test/test-loopback.c
 
 test_loopback_LDADD = \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-core.la
 
 test_hostname_SOURCES = \
 	src/test/test-hostname.c
@@ -997,7 +998,9 @@ pkginclude_HEADERS += \
 systemd_shutdown_SOURCES = \
 	src/core/umount.c \
 	src/core/umount.h \
-	src/core/shutdown.c
+	src/core/shutdown.c \
+	src/core/mount-setup.c \
+	src/core/mount-setup.h
 
 systemd_shutdown_LDADD = \
 	libsystemd-label.la \
@@ -1027,8 +1030,8 @@ systemd_tmpfiles_LDADD = \
 # ------------------------------------------------------------------------------
 systemd_machine_id_setup_SOURCES = \
 	src/machine-id-setup/machine-id-setup-main.c \
-	src/shared/machine-id-setup.c \
-	src/shared/machine-id-setup.h
+	src/core/machine-id-setup.c \
+	src/core/machine-id-setup.h
 
 systemd_machine_id_setup_LDADD = \
 	libsystemd-label.la \
@@ -1096,7 +1099,9 @@ systemd_rc_local_generator_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_remount_api_vfs_SOURCES = \
-	src/remount-api-vfs/remount-api-vfs.c
+	src/remount-api-vfs/remount-api-vfs.c \
+	src/core/mount-setup.c \
+	src/core/mount-setup.h
 
 systemd_remount_api_vfs_LDADD = \
 	libsystemd-shared.la
@@ -1172,7 +1177,11 @@ systemd_cgtop_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_nspawn_SOURCES = \
-	src/nspawn/nspawn.c
+	src/nspawn/nspawn.c \
+	src/core/mount-setup.c \
+	src/core/mount-setup.h \
+	src/core/loopback-setup.c \
+	src/core/loopback-setup.h
 
 systemd_nspawn_LDADD = \
 	libsystemd-label.la \
