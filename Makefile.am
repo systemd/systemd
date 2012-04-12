@@ -1,3 +1,5 @@
+#  -*- Mode: makefile; indent-tabs-mode: t -*- */
+#
 #  This file is part of systemd.
 #
 #  Copyright 2010-2012 Lennart Poettering
@@ -123,9 +125,7 @@ AM_CPPFLAGS = \
 	-DPOLKIT_AGENT_BINARY_PATH=\"$(bindir)/pkttyagent\" \
 	-I $(top_srcdir)/src \
 	-I $(top_srcdir)/src/shared \
-	-I $(top_srcdir)/src/readahead \
 	-I $(top_srcdir)/src/login \
-	-I $(top_srcdir)/src/journal \
 	-I $(top_srcdir)/src/systemd \
 	-I $(top_srcdir)/src/core \
 	-I $(top_srcdir)/src/udev
@@ -556,6 +556,9 @@ noinst_LTLIBRARIES += \
 	libsystemd-shared.la
 
 libsystemd_shared_la_SOURCES = \
+	src/missing.h \
+	src/linux/auto_dev-ioctl.h \
+	src/linux/fanotify.h \
 	src/shared/util.c \
 	src/shared/util.h \
 	src/shared/virt.c \
@@ -597,8 +600,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/utmp-wtmp.h \
 	src/shared/watchdog.c \
 	src/shared/watchdog.h \
-	src/shared/umount.c \
-	src/shared/umount.h \
 	src/shared/spawn-ask-password-agent.c \
 	src/shared/spawn-ask-password-agent.h \
 	src/shared/mount-setup.c \
@@ -612,7 +613,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/spawn-polkit-agent.c \
 	src/shared/spawn-polkit-agent.h \
 	src/shared/list.h \
-	src/shared/macro.h
+	src/shared/macro.h \
+	src/shared/ask-password-api.h
 
 libsystemd_shared_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -691,9 +693,6 @@ noinst_LTLIBRARIES += \
 
 libsystemd_core_la_SOURCES = \
 	src/def.h \
-	src/missing.h \
-	src/linux/auto_dev-ioctl.h \
-	src/linux/fanotify.h \
 	src/core/unit.c \
 	src/core/unit.h \
 	src/core/job.c \
@@ -781,9 +780,7 @@ libsystemd_core_la_SOURCES = \
 	src/core/special.h \
 	src/core/bus-errors.h \
 	src/core/build.h \
-	src/core/ask-password-api.h \
 	src/core/sysfs-show.h \
-	src/core/polkit.h \
 	src/core/dbus-loop.h
 
 nodist_libsystemd_core_la_SOURCES = \
@@ -950,6 +947,8 @@ pkginclude_HEADERS += \
 
 # ------------------------------------------------------------------------------
 systemd_shutdown_SOURCES = \
+	src/umount.c \
+	src/umount.h \
 	src/shutdown.c
 
 systemd_shutdown_LDADD = \
@@ -2352,7 +2351,8 @@ endif
 if ENABLE_HOSTNAMED
 systemd_hostnamed_SOURCES = \
 	src/hostname/hostnamed.c \
-	src/polkit.c
+	src/polkit.c \
+	src/polkit.h
 
 systemd_hostnamed_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2402,7 +2402,8 @@ endif
 if ENABLE_LOCALED
 systemd_localed_SOURCES = \
 	src/locale/localed.c \
-	src/polkit.c
+	src/polkit.c \
+	src/polkit.h
 
 systemd_localed_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2463,7 +2464,8 @@ endif
 if ENABLE_TIMEDATED
 systemd_timedated_SOURCES = \
 	src/timedate/timedated.c \
-	src/polkit.c
+	src/polkit.c \
+	src/polkit.h
 
 systemd_timedated_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2528,6 +2530,7 @@ systemd_logind_SOURCES = \
 	src/login/logind-user-dbus.c \
 	src/dbus-loop.c \
 	src/polkit.c \
+	src/polkit.h \
 	src/login/logind-acl.h
 
 nodist_systemd_logind_SOURCES = \
