@@ -164,8 +164,8 @@ int main(int argc, char *argv[]) {
                 break;
         }
 
-        if (id && !arg_quiet)
-                puts(id);
+        if (!arg_quiet)
+                puts(id ? id : "none");
 
         return retval;
 }
