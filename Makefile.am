@@ -554,8 +554,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/socket-util.h \
 	src/shared/cgroup-util.c \
 	src/shared/cgroup-util.h \
-	src/shared/logs-show.c \
-	src/shared/logs-show.h \
 	src/shared/cgroup-show.c \
 	src/shared/cgroup-show.h \
 	src/shared/unit-name.c \
@@ -625,6 +623,21 @@ libsystemd_label_la_CFLAGS = \
 
 libsystemd_label_la_LIBADD = \
 	$(SELINUX_LIBS)
+
+# ------------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
+	libsystemd-logs.la
+
+libsystemd_logs_la_SOURCES = \
+	src/shared/logs-show.c \
+	src/shared/logs-show.h
+
+libsystemd_logs_la_CFLAGS = \
+	$(AM_CFLAGS)
+
+libsystemd_logs_la_LIBADD = \
+	libsystemd-journal.la \
+	libsystemd-id128.la
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -1114,6 +1127,7 @@ systemctl_LDADD = \
 	libsystemd-journal.la \
 	libsystemd-id128.la \
 	libsystemd-dbus.la \
+	libsystemd-logs.la
 	$(DBUS_LIBS)
 
 # ------------------------------------------------------------------------------
@@ -1998,17 +2012,8 @@ journalctl_SOURCES = \
 journalctl_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-journal.la \
-	libsystemd-id128.la
-
-if HAVE_XZ
-journalctl_SOURCES += \
-	src/journal/compress.c
-journalctl_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(XZ_CFLAGS)
-journalctl_LDADD += \
-	$(XZ_LIBS)
-endif
+	libsystemd-id128.la \
+	libsystemd-logs.la
 
 test_journal_SOURCES = \
 	src/journal/test-journal.c \
