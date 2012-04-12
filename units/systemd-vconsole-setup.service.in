@@ -11,6 +11,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=sysinit.target shutdown.target
+ConditionPathExists=/dev/tty0
 
 [Service]
 Type=oneshot
