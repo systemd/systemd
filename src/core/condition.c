@@ -24,6 +24,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/capability.h>
+#include <sys/statvfs.h>
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
@@ -222,6 +223,15 @@ bool condition_test(Condition *c) {
         case CONDITION_PATH_IS_MOUNT_POINT:
                 return (path_is_mount_point(c->parameter, true) > 0) == !c->negate;
 
+        case CONDITION_PATH_IS_READ_WRITE: {
+                struct statvfs st;
+
+                if (statvfs(c->parameter, &st) < 0)
+                        return c->negate;
+
+                return !(st.f_flag & ST_RDONLY) == !c->negate;
+        }
+
         case CONDITION_DIRECTORY_NOT_EMPTY: {
                 int k;
 
@@ -313,6 +323,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_PATH_IS_DIRECTORY] = "ConditionPathIsDirectory",
         [CONDITION_PATH_IS_SYMBOLIC_LINK] = "ConditionPathIsSymbolicLink",
         [CONDITION_PATH_IS_MOUNT_POINT] = "ConditionPathIsMountPoint",
+        [CONDITION_PATH_IS_READ_WRITE] = "ConditionPathIsReadWrite",
         [CONDITION_DIRECTORY_NOT_EMPTY] = "ConditionDirectoryNotEmpty",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
         [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",

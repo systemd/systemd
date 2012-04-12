@@ -684,6 +684,7 @@
                                 <term><varname>ConditionPathIsDirectory=</varname></term>
                                 <term><varname>ConditionPathIsSymbolicLink=</varname></term>
                                 <term><varname>ConditionPathIsMountPoint=</varname></term>
+                                <term><varname>ConditionPathIsReadWrite=</varname></term>
                                 <term><varname>ConditionDirectoryNotEmpty=</varname></term>
                                 <term><varname>ConditionFileIsExecutable=</varname></term>
                                 <term><varname>ConditionKernelCommandLine=</varname></term>
@@ -731,7 +732,13 @@
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
                                 exists and is a mount
-                                point. <varname>ConditionFileIsExecutable=</varname>
+                                point. <varname>ConditionPathIsReadWrite=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether the underlying
+                                file system is read and writable
+                                (i.e. not mounted
+                                read-only). <varname>ConditionFileIsExecutable=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
@@ -780,12 +787,13 @@
                                 <varname>openvz</varname>,
                                 <varname>lxc</varname>,
                                 <varname>lxc-libvirt</varname>,
-                                <varname>systemd-nspawn</varname> to test
-                                against a specific implementation. If
-                                multiple virtualization technologies
-                                are nested only the innermost is
-                                considered. The test may be negated by
-                                prepending an exclamation mark.
+                                <varname>systemd-nspawn</varname> to
+                                test against a specific
+                                implementation. If multiple
+                                virtualization technologies are nested
+                                only the innermost is considered. The
+                                test may be negated by prepending an
+                                exclamation mark.
                                 <varname>ConditionSecurity=</varname>
                                 may be used to check whether the given
                                 security module is enabled on the
