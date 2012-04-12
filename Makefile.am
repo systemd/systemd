@@ -946,9 +946,9 @@ pkginclude_HEADERS += \
 
 # ------------------------------------------------------------------------------
 systemd_shutdown_SOURCES = \
-	src/umount.c \
-	src/umount.h \
-	src/shutdown.c
+	src/core/umount.c \
+	src/core/umount.h \
+	src/core/shutdown.c
 
 systemd_shutdown_LDADD = \
 	libsystemd-label.la \
