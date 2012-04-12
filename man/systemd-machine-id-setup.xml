@@ -92,7 +92,25 @@
         <refsect1>
                 <title>Options</title>
 
-                <para>This tool does not take any options or arguments.</para>
+                <para>The following options are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>-h</option></term>
+                                <term><option>--help</option></term>
+
+                                <listitem><para>Prints a short help
+                                text and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Prints a short version
+                                string and exits.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
         </refsect1>
 
         <refsect1>
