@@ -954,7 +954,7 @@ test_watchdog_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_initctl_SOURCES = \
-	src/initctl.c
+	src/initctl/initctl.c
 
 systemd_initctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -968,7 +968,7 @@ systemd_initctl_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_update_utmp_SOURCES = \
-	src/update-utmp.c
+	src/update-utmp/update-utmp.c
 
 systemd_update_utmp_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -983,7 +983,7 @@ systemd_update_utmp_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_shutdownd_SOURCES = \
-	src/shutdownd.c
+	src/shutdownd/shutdownd.c
 
 systemd_shutdownd_LDADD = \
 	libsystemd-label.la \
@@ -1006,7 +1006,7 @@ systemd_shutdown_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_modules_load_SOURCES = \
-	src/modules-load.c
+	src/modules-load/modules-load.c
 
 systemd_modules_load_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1018,7 +1018,7 @@ systemd_modules_load_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_tmpfiles_SOURCES = \
-	src/tmpfiles.c
+	src/tmpfiles/tmpfiles.c
 
 systemd_tmpfiles_LDADD = \
 	libsystemd-label.la \
@@ -1037,14 +1037,14 @@ systemd_machine_id_setup_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_sysctl_SOURCES = \
-	src/sysctl.c
+	src/sysctl/sysctl.c
 
 systemd_sysctl_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_fsck_SOURCES = \
-	src/fsck.c
+	src/fsck/fsck.c
 
 systemd_fsck_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1058,14 +1058,14 @@ systemd_fsck_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_timestamp_SOURCES = \
-	src/timestamp.c
+	src/timestamp/timestamp.c
 
 systemd_timestamp_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_ac_power_SOURCES = \
-	src/ac-power.c
+	src/ac-power/ac-power.c
 
 systemd_ac_power_LDADD = \
 	libsystemd-shared.la \
@@ -1073,14 +1073,14 @@ systemd_ac_power_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_detect_virt_SOURCES = \
-	src/detect-virt.c
+	src/detect-virt/detect-virt.c
 
 systemd_detect_virt_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_getty_generator_SOURCES = \
-	src/getty-generator.c
+	src/getty-generator/getty-generator.c
 
 systemd_getty_generator_LDADD = \
 	libsystemd-label.la \
@@ -1088,7 +1088,7 @@ systemd_getty_generator_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_rc_local_generator_SOURCES = \
-	src/rc-local-generator.c
+	src/rc-local-generator/rc-local-generator.c
 
 systemd_rc_local_generator_LDADD = \
 	libsystemd-label.la \
@@ -1096,14 +1096,14 @@ systemd_rc_local_generator_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_remount_api_vfs_SOURCES = \
-	src/remount-api-vfs.c
+	src/remount-api-vfs/remount-api-vfs.c
 
 systemd_remount_api_vfs_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_cgroups_agent_SOURCES = \
-	src/cgroups-agent.c
+	src/cgroups-agent/cgroups-agent.c
 
 systemd_cgroups_agent_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1116,7 +1116,7 @@ systemd_cgroups_agent_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemctl_SOURCES = \
-	src/systemctl.c
+	src/systemctl/systemctl.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1134,7 +1134,7 @@ systemctl_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_notify_SOURCES = \
-	src/notify.c \
+	src/notify/notify.c \
 	src/readahead/sd-readahead.c
 
 systemd_notify_LDADD = \
@@ -1143,7 +1143,7 @@ systemd_notify_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_ask_password_SOURCES = \
-	src/ask-password.c
+	src/ask-password/ask-password.c
 
 systemd_ask_password_LDADD = \
 	libsystemd-label.la \
@@ -1151,28 +1151,28 @@ systemd_ask_password_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_reply_password_SOURCES = \
-	src/reply-password.c
+	src/reply-password/reply-password.c
 
 systemd_reply_password_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_cgls_SOURCES = \
-	src/cgls.c
+	src/cgls/cgls.c
 
 systemd_cgls_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_cgtop_SOURCES = \
-	src/cgtop.c
+	src/cgtop/cgtop.c
 
 systemd_cgtop_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_nspawn_SOURCES = \
-	src/nspawn.c
+	src/nspawn/nspawn.c
 
 systemd_nspawn_LDADD = \
 	libsystemd-label.la \
@@ -1189,7 +1189,7 @@ systemd_stdio_bridge_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_tty_ask_password_agent_SOURCES = \
-	src/tty-ask-password-agent.c
+	src/tty-ask-password-agent/tty-ask-password-agent.c
 
 systemd_tty_ask_password_agent_LDADD = \
 	libsystemd-label.la \
@@ -2306,7 +2306,7 @@ EXTRA_DIST += \
 	units/quotacheck.service.in
 
 systemd_quotacheck_SOURCES = \
-	src/quotacheck.c
+	src/quotacheck/quotacheck.c
 
 systemd_quotacheck_LDADD = \
 	libsystemd-shared.la
@@ -2326,7 +2326,7 @@ EXTRA_DIST += \
 	units/systemd-random-seed-load.service.in
 
 systemd_random_seed_SOURCES = \
-	src/random-seed.c
+	src/random-seed/random-seed.c
 
 systemd_random_seed_LDADD = \
 	libsystemd-label.la \
