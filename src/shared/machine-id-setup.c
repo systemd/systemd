@@ -29,7 +29,7 @@
 
 #include <systemd/sd-id128.h>
 
-#include "machine-id-util.h"
+#include "machine-id-setup.h"
 #include "macro.h"
 #include "util.h"
 #include "mkdir.h"

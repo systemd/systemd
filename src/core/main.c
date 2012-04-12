@@ -35,14 +35,6 @@
 
 #include "manager.h"
 #include "log.h"
-#include "mount-setup.h"
-#include "hostname-setup.h"
-#include "loopback-setup.h"
-#include "kmod-setup.h"
-#include "locale-setup.h"
-#include "selinux-setup.h"
-#include "ima-setup.h"
-#include "machine-id-util.h"
 #include "load-fragment.h"
 #include "fdset.h"
 #include "special.h"
@@ -55,6 +47,15 @@
 #include "def.h"
 #include "virt.h"
 #include "watchdog.h"
+
+#include "mount-setup.h"
+#include "loopback-setup.h"
+#include "kmod-setup.h"
+#include "hostname-setup.h"
+#include "machine-id-setup.h"
+#include "locale-setup.h"
+#include "selinux-setup.h"
+#include "ima-setup.h"
 
 static enum {
         ACTION_RUN,
