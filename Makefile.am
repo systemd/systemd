@@ -244,7 +244,7 @@ noinst_PROGRAMS = \
 	test-watchdog
 
 dist_bashcompletion_DATA = \
-	src/systemd-bash-completion.sh
+	bash-completion/systemd-bash-completion.sh
 
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
