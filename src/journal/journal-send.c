@@ -97,7 +97,7 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
 }
 
 static int fill_iovec_sprintf(const char *format, va_list ap, int extra, struct iovec **_iov) {
-        int r, n = 0, i, j;
+        int r, n = 0, i = 0, j;
         struct iovec *iov = NULL;
         int saved_errno;
 
@@ -113,8 +113,7 @@ static int fill_iovec_sprintf(const char *format, va_list ap, int extra, struct 
                 }
 
                 i = extra;
-        } else
-                i = 0;
+        }
 
         while (format) {
                 struct iovec *c;
