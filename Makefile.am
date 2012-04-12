@@ -780,8 +780,7 @@ libsystemd_core_la_SOURCES = \
 	src/core/special.h \
 	src/core/bus-errors.h \
 	src/core/build.h \
-	src/core/sysfs-show.h \
-	src/core/dbus-loop.h
+	src/core/sysfs-show.h
 
 nodist_libsystemd_core_la_SOURCES = \
 	src/load-fragment-gperf.c \
@@ -2529,6 +2528,7 @@ systemd_logind_SOURCES = \
 	src/login/logind-seat-dbus.c \
 	src/login/logind-user-dbus.c \
 	src/dbus-loop.c \
+	src/dbus-loop.h \
 	src/polkit.c \
 	src/polkit.h \
 	src/login/logind-acl.h
