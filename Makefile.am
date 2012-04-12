@@ -1160,7 +1160,7 @@ systemd_tty_ask_password_agent_LDADD = \
 
 # ------------------------------------------------------------------------------
 libsystemd_daemon_la_SOURCES = \
-	src/sd-daemon.c
+	src/libsystemd-daemon/sd-daemon.c
 
 libsystemd_daemon_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1171,7 +1171,7 @@ libsystemd_daemon_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	-shared \
 	-version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/libsystemd-daemon.sym
+	-Wl,--version-script=$(top_srcdir)/src/libsystemd-daemon/libsystemd-daemon.sym
 
 pkginclude_HEADERS += \
 	src/systemd/sd-daemon.h
@@ -1199,7 +1199,7 @@ lib_LTLIBRARIES += \
 	libsystemd-daemon.la
 
 pkgconfiglib_DATA += \
-	src/libsystemd-daemon.pc
+	src/libsystemd-daemon/libsystemd-daemon.pc
 
 MANPAGES += \
 	man/sd-daemon.7 \
@@ -1222,8 +1222,8 @@ man/sd_is_mq.3: man/sd_is_fifo.3
 man/sd_notifyf.3: man/sd_notify.3
 
 EXTRA_DIST += \
-	src/libsystemd-daemon.pc.in \
-	src/libsystemd-daemon.sym
+	src/libsystemd-daemon/libsystemd-daemon.pc.in \
+	src/libsystemd-daemon/libsystemd-daemon.sym
 
 # ------------------------------------------------------------------------------
 SUBDIRS += \
@@ -1861,7 +1861,7 @@ udevlibexec_PROGRAMS += \
 
 # ------------------------------------------------------------------------------
 libsystemd_id128_la_SOURCES = \
-	src/sd-id128.c
+	src/libsystemd-id128/sd-id128.c
 
 libsystemd_id128_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1871,7 +1871,7 @@ libsystemd_id128_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	-shared \
 	-version-info $(LIBSYSTEMD_ID128_CURRENT):$(LIBSYSTEMD_ID128_REVISION):$(LIBSYSTEMD_ID128_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/libsystemd-id128.sym
+	-Wl,--version-script=$(top_srcdir)/src/libsystemd-id128/libsystemd-id128.sym
 
 libsystemd_id128_la_LIBADD = \
 	libsystemd-shared.la
@@ -1893,7 +1893,7 @@ lib_LTLIBRARIES += \
 	libsystemd-id128.la
 
 pkgconfiglib_DATA += \
-	src/libsystemd-id128.pc
+	src/libsystemd-id128/libsystemd-id128.pc
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-id128-install-hook:
@@ -1915,8 +1915,8 @@ UNINSTALL_EXEC_HOOKS += \
 	libsystemd-id128-uninstall-hook
 
 EXTRA_DIST += \
-	src/libsystemd-id128.pc.in \
-	src/libsystemd-id128.sym
+	src/libsystemd-id128/libsystemd-id128.pc.in \
+	src/libsystemd-id128/libsystemd-id128.sym
 
 # ------------------------------------------------------------------------------
 systemd_journald_SOURCES = \

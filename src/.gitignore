@@ -1,4 +1,3 @@
-/*.pc
 load-fragment-gperf-nulstr.c
 load-fragment-gperf.c
 load-fragment-gperf.gperf
