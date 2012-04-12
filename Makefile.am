@@ -130,6 +130,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src \
 	-I $(top_srcdir)/src/shared \
 	-I $(top_srcdir)/src/login \
+	-I $(top_srcdir)/src/journal \
 	-I $(top_srcdir)/src/systemd \
 	-I $(top_srcdir)/src/core \
 	-I $(top_srcdir)/src/udev
@@ -520,9 +521,12 @@ noinst_LTLIBRARIES += \
 	libsystemd-shared.la
 
 libsystemd_shared_la_SOURCES = \
-	src/missing.h \
 	src/linux/auto_dev-ioctl.h \
 	src/linux/fanotify.h \
+	src/shared/list.h \
+	src/shared/macro.h \
+	src/shared/def.h \
+	src/shared/missing.h \
 	src/shared/util.c \
 	src/shared/util.h \
 	src/shared/virt.c \
@@ -552,6 +556,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/cgroup-util.h \
 	src/shared/dbus-common.c \
 	src/shared/dbus-common.h \
+	src/shared/dbus-loop.c \
+	src/shared/dbus-loop.h \
 	src/shared/logs-show.c \
 	src/shared/logs-show.h \
 	src/shared/cgroup-show.c \
@@ -574,9 +580,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/specifier.h \
 	src/shared/spawn-polkit-agent.c \
 	src/shared/spawn-polkit-agent.h \
-	src/shared/list.h \
-	src/shared/macro.h \
-	src/shared/ask-password-api.h
+	src/shared/polkit.c \
+	src/shared/polkit.h
 
 libsystemd_shared_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -596,7 +601,9 @@ libsystemd_label_la_SOURCES = \
 	src/shared/label.c \
 	src/shared/label.h \
 	src/shared/mkdir.c \
-	src/shared/mkdir.h
+	src/shared/mkdir.h \
+	src/shared/ask-password-api.c \
+	src/shared/ask-password-api.h
 
 libsystemd_label_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -654,7 +661,6 @@ noinst_LTLIBRARIES += \
 	libsystemd-core.la
 
 libsystemd_core_la_SOURCES = \
-	src/def.h \
 	src/core/unit.c \
 	src/core/unit.h \
 	src/core/job.c \
@@ -1100,8 +1106,7 @@ systemd_notify_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_ask_password_SOURCES = \
-	src/ask-password.c \
-	src/ask-password-api.c
+	src/ask-password.c
 
 systemd_ask_password_LDADD = \
 	libsystemd-label.la \
@@ -1147,8 +1152,7 @@ systemd_stdio_bridge_LDADD = \
 
 # ------------------------------------------------------------------------------
 systemd_tty_ask_password_agent_SOURCES = \
-	src/tty-ask-password-agent.c \
-	src/ask-password-api.c
+	src/tty-ask-password-agent.c
 
 systemd_tty_ask_password_agent_LDADD = \
 	libsystemd-label.la \
@@ -2327,8 +2331,7 @@ dist_systemunit_DATA += \
 	units/cryptsetup.target
 
 systemd_cryptsetup_SOURCES = \
-	src/cryptsetup/cryptsetup.c \
-	src/ask-password-api.c
+	src/cryptsetup/cryptsetup.c
 
 systemd_cryptsetup_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2361,9 +2364,7 @@ endif
 # ------------------------------------------------------------------------------
 if ENABLE_HOSTNAMED
 systemd_hostnamed_SOURCES = \
-	src/hostname/hostnamed.c \
-	src/polkit.c \
-	src/polkit.h
+	src/hostname/hostnamed.c
 
 systemd_hostnamed_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2412,9 +2413,7 @@ endif
 # ------------------------------------------------------------------------------
 if ENABLE_LOCALED
 systemd_localed_SOURCES = \
-	src/locale/localed.c \
-	src/polkit.c \
-	src/polkit.h
+	src/locale/localed.c
 
 systemd_localed_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2474,9 +2473,7 @@ endif
 # ------------------------------------------------------------------------------
 if ENABLE_TIMEDATED
 systemd_timedated_SOURCES = \
-	src/timedate/timedated.c \
-	src/polkit.c \
-	src/polkit.h
+	src/timedate/timedated.c
 
 systemd_timedated_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2539,10 +2536,6 @@ systemd_logind_SOURCES = \
 	src/login/logind-session-dbus.c \
 	src/login/logind-seat-dbus.c \
 	src/login/logind-user-dbus.c \
-	src/dbus-loop.c \
-	src/dbus-loop.h \
-	src/polkit.c \
-	src/polkit.h \
 	src/login/logind-acl.h
 
 nodist_systemd_logind_SOURCES = \
