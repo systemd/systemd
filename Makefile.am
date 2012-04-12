@@ -824,7 +824,7 @@ systemd_LDADD = \
 
 # ------------------------------------------------------------------------------
 test_engine_SOURCES = \
-	test/test-engine.c
+	src/test/test-engine.c
 
 test_engine_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -835,7 +835,7 @@ test_engine_LDADD = \
 	libsystemd-daemon.la
 
 test_job_type_SOURCES = \
-	test/test-job-type.c
+	src/test/test-job-type.c
 
 test_job_type_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -845,51 +845,51 @@ test_job_type_LDADD = \
 	libsystemd-core.la
 
 test_ns_SOURCES = \
-	test/test-ns.c
+	src/test/test-ns.c
 
 test_ns_LDADD = \
 	libsystemd-core.la
 
 test_loopback_SOURCES = \
-	test/test-loopback.c
+	src/test/test-loopback.c
 
 test_loopback_LDADD = \
 	libsystemd-shared.la
 
 test_hostname_SOURCES = \
-	test/test-hostname.c
+	src/test/test-hostname.c
 
 test_hostname_LDADD = \
 	libsystemd-shared.la
 
 test_daemon_SOURCES = \
-	test/test-daemon.c
+	src/test/test-daemon.c
 
 test_daemon_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon.la
 
 test_cgroup_SOURCES = \
-	test/test-cgroup.c
+	src/test/test-cgroup.c
 
 test_cgroup_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
 test_env_replace_SOURCES = \
-	test/test-env-replace.c
+	src/test/test-env-replace.c
 
 test_env_replace_LDADD = \
 	libsystemd-shared.la
 
 test_strv_SOURCES = \
-	test/test-strv.c
+	src/test/test-strv.c
 
 test_strv_LDADD = \
 	libsystemd-shared.la
 
 test_install_SOURCES = \
-	test/test-install.c
+	src/test/test-install.c
 
 test_install_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -900,7 +900,7 @@ test_install_LDADD = \
 	libsystemd-shared.la
 
 test_watchdog_SOURCES = \
-	test/test-watchdog.c
+	src/test/test-watchdog.c
 
 test_watchdog_LDADD = \
 	libsystemd-shared.la
@@ -1861,7 +1861,7 @@ libsystemd_id128_la_LIBADD = \
 	libsystemd-shared.la
 
 test_id128_SOURCES = \
-	test/test-id128.c
+	src/test/test-id128.c
 
 test_id128_LDADD = \
 	libsystemd-shared.la \
