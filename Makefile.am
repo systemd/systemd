@@ -205,7 +205,8 @@ bin_PROGRAMS = \
 	systemd-cgls \
 	systemd-cgtop \
 	systemd-stdio-bridge \
-	systemd-nspawn
+	systemd-nspawn \
+	systemd-detect-virt
 
 dist_bin_SCRIPTS = \
 	src/systemd-analyze
@@ -223,7 +224,6 @@ rootlibexec_PROGRAMS = \
 	systemd-fsck \
 	systemd-timestamp \
 	systemd-ac-power \
-	systemd-detect-virt \
 	systemd-sysctl
 
 systemgenerator_PROGRAMS = \
@@ -484,6 +484,7 @@ MANPAGES = \
 	man/systemd-ask-password.1 \
 	man/systemd-cat.1 \
 	man/systemd-machine-id-setup.1 \
+	man/systemd-detect-virt.1 \
 	man/journald.conf.5 \
 	man/journalctl.1
 
