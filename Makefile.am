@@ -211,7 +211,7 @@ bin_PROGRAMS = \
 	systemd-detect-virt
 
 dist_bin_SCRIPTS = \
-	src/systemd-analyze
+	src/systemd-analyze/systemd-analyze
 
 rootlibexec_PROGRAMS = \
 	systemd \
