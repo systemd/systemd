@@ -94,6 +94,10 @@ polkitpolicy_in_files =
 dist_udevrules_DATA =
 nodist_udevrules_DATA =
 dist_man_MANS =
+dist_pkgsysconf_DATA =
+dist_dbuspolicy_DATA =
+dbusinterface_DATA =
+dist_dbussystemservice_DATA =
 
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
@@ -238,31 +242,6 @@ noinst_PROGRAMS = \
 	test-install \
 	test-watchdog
 
-dist_pkgsysconf_DATA = \
-	src/system.conf \
-	src/user.conf
-
-dist_dbuspolicy_DATA = \
-	src/org.freedesktop.systemd1.conf
-
-dist_dbussystemservice_DATA = \
-	src/org.freedesktop.systemd1.service
-
-dbusinterface_DATA = \
-	org.freedesktop.systemd1.Manager.xml \
-	org.freedesktop.systemd1.Job.xml \
-	org.freedesktop.systemd1.Unit.xml \
-	org.freedesktop.systemd1.Service.xml \
-	org.freedesktop.systemd1.Socket.xml \
-	org.freedesktop.systemd1.Timer.xml \
-	org.freedesktop.systemd1.Target.xml \
-	org.freedesktop.systemd1.Device.xml \
-	org.freedesktop.systemd1.Mount.xml \
-	org.freedesktop.systemd1.Automount.xml \
-	org.freedesktop.systemd1.Snapshot.xml \
-	org.freedesktop.systemd1.Swap.xml \
-	org.freedesktop.systemd1.Path.xml
-
 dist_bashcompletion_DATA = \
 	src/systemd-bash-completion.sh
 
@@ -391,7 +370,6 @@ EXTRA_DIST += \
 	units/udev.service \
 	units/udev-trigger.service \
 	units/udev-settle.service \
-	src/systemd.pc.in \
 	introspect.awk \
 	man/custom-html.xsl
 
@@ -461,21 +439,6 @@ dist_doc_DATA = \
 	LICENSE.GPL2 \
 	LICENSE.MIT \
 	DISTRO_PORTING
-
-pkgconfigdata_DATA = \
-	src/systemd.pc
-
-# First passed through sed, followed by intltool
-polkitpolicy_in_in_files = \
-	src/org.freedesktop.systemd1.policy.in.in
-
-nodist_polkitpolicy_DATA = \
-	$(polkitpolicy_in_files:.policy.in=.policy) \
-	$(polkitpolicy_in_in_files:.policy.in.in=.policy)
-
-EXTRA_DIST += \
-	$(polkitpolicy_in_files) \
-	$(polkitpolicy_in_in_files)
 
 @INTLTOOL_POLICY_RULE@
 
@@ -783,11 +746,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/sysfs-show.h
 
 nodist_libsystemd_core_la_SOURCES = \
-	src/load-fragment-gperf.c \
-	src/load-fragment-gperf-nulstr.c
-
-EXTRA_DIST += \
-	src/load-fragment-gperf.gperf.m4
+	src/core/load-fragment-gperf.c \
+	src/core/load-fragment-gperf-nulstr.c
 
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -809,6 +769,18 @@ libsystemd_core_la_LIBADD = \
 	$(CAP_LIBS) \
 	$(KMOD_LIBS)
 
+src/core/load-fragment-gperf-nulstr.c: src/core/load-fragment-gperf.gperf
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+	$(AWK) 'BEGIN{ keywords=0 ; FS="," ; print "extern const char load_fragment_gperf_nulstr[];" ; print "const char load_fragment_gperf_nulstr[] ="} ; keyword==1 { print "\"" $$1 "\\0\"" } ; /%%/ { keyword=1} ; END { print ";" }' < $< > $@ || rm $@
+
+EXTRA_DIST += \
+	src/core/load-fragment-gperf.gperf.m4
+
+CLEANFILES += \
+	src/core/load-fragment-gperf.gperf \
+	src/core/load-fragment-gperf.c \
+	src/core/load-fragment-gperf-nulstr.c
+
 # ------------------------------------------------------------------------------
 systemd_SOURCES = \
 	src/core/main.c
@@ -821,6 +793,45 @@ systemd_LDADD = \
 	libsystemd-core.la \
 	libsystemd-daemon.la \
 	libsystemd-id128.la
+
+dist_pkgsysconf_DATA += \
+	src/core/system.conf \
+	src/core/user.conf
+
+dist_dbuspolicy_DATA += \
+	src/core/org.freedesktop.systemd1.conf
+
+dist_dbussystemservice_DATA += \
+	src/core/org.freedesktop.systemd1.service
+
+dbusinterface_DATA += \
+	org.freedesktop.systemd1.Manager.xml \
+	org.freedesktop.systemd1.Job.xml \
+	org.freedesktop.systemd1.Unit.xml \
+	org.freedesktop.systemd1.Service.xml \
+	org.freedesktop.systemd1.Socket.xml \
+	org.freedesktop.systemd1.Timer.xml \
+	org.freedesktop.systemd1.Target.xml \
+	org.freedesktop.systemd1.Device.xml \
+	org.freedesktop.systemd1.Mount.xml \
+	org.freedesktop.systemd1.Automount.xml \
+	org.freedesktop.systemd1.Snapshot.xml \
+	org.freedesktop.systemd1.Swap.xml \
+	org.freedesktop.systemd1.Path.xml
+
+polkitpolicy_in_in_files = \
+	src/core/org.freedesktop.systemd1.policy.in.in
+
+org.freedesktop.systemd1.%.xml: systemd
+	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.$* $< $@.tmp && \
+		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
+		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
+
+pkgconfigdata_DATA = \
+	src/core/systemd.pc
+
+EXTRA_DIST += \
+	src/core/systemd.pc.in
 
 # ------------------------------------------------------------------------------
 test_engine_SOURCES = \
@@ -2832,10 +2843,6 @@ src/%: src/%.m4
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(M4) -P $(M4_DEFINES) < $< > $@ || rm $@
 
-src/load-fragment-gperf-nulstr.c: src/load-fragment-gperf.gperf
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(AWK) 'BEGIN{ keywords=0 ; FS="," ; print "extern const char load_fragment_gperf_nulstr[];" ; print "const char load_fragment_gperf_nulstr[] ="} ; keyword==1 { print "\"" $$1 "\\0\"" } ; /%%/ { keyword=1} ; END { print ";" }' < $< > $@ || rm $@
-
 M4_PROCESS_SYSTEM = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(M4) -P $(M4_DEFINES) -DFOR_SYSTEM=1 < $< > $@ || rm $@
@@ -2850,16 +2857,21 @@ units/%: units/%.m4 Makefile
 units/user/%: units/%.m4 Makefile
 	$(M4_PROCESS_USER)
 
+nodist_polkitpolicy_DATA = \
+	$(polkitpolicy_in_files:.policy.in=.policy) \
+	$(polkitpolicy_in_in_files:.policy.in.in=.policy)
+
+EXTRA_DIST += \
+	$(polkitpolicy_in_files) \
+	$(polkitpolicy_in_in_files)
+
 CLEANFILES += \
 	$(nodist_systemunit_DATA) \
 	$(nodist_userunit_DATA) \
 	$(nodist_man_MANS) \
 	$(pkgconfigdata_DATA) \
 	$(pkgconfiglib_DATA) \
-	$(nodist_polkitpolicy_DATA) \
-	src/load-fragment-gperf.gperf \
-	src/load-fragment-gperf.c \
-	src/load-fragment-gperf-nulstr.c
+	$(nodist_polkitpolicy_DATA)
 
 if HAVE_XSLTPROC
 XSLTPROC_FLAGS = \
@@ -2898,11 +2910,6 @@ CLEANFILES += \
 endif
 
 DBUS_PREPROCESS = $(CPP) -P $(DBUS_CFLAGS) -imacros dbus/dbus-protocol.h
-
-org.freedesktop.systemd1.%.xml: systemd
-	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.$* $< $@.tmp && \
-		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
-		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
 CLEANFILES += \
 	$(dbusinterface_DATA)
