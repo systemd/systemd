@@ -98,6 +98,7 @@ dist_pkgsysconf_DATA =
 dist_dbuspolicy_DATA =
 dbusinterface_DATA =
 dist_dbussystemservice_DATA =
+check_PROGRAMS =
 
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
@@ -229,19 +230,6 @@ rootlibexec_PROGRAMS = \
 
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator
-
-noinst_PROGRAMS = \
-	test-engine \
-	test-job-type \
-	test-ns \
-	test-loopback \
-	test-hostname \
-	test-daemon \
-	test-cgroup \
-	test-env-replace \
-	test-strv \
-	test-install \
-	test-watchdog
 
 dist_bashcompletion_DATA = \
 	bash-completion/systemd-bash-completion.sh
@@ -868,6 +856,19 @@ EXTRA_DIST += \
 	src/core/systemd.pc.in
 
 # ------------------------------------------------------------------------------
+check_PROGRAMS += \
+	test-engine \
+	test-job-type \
+	test-ns \
+	test-loopback \
+	test-hostname \
+	test-daemon \
+	test-cgroup \
+	test-env-replace \
+	test-strv \
+	test-install \
+	test-watchdog
+
 test_engine_SOURCES = \
 	src/test/test-engine.c
 
@@ -1481,7 +1482,7 @@ TESTS = \
 	src/udev/test/udev-test.pl \
 	src/udev/test/rules-test.sh
 
-check_PROGRAMS = \
+check_PROGRAMS += \
 	test-libudev \
 	test-udev
 
@@ -1923,7 +1924,7 @@ test_id128_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-id128.la
 
-noinst_PROGRAMS += \
+check_PROGRAMS += \
 	test-id128
 
 pkginclude_HEADERS += \
@@ -2102,7 +2103,7 @@ libsystemd-journal-uninstall-hook:
 UNINSTALL_EXEC_HOOKS += \
 	libsystemd-journal-uninstall-hook
 
-noinst_PROGRAMS += \
+check_PROGRAMS += \
 	test-journal \
 	test-journal-send
 
@@ -2625,7 +2626,7 @@ test_login_LDADD = \
 	libsystemd-login.la \
 	libsystemd-shared.la
 
-noinst_PROGRAMS += \
+check_PROGRAMS += \
 	test-login
 
 libsystemd_login_la_SOURCES = \
