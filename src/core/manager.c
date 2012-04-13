@@ -141,13 +141,17 @@ static int enable_special_signals(Manager *m) {
 
         assert(m);
 
-        /* Enable that we get SIGINT on control-alt-del */
-        if (reboot(RB_DISABLE_CAD) < 0)
+        /* Enable that we get SIGINT on control-alt-del. In containers
+         * this will fail with EPERM, so ignore that. */
+        if (reboot(RB_DISABLE_CAD) < 0 && errno != EPERM)
                 log_warning("Failed to enable ctrl-alt-del handling: %m");
 
-        if ((fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC)) < 0)
-                log_warning("Failed to open /dev/tty0: %m");
-        else {
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0) {
+                /* Support systems without virtual console */
+                if (fd != -ENOENT)
+                        log_warning("Failed to open /dev/tty0: %m");
+        } else {
                 /* Enable that we get SIGWINCH on kbrequest */
                 if (ioctl(fd, KDSIGACCEPT, SIGWINCH) < 0)
                         log_warning("Failed to enable kbrequest handling: %s", strerror(errno));
