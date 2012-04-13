@@ -1148,7 +1148,7 @@ static void process_native_message(
         char *identifier = NULL, *message = NULL;
 
         assert(s);
-        assert(buffer || n == 0);
+        assert(buffer || buffer_size == 0);
 
         p = buffer;
         remaining = buffer_size;

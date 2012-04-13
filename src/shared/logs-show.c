@@ -554,7 +554,7 @@ int show_journal_by_unit(
                 bool follow) {
 
         char *m = NULL;
-        sd_journal *j;
+        sd_journal *j = NULL;
         int r;
         int fd;
         unsigned line = 0;

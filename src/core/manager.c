@@ -3015,7 +3015,7 @@ bool manager_unit_pending_inactive(Manager *m, const char *name) {
 
 void manager_check_finished(Manager *m) {
         char userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
-        usec_t kernel_usec = 0, initrd_usec = 0, userspace_usec = 0, total_usec = 0;
+        usec_t kernel_usec, initrd_usec, userspace_usec, total_usec;
 
         assert(m);
 

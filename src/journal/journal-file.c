@@ -1977,7 +1977,7 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                 size_t q;
                 struct stat st;
                 char *p;
-                unsigned long long seqnum, realtime;
+                unsigned long long seqnum = 0, realtime;
                 sd_id128_t seqnum_id;
                 bool have_seqnum;
 
