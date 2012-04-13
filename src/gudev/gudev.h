@@ -21,7 +21,7 @@
 #ifndef __G_UDEV_H__
 #define __G_UDEV_H__
 
-#define _GUDEV_INSIDE_GUDEV_H 1
+#define _GUDEV_INSIDE_GUDEV_H
 #include <gudev/gudevenums.h>
 #include <gudev/gudevenumtypes.h>
 #include <gudev/gudevtypes.h>
