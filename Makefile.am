@@ -3198,8 +3198,12 @@ DISTCHECK_CONFIGURE_FLAGS = \
 upload: all distcheck
 	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/
 	scp systemd-$(VERSION).tar.xz fdo:/srv/www.freedesktop.org/www/software/systemd/
-	scp man/*.html fdo:/srv/www.freedesktop.org/www/software/systemd/man/
 	scp man/*.html tango:public/systemd-man/
+
+doc-sync: all
+	rsync -av --delete docs/libudev/html/ www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/libudev/
+	rsync -av --delete docs/gudev/html/ www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/gudev/
+	rsync -av --delete man/*.html www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/man/
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
