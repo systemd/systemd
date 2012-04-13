@@ -417,7 +417,8 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                 switch (result) {
 
                 case JOB_DONE:
-                        unit_status_printf(u, ANSI_HIGHLIGHT_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, "Started %s", unit_description(u));
+                        if (u->condition_result)
+                                unit_status_printf(u, ANSI_HIGHLIGHT_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, "Started %s", unit_description(u));
                         break;
 
                 case JOB_FAILED:
