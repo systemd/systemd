@@ -403,6 +403,7 @@ get_prop:
                 DBusMessageIter sub;
                 char *sig;
                 void *data;
+                DBusMessage *changed;
 
                 if (!dbus_message_iter_init(message, &iter) ||
                     dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
@@ -454,22 +455,34 @@ set_prop:
                         dbus_free(sig);
                         return bus_send_error_reply(c, message, NULL, -EINVAL);
                 }
-
                 dbus_free(sig);
 
-                data = (char*)bp->base + p->offset;
+                data = (uint8_t*) bp->base + p->offset;
                 if (p->indirect)
                         data = *(void**)data;
+
                 r = p->set(&sub, property, data);
-                if (r < 0) {
-                        if (r == -ENOMEM)
-                                goto oom;
+                if (r == -ENOMEM)
+                        goto oom;
+                else if (r < 0)
                         return bus_send_error_reply(c, message, NULL, r);
-                }
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
                         goto oom;
+
+                /* Send out a signal about this, but it doesn't really
+                 * matter if this fails, so eat all errors */
+                changed = bus_properties_changed_one_new(
+                                dbus_message_get_path(message),
+                                interface,
+                                property);
+                if (changed) {
+                        dbus_connection_send(c, changed, NULL);
+                        dbus_message_unref(changed);
+                }
+
+
         } else {
                 const char *interface = dbus_message_get_interface(message);
 
@@ -729,7 +742,8 @@ DBusMessage* bus_properties_changed_new(const char *path, const char *interface,
         assert(interface);
         assert(properties);
 
-        if (!(m = dbus_message_new_signal(path, "org.freedesktop.DBus.Properties", "PropertiesChanged")))
+        m = dbus_message_new_signal(path, "org.freedesktop.DBus.Properties", "PropertiesChanged");
+        if (!m)
                 goto oom;
 
         dbus_message_iter_init_append(m, &iter);
@@ -746,6 +760,43 @@ DBusMessage* bus_properties_changed_new(const char *path, const char *interface,
         NULSTR_FOREACH(i, properties)
                 if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &i))
                         goto oom;
+
+        if (!dbus_message_iter_close_container(&iter, &sub))
+                goto oom;
+
+        return m;
+
+oom:
+        if (m)
+                dbus_message_unref(m);
+
+        return NULL;
+}
+
+DBusMessage* bus_properties_changed_one_new(const char *path, const char *interface, const char *property) {
+        DBusMessage *m;
+        DBusMessageIter iter, sub;
+
+        assert(interface);
+        assert(property);
+
+        m = dbus_message_new_signal(path, "org.freedesktop.DBus.Properties", "PropertiesChanged");
+        if (!m)
+                goto oom;
+
+        dbus_message_iter_init_append(m, &iter);
+
+        /* We won't send any property values, since they might be
+         * large and sometimes not cheap to generated */
+
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &interface) ||
+            !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sv}", &sub) ||
+            !dbus_message_iter_close_container(&iter, &sub) ||
+            !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "s", &sub))
+                goto oom;
+
+        if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &property))
+                goto oom;
 
         if (!dbus_message_iter_close_container(&iter, &sub))
                 goto oom;

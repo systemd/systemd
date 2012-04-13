@@ -178,6 +178,7 @@ int bus_property_append_long(DBusMessageIter *i, const char *property, void *dat
 const char *bus_errno_to_dbus(int error);
 
 DBusMessage* bus_properties_changed_new(const char *path, const char *interface, const char *properties);
+DBusMessage* bus_properties_changed_one_new(const char *path, const char *interface, const char *property);
 
 uint32_t bus_flags_to_events(DBusWatch *bus_watch);
 unsigned bus_events_to_flags(uint32_t events);
