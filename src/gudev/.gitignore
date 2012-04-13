@@ -1,5 +1,3 @@
-gtk-doc.make
-docs/version.xml
 gudev-1.0.pc
 gudevenumtypes.c
 gudevenumtypes.h
