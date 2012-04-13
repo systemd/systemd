@@ -5,7 +5,6 @@
 /systemd-coredump
 /systemd-cat
 /systemd-rc-local-generator
-/libsystemd-id128.pc
 /journalctl
 /systemd-journald
 /test-id128
@@ -13,8 +12,6 @@
 /test-install
 /org.freedesktop.hostname1.xml
 /org.freedesktop.locale1.xml
-/libsystemd-daemon.pc
-/libsystemd-login.pc
 /test-login
 /loginctl
 /systemd-localed
@@ -56,7 +53,6 @@
 /systemd-update-utmp
 /test-env-replace
 /systemd-cgls
-/systemd.pc
 /test-cgroup
 .libs/
 /systemd-notify
