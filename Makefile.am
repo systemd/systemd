@@ -98,6 +98,8 @@ dist_dbuspolicy_DATA =
 dbusinterface_DATA =
 dist_dbussystemservice_DATA =
 check_PROGRAMS =
+check_DATA =
+noinst_PROGRAMS =
 TESTS =
 
 AM_CPPFLAGS = \
@@ -856,7 +858,7 @@ EXTRA_DIST += \
 	src/core/systemd.pc.in
 
 # ------------------------------------------------------------------------------
-check_PROGRAMS += \
+noinst_PROGRAMS += \
 	test-engine \
 	test-job-type \
 	test-ns \
@@ -1487,7 +1489,7 @@ TESTS += \
 	src/udev/test/udev-test.pl \
 	src/udev/test/rules-test.sh
 
-check_PROGRAMS += \
+noinst_PROGRAMS += \
 	test-libudev \
 	test-udev
 
@@ -1505,7 +1507,7 @@ test_udev_LDADD = \
 	libudev-private.la \
 	libsystemd-shared.la
 
-test_udev_DEPENDENCIES = \
+check_DATA += \
 	src/udev/test/sys
 
 # packed sysfs test tree
@@ -1929,7 +1931,7 @@ test_id128_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-id128.la
 
-check_PROGRAMS += \
+noinst_PROGRAMS += \
 	test-id128
 
 TESTS += \
@@ -2111,7 +2113,7 @@ libsystemd-journal-uninstall-hook:
 UNINSTALL_EXEC_HOOKS += \
 	libsystemd-journal-uninstall-hook
 
-check_PROGRAMS += \
+noinst_PROGRAMS += \
 	test-journal \
 	test-journal-send
 
@@ -2634,7 +2636,7 @@ test_login_LDADD = \
 	libsystemd-login.la \
 	libsystemd-shared.la
 
-check_PROGRAMS += \
+noinst_PROGRAMS += \
 	test-login
 
 libsystemd_login_la_SOURCES = \
