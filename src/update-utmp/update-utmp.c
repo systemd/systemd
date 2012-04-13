@@ -250,7 +250,8 @@ static int on_reboot(Context *c) {
 
 #ifdef HAVE_AUDIT
         if (c->audit_fd >= 0)
-                if (audit_log_user_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "init", NULL, NULL, NULL, 1) < 0) {
+                if (audit_log_user_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "init", NULL, NULL, NULL, 1) < 0 &&
+                    errno != EPERM) {
                         log_error("Failed to send audit message: %m");
                         r = -errno;
                 }
@@ -278,7 +279,8 @@ static int on_shutdown(Context *c) {
 
 #ifdef HAVE_AUDIT
         if (c->audit_fd >= 0)
-                if (audit_log_user_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "init", NULL, NULL, NULL, 1) < 0) {
+                if (audit_log_user_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "init", NULL, NULL, NULL, 1) < 0 &&
+                    errno != EPERM) {
                         log_error("Failed to send audit message: %m");
                         r = -errno;
                 }
@@ -330,7 +332,8 @@ static int on_runlevel(Context *c) {
                              runlevel > 0 ? runlevel : 'N') < 0)
                         return -ENOMEM;
 
-                if (audit_log_user_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, NULL, NULL, NULL, 1) < 0) {
+                if (audit_log_user_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, NULL, NULL, NULL, 1) < 0 &&
+                    errno != EPERM) {
                         log_error("Failed to send audit message: %m");
                         r = -errno;
                 }
