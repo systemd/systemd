@@ -143,14 +143,13 @@ gid_t util_lookup_group(struct udev *udev, const char *group)
         struct group *gr;
         gid_t gid = 0;
         size_t buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
-        char *buf = alloca(buflen);
+        char *buf = NULL;
 
         if (strcmp(group, "root") == 0)
                 return 0;
         gid = strtoul(group, &endptr, 10);
         if (endptr[0] == '\0')
                 return gid;
-        buf = NULL;
         gid = 0;
         for (;;) {
                 char *newbuf;

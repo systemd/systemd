@@ -1518,9 +1518,9 @@ DISTCLEAN_LOCAL_HOOKS += test-sys-distclean
 
 EXTRA_DIST += \
 	src/udev/test/sys.tar.xz \
-	src/udev/test/rule-syntax-check.py \
 	src/udev/test/udev-test.pl \
-	src/udev/test/rules-test.sh
+	src/udev/test/rules-test.sh \
+	src/udev/test/rule-syntax-check.py
 
 # ------------------------------------------------------------------------------
 ata_id_SOURCES = \

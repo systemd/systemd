@@ -53,7 +53,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
         int quiet = 0;
         const char *exists = NULL;
         unsigned int timeout = 120;
-        struct pollfd pfd[1];
+        struct pollfd pfd[1] = { {.fd = -1}, };
         struct udev_queue *udev_queue = NULL;
         int rc = EXIT_FAILURE;
 

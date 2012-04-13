@@ -329,7 +329,6 @@ static void worker_new(struct event *event)
                                 if (fdcount < 0) {
                                         if (errno == EINTR)
                                                 continue;
-                                        err = -errno;
                                         log_error("failed to poll: %m\n");
                                         goto out;
                                 }

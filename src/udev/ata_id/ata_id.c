@@ -360,7 +360,6 @@ static int disk_identify(struct udev *udev,
         int is_packet_device;
 
         /* init results */
-        ret = -1;
         memset(out_identify, '\0', 512);
         is_packet_device = 0;
 

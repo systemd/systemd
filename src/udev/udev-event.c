@@ -715,8 +715,8 @@ int udev_event_spawn(struct udev_event *event,
 
                 log_debug("starting '%s'\n", cmd);
 
-                err = spawn_exec(event, cmd, argv, envp, sigmask,
-                                 outpipe[WRITE_END], errpipe[WRITE_END]);
+                spawn_exec(event, cmd, argv, envp, sigmask,
+                           outpipe[WRITE_END], errpipe[WRITE_END]);
 
                 _exit(2 );
         case -1:

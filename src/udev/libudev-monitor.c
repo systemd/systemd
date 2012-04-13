@@ -26,6 +26,7 @@
 
 #include "libudev.h"
 #include "libudev-private.h"
+#include "socket-util.h"
 
 /**
  * SECTION:libudev-monitor
@@ -43,9 +44,9 @@ struct udev_monitor {
         struct udev *udev;
         int refcount;
         int sock;
-        struct sockaddr_nl snl;
-        struct sockaddr_nl snl_trusted_sender;
-        struct sockaddr_nl snl_destination;
+        union sockaddr_union snl;
+        union sockaddr_union snl_trusted_sender;
+        union sockaddr_union snl_destination;
         socklen_t addrlen;
         struct udev_list filter_subsystem_list;
         struct udev_list filter_tag_list;
@@ -144,12 +145,12 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
                 udev_monitor->sock = fd;
         }
 
-        udev_monitor->snl.nl_family = AF_NETLINK;
-        udev_monitor->snl.nl_groups = group;
+        udev_monitor->snl.nl.nl_family = AF_NETLINK;
+        udev_monitor->snl.nl.nl_groups = group;
 
         /* default destination for sending */
-        udev_monitor->snl_destination.nl_family = AF_NETLINK;
-        udev_monitor->snl_destination.nl_groups = UDEV_MONITOR_UDEV;
+        udev_monitor->snl_destination.nl.nl_family = AF_NETLINK;
+        udev_monitor->snl_destination.nl.nl_groups = UDEV_MONITOR_UDEV;
 
         return udev_monitor;
 }
@@ -314,7 +315,7 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
 
 int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender)
 {
-        udev_monitor->snl_trusted_sender.nl_pid = sender->snl.nl_pid;
+        udev_monitor->snl_trusted_sender.nl.nl_pid = sender->snl.nl.nl_pid;
         return 0;
 }
 /**
@@ -330,20 +331,20 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
         int err = 0;
         const int on = 1;
 
-        if (udev_monitor->snl.nl_family == 0)
+        if (udev_monitor->snl.nl.nl_family == 0)
                 return -EINVAL;
 
         udev_monitor_filter_update(udev_monitor);
 
         if (!udev_monitor->bound) {
                 err = bind(udev_monitor->sock,
-                           (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
+                           &udev_monitor->snl.sa, sizeof(struct sockaddr_nl));
                 if (err == 0)
                         udev_monitor->bound = true;
         }
 
         if (err >= 0) {
-                struct sockaddr_nl snl;
+                union sockaddr_union snl;
                 socklen_t addrlen;
 
                 /*
@@ -351,9 +352,9 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
                  * it is usually, but not necessarily the pid
                  */
                 addrlen = sizeof(struct sockaddr_nl);
-                err = getsockname(udev_monitor->sock, (struct sockaddr *)&snl, &addrlen);
+                err = getsockname(udev_monitor->sock, &snl.sa, &addrlen);
                 if (err == 0)
-                        udev_monitor->snl.nl_pid = snl.nl_pid;
+                        udev_monitor->snl.nl.nl_pid = snl.nl.nl_pid;
         } else {
                 err(udev_monitor->udev, "bind failed: %m\n");
                 return err;
@@ -518,7 +519,7 @@ _public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *ud
         struct iovec iov;
         char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
         struct cmsghdr *cmsg;
-        struct sockaddr_nl snl;
+        union sockaddr_union snl;
         struct ucred *cred;
         char buf[8192];
         ssize_t buflen;
@@ -536,7 +537,7 @@ retry:
         smsg.msg_control = cred_msg;
         smsg.msg_controllen = sizeof(cred_msg);
 
-        if (udev_monitor->snl.nl_family != 0) {
+        if (udev_monitor->snl.nl.nl_family != 0) {
                 smsg.msg_name = &snl;
                 smsg.msg_namelen = sizeof(snl);
         }
@@ -553,18 +554,18 @@ retry:
                 return NULL;
         }
 
-        if (udev_monitor->snl.nl_family != 0) {
-                if (snl.nl_groups == 0) {
+        if (udev_monitor->snl.nl.nl_family != 0) {
+                if (snl.nl.nl_groups == 0) {
                         /* unicast message, check if we trust the sender */
-                        if (udev_monitor->snl_trusted_sender.nl_pid == 0 ||
-                            snl.nl_pid != udev_monitor->snl_trusted_sender.nl_pid) {
+                        if (udev_monitor->snl_trusted_sender.nl.nl_pid == 0 ||
+                            snl.nl.nl_pid != udev_monitor->snl_trusted_sender.nl.nl_pid) {
                                 dbg(udev_monitor->udev, "unicast netlink message ignored\n");
                                 return NULL;
                         }
-                } else if (snl.nl_groups == UDEV_MONITOR_KERNEL) {
-                        if (snl.nl_pid > 0) {
+                } else if (snl.nl.nl_groups == UDEV_MONITOR_KERNEL) {
+                        if (snl.nl.nl_pid > 0) {
                                 dbg(udev_monitor->udev, "multicast kernel netlink message from pid %d ignored\n",
-                                     snl.nl_pid);
+                                     snl.nl.nl_pid);
                                 return NULL;
                         }
                 }
@@ -663,7 +664,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
         struct udev_list_entry *list_entry;
         uint64_t tag_bloom_bits;
 
-        if (udev_monitor->snl.nl_family == 0)
+        if (udev_monitor->snl.nl.nl_family == 0)
                 return -EINVAL;
 
         blen = udev_device_get_properties_monitor_buf(udev_device, &buf);

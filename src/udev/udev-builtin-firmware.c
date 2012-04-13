@@ -84,7 +84,7 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
         char datapath[UTIL_PATH_SIZE];
         char fwpath[UTIL_PATH_SIZE];
         const char *firmware;
-        FILE *fwfile;
+        FILE *fwfile = NULL;
         struct utsname kernel;
         struct stat statbuf;
         unsigned int i;

@@ -150,10 +150,8 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         }
 
         pr = blkid_new_probe();
-        if (!pr) {
-                err = -ENOMEM;
+        if (!pr)
                 return EXIT_FAILURE;
-        }
 
         blkid_probe_set_superblocks_flags(pr,
                 BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
