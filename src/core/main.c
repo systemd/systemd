@@ -1350,6 +1350,12 @@ int main(int argc, char *argv[]) {
                 unsetenv("SHLVL");
                 unsetenv("_");
 
+                /* When we are invoked by a tool chroot-like such as
+                 * nspawn, these might be set, but make little sense
+                 * to pass on */
+                unsetenv("USER");
+                unsetenv("LOGNAME");
+
                 /* All other variables are left as is, so that clients
                  * can still read them via /proc/1/environ */
         }
