@@ -1428,7 +1428,8 @@ libudev_core_la_SOURCES = \
 	src/udev/udev-builtin-input_id.c \
 	src/udev/udev-builtin-kmod.c \
 	src/udev/udev-builtin-path_id.c \
-	src/udev/udev-builtin-usb_id.c
+	src/udev/udev-builtin-usb_id.c \
+	src/libsystemd-daemon/sd-daemon.c
 
 libudev_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1437,7 +1438,6 @@ libudev_core_la_CFLAGS = \
 
 libudev_core_la_LIBADD = \
 	libudev-private.la \
-	libsystemd-daemon.la \
 	libsystemd-shared.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
@@ -1450,10 +1450,10 @@ libudev_core_la_CPPFLAGS = \
 if HAVE_ACL
 libudev_core_la_SOURCES += \
 	src/udev/udev-builtin-uaccess.c \
-	src/login/logind-acl.c
+	src/login/logind-acl.c \
+	src/login/sd-login.c
 
 libudev_core_la_LIBADD += \
-	libsystemd-login.la \
 	libsystemd-acl.la
 endif
 
