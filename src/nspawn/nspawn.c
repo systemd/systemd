@@ -38,6 +38,8 @@
 #include <sys/signalfd.h>
 #include <grp.h>
 #include <linux/fs.h>
+#include <sys/un.h>
+#include <sys/socket.h>
 
 #include <systemd/sd-daemon.h>
 
