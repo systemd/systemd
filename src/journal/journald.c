@@ -2479,7 +2479,6 @@ static int open_proc_kmsg(Server *s) {
         if (!s->import_proc_kmsg)
                 return 0;
 
-
         s->proc_kmsg_fd = open("/proc/kmsg", O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (s->proc_kmsg_fd < 0) {
                 log_warning("Failed to open /proc/kmsg, ignoring: %m");

@@ -213,32 +213,39 @@ static int mount_all(const char *dest) {
                 free(where);
         }
 
-        /* Fix the timezone, if possible */
-        if (asprintf(&where, "%s/etc/localtime", dest) >= 0) {
-
-                if (mount("/etc/localtime", where, "bind", MS_BIND, NULL) >= 0)
-                        mount("/etc/localtime", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
-
-                free(where);
-        }
-
-        if (asprintf(&where, "%s/etc/timezone", dest) >= 0) {
-
-                if (mount("/etc/timezone", where, "bind", MS_BIND, NULL) >= 0)
-                        mount("/etc/timezone", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
-
-                free(where);
-        }
-
-        if (asprintf(&where, "%s/proc/kmsg", dest) >= 0) {
-                mount("/dev/null", where, "bind", MS_BIND, NULL);
-                free(where);
-        }
-
         return r;
 }
 
-static int copy_devnodes(const char *dest, const char *console) {
+static int setup_timezone(const char *dest) {
+        char *where;
+
+        assert(dest);
+
+        /* Fix the timezone, if possible */
+        if (asprintf(&where, "%s/etc/localtime", dest) < 0) {
+                log_error("Out of memory");
+                return -ENOMEM;
+        }
+
+        if (mount("/etc/localtime", where, "bind", MS_BIND, NULL) >= 0)
+                mount("/etc/localtime", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+
+        free(where);
+
+        if (asprintf(&where, "%s/etc/timezone", dest) < 0) {
+                log_error("Out of memory");
+                return -ENOMEM;
+        }
+
+        if (mount("/etc/timezone", where, "bind", MS_BIND, NULL) >= 0)
+                mount("/etc/timezone", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+
+        free(where);
+
+        return 0;
+}
+
+static int copy_devnodes(const char *dest) {
 
         static const char devnodes[] =
                 "null\0"
@@ -248,22 +255,19 @@ static int copy_devnodes(const char *dest, const char *console) {
                 "urandom\0"
                 "tty\0"
                 "ptmx\0"
-                "kmsg\0"
                 "rtc0\0";
 
         const char *d;
-        int r = 0, k;
+        int r = 0;
         mode_t u;
-        struct stat st;
-        char *from = NULL, *to = NULL;
 
         assert(dest);
-        assert(console);
 
         u = umask(0000);
 
         NULSTR_FOREACH(d, devnodes) {
-                from = to = NULL;
+                struct stat st;
+                char *from = NULL, *to = NULL;
 
                 asprintf(&from, "/dev/%s", d);
                 asprintf(&to, "%s/dev/%s", dest, d);
@@ -307,30 +311,43 @@ static int copy_devnodes(const char *dest, const char *console) {
                 free(to);
         }
 
+        umask(u);
+
+        return r;
+}
+
+static int setup_dev_console(const char *dest, const char *console) {
+        struct stat st;
+        char *to = NULL;
+        int r;
+        mode_t u;
+
+        assert(dest);
+        assert(console);
+
+        u = umask(0000);
+
         if (stat(console, &st) < 0) {
-
                 log_error("Failed to stat %s: %m", console);
-                if (r == 0)
-                        r = -errno;
-
+                r = -errno;
                 goto finish;
 
         } else if (!S_ISCHR(st.st_mode)) {
-
                 log_error("/dev/console is not a char device.");
-                if (r == 0)
-                        r = -EIO;
+                r = -EIO;
+                goto finish;
+        }
 
+        r = chmod_and_chown(console, 0600, 0, 0);
+        if (r < 0) {
+                log_error("Failed to correct access mode for TTY: %s", strerror(-r));
                 goto finish;
         }
 
         if (asprintf(&to, "%s/dev/console", dest) < 0) {
-
                 log_error("Out of memory");
-                if (r == 0)
-                        r = -ENOMEM;
-
-                 goto finish;
+                r = -ENOMEM;
+                goto finish;
         }
 
         /* We need to bind mount the right tty to /dev/console since
@@ -340,26 +357,106 @@ static int copy_devnodes(const char *dest, const char *console) {
          * doesn't actually matter here, since we mount it over
          * anyway). */
 
-        if (mknod(to, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0)
-                log_error("mknod for /dev/console failed: %m");
-
-        if (mount(console, to, "bind", MS_BIND, NULL) < 0) {
-                log_error("bind mount for /dev/console failed: %m");
-
-                if (r == 0)
-                        r = -errno;
+        if (mknod(to, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0) {
+                log_error("mknod() for /dev/console failed: %m");
+                r = -errno;
+                goto finish;
         }
 
-        free(to);
-
-        if ((k = chmod_and_chown(console, 0600, 0, 0)) < 0) {
-                log_error("Failed to correct access mode for TTY: %s", strerror(-k));
-
-                if (r == 0)
-                        r = k;
+        if (mount(console, to, "bind", MS_BIND, NULL) < 0) {
+                log_error("Bind mount for /dev/console failed: %m");
+                r = -errno;
+                goto finish;
         }
 
 finish:
+        free(to);
+        umask(u);
+
+        return r;
+}
+
+static int setup_kmsg(const char *dest, int kmsg_socket) {
+        char *from = NULL, *to = NULL;
+        int r, fd, k;
+        mode_t u;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control;
+        struct msghdr mh;
+        struct cmsghdr *cmsg;
+
+        assert(dest);
+        assert(kmsg_socket >= 0);
+
+        u = umask(0000);
+
+        if (asprintf(&from, "%s/dev/kmsg", dest) < 0) {
+                log_error("Out of memory");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (asprintf(&to, "%s/proc/kmsg", dest) < 0) {
+                log_error("Out of memory");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (mkfifo(from, 0600) < 0) {
+                log_error("mkfifo() for /dev/kmsg failed: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        r = chmod_and_chown(from, 0600, 0, 0);
+        if (r < 0) {
+                log_error("Failed to correct access mode for /dev/kmsg: %s", strerror(-r));
+                goto finish;
+        }
+
+        if (mount(from, to, "bind", MS_BIND, NULL) < 0) {
+                log_error("Bind mount for /proc/kmsg failed: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        fd = open(from, O_RDWR|O_NDELAY|O_CLOEXEC);
+        if (fd < 0) {
+                log_error("Failed to open fifo: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        zero(mh);
+        zero(control);
+
+        mh.msg_control = &control;
+        mh.msg_controllen = sizeof(control);
+
+        cmsg = CMSG_FIRSTHDR(&mh);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
+
+        mh.msg_controllen = cmsg->cmsg_len;
+
+        /* Store away the fd in the socket, so that it stays open as
+         * long as we run the child */
+        k = sendmsg(kmsg_socket, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
+        close_nointr_nofail(fd);
+
+        if (k < 0) {
+                log_error("Failed to send FIFO fd: %m");
+                r = -errno;
+                goto finish;
+        }
+
+finish:
+        free(from);
+        free(to);
         umask(u);
 
         return r;
@@ -639,6 +736,7 @@ int main(int argc, char *argv[]) {
         sigset_t mask;
         bool saved_attr_valid = false;
         struct winsize ws;
+        int kmsg_socket_pair[2] = { -1, -1 };
 
         log_parse_environment();
         log_open();
@@ -740,6 +838,11 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
+                log_error("Failed to create kmsg socket pair");
+                goto finish;
+        }
+
         assert_se(sigemptyset(&mask) == 0);
         sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
@@ -779,7 +882,7 @@ int main(int argc, char *argv[]) {
                 close_nointr(STDOUT_FILENO);
                 close_nointr(STDERR_FILENO);
 
-                close_all_fds(NULL, 0);
+                close_all_fds(&kmsg_socket_pair[1], 1);
 
                 reset_all_signal_handlers();
 
@@ -799,7 +902,18 @@ int main(int argc, char *argv[]) {
                 if (mount_all(arg_directory) < 0)
                         goto child_fail;
 
-                if (copy_devnodes(arg_directory, console) < 0)
+                if (copy_devnodes(arg_directory) < 0)
+                        goto child_fail;
+
+                if (setup_dev_console(arg_directory, console) < 0)
+                        goto child_fail;
+
+                if (setup_kmsg(arg_directory, kmsg_socket_pair[1]) < 0)
+                        goto child_fail;
+
+                close_nointr_nofail(kmsg_socket_pair[1]);
+
+                if (setup_timezone(arg_directory) < 0)
                         goto child_fail;
 
                 if (chdir(arg_directory) < 0) {
@@ -909,6 +1023,8 @@ finish:
 
         if (master >= 0)
                 close_nointr_nofail(master);
+
+        close_pipe(kmsg_socket_pair);
 
         if (oldcg)
                 cg_attach(SYSTEMD_CGROUP_CONTROLLER, oldcg, 0);
