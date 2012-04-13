@@ -108,26 +108,43 @@ void cgroup_bonding_trim_list(CGroupBonding *first, bool delete_root) {
                 cgroup_bonding_trim(b, delete_root);
 }
 
-int cgroup_bonding_install(CGroupBonding *b, pid_t pid) {
+
+int cgroup_bonding_install(CGroupBonding *b, pid_t pid, const char *cgroup_suffix) {
+        char *p = NULL;
+        const char *path;
         int r;
 
         assert(b);
         assert(pid >= 0);
 
-        if ((r = cg_create_and_attach(b->controller, b->path, pid)) < 0)
+        if (cgroup_suffix) {
+                p = join(b->path, "/", cgroup_suffix, NULL);
+                if (!p)
+                        return -ENOMEM;
+
+                path = p;
+        } else
+                path = b->path;
+
+        r = cg_create_and_attach(b->controller, path, pid);
+        free(p);
+
+        if (r < 0)
                 return r;
 
         b->realized = true;
         return 0;
 }
 
-int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid) {
+int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid, const char *cgroup_suffix) {
         CGroupBonding *b;
         int r;
 
-        LIST_FOREACH(by_unit, b, first)
-                if ((r = cgroup_bonding_install(b, pid)) < 0 && b->essential)
+        LIST_FOREACH(by_unit, b, first) {
+                r = cgroup_bonding_install(b, pid, cgroup_suffix);
+                if (r < 0 && b->essential)
                         return r;
+        }
 
         return 0;
 }
@@ -176,7 +193,11 @@ int cgroup_bonding_set_task_access_list(CGroupBonding *first, mode_t mode, uid_t
         return 0;
 }
 
-int cgroup_bonding_kill(CGroupBonding *b, int sig, bool sigcont, Set *s) {
+int cgroup_bonding_kill(CGroupBonding *b, int sig, bool sigcont, Set *s, const char *cgroup_suffix) {
+        char *p = NULL;
+        const char *path;
+        int r;
+
         assert(b);
         assert(sig >= 0);
 
@@ -184,10 +205,22 @@ int cgroup_bonding_kill(CGroupBonding *b, int sig, bool sigcont, Set *s) {
         if (!b->ours)
                 return 0;
 
-        return cg_kill_recursive(b->controller, b->path, sig, sigcont, true, false, s);
+        if (cgroup_suffix) {
+                p = join(b->path, "/", cgroup_suffix, NULL);
+                if (!p)
+                        return -ENOMEM;
+
+                path = p;
+        } else
+                path = b->path;
+
+        r = cg_kill_recursive(b->controller, path, sig, sigcont, true, false, s);
+        free(p);
+
+        return r;
 }
 
-int cgroup_bonding_kill_list(CGroupBonding *first, int sig, bool sigcont, Set *s) {
+int cgroup_bonding_kill_list(CGroupBonding *first, int sig, bool sigcont, Set *s, const char *cgroup_suffix) {
         CGroupBonding *b;
         Set *allocated_set = NULL;
         int ret = -EAGAIN, r;
@@ -200,7 +233,8 @@ int cgroup_bonding_kill_list(CGroupBonding *first, int sig, bool sigcont, Set *s
                         return -ENOMEM;
 
         LIST_FOREACH(by_unit, b, first) {
-                if ((r = cgroup_bonding_kill(b, sig, sigcont, s)) < 0) {
+                r = cgroup_bonding_kill(b, sig, sigcont, s, cgroup_suffix);
+                if (r < 0) {
                         if (r == -EAGAIN || r == -ESRCH)
                                 continue;
 

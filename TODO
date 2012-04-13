@@ -19,8 +19,6 @@ Features:
 
 * cg_create_and_attach() should fail for non-available controllers
 
-* place start-pre/start-post/... scripts in sub cgrouprs
-
 * make gtk-doc optional (like kmod?)
 
 * udev: find a way to tell udev to not cancel firmware requests in initramfs

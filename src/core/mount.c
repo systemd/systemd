@@ -805,6 +805,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                             UNIT(m)->manager->confirm_spawn,
                             UNIT(m)->cgroup_bondings,
                             UNIT(m)->cgroup_attributes,
+                            NULL,
                             &pid)) < 0)
                 goto fail;
 
@@ -875,7 +876,8 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
                                 if ((r = set_put(pid_set, LONG_TO_PTR(m->control_pid))) < 0)
                                         goto fail;
 
-                        if ((r = cgroup_bonding_kill_list(UNIT(m)->cgroup_bondings, sig, true, pid_set)) < 0) {
+                        r = cgroup_bonding_kill_list(UNIT(m)->cgroup_bondings, sig, true, pid_set, NULL);
+                        if (r < 0) {
                                 if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                         log_warning("Failed to kill control group: %s", strerror(-r));
                         } else if (r > 0)
@@ -1833,7 +1835,8 @@ static int mount_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError 
                                 goto finish;
                         }
 
-                if ((q = cgroup_bonding_kill_list(UNIT(m)->cgroup_bondings, signo, false, pid_set)) < 0)
+                q = cgroup_bonding_kill_list(UNIT(m)->cgroup_bondings, signo, false, pid_set, NULL);
+                if (q < 0)
                         if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                                 r = q;
         }

@@ -621,6 +621,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                             UNIT(s)->manager->confirm_spawn,
                             UNIT(s)->cgroup_bondings,
                             UNIT(s)->cgroup_attributes,
+                            NULL,
                             &pid)) < 0)
                 goto fail;
 
@@ -690,7 +691,8 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
                                 if ((r = set_put(pid_set, LONG_TO_PTR(s->control_pid))) < 0)
                                         goto fail;
 
-                        if ((r = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, sig, true, pid_set)) < 0) {
+                        r = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, sig, true, pid_set, NULL);
+                        if (r < 0) {
                                 if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                         log_warning("Failed to kill control group: %s", strerror(-r));
                         } else if (r > 0)
@@ -1321,7 +1323,8 @@ static int swap_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *
                                 goto finish;
                         }
 
-                if ((q = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, signo, false, pid_set)) < 0)
+                q = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, signo, false, pid_set, NULL);
+                if (q < 0)
                         if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                                 r = q;
         }

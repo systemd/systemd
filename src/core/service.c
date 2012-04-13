@@ -1686,6 +1686,7 @@ static int service_spawn(
                 bool apply_chroot,
                 bool apply_tty_stdin,
                 bool set_notify_socket,
+                bool is_control,
                 pid_t *_pid) {
 
         pid_t pid;
@@ -1767,6 +1768,7 @@ static int service_spawn(
                        UNIT(s)->manager->confirm_spawn,
                        UNIT(s)->cgroup_bondings,
                        UNIT(s)->cgroup_attributes,
+                       is_control ? "control" : NULL,
                        &pid);
 
         if (r < 0)
@@ -1886,15 +1888,17 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST])) {
                 s->control_command_id = SERVICE_EXEC_STOP_POST;
 
-                if ((r = service_spawn(s,
-                                       s->control_command,
-                                       true,
-                                       false,
-                                       !s->permissions_start_only,
-                                       !s->root_directory_start_only,
-                                       true,
-                                       false,
-                                       &s->control_pid)) < 0)
+                r = service_spawn(s,
+                                  s->control_command,
+                                  true,
+                                  false,
+                                  !s->permissions_start_only,
+                                  !s->root_directory_start_only,
+                                  true,
+                                  false,
+                                  true,
+                                  &s->control_pid);
+                if (r < 0)
                         goto fail;
 
 
@@ -1952,7 +1956,8 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
                                 if ((r = set_put(pid_set, LONG_TO_PTR(s->control_pid))) < 0)
                                         goto fail;
 
-                        if ((r = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, sig, true, pid_set)) < 0) {
+                        r = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, sig, true, pid_set, NULL);
+                        if (r < 0) {
                                 if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                         log_warning("Failed to kill control group: %s", strerror(-r));
                         } else if (r > 0)
@@ -2001,15 +2006,17 @@ static void service_enter_stop(Service *s, ServiceResult f) {
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP])) {
                 s->control_command_id = SERVICE_EXEC_STOP;
 
-                if ((r = service_spawn(s,
-                                       s->control_command,
-                                       true,
-                                       false,
-                                       !s->permissions_start_only,
-                                       !s->root_directory_start_only,
-                                       false,
-                                       false,
-                                       &s->control_pid)) < 0)
+                r = service_spawn(s,
+                                  s->control_command,
+                                  true,
+                                  false,
+                                  !s->permissions_start_only,
+                                  !s->root_directory_start_only,
+                                  false,
+                                  false,
+                                  true,
+                                  &s->control_pid);
+                if (r < 0)
                         goto fail;
 
                 service_set_state(s, SERVICE_STOP);
@@ -2054,15 +2061,17 @@ static void service_enter_start_post(Service *s) {
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST])) {
                 s->control_command_id = SERVICE_EXEC_START_POST;
 
-                if ((r = service_spawn(s,
-                                       s->control_command,
-                                       true,
-                                       false,
-                                       !s->permissions_start_only,
-                                       !s->root_directory_start_only,
-                                       false,
-                                       false,
-                                       &s->control_pid)) < 0)
+                r = service_spawn(s,
+                                  s->control_command,
+                                  true,
+                                  false,
+                                  !s->permissions_start_only,
+                                  !s->root_directory_start_only,
+                                  false,
+                                  false,
+                                  true,
+                                  &s->control_pid);
+                if (r < 0)
                         goto fail;
 
                 service_set_state(s, SERVICE_START_POST);
@@ -2094,7 +2103,7 @@ static void service_enter_start(Service *s) {
         /* We want to ensure that nobody leaks processes from
          * START_PRE here, so let's go on a killing spree, People
          * should not spawn long running processes from START_PRE. */
-        cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, NULL);
+        cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, NULL, "control");
 
         if (s->type == SERVICE_FORKING) {
                 s->control_command_id = SERVICE_EXEC_START;
@@ -2108,15 +2117,17 @@ static void service_enter_start(Service *s) {
                 c = s->main_command = s->exec_command[SERVICE_EXEC_START];
         }
 
-        if ((r = service_spawn(s,
-                               c,
-                               s->type == SERVICE_FORKING || s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY,
-                               true,
-                               true,
-                               true,
-                               true,
-                               s->notify_access != NOTIFY_NONE,
-                               &pid)) < 0)
+        r = service_spawn(s,
+                          c,
+                          s->type == SERVICE_FORKING || s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY,
+                          true,
+                          true,
+                          true,
+                          true,
+                          s->notify_access != NOTIFY_NONE,
+                          false,
+                          &pid);
+        if (r < 0)
                 goto fail;
 
         if (s->type == SERVICE_SIMPLE) {
@@ -2168,19 +2179,21 @@ static void service_enter_start_pre(Service *s) {
 
                 /* Before we start anything, let's clear up what might
                  * be left from previous runs. */
-                cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, NULL);
+                cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, NULL, "control");
 
                 s->control_command_id = SERVICE_EXEC_START_PRE;
 
-                if ((r = service_spawn(s,
-                                       s->control_command,
-                                       true,
-                                       false,
-                                       !s->permissions_start_only,
-                                       !s->root_directory_start_only,
-                                       true,
-                                       false,
-                                       &s->control_pid)) < 0)
+                r = service_spawn(s,
+                                  s->control_command,
+                                  true,
+                                  false,
+                                  !s->permissions_start_only,
+                                  !s->root_directory_start_only,
+                                  true,
+                                  false,
+                                  true,
+                                  &s->control_pid);
+                if (r < 0)
                         goto fail;
 
                 service_set_state(s, SERVICE_START_PRE);
@@ -2236,15 +2249,17 @@ static void service_enter_reload(Service *s) {
         if ((s->control_command = s->exec_command[SERVICE_EXEC_RELOAD])) {
                 s->control_command_id = SERVICE_EXEC_RELOAD;
 
-                if ((r = service_spawn(s,
-                                       s->control_command,
-                                       true,
-                                       false,
-                                       !s->permissions_start_only,
-                                       !s->root_directory_start_only,
-                                       false,
-                                       false,
-                                       &s->control_pid)) < 0)
+                r = service_spawn(s,
+                                  s->control_command,
+                                  true,
+                                  false,
+                                  !s->permissions_start_only,
+                                  !s->root_directory_start_only,
+                                  false,
+                                  false,
+                                  true,
+                                  &s->control_pid);
+                if (r < 0)
                         goto fail;
 
                 service_set_state(s, SERVICE_RELOAD);
@@ -2271,16 +2286,18 @@ static void service_run_next_control(Service *s) {
         s->control_command = s->control_command->command_next;
         service_unwatch_control_pid(s);
 
-        if ((r = service_spawn(s,
-                               s->control_command,
-                               true,
-                               false,
-                               !s->permissions_start_only,
-                               !s->root_directory_start_only,
-                               s->control_command_id == SERVICE_EXEC_START_PRE ||
-                               s->control_command_id == SERVICE_EXEC_STOP_POST,
-                               false,
-                               &s->control_pid)) < 0)
+        r = service_spawn(s,
+                          s->control_command,
+                          true,
+                          false,
+                          !s->permissions_start_only,
+                          !s->root_directory_start_only,
+                          s->control_command_id == SERVICE_EXEC_START_PRE ||
+                          s->control_command_id == SERVICE_EXEC_STOP_POST,
+                          false,
+                          true,
+                          &s->control_pid);
+        if (r < 0)
                 goto fail;
 
         return;
@@ -2313,15 +2330,17 @@ static void service_run_next_main(Service *s) {
         s->main_command = s->main_command->command_next;
         service_unwatch_main_pid(s);
 
-        if ((r = service_spawn(s,
-                               s->main_command,
-                               false,
-                               true,
-                               true,
-                               true,
-                               true,
-                               s->notify_access != NOTIFY_NONE,
-                               &pid)) < 0)
+        r = service_spawn(s,
+                          s->main_command,
+                          false,
+                          true,
+                          true,
+                          true,
+                          true,
+                          s->notify_access != NOTIFY_NONE,
+                          false,
+                          &pid);
+        if (r < 0)
                 goto fail;
 
         service_set_main_pid(s, pid);
@@ -3647,8 +3666,8 @@ static int service_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusErro
                                 r = q;
                                 goto finish;
                         }
-
-                if ((q = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, signo, false, pid_set)) < 0)
+                q = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, signo, false, pid_set, NULL);
+                if (q < 0)
                         if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                                 r = q;
         }

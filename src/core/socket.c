@@ -1150,6 +1150,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        UNIT(s)->manager->confirm_spawn,
                        UNIT(s)->cgroup_bondings,
                        UNIT(s)->cgroup_attributes,
+                       NULL,
                        &pid);
 
         strv_free(argv);
@@ -1240,7 +1241,8 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
                                 if ((r = set_put(pid_set, LONG_TO_PTR(s->control_pid))) < 0)
                                         goto fail;
 
-                        if ((r = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, sig, true, pid_set)) < 0) {
+                        r = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, sig, true, pid_set, NULL);
+                        if (r < 0) {
                                 if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                         log_warning("Failed to kill control group: %s", strerror(-r));
                         } else if (r > 0)
@@ -2127,7 +2129,8 @@ static int socket_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError
                                 goto finish;
                         }
 
-                if ((q = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, signo, false, pid_set)) < 0)
+                q = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, signo, false, pid_set, NULL);
+                if (q < 0)
                         if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                                 r = q;
         }

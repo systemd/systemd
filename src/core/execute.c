@@ -962,6 +962,7 @@ int exec_spawn(ExecCommand *command,
                bool confirm_spawn,
                CGroupBonding *cgroup_bondings,
                CGroupAttribute *cgroup_attributes,
+               const char *cgroup_suffix,
                pid_t *ret) {
 
         pid_t pid;
@@ -1154,7 +1155,7 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 if (cgroup_bondings) {
-                        err = cgroup_bonding_install_list(cgroup_bondings, 0);
+                        err = cgroup_bonding_install_list(cgroup_bondings, 0, cgroup_suffix);
                         if (err < 0) {
                                 r = EXIT_CGROUP;
                                 goto fail_child;
@@ -1505,7 +1506,7 @@ int exec_spawn(ExecCommand *command,
          * sure that when we kill the cgroup the process will be
          * killed too). */
         if (cgroup_bondings)
-                cgroup_bonding_install_list(cgroup_bondings, pid);
+                cgroup_bonding_install_list(cgroup_bondings, pid, cgroup_suffix);
 
         log_debug("Forked %s as %lu", command->path, (unsigned long) pid);
 
