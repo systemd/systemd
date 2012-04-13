@@ -2457,7 +2457,6 @@ static int process_event(Manager *m, struct epoll_event *ev) {
 
 int manager_loop(Manager *m) {
         int r;
-        int wait_msec = -1;
 
         RATELIMIT_DEFINE(rl, 1*USEC_PER_SEC, 50000);
 
@@ -2476,18 +2475,12 @@ int manager_loop(Manager *m) {
         if (r < 0)
                 return r;
 
-        /* Sleep for half the watchdog time */
-        if (m->runtime_watchdog > 0 && m->running_as == MANAGER_SYSTEM)  {
-                wait_msec = (int) (m->runtime_watchdog / 2 / USEC_PER_MSEC);
-                if (wait_msec <= 0)
-                        wait_msec = 1;
-        }
-
         while (m->exit_code == MANAGER_RUNNING) {
                 struct epoll_event event;
                 int n;
+                int wait_msec = -1;
 
-                if (wait_msec >= 0)
+                if (m->runtime_watchdog > 0 && m->running_as == MANAGER_SYSTEM)
                         watchdog_ping();
 
                 if (!ratelimit_test(&rl)) {
@@ -2517,6 +2510,14 @@ int manager_loop(Manager *m) {
 
                 if (swap_dispatch_reload(m) > 0)
                         continue;
+
+                /* Sleep for half the watchdog time */
+                if (m->runtime_watchdog > 0 && m->running_as == MANAGER_SYSTEM) {
+                        wait_msec = (int) (m->runtime_watchdog / 2 / USEC_PER_MSEC);
+                        if (wait_msec <= 0)
+                                wait_msec = 1;
+                } else
+                        wait_msec = -1;
 
                 n = epoll_wait(m->epoll_fd, &event, 1, wait_msec);
                 if (n < 0) {

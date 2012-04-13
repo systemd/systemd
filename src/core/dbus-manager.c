@@ -30,6 +30,7 @@
 #include "build.h"
 #include "dbus-common.h"
 #include "install.h"
+#include "watchdog.h"
 
 #define BUS_MANAGER_INTERFACE_BEGIN                                     \
         " <interface name=\"org.freedesktop.systemd1.Manager\">\n"
@@ -241,8 +242,8 @@
         "  <property name=\"DefaultControllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardOutput\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardError\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"RuntimeWatchdogUSec\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"ShutdownWatchdogUSec\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"RuntimeWatchdogUSec\" type=\"s\" access=\"readwrite\"/>\n" \
+        "  <property name=\"ShutdownWatchdogUSec\" type=\"s\" access=\"readwrite\"/>\n" \
         "  <property name=\"HaveWatchdog\" type=\"b\" access=\"read\"/>\n"
 
 #ifdef HAVE_SYSV_COMPAT
@@ -508,6 +509,17 @@ static int bus_manager_append_have_watchdog(DBusMessageIter *i, const char *prop
         return 0;
 }
 
+static int bus_manager_set_runtime_watchdog_usec(DBusMessageIter *i, const char *property, void *data) {
+        uint64_t *t = data;
+
+        assert(i);
+        assert(property);
+
+        dbus_message_iter_get_basic(i, t);
+
+        return watchdog_set_timeout(t);
+}
+
 static const char systemd_property_string[] =
         PACKAGE_STRING "\0"
         DISTRIBUTION "\0"
@@ -529,8 +541,8 @@ static const BusProperty bus_manager_properties[] = {
         { "StartupTimestampMonotonic", bus_property_append_uint64, "t", offsetof(Manager, startup_timestamp.monotonic) },
         { "FinishTimestamp", bus_property_append_uint64,           "t", offsetof(Manager, finish_timestamp.realtime)   },
         { "FinishTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, finish_timestamp.monotonic)  },
-        { "LogLevel",      bus_manager_append_log_level,           "s", 0,                                             0, bus_manager_set_log_level },
-        { "LogTarget",     bus_manager_append_log_target,          "s", 0,                                             0, bus_manager_set_log_target },
+        { "LogLevel",      bus_manager_append_log_level,           "s", 0,                                             false, bus_manager_set_log_level },
+        { "LogTarget",     bus_manager_append_log_target,          "s", 0,                                             false, bus_manager_set_log_target },
         { "NNames",        bus_manager_append_n_names,             "u", 0                                              },
         { "NJobs",         bus_manager_append_n_jobs,              "u", 0                                              },
         { "NInstalledJobs",bus_property_append_uint32,             "u", offsetof(Manager, n_installed_jobs)            },
@@ -547,8 +559,8 @@ static const BusProperty bus_manager_properties[] = {
         { "DefaultControllers", bus_property_append_strv,         "as", offsetof(Manager, default_controllers),        true },
         { "DefaultStandardOutput", bus_manager_append_exec_output, "s", offsetof(Manager, default_std_output)          },
         { "DefaultStandardError",  bus_manager_append_exec_output, "s", offsetof(Manager, default_std_error)           },
-        { "RuntimeWatchdogUSec", bus_property_append_usec,         "t", offsetof(Manager, runtime_watchdog),           },
-        { "ShutdownWatchdogUSec", bus_property_append_usec,        "t", offsetof(Manager, shutdown_watchdog),          },
+        { "RuntimeWatchdogUSec", bus_property_append_usec,         "t", offsetof(Manager, runtime_watchdog),           false, bus_manager_set_runtime_watchdog_usec },
+        { "ShutdownWatchdogUSec", bus_property_append_usec,        "t", offsetof(Manager, shutdown_watchdog),          false, bus_property_set_usec },
         { "HaveWatchdog",  bus_manager_append_have_watchdog,       "b", 0                                              },
 #ifdef HAVE_SYSV_COMPAT
         { "SysVConsole",   bus_property_append_bool,               "b", offsetof(Manager, sysv_console)                },

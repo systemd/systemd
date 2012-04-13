@@ -144,6 +144,9 @@ int bus_property_append_long(DBusMessageIter *i, const char *property, void *dat
 #define bus_property_append_unsigned bus_property_append_uint32
 #define bus_property_append_usec bus_property_append_uint64
 
+int bus_property_set_uint64(DBusMessageIter *i, const char *property, void *data);
+#define bus_property_set_usec bus_property_set_uint64
+
 #define DEFINE_BUS_PROPERTY_APPEND_ENUM(function,name,type)             \
         int function(DBusMessageIter *i, const char *property, void *data) { \
                 const char *value;                                      \

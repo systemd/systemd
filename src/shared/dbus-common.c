@@ -660,6 +660,16 @@ int bus_property_append_long(DBusMessageIter *i, const char *property, void *dat
         return 0;
 }
 
+int bus_property_set_uint64(DBusMessageIter *i, const char *property, void *data) {
+        uint64_t *t = data;
+
+        assert(i);
+        assert(property);
+
+        dbus_message_iter_get_basic(i, t);
+        return 0;
+}
+
 const char *bus_errno_to_dbus(int error) {
 
         switch(error) {
