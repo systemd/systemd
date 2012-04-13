@@ -1699,7 +1699,7 @@ src/udev/gudev/gudevenumtypes.c: src/udev/gudev/gudevenumtypes.c.template src/ud
 	$(AM_V_GEN)glib-mkenums --template $^ > \
 	    $@.tmp && mv $@.tmp $@
 
-if ENABLE_INTROSPECTION
+if HAVE_INTROSPECTION
 -include $(INTROSPECTION_MAKEFILE)
 
 src/udev/gudev/GUdev-1.0.gir: libgudev-1.0.la
@@ -1743,7 +1743,7 @@ typelibs_DATA = \
 	src/udev/gudev/GUdev-1.0.typelib
 
 CLEANFILES += $(gir_DATA) $(typelibs_DATA)
-endif # ENABLE_INTROSPECTION
+endif # HAVE_INTROSPECTION
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libgudev-install-move-hook:

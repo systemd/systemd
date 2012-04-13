@@ -56,6 +56,7 @@ AC_PROG_GCC_TRADITIONAL
 
 AC_PATH_PROG([M4], [m4])
 GTK_DOC_CHECK(1.10)
+GOBJECT_INTROSPECTION_CHECK([1.31.1])
 
 AC_CHECK_TOOL(OBJCOPY, objcopy)
 AC_CHECK_TOOL(STRINGS, strings)
@@ -455,15 +456,6 @@ AC_ARG_ENABLE([gudev],
        AS_HELP_STRING([--disable-gudev], [disable Gobject libudev support @<:@default=enabled@:>@]),
        [], [enable_gudev=yes])
 AS_IF([test "x$enable_gudev" = "xyes"], [ PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0]) ])
-
-AC_ARG_ENABLE([introspection],
-       AS_HELP_STRING([--disable-introspection], [disable GObject introspection @<:@default=enabled@:>@]),
-       [], [enable_introspection=yes])
-AS_IF([test "x$enable_introspection" = "xyes"], [
-       AC_DEFINE([ENABLE_INTROSPECTION], [1], [enable GObject introspection support])
-       GOBJECT_INTROSPECTION_REQUIRE([1.31.1])
-])
-AM_CONDITIONAL([ENABLE_INTROSPECTION], [test "x$enable_introspection" = "xyes"])
 AM_CONDITIONAL([ENABLE_GUDEV], [test "x$enable_gudev" = "xyes"])
 
 # ------------------------------------------------------------------------------
