@@ -9,7 +9,8 @@
 Description=Arbitrary Executable File Formats File System Automount Point
 DefaultDependencies=no
 Before=sysinit.target
-ConditionPathExists=/proc/sys/fs/binfmt_misc
+ConditionPathExists=/proc/sys/fs/binfmt_misc/
+ConditionPathIsReadWrite=/proc/sys/
 
 [Automount]
 Where=/proc/sys/fs/binfmt_misc
