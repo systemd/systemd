@@ -57,7 +57,7 @@ int polkit_agent_open(void) {
         r = fork_agent(&agent_pid,
                        &pipe_fd[1], 1,
                        POLKIT_AGENT_BINARY_PATH,
-                       POLKIT_AGENT_BINARY_PATH, "--notify-fd", notify_fd, NULL);
+                       POLKIT_AGENT_BINARY_PATH, "--notify-fd", notify_fd, "--fallback", NULL);
 
         /* Close the writing side, because that's the one for the agent */
         close_nointr_nofail(pipe_fd[1]);

@@ -21,8 +21,6 @@ Features:
 
 * place start-pre/start-post/... scripts in sub cgrouprs
 
-* Make RuntimeWatchdogUSec= property writable
-
 * make gtk-doc optional (like kmod?)
 
 * udev: find a way to tell udev to not cancel firmware requests in initramfs
