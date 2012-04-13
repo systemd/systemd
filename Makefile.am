@@ -136,7 +136,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/journal \
 	-I $(top_srcdir)/src/systemd \
 	-I $(top_srcdir)/src/core \
-	-I $(top_srcdir)/src/udev
+	-I $(top_srcdir)/src/libudev
 
 AM_CFLAGS = $(WARNINGFLAGS)
 AM_LDFLAGS = $(GCLDFLAGS)
@@ -1275,23 +1275,23 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 SUBDIRS += \
-	src/udev/docs
+	docs/libudev
 
 include_HEADERS += \
-	src/udev/libudev.h
+	src/libudev/libudev.h
 
 lib_LTLIBRARIES += \
 	libudev.la
 
 libudev_la_SOURCES =\
-	src/udev/libudev-private.h \
-	src/udev/libudev.c \
-	src/udev/libudev-list.c \
-	src/udev/libudev-util.c \
-	src/udev/libudev-device.c \
-	src/udev/libudev-enumerate.c \
-	src/udev/libudev-monitor.c \
-	src/udev/libudev-queue.c
+	src/libudev/libudev-private.h \
+	src/libudev/libudev.c \
+	src/libudev/libudev-list.c \
+	src/libudev/libudev-util.c \
+	src/libudev/libudev-device.c \
+	src/libudev/libudev-enumerate.c \
+	src/libudev/libudev-monitor.c \
+	src/libudev/libudev-queue.c
 
 libudev_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1302,13 +1302,13 @@ libudev_la_LDFLAGS = \
 	-version-info $(LIBUDEV_CURRENT):$(LIBUDEV_REVISION):$(LIBUDEV_AGE)
 
 pkgconfiglib_DATA += \
-	src/udev/libudev.pc
+	src/libudev/libudev.pc
 
 EXTRA_DIST += \
-	src/udev/libudev.pc.in
+	src/libudev/libudev.pc.in
 
 CLEANFILES += \
-	src/udev/libudev.pc
+	src/libudev/libudev.pc
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libudev-install-move-hook:
@@ -1332,13 +1332,13 @@ noinst_LTLIBRARIES += \
 
 libudev_private_la_SOURCES =\
 	$(libudev_la_SOURCES) \
-	src/udev/libudev-util-private.c \
-	src/udev/libudev-device-private.c \
-	src/udev/libudev-queue-private.c
+	src/libudev/libudev-util-private.c \
+	src/libudev/libudev-device-private.c \
+	src/libudev/libudev-queue-private.c
 
 if HAVE_SELINUX
 libudev_private_la_SOURCES +=\
-	src/udev/libudev-selinux-private.c
+	src/libudev/libudev-selinux-private.c
 endif
 
 libudev_private_la_CFLAGS = \
@@ -1606,49 +1606,49 @@ dist_udevrules_DATA += \
 # ------------------------------------------------------------------------------
 if ENABLE_GUDEV
 SUBDIRS += \
-	src/udev/gudev/docs
+	docs/gudev
 
 libgudev_includedir = \
 	$(includedir)/gudev-1.0/gudev
 
 libgudev_include_HEADERS = \
-	src/udev/gudev/gudev.h \
-	src/udev/gudev/gudevenums.h \
-	src/udev/gudev/gudevenumtypes.h \
-	src/udev/gudev/gudevtypes.h \
-	src/udev/gudev/gudevclient.h \
-	src/udev/gudev/gudevdevice.h \
-	src/udev/gudev/gudevenumerator.h
+	src/gudev/gudev.h \
+	src/gudev/gudevenums.h \
+	src/gudev/gudevenumtypes.h \
+	src/gudev/gudevtypes.h \
+	src/gudev/gudevclient.h \
+	src/gudev/gudevdevice.h \
+	src/gudev/gudevenumerator.h
 
 lib_LTLIBRARIES += libgudev-1.0.la
 
 pkgconfiglib_DATA += \
-	src/udev/gudev/gudev-1.0.pc
+	src/gudev/gudev-1.0.pc
 
 EXTRA_DIST += \
-	src/udev/gudev/gudev-1.0.pc.in
+	src/gudev/gudev-1.0.pc.in
 
 CLEANFILES += \
-	src/udev/gudev/gudev-1.0.pc
+	src/gudev/gudev-1.0.pc
 
 libgudev_1_0_la_SOURCES = \
-	src/udev/gudev/gudevenums.h \
-	src/udev/gudev/gudevenumtypes.h \
-	src/udev/gudev/gudevenumtypes.h\
-	src/udev/gudev/gudevtypes.h \
-	src/udev/gudev/gudevclient.h \
-	src/udev/gudev/gudevclient.c \
-	src/udev/gudev/gudevdevice.h \
-	src/udev/gudev/gudevdevice.c \
-	src/udev/gudev/gudevenumerator.h \
-	src/udev/gudev/gudevenumerator.c \
-	src/udev/gudev/gudevprivate.h
+	src/gudev/gudevenums.h \
+	src/gudev/gudevenumtypes.h \
+	src/gudev/gudevenumtypes.h\
+	src/gudev/gudevtypes.h \
+	src/gudev/gudevclient.h \
+	src/gudev/gudevclient.c \
+	src/gudev/gudevdevice.h \
+	src/gudev/gudevdevice.c \
+	src/gudev/gudevenumerator.h \
+	src/gudev/gudevenumerator.c \
+	src/gudev/gudevprivate.h
 
 nodist_libgudev_1_0_la_SOURCES = \
-	src/udev/gudev/gudevmarshal.h \
-	src/udev/gudev/gudevmarshal.c \
-	src/udev/gudev/gudevenumtypes.h \
-	src/udev/gudev/gudevenumtypes.c
+	src/gudev/gudevmarshal.h \
+	src/gudev/gudevmarshal.c \
+	src/gudev/gudevenumtypes.h \
+	src/gudev/gudevenumtypes.c
 
 BUILT_SOURCES += \
 	$(nodist_libgudev_1_0_la_SOURCES)
@@ -1657,10 +1657,8 @@ libgudev_1_0_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-I$(top_builddir)/src\
 	-I$(top_srcdir)/src\
-	-I$(top_builddir)/src/udev \
-	-I$(top_srcdir)/src/udev \
-	-I$(top_builddir)/src/udev/gudev \
-	-I$(top_srcdir)/src/udev/gudev \
+	-I$(top_builddir)/src/gudev \
+	-I$(top_srcdir)/src/gudev \
 	-D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT \
 	-D_GUDEV_COMPILATION \
 	-DG_LOG_DOMAIN=\"GUdev\"
@@ -1681,73 +1679,75 @@ libgudev_1_0_la_LDFLAGS = \
 	-export-symbols-regex '^g_udev_.*'
 
 EXTRA_DIST += \
-	src/udev/gudev/gudevmarshal.list \
-	src/udev/gudev/gudevenumtypes.h.template \
-	src/udev/gudev/gudevenumtypes.c.template \
-	src/udev/gudev/gjs-example.js \
-	src/udev/gudev/seed-example-enum.js \
-	src/udev/gudev/seed-example.js
+	src/gudev/gudevmarshal.list \
+	src/gudev/gudevenumtypes.h.template \
+	src/gudev/gudevenumtypes.c.template \
+	src/gudev/gjs-example.js \
+	src/gudev/seed-example-enum.js \
+	src/gudev/seed-example.js
 
 CLEANFILES += \
 	$(nodist_libgudev_1_0_la_SOURCES)
 
-src/udev/gudev/gudevmarshal.h: src/udev/gudev/gudevmarshal.list
+src/gudev/gudevmarshal.h: src/gudev/gudevmarshal.list
 	$(AM_V_GEN)glib-genmarshal $< --prefix=g_udev_marshal --header > $@
 
-src/udev/gudev/gudevmarshal.c: src/udev/gudev/gudevmarshal.list
+src/gudev/gudevmarshal.c: src/gudev/gudevmarshal.list
 	$(AM_V_GEN)echo "#include \"gudevmarshal.h\"" > $@ && \
 	glib-genmarshal $< --prefix=g_udev_marshal --body >> $@
 
-src/udev/gudev/gudevenumtypes.h: src/udev/gudev/gudevenumtypes.h.template src/udev/gudev/gudevenums.h
+src/gudev/gudevenumtypes.h: src/gudev/gudevenumtypes.h.template src/gudev/gudevenums.h
 	$(AM_V_GEN)glib-mkenums --template $^ > \
 	    $@.tmp && mv $@.tmp $@
 
-src/udev/gudev/gudevenumtypes.c: src/udev/gudev/gudevenumtypes.c.template src/udev/gudev/gudevenums.h
+src/gudev/gudevenumtypes.c: src/gudev/gudevenumtypes.c.template src/gudev/gudevenums.h
 	$(AM_V_GEN)glib-mkenums --template $^ > \
 	    $@.tmp && mv $@.tmp $@
 
 if HAVE_INTROSPECTION
 -include $(INTROSPECTION_MAKEFILE)
 
-src/udev/gudev/GUdev-1.0.gir: libgudev-1.0.la
+src/gudev/GUdev-1.0.gir: libgudev-1.0.la
 
-src_udev_gudev_GUdev_1_0_gir_INCLUDES = GObject-2.0
+src_gudev_GUdev_1_0_gir_INCLUDES = GObject-2.0
 
-src_udev_gudev_GUdev_1_0_gir_CFLAGS = \
+src_gudev_GUdev_1_0_gir_CFLAGS = \
 	$(INCLUDES) \
 	-D_GUDEV_COMPILATION \
 	-D_GUDEV_WORK_AROUND_DEV_T_BUG \
-	-I$(top_srcdir)/src/udev \
-	-I$(top_builddir)/src/udev
+	-I$(top_srcdir)/src \
+	-I$(top_builddir)/src \
+	-I$(top_srcdir)/src/gdev \
+	-I$(top_builddir)/src/gdev
 
-src_udev_gudev_GUdev_1_0_gir_LIBS = libgudev-1.0.la
+src_gudev_GUdev_1_0_gir_LIBS = libgudev-1.0.la
 
-src_udev_gudev_GUdev_1_0_gir_SCANNERFLAGS = \
+src_gudev_GUdev_1_0_gir_SCANNERFLAGS = \
 	--pkg-export=gudev-1.0 \
 	--warn-all
 
-src_udev_gudev_GUdev_1_0_gir_FILES = \
-	$(top_srcdir)/src/udev/gudev/gudev.h \
-	$(top_srcdir)/src/udev/gudev/gudevtypes.h \
-	$(top_srcdir)/src/udev/gudev/gudevenums.h \
-	$(or $(wildcard $(top_builddir)/src/udev/gudev/gudevenumtypes.h),$(top_srcdir)/src/udev/gudev/gudevenumtypes.h) \
-	$(top_srcdir)/src/udev/gudev/gudevclient.h \
-	$(top_srcdir)/src/udev/gudev/gudevdevice.h \
-	$(top_srcdir)/src/udev/gudev/gudevenumerator.h \
-	$(top_srcdir)/src/udev/gudev/gudevclient.c \
-	$(top_srcdir)/src/udev/gudev/gudevdevice.c \
-	$(top_srcdir)/src/udev/gudev/gudevenumerator.c
+src_gudev_GUdev_1_0_gir_FILES = \
+	$(top_srcdir)/src/gudev/gudev.h \
+	$(top_srcdir)/src/gudev/gudevtypes.h \
+	$(top_srcdir)/src/gudev/gudevenums.h \
+	$(or $(wildcard $(top_builddir)/src/gudev/gudevenumtypes.h),$(top_srcdir)/src/gudev/gudevenumtypes.h) \
+	$(top_srcdir)/src/gudev/gudevclient.h \
+	$(top_srcdir)/src/gudev/gudevdevice.h \
+	$(top_srcdir)/src/gudev/gudevenumerator.h \
+	$(top_srcdir)/src/gudev/gudevclient.c \
+	$(top_srcdir)/src/gudev/gudevdevice.c \
+	$(top_srcdir)/src/gudev/gudevenumerator.c
 
-INTROSPECTION_GIRS = src/udev/gudev/GUdev-1.0.gir
+INTROSPECTION_GIRS = src/gudev/GUdev-1.0.gir
 INTROSPECTION_SCANNER_ARGS = --c-include=gudev/gudev.h
 
 girdir = $(datadir)/gir-1.0
 gir_DATA = \
-	src/udev/gudev/GUdev-1.0.gir
+	src/gudev/GUdev-1.0.gir
 
 typelibsdir = $(libdir)/girepository-1.0
 typelibs_DATA = \
-	src/udev/gudev/GUdev-1.0.typelib
+	src/gudev/GUdev-1.0.typelib
 
 CLEANFILES += $(gir_DATA) $(typelibs_DATA)
 endif # HAVE_INTROSPECTION

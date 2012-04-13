@@ -82,6 +82,7 @@
     <title>Object Hierarchy</title>
       <xi:include href="xml/tree_index.sgml"/>
   </chapter>
+
   <index>
     <title>Index</title>
   </index>
@@ -90,4 +91,5 @@
     <xi:include href="xml/api-index-165.xml"><xi:fallback /></xi:include>
   </index>
 
+  <xi:include href="xml/annotation-glossary.xml"><xi:fallback /></xi:include>
 </book>

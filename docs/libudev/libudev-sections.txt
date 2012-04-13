@@ -69,7 +69,6 @@ udev_monitor_ref
 udev_monitor_unref
 udev_monitor_get_udev
 udev_monitor_new_from_netlink
-udev_monitor_new_from_socket
 udev_monitor_enable_receiving
 udev_monitor_set_receive_buffer_size
 udev_monitor_get_fd

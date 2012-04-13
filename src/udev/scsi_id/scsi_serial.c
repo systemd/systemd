@@ -469,10 +469,10 @@ static int prepend_vendor_model(struct udev *udev,
         return ind;
 }
 
-/**
+/*
  * check_fill_0x83_id - check the page 0x83 id, if OK allocate and fill
  * serial number.
- **/
+ */
 static int check_fill_0x83_id(struct udev *udev,
                               struct scsi_id_device *dev_scsi,
                               unsigned char *page_83,

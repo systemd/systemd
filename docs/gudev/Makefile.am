@@ -21,7 +21,7 @@ DOC_MAIN_SGML_FILE=$(DOC_MODULE)-docs.xml
 # gtk-doc will search all .c & .h files beneath here for inline comments
 # documenting the functions and macros.
 # e.g. DOC_SOURCE_DIR=../../../gtk
-DOC_SOURCE_DIR=$(top_srcdir)/src/udev/gudev
+DOC_SOURCE_DIR=$(top_srcdir)/src/gudev
 
 # Extra options to pass to gtkdoc-scangobj. Not normally needed.
 SCANGOBJ_OPTIONS=
@@ -48,8 +48,8 @@ FIXXREF_OPTIONS=
 # Used for dependencies. The docs will be rebuilt if any of these change.
 # e.g. HFILE_GLOB=$(top_srcdir)/gtk/*.h
 # e.g. CFILE_GLOB=$(top_srcdir)/gtk/*.c
-HFILE_GLOB=$(top_srcdir)/src/udev/gudev/*.h
-CFILE_GLOB=$(top_srcdir)/src/udev/gudev/*.c
+HFILE_GLOB=$(top_srcdir)/src/gudev/*.h
+CFILE_GLOB=$(top_srcdir)/src/gudev/*.c
 
 # Extra header to include when scanning, which are not under DOC_SOURCE_DIR
 # e.g. EXTRA_HFILES=$(top_srcdir}/contrib/extra.h
@@ -78,10 +78,9 @@ expand_content_files=
 # e.g. GTKDOC_CFLAGS=-I$(top_srcdir) -I$(top_builddir) $(GTK_DEBUG_FLAGS)
 # e.g. GTKDOC_LIBS=$(top_builddir)/gtk/$(gtktargetlib)
 GTKDOC_CFLAGS = \
-        $(DBUS_GLIB_CFLAGS) \
-        $(GLIB_CFLAGS) \
-        -I$(top_srcdir)/src/udev/gudev \
-        -I$(top_builddir)/src/udev/gudev
+	$(GLIB_CFLAGS) \
+	-I$(top_srcdir)/src/gudev \
+	-I$(top_builddir)/src/gudev
 
 GTKDOC_LIBS = \
         $(GLIB_LIBS) \

@@ -700,10 +700,10 @@ AC_SUBST([rootlibdir], [$with_rootlibdir])
 
 AC_CONFIG_FILES([
         Makefile po/Makefile.in
-        src/udev/docs/Makefile
-        src/udev/docs/version.xml
-        src/udev/gudev/docs/Makefile
-        src/udev/gudev/docs/version.xml
+        docs/libudev/Makefile
+        docs/libudev/version.xml
+        docs/gudev/Makefile
+        docs/gudev/version.xml
 ])
 
 AC_OUTPUT

@@ -1136,7 +1136,7 @@ _public_ const char *udev_device_get_devnode(struct udev_device *udev_device)
  *
  * Retrieve the list of device links pointing to the device file of
  * the udev device. The next list entry can be retrieved with
- * udev_list_entry_next(), which returns #NULL if no more entries exist.
+ * udev_list_entry_get_next(), which returns #NULL if no more entries exist.
  * The devlink path can be retrieved from the list entry by
  * udev_list_entry_get_name(). The path is an absolute path, and starts with
  * the device directory.
@@ -1163,10 +1163,10 @@ void udev_device_cleanup_devlinks_list(struct udev_device *udev_device)
  * @udev_device: udev device
  *
  * Retrieve the list of key/value device properties of the udev
- * device. The next list entry can be retrieved with udev_list_entry_next(),
+ * device. The next list entry can be retrieved with udev_list_entry_get_next(),
  * which returns #NULL if no more entries exist. The property name
- * can be retrieved from the list entry by udev_list_get_name(),
- * the property value by udev_list_get_value().
+ * can be retrieved from the list entry by udev_list_entry_get_name(),
+ * the property value by udev_list_entry_get_value().
  *
  * Returns: the first entry of the property list
  **/
@@ -1575,9 +1575,9 @@ void udev_device_cleanup_tags_list(struct udev_device *udev_device)
  * @udev_device: udev device
  *
  * Retrieve the list of tags attached to the udev device. The next
- * list entry can be retrieved with udev_list_entry_next(),
+ * list entry can be retrieved with udev_list_entry_get_next(),
  * which returns #NULL if no more entries exist. The tag string
- * can be retrieved from the list entry by udev_list_get_name().
+ * can be retrieved from the list entry by udev_list_entry_get_name().
  *
  * Returns: the first entry of the tag list
  **/
