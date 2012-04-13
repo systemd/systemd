@@ -869,6 +869,11 @@ check_PROGRAMS += \
 	test-install \
 	test-watchdog
 
+TESTS += \
+	test-job-type \
+	test-env-replace \
+	test-strv
+
 test_engine_SOURCES = \
 	src/test/test-engine.c
 
@@ -1925,6 +1930,9 @@ test_id128_LDADD = \
 	libsystemd-id128.la
 
 check_PROGRAMS += \
+	test-id128
+
+TESTS += \
 	test-id128
 
 pkginclude_HEADERS += \
