@@ -3,6 +3,7 @@ Description=udev Coldplug all Devices
 Wants=udev.service
 After=udev-kernel.socket udev-control.socket
 DefaultDependencies=no
+ConditionCapability=CAP_MKNOD
 
 [Service]
 Type=oneshot
