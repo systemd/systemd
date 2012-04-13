@@ -5,7 +5,7 @@
 # Makefile.am
 SRCDIR=${1:-.}
 KEYLIST=${2:-src/udev/keymap/keys.txt}
-KEYMAPS_DIR=$SRCDIR/src/udev/keymap/keymaps
+KEYMAPS_DIR=$SRCDIR/keymaps
 RULES=$SRCDIR/src/udev/keymap/95-keymap.rules
 
 [ -e "$KEYLIST" ] || {
@@ -16,7 +16,7 @@ RULES=$SRCDIR/src/udev/keymap/95-keymap.rules
 missing=$(join -v 2 <(awk '{print tolower(substr($1,5))}' $KEYLIST | sort -u) \
                     <(grep -hv '^#' ${KEYMAPS_DIR}/*| awk '{print $2}' | sort -u))
 [ -z "$missing" ] || {
-        echo "ERROR: unknown key names in src/udev/keymap/keymaps/*:" >&2
+        echo "ERROR: unknown key names in keymaps/*:" >&2
         echo "$missing" >&2
         exit 1
 }
@@ -31,7 +31,7 @@ for m in $maps; do
                 echo "ERROR: unknown map name in $RULES: $m" >&2
                 exit 1
         }
-        grep -q "src/udev/keymap/keymaps/$m\>" $SRCDIR/Makefile.am || {
+        grep -q "keymaps/$m\>" $SRCDIR/Makefile.am || {
                 echo "ERROR: map file $m is not added to Makefile.am" >&2
                 exit 1
         }
