@@ -61,7 +61,8 @@ static ssize_t sendto_loop(int fd, const void *buf, size_t buf_len, int flags, c
         for (;;) {
                 ssize_t l;
 
-                if ((l = sendto(fd, buf, buf_len, flags, sa, sa_len)) >= 0)
+                l = sendto(fd, buf, buf_len, flags, sa, sa_len);
+                if (l >= 0)
                         return l;
 
                 if (errno != EINTR)
@@ -74,7 +75,8 @@ static ssize_t recvfrom_loop(int fd, void *buf, size_t buf_len, int flags, struc
         for (;;) {
                 ssize_t l;
 
-                if ((l = recvfrom(fd, buf, buf_len, flags, sa, sa_len)) >= 0)
+                l = recvfrom(fd, buf, buf_len, flags, sa, sa_len);
+                if (l >= 0)
                         return l;
 
                 if (errno != EINTR)
@@ -112,7 +114,8 @@ static int add_adresses(int fd, int if_loopback, unsigned *requests) {
         ifaddrmsg->ifa_scope = RT_SCOPE_HOST;
         ifaddrmsg->ifa_index = if_loopback;
 
-        if ((r = add_rtattr(&request.header, sizeof(request), IFA_LOCAL, &ipv4_address, sizeof(ipv4_address))) < 0)
+        r = add_rtattr(&request.header, sizeof(request), IFA_LOCAL, &ipv4_address, sizeof(ipv4_address));
+        if (r < 0)
                 return r;
 
         zero(sa);
@@ -131,7 +134,8 @@ static int add_adresses(int fd, int if_loopback, unsigned *requests) {
         ifaddrmsg->ifa_family = AF_INET6;
         ifaddrmsg->ifa_prefixlen = 128;
 
-        if ((r = add_rtattr(&request.header, sizeof(request), IFA_LOCAL, &in6addr_loopback, sizeof(in6addr_loopback))) < 0)
+        r = add_rtattr(&request.header, sizeof(request), IFA_LOCAL, &in6addr_loopback, sizeof(in6addr_loopback));
+        if (r < 0)
                 return r;
 
         if (sendto_loop(fd, &request, request.header.nlmsg_len, 0, &sa.sa, sizeof(sa)) < 0)
@@ -193,7 +197,8 @@ static int read_response(int fd, unsigned requests_max) {
         socklen_t sa_len = sizeof(sa);
         struct nlmsgerr *nlmsgerr;
 
-        if ((l = recvfrom_loop(fd, &response, sizeof(response), 0, &sa.sa, &sa_len)) < 0)
+        l = recvfrom_loop(fd, &response, sizeof(response), 0, &sa.sa, &sa_len);
+        if (l < 0)
                 return -errno;
 
         if (sa_len != sizeof(sa.nl) ||
@@ -217,12 +222,38 @@ static int read_response(int fd, unsigned requests_max) {
 
         nlmsgerr = NLMSG_DATA(&response.header);
 
-        if (nlmsgerr->error < 0 && nlmsgerr->error != -EEXIST) {
-                log_warning("Netlink failure for request %i: %s", response.header.nlmsg_seq, strerror(-nlmsgerr->error));
+        if (nlmsgerr->error < 0 && nlmsgerr->error != -EEXIST)
                 return nlmsgerr->error;
-        }
 
         return response.header.nlmsg_seq;
+}
+
+static int check_loopback(void) {
+        int r, fd;
+        union {
+                struct sockaddr sa;
+                struct sockaddr_in in;
+        } sa;
+
+        /* If we failed to set up the loop back device, check whether
+         * it might already be set up */
+
+        fd = socket(AF_INET, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+        if (fd < 0)
+                return -errno;
+
+        zero(sa);
+        sa.in.sin_family = AF_INET;
+        sa.in.sin_addr.s_addr = INADDR_LOOPBACK;
+
+        if (bind(fd, &sa.sa, sizeof(sa.in)) >= 0)
+                r = 1;
+        else
+                r = errno == EADDRNOTAVAIL ? 0 : -errno;
+
+        close_nointr_nofail(fd);
+
+        return r;
 }
 
 int loopback_setup(void) {
@@ -230,35 +261,47 @@ int loopback_setup(void) {
         union {
                 struct sockaddr sa;
                 struct sockaddr_nl nl;
-                struct sockaddr_storage storage;
         } sa;
         unsigned requests = 0, i;
         int fd;
+        bool eperm = false;
 
         errno = 0;
-        if ((if_loopback = (int) if_nametoindex("lo")) <= 0)
+        if_loopback = (int) if_nametoindex("lo");
+        if (if_loopback <= 0)
                 return errno ? -errno : -ENODEV;
 
-        if ((fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE)) < 0)
+        fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+        if (fd < 0)
                 return -errno;
 
         zero(sa);
         sa.nl.nl_family = AF_NETLINK;
-
         if (bind(fd, &sa.sa, sizeof(sa)) < 0) {
                 r = -errno;
                 goto finish;
         }
 
-        if ((r = add_adresses(fd, if_loopback, &requests)) < 0)
+        r = add_adresses(fd, if_loopback, &requests);
+        if (r < 0)
                 goto finish;
 
-        if ((r = start_interface(fd, if_loopback, &requests)) < 0)
+        r = start_interface(fd, if_loopback, &requests);
+        if (r < 0)
                 goto finish;
 
         for (i = 0; i < requests; i++) {
-                if ((r = read_response(fd, requests)) < 0)
+                r = read_response(fd, requests);
+
+                if (r == -EPERM)
+                        eperm = true;
+                else if (r  < 0)
                         goto finish;
+        }
+
+        if (eperm && check_loopback() < 0) {
+                r = -EPERM;
+                goto finish;
         }
 
         r = 0;
