@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Notify Audit System and Update UTMP about System Shutdown
+Description=Update UTMP about System Shutdown
 DefaultDependencies=no
 After=local-fs.target sysinit.target auditd.service systemd-update-utmp-runlevel.service
 Before=poweroff.service reboot.service halt.service
