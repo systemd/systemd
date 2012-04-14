@@ -31,15 +31,13 @@ AUTHOR:
 LICENSE:
         LGPLv2.1+ for all code
         - except sd-daemon.[ch] and sd-readahead.[ch] which are MIT
-        - except src/udev/ which is GPLv2.0+, excluding
-          src/udev/libudev* which is LGPLv2.1+
+        - except src/udev/ which is GPLv2.0+
 
 REQUIREMENTS:
         Linux kernel >= 2.6.39
                 with devtmpfs
                 with cgroups (but it's OK to disable all controllers)
                 optional but strongly recommended: autofs4, ipv6
-        libudev >= 172
         dbus >= 1.4.0
         libcap
         PAM >= 1.1.2 (optional)
