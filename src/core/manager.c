@@ -3165,11 +3165,14 @@ int manager_set_default_controllers(Manager *m, char **controllers) {
 
         assert(m);
 
-        if (!(l = strv_copy(controllers)))
+        l = strv_copy(controllers);
+        if (!l)
                 return -ENOMEM;
 
         strv_free(m->default_controllers);
         m->default_controllers = l;
+
+        manager_shorten_default_controllers(m);
 
         return 0;
 }
