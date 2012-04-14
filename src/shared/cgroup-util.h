@@ -48,6 +48,7 @@ int cg_join_spec(const char *controller, const char *path, char **spec);
 int cg_fix_path(const char *path, char **result);
 
 int cg_get_path(const char *controller, const char *path, const char *suffix, char **fs);
+int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **fs);
 int cg_get_by_pid(const char *controller, pid_t pid, char **path);
 
 int cg_trim(const char *controller, const char *path, bool delete_root);

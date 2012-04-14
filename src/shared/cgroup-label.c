@@ -43,7 +43,8 @@ int cg_create(const char *controller, const char *path) {
         assert(controller);
         assert(path);
 
-        if ((r = cg_get_path(controller, path, NULL, &fs)) < 0)
+        r = cg_get_path_and_check(controller, path, NULL, &fs);
+        if (r < 0)
                 return r;
 
         r = mkdir_parents(fs, 0755);

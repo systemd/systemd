@@ -502,13 +502,46 @@ finish:
         return ret;
 }
 
+static const char *normalize_controller(const char *controller) {
+
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER))
+                return "systemd";
+        else if (startswith(controller, "name="))
+                return controller + 5;
+        else
+                return controller;
+}
+
+static int join_path(const char *controller, const char *path, const char *suffix, char **fs) {
+        char *t;
+
+        if (path && suffix)
+                t = join("/sys/fs/cgroup/", controller, "/", path, "/", suffix, NULL);
+        else if (path)
+                t = join("/sys/fs/cgroup/", controller, "/", path, NULL);
+        else if (suffix)
+                t = join("/sys/fs/cgroup/", controller, "/", suffix, NULL);
+        else
+                t = join("/sys/fs/cgroup/", controller, NULL);
+
+        if (!t)
+                return -ENOMEM;
+
+        path_kill_slashes(t);
+
+        *fs = t;
+        return 0;
+}
+
 int cg_get_path(const char *controller, const char *path, const char *suffix, char **fs) {
         const char *p;
-        char *t;
         static __thread bool good = false;
 
         assert(controller);
         assert(fs);
+
+        if (isempty(controller))
+                return -EINVAL;
 
         if (_unlikely_(!good)) {
                 int r;
@@ -521,38 +554,30 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
                 good = true;
         }
 
+        p = normalize_controller(controller);
+
+        return join_path(p, path, suffix, fs);
+}
+
+int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **fs) {
+        const char *p;
+        char *cc;
+
+        assert(controller);
+        assert(fs);
+
         if (isempty(controller))
                 return -EINVAL;
 
-        /* This is a very minimal lookup from controller names to
-         * paths. Since we have mounted most hierarchies ourselves
-         * should be kinda safe, but eventually we might want to
-         * extend this to have a fallback to actually check
-         * /proc/mounts. Might need caching then. */
+        p = normalize_controller(controller);
 
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER))
-                p = "systemd";
-        else if (startswith(controller, "name="))
-                p = controller + 5;
-        else
-                p = controller;
+        /* Check if this controller actually really exists */
+        cc = alloca(sizeof("/sys/fs/cgroup/") + strlen(p));
+        strcpy(stpcpy(cc, "/sys/fs/cgroup/"), p);
+        if (access(cc, F_OK) < 0)
+                return -errno;
 
-        if (path && suffix)
-                t = join("/sys/fs/cgroup/", p, "/", path, "/", suffix, NULL);
-        else if (path)
-                t = join("/sys/fs/cgroup/", p, "/", path, NULL);
-        else if (suffix)
-                t = join("/sys/fs/cgroup/", p, "/", suffix, NULL);
-        else
-                t = join("/sys/fs/cgroup/", p, NULL);
-
-        if (!t)
-                return -ENOMEM;
-
-        path_kill_slashes(t);
-
-        *fs = t;
-        return 0;
+        return join_path(p, path, suffix, fs);
 }
 
 static int trim_cb(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
@@ -646,7 +671,8 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         assert(path);
         assert(pid >= 0);
 
-        if ((r = cg_get_path(controller, path, "tasks", &fs)) < 0)
+        r = cg_get_path_and_check(controller, path, "tasks", &fs);
+        if (r < 0)
                 return r;
 
         if (pid == 0)

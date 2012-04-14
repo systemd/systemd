@@ -334,7 +334,8 @@ int manager_setup_cgroup(Manager *m) {
         }
 
         /* 2. Show data */
-        if ((r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, NULL, &path)) < 0) {
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, NULL, &path);
+        if (r < 0) {
                 log_error("Cannot find cgroup mount point: %s", strerror(-r));
                 goto finish;
         }
@@ -342,7 +343,8 @@ int manager_setup_cgroup(Manager *m) {
         log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER ". File system hierarchy is at %s.", path);
 
         /* 3. Install agent */
-        if ((r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH)) < 0)
+        r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH);
+        if (r < 0)
                 log_warning("Failed to install release agent, ignoring: %s", strerror(-r));
         else if (r > 0)
                 log_debug("Installed release agent.");
