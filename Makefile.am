@@ -2913,6 +2913,7 @@ CLEANFILES += \
 if HAVE_XSLTPROC
 XSLTPROC_FLAGS = \
 	--nonet \
+	--stringparam man.output.quietly 1 \
 	--stringparam funcsynopsis.style ansi
 
 XSLTPROC_PROCESS_MAN = \
