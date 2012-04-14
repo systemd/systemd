@@ -136,7 +136,8 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/journal \
 	-I $(top_srcdir)/src/systemd \
 	-I $(top_srcdir)/src/core \
-	-I $(top_srcdir)/src/libudev
+	-I $(top_srcdir)/src/libudev \
+	-I $(top_srcdir)/src/udev
 
 AM_CFLAGS = $(WARNINGFLAGS)
 AM_LDFLAGS = $(GCLDFLAGS)
@@ -1486,21 +1487,21 @@ udevadm_LDADD = \
 
 # ------------------------------------------------------------------------------
 TESTS += \
-	src/udev/test/udev-test.pl \
-	src/udev/test/rules-test.sh
+	test/udev-test.pl \
+	test/rules-test.sh
 
 noinst_PROGRAMS += \
 	test-libudev \
 	test-udev
 
 test_libudev_SOURCES = \
-	src/udev/test-libudev.c
+	src/test/test-libudev.c
 
 test_libudev_LDADD = \
 	libudev.la
 
 test_udev_SOURCES = \
-	src/udev/test-udev.c
+	src/test/test-udev.c
 
 test_udev_LDADD = \
 	libudev-core.la \
@@ -1508,21 +1509,21 @@ test_udev_LDADD = \
 	libsystemd-shared.la
 
 check_DATA += \
-	src/udev/test/sys
+	test/sys
 
 # packed sysfs test tree
-src/udev/test/sys:
-	$(AM_V_GEN)mkdir -p src/udev/test && tar -C src/udev/test/ -xJf $(top_srcdir)/src/udev/test/sys.tar.xz
+test/sys:
+	$(AM_V_GEN)mkdir -p test && tar -C test/ -xJf $(top_srcdir)/test/sys.tar.xz
 
 test-sys-distclean:
-	-rm -rf src/udev/test/sys
+	-rm -rf test/sys
 DISTCLEAN_LOCAL_HOOKS += test-sys-distclean
 
 EXTRA_DIST += \
-	src/udev/test/sys.tar.xz \
-	src/udev/test/udev-test.pl \
-	src/udev/test/rules-test.sh \
-	src/udev/test/rule-syntax-check.py
+	test/sys.tar.xz \
+	test/udev-test.pl \
+	test/rules-test.sh \
+	test/rule-syntax-check.py
 
 # ------------------------------------------------------------------------------
 ata_id_SOURCES = \

@@ -21,7 +21,7 @@ use warnings;
 use strict;
 
 my $PWD                 = $ENV{PWD};
-my $sysfs               = "src/udev/test/sys";
+my $sysfs               = "test/sys";
 my $udev_bin            = "./test-udev";
 my $valgrind            = 0;
 my $udev_bin_valgrind   = "valgrind --tool=memcheck --leak-check=yes --quiet $udev_bin";

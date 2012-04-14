@@ -12,4 +12,4 @@ type python >/dev/null 2>&1 || {
         exit 0
 }
 
-$srcdir/src/udev/test/rule-syntax-check.py `find $srcdir/rules -name '*.rules'`
+$srcdir/test/rule-syntax-check.py `find $srcdir/rules -name '*.rules'`
