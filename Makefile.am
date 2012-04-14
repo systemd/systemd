@@ -1548,7 +1548,7 @@ udevlibexec_PROGRAMS += \
 	cdrom_id
 
 dist_udevrules_DATA += \
-	src/udev/cdrom_id/60-cdrom_id.rules
+	rules/60-cdrom_id.rules
 
 # ------------------------------------------------------------------------------
 collect_SOURCES = \
@@ -1588,7 +1588,7 @@ udevlibexec_PROGRAMS += \
 	v4l_id
 
 dist_udevrules_DATA += \
-	src/udev/v4l_id/60-persistent-v4l.rules
+	rules/60-persistent-v4l.rules
 
 # ------------------------------------------------------------------------------
 accelerometer_SOURCES = \
@@ -1602,7 +1602,7 @@ udevlibexec_PROGRAMS += \
 	accelerometer
 
 dist_udevrules_DATA += \
-	src/udev/accelerometer/61-accelerometer.rules
+	rules/61-accelerometer.rules
 
 # ------------------------------------------------------------------------------
 if ENABLE_GUDEV
@@ -1904,7 +1904,7 @@ mtd_probe_CPPFLAGS = \
 	$(AM_CPPFLAGS)
 
 dist_udevrules_DATA += \
-	src/udev/mtd_probe/75-probe_mtd.rules
+	rules/75-probe_mtd.rules
 
 udevlibexec_PROGRAMS += \
 	mtd_probe
