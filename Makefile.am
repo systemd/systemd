@@ -1873,12 +1873,12 @@ dist_udevkeymap_DATA = \
 
 udevkeymapforcereldir = $(libexecdir)/udev/keymaps/force-release
 dist_udevkeymapforcerel_DATA = \
-	src/udev/keymap/force-release-maps/dell-touchpad \
-	src/udev/keymap/force-release-maps/dell-xps \
-	src/udev/keymap/force-release-maps/hp-other \
-	src/udev/keymap/force-release-maps/samsung-other \
-	src/udev/keymap/force-release-maps/samsung-90x3a \
-	src/udev/keymap/force-release-maps/common-volume-keys
+	keymaps-force-release/dell-touchpad \
+	keymaps-force-release/dell-xps \
+	keymaps-force-release/hp-other \
+	keymaps-force-release/samsung-other \
+	keymaps-force-release/samsung-90x3a \
+	keymaps-force-release/common-volume-keys
 
 src/udev/keymap/keys.txt: $(INCLUDE_PREFIX)/linux/input.h
 	$(AM_V_at)mkdir -p src/udev/keymap
