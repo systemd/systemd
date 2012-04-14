@@ -28,7 +28,7 @@ SUBSYSTEM=="block", KERNEL!="ram*|loop*", ENV{DM_UUID}=="CRYPT-*", ENV{ID_PART_T
 # accessible or not does not matter as long as it is unique and in the
 # filesystem namespace.
 #
-# http://git.kernel.org/?p=linux/hotplug/udev.git;a=blob;f=libudev/libudev-enumerate.c;h=da831449dcaf5e936a14409e8e68ab12d30a98e2;hb=HEAD#l742
+# http://cgit.freedesktop.org/systemd/systemd/tree/src/libudev/libudev-enumerate.c#n922
 
 SUBSYSTEM=="net", KERNEL!="lo", TAG+="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/net/devices/$name"
 SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/bluetooth/devices/%k"
