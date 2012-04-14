@@ -19,17 +19,20 @@ Features:
 
 * cg_create_and_attach() should fail for non-available controllers
 
-* make gtk-doc optional (like kmod?)
+* udevd: SIGKILL all non-udevd processes in udev.service cgroup when entering idle
+  (the time to be able start services from udev rules is over on systemd systems)
 
-* udev: find a way to tell udev to not cancel firmware requests in initramfs
+* udev: remove /sys and /dev configurability
 
-* udev: scsi_id -> sg3_utils?
+* udev: find a way to tell udev to not cancel firmware requests when running in initramfs
 
-* udev: add trigger --subsystem-match=usb/usb_device
+* udev: scsi_id -> sg3_utils -> kill scsi_id
+
+* udev: add trigger --subsystem-match=usb/usb_device device
 
 * udev: libudev.so.1
-  - remove deprecated symbols
   - use symbol versioning
+  - remove deprecated symbols
   - return object with *_unref()
   - kill: udev_monitor_from_socket()
   - kill: udev_queue_get_failed_list_entry()

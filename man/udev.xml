@@ -287,6 +287,8 @@
             successfully. The device properties are made available to the
             executed program in the environment. The program's stdout
             is available in the RESULT key.</para>
+            <para>This can only be used for very short-running foreground tasks. For details
+            see <option>RUN</option>.</para>
           </listitem>
         </varlistentry>
 
@@ -401,10 +403,12 @@
             /usr/lib/udev, otherwise the absolute path must be specified. The program
             name and following arguments are separated by spaces. Single quotes can
             be used to specify arguments with spaces.</para>
-            <para>This can only be used for very short running tasks. Running an
+            <para>This can only be used for very short-running foreground tasks. Running an
             event process for a long period of time may block all further events for
-            this or a dependent device. Starting daemons or other long running processes
-            is not appropriate for udev.</para>
+            this or a dependent device.</para>
+            <para>Starting daemons or other long running processes is not appropriate
+            for udev; the forked processes, detached or not, will be unconditionally
+            killed after the event handling has finished.</para>
           </listitem>
         </varlistentry>
 
@@ -470,6 +474,8 @@
                 </listitem>
               </varlistentry>
             </variablelist>
+            <para>This can only be used for very short-running foreground tasks. For details
+            see <option>RUN</option>.</para>
           </listitem>
         </varlistentry>
 
