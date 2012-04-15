@@ -19,9 +19,6 @@ Features:
 
 * cg_create_and_attach() should fail for non-available controllers
 
-* udevd: SIGKILL all non-udevd processes in udev.service cgroup when entering idle
-  (the time to be able start services from udev rules is over on systemd systems)
-
 * udev: remove /sys and /dev configurability
 
 * udev: find a way to tell udev to not cancel firmware requests when running in initramfs

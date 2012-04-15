@@ -46,6 +46,7 @@
 
 #include "udev.h"
 #include "sd-daemon.h"
+#include "cgroup-util.h"
 
 static bool debug;
 
@@ -72,6 +73,7 @@ static int exec_delay;
 static sigset_t sigmask_orig;
 static UDEV_LIST(event_list);
 static UDEV_LIST(worker_list);
+char *udev_cgroup;
 static bool udev_exit;
 
 enum event_state {
@@ -452,21 +454,12 @@ static int event_queue_insert(struct udev_device *dev)
         return 0;
 }
 
-static void worker_kill(struct udev *udev, int retain)
+static void worker_kill(struct udev *udev)
 {
         struct udev_list_node *loop;
-        int max;
-
-        if (children <= retain)
-                return;
-
-        max = children - retain;
 
         udev_list_node_foreach(loop, &worker_list) {
                 struct worker *worker = node_to_worker(loop);
-
-                if (max-- <= 0)
-                        break;
 
                 if (worker->state == WORKER_KILLED)
                         continue;
@@ -635,7 +628,7 @@ static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl)
                 log_debug("udevd message (SET_LOG_PRIORITY) received, log_priority=%i\n", i);
                 log_set_max_level(i);
                 udev_set_log_priority(udev, i);
-                worker_kill(udev, 0);
+                worker_kill(udev);
         }
 
         if (udev_ctrl_get_stop_exec_queue(ctrl_msg) > 0) {
@@ -677,7 +670,7 @@ static struct udev_ctrl_connection *handle_ctrl_msg(struct udev_ctrl *uctrl)
                         }
                         free(key);
                 }
-                worker_kill(udev, 0);
+                worker_kill(udev);
         }
 
         i = udev_ctrl_get_set_children_max(ctrl_msg);
@@ -1144,8 +1137,8 @@ int main(int argc, char *argv[])
                         break;
                 case 'D':
                         debug = true;
-                        if (udev_get_log_priority(udev) < LOG_INFO)
-                                udev_set_log_priority(udev, LOG_INFO);
+                        log_set_max_level(LOG_DEBUG);
+                        udev_set_log_priority(udev, LOG_INFO);
                         break;
                 case 'N':
                         if (strcmp (optarg, "early") == 0) {
@@ -1263,6 +1256,10 @@ int main(int argc, char *argv[])
                         rc = 3;
                         goto exit;
                 }
+
+                /* get our own cgroup, we regularly kill everything udev has left behind */
+                if (cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 0, &udev_cgroup) < 0)
+                        udev_cgroup = NULL;
         } else {
                 /* open control and netlink socket */
                 udev_ctrl = udev_ctrl_new(udev);
@@ -1480,7 +1477,7 @@ int main(int argc, char *argv[])
 
                         /* discard queued events and kill workers */
                         event_queue_cleanup(udev, EVENT_QUEUED);
-                        worker_kill(udev, 0);
+                        worker_kill(udev);
 
                         /* exit after all has cleaned up */
                         if (udev_list_node_is_empty(&event_list) && udev_list_node_is_empty(&worker_list))
@@ -1488,9 +1485,13 @@ int main(int argc, char *argv[])
 
                         /* timeout at exit for workers to finish */
                         timeout = 30 * 1000;
-                } else if (udev_list_node_is_empty(&event_list) && children <= 2) {
+                } else if (udev_list_node_is_empty(&event_list) && !children) {
                         /* we are idle */
                         timeout = -1;
+
+                        /* cleanup possible left-over processes in our cgroup */
+                        if (udev_cgroup)
+                                cg_kill(SYSTEMD_CGROUP_CONTROLLER, udev_cgroup, SIGKILL, false, true, NULL);
                 } else {
                         /* kill idle or hanging workers */
                         timeout = 3 * 1000;
@@ -1511,7 +1512,7 @@ int main(int argc, char *argv[])
                         /* kill idle workers */
                         if (udev_list_node_is_empty(&event_list)) {
                                 log_debug("cleanup idle workers\n");
-                                worker_kill(udev, 2);
+                                worker_kill(udev);
                         }
 
                         /* check for hanging events */
@@ -1566,7 +1567,7 @@ int main(int argc, char *argv[])
 
                 /* reload requested, HUP signal received, rules changed, builtin changed */
                 if (reload) {
-                        worker_kill(udev, 0);
+                        worker_kill(udev);
                         rules = udev_rules_unref(rules);
                         udev_builtin_exit(udev);
                         reload = 0;
