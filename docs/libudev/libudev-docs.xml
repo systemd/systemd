@@ -15,7 +15,7 @@
   </bookinfo>
 
   <chapter>
-    <title>libudev</title>
+    <title>API Reference</title>
     <xi:include href="xml/libudev.xml"/>
     <xi:include href="xml/libudev-list.xml"/>
     <xi:include href="xml/libudev-device.xml"/>
@@ -26,7 +26,7 @@
   </chapter>
 
   <index id="api-index-full">
-    <title>API Index</title>
+    <title>Index</title>
     <xi:include href="xml/api-index-full.xml"><xi:fallback /></xi:include>
   </index>
 </book>

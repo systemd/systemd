@@ -7,7 +7,7 @@
 <book id="index" xmlns:xi="http://www.w3.org/2003/XInclude">
   <bookinfo>
     <title>GUDev Reference Manual</title>
-    <releaseinfo>For GUdev version &version;</releaseinfo>
+    <releaseinfo>for GUdev version &version;</releaseinfo>
 
     <copyright>
       <year>2009-2012</year>
@@ -16,18 +16,12 @@
     </copyright>
   </bookinfo>
 
-  <reference id="ref-API">
+  <chapter id="ref-API">
     <title>API Reference</title>
-    <partintro>
-      <para>
-        This part presents the class and function reference for the
-        <literal>libgudev</literal> library.
-      </para>
-    </partintro>
     <xi:include href="xml/gudevclient.xml"/>
     <xi:include href="xml/gudevdevice.xml"/>
     <xi:include href="xml/gudevenumerator.xml"/>
-  </reference>
+  </chapter>
 
   <chapter id="gudev-hierarchy">
     <title>Object Hierarchy</title>
@@ -37,6 +31,7 @@
   <index>
     <title>Index</title>
   </index>
+
   <index role="165">
     <title>Index of new symbols in 165</title>
     <xi:include href="xml/api-index-165.xml"><xi:fallback /></xi:include>
