@@ -106,8 +106,10 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
  *
  * Returns: #NULL
  **/
+struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);
 _public_ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path)
 {
+        err(udev, "udev_monitor_new_from_socket() does not do anything; please migrate to netlink\n");
         errno = ENOSYS;
         return NULL;
 }

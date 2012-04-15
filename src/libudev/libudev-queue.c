@@ -461,6 +461,7 @@ _public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_qu
 struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev_queue);
 _public_ struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev_queue)
 {
+        err(udev_queue->udev, "udev_queue_get_failed_list_entry() does not return anything; failed events are not recorded\n");
         errno = ENOSYS;
         return NULL;
 }

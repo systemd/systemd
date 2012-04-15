@@ -1,6 +1,4 @@
 Bugfixes:
-* fix Fedora's cups.rpm to use tmpfiles instead of /lib/udev/devices/
-
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
 * make anaconda write timeout=0 for encrypted devices

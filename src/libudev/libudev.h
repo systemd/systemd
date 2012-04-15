@@ -125,7 +125,6 @@ int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_mo
 int udev_monitor_filter_add_match_tag(struct udev_monitor *udev_monitor, const char *tag);
 int udev_monitor_filter_update(struct udev_monitor *udev_monitor);
 int udev_monitor_filter_remove(struct udev_monitor *udev_monitor);
-__attribute__((deprecated)) struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);
 
 /*
  * udev_enumerate
