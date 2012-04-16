@@ -856,7 +856,7 @@ static void static_dev_create_from_modules(struct udev *udev)
                 else
                         continue;
 
-                util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/", devname, NULL);
+                util_strscpyl(filename, sizeof(filename), "/dev/", devname, NULL);
                 util_create_path_selinux(udev, filename);
                 udev_selinux_setfscreatecon(udev, filename, mode);
                 log_debug("mknod '%s' %c%u:%u\n", filename, type, maj, min);
@@ -885,7 +885,7 @@ static void static_dev_create_links(struct udev *udev)
         };
         unsigned int i;
 
-        dir = opendir(udev_get_dev_path(udev));
+        dir = opendir("/dev");
         if (dir == NULL)
                 return;
 
@@ -934,16 +934,15 @@ static int convert_db(struct udev *udev)
         struct udev_list_entry *list_entry;
 
         /* current database */
-        util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/data", NULL);
-        if (access(filename, F_OK) >= 0)
+        if (access("/run/udev/data", F_OK) >= 0)
                 return 0;
 
         /* make sure we do not get here again */
-        util_create_path(udev, filename);
+        util_create_path(udev, "/run/udev/data");
         mkdir(filename, 0755);
 
         /* old database */
-        util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db", NULL);
+        util_strscpyl(filename, sizeof(filename), "/dev/.udev/db", NULL);
         if (access(filename, F_OK) < 0)
                 return 0;
 
@@ -976,7 +975,7 @@ static int convert_db(struct udev *udev)
 
                         /* find database in old location */
                         id = udev_device_get_id_filename(device);
-                        util_strscpyl(from, sizeof(from), udev_get_dev_path(udev), "/.udev/db/", id, NULL);
+                        util_strscpyl(from, sizeof(from), "/dev/.udev/db/", id, NULL);
                         if (lstat(from, &stats) == 0) {
                                 if (!have_db) {
                                         udev_device_read_db(device, from);
@@ -986,9 +985,8 @@ static int convert_db(struct udev *udev)
                         }
 
                         /* find old database with $subsys:$sysname name */
-                        util_strscpyl(from, sizeof(from), udev_get_dev_path(udev),
-                                     "/.udev/db/", udev_device_get_subsystem(device), ":",
-                                     udev_device_get_sysname(device), NULL);
+                        util_strscpyl(from, sizeof(from), "/dev/.udev/db/",
+                                      udev_device_get_subsystem(device), ":", udev_device_get_sysname(device), NULL);
                         if (lstat(from, &stats) == 0) {
                                 if (!have_db) {
                                         udev_device_read_db(device, from);
@@ -999,7 +997,7 @@ static int convert_db(struct udev *udev)
 
                         /* find old database with the encoded devpath name */
                         util_path_encode(udev_device_get_devpath(device), devpath, sizeof(devpath));
-                        util_strscpyl(from, sizeof(from), udev_get_dev_path(udev), "/.udev/db/", devpath, NULL);
+                        util_strscpyl(from, sizeof(from), "/dev/.udev/db/", devpath, NULL);
                         if (lstat(from, &stats) == 0) {
                                 if (!have_db) {
                                         udev_device_read_db(device, from);
@@ -1052,36 +1050,6 @@ static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink)
         *rctrl = ctrl;
         *rnetlink = netlink;
         return 0;
-}
-
-static bool check_rules_timestamp(struct udev *udev)
-{
-        char **p;
-        unsigned long long *stamp_usec;
-        int i, n;
-        bool changed = false;
-
-        n = udev_get_rules_path(udev, &p, &stamp_usec);
-        for (i = 0; i < n; i++) {
-                struct stat stats;
-
-                if (stat(p[i], &stats) < 0)
-                        continue;
-
-                if (stamp_usec[i] == ts_usec(&stats.st_mtim))
-                        continue;
-
-                /* first check */
-                if (stamp_usec[i] != 0) {
-                        log_debug("reload - timestamp of '%s' changed\n", p[i]);
-                        changed = true;
-                }
-
-                /* update timestamp */
-                stamp_usec[i] = ts_usec(&stats.st_mtim);
-        }
-
-        return changed;
 }
 
 int main(int argc, char *argv[])
@@ -1216,8 +1184,7 @@ int main(int argc, char *argv[])
         chdir("/");
         umask(022);
 
-        /* /run/udev */
-        mkdir(udev_get_run_path(udev), 0755);
+        mkdir("/run/udev", 0755);
 
         /* create standard links, copy static nodes, create nodes from modules */
         static_dev_create_links(udev);
@@ -1557,7 +1524,7 @@ int main(int argc, char *argv[])
 
                 /* check for changed config, every 3 seconds at most */
                 if ((now_usec() - last_usec) > 3 * 1000 * 1000) {
-                        if (check_rules_timestamp(udev))
+                        if (udev_rules_check_timestamp(rules))
                                 reload = true;
                         if (udev_builtin_validate(udev))
                                 reload = true;

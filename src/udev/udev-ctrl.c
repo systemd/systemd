@@ -93,8 +93,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd)
         }
 
         uctrl->saddr.sun_family = AF_LOCAL;
-        util_strscpyl(uctrl->saddr.sun_path, sizeof(uctrl->saddr.sun_path),
-                      udev_get_run_path(udev), "/control", NULL);
+        util_strscpy(uctrl->saddr.sun_path, sizeof(uctrl->saddr.sun_path), "/run/udev/control");
         uctrl->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(uctrl->saddr.sun_path);
         return uctrl;
 }

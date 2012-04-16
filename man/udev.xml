@@ -65,14 +65,6 @@
       The following variables can be set:</para>
       <variablelist>
         <varlistentry>
-          <term><option>udev_root</option></term>
-          <listitem>
-            <para>Specifies where to place the device nodes in the filesystem.
-            The default value is <filename>/dev</filename>.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><option>udev_log</option></term>
           <listitem>
             <para>The logging priority. Valid values are the numerical syslog priorities

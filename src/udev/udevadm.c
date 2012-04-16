@@ -128,8 +128,6 @@ int main(int argc, char *argv[])
         }
         command = argv[optind];
 
-        log_debug("runtime dir '%s'\n", udev_get_run_path(udev));
-
         if (command != NULL)
                 for (i = 0; i < ELEMENTSOF(udevadm_cmds); i++) {
                         if (strcmp(udevadm_cmds[i]->name, command) == 0) {

@@ -112,8 +112,8 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
         }
 
         /* add /sys if needed */
-        if (strncmp(syspath, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0)
-                util_strscpyl(filename, sizeof(filename), udev_get_sys_path(udev), syspath, NULL);
+        if (strncmp(syspath, "/sys", strlen("/sys")) != 0)
+                util_strscpyl(filename, sizeof(filename), "/sys", syspath, NULL);
         else
                 util_strscpy(filename, sizeof(filename), syspath);
         util_remove_trailing_chars(filename, '/');

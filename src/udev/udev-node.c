@@ -203,8 +203,8 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
         const char *target;
         char buf[UTIL_PATH_SIZE];
 
-        util_path_encode(&slink[strlen(udev_get_dev_path(udev))+1], name_enc, sizeof(name_enc));
-        util_strscpyl(dirname, sizeof(dirname), udev_get_run_path(udev), "/links/", name_enc, NULL);
+        util_path_encode(slink + strlen(TEST_PREFIX "/dev"), name_enc, sizeof(name_enc));
+        util_strscpyl(dirname, sizeof(dirname), TEST_PREFIX "/run/udev/links/", name_enc, NULL);
         util_strscpyl(filename, sizeof(filename), dirname, "/", udev_device_get_id_filename(dev), NULL);
 
         if (!add && unlink(filename) == 0)
@@ -329,8 +329,7 @@ void udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
                 return;
 
         /* always add /dev/{block,char}/$major:$minor */
-        snprintf(filename, sizeof(filename), "%s/%s/%u:%u",
-                 udev_get_dev_path(udev),
+        snprintf(filename, sizeof(filename), TEST_PREFIX "/dev/%s/%u:%u",
                  strcmp(udev_device_get_subsystem(dev), "block") == 0 ? "block" : "char",
                  major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)));
         node_symlink(udev, udev_device_get_devnode(dev), filename);
@@ -347,7 +346,6 @@ void udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 
 void udev_node_remove(struct udev_device *dev)
 {
-        struct udev *udev = udev_device_get_udev(dev);
         struct udev_list_entry *list_entry;
         char filename[UTIL_PATH_SIZE];
 
@@ -356,8 +354,7 @@ void udev_node_remove(struct udev_device *dev)
                 link_update(dev, udev_list_entry_get_name(list_entry), 0);
 
         /* remove /dev/{block,char}/$major:$minor */
-        snprintf(filename, sizeof(filename), "%s/%s/%u:%u",
-                 udev_get_dev_path(udev),
+        snprintf(filename, sizeof(filename), TEST_PREFIX "/dev/%s/%u:%u",
                  strcmp(udev_device_get_subsystem(dev), "block") == 0 ? "block" : "char",
                  major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)));
         unlink(filename);

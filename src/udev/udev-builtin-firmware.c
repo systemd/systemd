@@ -112,7 +112,7 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
         }
 
         util_path_encode(firmware, fwencpath, sizeof(fwencpath));
-        util_strscpyl(misspath, sizeof(misspath), udev_get_run_path(udev), "/firmware-missing/", fwencpath, NULL);
+        util_strscpyl(misspath, sizeof(misspath), "/run/udev/firmware-missing/", fwencpath, NULL);
         util_strscpyl(loadpath, sizeof(loadpath), udev_device_get_syspath(dev), "/loading", NULL);
 
         if (fwfile == NULL) {

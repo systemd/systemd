@@ -434,7 +434,6 @@ int main(int argc, char *argv[])
         const char *syspath = "/devices/virtual/mem/null";
         const char *subsystem = NULL;
         char path[1024];
-        const char *str;
 
         udev = udev_new();
         printf("context: %p\n", udev);
@@ -474,14 +473,9 @@ int main(int argc, char *argv[])
                 }
         }
 
-        str = udev_get_sys_path(udev);
-        printf("sys_path: '%s'\n", str);
-        str = udev_get_dev_path(udev);
-        printf("dev_path: '%s'\n", str);
-
         /* add sys path if needed */
-        if (strncmp(syspath, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0) {
-                snprintf(path, sizeof(path), "%s%s", udev_get_sys_path(udev), syspath);
+        if (strncmp(syspath, "/sys", strlen("/sys")) != 0) {
+                snprintf(path, sizeof(path), "/sys/%s", syspath);
                 syspath = path;
         }
 

@@ -29,7 +29,7 @@ void udev_selinux_init(struct udev *udev)
         dbg(udev, "selinux=%i\n", selinux_enabled);
         if (!selinux_enabled)
                 return;
-        matchpathcon_init_prefix(NULL, udev_get_dev_path(udev));
+        matchpathcon_init_prefix(NULL, TEST_PREFIX "/dev");
         if (getfscreatecon(&selinux_prev_scontext) < 0) {
                 err(udev, "getfscreatecon failed\n");
                 selinux_prev_scontext = NULL;

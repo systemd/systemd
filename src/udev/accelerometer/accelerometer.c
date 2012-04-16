@@ -294,7 +294,7 @@ int main (int argc, char** argv)
         }
 
         /* get the device */
-        snprintf(devpath, sizeof(devpath), "%s/%s", udev_get_sys_path(udev), argv[optind]);
+        snprintf(devpath, sizeof(devpath), "/sys/%s", argv[optind]);
         dev = udev_device_new_from_syspath(udev, devpath);
         if (dev == NULL) {
                 fprintf(stderr, "unable to access '%s'\n", devpath);
@@ -307,9 +307,8 @@ int main (int argc, char** argv)
                 return 0;
         }
 
-        /* Get the children devices and find the devnode
-         * FIXME: use udev_enumerate_add_match_children() instead
-         * when it's available */
+        /* Get the children devices and find the devnode */
+        /* FIXME: use udev_enumerate_add_match_parent() instead */
         devnode = NULL;
         enumerate = udev_enumerate_new(udev);
         udev_enumerate_add_match_property(enumerate, "ID_PATH", id_path);

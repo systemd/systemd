@@ -405,7 +405,7 @@ int main(int argc, char **argv)
         if (debug)
                 fprintf(stderr, "Using checkpoint '%s'\n", checkpoint);
 
-        util_strscpyl(tmpdir, sizeof(tmpdir), udev_get_run_path(udev), "/collect", NULL);
+        util_strscpyl(tmpdir, sizeof(tmpdir), "/run/udev/collect", NULL);
         fd = prepare(tmpdir, checkpoint);
         if (fd < 0) {
                 ret = 3;

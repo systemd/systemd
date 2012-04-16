@@ -36,6 +36,13 @@
 #define PREALLOC_STRBUF         32 * 1024
 #define PREALLOC_TRIE           256
 
+/* configuration directories with last modification timestamp */
+static const char *rules_dirs[] = {
+        TEST_PREFIX UDEVLIBEXECDIR "/rules.d",
+        TEST_PREFIX "/run/udev/rules.d",
+        TEST_PREFIX SYSCONFDIR "/udev/rules.d",
+};
+
 struct uid_gid {
         unsigned int name_off;
         union {
@@ -58,6 +65,7 @@ struct trie_node {
 
 struct udev_rules {
         struct udev *udev;
+        unsigned long long dirs_ts_usec[ELEMENTSOF(rules_dirs)];
         int resolve_names;
 
         /* every key in the rules file becomes a token */
@@ -664,7 +672,6 @@ static gid_t add_gid(struct udev_rules *rules, const char *group)
 
 static int import_property_from_string(struct udev_device *dev, char *line)
 {
-        struct udev *udev = udev_device_get_udev(dev);
         char *key;
         char *val;
         size_t len;
@@ -724,7 +731,7 @@ static int import_property_from_string(struct udev_device *dev, char *line)
 
                 log_debug("updating devpath from '%s' to '%s'\n",
                           udev_device_get_devpath(dev), val);
-                util_strscpyl(syspath, sizeof(syspath), udev_get_sys_path(udev), val, NULL);
+                util_strscpyl(syspath, sizeof(syspath), "/sys", val, NULL);
                 udev_device_set_syspath(dev, syspath);
         } else {
                 struct udev_list_entry *entry;
@@ -807,7 +814,6 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
 #define WAIT_LOOP_PER_SECOND                50
 static int wait_for_file(struct udev_device *dev, const char *file, int timeout)
 {
-        struct udev *udev = udev_device_get_udev(dev);
         char filepath[UTIL_PATH_SIZE];
         char devicepath[UTIL_PATH_SIZE];
         struct stat stats;
@@ -816,8 +822,7 @@ static int wait_for_file(struct udev_device *dev, const char *file, int timeout)
         /* a relative path is a device attribute */
         devicepath[0] = '\0';
         if (file[0] != '/') {
-                util_strscpyl(devicepath, sizeof(devicepath),
-                              udev_get_sys_path(udev), udev_device_get_devpath(dev), NULL);
+                util_strscpyl(devicepath, sizeof(devicepath), udev_device_get_syspath(dev), NULL);
                 util_strscpyl(filepath, sizeof(filepath), devicepath, "/", file, NULL);
                 file = filepath;
         }
@@ -1746,7 +1751,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
         struct udev_list file_list;
         struct udev_list_entry *file_loop;
         struct token end_token;
-        char **s;
+        unsigned int i;
 
         rules = calloc(1, sizeof(struct udev_rules));
         if (rules == NULL)
@@ -1786,8 +1791,8 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
         memset(rules->trie_nodes, 0x00, sizeof(struct trie_node));
         rules->trie_nodes_cur = 1;
 
-        for (udev_get_rules_path(udev, &s, NULL); *s != NULL; s++)
-                add_matching_files(udev, &file_list, *s, ".rules");
+        for (i = 0; i < ELEMENTSOF(rules_dirs); i++)
+                add_matching_files(udev, &file_list, rules_dirs[i], ".rules");
 
         /* add all filenames to the string buffer */
         udev_list_entry_foreach(file_loop, udev_list_get_entry(&file_list)) {
@@ -1882,6 +1887,33 @@ struct udev_rules *udev_rules_unref(struct udev_rules *rules)
         free(rules->gids);
         free(rules);
         return NULL;
+}
+
+bool udev_rules_check_timestamp(struct udev_rules *rules)
+{
+        unsigned int i;
+        bool changed = false;
+
+        for (i = 0; i < ELEMENTSOF(rules_dirs); i++) {
+                struct stat stats;
+
+                if (stat(rules_dirs[i], &stats) < 0)
+                        continue;
+
+                if (rules->dirs_ts_usec[i] == ts_usec(&stats.st_mtim))
+                        continue;
+
+                /* first check */
+                if (rules->dirs_ts_usec[i] != 0) {
+                        log_debug("reload - timestamp of '%s' changed\n", rules_dirs[i]);
+                        changed = true;
+                }
+
+                /* update timestamp */
+                rules->dirs_ts_usec[i] = ts_usec(&stats.st_mtim);
+        }
+
+        return changed;
 }
 
 static int match_key(struct udev_rules *rules, struct token *token, const char *val)
@@ -2054,14 +2086,13 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                 goto nomatch;
                         break;
                 case TK_M_DEVLINK: {
-                        size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
                         struct udev_list_entry *list_entry;
                         bool match = false;
 
                         udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(event->dev)) {
                                 const char *devlink;
 
-                                devlink =  &udev_list_entry_get_name(list_entry)[devlen];
+                                devlink =  udev_list_entry_get_name(list_entry) + strlen(TEST_PREFIX "/dev/");
                                 if (match_key(rules, cur, devlink) == 0) {
                                         match = true;
                                         break;
@@ -2534,15 +2565,12 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                 if (count > 0)
                                         log_debug("%i character(s) replaced\n", count);
                         }
-                        if (major(udev_device_get_devnum(event->dev))) {
-                                size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
-
-                                if (strcmp(name_str, &udev_device_get_devnode(event->dev)[devlen]) != 0) {
-                                        log_error("NAME=\"%s\" ignored, kernel device nodes "
-                                            "can not be renamed; please fix it in %s:%u\n", name,
-                                            &rules->buf[rule->rule.filename_off], rule->rule.filename_line);
-                                        break;
-                                }
+                        if (major(udev_device_get_devnum(event->dev)) &&
+                            (strcmp(name_str, udev_device_get_devnode(event->dev) + strlen(TEST_PREFIX "/dev/")) != 0)) {
+                                log_error("NAME=\"%s\" ignored, kernel device nodes "
+                                    "can not be renamed; please fix it in %s:%u\n", name,
+                                    &rules->buf[rule->rule.filename_off], rule->rule.filename_line);
+                                break;
                         }
                         free(event->name);
                         event->name = strdup(name_str);
@@ -2583,7 +2611,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                 next[0] = '\0';
                                 log_debug("LINK '%s' %s:%u\n", pos,
                                           &rules->buf[rule->rule.filename_off], rule->rule.filename_line);
-                                util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", pos, NULL);
+                                util_strscpyl(filename, sizeof(filename), TEST_PREFIX "/dev/", pos, NULL);
                                 udev_device_add_devlink(event->dev, filename, cur->key.devlink_unique);
                                 while (isspace(next[1]))
                                         next++;
@@ -2593,7 +2621,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                         if (pos[0] != '\0') {
                                 log_debug("LINK '%s' %s:%u\n", pos,
                                           &rules->buf[rule->rule.filename_off], rule->rule.filename_line);
-                                util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", pos, NULL);
+                                util_strscpyl(filename, sizeof(filename), TEST_PREFIX "/dev/", pos, NULL);
                                 udev_device_add_devlink(event->dev, filename, cur->key.devlink_unique);
                         }
                         break;
@@ -2703,7 +2731,7 @@ void udev_rules_apply_static_dev_perms(struct udev_rules *rules)
                         /* we assure, that the permissions tokens are sorted before the static token */
                         if (mode == 0 && uid == 0 && gid == 0)
                                 goto next;
-                        util_strscpyl(filename, sizeof(filename), udev_get_dev_path(rules->udev), "/",
+                        util_strscpyl(filename, sizeof(filename), TEST_PREFIX "/dev/",
                                       &rules->buf[cur->key.value_off], NULL);
                         if (stat(filename, &stats) != 0)
                                 goto next;

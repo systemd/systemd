@@ -356,7 +356,7 @@ void udev_device_add_property_from_string_parse(struct udev_device *udev_device,
         if (strncmp(property, "DEVPATH=", 8) == 0) {
                 char path[UTIL_PATH_SIZE];
 
-                util_strscpyl(path, sizeof(path), udev_get_sys_path(udev_device->udev), &property[8], NULL);
+                util_strscpyl(path, sizeof(path), TEST_PREFIX "/sys", &property[8], NULL);
                 udev_device_set_syspath(udev_device, path);
         } else if (strncmp(property, "SUBSYSTEM=", 10) == 0) {
                 udev_device_set_subsystem(udev_device, &property[10]);
@@ -473,7 +473,7 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
                 id = udev_device_get_id_filename(udev_device);
                 if (id == NULL)
                         return -1;
-                util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev_device->udev), "/data/", id, NULL);
+                util_strscpyl(filename, sizeof(filename), TEST_PREFIX "/run/udev/data/", id, NULL);
                 dbfile = filename;
         }
 
@@ -496,7 +496,7 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
                 val = &line[2];
                 switch(line[0]) {
                 case 'S':
-                        util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/", val, NULL);
+                        util_strscpyl(filename, sizeof(filename), TEST_PREFIX "/dev/", val, NULL);
                         udev_device_add_devlink(udev_device, filename, 0);
                         break;
                 case 'L':
@@ -624,7 +624,6 @@ struct udev_device *udev_device_new(struct udev *udev)
  **/
 _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath)
 {
-        size_t len;
         const char *subdir;
         char path[UTIL_PATH_SIZE];
         char *pos;
@@ -637,14 +636,13 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
                 return NULL;
 
         /* path starts in sys */
-        len = strlen(udev_get_sys_path(udev));
-        if (strncmp(syspath, udev_get_sys_path(udev), len) != 0) {
+        if (strncmp(syspath, TEST_PREFIX "/sys", strlen(TEST_PREFIX "/sys")) != 0) {
                 dbg(udev, "not in sys :%s\n", syspath);
                 return NULL;
         }
 
         /* path is not a root directory */
-        subdir = &syspath[len+1];
+        subdir = syspath + strlen(TEST_PREFIX "/sys");
         pos = strrchr(subdir, '/');
         if (pos == NULL || pos[1] == '\0' || pos < &subdir[2])
                 return NULL;
@@ -653,7 +651,7 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
         util_strscpy(path, sizeof(path), syspath);
         util_resolve_sys_link(udev, path, sizeof(path));
 
-        if (strncmp(&path[len], "/devices/", 9) == 0) {
+        if (strncmp(path + strlen(TEST_PREFIX "/sys"), "/devices/", 9) == 0) {
                 char file[UTIL_PATH_SIZE];
 
                 /* all "devices" require a "uevent" file */
@@ -705,8 +703,8 @@ _public_ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char
                 return NULL;
 
         /* use /sys/dev/{block,char}/<maj>:<min> link */
-        snprintf(path, sizeof(path), "%s/dev/%s/%u:%u",
-                 udev_get_sys_path(udev), type_str, major(devnum), minor(devnum));
+        snprintf(path, sizeof(path), TEST_PREFIX "/sys/dev/%s/%u:%u",
+                 type_str, major(devnum), minor(devnum));
         return udev_device_new_from_syspath(udev, path);
 }
 
@@ -782,32 +780,27 @@ struct udev_device *udev_device_new_from_id_filename(struct udev *udev, char *id
  **/
 _public_ struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev, const char *subsystem, const char *sysname)
 {
-        char path_full[UTIL_PATH_SIZE];
-        char *path;
-        size_t l;
+        char path[UTIL_PATH_SIZE];
         struct stat statbuf;
 
-        path = path_full;
-        l = util_strpcpyl(&path, sizeof(path_full), udev_get_sys_path(udev), NULL);
-
         if (strcmp(subsystem, "subsystem") == 0) {
-                util_strscpyl(path, l, "/subsystem/", sysname, NULL);
-                if (stat(path_full, &statbuf) == 0)
+                util_strscpyl(path, sizeof(path), TEST_PREFIX "/sys/subsystem/", sysname, NULL);
+                if (stat(path, &statbuf) == 0)
                         goto found;
 
-                util_strscpyl(path, l, "/bus/", sysname, NULL);
-                if (stat(path_full, &statbuf) == 0)
+                util_strscpyl(path, sizeof(path), TEST_PREFIX "/sys/bus/", sysname, NULL);
+                if (stat(path, &statbuf) == 0)
                         goto found;
 
-                util_strscpyl(path, l, "/class/", sysname, NULL);
-                if (stat(path_full, &statbuf) == 0)
+                util_strscpyl(path, sizeof(path), TEST_PREFIX "/sys/class/", sysname, NULL);
+                if (stat(path, &statbuf) == 0)
                         goto found;
                 goto out;
         }
 
         if (strcmp(subsystem, "module") == 0) {
-                util_strscpyl(path, l, "/module/", sysname, NULL);
-                if (stat(path_full, &statbuf) == 0)
+                util_strscpyl(path, sizeof(path), TEST_PREFIX "/sys/module/", sysname, NULL);
+                if (stat(path, &statbuf) == 0)
                         goto found;
                 goto out;
         }
@@ -822,32 +815,32 @@ _public_ struct udev_device *udev_device_new_from_subsystem_sysname(struct udev 
                         driver[0] = '\0';
                         driver = &driver[1];
 
-                        util_strscpyl(path, l, "/subsystem/", subsys, "/drivers/", driver, NULL);
-                        if (stat(path_full, &statbuf) == 0)
+                        util_strscpyl(path, sizeof(path), TEST_PREFIX "/sys/subsystem/", subsys, "/drivers/", driver, NULL);
+                        if (stat(path, &statbuf) == 0)
                                 goto found;
 
-                        util_strscpyl(path, l, "/bus/", subsys, "/drivers/", driver, NULL);
-                        if (stat(path_full, &statbuf) == 0)
+                        util_strscpyl(path, sizeof(path), TEST_PREFIX "/sys/bus/", subsys, "/drivers/", driver, NULL);
+                        if (stat(path, &statbuf) == 0)
                                 goto found;
                 }
                 goto out;
         }
 
-        util_strscpyl(path, l, "/subsystem/", subsystem, "/devices/", sysname, NULL);
-        if (stat(path_full, &statbuf) == 0)
+        util_strscpyl(path, sizeof(path), TEST_PREFIX "/sys/subsystem/", subsystem, "/devices/", sysname, NULL);
+        if (stat(path, &statbuf) == 0)
                 goto found;
 
-        util_strscpyl(path, l, "/bus/", subsystem, "/devices/", sysname, NULL);
-        if (stat(path_full, &statbuf) == 0)
+        util_strscpyl(path, sizeof(path), TEST_PREFIX "/sys/bus/", subsystem, "/devices/", sysname, NULL);
+        if (stat(path, &statbuf) == 0)
                 goto found;
 
-        util_strscpyl(path, l, "/class/", subsystem, "/", sysname, NULL);
-        if (stat(path_full, &statbuf) == 0)
+        util_strscpyl(path, sizeof(path), TEST_PREFIX "/sys/class/", subsystem, "/", sysname, NULL);
+        if (stat(path, &statbuf) == 0)
                 goto found;
 out:
         return NULL;
 found:
-        return udev_device_new_from_syspath(udev, path_full);
+        return udev_device_new_from_syspath(udev, path);
 }
 
 /**
@@ -893,7 +886,7 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
         const char *subdir;
 
         util_strscpy(path, sizeof(path), udev_device->syspath);
-        subdir = &path[strlen(udev_get_sys_path(udev_device->udev))+1];
+        subdir = path + strlen(TEST_PREFIX "/sys/");
         for (;;) {
                 char *pos;
 
@@ -1438,7 +1431,7 @@ int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath
         udev_device->syspath = strdup(syspath);
         if (udev_device->syspath ==  NULL)
                 return -ENOMEM;
-        udev_device->devpath = &udev_device->syspath[strlen(udev_get_sys_path(udev_device->udev))];
+        udev_device->devpath = udev_device->syspath + strlen(TEST_PREFIX "/sys");
         udev_device_add_property(udev_device, "DEVPATH", udev_device->devpath);
 
         pos = strrchr(udev_device->syspath, '/');
@@ -1471,7 +1464,7 @@ int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode
 {
         free(udev_device->devnode);
         if (devnode[0] != '/') {
-                if (asprintf(&udev_device->devnode, "%s/%s", udev_get_dev_path(udev_device->udev), devnode) < 0)
+                if (asprintf(&udev_device->devnode, TEST_PREFIX "/dev/%s", devnode) < 0)
                         udev_device->devnode = NULL;
         } else {
                 udev_device->devnode = strdup(devnode);

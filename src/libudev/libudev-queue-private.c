@@ -101,14 +101,10 @@ struct udev_queue_export *udev_queue_export_unref(struct udev_queue_export *udev
 
 void udev_queue_export_cleanup(struct udev_queue_export *udev_queue_export)
 {
-        char filename[UTIL_PATH_SIZE];
-
         if (udev_queue_export == NULL)
                 return;
-        util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev_queue_export->udev), "/queue.tmp", NULL);
-        unlink(filename);
-        util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev_queue_export->udev), "/queue.bin", NULL);
-        unlink(filename);
+        unlink("/run/udev/queue.tmp");
+        unlink("/run/udev/queue.bin");
 }
 
 static int skip_to(FILE *file, long offset)
@@ -201,8 +197,6 @@ static int rebuild_queue_file(struct udev_queue_export *udev_queue_export)
 {
         unsigned long long int seqnum;
         struct queue_devpaths *devpaths = NULL;
-        char filename[UTIL_PATH_SIZE];
-        char filename_tmp[UTIL_PATH_SIZE];
         FILE *new_queue_file = NULL;
         unsigned int i;
 
@@ -218,8 +212,7 @@ static int rebuild_queue_file(struct udev_queue_export *udev_queue_export)
         }
 
         /* create new queue file */
-        util_strscpyl(filename_tmp, sizeof(filename_tmp), udev_get_run_path(udev_queue_export->udev), "/queue.tmp", NULL);
-        new_queue_file = fopen(filename_tmp, "w+");
+        new_queue_file = fopen("/run/udev/queue.tmp", "w+");
         if (new_queue_file == NULL)
                 goto error;
         seqnum = udev_queue_export->seqnum_max;
@@ -252,8 +245,7 @@ static int rebuild_queue_file(struct udev_queue_export *udev_queue_export)
                 goto error;
 
         /* rename the new file on top of the old one */
-        util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev_queue_export->udev), "/queue.bin", NULL);
-        if (rename(filename_tmp, filename) != 0)
+        if (rename("/run/udev/queue.tmp", "/run/udev/queue.bin") != 0)
                 goto error;
 
         if (udev_queue_export->queue_file != NULL)

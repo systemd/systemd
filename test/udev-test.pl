@@ -14,20 +14,19 @@
 # After creation and removal the result is checked against the
 # expected value and the result is printed.
 #
-# Copyright (C) 2004-2011 Kay Sievers <kay.sievers@vrfy.org>
+# Copyright (C) 2004-2012 Kay Sievers <kay.sievers@vrfy.org>
 # Copyright (C) 2004 Leann Ogasawara <ogasawara@osdl.org>
 
 use warnings;
 use strict;
 
-my $PWD                 = $ENV{PWD};
-my $sysfs               = "test/sys";
 my $udev_bin            = "./test-udev";
 my $valgrind            = 0;
 my $udev_bin_valgrind   = "valgrind --tool=memcheck --leak-check=yes --quiet $udev_bin";
-my $udev_root           = "udev-root";
-my $udev_conf           = "udev-test.conf";
-my $udev_rules          = "udev-test.rules";
+my $udev_dev            = "test/dev";
+my $udev_run            = "test/run";
+my $udev_rules_dir      = "$udev_run/udev/rules.d";
+my $udev_rules          = "$udev_rules_dir/udev-test.rules";
 
 my @tests = (
         {
@@ -251,15 +250,6 @@ EOF
                 exp_name        => "Major:8:minor:5:kernelnumber:5:id:0:0:0:0" ,
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", SYMLINK+="Major:%M:minor:%m:kernelnumber:%n:id:%b"
-EOF
-        },
-        {
-                desc            => "import of shell-value file",
-                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                exp_name        => "subdir/err/node" ,
-                rules           => <<EOF
-SUBSYSTEMS=="scsi", IMPORT{file}="udev-test.conf", SYMLINK+="subdir/%E{udev_log}/node"
-KERNEL=="ttyACM0", SYMLINK+="modem"
 EOF
         },
         {
@@ -555,7 +545,7 @@ EOF
                 exp_name        => "tty33",
                 exp_perms       => "0:0:0600",
                 rules           => <<EOF
-KERNEL=="tty33", SYMLINK+="tty33", OWNER="bad", GROUP="name"
+KERNEL=="tty33", OWNER="bad", GROUP="name"
 EOF
         },
         {
@@ -901,7 +891,7 @@ EOF
         {
                 desc            => "udev_root substitution",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                exp_name        => "start-udev-root-end",
+                exp_name        => "start-test/dev-end",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", SYMLINK+="start-%r-end"
 EOF
@@ -1333,13 +1323,11 @@ EOF
         },
 );
 
-# set env
-$ENV{UDEV_CONFIG_FILE} = $udev_conf;
-
 sub udev {
         my ($action, $devpath, $rules) = @_;
 
         # create temporary rules
+        system("mkdir", "-p", "$udev_rules_dir");
         open CONF, ">$udev_rules" || die "unable to create rules file: $udev_rules";
         print CONF $$rules;
         close CONF;
@@ -1416,13 +1404,15 @@ sub major_minor_test {
         }
 }
 
-sub make_udev_root {
-        system("rm -rf $udev_root");
-        mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
-        # setting group and mode of udev_root ensures the tests work
+sub udev_setup {
+        system("rm", "-rf", "$udev_dev");
+        mkdir($udev_dev) || die "unable to create udev_dev: $udev_dev\n";
+        # setting group and mode of udev_dev ensures the tests work
         # even if the parent directory has setgid bit enabled.
-        chown (0, 0, $udev_root) || die "unable to chown $udev_root\n";
-        chmod (0755, $udev_root) || die "unable to chmod $udev_root\n";
+        chown (0, 0, $udev_dev) || die "unable to chown $udev_dev\n";
+        chmod (0755, $udev_dev) || die "unable to chmod $udev_dev\n";
+
+        system("rm", "-rf", "$udev_run");
 }
 
 sub run_test {
@@ -1433,19 +1423,19 @@ sub run_test {
 
         udev("add", $rules->{devpath}, \$rules->{rules});
         if (defined($rules->{not_exp_name})) {
-                if ((-e "$PWD/$udev_root/$rules->{not_exp_name}") ||
-                    (-l "$PWD/$udev_root/$rules->{not_exp_name}")) {
+                if ((-e "$udev_dev/$rules->{not_exp_name}") ||
+                    (-l "$udev_dev/$rules->{not_exp_name}")) {
                         print "nonexistent: error \'$rules->{not_exp_name}\' not expected to be there\n";
                         $error++;
                         sleep(1);
                 }
         }
 
-        if ((-e "$PWD/$udev_root/$rules->{exp_name}") ||
-            (-l "$PWD/$udev_root/$rules->{exp_name}")) {
+        if ((-e "$udev_dev/$rules->{exp_name}") ||
+            (-l "$udev_dev/$rules->{exp_name}")) {
 
                 my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
-                    $atime, $mtime, $ctime, $blksize, $blocks) = stat("$PWD/$udev_root/$rules->{exp_name}");
+                    $atime, $mtime, $ctime, $blksize, $blocks) = stat("$udev_dev/$rules->{exp_name}");
 
                 if (defined($rules->{exp_perms})) {
                         permissions_test($rules, $uid, $gid, $mode);
@@ -1460,7 +1450,7 @@ sub run_test {
                         print " as expected\n";
                 } else {
                         print "\n";
-                        system("tree $udev_root");
+                        system("tree", "$udev_dev");
                         print "\n";
                         $error++;
                         sleep(1);
@@ -1473,14 +1463,14 @@ sub run_test {
         }
 
         udev("remove", $rules->{devpath}, \$rules->{rules});
-        if ((-e "$PWD/$udev_root/$rules->{exp_name}") ||
-            (-l "$PWD/$udev_root/$rules->{exp_name}")) {
+        if ((-e "$udev_dev/$rules->{exp_name}") ||
+            (-l "$udev_dev/$rules->{exp_name}")) {
                 print "remove:      error";
                 if ($rules->{exp_rem_error}) {
                         print " as expected\n";
                 } else {
                         print "\n";
-                        system("tree $udev_root");
+                        system("tree", "$udev_dev");
                         print "\n";
                         $error++;
                         sleep(1);
@@ -1492,7 +1482,7 @@ sub run_test {
         print "\n";
 
         if (defined($rules->{option}) && $rules->{option} eq "clean") {
-                make_udev_root();
+                udev_setup();
         }
 
 }
@@ -1504,17 +1494,7 @@ if (!($<==0)) {
         exit;
 }
 
-# prepare
-make_udev_root();
-
-# create config file
-open CONF, ">$udev_conf" || die "unable to create config file: $udev_conf";
-print CONF "udev_root=\"$udev_root\"\n";
-print CONF "udev_run=\"$udev_root/.udev\"\n";
-print CONF "udev_sys=\"$sysfs\"\n";
-print CONF "udev_rules=\"$PWD\"\n";
-print CONF "udev_log=\"err\"\n";
-close CONF;
+udev_setup();
 
 my $test_num = 1;
 my @list;
@@ -1550,9 +1530,8 @@ if ($list[0]) {
 print "$error errors occured\n\n";
 
 # cleanup
-system("rm -rf $udev_root");
-unlink($udev_rules);
-unlink($udev_conf);
+system("rm", "-rf", "$udev_dev");
+system("rm", "-rf", "$udev_run");
 
 if ($error > 0) {
     exit(1);

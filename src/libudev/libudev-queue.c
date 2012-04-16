@@ -121,14 +121,12 @@ _public_ struct udev *udev_queue_get_udev(struct udev_queue *udev_queue)
 
 unsigned long long int udev_get_kernel_seqnum(struct udev *udev)
 {
-        char filename[UTIL_PATH_SIZE];
         unsigned long long int seqnum;
         int fd;
         char buf[32];
         ssize_t len;
 
-        util_strscpyl(filename, sizeof(filename), udev_get_sys_path(udev), "/kernel/uevent_seqnum", NULL);
-        fd = open(filename, O_RDONLY|O_CLOEXEC);
+        fd = open("/sys/kernel/uevent_seqnum", O_RDONLY|O_CLOEXEC);
         if (fd < 0)
                 return 0;
         len = read(fd, buf, sizeof(buf));
@@ -210,7 +208,7 @@ static FILE *open_queue_file(struct udev_queue *udev_queue, unsigned long long i
         char filename[UTIL_PATH_SIZE];
         FILE *queue_file;
 
-        util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev_queue->udev), "/queue.bin", NULL);
+        util_strscpyl(filename, sizeof(filename), "/run/udev/queue.bin", NULL);
         queue_file = fopen(filename, "re");
         if (queue_file == NULL)
                 return NULL;
@@ -437,7 +435,7 @@ _public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_qu
                 snprintf(seqnum_str, sizeof(seqnum_str), "%llu", seqnum);
 
                 s = syspath;
-                l = util_strpcpyl(&s, sizeof(syspath), udev_get_sys_path(udev_queue->udev), NULL);
+                l = util_strpcpy(&s, sizeof(syspath), "/sys");
                 len = udev_queue_read_devpath(queue_file, s, l);
                 if (len < 0)
                         break;

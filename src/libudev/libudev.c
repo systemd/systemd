@@ -41,12 +41,6 @@ struct udev {
                        int priority, const char *file, int line, const char *fn,
                        const char *format, va_list args);
         void *userdata;
-        char *sys_path;
-        char *dev_path;
-        char *rules_path[4];
-        unsigned long long rules_path_ts[4];
-        int rules_path_count;
-        char *run_path;
         struct udev_list properties_list;
         int log_priority;
 };
@@ -100,14 +94,6 @@ _public_ void udev_set_userdata(struct udev *udev, void *userdata)
         udev->userdata = userdata;
 }
 
-static char *set_value(char **s, const char *v)
-{
-        free(*s);
-        *s = strdup(v);
-        util_remove_trailing_chars(*s, '/');
-        return *s;
-}
-
 /**
  * udev_new:
  *
@@ -123,7 +109,6 @@ _public_ struct udev *udev_new(void)
 {
         struct udev *udev;
         const char *env;
-        char *config_file = NULL;
         FILE *f;
 
         udev = calloc(1, sizeof(struct udev));
@@ -134,21 +119,7 @@ _public_ struct udev *udev_new(void)
         udev->log_priority = LOG_ERR;
         udev_list_init(udev, &udev->properties_list, true);
 
-        /* custom config file */
-        env = getenv("UDEV_CONFIG_FILE");
-        if (env != NULL) {
-                if (set_value(&config_file, env) == NULL)
-                        goto err;
-                udev_add_property(udev, "UDEV_CONFIG_FILE", config_file);
-        }
-
-        /* default config file */
-        if (config_file == NULL)
-                config_file = strdup(SYSCONFDIR "/udev/udev.conf");
-        if (config_file == NULL)
-                goto err;
-
-        f = fopen(config_file, "re");
+        f = fopen(SYSCONFDIR "/udev/udev.conf", "re");
         if (f != NULL) {
                 char line[UTIL_LINE_SIZE];
                 int line_nr = 0;
@@ -172,7 +143,7 @@ _public_ struct udev *udev_new(void)
                         /* split key/value */
                         val = strchr(key, '=');
                         if (val == NULL) {
-                                err(udev, "missing <key>=<value> in '%s'[%i], skip line\n", config_file, line_nr);
+                                err(udev, "missing <key>=<value> in " SYSCONFDIR "/udev/udev.conf[%i]; skip line\n", line_nr);
                                 continue;
                         }
                         val[0] = '\0';
@@ -204,7 +175,7 @@ _public_ struct udev *udev_new(void)
                         /* unquote */
                         if (val[0] == '"' || val[0] == '\'') {
                                 if (val[len-1] != val[0]) {
-                                        err(udev, "inconsistent quoting in '%s'[%i], skip line\n", config_file, line_nr);
+                                        err(udev, "inconsistent quoting in " SYSCONFDIR "/udev/udev.conf[%i]; skip line\n", line_nr);
                                         continue;
                                 }
                                 val[len-1] = '\0';
@@ -213,23 +184,6 @@ _public_ struct udev *udev_new(void)
 
                         if (strcmp(key, "udev_log") == 0) {
                                 udev_set_log_priority(udev, util_log_priority(val));
-                                continue;
-                        }
-                        if (strcmp(key, "udev_root") == 0) {
-                                set_value(&udev->dev_path, val);
-                                continue;
-                        }
-                        if (strcmp(key, "udev_run") == 0) {
-                                set_value(&udev->run_path, val);
-                                continue;
-                        }
-                        if (strcmp(key, "udev_sys") == 0) {
-                                set_value(&udev->sys_path, val);
-                                continue;
-                        }
-                        if (strcmp(key, "udev_rules") == 0) {
-                                set_value(&udev->rules_path[0], val);
-                                udev->rules_path_count = 1;
                                 continue;
                         }
                 }
@@ -241,44 +195,7 @@ _public_ struct udev *udev_new(void)
         if (env != NULL)
                 udev_set_log_priority(udev, util_log_priority(env));
 
-        /* set defaults */
-        if (udev->dev_path == NULL)
-                if (set_value(&udev->dev_path, "/dev") == NULL)
-                        goto err;
-
-        if (udev->sys_path == NULL)
-                if (set_value(&udev->sys_path, "/sys") == NULL)
-                        goto err;
-
-        if (udev->run_path == NULL)
-                if (set_value(&udev->run_path, "/run/udev") == NULL)
-                        goto err;
-
-        if (udev->rules_path[0] == NULL) {
-                /* /usr/lib/udev -- system rules */
-                udev->rules_path[0] = strdup(UDEVLIBEXECDIR "/rules.d");
-                if (!udev->rules_path[0])
-                        goto err;
-
-                /* /run/udev -- runtime rules */
-                if (asprintf(&udev->rules_path[1], "%s/rules.d", udev->run_path) < 0)
-                        goto err;
-
-                /* /etc/udev -- local administration rules */
-                udev->rules_path[2] = strdup(SYSCONFDIR "/udev/rules.d");
-                if (!udev->rules_path[2])
-                        goto err;
-
-                udev->rules_path_count = 3;
-        }
-
-        free(config_file);
         return udev;
-err:
-        free(config_file);
-        err(udev, "context creation failed\n");
-        udev_unref(udev);
-        return NULL;
 }
 
 /**
@@ -313,12 +230,6 @@ _public_ void udev_unref(struct udev *udev)
         if (udev->refcount > 0)
                 return;
         udev_list_cleanup(&udev->properties_list);
-        free(udev->dev_path);
-        free(udev->sys_path);
-        free(udev->rules_path[0]);
-        free(udev->rules_path[1]);
-        free(udev->rules_path[2]);
-        free(udev->run_path);
         free(udev);
 }
 
@@ -372,21 +283,11 @@ _public_ void udev_set_log_priority(struct udev *udev, int priority)
         udev_add_property(udev, "UDEV_LOG", num);
 }
 
-int udev_get_rules_path(struct udev *udev, char **path[], unsigned long long *stamp_usec[])
-{
-        *path = udev->rules_path;
-        if (stamp_usec)
-                *stamp_usec = udev->rules_path_ts;
-        return udev->rules_path_count;
-}
-
 /**
  * udev_get_sys_path:
  * @udev: udev library context
  *
- * Retrieve the sysfs mount point. The default is "/sys". For
- * testing purposes, it can be overridden with udev_sys=
- * in the udev configuration file.
+ * Returns always "/sys"; deprecated, will be removed in a future version.
  *
  * Returns: the sys mount point
  **/
@@ -394,16 +295,14 @@ _public_ const char *udev_get_sys_path(struct udev *udev)
 {
         if (udev == NULL)
                 return NULL;
-        return udev->sys_path;
+        return "/sys";
 }
 
 /**
  * udev_get_dev_path:
  * @udev: udev library context
  *
- * Retrieve the device directory path. The default value is "/dev",
- * the actual value may be overridden in the udev configuration
- * file.
+ * Returns always "/dev"; deprecated, will be removed in a future version.
  *
  * Returns: the device directory path
  **/
@@ -411,14 +310,14 @@ _public_ const char *udev_get_dev_path(struct udev *udev)
 {
         if (udev == NULL)
                 return NULL;
-        return udev->dev_path;
+        return "/dev";
 }
 
 /**
  * udev_get_run_path:
  * @udev: udev library context
  *
- * Retrieve the udev runtime directory path. The default is "/run/udev".
+ * Returns always "/run/udev"; deprecated, will be removed in a future version.
  *
  * Returns: the runtime directory path
  **/
@@ -426,7 +325,7 @@ _public_ const char *udev_get_run_path(struct udev *udev)
 {
         if (udev == NULL)
                 return NULL;
-        return udev->run_path;
+        return "/run/udev";
 }
 
 struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value)

@@ -17,7 +17,9 @@ Features:
 
 * suspend/hibernate/hybrid support, auto-suspend logic with idle hint
 
-* udev: remove /sys and /dev configurability
+* udev: unify selinux stuff with systemd
+
+* udev: move udev's recursive mkdir to shared/
 
 * udev: find a way to tell udev to not cancel firmware requests when running in initramfs
 
@@ -31,6 +33,7 @@ Features:
   - return object with *_unref()
   - kill: udev_monitor_from_socket()
   - kill: udev_queue_get_failed_list_entry()
+  - kill: udev_get_{dev,sys,run}_path()
 
 * allow configuration of console width/height in vconsole.conf
 

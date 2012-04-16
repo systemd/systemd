@@ -204,12 +204,10 @@ static bool devices_delay_end(struct udev *udev, const char *syspath)
                 "/block/dm-",
                 NULL
         };
-        size_t len;
         int i;
 
-        len = strlen(udev_get_sys_path(udev));
         for (i = 0; delay_device_list[i] != NULL; i++) {
-                if (strstr(&syspath[len], delay_device_list[i]) != NULL)
+                if (strstr(syspath + strlen("/sys"), delay_device_list[i]) != NULL)
                         return true;
         }
         return false;
@@ -624,7 +622,6 @@ static bool match_sysname(struct udev_enumerate *udev_enumerate, const char *sys
 static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
                                     const char *basedir, const char *subdir1, const char *subdir2)
 {
-        struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
         char path[UTIL_PATH_SIZE];
         size_t l;
         char *s;
@@ -632,7 +629,7 @@ static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
         struct dirent *dent;
 
         s = path;
-        l = util_strpcpyl(&s, sizeof(path), udev_get_sys_path(udev), "/", basedir, NULL);
+        l = util_strpcpyl(&s, sizeof(path), "/sys/", basedir, NULL);
         if (subdir1 != NULL)
                 l = util_strpcpyl(&s, l, "/", subdir1, NULL);
         if (subdir2 != NULL)
@@ -707,13 +704,11 @@ static bool match_subsystem(struct udev_enumerate *udev_enumerate, const char *s
 
 static int scan_dir(struct udev_enumerate *udev_enumerate, const char *basedir, const char *subdir, const char *subsystem)
 {
-        struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
-
         char path[UTIL_PATH_SIZE];
         DIR *dir;
         struct dirent *dent;
 
-        util_strscpyl(path, sizeof(path), udev_get_sys_path(udev), "/", basedir, NULL);
+        util_strscpyl(path, sizeof(path), "/sys/", basedir, NULL);
         dir = opendir(path);
         if (dir == NULL)
                 return -1;
@@ -756,7 +751,6 @@ _public_ int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, c
 
 static int scan_devices_tags(struct udev_enumerate *udev_enumerate)
 {
-        struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
         struct udev_list_entry *list_entry;
 
         /* scan only tagged devices, use tags reverse-index, instead of searching all devices in /sys */
@@ -765,8 +759,7 @@ static int scan_devices_tags(struct udev_enumerate *udev_enumerate)
                 struct dirent *dent;
                 char path[UTIL_PATH_SIZE];
 
-                util_strscpyl(path, sizeof(path), udev_get_run_path(udev), "/tags/",
-                              udev_list_entry_get_name(list_entry), NULL);
+                util_strscpyl(path, sizeof(path), "/run/udev/tags/", udev_list_entry_get_name(list_entry), NULL);
                 dir = opendir(path);
                 if (dir == NULL)
                         continue;
@@ -861,12 +854,9 @@ static int scan_devices_children(struct udev_enumerate *enumerate)
 
 static int scan_devices_all(struct udev_enumerate *udev_enumerate)
 {
-        struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
-        char base[UTIL_PATH_SIZE];
         struct stat statbuf;
 
-        util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/subsystem", NULL);
-        if (stat(base, &statbuf) == 0) {
+        if (stat("/sys/subsystem", &statbuf) == 0) {
                 /* we have /subsystem/, forget all the old stuff */
                 scan_dir(udev_enumerate, "subsystem", "devices", NULL);
         } else {
@@ -907,8 +897,6 @@ _public_ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
  **/
 _public_ int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate)
 {
-        struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
-        char base[UTIL_PATH_SIZE];
         struct stat statbuf;
         const char *subsysdir;
 
@@ -919,8 +907,7 @@ _public_ int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerat
         if (match_subsystem(udev_enumerate, "module"))
                 scan_dir_and_add_devices(udev_enumerate, "module", NULL, NULL);
 
-        util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/subsystem", NULL);
-        if (stat(base, &statbuf) == 0)
+        if (stat("/sys/subsystem", &statbuf) == 0)
                 subsysdir = "subsystem";
         else
                 subsysdir = "bus";

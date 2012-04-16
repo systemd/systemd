@@ -318,46 +318,38 @@ subst:
                         if (dev_parent == NULL)
                                 break;
                         devnode = udev_device_get_devnode(dev_parent);
-                        if (devnode != NULL) {
-                                size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
-
-                                l = util_strpcpy(&s, l, &devnode[devlen]);
-                        }
+                        if (devnode != NULL)
+                                l = util_strpcpy(&s, l, devnode + strlen(TEST_PREFIX "/dev/"));
                         break;
                 }
                 case SUBST_DEVNODE:
                         if (udev_device_get_devnode(dev) != NULL)
                                 l = util_strpcpy(&s, l, udev_device_get_devnode(dev));
                         break;
-                case SUBST_NAME: {
-                        if (event->name != NULL) {
+                case SUBST_NAME:
+                        if (event->name != NULL)
                                 l = util_strpcpy(&s, l, event->name);
-                        } else if (udev_device_get_devnode(dev) != NULL) {
-                                size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
-
-                                l = util_strpcpy(&s, l, &udev_device_get_devnode(dev)[devlen]);
-                        } else {
+                        else if (udev_device_get_devnode(dev) != NULL)
+                                l = util_strpcpy(&s, l, udev_device_get_devnode(dev) + strlen(TEST_PREFIX "/dev/"));
+                        else
                                 l = util_strpcpy(&s, l, udev_device_get_sysname(dev));
-                        }
                         break;
-                }
                 case SUBST_LINKS: {
-                        size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
                         struct udev_list_entry *list_entry;
 
                         list_entry = udev_device_get_devlinks_list_entry(dev);
                         if (list_entry == NULL)
                                 break;
-                        l = util_strpcpy(&s, l, &udev_list_entry_get_name(list_entry)[devlen]);
+                        l = util_strpcpy(&s, l, udev_list_entry_get_name(list_entry) + strlen(TEST_PREFIX "/dev/"));
                         udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry))
-                                l = util_strpcpyl(&s, l, " ", &udev_list_entry_get_name(list_entry)[devlen], NULL);
+                                l = util_strpcpyl(&s, l, " ", udev_list_entry_get_name(list_entry) + strlen(TEST_PREFIX "/dev/"), NULL);
                         break;
                 }
                 case SUBST_ROOT:
-                        l = util_strpcpy(&s, l, udev_get_dev_path(event->udev));
+                        l = util_strpcpy(&s, l, TEST_PREFIX "/dev");
                         break;
                 case SUBST_SYS:
-                        l = util_strpcpy(&s, l, udev_get_sys_path(event->udev));
+                        l = util_strpcpy(&s, l, TEST_PREFIX "/sys");
                         break;
                 case SUBST_ENV:
                         if (attr == NULL) {

@@ -131,26 +131,22 @@ static int print_device_chain(struct udev_device *device)
 
 static void print_record(struct udev_device *device)
 {
-        size_t len;
         const char *str;
         int i;
         struct udev_list_entry *list_entry;
 
         printf("P: %s\n", udev_device_get_devpath(device));
 
-        len = strlen(udev_get_dev_path(udev_device_get_udev(device)));
         str = udev_device_get_devnode(device);
         if (str != NULL)
-                printf("N: %s\n", &str[len+1]);
+                printf("N: %s\n", str + strlen("/dev/"));
 
         i = udev_device_get_devlink_priority(device);
         if (i != 0)
                 printf("L: %i\n", i);
 
-        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(device)) {
-                len = strlen(udev_get_dev_path(udev_device_get_udev(device)));
-                printf("S: %s\n", &udev_list_entry_get_name(list_entry)[len+1]);
-        }
+        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(device))
+                printf("S: %s\n", udev_list_entry_get_name(list_entry) + strlen("/dev/"));
 
         udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device))
                 printf("E: %s=%s\n",
@@ -233,42 +229,35 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth)
 
 static void cleanup_db(struct udev *udev)
 {
-        char filename[UTIL_PATH_SIZE];
         DIR *dir;
 
-        util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/queue.bin", NULL);
-        unlink(filename);
+        unlink("/run/udev/queue.bin");
 
-        util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/data", NULL);
-        dir = opendir(filename);
+        dir = opendir("/run/udev/data");
         if (dir != NULL) {
                 cleanup_dir(dir, S_ISVTX, 1);
                 closedir(dir);
         }
 
-        util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/links", NULL);
-        dir = opendir(filename);
+        dir = opendir("/run/udev/links");
         if (dir != NULL) {
                 cleanup_dir(dir, 0, 2);
                 closedir(dir);
         }
 
-        util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/tags", NULL);
-        dir = opendir(filename);
+        dir = opendir("/run/udev/tags");
         if (dir != NULL) {
                 cleanup_dir(dir, 0, 2);
                 closedir(dir);
         }
 
-        util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/watch", NULL);
-        dir = opendir(filename);
+        dir = opendir("/run/udev/watch");
         if (dir != NULL) {
                 cleanup_dir(dir, 0, 1);
                 closedir(dir);
         }
 
-        util_strscpyl(filename, sizeof(filename), udev_get_run_path(udev), "/firmware-missing", NULL);
-        dir = opendir(filename);
+        dir = opendir("/run/udev/firmware-missing");
         if (dir != NULL) {
                 cleanup_dir(dir, 0, 1);
                 closedir(dir);
@@ -335,9 +324,9 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
                                 rc = 2;
                                 goto exit;
                         }
-                        /* remove /dev if given */
-                        if (strncmp(optarg, udev_get_dev_path(udev), strlen(udev_get_dev_path(udev))) != 0)
-                                util_strscpyl(name, sizeof(name), udev_get_dev_path(udev), "/", optarg, NULL);
+                        /* add /dev if not given */
+                        if (strncmp(optarg, "/dev", strlen("/dev")) != 0)
+                                util_strscpyl(name, sizeof(name), "/dev/", optarg, NULL);
                         else
                                 util_strscpy(name, sizeof(name), optarg);
                         util_remove_trailing_chars(name, '/');
@@ -372,8 +361,8 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
                                 goto exit;
                         }
                         /* add sys dir if needed */
-                        if (strncmp(optarg, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0)
-                                util_strscpyl(path, sizeof(path), udev_get_sys_path(udev), optarg, NULL);
+                        if (strncmp(optarg, "/sys", strlen("/sys")) != 0)
+                                util_strscpyl(path, sizeof(path), "/sys", optarg, NULL);
                         else
                                 util_strscpy(path, sizeof(path), optarg);
                         util_remove_trailing_chars(path, '/');
@@ -408,7 +397,7 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
                         root = true;
                         break;
                 case 'R':
-                        printf("%s\n", udev_get_run_path(udev));
+                        printf("/run/udev\n");
                         goto exit;
                 case 'd':
                         action = ACTION_DEVICE_ID_FILE;
@@ -476,26 +465,19 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
                                 goto exit;
                         }
 
-                        if (root) {
+                        if (root)
                                 printf("%s\n", udev_device_get_devnode(device));
-                        } else {
-                                size_t len = strlen(udev_get_dev_path(udev));
-
-                                printf("%s\n", &udev_device_get_devnode(device)[len+1]);
-                        }
+                        else
+                                printf("%s\n", udev_device_get_devnode(device) + strlen("/dev/"));
                         break;
                 }
                 case QUERY_SYMLINK:
                         list_entry = udev_device_get_devlinks_list_entry(device);
                         while (list_entry != NULL) {
-                                if (root) {
+                                if (root)
                                         printf("%s", udev_list_entry_get_name(list_entry));
-                                } else {
-                                        size_t len;
-
-                                        len = strlen(udev_get_dev_path(udev_device_get_udev(device)));
-                                        printf("%s", &udev_list_entry_get_name(list_entry)[len+1]);
-                                }
+                                else
+                                        printf("%s", udev_list_entry_get_name(list_entry) + strlen("/dev/"));
                                 list_entry = udev_list_entry_get_next(list_entry);
                                 if (list_entry != NULL)
                                         printf(" ");
@@ -543,7 +525,7 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
                         rc = 1;
                 break;
         case ACTION_ROOT:
-                printf("%s\n", udev_get_dev_path(udev));
+                printf("/dev\n");
                 break;
         default:
                 fprintf(stderr, "missing option\n");
