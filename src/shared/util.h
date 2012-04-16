@@ -100,6 +100,8 @@ bool streq_ptr(const char *a, const char *b);
 
 #define new0(t, n) ((t*) calloc((n), sizeof(t)))
 
+#define newdup(t, p, n) ((t*) memdup(p, sizeof(t)*(n))
+
 #define malloc0(n) (calloc((n), 1))
 
 static inline const char* yes_no(bool b) {
