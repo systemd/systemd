@@ -10,6 +10,7 @@
 /test-id128
 /test-journal
 /test-install
+/test-inhibit
 /org.freedesktop.hostname1.xml
 /org.freedesktop.locale1.xml
 /test-login

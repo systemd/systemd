@@ -15,7 +15,9 @@ Bugfixes:
 
 Features:
 
-* cg_create_and_attach() should fail for non-available controllers
+* filter default cgroups in logind too
+
+* remove empty cgroups from cgls output
 
 * udev: remove /sys and /dev configurability
 

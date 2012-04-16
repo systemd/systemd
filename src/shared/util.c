@@ -1690,7 +1690,8 @@ char *cescape(const char *s) {
 
         /* Does C style string escaping. */
 
-        if (!(r = new(char, strlen(s)*4 + 1)))
+        r = new(char, strlen(s)*4 + 1);
+        if (!r)
                 return NULL;
 
         for (f = s, t = r; *f; f++)

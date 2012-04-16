@@ -16,6 +16,16 @@
         <vendor>The systemd Project</vendor>
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
+        <action id="org.freedesktop.login1.inhibit">
+                <_description>Allow applications to inhibit system shutdown and suspend</_description>
+                <_message>Authentication is required to allow an application to inhibit system shutdown or suspend</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
         <action id="org.freedesktop.login1.set-user-linger">
                 <_description>Allow non-logged-in users to run programs</_description>
                 <_message>Authentication is required to allow a non-logged-in user to run programs</_message>
@@ -66,6 +76,16 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.login1.power-off-ignore-inhibit">
+                <_description>Power off the system when an application asked to inhibit it</_description>
+                <_message>Authentication is required to allow powering off the system while an application asked to inhibit it</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
         <action id="org.freedesktop.login1.reboot">
                 <_description>Reboot the system</_description>
                 <_message>Authentication is required to allow rebooting the system</_message>
@@ -79,6 +99,16 @@
         <action id="org.freedesktop.login1.reboot-multiple-sessions">
                 <_description>Reboot the system when other users are logged in</_description>
                 <_message>Authentication is required to allow rebooting the system while other users are logged in</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.reboot-ignore-inhibit">
+                <_description>Reboot the system when an application asked to inhibit it</_description>
+                <_message>Authentication is required to allow rebooting the system while an application asked to inhibit it</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>

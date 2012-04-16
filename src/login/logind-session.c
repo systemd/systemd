@@ -25,11 +25,11 @@
 #include <sys/epoll.h>
 #include <fcntl.h>
 
-#include "logind-session.h"
 #include "strv.h"
 #include "util.h"
 #include "mkdir.h"
 #include "cgroup-util.h"
+#include "logind-session.h"
 
 #define IDLE_THRESHOLD_USEC (5*USEC_PER_MINUTE)
 
@@ -52,7 +52,7 @@ Session* session_new(Manager *m, User *u, const char *id) {
         s->id = file_name_from_path(s->state_file);
 
         if (hashmap_put(m->sessions, s->id, s) < 0) {
-                free(s->id);
+                free(s->state_file);
                 free(s);
                 return NULL;
         }
@@ -99,7 +99,6 @@ void session_free(Session *s) {
         free(s->service);
 
         hashmap_remove(s->manager->sessions, s->id);
-
         session_remove_fifo(s);
 
         free(s->state_file);
@@ -287,14 +286,9 @@ int session_load(Session *s) {
         }
 
         if (leader) {
-                pid_t pid;
-
-                k = parse_pid(leader, &pid);
-                if (k >= 0 && pid >= 1) {
-                        s->leader = pid;
-
-                        audit_session_from_pid(pid, &s->audit_id);
-                }
+                k = parse_pid(leader, &s->leader);
+                if (k >= 0)
+                        audit_session_from_pid(s->leader, &s->audit_id);
         }
 
         if (type) {
@@ -325,7 +319,6 @@ int session_load(Session *s) {
                 if (fd >= 0)
                         close_nointr_nofail(fd);
         }
-
 
 finish:
         free(remote);
@@ -840,7 +833,7 @@ int session_create_fifo(Session *s) {
                 if (s->fifo_fd < 0)
                         return -errno;
 
-                r = hashmap_put(s->manager->fifo_fds, INT_TO_PTR(s->fifo_fd + 1), s);
+                r = hashmap_put(s->manager->session_fds, INT_TO_PTR(s->fifo_fd + 1), s);
                 if (r < 0)
                         return r;
 
@@ -864,7 +857,7 @@ void session_remove_fifo(Session *s) {
         assert(s);
 
         if (s->fifo_fd >= 0) {
-                assert_se(hashmap_remove(s->manager->fifo_fds, INT_TO_PTR(s->fifo_fd + 1)) == s);
+                assert_se(hashmap_remove(s->manager->session_fds, INT_TO_PTR(s->fifo_fd + 1)) == s);
                 assert_se(epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_DEL, s->fifo_fd, NULL) == 0);
                 close_nointr_nofail(s->fifo_fd);
                 s->fifo_fd = -1;

@@ -55,10 +55,14 @@ Manager *manager_new(void) {
         m->seats = hashmap_new(string_hash_func, string_compare_func);
         m->sessions = hashmap_new(string_hash_func, string_compare_func);
         m->users = hashmap_new(trivial_hash_func, trivial_compare_func);
-        m->cgroups = hashmap_new(string_hash_func, string_compare_func);
-        m->fifo_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
+        m->inhibitors = hashmap_new(string_hash_func, string_compare_func);
 
-        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->cgroups || !m->fifo_fds) {
+        m->cgroups = hashmap_new(string_hash_func, string_compare_func);
+        m->session_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
+        m->inhibitor_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
+
+        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors ||
+            !m->cgroups || !m->session_fds || !m->inhibitor_fds) {
                 manager_free(m);
                 return NULL;
         }
@@ -89,6 +93,7 @@ void manager_free(Manager *m) {
         User *u;
         Device *d;
         Seat *s;
+        Inhibitor *i;
 
         assert(m);
 
@@ -104,12 +109,18 @@ void manager_free(Manager *m) {
         while ((s = hashmap_first(m->seats)))
                 seat_free(s);
 
-        hashmap_free(m->sessions);
-        hashmap_free(m->users);
+        while ((i = hashmap_first(m->inhibitors)))
+                inhibitor_free(i);
+
         hashmap_free(m->devices);
         hashmap_free(m->seats);
+        hashmap_free(m->sessions);
+        hashmap_free(m->users);
+        hashmap_free(m->inhibitors);
+
         hashmap_free(m->cgroups);
-        hashmap_free(m->fifo_fds);
+        hashmap_free(m->session_fds);
+        hashmap_free(m->inhibitor_fds);
 
         if (m->console_active_fd >= 0)
                 close_nointr_nofail(m->console_active_fd);
@@ -268,6 +279,30 @@ int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user) {
         return manager_add_user(m, uid, p->pw_gid, p->pw_name, _user);
 }
 
+int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor) {
+        Inhibitor *i;
+
+        assert(m);
+        assert(id);
+
+        i = hashmap_get(m->inhibitors, id);
+        if (i) {
+                if (_inhibitor)
+                        *_inhibitor = i;
+
+                return 0;
+        }
+
+        i = inhibitor_new(m, id);
+        if (!i)
+                return -ENOMEM;
+
+        if (_inhibitor)
+                *_inhibitor = i;
+
+        return 0;
+}
+
 int manager_process_seat_device(Manager *m, struct udev_device *d) {
         Device *device;
         int r;
@@ -412,10 +447,9 @@ int manager_enumerate_seats(Manager *m) {
 }
 
 static int manager_enumerate_users_from_cgroup(Manager *m) {
-        int r = 0;
+        int r = 0, k;
         char *name;
         DIR *d;
-        int k;
 
         r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_path, &d);
         if (r < 0) {
@@ -641,6 +675,46 @@ int manager_enumerate_sessions(Manager *m) {
         return r;
 }
 
+int manager_enumerate_inhibitors(Manager *m) {
+        DIR *d;
+        struct dirent *de;
+        int r = 0;
+
+        assert(m);
+
+        d = opendir("/run/systemd/inhibit");
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+
+                log_error("Failed to open /run/systemd/inhibit: %m");
+                return -errno;
+        }
+
+        while ((de = readdir(d))) {
+                int k;
+                Inhibitor *i;
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                k = manager_add_inhibitor(m, de->d_name, &i);
+                if (k < 0) {
+                        log_notice("Couldn't add inhibitor %s: %s", de->d_name, strerror(-k));
+                        r = k;
+                        continue;
+                }
+
+                k = inhibitor_load(i);
+                if (k < 0)
+                        r = k;
+        }
+
+        closedir(d);
+
+        return r;
+}
+
 int manager_dispatch_seat_udev(Manager *m) {
         struct udev_device *d;
         int r;
@@ -853,15 +927,28 @@ void manager_cgroup_notify_empty(Manager *m, const char *cgroup) {
 
 static void manager_pipe_notify_eof(Manager *m, int fd) {
         Session *s;
+        Inhibitor *i;
 
         assert_se(m);
         assert_se(fd >= 0);
 
-        assert_se(s = hashmap_get(m->fifo_fds, INT_TO_PTR(fd + 1)));
-        assert(s->fifo_fd == fd);
-        session_remove_fifo(s);
+        s = hashmap_get(m->session_fds, INT_TO_PTR(fd + 1));
+        if (s) {
+                assert(s->fifo_fd == fd);
+                session_remove_fifo(s);
+                session_stop(s);
+                return;
+        }
 
-        session_stop(s);
+        i = hashmap_get(m->inhibitor_fds, INT_TO_PTR(fd + 1));
+        if (i) {
+                assert(i->fifo_fd == fd);
+                inhibitor_stop(i);
+                inhibitor_free(i);
+                return;
+        }
+
+        assert_not_reached("Got EOF on unknown pipe");
 }
 
 static int manager_connect_bus(Manager *m) {
@@ -1110,6 +1197,7 @@ int manager_startup(Manager *m) {
         Seat *seat;
         Session *session;
         User *user;
+        Inhibitor *inhibitor;
         Iterator i;
 
         assert(m);
@@ -1144,6 +1232,7 @@ int manager_startup(Manager *m) {
         manager_enumerate_seats(m);
         manager_enumerate_users(m);
         manager_enumerate_sessions(m);
+        manager_enumerate_inhibitors(m);
 
         /* Remove stale objects before we start them */
         manager_gc(m, false);
@@ -1157,6 +1246,9 @@ int manager_startup(Manager *m) {
 
         HASHMAP_FOREACH(session, m->sessions, i)
                 session_start(session);
+
+        HASHMAP_FOREACH(inhibitor, m->inhibitors, i)
+                inhibitor_start(inhibitor);
 
         return 0;
 }

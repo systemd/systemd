@@ -2577,6 +2577,8 @@ systemd_logind_SOURCES = \
 	src/login/logind-session.h \
 	src/login/logind-user.c \
 	src/login/logind-user.h \
+	src/login/logind-inhibit.c \
+	src/login/logind-inhibit.h \
 	src/login/logind-session-dbus.c \
 	src/login/logind-seat-dbus.c \
 	src/login/logind-user-dbus.c \
@@ -2638,8 +2640,20 @@ test_login_LDADD = \
 	libsystemd-login.la \
 	libsystemd-shared.la
 
+test_inhibit_SOURCES = \
+	src/login/test-inhibit.c
+
+test_inhibit_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-dbus.la
+
+test_inhibit_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
 noinst_PROGRAMS += \
-	test-login
+	test-login \
+	test-inhibit
 
 libsystemd_login_la_SOURCES = \
 	src/login/sd-login.c

@@ -1155,3 +1155,53 @@ DBusHandlerResult bus_exit_idle_filter(DBusConnection *bus, DBusMessage *m, void
 
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
+
+/* This mimics dbus_bus_get_unix_user() */
+pid_t bus_get_unix_process_id(
+                DBusConnection *connection,
+                const char *name,
+                DBusError *error) {
+
+        DBusMessage *m = NULL, *reply = NULL;
+        uint32_t pid = 0;
+
+        m = dbus_message_new_method_call(
+                        DBUS_SERVICE_DBUS,
+                        DBUS_PATH_DBUS,
+                        DBUS_INTERFACE_DBUS,
+                        "GetConnectionUnixProcessID");
+        if (!m) {
+                dbus_set_error_const(error, DBUS_ERROR_NO_MEMORY, NULL);
+                goto finish;
+        }
+
+        if (!dbus_message_append_args(
+                            m,
+                            DBUS_TYPE_STRING, &name,
+                            DBUS_TYPE_INVALID)) {
+                dbus_set_error_const(error, DBUS_ERROR_NO_MEMORY, NULL);
+                goto finish;
+        }
+
+        reply = dbus_connection_send_with_reply_and_block(connection, m, -1, error);
+        if (!reply)
+                goto finish;
+
+        if (dbus_set_error_from_message(error, reply))
+                goto finish;
+
+        if (!dbus_message_get_args(
+                            reply, error,
+                            DBUS_TYPE_UINT32, &pid,
+                            DBUS_TYPE_INVALID))
+                goto finish;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        return (pid_t) pid;
+}

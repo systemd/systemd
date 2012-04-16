@@ -39,6 +39,7 @@ typedef struct Manager Manager;
 #include "logind-seat.h"
 #include "logind-session.h"
 #include "logind-user.h"
+#include "logind-inhibit.h"
 
 struct Manager {
         DBusConnection *bus;
@@ -47,6 +48,7 @@ struct Manager {
         Hashmap *seats;
         Hashmap *sessions;
         Hashmap *users;
+        Hashmap *inhibitors;
 
         LIST_HEAD(Seat, seat_gc_queue);
         LIST_HEAD(Session, session_gc_queue);
@@ -74,9 +76,11 @@ struct Manager {
         bool kill_user_processes;
 
         unsigned long session_counter;
+        unsigned long inhibit_counter;
 
         Hashmap *cgroups;
-        Hashmap *fifo_fds;
+        Hashmap *session_fds;
+        Hashmap *inhibitor_fds;
 };
 
 enum {
@@ -96,6 +100,7 @@ int manager_add_session(Manager *m, User *u, const char *id, Session **_session)
 int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **_user);
 int manager_add_user_by_name(Manager *m, const char *name, User **_user);
 int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user);
+int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor);
 
 int manager_process_seat_device(Manager *m, struct udev_device *d);
 int manager_dispatch_seat_udev(Manager *m);
@@ -106,6 +111,7 @@ int manager_enumerate_devices(Manager *m);
 int manager_enumerate_seats(Manager *m);
 int manager_enumerate_sessions(Manager *m);
 int manager_enumerate_users(Manager *m);
+int manager_enumerate_inhibitors(Manager *m);
 
 int manager_startup(Manager *m);
 int manager_run(Manager *m);
