@@ -325,7 +325,7 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
                                 goto exit;
                         }
                         /* add /dev if not given */
-                        if (strncmp(optarg, "/dev", strlen("/dev")) != 0)
+                        if (!startswith(optarg, "/dev"))
                                 util_strscpyl(name, sizeof(name), "/dev/", optarg, NULL);
                         else
                                 util_strscpy(name, sizeof(name), optarg);
@@ -361,7 +361,7 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
                                 goto exit;
                         }
                         /* add sys dir if needed */
-                        if (strncmp(optarg, "/sys", strlen("/sys")) != 0)
+                        if (!startswith(optarg, "/sys"))
                                 util_strscpyl(path, sizeof(path), "/sys", optarg, NULL);
                         else
                                 util_strscpy(path, sizeof(path), optarg);

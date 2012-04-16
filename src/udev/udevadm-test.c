@@ -112,7 +112,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
         }
 
         /* add /sys if needed */
-        if (strncmp(syspath, "/sys", strlen("/sys")) != 0)
+        if (!startswith(syspath, "/sys"))
                 util_strscpyl(filename, sizeof(filename), "/sys", syspath, NULL);
         else
                 util_strscpy(filename, sizeof(filename), syspath);

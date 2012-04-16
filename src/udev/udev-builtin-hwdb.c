@@ -40,7 +40,7 @@ static int get_id_attr(
                 return -1;
         }
 
-        if (!strncmp(t, "0x", 2))
+        if (startswith(t, "0x"))
                 t += 2;
 
         if (sscanf(t, "%04x", &u) != 1 || u > 0xFFFFU) {

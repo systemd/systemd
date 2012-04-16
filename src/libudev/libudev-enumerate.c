@@ -232,7 +232,7 @@ static size_t devices_delay_later(struct udev *udev, const char *syspath)
                 c += 11;
                 c += strcspn(c, "/");
 
-                if (strncmp(c, "/controlC", 9) == 0)
+                if (startswith(c, "/controlC"))
                         return c - syspath + 1;
         }
 
@@ -595,13 +595,10 @@ static bool match_tag(struct udev_enumerate *udev_enumerate, struct udev_device 
 
 static bool match_parent(struct udev_enumerate *udev_enumerate, struct udev_device *dev)
 {
-        const char *parent;
-
         if (udev_enumerate->parent_match == NULL)
                 return true;
 
-        parent = udev_device_get_devpath(udev_enumerate->parent_match);
-        return strncmp(parent, udev_device_get_devpath(dev), strlen(parent)) == 0;
+        return startswith(udev_device_get_devpath(dev), udev_device_get_devpath(udev_enumerate->parent_match));
 }
 
 static bool match_sysname(struct udev_enumerate *udev_enumerate, const char *sysname)

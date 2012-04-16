@@ -1302,6 +1302,9 @@ libudev_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	-version-info $(LIBUDEV_CURRENT):$(LIBUDEV_REVISION):$(LIBUDEV_AGE)
 
+libudev_la_LIBADD = \
+	libsystemd-shared.la
+
 pkgconfiglib_DATA += \
 	src/libudev/libudev.pc
 
@@ -1348,6 +1351,7 @@ libudev_private_la_CFLAGS = \
 	-fvisibility=default
 
 libudev_private_la_LIBADD = \
+	libsystemd-shared.la \
 	$(SELINUX_LIBS)
 
 # ------------------------------------------------------------------------------
@@ -1498,6 +1502,7 @@ test_libudev_SOURCES = \
 	src/test/test-libudev.c
 
 test_libudev_LDADD = \
+	libsystemd-shared.la \
 	libudev.la
 
 test_udev_SOURCES = \
@@ -1795,6 +1800,9 @@ keymap_SOURCES = \
 
 keymap_CPPFLAGS = \
 	$(AM_CPPFLAGS) -I src/udev/keymap
+
+keymap_LDADD = \
+	libsystemd-shared.la
 
 nodist_keymap_SOURCES = \
 	src/udev/keymap/keys-from-name.h \

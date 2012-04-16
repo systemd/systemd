@@ -21,6 +21,7 @@
 #include <sys/epoll.h>
 
 #include "libudev.h"
+#include "util.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
@@ -474,7 +475,7 @@ int main(int argc, char *argv[])
         }
 
         /* add sys path if needed */
-        if (strncmp(syspath, "/sys", strlen("/sys")) != 0) {
+        if (!startswith(syspath, "/sys")) {
                 snprintf(path, sizeof(path), "/sys/%s", syspath);
                 syspath = path;
         }

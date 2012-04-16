@@ -597,7 +597,7 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner)
         /* lookup, if we know it already */
         for (i = 0; i < rules->uids_cur; i++) {
                 off = rules->uids[i].name_off;
-                if (strcmp(&rules->buf[off], owner) == 0) {
+                if (streq(&rules->buf[off], owner)) {
                         uid = rules->uids[i].uid;
                         return uid;
                 }
@@ -638,7 +638,7 @@ static gid_t add_gid(struct udev_rules *rules, const char *group)
         /* lookup, if we know it already */
         for (i = 0; i < rules->gids_cur; i++) {
                 off = rules->gids[i].name_off;
-                if (strcmp(&rules->buf[off], group) == 0) {
+                if (streq(&rules->buf[off], group)) {
                         gid = rules->gids[i].gid;
                         return gid;
                 }
@@ -726,7 +726,7 @@ static int import_property_from_string(struct udev_device *dev, char *line)
         }
 
         /* handle device, renamed by external tool, returning new path */
-        if (strcmp(key, "DEVPATH") == 0) {
+        if (streq(key, "DEVPATH")) {
                 char syspath[UTIL_PATH_SIZE];
 
                 log_debug("updating devpath from '%s' to '%s'\n",
@@ -1103,7 +1103,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
                 } else if (has_split) {
                         glob = GL_SPLIT;
                 } else if (has_glob) {
-                        if (strcmp(value, "?*") == 0)
+                        if (streq(value, "?*"))
                                 glob = GL_SOMETHING;
                         else
                                 glob = GL_GLOB;
@@ -1200,7 +1200,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                 if (get_key(rules->udev, &linepos, &key, &op, &value) != 0)
                         break;
 
-                if (strcmp(key, "ACTION") == 0) {
+                if (streq(key, "ACTION")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid ACTION operation\n");
                                 goto invalid;
@@ -1209,7 +1209,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "DEVPATH") == 0) {
+                if (streq(key, "DEVPATH")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid DEVPATH operation\n");
                                 goto invalid;
@@ -1218,7 +1218,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "KERNEL") == 0) {
+                if (streq(key, "KERNEL")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid KERNEL operation\n");
                                 goto invalid;
@@ -1227,16 +1227,16 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "SUBSYSTEM") == 0) {
+                if (streq(key, "SUBSYSTEM")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid SUBSYSTEM operation\n");
                                 goto invalid;
                         }
                         /* bus, class, subsystem events should all be the same */
-                        if (strcmp(value, "subsystem") == 0 ||
-                            strcmp(value, "bus") == 0 ||
-                            strcmp(value, "class") == 0) {
-                                if (strcmp(value, "bus") == 0 || strcmp(value, "class") == 0)
+                        if (streq(value, "subsystem") ||
+                            streq(value, "bus") ||
+                            streq(value, "class")) {
+                                if (streq(value, "bus") || streq(value, "class"))
                                         log_error("'%s' must be specified as 'subsystem' \n"
                                             "please fix it in %s:%u", value, filename, lineno);
                                 rule_add_key(&rule_tmp, TK_M_SUBSYSTEM, op, "subsystem|class|bus", NULL);
@@ -1245,7 +1245,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "DRIVER") == 0) {
+                if (streq(key, "DRIVER")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid DRIVER operation\n");
                                 goto invalid;
@@ -1254,7 +1254,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strncmp(key, "ATTR{", sizeof("ATTR{")-1) == 0) {
+                if (startswith(key, "ATTR{")) {
                         attr = get_key_attribute(rules->udev, key + sizeof("ATTR")-1);
                         if (attr == NULL) {
                                 log_error("error parsing ATTR attribute\n");
@@ -1268,7 +1268,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "KERNELS") == 0) {
+                if (streq(key, "KERNELS")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid KERNELS operation\n");
                                 goto invalid;
@@ -1277,7 +1277,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "SUBSYSTEMS") == 0) {
+                if (streq(key, "SUBSYSTEMS")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid SUBSYSTEMS operation\n");
                                 goto invalid;
@@ -1286,7 +1286,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "DRIVERS") == 0) {
+                if (streq(key, "DRIVERS")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid DRIVERS operation\n");
                                 goto invalid;
@@ -1295,7 +1295,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strncmp(key, "ATTRS{", sizeof("ATTRS{")-1) == 0) {
+                if (startswith(key, "ATTRS{")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid ATTRS operation\n");
                                 goto invalid;
@@ -1305,7 +1305,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                                 log_error("error parsing ATTRS attribute\n");
                                 goto invalid;
                         }
-                        if (strncmp(attr, "device/", 7) == 0)
+                        if (startswith(attr, "device/"))
                                 log_error("the 'device' link may not be available in a future kernel, "
                                     "please fix it in %s:%u", filename, lineno);
                         else if (strstr(attr, "../") != NULL)
@@ -1315,7 +1315,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "TAGS") == 0) {
+                if (streq(key, "TAGS")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid TAGS operation\n");
                                 goto invalid;
@@ -1324,7 +1324,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strncmp(key, "ENV{", sizeof("ENV{")-1) == 0) {
+                if (startswith(key, "ENV{")) {
                         attr = get_key_attribute(rules->udev, key + sizeof("ENV")-1);
                         if (attr == NULL) {
                                 log_error("error parsing ENV attribute\n");
@@ -1350,7 +1350,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                                 unsigned int i;
 
                                 for (i = 0; i < ELEMENTSOF(blacklist); i++)
-                                        if (strcmp(attr, blacklist[i]) == 0) {
+                                        if (streq(attr, blacklist[i])) {
                                                 log_error("invalid ENV attribute, '%s' can not be set %s:%u\n", attr, filename, lineno);
                                                 continue;
                                         }
@@ -1360,7 +1360,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "TAG") == 0) {
+                if (streq(key, "TAG")) {
                         if (op < OP_MATCH_MAX)
                                 rule_add_key(&rule_tmp, TK_M_TAG, op, value, NULL);
                         else
@@ -1368,12 +1368,12 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "PROGRAM") == 0) {
+                if (streq(key, "PROGRAM")) {
                         rule_add_key(&rule_tmp, TK_M_PROGRAM, op, value, NULL);
                         continue;
                 }
 
-                if (strcmp(key, "RESULT") == 0) {
+                if (streq(key, "RESULT")) {
                         if (op > OP_MATCH_MAX) {
                                 log_error("invalid RESULT operation\n");
                                 goto invalid;
@@ -1382,13 +1382,13 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strncmp(key, "IMPORT", sizeof("IMPORT")-1) == 0) {
+                if (startswith(key, "IMPORT")) {
                         attr = get_key_attribute(rules->udev, key + sizeof("IMPORT")-1);
                         if (attr == NULL) {
                                 log_error("IMPORT{} type missing, ignoring IMPORT %s:%u\n", filename, lineno);
                                 continue;
                         }
-                        if (strcmp(attr, "program") == 0) {
+                        if (streq(attr, "program")) {
                                 /* find known built-in command */
                                 if (value[0] != '/') {
                                         enum udev_builtin_cmd cmd;
@@ -1402,27 +1402,27 @@ static int add_rule(struct udev_rules *rules, char *line,
                                         }
                                 }
                                 rule_add_key(&rule_tmp, TK_M_IMPORT_PROG, op, value, NULL);
-                        } else if (strcmp(attr, "builtin") == 0) {
+                        } else if (streq(attr, "builtin")) {
                                 enum udev_builtin_cmd cmd = udev_builtin_lookup(value);
 
                                 if (cmd < UDEV_BUILTIN_MAX)
                                         rule_add_key(&rule_tmp, TK_M_IMPORT_BUILTIN, op, value, &cmd);
                                 else
                                         log_error("IMPORT{builtin}: '%s' unknown %s:%u\n", value, filename, lineno);
-                        } else if (strcmp(attr, "file") == 0) {
+                        } else if (streq(attr, "file")) {
                                 rule_add_key(&rule_tmp, TK_M_IMPORT_FILE, op, value, NULL);
-                        } else if (strcmp(attr, "db") == 0) {
+                        } else if (streq(attr, "db")) {
                                 rule_add_key(&rule_tmp, TK_M_IMPORT_DB, op, value, NULL);
-                        } else if (strcmp(attr, "cmdline") == 0) {
+                        } else if (streq(attr, "cmdline")) {
                                 rule_add_key(&rule_tmp, TK_M_IMPORT_CMDLINE, op, value, NULL);
-                        } else if (strcmp(attr, "parent") == 0) {
+                        } else if (streq(attr, "parent")) {
                                 rule_add_key(&rule_tmp, TK_M_IMPORT_PARENT, op, value, NULL);
                         } else
                                 log_error("IMPORT{} unknown type, ignoring IMPORT %s:%u\n", filename, lineno);
                         continue;
                 }
 
-                if (strncmp(key, "TEST", sizeof("TEST")-1) == 0) {
+                if (startswith(key, "TEST")) {
                         mode_t mode = 0;
 
                         if (op > OP_MATCH_MAX) {
@@ -1439,19 +1439,19 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strncmp(key, "RUN", sizeof("RUN")-1) == 0) {
+                if (startswith(key, "RUN")) {
                         attr = get_key_attribute(rules->udev, key + sizeof("RUN")-1);
                         if (attr == NULL)
                                 attr = "program";
 
-                        if (strcmp(attr, "builtin") == 0) {
+                        if (streq(attr, "builtin")) {
                                 enum udev_builtin_cmd cmd = udev_builtin_lookup(value);
 
                                 if (cmd < UDEV_BUILTIN_MAX)
                                         rule_add_key(&rule_tmp, TK_A_RUN_BUILTIN, op, value, &cmd);
                                 else
                                         log_error("IMPORT{builtin}: '%s' unknown %s:%u\n", value, filename, lineno);
-                        } else if (strcmp(attr, "program") == 0) {
+                        } else if (streq(attr, "program")) {
                                 enum udev_builtin_cmd cmd = UDEV_BUILTIN_MAX;
 
                                 rule_add_key(&rule_tmp, TK_A_RUN_PROGRAM, op, value, &cmd);
@@ -1462,26 +1462,26 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "WAIT_FOR") == 0 || strcmp(key, "WAIT_FOR_SYSFS") == 0) {
+                if (streq(key, "WAIT_FOR") || streq(key, "WAIT_FOR_SYSFS")) {
                         rule_add_key(&rule_tmp, TK_M_WAITFOR, 0, value, NULL);
                         continue;
                 }
 
-                if (strcmp(key, "LABEL") == 0) {
+                if (streq(key, "LABEL")) {
                         rule_tmp.rule.rule.label_off = add_string(rules, value);
                         continue;
                 }
 
-                if (strcmp(key, "GOTO") == 0) {
+                if (streq(key, "GOTO")) {
                         rule_add_key(&rule_tmp, TK_A_GOTO, 0, value, NULL);
                         continue;
                 }
 
-                if (strncmp(key, "NAME", sizeof("NAME")-1) == 0) {
+                if (startswith(key, "NAME")) {
                         if (op < OP_MATCH_MAX) {
                                 rule_add_key(&rule_tmp, TK_M_NAME, op, value, NULL);
                         } else {
-                                if (strcmp(value, "%k") == 0) {
+                                if (streq(value, "%k")) {
                                         log_error("NAME=\"%%k\" is ignored, because it breaks kernel supplied names, "
                                             "please remove it from %s:%u\n", filename, lineno);
                                         continue;
@@ -1497,7 +1497,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strncmp(key, "SYMLINK", sizeof("SYMLINK")-1) == 0) {
+                if (startswith(key, "SYMLINK")) {
                         if (op < OP_MATCH_MAX) {
                                 rule_add_key(&rule_tmp, TK_M_DEVLINK, op, value, NULL);
                         } else {
@@ -1512,7 +1512,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "OWNER") == 0) {
+                if (streq(key, "OWNER")) {
                         uid_t uid;
                         char *endptr;
 
@@ -1529,7 +1529,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "GROUP") == 0) {
+                if (streq(key, "GROUP")) {
                         gid_t gid;
                         char *endptr;
 
@@ -1546,7 +1546,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "MODE") == 0) {
+                if (streq(key, "MODE")) {
                         mode_t mode;
                         char *endptr;
 
@@ -1559,7 +1559,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (strcmp(key, "OPTIONS") == 0) {
+                if (streq(key, "OPTIONS")) {
                         const char *pos;
 
                         pos = strstr(value, "link_priority=");
@@ -1579,9 +1579,9 @@ static int add_rule(struct udev_rules *rules, char *line,
                         pos = strstr(value, "string_escape=");
                         if (pos != NULL) {
                                 pos = &pos[strlen("string_escape=")];
-                                if (strncmp(pos, "none", strlen("none")) == 0)
+                                if (startswith(pos, "none"))
                                         rule_add_key(&rule_tmp, TK_A_STRING_ESCAPE_NONE, op, NULL, NULL);
-                                else if (strncmp(pos, "replace", strlen("replace")) == 0)
+                                else if (startswith(pos, "replace"))
                                         rule_add_key(&rule_tmp, TK_A_STRING_ESCAPE_REPLACE, op, NULL, NULL);
                         }
 
@@ -1694,7 +1694,7 @@ static int parse_file(struct udev_rules *rules, const char *filename, unsigned s
                                         continue;
                                 if (rules->tokens[j].rule.label_off == 0)
                                         continue;
-                                if (strcmp(label, &rules->buf[rules->tokens[j].rule.label_off]) != 0)
+                                if (!streq(label, &rules->buf[rules->tokens[j].rule.label_off]))
                                         continue;
                                 rules->tokens[i].key.rule_goto = j;
                                 break;
@@ -1729,7 +1729,7 @@ static int add_matching_files(struct udev *udev, struct udev_list *file_list, co
                         ext = strrchr(dent->d_name, '.');
                         if (ext == NULL)
                                 continue;
-                        if (strcmp(ext, suffix) != 0)
+                        if (!streq(ext, suffix))
                                 continue;
                 }
                 util_strscpyl(filename, sizeof(filename), dirname, "/", dent->d_name, NULL);
@@ -1927,33 +1927,33 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 
         switch (token->key.glob) {
         case GL_PLAIN:
-                match = (strcmp(key_value, val) == 0);
+                match = (streq(key_value, val));
                 break;
         case GL_GLOB:
                 match = (fnmatch(key_value, val, 0) == 0);
                 break;
         case GL_SPLIT:
                 {
-                        const char *split;
+                        const char *s;
                         size_t len;
 
-                        split = &rules->buf[token->key.value_off];
+                        s = &rules->buf[token->key.value_off];
                         len = strlen(val);
                         for (;;) {
                                 const char *next;
 
-                                next = strchr(split, '|');
+                                next = strchr(s, '|');
                                 if (next != NULL) {
-                                        size_t matchlen = (size_t)(next - split);
+                                        size_t matchlen = (size_t)(next - s);
 
-                                        match = (matchlen == len && strncmp(split, val, matchlen) == 0);
+                                        match = (matchlen == len && strncmp(s, val, matchlen) == 0);
                                         if (match)
                                                 break;
                                 } else {
-                                        match = (strcmp(split, val) == 0);
+                                        match = (streq(s, val));
                                         break;
                                 }
-                                split = &next[1];
+                                s = &next[1];
                         }
                         break;
                 }
@@ -2055,7 +2055,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
         if (rules->tokens == NULL)
                 return -1;
 
-        can_set_name = ((strcmp(udev_device_get_action(event->dev), "remove") != 0) &&
+        can_set_name = ((!streq(udev_device_get_action(event->dev), "remove")) &&
                         (major(udev_device_get_devnum(event->dev)) > 0 ||
                          udev_device_get_ifindex(event->dev) > 0));
 
@@ -2122,7 +2122,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                         bool match = false;
 
                         udev_list_entry_foreach(list_entry, udev_device_get_tags_list_entry(event->dev)) {
-                                if (strcmp(&rules->buf[cur->key.value_off], udev_list_entry_get_name(list_entry)) == 0) {
+                                if (streq(&rules->buf[cur->key.value_off], udev_list_entry_get_name(list_entry))) {
                                         match = true;
                                         break;
                                 }
@@ -2566,7 +2566,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                         log_debug("%i character(s) replaced\n", count);
                         }
                         if (major(udev_device_get_devnum(event->dev)) &&
-                            (strcmp(name_str, udev_device_get_devnode(event->dev) + strlen(TEST_PREFIX "/dev/")) != 0)) {
+                            (!streq(name_str, udev_device_get_devnode(event->dev) + strlen(TEST_PREFIX "/dev/")))) {
                                 log_error("NAME=\"%s\" ignored, kernel device nodes "
                                     "can not be renamed; please fix it in %s:%u\n", name,
                                     &rules->buf[rule->rule.filename_off], rule->rule.filename_line);

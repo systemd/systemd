@@ -60,7 +60,7 @@ int udev_device_tag_index(struct udev_device *dev, struct udev_device *dev_old, 
                         udev_list_entry_foreach(list_entry_current, udev_device_get_tags_list_entry(dev)) {
                                 const char *tag = udev_list_entry_get_name(list_entry_current);
 
-                                if (strcmp(tag, tag_old) == 0) {
+                                if (streq(tag, tag_old)) {
                                         found = true;
                                         break;
                                 }

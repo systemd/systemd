@@ -62,7 +62,7 @@ int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)
                 return -1;
         link_target[len] = '\0';
 
-        for (back = 0; strncmp(&link_target[back * 3], "../", 3) == 0; back++)
+        for (back = 0; startswith(&link_target[back * 3], "../"); back++)
                 ;
         for (i = 0; i <= back; i++) {
                 base = strrchr(syspath, '/');
@@ -84,11 +84,11 @@ int util_log_priority(const char *priority)
         prio = strtol(priority, &endptr, 10);
         if (endptr[0] == '\0' || isspace(endptr[0]))
                 return prio;
-        if (strncmp(priority, "err", 3) == 0)
+        if (startswith(priority, "err"))
                 return LOG_ERR;
-        if (strncmp(priority, "info", 4) == 0)
+        if (startswith(priority, "info"))
                 return LOG_INFO;
-        if (strncmp(priority, "debug", 5) == 0)
+        if (startswith(priority, "debug"))
                 return LOG_DEBUG;
         return 0;
 }

@@ -40,6 +40,7 @@ const struct key* lookup_key (const char *str, unsigned int len);
 
 #include "keys-from-name.h"
 #include "keys-to-name.h"
+#include "util.h"
 
 #define MAX_SCANCODES 1024
 
@@ -48,7 +49,7 @@ static int evdev_open(const char *dev)
         int fd;
         char fn[PATH_MAX];
 
-        if (strncmp(dev, "/dev", 4) != 0) {
+        if (!startswith(dev, "/dev")) {
                 snprintf(fn, sizeof(fn), "/dev/%s", dev);
                 dev = fn;
         }

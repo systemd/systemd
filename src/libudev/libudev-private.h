@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "macro.h"
+#include "util.h"
 #include "libudev.h"
 
 #define READ_END  0

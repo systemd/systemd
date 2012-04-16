@@ -276,7 +276,7 @@ _public_ const char *udev_device_get_subsystem(struct udev_device *udev_device)
                         return udev_device->subsystem;
                 }
                 /* implicit names */
-                if (strncmp(udev_device->devpath, "/module/", 8) == 0) {
+                if (startswith(udev_device->devpath, "/module/")) {
                         udev_device_set_subsystem(udev_device, "module");
                         return udev_device->subsystem;
                 }
@@ -284,9 +284,9 @@ _public_ const char *udev_device_get_subsystem(struct udev_device *udev_device)
                         udev_device_set_subsystem(udev_device, "drivers");
                         return udev_device->subsystem;
                 }
-                if (strncmp(udev_device->devpath, "/subsystem/", 11) == 0 ||
-                    strncmp(udev_device->devpath, "/class/", 7) == 0 ||
-                    strncmp(udev_device->devpath, "/bus/", 5) == 0) {
+                if (startswith(udev_device->devpath, "/subsystem/") ||
+                    startswith(udev_device->devpath, "/class/") ||
+                    startswith(udev_device->devpath, "/bus/")) {
                         udev_device_set_subsystem(udev_device, "subsystem");
                         return udev_device->subsystem;
                 }
@@ -353,18 +353,18 @@ static struct udev_list_entry *udev_device_add_property_from_string(struct udev_
  */
 void udev_device_add_property_from_string_parse(struct udev_device *udev_device, const char *property)
 {
-        if (strncmp(property, "DEVPATH=", 8) == 0) {
+        if (startswith(property, "DEVPATH=")) {
                 char path[UTIL_PATH_SIZE];
 
                 util_strscpyl(path, sizeof(path), TEST_PREFIX "/sys", &property[8], NULL);
                 udev_device_set_syspath(udev_device, path);
-        } else if (strncmp(property, "SUBSYSTEM=", 10) == 0) {
+        } else if (startswith(property, "SUBSYSTEM=")) {
                 udev_device_set_subsystem(udev_device, &property[10]);
-        } else if (strncmp(property, "DEVTYPE=", 8) == 0) {
+        } else if (startswith(property, "DEVTYPE=")) {
                 udev_device_set_devtype(udev_device, &property[8]);
-        } else if (strncmp(property, "DEVNAME=", 8) == 0) {
+        } else if (startswith(property, "DEVNAME=")) {
                 udev_device_set_devnode(udev_device, &property[8]);
-        } else if (strncmp(property, "DEVLINKS=", 9) == 0) {
+        } else if (startswith(property, "DEVLINKS=")) {
                 char devlinks[UTIL_PATH_SIZE];
                 char *slink;
                 char *next;
@@ -380,7 +380,7 @@ void udev_device_add_property_from_string_parse(struct udev_device *udev_device,
                 }
                 if (slink[0] != '\0')
                         udev_device_add_devlink(udev_device, slink, 0);
-        } else if (strncmp(property, "TAGS=", 5) == 0) {
+        } else if (startswith(property, "TAGS=")) {
                 char tags[UTIL_PATH_SIZE];
                 char *next;
 
@@ -400,23 +400,23 @@ void udev_device_add_property_from_string_parse(struct udev_device *udev_device,
                                 udev_device_add_tag(udev_device, tag);
                         }
                 }
-        } else if (strncmp(property, "USEC_INITIALIZED=", 19) == 0) {
+        } else if (startswith(property, "USEC_INITIALIZED=")) {
                 udev_device_set_usec_initialized(udev_device, strtoull(&property[19], NULL, 10));
-        } else if (strncmp(property, "DRIVER=", 7) == 0) {
+        } else if (startswith(property, "DRIVER=")) {
                 udev_device_set_driver(udev_device, &property[7]);
-        } else if (strncmp(property, "ACTION=", 7) == 0) {
+        } else if (startswith(property, "ACTION=")) {
                 udev_device_set_action(udev_device, &property[7]);
-        } else if (strncmp(property, "MAJOR=", 6) == 0) {
+        } else if (startswith(property, "MAJOR=")) {
                 udev_device->maj = strtoull(&property[6], NULL, 10);
-        } else if (strncmp(property, "MINOR=", 6) == 0) {
+        } else if (startswith(property, "MINOR=")) {
                 udev_device->min = strtoull(&property[6], NULL, 10);
-        } else if (strncmp(property, "DEVPATH_OLD=", 12) == 0) {
+        } else if (startswith(property, "DEVPATH_OLD=")) {
                 udev_device_set_devpath_old(udev_device, &property[12]);
-        } else if (strncmp(property, "SEQNUM=", 7) == 0) {
+        } else if (startswith(property, "SEQNUM=")) {
                 udev_device_set_seqnum(udev_device, strtoull(&property[7], NULL, 10));
-        } else if (strncmp(property, "IFINDEX=", 8) == 0) {
+        } else if (startswith(property, "IFINDEX=")) {
                 udev_device_set_ifindex(udev_device, strtoull(&property[8], NULL, 10));
-        } else if (strncmp(property, "DEVMODE=", 8) == 0) {
+        } else if (startswith(property, "DEVMODE=")) {
                 udev_device_set_devnode_mode(udev_device, strtoul(&property[8], NULL, 8));
         } else {
                 udev_device_add_property_from_string(udev_device, property);
@@ -548,24 +548,24 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
                         continue;
                 pos[0] = '\0';
 
-                if (strncmp(line, "DEVTYPE=", 8) == 0) {
+                if (startswith(line, "DEVTYPE=")) {
                         udev_device_set_devtype(udev_device, &line[8]);
                         continue;
                 }
-                if (strncmp(line, "IFINDEX=", 8) == 0) {
+                if (startswith(line, "IFINDEX=")) {
                         udev_device_set_ifindex(udev_device, strtoull(&line[8], NULL, 10));
                         continue;
                 }
-                if (strncmp(line, "DEVNAME=", 8) == 0) {
+                if (startswith(line, "DEVNAME=")) {
                         udev_device_set_devnode(udev_device, &line[8]);
                         continue;
                 }
 
-                if (strncmp(line, "MAJOR=", 6) == 0)
+                if (startswith(line, "MAJOR="))
                         maj = strtoull(&line[6], NULL, 10);
-                else if (strncmp(line, "MINOR=", 6) == 0)
+                else if (startswith(line, "MINOR="))
                         min = strtoull(&line[6], NULL, 10);
-                else if (strncmp(line, "DEVMODE=", 8) == 0)
+                else if (startswith(line, "DEVMODE="))
                         udev_device->devnode_mode = strtoul(&line[8], NULL, 8);
 
                 udev_device_add_property_from_string(udev_device, line);
@@ -636,7 +636,7 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
                 return NULL;
 
         /* path starts in sys */
-        if (strncmp(syspath, TEST_PREFIX "/sys", strlen(TEST_PREFIX "/sys")) != 0) {
+        if (!startswith(syspath, TEST_PREFIX "/sys")) {
                 dbg(udev, "not in sys :%s\n", syspath);
                 return NULL;
         }
@@ -651,7 +651,7 @@ _public_ struct udev_device *udev_device_new_from_syspath(struct udev *udev, con
         util_strscpy(path, sizeof(path), syspath);
         util_resolve_sys_link(udev, path, sizeof(path));
 
-        if (strncmp(path + strlen(TEST_PREFIX "/sys"), "/devices/", 9) == 0) {
+        if (startswith(path + strlen(TEST_PREFIX "/sys"), "/devices/")) {
                 char file[UTIL_PATH_SIZE];
 
                 /* all "devices" require a "uevent" file */
@@ -783,7 +783,7 @@ _public_ struct udev_device *udev_device_new_from_subsystem_sysname(struct udev 
         char path[UTIL_PATH_SIZE];
         struct stat statbuf;
 
-        if (strcmp(subsystem, "subsystem") == 0) {
+        if (streq(subsystem, "subsystem")) {
                 util_strscpyl(path, sizeof(path), TEST_PREFIX "/sys/subsystem/", sysname, NULL);
                 if (stat(path, &statbuf) == 0)
                         goto found;
@@ -798,14 +798,14 @@ _public_ struct udev_device *udev_device_new_from_subsystem_sysname(struct udev 
                 goto out;
         }
 
-        if (strcmp(subsystem, "module") == 0) {
+        if (streq(subsystem, "module")) {
                 util_strscpyl(path, sizeof(path), TEST_PREFIX "/sys/module/", sysname, NULL);
                 if (stat(path, &statbuf) == 0)
                         goto found;
                 goto out;
         }
 
-        if (strcmp(subsystem, "drivers") == 0) {
+        if (streq(subsystem, "drivers")) {
                 char subsys[UTIL_NAME_SIZE];
                 char *driver;
 
@@ -966,11 +966,11 @@ _public_ struct udev_device *udev_device_get_parent_with_subsystem_devtype(struc
                 const char *parent_devtype;
 
                 parent_subsystem = udev_device_get_subsystem(parent);
-                if (parent_subsystem != NULL && strcmp(parent_subsystem, subsystem) == 0) {
+                if (parent_subsystem != NULL && streq(parent_subsystem, subsystem)) {
                         if (devtype == NULL)
                                 break;
                         parent_devtype = udev_device_get_devtype(parent);
-                        if (parent_devtype != NULL && strcmp(parent_devtype, devtype) == 0)
+                        if (parent_devtype != NULL && streq(parent_devtype, devtype))
                                 break;
                 }
                 parent = udev_device_get_parent(parent);
@@ -1237,7 +1237,7 @@ _public_ const char *udev_device_get_action(struct udev_device *udev_device)
  **/
 _public_ unsigned long long int udev_device_get_usec_since_initialized(struct udev_device *udev_device)
 {
-        unsigned long long now;
+        unsigned long long now_ts;
 
         if (udev_device == NULL)
                 return 0;
@@ -1245,10 +1245,10 @@ _public_ unsigned long long int udev_device_get_usec_since_initialized(struct ud
                 udev_device_read_db(udev_device, NULL);
         if (udev_device->usec_initialized == 0)
                 return 0;
-        now = now_usec();
-        if (now == 0)
+        now_ts = now_usec();
+        if (now_ts == 0)
                 return 0;
-        return now - udev_device->usec_initialized;
+        return now_ts - udev_device->usec_initialized;
 }
 
 unsigned long long udev_device_get_usec_initialized(struct udev_device *udev_device)
@@ -1309,9 +1309,9 @@ _public_ const char *udev_device_get_sysattr_value(struct udev_device *udev_devi
                  * Some core links return only the last element of the target path,
                  * these are just values, the paths should not be exposed.
                  */
-                if (strcmp(sysattr, "driver") == 0 ||
-                    strcmp(sysattr, "subsystem") == 0 ||
-                    strcmp(sysattr, "module") == 0) {
+                if (streq(sysattr, "driver") ||
+                    streq(sysattr, "subsystem") ||
+                    streq(sysattr, "module")) {
                         if (util_get_sys_core_link_value(udev_device->udev, sysattr,
                                                          udev_device->syspath, value, sizeof(value)) < 0)
                                 return NULL;
@@ -1497,7 +1497,7 @@ const char *udev_device_get_id_filename(struct udev_device *udev_device)
                 if (major(udev_device_get_devnum(udev_device)) > 0) {
                         /* use dev_t -- b259:131072, c254:0 */
                         if (asprintf(&udev_device->id_filename, "%c%u:%u",
-                                     strcmp(udev_device_get_subsystem(udev_device), "block") == 0 ? 'b' : 'c',
+                                     streq(udev_device_get_subsystem(udev_device), "block") ? 'b' : 'c',
                                      major(udev_device_get_devnum(udev_device)),
                                      minor(udev_device_get_devnum(udev_device))) < 0)
                                 udev_device->id_filename = NULL;

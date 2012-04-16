@@ -176,7 +176,7 @@ static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **
                 transportdev = udev_device_get_parent(transportdev);
                 if (transportdev == NULL)
                         return NULL;
-                if (strncmp(udev_device_get_sysname(transportdev), "session", 7) == 0)
+                if (startswith(udev_device_get_sysname(transportdev), "session"))
                         break;
         }
 
@@ -260,7 +260,7 @@ static struct udev_device *handle_scsi_default(struct udev_device *parent, char 
                         continue;
                 if (dent->d_type != DT_DIR && dent->d_type != DT_LNK)
                         continue;
-                if (strncmp(dent->d_name, "host", 4) != 0)
+                if (!startswith(dent->d_name, "host"))
                         continue;
                 i = strtoul(&dent->d_name[4], &rest, 10);
                 if (rest[0] != '\0')
@@ -349,9 +349,9 @@ static void handle_scsi_tape(struct udev_device *dev, char **path)
                 return;
 
         name = udev_device_get_sysname(dev);
-        if (strncmp(name, "nst", 3) == 0 && strchr("lma", name[3]) != NULL)
+        if (startswith(name, "nst") && strchr("lma", name[3]) != NULL)
                 path_prepend(path, "nst%c", name[3]);
-        else if (strncmp(name, "st", 2) == 0 && strchr("lma", name[2]) != NULL)
+        else if (startswith(name, "st") && strchr("lma", name[2]) != NULL)
                 path_prepend(path, "st%c", name[2]);
 }
 

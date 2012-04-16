@@ -164,7 +164,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                         struct udev_device *dev;
 
                         /* add sys dir if needed */
-                        if (strncmp(optarg, "/sys", strlen("/sys")) != 0)
+                        if (!startswith(optarg, "/sys"))
                                 util_strscpyl(path, sizeof(path), "/sys", optarg, NULL);
                         else
                                 util_strscpy(path, sizeof(path), optarg);
