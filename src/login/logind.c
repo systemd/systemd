@@ -1157,11 +1157,13 @@ void manager_gc(Manager *m, bool drop_not_started) {
 
 int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
         Session *s;
-        bool idle_hint = true;
+        bool idle_hint;
         dual_timestamp ts = { 0, 0 };
         Iterator i;
 
         assert(m);
+
+        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, t);
 
         HASHMAP_FOREACH(s, m->sessions, i) {
                 dual_timestamp k;

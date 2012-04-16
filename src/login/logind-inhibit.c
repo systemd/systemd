@@ -150,6 +150,8 @@ int inhibitor_start(Inhibitor *i) {
         if (i->started)
                 return 0;
 
+        dual_timestamp_get(&i->since);
+
         log_debug("Inhibitor %s (%s) pid=%lu uid=%lu started.",
                   strna(i->who), strna(i->why),
                   (unsigned long) i->pid, (unsigned long) i->uid);
@@ -323,6 +325,32 @@ InhibitWhat manager_inhibit_what(Manager *m) {
                 what |= i->what;
 
         return what;
+}
+
+bool manager_is_inhibited(Manager *m, InhibitWhat w, dual_timestamp *since) {
+        Inhibitor *i;
+        Iterator j;
+        struct dual_timestamp ts = { 0, 0 };
+        bool inhibited = false;
+
+        assert(m);
+        assert(w > 0 && w < _INHIBIT_WHAT_MAX);
+
+        HASHMAP_FOREACH(i, m->inhibitor_fds, j) {
+                if (!(i->what & w))
+                        continue;
+
+                if (!inhibited ||
+                    i->since.monotonic < ts.monotonic)
+                        ts = i->since;
+
+                inhibited = true;
+        }
+
+        if (since)
+                *since = ts;
+
+        return inhibited;
 }
 
 const char *inhibit_what_to_string(InhibitWhat w) {

@@ -52,6 +52,8 @@ struct Inhibitor {
         pid_t pid;
         uid_t uid;
 
+        dual_timestamp since;
+
         char *fifo_path;
         int fifo_fd;
 };
@@ -69,6 +71,7 @@ int inhibitor_create_fifo(Inhibitor *i);
 void inhibitor_remove_fifo(Inhibitor *i);
 
 InhibitWhat manager_inhibit_what(Manager *m);
+bool manager_is_inhibited(Manager *m, InhibitWhat w, dual_timestamp *since);
 
 const char *inhibit_what_to_string(InhibitWhat k);
 InhibitWhat inhibit_what_from_string(const char *s);

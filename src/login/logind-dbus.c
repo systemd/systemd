@@ -1649,7 +1649,7 @@ static DBusHandlerResult manager_message_handler(
                         return bus_send_error_reply(connection, message, &error, r);
 
                 multiple_sessions = r > 0;
-                inhibit = !!(manager_inhibit_what(m) & INHIBIT_SHUTDOWN);
+                inhibit = manager_is_inhibited(m, INHIBIT_SHUTDOWN, NULL);
 
                 if (multiple_sessions) {
                         action = streq(dbus_message_get_member(message), "PowerOff") ?
@@ -1723,7 +1723,7 @@ static DBusHandlerResult manager_message_handler(
                         return bus_send_error_reply(connection, message, &error, r);
 
                 multiple_sessions = r > 0;
-                inhibit = !!(manager_inhibit_what(m) & INHIBIT_SHUTDOWN);
+                inhibit = manager_is_inhibited(m, INHIBIT_SHUTDOWN, NULL);
 
                 if (multiple_sessions) {
                         action = streq(dbus_message_get_member(message), "CanPowerOff") ?
