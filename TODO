@@ -19,8 +19,6 @@ Features:
 
 * filter default cgroups in logind too
 
-* remove empty cgroups from cgls output
-
 * udev: remove /sys and /dev configurability
 
 * udev: find a way to tell udev to not cancel firmware requests when running in initramfs
@@ -59,8 +57,6 @@ Features:
 * journald: make configurable "store-on-var", "store-on-run", "dont-store", "auto"
   (store-persistent, store-volatile?)
 
-* Add ConditionReadWriteFileSystem= so that systemd-sysctl doesn't get executed when /proc/sys is read-only
-
 * introduce mix of BindTo and Requisite
 
 * journalctl: show multiline log messages sanely, expand tabs, and show all valid utf8 messages
@@ -68,8 +64,6 @@ Features:
 * introduce NeedsMounts= or so to create .mount dependencies automatically for a specific path
 
 * add DeleteSocketsOnStop=yes|no option to socket units
-
-* add shutdown inhibit API for usage by libvirt and friends
 
 * journal: store euid in journal if it differs from uid
 
@@ -79,13 +73,7 @@ Features:
 
 * There's currently no way to cancel fsck (used to be possible via C-c or c on the console)
 
-* when dumping cgroup contents, include main/control PID of a service, explicitly
-
 * keep an eye on https://bugzilla.gnome.org/show_bug.cgi?id=670100
-
-* D-Bus: always pass cred data along each message
-
-* journal: allow turning off logging entirely
 
 * journal: sanely deal with entries which are larger than the individual file size, but where the componets would fit
 
@@ -310,6 +298,7 @@ External:
    - allow specification of socket mode/umask when allocating DBusServer
    - allow disabling of fd passing when connecting a AF_UNIX connection
    - allow disabling of UID passing for AUTH EXTERNAL
+   - always pass cred data along each message
 
 * systemd --user
     PR_SET_CHILD_REAPER patch: https://lkml.org/lkml/2011/7/28/426

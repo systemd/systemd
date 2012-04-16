@@ -23,8 +23,12 @@
 ***/
 
 #include <stdbool.h>
+#include <sys/types.h>
 
 int show_cgroup_by_path(const char *path, const char *prefix, unsigned columns, bool kernel_threads, bool all);
 int show_cgroup(const char *controller, const char *path, const char *prefix, unsigned columns, bool kernel_threads, bool all);
+
+int show_cgroup_and_extra_by_spec(const char *spec, const char *prefix, unsigned n_columns, bool kernel_threads, bool all, const pid_t extra_pids[], unsigned n_extra_pids);
+int show_cgroup_and_extra(const char *controller, const char *path, const char *prefix, unsigned n_columns, bool kernel_threads, bool all, const pid_t extra_pids[], unsigned n_extra_pids);
 
 #endif

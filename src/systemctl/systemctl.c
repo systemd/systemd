@@ -2378,12 +2378,22 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("\t  CGroup: %s\n", i->default_control_group);
 
                 if (arg_transport != TRANSPORT_SSH) {
-                        if ((c = columns()) > 18)
+                        unsigned k = 0;
+                        pid_t extra[2];
+
+                        c = columns();
+                        if (c > 18)
                                 c -= 18;
                         else
                                 c = 0;
 
-                        show_cgroup_by_path(i->default_control_group, "\t\t  ", c, false, arg_all);
+                        if (i->main_pid > 0)
+                                extra[k++] = i->main_pid;
+
+                        if (i->control_pid > 0)
+                                extra[k++] = i->control_pid;
+
+                        show_cgroup_and_extra_by_spec(i->default_control_group, "\t\t  ", c, false, arg_all, extra, k);
                 }
         }
 

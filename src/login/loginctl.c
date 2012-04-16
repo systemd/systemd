@@ -352,7 +352,7 @@ typedef struct SessionStatusInfo {
         uid_t uid;
         const char *name;
         usec_t timestamp;
-        const char *control_group;
+        const char *default_control_group;
         int vtnr;
         const char *seat;
         const char *tty;
@@ -371,7 +371,7 @@ typedef struct UserStatusInfo {
         uid_t uid;
         const char *name;
         usec_t timestamp;
-        const char *control_group;
+        const char *default_control_group;
         const char *state;
         char **sessions;
         const char *display;
@@ -461,10 +461,10 @@ static void print_session_status_info(SessionStatusInfo *i) {
 
         printf("\t  Active: %s\n", yes_no(i->active));
 
-        if (i->control_group) {
+        if (i->default_control_group) {
                 unsigned c;
 
-                printf("\t  CGroup: %s\n", i->control_group);
+                printf("\t  CGroup: %s\n", i->default_control_group);
 
                 if (arg_transport != TRANSPORT_SSH) {
                         c = columns();
@@ -473,7 +473,7 @@ static void print_session_status_info(SessionStatusInfo *i) {
                         else
                                 c = 0;
 
-                        show_cgroup_by_path(i->control_group, "\t\t  ", c, false, arg_all);
+                        show_cgroup_and_extra_by_spec(i->default_control_group, "\t\t  ", c, false, arg_all, &i->leader, i->leader > 0 ? 1 : 0);
                 }
         }
 }
@@ -513,10 +513,10 @@ static void print_user_status_info(UserStatusInfo *i) {
                 printf("\n");
         }
 
-        if (i->control_group) {
+        if (i->default_control_group) {
                 unsigned c;
 
-                printf("\t  CGroup: %s\n", i->control_group);
+                printf("\t  CGroup: %s\n", i->default_control_group);
 
                 if (arg_transport != TRANSPORT_SSH) {
                         c = columns();
@@ -525,7 +525,7 @@ static void print_user_status_info(UserStatusInfo *i) {
                         else
                                 c = 0;
 
-                        show_cgroup_by_path(i->control_group, "\t\t  ", c, false, arg_all);
+                        show_cgroup_by_path(i->default_control_group, "\t\t  ", c, false, arg_all);
                 }
         }
 }
@@ -581,8 +581,8 @@ static int status_property_session(const char *name, DBusMessageIter *iter, Sess
                                 i->id = s;
                         else if (streq(name, "Name"))
                                 i->name = s;
-                        else if (streq(name, "ControlGroupPath"))
-                                i->control_group = s;
+                        else if (streq(name, "DefaultControlGroup"))
+                                i->default_control_group = s;
                         else if (streq(name, "TTY"))
                                 i->tty = s;
                         else if (streq(name, "Display"))
@@ -680,8 +680,8 @@ static int status_property_user(const char *name, DBusMessageIter *iter, UserSta
                 if (!isempty(s)) {
                         if (streq(name, "Name"))
                                 i->name = s;
-                        else if (streq(name, "ControlGroupPath"))
-                                i->control_group = s;
+                        else if (streq(name, "DefaultControlGroup"))
+                                i->default_control_group = s;
                         else if (streq(name, "State"))
                                 i->state = s;
                 }

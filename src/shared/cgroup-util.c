@@ -1050,11 +1050,11 @@ int cg_fix_path(const char *path, char **result) {
         assert(result);
 
         /* First check if it already is a filesystem path */
-        if (path_is_absolute(path) &&
-            path_startswith(path, "/sys/fs/cgroup") &&
+        if (path_startswith(path, "/sys/fs/cgroup") &&
             access(path, F_OK) >= 0) {
 
-                if (!(t = strdup(path)))
+                t = strdup(path);
+                if (!t)
                         return -ENOMEM;
 
                 *result = t;
@@ -1062,7 +1062,8 @@ int cg_fix_path(const char *path, char **result) {
         }
 
         /* Otherwise treat it as cg spec */
-        if ((r = cg_split_spec(path, &c, &p)) < 0)
+        r = cg_split_spec(path, &c, &p);
+        if (r < 0)
                 return r;
 
         r = cg_get_path(c ? c : SYSTEMD_CGROUP_CONTROLLER, p ? p : "/", NULL, result);

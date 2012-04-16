@@ -50,33 +50,72 @@ static unsigned ilog10(unsigned long ul) {
         return n;
 }
 
+static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsigned n_columns, bool extra, bool more, bool kernel_threads) {
+        unsigned i, m;
+        pid_t biggest = 0;
+
+        /* Filter duplicates */
+        m = 0;
+        for (i = 0; i < n_pids; i++) {
+                unsigned j;
+
+                if (pids[i] > biggest)
+                        biggest = pids[i];
+
+                for (j = i+1; j < n_pids; j++)
+                        if (pids[i] == pids[j])
+                                break;
+
+                if (j >= n_pids)
+                        pids[m++] = pids[i];
+        }
+        n_pids = m;
+
+        /* And sort */
+        qsort(pids, n_pids, sizeof(pid_t), compare);
+
+        if (n_columns > 8)
+                n_columns -= 8;
+        else
+                n_columns = 20;
+
+        for (i = 0; i < n_pids; i++) {
+                char *t = NULL;
+
+                get_process_cmdline(pids[i], n_columns, true, &t);
+
+                printf("%s%s %*lu %s\n",
+                       prefix,
+                       extra ? "\342\200\243" : ((more || i < n_pids-1) ? "\342\224\234" : "\342\224\224"),
+                       (int) ilog10(biggest),
+                       (unsigned long) pids[i],
+                       strna(t));
+
+                free(t);
+        }
+}
+
+
 static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigned n_columns, bool more, bool kernel_threads) {
         char *fn;
         FILE *f;
         size_t n = 0, n_allocated = 0;
         pid_t *pids = NULL;
         char *p;
-        pid_t pid, biggest = 0;
+        pid_t pid;
         int r;
 
-        if (n_columns <= 0)
-                n_columns = columns();
-
-        if (!prefix)
-                prefix = "";
-
-        if ((r = cg_fix_path(path, &p)) < 0)
+        r = cg_fix_path(path, &p);
+        if (r < 0)
                 return r;
 
         r = asprintf(&fn, "%s/cgroup.procs", p);
         free(p);
-
         if (r < 0)
                 return -ENOMEM;
 
         f = fopen(fn, "re");
         free(fn);
-
         if (!f)
                 return -errno;
 
@@ -90,7 +129,8 @@ static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigne
 
                         n_allocated = MAX(16U, n*2U);
 
-                        if (!(npids = realloc(pids, sizeof(pid_t) * n_allocated))) {
+                        npids = realloc(pids, sizeof(pid_t) * n_allocated);
+                        if (!npids) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -100,54 +140,13 @@ static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigne
 
                 assert(n < n_allocated);
                 pids[n++] = pid;
-
-                if (pid > biggest)
-                        biggest = pid;
         }
 
         if (r < 0)
                 goto finish;
 
-        if (n > 0) {
-                unsigned i, m;
-
-                /* Filter duplicates */
-                m = 0;
-                for (i = 0; i < n; i++) {
-                        unsigned j;
-
-                        for (j = i+1; j < n; j++)
-                                if (pids[i] == pids[j])
-                                        break;
-
-                        if (j >= n)
-                                pids[m++] = pids[i];
-                }
-                n = m;
-
-                /* And sort */
-                qsort(pids, n, sizeof(pid_t), compare);
-
-                if (n_columns > 8)
-                        n_columns -= 8;
-                else
-                        n_columns = 20;
-
-                for (i = 0; i < n; i++) {
-                        char *t = NULL;
-
-                        get_process_cmdline(pids[i], n_columns, true, &t);
-
-                        printf("%s%s %*lu %s\n",
-                               prefix,
-                               (more || i < n-1) ? "\342\224\234" : "\342\224\224",
-                               (int) ilog10(biggest),
-                               (unsigned long) pids[i],
-                               strna(t));
-
-                        free(t);
-                }
-        }
+        if (n > 0)
+                show_pid_array(pids, n, prefix, n_columns, false, more, kernel_threads);
 
         r = 0;
 
@@ -166,6 +165,8 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
         char *p1 = NULL, *p2 = NULL, *fn = NULL, *gn = NULL;
         bool shown_pids = false;
         int r;
+
+        assert(path);
 
         if (n_columns <= 0)
                 n_columns = columns();
@@ -188,7 +189,6 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
 
                 r = asprintf(&k, "%s/%s", fn, gn);
                 free(gn);
-
                 if (r < 0) {
                         r = -ENOMEM;
                         goto finish;
@@ -269,6 +269,78 @@ int show_cgroup(const char *controller, const char *path, const char *prefix, un
 
         r = show_cgroup_by_path(p, prefix, n_columns, kernel_threads, all);
         free(p);
+
+        return r;
+}
+
+static int show_extra_pids(const char *controller, const char *path, const char *prefix, unsigned n_columns, const pid_t pids[], unsigned n_pids) {
+        pid_t *copy;
+        unsigned i, j;
+        int r;
+
+        assert(controller);
+        assert(path);
+
+        if (n_pids <= 0)
+                return 0;
+
+        if (n_columns <= 0)
+                n_columns = columns();
+
+        if (!prefix)
+                prefix = "";
+
+        copy = new(pid_t, n_pids);
+        if (!copy)
+                return -ENOMEM;
+
+        for (i = 0, j = 0; i < n_pids; i++) {
+                char *k;
+
+                r = cg_get_by_pid(controller, pids[i], &k);
+                if (r < 0) {
+                        free(copy);
+                        return r;
+                }
+
+                if (path_startswith(k, path))
+                        continue;
+
+                copy[j++] = pids[i];
+        }
+
+        show_pid_array(copy, j, prefix, n_columns, true, false, false);
+
+        free(copy);
+        return 0;
+}
+
+int show_cgroup_and_extra(const char *controller, const char *path, const char *prefix, unsigned n_columns, bool kernel_threads, bool all, const pid_t extra_pids[], unsigned n_extra_pids) {
+        int r;
+
+        assert(controller);
+        assert(path);
+
+        r = show_cgroup(controller, path, prefix, n_columns, kernel_threads, all);
+        if (r < 0)
+                return r;
+
+        return show_extra_pids(controller, path, prefix, n_columns, extra_pids, n_extra_pids);
+}
+
+int show_cgroup_and_extra_by_spec(const char *spec, const char *prefix, unsigned n_columns, bool kernel_threads, bool all, const pid_t extra_pids[], unsigned n_extra_pids) {
+        int r;
+        char *controller, *path;
+
+        assert(spec);
+
+        r = cg_split_spec(spec, &controller, &path);
+        if (r < 0)
+                return r;
+
+        r = show_cgroup_and_extra(controller, path, prefix, n_columns, kernel_threads, all, extra_pids, n_extra_pids);
+        free(controller);
+        free(path);
 
         return r;
 }

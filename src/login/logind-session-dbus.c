@@ -45,7 +45,7 @@
         "  <property name=\"Name\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Timestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"TimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"ControlGroupPath\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"VTNr\" type=\"u\" access=\"read\"/>\n"      \
         "  <property name=\"Seat\" type=\"(so)\" access=\"read\"/>\n"   \
         "  <property name=\"TTY\" type=\"s\" access=\"read\"/>\n"       \
@@ -196,6 +196,26 @@ static int bus_session_append_idle_hint_since(DBusMessageIter *i, const char *pr
         return 0;
 }
 
+static int bus_session_append_default_cgroup(DBusMessageIter *i, const char *property, void *data) {
+        Session *s = data;
+        char *t;
+        int r;
+        bool success;
+
+        assert(i);
+        assert(property);
+        assert(s);
+
+        r = cg_join_spec(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path, &t);
+        if (r < 0)
+                return r;
+
+        success = dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t);
+        free(t);
+
+        return success ? 0 : -ENOMEM;
+}
+
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_session_append_type, session_type, SessionType);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_session_append_class, session_class, SessionClass);
 
@@ -228,7 +248,7 @@ static const BusProperty bus_login_session_properties[] = {
         { "Id",                     bus_property_append_string,         "s", offsetof(Session, id),                 true },
         { "Timestamp",              bus_property_append_usec,           "t", offsetof(Session, timestamp.realtime)  },
         { "TimestampMonotonic",     bus_property_append_usec,           "t", offsetof(Session, timestamp.monotonic) },
-        { "ControlGroupPath",       bus_property_append_string,         "s", offsetof(Session, cgroup_path),        true },
+        { "DefaultControlGroup",    bus_session_append_default_cgroup,  "s", 0,                                     },
         { "VTNr",                   bus_property_append_uint32,         "u", offsetof(Session, vtnr)                },
         { "Seat",                   bus_session_append_seat,         "(so)", 0 },
         { "TTY",                    bus_property_append_string,         "s", offsetof(Session, tty),                true },
