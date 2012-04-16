@@ -373,7 +373,7 @@ int manager_setup_cgroup(Manager *m) {
 
         log_debug("Created root group.");
 
-        manager_shorten_default_controllers(m);
+        cg_shorten_controllers(m->default_controllers);
 
 finish:
         free(current);
@@ -395,35 +395,6 @@ void manager_shutdown_cgroup(Manager *m, bool delete) {
 
         free(m->cgroup_hierarchy);
         m->cgroup_hierarchy = NULL;
-}
-
-void manager_shorten_default_controllers(Manager *m) {
-        char **f, **t;
-
-        strv_uniq(m->default_controllers);
-
-        if (!m->default_controllers)
-                return;
-
-        for (f = m->default_controllers, t = m->default_controllers; *f; f++) {
-
-                if (!streq(*f, "systemd") && !streq(*f, "name=systemd")) {
-                        char *cc;
-
-                        cc = alloca(sizeof("/sys/fs/cgroup/") + strlen(*f));
-                        strcpy(stpcpy(cc, "/sys/fs/cgroup/"), *f);
-
-                        if (access(cc, F_OK) >= 0) {
-                                *(t++) = *f;
-                                continue;
-                        }
-                }
-
-                log_debug("Controller %s not available or redundant, removing from default controllers list.", *f);
-                free(*f);
-        }
-
-        *t = NULL;
 }
 
 int cgroup_bonding_get(Manager *m, const char *cgroup, CGroupBonding **bonding) {

@@ -34,6 +34,7 @@
 #include "set.h"
 #include "macro.h"
 #include "util.h"
+#include "strv.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
         char *fs;
@@ -1099,4 +1100,36 @@ int cg_get_user_path(char **path) {
 
         *path = p;
         return 0;
+}
+
+char **cg_shorten_controllers(char **controllers) {
+        char **f, **t;
+
+        controllers = strv_uniq(controllers);
+
+        if (!controllers)
+                return controllers;
+
+        for (f = controllers, t = controllers; *f; f++) {
+                char *cc;
+
+                if (streq(*f, "systemd") || streq(*f, SYSTEMD_CGROUP_CONTROLLER)) {
+                        free(*f);
+                        continue;
+                }
+
+                cc = alloca(sizeof("/sys/fs/cgroup/") + strlen(*f));
+                strcpy(stpcpy(cc, "/sys/fs/cgroup/"), *f);
+
+                if (access(cc, F_OK) < 0) {
+                        log_debug("Controller %s is not available, removing from controllers list.", *f);
+                        free(*f);
+                        continue;
+                }
+
+                *(t++) = *f;
+        }
+
+        *t = NULL;
+        return controllers;
 }

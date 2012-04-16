@@ -63,6 +63,7 @@
 #include "exit-status.h"
 #include "virt.h"
 #include "watchdog.h"
+#include "cgroup-util.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -3172,7 +3173,7 @@ int manager_set_default_controllers(Manager *m, char **controllers) {
         strv_free(m->default_controllers);
         m->default_controllers = l;
 
-        manager_shorten_default_controllers(m);
+        cg_shorten_controllers(m->default_controllers);
 
         return 0;
 }

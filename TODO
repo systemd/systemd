@@ -17,8 +17,6 @@ Features:
 
 * suspend/hibernate/hybrid support, auto-suspend logic with idle hint
 
-* filter default cgroups in logind too
-
 * udev: remove /sys and /dev configurability
 
 * udev: find a way to tell udev to not cancel firmware requests when running in initramfs
@@ -285,8 +283,6 @@ Features:
 * systemctl list-jobs - show dependencies
 
 * add systemctl switch to dump transaction without executing it
-
-* suspend, resume support?
 
 * drop cap bounding set in readahead and other services
 

@@ -1205,6 +1205,9 @@ int manager_startup(Manager *m) {
         assert(m);
         assert(m->epoll_fd <= 0);
 
+        cg_shorten_controllers(m->reset_controllers);
+        cg_shorten_controllers(m->controllers);
+
         m->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (m->epoll_fd < 0)
                 return -errno;

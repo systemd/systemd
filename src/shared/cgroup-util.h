@@ -70,4 +70,6 @@ int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_
 
 int cg_get_user_path(char **path);
 
+char **cg_shorten_controllers(char **controllers);
+
 #endif
