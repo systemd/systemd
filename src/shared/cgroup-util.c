@@ -40,11 +40,11 @@ int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) 
         int r;
         FILE *f;
 
-        assert(controller);
         assert(path);
         assert(_f);
 
-        if ((r = cg_get_path(controller, path, "cgroup.procs", &fs)) < 0)
+        r = cg_get_path(controller, path, "cgroup.procs", &fs);
+        if (r < 0)
                 return r;
 
         f = fopen(fs, "re");
@@ -62,11 +62,11 @@ int cg_enumerate_tasks(const char *controller, const char *path, FILE **_f) {
         int r;
         FILE *f;
 
-        assert(controller);
         assert(path);
         assert(_f);
 
-        if ((r = cg_get_path(controller, path, "tasks", &fs)) < 0)
+        r = cg_get_path(controller, path, "tasks", &fs);
+        if (r < 0)
                 return r;
 
         f = fopen(fs, "re");
@@ -106,13 +106,13 @@ int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d) {
         int r;
         DIR *d;
 
-        assert(controller);
         assert(path);
         assert(_d);
 
         /* This is not recursive! */
 
-        if ((r = cg_get_path(controller, path, NULL, &fs)) < 0)
+        r = cg_get_path(controller, path, NULL, &fs);
+        if (r < 0)
                 return r;
 
         d = opendir(fs);
@@ -515,14 +515,24 @@ static const char *normalize_controller(const char *controller) {
 static int join_path(const char *controller, const char *path, const char *suffix, char **fs) {
         char *t;
 
-        if (path && suffix)
-                t = join("/sys/fs/cgroup/", controller, "/", path, "/", suffix, NULL);
-        else if (path)
-                t = join("/sys/fs/cgroup/", controller, "/", path, NULL);
-        else if (suffix)
-                t = join("/sys/fs/cgroup/", controller, "/", suffix, NULL);
-        else
-                t = join("/sys/fs/cgroup/", controller, NULL);
+        if (!(controller || path))
+                return -EINVAL;
+
+        if (controller) {
+                if (path && suffix)
+                        t = join("/sys/fs/cgroup/", controller, "/", path, "/", suffix, NULL);
+                else if (path)
+                        t = join("/sys/fs/cgroup/", controller, "/", path, NULL);
+                else if (suffix)
+                        t = join("/sys/fs/cgroup/", controller, "/", suffix, NULL);
+                else
+                        t = join("/sys/fs/cgroup/", controller, NULL);
+        } else {
+                if (path && suffix)
+                        t = join(path, "/", suffix, NULL);
+                else if (path)
+                        t = strdup(path);
+        }
 
         if (!t)
                 return -ENOMEM;
@@ -537,11 +547,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         const char *p;
         static __thread bool good = false;
 
-        assert(controller);
         assert(fs);
-
-        if (isempty(controller))
-                return -EINVAL;
 
         if (_unlikely_(!good)) {
                 int r;
@@ -554,8 +560,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
                 good = true;
         }
 
-        p = normalize_controller(controller);
-
+        p = controller ? normalize_controller(controller) : NULL;
         return join_path(p, path, suffix, fs);
 }
 
@@ -883,20 +888,22 @@ finish:
 }
 
 int cg_is_empty(const char *controller, const char *path, bool ignore_self) {
-        pid_t pid = 0;
+        pid_t pid = 0, self_pid;
         int r;
         FILE *f = NULL;
         bool found = false;
 
-        assert(controller);
         assert(path);
 
-        if ((r = cg_enumerate_tasks(controller, path, &f)) < 0)
+        r = cg_enumerate_tasks(controller, path, &f);
+        if (r < 0)
                 return r == -ENOENT ? 1 : r;
+
+        self_pid = getpid();
 
         while ((r = cg_read_pid(f, &pid)) > 0) {
 
-                if (ignore_self && pid == getpid())
+                if (ignore_self && pid == self_pid)
                         continue;
 
                 found = true;
@@ -916,13 +923,14 @@ int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_
         DIR *d = NULL;
         char *fn;
 
-        assert(controller);
         assert(path);
 
-        if ((r = cg_is_empty(controller, path, ignore_self)) <= 0)
+        r = cg_is_empty(controller, path, ignore_self);
+        if (r <= 0)
                 return r;
 
-        if ((r = cg_enumerate_subgroups(controller, path, &d)) < 0)
+        r = cg_enumerate_subgroups(controller, path, &d);
+        if (r < 0)
                 return r == -ENOENT ? 1 : r;
 
         while ((r = cg_read_subgroup(d, &fn)) > 0) {

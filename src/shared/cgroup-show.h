@@ -24,7 +24,7 @@
 
 #include <stdbool.h>
 
-int show_cgroup_by_path(const char *path, const char *prefix, unsigned columns, bool kernel_threads);
-int show_cgroup(const char *controller, const char *path, const char *prefix, unsigned columns, bool kernel_threads);
+int show_cgroup_by_path(const char *path, const char *prefix, unsigned columns, bool kernel_threads, bool all);
+int show_cgroup(const char *controller, const char *path, const char *prefix, unsigned columns, bool kernel_threads, bool all);
 
 #endif

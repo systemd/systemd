@@ -473,7 +473,7 @@ static void print_session_status_info(SessionStatusInfo *i) {
                         else
                                 c = 0;
 
-                        show_cgroup_by_path(i->control_group, "\t\t  ", c, false);
+                        show_cgroup_by_path(i->control_group, "\t\t  ", c, false, arg_all);
                 }
         }
 }
@@ -525,7 +525,7 @@ static void print_user_status_info(UserStatusInfo *i) {
                         else
                                 c = 0;
 
-                        show_cgroup_by_path(i->control_group, "\t\t  ", c, false);
+                        show_cgroup_by_path(i->control_group, "\t\t  ", c, false, arg_all);
                 }
         }
 }

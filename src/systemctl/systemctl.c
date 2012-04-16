@@ -2383,7 +2383,7 @@ static void print_status_info(UnitStatusInfo *i) {
                         else
                                 c = 0;
 
-                        show_cgroup_by_path(i->default_control_group, "\t\t  ", c, false);
+                        show_cgroup_by_path(i->default_control_group, "\t\t  ", c, false, arg_all);
                 }
         }
 

@@ -160,7 +160,7 @@ finish:
         return r;
 }
 
-int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns, bool kernel_threads) {
+int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns, bool kernel_threads, bool all) {
         DIR *d;
         char *last = NULL;
         char *p1 = NULL, *p2 = NULL, *fn = NULL, *gn = NULL;
@@ -173,15 +173,31 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
         if (!prefix)
                 prefix = "";
 
-        if ((r = cg_fix_path(path, &fn)) < 0)
+        r = cg_fix_path(path, &fn);
+        if (r < 0)
                 return r;
 
-        if (!(d = opendir(fn))) {
+        d = opendir(fn);
+        if (!d) {
                 free(fn);
                 return -errno;
         }
 
         while ((r = cg_read_subgroup(d, &gn)) > 0) {
+                char *k;
+
+                r = asprintf(&k, "%s/%s", fn, gn);
+                free(gn);
+
+                if (r < 0) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!all && cg_is_empty_recursive(NULL, k, false) > 0) {
+                        free(k);
+                        continue;
+                }
 
                 if (!shown_pids) {
                         show_cgroup_one_by_path(path, prefix, n_columns, true, kernel_threads);
@@ -191,25 +207,20 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
                 if (last) {
                         printf("%s\342\224\234 %s\n", prefix, file_name_from_path(last));
 
-                        if (!p1)
-                                if (!(p1 = strappend(prefix, "\342\224\202 "))) {
+                        if (!p1) {
+                                p1 = strappend(prefix, "\342\224\202 ");
+                                if (!p1) {
+                                        free(k);
                                         r = -ENOMEM;
                                         goto finish;
                                 }
+                        }
 
-                        show_cgroup_by_path(last, p1, n_columns-2, kernel_threads);
-
+                        show_cgroup_by_path(last, p1, n_columns-2, kernel_threads, all);
                         free(last);
-                        last = NULL;
                 }
 
-                r = asprintf(&last, "%s/%s", fn, gn);
-                free(gn);
-
-                if (r < 0) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                last = k;
         }
 
         if (r < 0)
@@ -221,13 +232,15 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
         if (last) {
                 printf("%s\342\224\224 %s\n", prefix, file_name_from_path(last));
 
-                if (!p2)
-                        if (!(p2 = strappend(prefix, "  "))) {
+                if (!p2) {
+                        p2 = strappend(prefix, "  ");
+                        if (!p2) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
+                }
 
-                show_cgroup_by_path(last, p2, n_columns-2, kernel_threads);
+                show_cgroup_by_path(last, p2, n_columns-2, kernel_threads, all);
         }
 
         r = 0;
@@ -243,7 +256,7 @@ finish:
         return r;
 }
 
-int show_cgroup(const char *controller, const char *path, const char *prefix, unsigned n_columns, bool kernel_threads) {
+int show_cgroup(const char *controller, const char *path, const char *prefix, unsigned n_columns, bool kernel_threads, bool all) {
         char *p;
         int r;
 
@@ -254,7 +267,7 @@ int show_cgroup(const char *controller, const char *path, const char *prefix, un
         if (r < 0)
                 return r;
 
-        r = show_cgroup_by_path(p, prefix, n_columns, kernel_threads);
+        r = show_cgroup_by_path(p, prefix, n_columns, kernel_threads, all);
         free(p);
 
         return r;

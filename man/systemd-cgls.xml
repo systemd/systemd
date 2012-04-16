@@ -69,6 +69,9 @@
                 of the control group the working directory refers
                 to. Otherwise the full systemd control group hierarchy
                 is shown.</para>
+
+                <para>By default empty control cgroups are not
+                shown.</para>
         </refsect1>
 
         <refsect1>
@@ -86,10 +89,25 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Prints a short version
+                                string and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--no-pager</option></term>
 
 				<listitem><para>Do not pipe output into a
 				pager.</para></listitem>
+			</varlistentry>
+
+                        <varlistentry>
+                                <term><option>--all</option></term>
+
+				<listitem><para>Don't hide empty
+				control groups in the
+				outpout.</para></listitem>
 			</varlistentry>
 
                         <varlistentry>
