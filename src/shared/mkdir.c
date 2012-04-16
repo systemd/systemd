@@ -53,13 +53,24 @@ int safe_mkdir(const char *path, mode_t mode, uid_t uid, gid_t gid) {
 }
 
 int mkdir_parents(const char *path, mode_t mode) {
+        struct stat st;
         const char *p, *e;
 
         assert(path);
 
-        /* Creates every parent directory in the path except the last
-         * component. */
+        /* return immediately if directory exists */
+        e = strrchr(path, '/');
+        if (!e)
+                return -EINVAL;
+        p = strndupa(path, e - path);
+        if (stat(p, &st) >= 0) {
+                if ((st.st_mode & S_IFMT) == S_IFDIR)
+                        return 0;
+                else
+                        return -ENOTDIR;
+        }
 
+        /* create every parent directory in the path, except the last component */
         p = path + strspn(path, "/");
         for (;;) {
                 int r;
@@ -73,11 +84,10 @@ int mkdir_parents(const char *path, mode_t mode) {
                 if (*p == 0)
                         return 0;
 
-                if (!(t = strndup(path, e - path)))
+                if (!(t = strndupa(path, e - path)))
                         return -ENOMEM;
 
                 r = label_mkdir(t, mode);
-                free(t);
 
                 if (r < 0 && errno != EEXIST)
                         return -errno;

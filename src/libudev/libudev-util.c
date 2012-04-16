@@ -19,7 +19,10 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <time.h>
+#include <pwd.h>
+#include <grp.h>
 #include <sys/stat.h>
+#include <sys/param.h>
 
 #include "libudev.h"
 #include "libudev-private.h"
@@ -29,6 +32,164 @@
  * @short_description: utils
  */
 
+int util_delete_path(struct udev *udev, const char *path)
+{
+        char p[UTIL_PATH_SIZE];
+        char *pos;
+        int err = 0;
+
+        if (path[0] == '/')
+                while(path[1] == '/')
+                        path++;
+        util_strscpy(p, sizeof(p), path);
+        pos = strrchr(p, '/');
+        if (pos == p || pos == NULL)
+                return 0;
+
+        for (;;) {
+                *pos = '\0';
+                pos = strrchr(p, '/');
+
+                /* don't remove the last one */
+                if ((pos == p) || (pos == NULL))
+                        break;
+
+                err = rmdir(p);
+                if (err < 0) {
+                        if (errno == ENOENT)
+                                err = 0;
+                        break;
+                }
+        }
+        return err;
+}
+
+uid_t util_lookup_user(struct udev *udev, const char *user)
+{
+        char *endptr;
+        struct passwd pwbuf;
+        struct passwd *pw;
+        uid_t uid;
+        size_t buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+        char *buf = alloca(buflen);
+
+        if (strcmp(user, "root") == 0)
+                return 0;
+        uid = strtoul(user, &endptr, 10);
+        if (endptr[0] == '\0')
+                return uid;
+
+        errno = getpwnam_r(user, &pwbuf, buf, buflen, &pw);
+        if (pw != NULL)
+                return pw->pw_uid;
+        if (errno == 0 || errno == ENOENT || errno == ESRCH)
+                err(udev, "specified user '%s' unknown\n", user);
+        else
+                err(udev, "error resolving user '%s': %m\n", user);
+        return 0;
+}
+
+gid_t util_lookup_group(struct udev *udev, const char *group)
+{
+        char *endptr;
+        struct group grbuf;
+        struct group *gr;
+        gid_t gid = 0;
+        size_t buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+        char *buf = NULL;
+
+        if (strcmp(group, "root") == 0)
+                return 0;
+        gid = strtoul(group, &endptr, 10);
+        if (endptr[0] == '\0')
+                return gid;
+        gid = 0;
+        for (;;) {
+                char *newbuf;
+
+                newbuf = realloc(buf, buflen);
+                if (!newbuf)
+                        break;
+                buf = newbuf;
+                errno = getgrnam_r(group, &grbuf, buf, buflen, &gr);
+                if (gr != NULL) {
+                        gid = gr->gr_gid;
+                } else if (errno == ERANGE) {
+                        buflen *= 2;
+                        continue;
+                } else if (errno == 0 || errno == ENOENT || errno == ESRCH) {
+                        err(udev, "specified group '%s' unknown\n", group);
+                } else {
+                        err(udev, "error resolving group '%s': %m\n", group);
+                }
+                break;
+        }
+        free(buf);
+        return gid;
+}
+
+/* handle "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
+int util_resolve_subsys_kernel(struct udev *udev, const char *string,
+                               char *result, size_t maxsize, int read_value)
+{
+        char temp[UTIL_PATH_SIZE];
+        char *subsys;
+        char *sysname;
+        struct udev_device *dev;
+        char *attr;
+
+        if (string[0] != '[')
+                return -1;
+
+        util_strscpy(temp, sizeof(temp), string);
+
+        subsys = &temp[1];
+
+        sysname = strchr(subsys, '/');
+        if (sysname == NULL)
+                return -1;
+        sysname[0] = '\0';
+        sysname = &sysname[1];
+
+        attr = strchr(sysname, ']');
+        if (attr == NULL)
+                return -1;
+        attr[0] = '\0';
+        attr = &attr[1];
+        if (attr[0] == '/')
+                attr = &attr[1];
+        if (attr[0] == '\0')
+                attr = NULL;
+
+        if (read_value && attr == NULL)
+                return -1;
+
+        dev = udev_device_new_from_subsystem_sysname(udev, subsys, sysname);
+        if (dev == NULL)
+                return -1;
+
+        if (read_value) {
+                const char *val;
+
+                val = udev_device_get_sysattr_value(dev, attr);
+                if (val != NULL)
+                        util_strscpy(result, maxsize, val);
+                else
+                        result[0] = '\0';
+                dbg(udev, "value '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
+        } else {
+                size_t l;
+                char *s;
+
+                s = result;
+                l = util_strpcpyl(&s, maxsize, udev_device_get_syspath(dev), NULL);
+                if (attr != NULL)
+                        util_strpcpyl(&s, l, "/", attr, NULL);
+                dbg(udev, "path '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
+        }
+        udev_device_unref(dev);
+        return 0;
+}
 ssize_t util_get_sys_core_link_value(struct udev *udev, const char *slink, const char *syspath, char *value, size_t size)
 {
         char path[UTIL_PATH_SIZE];

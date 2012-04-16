@@ -1337,7 +1337,6 @@ noinst_LTLIBRARIES += \
 
 libudev_private_la_SOURCES =\
 	$(libudev_la_SOURCES) \
-	src/libudev/libudev-util-private.c \
 	src/libudev/libudev-device-private.c \
 	src/libudev/libudev-queue-private.c
 
@@ -1451,6 +1450,7 @@ libudev_core_la_CFLAGS = \
 
 libudev_core_la_LIBADD = \
 	libudev-private.la \
+	libsystemd-label.la \
 	libsystemd-shared.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
@@ -1503,6 +1503,7 @@ test_libudev_SOURCES = \
 	src/test/test-libudev.c
 
 test_libudev_LDADD = \
+	libsystemd-label.la \
 	libsystemd-shared.la \
 	libudev.la
 
@@ -1522,6 +1523,7 @@ test_udev_CPPFLAGS =\
 	$(libudev_core_la_CPPFLAGS)
 
 test_udev_LDADD = \
+	libsystemd-label.la \
 	libsystemd-shared.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS) \
@@ -3249,7 +3251,7 @@ upload: all distcheck
 doc-sync: all
 	rsync -av --delete docs/libudev/html/ www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/libudev/
 	rsync -av --delete docs/gudev/html/ www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/gudev/
-	rsync -av --delete man/*.html www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/man/
+	rsync -av man/*.html www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/man/
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"

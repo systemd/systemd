@@ -16,9 +16,11 @@
 #include <signal.h>
 #include <stdint.h>
 #include <stdbool.h>
+
+#include "libudev.h"
 #include "macro.h"
 #include "util.h"
-#include "libudev.h"
+#include "mkdir.h"
 
 #define READ_END  0
 #define WRITE_END 1
@@ -164,8 +166,6 @@ unsigned int util_string_hash32(const char *key);
 uint64_t util_string_bloom64(const char *str);
 
 /* libudev-util-private.c */
-int util_create_path(struct udev *udev, const char *path);
-int util_create_path_selinux(struct udev *udev, const char *path);
 int util_delete_path(struct udev *udev, const char *path);
 uid_t util_lookup_user(struct udev *udev, const char *user);
 gid_t util_lookup_group(struct udev *udev, const char *group);

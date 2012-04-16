@@ -189,7 +189,7 @@ static int bus_user_append_idle_hint_since(DBusMessageIter *i, const char *prope
         return 0;
 }
 
-static bus_user_append_default_cgroup(DBusMessageIter *i, const char *property, void *data) {
+static int bus_user_append_default_cgroup(DBusMessageIter *i, const char *property, void *data) {
         User *u = data;
         char *t;
         int r;

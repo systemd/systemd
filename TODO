@@ -19,8 +19,6 @@ Features:
 
 * udev: unify selinux stuff with systemd
 
-* udev: move udev's recursive mkdir to shared/
-
 * udev: find a way to tell udev to not cancel firmware requests when running in initramfs
 
 * udev: scsi_id -> sg3_utils -> kill scsi_id

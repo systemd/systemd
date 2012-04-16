@@ -111,7 +111,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
         }
 
         snprintf(filename, sizeof(filename), "/run/udev/watch/%d", wd);
-        util_create_path(udev, filename);
+        mkdir_parents(filename, 0755);
         unlink(filename);
         symlink(udev_device_get_id_filename(dev), filename);
 

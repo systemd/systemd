@@ -25,7 +25,6 @@
 static void udev_device_tag(struct udev_device *dev, const char *tag, bool add)
 {
         const char *id;
-        struct udev *udev = udev_device_get_udev(dev);
         char filename[UTIL_PATH_SIZE];
 
         id = udev_device_get_id_filename(dev);
@@ -36,7 +35,7 @@ static void udev_device_tag(struct udev_device *dev, const char *tag, bool add)
         if (add) {
                 int fd;
 
-                util_create_path(udev, filename);
+                mkdir_parents(filename, 0755);
                 fd = open(filename, O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC|O_NOFOLLOW, 0444);
                 if (fd >= 0)
                         close(fd);
@@ -96,9 +95,9 @@ static bool device_has_info(struct udev_device *udev_device)
 
 int udev_device_update_db(struct udev_device *udev_device)
 {
+        struct udev *udev = udev_device_get_udev(udev_device);
         bool has_info;
         const char *id;
-        struct udev *udev = udev_device_get_udev(udev_device);
         char filename[UTIL_PATH_SIZE];
         char filename_tmp[UTIL_PATH_SIZE];
         FILE *f;
@@ -120,7 +119,7 @@ int udev_device_update_db(struct udev_device *udev_device)
 
         /* write a database file */
         util_strscpyl(filename_tmp, sizeof(filename_tmp), filename, ".tmp", NULL);
-        util_create_path(udev, filename_tmp);
+        mkdir_parents(filename_tmp, 0755);
         f = fopen(filename_tmp, "we");
         if (f == NULL) {
                 err(udev, "unable to create temporary db file '%s': %m\n", filename_tmp);

@@ -857,7 +857,7 @@ static void static_dev_create_from_modules(struct udev *udev)
                         continue;
 
                 util_strscpyl(filename, sizeof(filename), "/dev/", devname, NULL);
-                util_create_path_selinux(udev, filename);
+                mkdir_parents(filename, 0755);
                 udev_selinux_setfscreatecon(udev, filename, mode);
                 log_debug("mknod '%s' %c%u:%u\n", filename, type, maj, min);
                 if (mknod(filename, mode, makedev(maj, min)) < 0 && errno == EEXIST)
@@ -938,7 +938,7 @@ static int convert_db(struct udev *udev)
                 return 0;
 
         /* make sure we do not get here again */
-        util_create_path(udev, "/run/udev/data");
+        mkdir_parents("/run/udev/data", 0755);
         mkdir(filename, 0755);
 
         /* old database */
