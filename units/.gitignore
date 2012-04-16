@@ -41,6 +41,6 @@ systemd-update-utmp-shutdown.service
 test-env-replace
 systemd-binfmt.service
 emergency.service
-/udev-settle.service
-/udev-trigger.service
-/udev.service
+/systemd-udev-settle.service
+/systemd-udev-trigger.service
+/systemd-udev.service

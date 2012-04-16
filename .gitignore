@@ -112,7 +112,7 @@ stamp-*
 /mtd_probe
 /scsi_id
 /udevadm
-/udevd
+/systemd-udevd
 /v4l_id
 /test-libudev
 /test-udev

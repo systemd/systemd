@@ -3,7 +3,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
-<refentry id="udevd">
+<refentry id="systemd-udevd">
   <refentryinfo>
     <title>udevd</title>
     <productname>systemd</productname>
@@ -18,18 +18,18 @@
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>udevd</refentrytitle>
+    <refentrytitle>systemd-udevd</refentrytitle>
     <manvolnum>8</manvolnum>
     <refmiscinfo class="version"></refmiscinfo>
   </refmeta>
 
   <refnamediv>
-    <refname>udevd</refname><refpurpose>event managing daemon</refpurpose>
+    <refname>systemd-udevd</refname><refpurpose>event managing daemon</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>udevd</command>
+      <command>systemd-udevd</command>
       <arg><option>--daemon</option></arg>
       <arg><option>--debug</option></arg>
       <arg><option>--children-max=</option></arg>
@@ -41,7 +41,7 @@
   </refsynopsisdiv>
 
   <refsect1><title>Description</title>
-    <para>udevd listens to kernel uevents. For every event, udevd executes matching
+    <para>systemd-udevd listens to kernel uevents. For every event, systemd-udevd executes matching
     instructions specified in udev rules. See <citerefentry>
         <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
       </citerefentry>.</para>
@@ -80,7 +80,7 @@
       <varlistentry>
         <term><option>--resolve-names=</option></term>
         <listitem>
-          <para>Specify when udevd should resolve names of users and groups.
+          <para>Specify when systemd-udevd should resolve names of users and groups.
           When set to <option>early</option> (the default) names will be
           resolved when the rules are parsed.  When set to
           <option>late</option> names will be resolved for every event.

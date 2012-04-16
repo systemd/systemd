@@ -8,8 +8,9 @@ CHANGES WITH 182:
           udev though, will require the *build* of the systemd tree, but
           udev can be properly *run* without systems.
 
-        * udev: /lib/udev/devices/ are not read anymore; tmpfiles should
-          be used to create workarounds for broken subsystems.
+        * udev: /lib/udev/devices/ are not read anymore; systemde-tmpfiles
+          should be used to create dead device nodes as workarounds for broken
+          subsystems.
 
         * udev: RUN+="socket:..."  and udev_monitor_new_from_socket() is
           no longer supported. udev_monitor_new_from_netlink() needs to be
@@ -21,6 +22,11 @@ CHANGES WITH 182:
           daemons must be started as systemd services. Services can be
           pulled-in by udev to ge started, but they can no longer be directly
           forked by udev rules.
+
+        * udev: the daemon binary is called systemd-udevd now and installed
+          in /usr/lib/systemd/. Standalone builds or non-systemd systems need
+          to adapt to that, create symlink, or rename the binary after building
+          it.
 
         * systemd-logingctl and systemd-journalctl have been renamed
           to logingctl and journalctl to match systemctl.

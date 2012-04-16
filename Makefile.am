@@ -101,6 +101,7 @@ check_PROGRAMS =
 check_DATA =
 noinst_PROGRAMS =
 TESTS =
+udevlibexec_PROGRAMS =
 
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
@@ -296,8 +297,8 @@ dist_systemunit_DATA = \
 	units/systemd-ask-password-wall.path \
 	units/systemd-ask-password-console.path \
 	units/syslog.target \
-	units/udev-control.socket \
-	units/udev-kernel.socket
+	units/systemd-udev-control.socket \
+	units/systemd-udev-kernel.socket
 
 nodist_systemunit_DATA = \
 	units/getty@.service \
@@ -323,9 +324,9 @@ nodist_systemunit_DATA = \
 	units/fsck-root.service \
 	units/rescue.service \
 	units/user@.service \
-	units/udev.service \
-	units/udev-trigger.service \
-	units/udev-settle.service
+	units/systemd-udev.service \
+	units/systemd-udev-trigger.service \
+	units/systemd-udev-settle.service
 
 dist_userunit_DATA = \
 	units/user/default.target \
@@ -359,9 +360,9 @@ EXTRA_DIST += \
 	units/fsck@.service.in \
 	units/fsck-root.service.in \
 	units/user@.service.in \
-	units/udev.service \
-	units/udev-trigger.service \
-	units/udev-settle.service \
+	units/systemd-udev.service \
+	units/systemd-udev-trigger.service \
+	units/systemd-udev-settle.service \
 	introspect.awk \
 	man/custom-html.xsl
 
@@ -1358,7 +1359,7 @@ libudev_private_la_LIBADD = \
 MANPAGES += \
 	man/udev.7 \
 	man/udevadm.8 \
-	man/udevd.8
+	man/systemd-udevd.8
 
 udev-confdirs:
 	-mkdir -p $(DESTDIR)$(sysconfdir)/udev/rules.d
@@ -1398,30 +1399,30 @@ CLEANFILES += \
 	src/udev/udev.pc
 
 EXTRA_DIST += \
-	units/udev.service.in \
-	units/udev-trigger.service.in \
-	units/udev-settle.service.in
+	units/systemd-udev.service.in \
+	units/systemd-udev-trigger.service.in \
+	units/systemd-udev-settle.service.in
 
 CLEANFILES += \
-	units/udev.service \
-	units/udev-trigger.service \
-	units/udev-settle.service
+	units/systemd-udev.service \
+	units/systemd-udev-trigger.service \
+	units/systemd-udev-settle.service
 
 systemd-install-hook:
 	mkdir -p $(DESTDIR)$(systemunitdir)/sockets.target.wants
-	ln -sf ../udev-control.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/udev-control.socket
-	ln -sf ../udev-kernel.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/udev-kernel.socket
+	ln -sf ../systemd-udev-control.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/systemd-udev-control.socket
+	ln -sf ../systemd-udev-kernel.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/systemd-udev-kernel.socket
 	mkdir -p $(DESTDIR)$(systemunitdir)/basic.target.wants
-	ln -sf ../udev.service $(DESTDIR)$(systemunitdir)/basic.target.wants/udev.service
-	ln -sf ../udev-trigger.service $(DESTDIR)$(systemunitdir)/basic.target.wants/udev-trigger.service
+	ln -sf ../systemd-udev.service $(DESTDIR)$(systemunitdir)/basic.target.wants/systemd-udev.service
+	ln -sf ../systemd-udev-trigger.service $(DESTDIR)$(systemunitdir)/basic.target.wants/systemd-udev-trigger.service
 
 INSTALL_DATA_HOOKS += systemd-install-hook
 
 bin_PROGRAMS += \
 	udevadm
 
-udevlibexec_PROGRAMS = \
-	udevd
+rootlibexec_PROGRAMS += \
+	systemd-udevd
 
 noinst_LTLIBRARIES += \
 	libudev-core.la
@@ -1469,10 +1470,10 @@ libudev_core_la_LIBADD += \
 	libsystemd-acl.la
 endif
 
-udevd_SOURCES = \
+systemd_udevd_SOURCES = \
 	src/udev/udevd.c
 
-udevd_LDADD = \
+systemd_udevd_LDADD = \
 	libudev-core.la
 
 udevadm_SOURCES = \
@@ -3227,6 +3228,9 @@ install-data-hook: systemd-install-data-hook $(INSTALL_DATA_HOOKS)
 
 distclean-local: $(DISTCLEAN_LOCAL_HOOKS)
 
+clean-local:
+	rm -rf $(abs_srcdir)/install-tree
+
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbuspolicydir=$$dc_install_base/$(dbuspolicydir) \
 	--with-dbussessionservicedir=$$dc_install_base/$(dbussessionservicedir) \
@@ -3249,3 +3253,8 @@ doc-sync: all
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
+
+install-tree: all
+	rm -rf $(abs_srcdir)/install-tree
+	make install DESTDIR=$(abs_srcdir)/install-tree
+	tree $(abs_srcdir)/install-tree
