@@ -67,7 +67,7 @@ static int adm_help(struct udev *udev, int argc, char *argv[])
         unsigned int i;
 
         fprintf(stderr, "Usage: udevadm [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n");
-        for (i = 0; i < ARRAY_SIZE(udevadm_cmds); i++)
+        for (i = 0; i < ELEMENTSOF(udevadm_cmds); i++)
                 if (udevadm_cmds[i]->help != NULL)
                         printf("  %-12s %s\n", udevadm_cmds[i]->name, udevadm_cmds[i]->help);
         fprintf(stderr, "\n");
@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
         log_debug("runtime dir '%s'\n", udev_get_run_path(udev));
 
         if (command != NULL)
-                for (i = 0; i < ARRAY_SIZE(udevadm_cmds); i++) {
+                for (i = 0; i < ELEMENTSOF(udevadm_cmds); i++) {
                         if (strcmp(udevadm_cmds[i]->name, command) == 0) {
                                 argc -= optind;
                                 argv += optind;

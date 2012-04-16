@@ -19,7 +19,6 @@
 #include "macro.h"
 #include "libudev.h"
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #define READ_END 0
 #define WRITE_END 1
 

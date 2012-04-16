@@ -132,7 +132,7 @@ size_t udev_event_apply_format(struct udev_event *event, const char *src, char *
                                         goto copy;
                                 }
 
-                                for (i = 0; i < ARRAY_SIZE(map); i++) {
+                                for (i = 0; i < ELEMENTSOF(map); i++) {
                                         if (strncmp(&from[1], map[i].name, strlen(map[i].name)) == 0) {
                                                 type = map[i].type;
                                                 from += strlen(map[i].name)+1;
@@ -148,7 +148,7 @@ size_t udev_event_apply_format(struct udev_event *event, const char *src, char *
                                         goto copy;
                                 }
 
-                                for (i = 0; i < ARRAY_SIZE(map); i++) {
+                                for (i = 0; i < ELEMENTSOF(map); i++) {
                                         if (from[1] == map[i].fmt) {
                                                 type = map[i].type;
                                                 from += 2;
@@ -486,7 +486,7 @@ static void spawn_read(struct udev_event *event,
                         timeout = -1;
                 }
 
-                fdcount = epoll_wait(fd_ep, ev, ARRAY_SIZE(ev), timeout);
+                fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), timeout);
                 if (fdcount < 0) {
                         if (errno == EINTR)
                                 continue;

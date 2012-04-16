@@ -44,7 +44,7 @@ static bool skip_attribute(const char *name)
         };
         unsigned int i;
 
-        for (i = 0; i < ARRAY_SIZE(skip); i++)
+        for (i = 0; i < ELEMENTSOF(skip); i++)
                 if (strcmp(name, skip[i]) == 0)
                         return true;
         return false;

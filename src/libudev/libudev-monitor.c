@@ -296,7 +296,7 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
                         /* matched, pass packet */
                         bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
 
-                        if (i+1 >= ARRAY_SIZE(ins))
+                        if (i+1 >= ELEMENTSOF(ins))
                                 return -1;
                 }
 

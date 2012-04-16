@@ -327,7 +327,7 @@ static void worker_new(struct event *event)
                                 int fdcount;
                                 int i;
 
-                                fdcount = epoll_wait(fd_ep, ev, ARRAY_SIZE(ev), -1);
+                                fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), -1);
                                 if (fdcount < 0) {
                                         if (errno == EINTR)
                                                 continue;
@@ -889,7 +889,7 @@ static void static_dev_create_links(struct udev *udev)
         if (dir == NULL)
                 return;
 
-        for (i = 0; i < ARRAY_SIZE(stdlinks); i++) {
+        for (i = 0; i < ELEMENTSOF(stdlinks); i++) {
                 struct stat sb;
 
                 if (stat(stdlinks[i].target, &sb) == 0) {
@@ -1496,7 +1496,7 @@ int main(int argc, char *argv[])
                         /* kill idle or hanging workers */
                         timeout = 3 * 1000;
                 }
-                fdcount = epoll_wait(fd_ep, ev, ARRAY_SIZE(ev), timeout);
+                fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), timeout);
                 if (fdcount < 0)
                         continue;
 

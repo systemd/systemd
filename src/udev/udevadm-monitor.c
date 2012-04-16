@@ -253,7 +253,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[])
                 struct epoll_event ev[4];
                 int i;
 
-                fdcount = epoll_wait(fd_ep, ev, ARRAY_SIZE(ev), -1);
+                fdcount = epoll_wait(fd_ep, ev, ELEMENTSOF(ev), -1);
                 if (fdcount < 0) {
                         if (errno != EINTR)
                                 fprintf(stderr, "error receiving uevent message: %m\n");

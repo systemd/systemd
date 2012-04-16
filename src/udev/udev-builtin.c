@@ -44,7 +44,7 @@ int udev_builtin_init(struct udev *udev)
         unsigned int i;
         int err;
 
-        for (i = 0; i < ARRAY_SIZE(builtins); i++) {
+        for (i = 0; i < ELEMENTSOF(builtins); i++) {
                 if (builtins[i]->init) {
                         err = builtins[i]->init(udev);
                         if (err < 0)
@@ -58,7 +58,7 @@ void udev_builtin_exit(struct udev *udev)
 {
         unsigned int i;
 
-        for (i = 0; i < ARRAY_SIZE(builtins); i++)
+        for (i = 0; i < ELEMENTSOF(builtins); i++)
                 if (builtins[i]->exit)
                         builtins[i]->exit(udev);
 }
@@ -68,7 +68,7 @@ bool udev_builtin_validate(struct udev *udev)
         unsigned int i;
         bool change = false;
 
-        for (i = 0; i < ARRAY_SIZE(builtins); i++)
+        for (i = 0; i < ELEMENTSOF(builtins); i++)
                 if (builtins[i]->validate)
                         if (builtins[i]->validate(udev))
                                 change = true;
@@ -79,7 +79,7 @@ void udev_builtin_list(struct udev *udev)
 {
         unsigned int i;
 
-        for (i = 0; i < ARRAY_SIZE(builtins); i++)
+        for (i = 0; i < ELEMENTSOF(builtins); i++)
                 fprintf(stderr, "  %-12s %s\n", builtins[i]->name, builtins[i]->help);
 }
 
@@ -103,7 +103,7 @@ enum udev_builtin_cmd udev_builtin_lookup(const char *command)
         pos = strchr(name, ' ');
         if (pos)
                 pos[0] = '\0';
-        for (i = 0; i < ARRAY_SIZE(builtins); i++)
+        for (i = 0; i < ELEMENTSOF(builtins); i++)
                 if (strcmp(builtins[i]->name, name) == 0)
                         return i;
         return UDEV_BUILTIN_MAX;

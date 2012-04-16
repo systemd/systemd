@@ -99,7 +99,7 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
 
         /* lookup firmware file */
         uname(&kernel);
-        for (i = 0; i < ARRAY_SIZE(searchpath); i++) {
+        for (i = 0; i < ELEMENTSOF(searchpath); i++) {
                 util_strscpyl(fwpath, sizeof(fwpath), searchpath[i], kernel.release, "/", firmware, NULL);
                 fwfile = fopen(fwpath, "re");
                 if (fwfile != NULL)

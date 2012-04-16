@@ -1131,7 +1131,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
         token->key.type = type;
         token->key.op = op;
         rule_tmp->token_cur++;
-        if (rule_tmp->token_cur >= ARRAY_SIZE(rule_tmp->token)) {
+        if (rule_tmp->token_cur >= ELEMENTSOF(rule_tmp->token)) {
                 log_error("temporary rule array too small\n");
                 return -1;
         }
@@ -1344,7 +1344,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                                 };
                                 unsigned int i;
 
-                                for (i = 0; i < ARRAY_SIZE(blacklist); i++)
+                                for (i = 0; i < ELEMENTSOF(blacklist); i++)
                                         if (strcmp(attr, blacklist[i]) == 0) {
                                                 log_error("invalid ENV attribute, '%s' can not be set %s:%u\n", attr, filename, lineno);
                                                 continue;
