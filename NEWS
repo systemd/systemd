@@ -8,7 +8,7 @@ CHANGES WITH 182:
           udev though, will require the *build* of the systemd tree, but
           udev can be properly *run* without systems.
 
-        * udev: /lib/udev/devices/ are not read anymore; systemde-tmpfiles
+        * udev: /lib/udev/devices/ are not read anymore; systemd-tmpfiles
           should be used to create dead device nodes as workarounds for broken
           subsystems.
 
