@@ -16,6 +16,8 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 Features:
 
+* cg_shorten_controllers() misuses alloca()
+
 * suspend/hibernate/hybrid support, auto-suspend logic with idle hint
 
 * udev: unify selinux stuff with systemd
