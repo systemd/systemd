@@ -562,7 +562,7 @@ static int glob_item(Item *i, int (*action)(Item *, const char *)) {
 }
 
 static int create_item(Item *i) {
-        int r;
+        int r, e;
         mode_t u;
         struct stat st;
 
@@ -584,8 +584,12 @@ static int create_item(Item *i) {
                         i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC : 0;
 
                 u = umask(0);
+                label_context_set(i->path, S_IFREG);
                 fd = open(i->path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY|O_NOFOLLOW, i->mode);
+                e = errno;
+                label_context_clear();
                 umask(u);
+                errno = e;
 
                 if (fd < 0) {
                         if (i->type == WRITE_FILE && errno == ENOENT)
@@ -696,7 +700,12 @@ static int create_item(Item *i) {
         case CREATE_SYMLINK: {
                 char *x;
 
+                label_context_set(i->path, S_IFLNK);
                 r = symlink(i->argument, i->path);
+                e = errno;
+                label_context_clear();
+                errno = e;
+
                 if (r < 0 && errno != EEXIST) {
                         log_error("symlink(%s, %s) failed: %m", i->argument, i->path);
                         return -errno;
@@ -722,8 +731,12 @@ static int create_item(Item *i) {
         case CREATE_CHAR_DEVICE: {
 
                 u = umask(0);
+                label_context_set(i->path, CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR);
                 r = mknod(i->path, i->mode | (i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR), i->major_minor);
+                e = errno;
+                label_context_clear();
                 umask(u);
+                errno = e;
 
                 if (r < 0 && errno != EEXIST) {
                         log_error("Failed to create device node %s: %m", i->path);
@@ -1248,7 +1261,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        label_init();
+        label_init(NULL);
 
         items = hashmap_new(string_hash_func, string_compare_func);
         globs = hashmap_new(string_hash_func, string_compare_func);

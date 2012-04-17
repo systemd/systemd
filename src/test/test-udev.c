@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
         if (udev == NULL)
                 exit(EXIT_FAILURE);
         log_debug("version %s\n", VERSION);
-        udev_selinux_init(udev);
+        label_init("/dev");
 
         sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
 
@@ -113,7 +113,7 @@ out:
         udev_event_unref(event);
         udev_device_unref(dev);
         udev_rules_unref(rules);
-        udev_selinux_exit(udev);
+        label_finish();
         udev_unref(udev);
         if (err != 0)
                 return EXIT_FAILURE;

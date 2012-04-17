@@ -1340,19 +1340,12 @@ libudev_private_la_SOURCES =\
 	src/libudev/libudev-device-private.c \
 	src/libudev/libudev-queue-private.c
 
-if HAVE_SELINUX
-libudev_private_la_SOURCES +=\
-	src/libudev/libudev-selinux-private.c
-endif
-
 libudev_private_la_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(SELINUX_CFLAGS)
 	-fvisibility=default
 
 libudev_private_la_LIBADD = \
-	libsystemd-shared.la \
-	$(SELINUX_LIBS)
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 MANPAGES += \

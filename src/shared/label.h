@@ -26,7 +26,7 @@
 #include <stdbool.h>
 #include <sys/socket.h>
 
-int label_init(void);
+int label_init(const char *prefix);
 void label_finish(void);
 
 int label_fix(const char *path, bool ignore_enoent);
@@ -34,9 +34,8 @@ int label_fix(const char *path, bool ignore_enoent);
 int label_socket_set(const char *label);
 void label_socket_clear(void);
 
-int label_fifofile_set(const char *path);
-int label_symlinkfile_set(const char *path);
-void label_file_clear(void);
+int label_context_set(const char *path, mode_t mode);
+void label_context_clear(void);
 
 void label_free(const char *label);
 

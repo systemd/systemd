@@ -26,6 +26,7 @@
 #include "libudev.h"
 #include "libudev-private.h"
 #include "util.h"
+#include "label.h"
 
 struct udev_event {
         struct udev *udev;

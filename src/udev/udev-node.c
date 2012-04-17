@@ -91,7 +91,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
                                 buf[len] = '\0';
                                 if (strcmp(target, buf) == 0) {
                                         log_debug("preserve already existing symlink '%s' to '%s'\n", slink, target);
-                                        udev_selinux_lsetfilecon(udev, slink, S_IFLNK);
+                                        label_fix(slink, true);
                                         utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
                                         goto exit;
                                 }
@@ -103,11 +103,11 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
                         err = mkdir_parents(slink, 0755);
                         if (err != 0 && err != -ENOENT)
                                 break;
-                        udev_selinux_setfscreatecon(udev, slink, S_IFLNK);
+                        label_context_set(slink, S_IFLNK);
                         err = symlink(target, slink);
                         if (err != 0)
                                 err = -errno;
-                        udev_selinux_resetfscreatecon(udev);
+                        label_context_clear();
                 } while (err == -ENOENT);
                 if (err == 0)
                         goto exit;
@@ -120,11 +120,11 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
                 err = mkdir_parents(slink_tmp, 0755);
                 if (err != 0 && err != -ENOENT)
                         break;
-                udev_selinux_setfscreatecon(udev, slink_tmp, S_IFLNK);
+                label_context_set(slink_tmp, S_IFLNK);
                 err = symlink(target, slink_tmp);
                 if (err != 0)
                         err = -errno;
-                udev_selinux_resetfscreatecon(udev);
+                label_context_clear();
         } while (err == -ENOENT);
         if (err != 0) {
                 log_error("symlink '%s' '%s' failed: %m\n", target, slink_tmp);
@@ -269,7 +269,6 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 
 static int node_fixup(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 {
-        struct udev *udev = udev_device_get_udev(dev);
         const char *devnode = udev_device_get_devnode(dev);
         dev_t devnum = udev_device_get_devnum(dev);
         struct stat stats;
@@ -308,7 +307,7 @@ static int node_fixup(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid
          * something else has set a custom context in the meantime.
          */
         if (strcmp(udev_device_get_action(dev), "add") == 0)
-                udev_selinux_lsetfilecon(udev, devnode, mode);
+                label_fix(devnode, true);
 
         /* always update timestamp when we re-use the node, like on media change events */
         utimensat(AT_FDCWD, devnode, NULL, 0);

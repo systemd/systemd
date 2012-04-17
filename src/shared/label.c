@@ -51,7 +51,7 @@ void label_retest_selinux(void) {
 
 #endif
 
-int label_init(void) {
+int label_init(const char *prefix) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
@@ -67,7 +67,15 @@ int label_init(void) {
         before_mallinfo = mallinfo();
         before_timestamp = now(CLOCK_MONOTONIC);
 
-        label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
+        if (prefix) {
+                struct selinux_opt options[] = {
+                        { .type = SELABEL_OPT_SUBSET, .value = prefix },
+                };
+
+                label_hnd = selabel_open(SELABEL_CTX_FILE, options, ELEMENTSOF(options));
+        } else
+                label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
+
         if (!label_hnd) {
                 log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
                          "Failed to initialize SELinux context: %m");
@@ -177,7 +185,7 @@ fail:
         return r;
 }
 
-int label_fifofile_set(const char *path) {
+int label_context_set(const char *path, mode_t mode) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
@@ -186,36 +194,7 @@ int label_fifofile_set(const char *path) {
         if (!use_selinux() || !label_hnd)
                 return 0;
 
-        r = selabel_lookup_raw(label_hnd, &filecon, path, S_IFIFO);
-        if (r < 0)
-                r = -errno;
-        else if (r == 0) {
-                r = setfscreatecon(filecon);
-                if (r < 0) {
-                        log_error("Failed to set SELinux file context on %s: %m", path);
-                        r = -errno;
-                }
-
-                freecon(filecon);
-        }
-
-        if (r < 0 && security_getenforce() == 0)
-                r = 0;
-#endif
-
-        return r;
-}
-
-int label_symlinkfile_set(const char *path) {
-        int r = 0;
-
-#ifdef HAVE_SELINUX
-        security_context_t filecon = NULL;
-
-        if (!use_selinux() || !label_hnd)
-                return 0;
-
-        r = selabel_lookup_raw(label_hnd, &filecon, path, S_IFLNK);
+        r = selabel_lookup_raw(label_hnd, &filecon, path, mode);
         if (r < 0)
                 r = -errno;
         else if (r == 0) {
@@ -253,7 +232,7 @@ int label_socket_set(const char *label) {
         return 0;
 }
 
-void label_file_clear(void) {
+void label_context_clear(void) {
 
 #ifdef HAVE_SELINUX
         if (!use_selinux())

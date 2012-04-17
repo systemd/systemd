@@ -762,7 +762,8 @@ static int fifo_address_create(
 
         mkdir_parents(path, directory_mode);
 
-        if ((r = label_fifofile_set(path)) < 0)
+        r = label_context_set(path, S_IFIFO);
+        if (r < 0)
                 goto fail;
 
         /* Enforce the right access mode for the fifo */
@@ -784,7 +785,7 @@ static int fifo_address_create(
                 goto fail;
         }
 
-        label_file_clear();
+        label_context_clear();
 
         if (fstat(fd, &st) < 0) {
                 r = -errno;
@@ -804,7 +805,7 @@ static int fifo_address_create(
         return 0;
 
 fail:
-        label_file_clear();
+        label_context_clear();
 
         if (fd >= 0)
                 close_nointr_nofail(fd);

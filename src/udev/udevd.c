@@ -858,11 +858,11 @@ static void static_dev_create_from_modules(struct udev *udev)
 
                 util_strscpyl(filename, sizeof(filename), "/dev/", devname, NULL);
                 mkdir_parents(filename, 0755);
-                udev_selinux_setfscreatecon(udev, filename, mode);
+                label_context_set(filename, mode);
                 log_debug("mknod '%s' %c%u:%u\n", filename, type, maj, min);
                 if (mknod(filename, mode, makedev(maj, min)) < 0 && errno == EEXIST)
                         utimensat(AT_FDCWD, filename, NULL, 0);
-                udev_selinux_resetfscreatecon(udev);
+                label_context_clear();
         }
 
         fclose(f);
@@ -888,10 +888,10 @@ static void static_dev_create_links(struct udev *udev)
                 struct stat sb;
 
                 if (stat(stdlinks[i].target, &sb) == 0) {
-                        udev_selinux_setfscreatecon(udev, stdlinks[i].link, S_IFLNK);
+                        label_context_set(stdlinks[i].link, S_IFLNK);
                         if (symlink(stdlinks[i].target, stdlinks[i].link) < 0 && errno == EEXIST)
                                 utimensat(AT_FDCWD, stdlinks[i].link, NULL, AT_SYMLINK_NOFOLLOW);
-                        udev_selinux_resetfscreatecon(udev);
+                        label_context_clear();
                 }
         }
 }
@@ -1077,7 +1077,7 @@ int main(int argc, char *argv[])
         log_parse_environment();
         udev_set_log_fn(udev, udev_main_log);
         log_debug("version %s\n", VERSION);
-        udev_selinux_init(udev);
+        label_init("/dev");
 
         for (;;) {
                 int option;
@@ -1607,7 +1607,7 @@ exit_daemonize:
         udev_queue_export_unref(udev_queue_export);
         udev_ctrl_connection_unref(ctrl_conn);
         udev_ctrl_unref(udev_ctrl);
-        udev_selinux_exit(udev);
+        label_finish();
         udev_unref(udev);
         log_close();
         return rc;

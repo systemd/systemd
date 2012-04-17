@@ -329,13 +329,14 @@ static int symlink_and_label(const char *old_path, const char *new_path) {
         assert(old_path);
         assert(new_path);
 
-        if ((r = label_symlinkfile_set(new_path)) < 0)
+        r = label_context_set(new_path, S_IFLNK);
+        if (r < 0)
                 return r;
 
         if (symlink(old_path, new_path) < 0)
                 r = -errno;
 
-        label_file_clear();
+        label_context_clear();
 
         return r;
 }

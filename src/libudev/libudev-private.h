@@ -173,20 +173,4 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
                                       char *result, size_t maxsize, int read_value);
 unsigned long long ts_usec(const struct timespec *ts);
 unsigned long long now_usec(void);
-
-/* libudev-selinux-private.c */
-#ifndef HAVE_SELINUX
-static inline void udev_selinux_init(struct udev *udev) {}
-static inline void udev_selinux_exit(struct udev *udev) {}
-static inline void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode) {}
-static inline void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode) {}
-static inline void udev_selinux_resetfscreatecon(struct udev *udev) {}
-#else
-void udev_selinux_init(struct udev *udev);
-void udev_selinux_exit(struct udev *udev);
-void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode);
-void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode);
-void udev_selinux_resetfscreatecon(struct udev *udev);
-#endif
-
 #endif

@@ -1222,7 +1222,7 @@ int main(int argc, char *argv[]) {
 
                 log_open();
 
-                if (label_init() < 0)
+                if (label_init(NULL) < 0)
                         goto finish;
 
                 if (!is_reexec)

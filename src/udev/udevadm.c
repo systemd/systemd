@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
         log_open();
         log_parse_environment();
         udev_set_log_fn(udev, udev_main_log);
-        udev_selinux_init(udev);
+        label_init("/dev");
 
         for (;;) {
                 int option;
@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
         adm_help(udev, argc, argv);
         rc = 2;
 out:
-        udev_selinux_exit(udev);
+        label_finish();
         udev_unref(udev);
         log_close();
         return rc;
