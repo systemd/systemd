@@ -122,7 +122,7 @@
                 <para>If a line starts with <option>.include</option>
                 followed by a file name, the specified file will be
                 parsed at this point. Make sure that the file that is
-                included has the appropiate section headers before
+                included has the appropriate section headers before
                 any directives.</para>
 
                 <para>Along with a unit file

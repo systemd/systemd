@@ -125,7 +125,7 @@
                                 is
                                 activated. <varname>PathExistsGlob=</varname>
                                 works similar, but checks for the
-                                existance of at least one file
+                                existence of at least one file
                                 matching the globbing pattern
                                 specified. <varname>PathChanged=</varname>
                                 may be used to watch a file or
