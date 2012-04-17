@@ -514,7 +514,7 @@ static const char *normalize_controller(const char *controller) {
 }
 
 static int join_path(const char *controller, const char *path, const char *suffix, char **fs) {
-        char *t;
+        char *t = NULL;
 
         if (!(controller || path))
                 return -EINVAL;

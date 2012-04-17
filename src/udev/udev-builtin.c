@@ -42,7 +42,7 @@ static const struct udev_builtin *builtins[] = {
 int udev_builtin_init(struct udev *udev)
 {
         unsigned int i;
-        int err;
+        int err = 0;
 
         for (i = 0; i < ELEMENTSOF(builtins); i++) {
                 if (builtins[i]->init) {

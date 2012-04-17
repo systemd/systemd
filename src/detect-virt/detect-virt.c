@@ -115,7 +115,8 @@ static int parse_argv(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
         const char *id = NULL;
-        int retval, r;
+        int r;
+        int retval = EXIT_SUCCESS;
 
         /* This is mostly intended to be used for scripts which want
          * to detect whether we are being run in a virtualized
