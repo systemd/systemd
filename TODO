@@ -1,4 +1,6 @@
 Bugfixes:
+* check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
+
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
 * make anaconda write timeout=0 for encrypted devices
@@ -12,7 +14,6 @@ Bugfixes:
 * make polkit checks async
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
-
 Features:
 
 * suspend/hibernate/hybrid support, auto-suspend logic with idle hint
