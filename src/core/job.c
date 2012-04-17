@@ -33,18 +33,17 @@
 #include "log.h"
 #include "dbus-job.h"
 
-Job* job_new(Manager *m, JobType type, Unit *unit) {
+Job* job_new(Unit *unit, JobType type) {
         Job *j;
 
-        assert(m);
         assert(type < _JOB_TYPE_MAX);
         assert(unit);
 
         if (!(j = new0(Job, 1)))
                 return NULL;
 
-        j->manager = m;
-        j->id = m->current_job_id++;
+        j->manager = unit->manager;
+        j->id = j->manager->current_job_id++;
         j->type = type;
         j->unit = unit;
 

@@ -137,7 +137,7 @@ struct Job {
         bool ignore_order:1;
 };
 
-Job* job_new(Manager *m, JobType type, Unit *unit);
+Job* job_new(Unit *unit, JobType type);
 void job_uninstall(Job *j);
 void job_free(Job *job);
 void job_dump(Job *j, FILE*f, const char *prefix);

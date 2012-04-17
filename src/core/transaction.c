@@ -763,7 +763,7 @@ static Job* transaction_add_one_job(Transaction *tr, JobType type, Unit *unit, b
         if (unit->job && unit->job->type == type)
                 j = unit->job;
         else {
-                j = job_new(unit->manager, type, unit);
+                j = job_new(unit, type);
                 if (!j)
                         return NULL;
         }
