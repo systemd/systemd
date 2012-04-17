@@ -21,7 +21,17 @@ if [ -f .git/hooks/pre-commit.sample -a ! -f .git/hooks/pre-commit ] ; then
     echo "Activated pre-commit hook."
 fi
 
-gtkdocize
+GTKDOCIZE=`which gtkdocize`
+if test -z $GTKDOCIZE; then
+    echo "You don't have gtk-doc installed, and thus"
+    echo "won't be able to generate the documentation."
+    NOGTKDOC=1
+    echo 'EXTRA_DIST =' > gtk-doc.make
+fi
+
+if test -z "$NOGTKDOC"; then
+    gtkdocize || exit $?
+fi
 intltoolize --force --automake
 autoreconf --force --install --symlink
 

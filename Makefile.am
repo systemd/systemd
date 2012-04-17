@@ -1276,8 +1276,10 @@ EXTRA_DIST += \
 	src/libsystemd-daemon/libsystemd-daemon.sym
 
 # ------------------------------------------------------------------------------
+if ENABLE_GTK_DOC
 SUBDIRS += \
 	docs/libudev
+endif
 
 include_HEADERS += \
 	src/libudev/libudev.h
@@ -1625,8 +1627,10 @@ dist_udevrules_DATA += \
 
 # ------------------------------------------------------------------------------
 if ENABLE_GUDEV
+if ENABLE_GTK_DOC
 SUBDIRS += \
 	docs/gudev
+endif
 
 libgudev_includedir = \
 	$(includedir)/gudev-1.0/gudev

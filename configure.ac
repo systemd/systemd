@@ -61,7 +61,16 @@ AM_PROG_CC_C_O
 AC_PROG_GCC_TRADITIONAL
 
 AC_PATH_PROG([M4], [m4])
-GTK_DOC_CHECK(1.10)
+
+# gtkdocize greps for ^GTK_DOC_CHECK and parses it, so you need to have
+# it on it's own line.
+m4_ifdef([GTK_DOC_CHECK], [
+GTK_DOC_CHECK([1.18])
+],[
+AM_CONDITIONAL([ENABLE_GTK_DOC],[false])
+])
+
+
 GOBJECT_INTROSPECTION_CHECK([1.31.1])
 
 AC_CHECK_TOOL(OBJCOPY, objcopy)
