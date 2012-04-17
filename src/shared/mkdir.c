@@ -84,10 +84,12 @@ int mkdir_parents(const char *path, mode_t mode) {
                 if (*p == 0)
                         return 0;
 
-                if (!(t = strndupa(path, e - path)))
+                t = strndup(path, e - path);
+                if (!t)
                         return -ENOMEM;
 
                 r = label_mkdir(t, mode);
+                free(t);
 
                 if (r < 0 && errno != EEXIST)
                         return -errno;
