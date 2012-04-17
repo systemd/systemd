@@ -14,11 +14,15 @@ Bugfixes:
 * make polkit checks async
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
+
 Features:
+* selinux: merge systemd selinux access controls (dwalsh)
 
 * cg_shorten_controllers() misuses alloca()
 
 * suspend/hibernate/hybrid support, auto-suspend logic with idle hint
+
+* udev: move strpcpy(), strpcpyl(), strscpy(), strscpyl() to shared/
 
 * udev: find a way to tell udev to not cancel firmware requests when running in initramfs
 
