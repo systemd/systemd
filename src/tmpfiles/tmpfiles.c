@@ -1291,8 +1291,8 @@ int main(int argc, char *argv[]) {
                                     "/usr/lib/tmpfiles.d",
                                     NULL);
                 if (r < 0) {
-                        r = EXIT_FAILURE;
                         log_error("Failed to enumerate tmpfiles.d files: %s", strerror(-r));
+                        r = EXIT_FAILURE;
                         goto finish;
                 }
 
