@@ -30,6 +30,7 @@
 #include <ftw.h>
 
 #include "mount-setup.h"
+#include "dev-setup.h"
 #include "log.h"
 #include "macro.h"
 #include "util.h"
@@ -323,24 +324,6 @@ finish:
         return r;
 }
 
-static int symlink_and_label(const char *old_path, const char *new_path) {
-        int r;
-
-        assert(old_path);
-        assert(new_path);
-
-        r = label_context_set(new_path, S_IFLNK);
-        if (r < 0)
-                return r;
-
-        if (symlink(old_path, new_path) < 0)
-                r = -errno;
-
-        label_context_clear();
-
-        return r;
-}
-
 static int nftw_cb(
                 const char *fpath,
                 const struct stat *sb,
@@ -365,20 +348,13 @@ static int nftw_cb(
 
 int mount_setup(bool loaded_policy) {
 
-        static const char symlinks[] =
-                "/proc/kcore\0"      "/dev/core\0"
-                "/proc/self/fd\0"    "/dev/fd\0"
-                "/proc/self/fd/0\0"  "/dev/stdin\0"
-                "/proc/self/fd/1\0"  "/dev/stdout\0"
-                "/proc/self/fd/2\0"  "/dev/stderr\0";
-
         static const char relabel[] =
                 "/run/initramfs/root-fsck\0"
                 "/run/initramfs/shutdown\0";
 
         int r;
         unsigned i;
-        const char *j, *k;
+        const char *j;
 
         for (i = 0; i < ELEMENTSOF(mount_table); i ++) {
                 r = mount_one(mount_table + i, true);
@@ -413,8 +389,7 @@ int mount_setup(bool loaded_policy) {
         /* Create a few default symlinks, which are normally created
          * by udevd, but some scripts might need them before we start
          * udevd. */
-        NULSTR_FOREACH_PAIR(j, k, symlinks)
-                symlink_and_label(j, k);
+        dev_setup();
 
         /* Create a few directories we always want around */
         label_mkdir("/run/systemd", 0755);

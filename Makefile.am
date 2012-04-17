@@ -559,7 +559,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/specifier.c \
 	src/shared/specifier.h \
 	src/shared/spawn-polkit-agent.c \
-	src/shared/spawn-polkit-agent.h
+	src/shared/spawn-polkit-agent.h \
+	src/shared/dev-setup.c \
+	src/shared/dev-setup.h
 
 libsystemd_shared_la_CFLAGS = \
 	$(AM_CFLAGS) \

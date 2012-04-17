@@ -22,7 +22,10 @@ Features:
 
 * suspend/hibernate/hybrid support, auto-suspend logic with idle hint
 
-* udev: move strpcpy(), strpcpyl(), strscpy(), strscpyl() to shared/
+* udev systemd unify:
+  - strpcpy(), strpcpyl(), strscpy(), strscpyl()
+  - utf8 validator code
+  - now() vs. now_usec()
 
 * udev: find a way to tell udev to not cancel firmware requests when running in initramfs
 

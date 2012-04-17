@@ -47,6 +47,7 @@
 #include "udev.h"
 #include "sd-daemon.h"
 #include "cgroup-util.h"
+#include "dev-setup.h"
 
 static bool debug;
 
@@ -868,34 +869,6 @@ static void static_dev_create_from_modules(struct udev *udev)
         fclose(f);
 }
 
-/* needed for standalone udev operations */
-static void static_dev_create_links(struct udev *udev)
-{
-        struct stdlinks {
-                const char *link;
-                const char *target;
-        };
-        static const struct stdlinks stdlinks[] = {
-                { "/dev/core", "/proc/kcore" },
-                { "/dev/fd", "/proc/self/fd" },
-                { "/dev/stdin", "/proc/self/fd/0" },
-                { "/dev/stdout", "/proc/self/fd/1" },
-                { "/dev/stderr", "/proc/self/fd/2" },
-        };
-        unsigned int i;
-
-        for (i = 0; i < ELEMENTSOF(stdlinks); i++) {
-                struct stat sb;
-
-                if (stat(stdlinks[i].target, &sb) == 0) {
-                        label_context_set(stdlinks[i].link, S_IFLNK);
-                        if (symlink(stdlinks[i].target, stdlinks[i].link) < 0 && errno == EEXIST)
-                                utimensat(AT_FDCWD, stdlinks[i].link, NULL, AT_SYMLINK_NOFOLLOW);
-                        label_context_clear();
-                }
-        }
-}
-
 static int mem_size_mb(void)
 {
         FILE *f;
@@ -1179,8 +1152,7 @@ int main(int argc, char *argv[])
 
         mkdir("/run/udev", 0755);
 
-        /* create standard links, copy static nodes, create nodes from modules */
-        static_dev_create_links(udev);
+        dev_setup();
         static_dev_create_from_modules(udev);
 
         /* before opening new files, make sure std{in,out,err} fds are in a sane state */
