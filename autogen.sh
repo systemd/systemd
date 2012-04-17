@@ -21,17 +21,15 @@ if [ -f .git/hooks/pre-commit.sample -a ! -f .git/hooks/pre-commit ] ; then
     echo "Activated pre-commit hook."
 fi
 
-GTKDOCIZE=`which gtkdocize`
+GTKDOCIZE=$(which gtkdocize 2>/dev/null)
 if test -z $GTKDOCIZE; then
-    echo "You don't have gtk-doc installed, and thus"
-    echo "won't be able to generate the documentation."
-    NOGTKDOC=1
+    echo "You don't have gtk-doc installed, and thus won't be able to generate the documentation."
     echo 'EXTRA_DIST =' > gtk-doc.make
+else
+    gtkdocize
+    gtkdocargs=--enable-gtk-doc
 fi
 
-if test -z "$NOGTKDOC"; then
-    gtkdocize || exit $?
-fi
 intltoolize --force --automake
 autoreconf --force --install --symlink
 
@@ -44,7 +42,7 @@ args="\
 --localstatedir=/var \
 --libdir=$(libdir /usr/lib) \
 --libexecdir=/usr/lib \
---enable-gtk-doc"
+$gtkdocargs"
 
 if [ ! -L /bin ]; then
 args="$args \

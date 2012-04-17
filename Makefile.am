@@ -3237,8 +3237,12 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbusinterfacedir=$$dc_install_base/$(dbusinterfacedir) \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
 	--with-rootprefix=$$dc_install_base \
-	--disable-split-usr \
+	--disable-split-usr
+
+if ENABLE_GTK_DOC
+DISTCHECK_CONFIGURE_FLAGS += \
 	--enable-gtk-doc
+endif
 
 upload: all distcheck
 	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/

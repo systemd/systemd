@@ -62,14 +62,10 @@ AC_PROG_GCC_TRADITIONAL
 
 AC_PATH_PROG([M4], [m4])
 
-# gtkdocize greps for ^GTK_DOC_CHECK and parses it, so you need to have
-# it on it's own line.
+# gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
 m4_ifdef([GTK_DOC_CHECK], [
 GTK_DOC_CHECK([1.18])
-],[
-AM_CONDITIONAL([ENABLE_GTK_DOC],[false])
-])
-
+],[ AM_CONDITIONAL([ENABLE_GTK_DOC],[false]) ])
 
 GOBJECT_INTROSPECTION_CHECK([1.31.1])
 
