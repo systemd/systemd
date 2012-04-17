@@ -758,7 +758,7 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
         assert(j->unit == other->unit);
         assert(!j->installed);
 
-        /* Merges 'other' into 'j' and then deletes j. */
+        /* Merges 'other' into 'j' and then deletes 'other'. */
 
         j->type = t;
         j->state = JOB_WAITING;
@@ -803,6 +803,7 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
         other->object_list = NULL;
         transaction_delete_job(m, other, true);
 }
+
 static bool job_is_conflicted_by(Job *j) {
         JobDependency *l;
 
