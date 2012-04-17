@@ -7,7 +7,13 @@
 <book id="index" xmlns:xi="http://www.w3.org/2003/XInclude">
   <bookinfo>
     <title>libudev Reference Manual</title>
-    <releaseinfo>for libudev version &version;</releaseinfo>
+    <releaseinfo>
+       For version &version; — the latest version of this
+       documentation can be found at
+       <ulink role="online-location" url="http://www.freedesktop.org/software/systemd/libudev/">
+         http://www.freedesktop.org/software/systemd/libudev/
+       </ulink>.
+    </releaseinfo>
     <copyright>
       <year>2009-2012</year>
       <holder>Kay Sievers &lt;kay@vrfy.org&gt;</holder>
