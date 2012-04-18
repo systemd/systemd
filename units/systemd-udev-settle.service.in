@@ -11,7 +11,7 @@
 [Unit]
 Description=udev Wait for Complete Device Initialization
 DefaultDependencies=no
-Wants=udev.service
+Wants=systemd-udev.service
 After=udev-trigger.service
 Before=basic.target
 ConditionCapability=CAP_MKNOD

@@ -1,7 +1,7 @@
 [Unit]
 Description=udev Coldplug all Devices
-Wants=udev.service
-After=udev-kernel.socket udev-control.socket
+Wants=systemd-udev.service
+After=systemd-udev-kernel.socket systemd-udev-control.socket
 DefaultDependencies=no
 ConditionCapability=CAP_MKNOD
 
