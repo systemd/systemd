@@ -928,7 +928,7 @@ int main(int argc, char *argv[]) {
                     dup2(STDIN_FILENO, STDERR_FILENO) != STDERR_FILENO)
                         goto child_fail;
 
-                if (mount(arg_directory, "/", "bind", MS_BIND|MS_MOVE, NULL) < 0) {
+                if (mount(arg_directory, "/", "bind", MS_BIND, NULL) < 0) {
                         log_error("mount(MS_MOVE) failed: %m");
                         goto child_fail;
                 }

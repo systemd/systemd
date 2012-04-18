@@ -167,7 +167,7 @@ static int apply_mount(Path *p, const char *root_dir, const char *inaccessible_d
 
                 /* Avoid exponential growth of trees */
                 if (r >= 0 && path_equal(p->path, "/"))
-                        r = mount(NULL, where, NULL, MS_REMOUNT|MS_BIND|MS_UNBINDABLE|flags, NULL);
+                        r = mount(NULL, where, NULL, MS_REMOUNT|MS_BIND|flags, NULL);
 
                 if (r < 0) {
                         r = -errno;
