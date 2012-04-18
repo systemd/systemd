@@ -760,13 +760,9 @@ static Job* transaction_add_one_job(Transaction *tr, JobType type, Unit *unit, b
                 }
         }
 
-        if (unit->job && unit->job->type == type)
-                j = unit->job;
-        else {
-                j = job_new(unit, type);
-                if (!j)
-                        return NULL;
-        }
+        j = job_new(unit, type);
+        if (!j)
+                return NULL;
 
         j->generation = 0;
         j->marker = NULL;
