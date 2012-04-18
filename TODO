@@ -1,4 +1,8 @@
 Bugfixes:
+* remove MS_SHARED from src/core/execute.c and src/test/test-ns.c. They are always combined
+  with MS_REMOUNT, which currently does nothing in the kernel, but might which fail in the
+  future.
+
 * check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
