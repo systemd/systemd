@@ -559,9 +559,7 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/specifier.c \
 	src/shared/specifier.h \
 	src/shared/spawn-polkit-agent.c \
-	src/shared/spawn-polkit-agent.h \
-	src/shared/dev-setup.c \
-	src/shared/dev-setup.h
+	src/shared/spawn-polkit-agent.h
 
 libsystemd_shared_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -602,7 +600,9 @@ libsystemd_label_la_SOURCES = \
 	src/shared/mkdir.c \
 	src/shared/mkdir.h \
 	src/shared/ask-password-api.c \
-	src/shared/ask-password-api.h
+	src/shared/ask-password-api.h \
+	src/shared/dev-setup.c \
+	src/shared/dev-setup.h
 
 libsystemd_label_la_CFLAGS = \
 	$(AM_CFLAGS) \
