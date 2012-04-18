@@ -789,6 +789,12 @@ static Job* transaction_add_one_job(Transaction *tr, JobType type, Unit *unit, b
         return j;
 }
 
+static void transaction_job_dependency_free(Transaction *tr, JobDependency *l) {
+        if (!l->subject)
+                LIST_REMOVE(JobDependency, subject, tr->anchor, l);
+        job_dependency_free(l);
+}
+
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies) {
         assert(tr);
         assert(j);
@@ -806,12 +812,12 @@ static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependen
         j->transaction_prev = j->transaction_next = NULL;
 
         while (j->subject_list)
-                job_dependency_free(j->subject_list, tr);
+                transaction_job_dependency_free(tr, j->subject_list);
 
         while (j->object_list) {
                 Job *other = j->object_list->matters ? j->object_list->subject : NULL;
 
-                job_dependency_free(j->object_list, tr);
+                transaction_job_dependency_free(tr, j->object_list);
 
                 if (other && delete_dependencies) {
                         log_debug("Deleting job %s/%s as dependency of job %s/%s",
@@ -835,6 +841,7 @@ int transaction_add_job_and_dependencies(
                 DBusError *e,
                 Job **_ret) {
         Job *ret;
+        JobDependency *l;
         Iterator i;
         Unit *dep;
         int r;
@@ -884,8 +891,13 @@ int transaction_add_job_and_dependencies(
         ret->ignore_order = ret->ignore_order || ignore_order;
 
         /* Then, add a link to the job. */
-        if (!job_dependency_new(by, ret, matters, conflicts, tr))
+        l = job_dependency_new(by, ret, matters, conflicts);
+        if (!l)
                 return -ENOMEM;
+
+        /* If the link has no subject job, it's the anchor link. */
+        if (!by)
+                LIST_PREPEND(JobDependency, subject, tr->anchor, l);
 
         if (is_new && !ignore_requirements) {
                 Set *following;

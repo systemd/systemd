@@ -34,7 +34,6 @@ typedef enum JobMode JobMode;
 typedef enum JobResult JobResult;
 
 #include "manager.h"
-#include "transaction.h"
 #include "unit.h"
 #include "hashmap.h"
 #include "list.h"
@@ -142,8 +141,8 @@ void job_uninstall(Job *j);
 void job_free(Job *job);
 void job_dump(Job *j, FILE*f, const char *prefix);
 
-JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts, Transaction *tr);
-void job_dependency_free(JobDependency *l, Transaction *tr);
+JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts);
+void job_dependency_free(JobDependency *l);
 
 bool job_is_anchor(Job *j);
 
