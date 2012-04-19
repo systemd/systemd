@@ -656,7 +656,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
 int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, DBusError *e, Job **_ret) {
         int r;
-        Job *ret;
         Transaction *tr;
 
         assert(m);
@@ -682,7 +681,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
 
         r = transaction_add_job_and_dependencies(tr, type, unit, NULL, true, override, false,
                                                  mode == JOB_IGNORE_DEPENDENCIES || mode == JOB_IGNORE_REQUIREMENTS,
-                                                 mode == JOB_IGNORE_DEPENDENCIES, e, &ret);
+                                                 mode == JOB_IGNORE_DEPENDENCIES, e);
         if (r < 0)
                 goto tr_abort;
 
@@ -696,10 +695,10 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         if (r < 0)
                 goto tr_abort;
 
-        log_debug("Enqueued job %s/%s as %u", unit->id, job_type_to_string(type), (unsigned) ret->id);
+        log_debug("Enqueued job %s/%s as %u", unit->id, job_type_to_string(type), (unsigned) tr->anchor_job->id);
 
         if (_ret)
-                *_ret = ret;
+                *_ret = tr->anchor_job;
 
         transaction_free(tr);
         return 0;

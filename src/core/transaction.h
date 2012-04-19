@@ -12,6 +12,7 @@ struct Transaction {
         /* Jobs to be added */
         Hashmap *jobs;      /* Unit object => Job object list 1:1 */
         JobDependency *anchor;
+        Job *anchor_job;      /* the job the user asked for */
 };
 
 Transaction *transaction_new(void);
@@ -27,8 +28,7 @@ int transaction_add_job_and_dependencies(
                 bool conflicts,
                 bool ignore_requirements,
                 bool ignore_order,
-                DBusError *e,
-                Job **_ret);
+                DBusError *e);
 int transaction_activate(Transaction *tr, Manager *m, JobMode mode, DBusError *e);
 int transaction_add_isolate_jobs(Transaction *tr, Manager *m);
 void transaction_abort(Transaction *tr);
