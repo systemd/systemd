@@ -611,9 +611,6 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
                 /* We're fully installed. Now let's free data we don't
                  * need anymore. */
 
-                assert(!j->transaction_next);
-                assert(!j->transaction_prev);
-
                 /* Clean the job dependencies */
                 transaction_unlink_job(tr, j, false);
 
