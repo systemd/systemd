@@ -1935,7 +1935,7 @@ finish:
 
 static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
         [UNIT_FILE_ENABLED] = "enabled",
-        [UNIT_FILE_ENABLED_RUNTIME] = "enabled-runtie",
+        [UNIT_FILE_ENABLED_RUNTIME] = "enabled-runtime",
         [UNIT_FILE_LINKED] = "linked",
         [UNIT_FILE_LINKED_RUNTIME] = "linked-runtime",
         [UNIT_FILE_MASKED] = "masked",
