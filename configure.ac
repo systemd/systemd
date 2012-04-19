@@ -64,7 +64,7 @@ AC_PATH_PROG([M4], [m4])
 
 # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
 m4_ifdef([GTK_DOC_CHECK], [
-GTK_DOC_CHECK([1.18])
+GTK_DOC_CHECK([1.18],[--flavour no-tmpl])
 ],[ AM_CONDITIONAL([ENABLE_GTK_DOC],[false]) ])
 
 GOBJECT_INTROSPECTION_CHECK([1.31.1])
