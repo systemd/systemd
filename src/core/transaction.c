@@ -38,22 +38,18 @@ void transaction_abort(Transaction *tr) {
         assert(!tr->anchor);
 }
 
-static void transaction_find_jobs_that_matter_to_anchor(Transaction *tr, Job *j, unsigned generation) {
+static void transaction_find_jobs_that_matter_to_anchor(Job *j, unsigned generation) {
         JobDependency *l;
-
-        assert(tr);
 
         /* A recursive sweep through the graph that marks all units
          * that matter to the anchor job, i.e. are directly or
          * indirectly a dependency of the anchor job via paths that
          * are fully marked as mattering. */
 
-        if (j)
-                l = j->subject_list;
-        else
-                l = tr->anchor;
+        j->matters_to_anchor = true;
+        j->generation = generation;
 
-        LIST_FOREACH(subject, l, l) {
+        LIST_FOREACH(subject, l, j->subject_list) {
 
                 /* This link does not matter */
                 if (!l->matters)
@@ -63,10 +59,7 @@ static void transaction_find_jobs_that_matter_to_anchor(Transaction *tr, Job *j,
                 if (l->object->generation == generation)
                         continue;
 
-                l->object->matters_to_anchor = true;
-                l->object->generation = generation;
-
-                transaction_find_jobs_that_matter_to_anchor(tr, l->object, generation);
+                transaction_find_jobs_that_matter_to_anchor(l->object, generation);
         }
 }
 
@@ -659,7 +652,7 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, DBusError *e
          * the actual list of jobs, if possible. */
 
         /* First step: figure out which jobs matter */
-        transaction_find_jobs_that_matter_to_anchor(tr, NULL, generation++);
+        transaction_find_jobs_that_matter_to_anchor(tr->anchor_job, generation++);
 
         /* Second step: Try not to stop any running services if
          * we don't have to. Don't try to reverse running
