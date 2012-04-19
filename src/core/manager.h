@@ -257,8 +257,6 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
 void manager_dump_units(Manager *s, FILE *f, const char *prefix);
 void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);
 
-void manager_transaction_unlink_job(Manager *m, Job *j, bool delete_dependencies);
-
 void manager_clear_jobs(Manager *m);
 
 unsigned manager_dispatch_load_queue(Manager *m);

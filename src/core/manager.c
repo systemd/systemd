@@ -662,13 +662,15 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         return r;
 }
 
+static void transaction_unlink_job(Manager *m, Job *j, bool delete_dependencies);
+
 static void transaction_delete_job(Manager *m, Job *j, bool delete_dependencies) {
         assert(m);
         assert(j);
 
         /* Deletes one job from the transaction */
 
-        manager_transaction_unlink_job(m, j, delete_dependencies);
+        transaction_unlink_job(m, j, delete_dependencies);
 
         if (!j->installed)
                 job_free(j);
@@ -710,8 +712,10 @@ static void transaction_abort(Manager *m) {
         while ((j = hashmap_first(m->transaction_jobs)))
                 if (j->installed)
                         transaction_delete_job(m, j, true);
-                else
+                else {
+                        transaction_unlink_job(m, j, true);
                         job_free(j);
+                }
 
         assert(hashmap_isempty(m->transaction_jobs));
 
@@ -1441,6 +1445,7 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool o
         LIST_PREPEND(Job, transaction, f, j);
 
         if (hashmap_replace(m->transaction_jobs, unit, f) < 0) {
+                LIST_REMOVE(Job, transaction, f, j);
                 job_free(j);
                 return NULL;
         }
@@ -1453,7 +1458,7 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool o
         return j;
 }
 
-void manager_transaction_unlink_job(Manager *m, Job *j, bool delete_dependencies) {
+static void transaction_unlink_job(Manager *m, Job *j, bool delete_dependencies) {
         assert(m);
         assert(j);
 

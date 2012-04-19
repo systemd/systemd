@@ -71,8 +71,10 @@ void job_free(Job *j) {
                 j->installed = false;
         }
 
-        /* Detach from next 'smaller' objects */
-        manager_transaction_unlink_job(j->manager, j, true);
+        assert(!j->transaction_prev);
+        assert(!j->transaction_next);
+        assert(!j->subject_list);
+        assert(!j->object_list);
 
         if (j->in_run_queue)
                 LIST_REMOVE(Job, run_queue, j->manager->run_queue, j);
