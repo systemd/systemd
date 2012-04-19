@@ -681,6 +681,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/job.h \
 	src/core/manager.c \
 	src/core/manager.h \
+	src/core/transaction.c \
+	src/core/transaction.h \
 	src/core/load-fragment.c \
 	src/core/load-fragment.h \
 	src/core/service.c \

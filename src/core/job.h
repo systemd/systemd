@@ -34,6 +34,7 @@ typedef enum JobMode JobMode;
 typedef enum JobResult JobResult;
 
 #include "manager.h"
+#include "transaction.h"
 #include "unit.h"
 #include "hashmap.h"
 #include "list.h"
