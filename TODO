@@ -1,7 +1,7 @@
 Bugfixes:
 * remove MS_SHARED from src/core/execute.c and src/test/test-ns.c. They are always combined
   with MS_REMOUNT, which currently does nothing in the kernel, but might which fail in the
-  future.
+  future; https://bugzilla.redhat.com/show_bug.cgi?id=813563
 
 * check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
 

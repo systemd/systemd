@@ -97,3 +97,6 @@ if ENABLE_GTK_DOC
 #TESTS_ENVIRONMENT = cd $(srcsrc)
 #TESTS = $(GTKDOC_CHECK)
 endif
+
+install-data-hook:
+	$(AM_V_GEN)gtkdoc-rebase --html-dir=$(top_builddir)/docs/gudev/html --relative

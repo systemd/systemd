@@ -3252,7 +3252,9 @@ upload: all distcheck
 	scp man/*.html tango:public/systemd-man/
 
 doc-sync: all
+	gtkdoc-rebase --html-dir=docs/libudev/html --online
 	rsync -av --delete docs/libudev/html/ www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/libudev/
+	gtkdoc-rebase --html-dir=docs/gudev/html --online
 	rsync -av --delete docs/gudev/html/ www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/gudev/
 	rsync -av man/*.html www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/man/
 
