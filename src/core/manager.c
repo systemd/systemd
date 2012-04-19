@@ -710,12 +710,7 @@ static void transaction_abort(Manager *m) {
         assert(m);
 
         while ((j = hashmap_first(m->transaction_jobs)))
-                if (j->installed)
-                        transaction_delete_job(m, j, true);
-                else {
-                        transaction_unlink_job(m, j, true);
-                        job_free(j);
-                }
+                transaction_delete_job(m, j, true);
 
         assert(hashmap_isempty(m->transaction_jobs));
 
