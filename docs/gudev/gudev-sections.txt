@@ -98,16 +98,3 @@ G_UDEV_ENUMERATOR_GET_CLASS
 <SUBSECTION Private>
 GUdevEnumeratorPrivate
 </SECTION>
-
-<SECTION>
-<FILE>gudevmarshal</FILE>
-<SUBSECTION Private>
-g_udev_marshal_VOID__STRING_OBJECT
-</SECTION>
-
-<SECTION>
-<FILE>gudevenumtypes</FILE>
-<SUBSECTION Private>
-G_TYPE_UDEV_DEVICE_TYPE
-g_udev_device_type_get_type
-</SECTION>

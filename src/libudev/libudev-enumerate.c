@@ -65,7 +65,9 @@ struct udev_enumerate {
  * udev_enumerate_new:
  * @udev: udev library context
  *
- * Returns: an enumeration context
+ * Create an enumeration context to scan /sys.
+ *
+ * Returns: an enumeration context.
  **/
 _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev)
 {
@@ -138,7 +140,9 @@ _public_ void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
  * udev_enumerate_get_udev:
  * @udev_enumerate: context
  *
- * Returns: the udev library context.
+ * Get the udev library context.
+ *
+ * Returns: a pointer to the context.
  */
 _public_ struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate)
 {
@@ -243,7 +247,9 @@ static size_t devices_delay_later(struct udev *udev, const char *syspath)
  * udev_enumerate_get_list_entry:
  * @udev_enumerate: context
  *
- * Returns: the first entry of the sorted list of device paths.
+ * Get the first entry of the sorted list of device paths.
+ *
+ * Returns: a udev_list_entry.
  */
 _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate)
 {
@@ -321,6 +327,8 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
  * @udev_enumerate: context
  * @subsystem: filter for a subsystem of the device to include in the list
  *
+ * Match only devices belonging to a certain kernel subsystem.
+ *
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem)
@@ -338,6 +346,8 @@ _public_ int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enum
  * udev_enumerate_add_nomatch_subsystem:
  * @udev_enumerate: context
  * @subsystem: filter for a subsystem of the device to exclude from the list
+ *
+ * Match only devices not belonging to a certain kernel subsystem.
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
@@ -358,6 +368,8 @@ _public_ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_en
  * @sysattr: filter for a sys attribute at the device to include in the list
  * @value: optional value of the sys attribute
  *
+ * Match only devices with a certain /sys device attribute.
+ *
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value)
@@ -376,6 +388,8 @@ _public_ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumer
  * @udev_enumerate: context
  * @sysattr: filter for a sys attribute at the device to exclude from the list
  * @value: optional value of the sys attribute
+ *
+ * Match only devices not having a certain /sys device attribute.
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
@@ -416,6 +430,8 @@ exit:
  * @property: filter for a property of the device to include in the list
  * @value: value of the property
  *
+ * Match only devices with a certain property.
+ *
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, const char *property, const char *value)
@@ -433,6 +449,8 @@ _public_ int udev_enumerate_add_match_property(struct udev_enumerate *udev_enume
  * udev_enumerate_add_match_tag:
  * @udev_enumerate: context
  * @tag: filter for a tag of the device to include in the list
+ *
+ * Match only devices with a certain tag.
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
@@ -502,6 +520,8 @@ _public_ int udev_enumerate_add_match_is_initialized(struct udev_enumerate *udev
  * udev_enumerate_add_match_sysname:
  * @udev_enumerate: context
  * @sysname: filter for the name of the device to include in the list
+ *
+ * Match only devices with a given /sys device name.
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
@@ -867,6 +887,9 @@ static int scan_devices_all(struct udev_enumerate *udev_enumerate)
  * udev_enumerate_scan_devices:
  * @udev_enumerate: udev enumeration context
  *
+ * Scan /sys for all devices which match the given filters. No matches
+ * will return all currently available devices.
+ *
  * Returns: 0 on success, otherwise a negative error value.
  **/
 _public_ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
@@ -889,6 +912,8 @@ _public_ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 /**
  * udev_enumerate_scan_subsystems:
  * @udev_enumerate: udev enumeration context
+ *
+ * Scan /sys for all kernel subsystems, including buses, classes, drivers.
  *
  * Returns: 0 on success, otherwise a negative error value.
  **/

@@ -30,6 +30,8 @@
 /**
  * SECTION:libudev-util
  * @short_description: utils
+ *
+ * Utilities useful when dealing with devices and device node names.
  */
 
 int util_delete_path(struct udev *udev, const char *path)

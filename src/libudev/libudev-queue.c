@@ -142,7 +142,9 @@ unsigned long long int udev_get_kernel_seqnum(struct udev *udev)
  * udev_queue_get_kernel_seqnum:
  * @udev_queue: udev queue context
  *
- * Returns: the current kernel event sequence number.
+ * Get the current kernel event sequence number.
+ *
+ * Returns: the sequence number.
  **/
 _public_ unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queue)
 {
@@ -226,7 +228,9 @@ static FILE *open_queue_file(struct udev_queue *udev_queue, unsigned long long i
  * udev_queue_get_udev_seqnum:
  * @udev_queue: udev queue context
  *
- * Returns: the last known udev event sequence number.
+ * Get the last known udev event sequence number.
+ *
+ * Returns: the sequence number.
  **/
 _public_ unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue)
 {
@@ -258,6 +262,8 @@ _public_ unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *ud
  * udev_queue_get_udev_is_active:
  * @udev_queue: udev queue context
  *
+ * Check if udev is active on the system.
+ *
  * Returns: a flag indicating if udev is active.
  **/
 _public_ int udev_queue_get_udev_is_active(struct udev_queue *udev_queue)
@@ -276,6 +282,8 @@ _public_ int udev_queue_get_udev_is_active(struct udev_queue *udev_queue)
 /**
  * udev_queue_get_queue_is_empty:
  * @udev_queue: udev queue context
+ *
+ * Check if udev is currently processing any events.
  *
  * Returns: a flag indicating if udev is currently handling events.
  **/
@@ -330,6 +338,8 @@ out:
  * @udev_queue: udev queue context
  * @start: first event sequence number
  * @end: last event sequence number
+ *
+ * Check if udev is currently processing any events in a given sequence number range.
  *
  * Returns: a flag indicating if any of the sequence numbers in the given range is currently active.
  **/
@@ -393,6 +403,8 @@ _public_ int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_
  * @udev_queue: udev queue context
  * @seqnum: sequence number
  *
+ * Check if udev is currently processing a given sequence number.
+ *
  * Returns: a flag indicating if the given sequence number is currently active.
  **/
 _public_ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned long long int seqnum)
@@ -407,7 +419,9 @@ _public_ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, un
  * udev_queue_get_queued_list_entry:
  * @udev_queue: udev queue context
  *
- * Returns: the first entry of the list of queued events.
+ * Get the first entry of the list of queued events.
+ *
+ * Returns: a udev_list_entry.
  **/
 _public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue)
 {

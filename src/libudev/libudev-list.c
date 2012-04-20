@@ -261,7 +261,9 @@ struct udev_list_entry *udev_list_get_entry(struct udev_list *list)
  * udev_list_entry_get_next:
  * @list_entry: current entry
  *
- * Returns: the next entry from the list, #NULL is no more entries are found.
+ * Get the next entry from the list.
+ *
+ * Returns: udev_list_entry, #NULL if no more entries are available.
  */
 _public_ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry *list_entry)
 {
@@ -281,7 +283,9 @@ _public_ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry
  * @list_entry: current entry
  * @name: name string to match
  *
- * Returns: the entry where @name matched, #NULL if no matching entry is found.
+ * Lookup an entry in the list with a certain name.
+ *
+ * Returns: udev_list_entry, #NULL if no matching entry is found.
  */
 _public_ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list_entry, const char *name)
 {
@@ -303,6 +307,8 @@ _public_ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_en
  * udev_list_entry_get_name:
  * @list_entry: current entry
  *
+ * Get the name of a list entry.
+ *
  * Returns: the name string of this entry.
  */
 _public_ const char *udev_list_entry_get_name(struct udev_list_entry *list_entry)
@@ -315,6 +321,8 @@ _public_ const char *udev_list_entry_get_name(struct udev_list_entry *list_entry
 /**
  * udev_list_entry_get_value:
  * @list_entry: current entry
+ *
+ * Get the value of list entry.
  *
  * Returns: the value string of this entry.
  */

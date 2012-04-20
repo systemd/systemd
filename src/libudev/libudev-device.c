@@ -136,7 +136,9 @@ static int udev_device_set_ifindex(struct udev_device *udev_device, int ifindex)
  * udev_device_get_devnum:
  * @udev_device: udev device
  *
- * Returns: the device major/minor number.
+ * Get the device major/minor number.
+ *
+ * Returns: the dev_t number.
  **/
 _public_ dev_t udev_device_get_devnum(struct udev_device *udev_device)
 {
@@ -185,7 +187,9 @@ static int udev_device_set_devpath_old(struct udev_device *udev_device, const ch
  * udev_device_get_driver:
  * @udev_device: udev device
  *
- * Returns: the driver string, or #NULL if there is no driver attached.
+ * Get the kernel driver name.
+ *
+ * Returns: the driver name string, or #NULL if there is no driver attached.
  **/
 _public_ const char *udev_device_get_driver(struct udev_device *udev_device)
 {
@@ -440,7 +444,9 @@ int udev_device_add_property_from_string_parse_finish(struct udev_device *udev_d
  * @udev_device: udev device
  * @key: property name
  *
- * Returns: the value of a device property, or #NULL if there is no such property.
+ * Get the value of a given property.
+ *
+ * Returns: the property string, or #NULL if there is no such property.
  **/
 _public_ const char *udev_device_get_property_value(struct udev_device *udev_device, const char *key)
 {
@@ -1081,7 +1087,9 @@ _public_ const char *udev_device_get_syspath(struct udev_device *udev_device)
  * udev_device_get_sysname:
  * @udev_device: udev device
  *
- * Returns: the sys name of the device device
+ * Get the kernel device name in /sys.
+ *
+ * Returns: the name string of the device device
  **/
 _public_ const char *udev_device_get_sysname(struct udev_device *udev_device)
 {
@@ -1094,7 +1102,9 @@ _public_ const char *udev_device_get_sysname(struct udev_device *udev_device)
  * udev_device_get_sysnum:
  * @udev_device: udev device
  *
- * Returns: the trailing number of of the device name
+ * Get the instance number of the device.
+ *
+ * Returns: the trailing number string of of the device name
  **/
 _public_ const char *udev_device_get_sysnum(struct udev_device *udev_device)
 {
@@ -1583,6 +1593,15 @@ _public_ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_dev
         return udev_list_get_entry(&udev_device->tags_list);
 }
 
+/**
+ * udev_device_has_tag:
+ * @udev_device: udev device
+ * @tag: tag name
+ *
+ * Check if a given device has a certain tag associated.
+ *
+ * Returns: 1 if the tag is found. 0 otherwise.
+ **/
 _public_ int udev_device_has_tag(struct udev_device *udev_device, const char *tag)
 {
         struct udev_list_entry *list_entry;

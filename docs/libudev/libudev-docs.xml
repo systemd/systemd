@@ -29,10 +29,11 @@
     <xi:include href="xml/libudev-enumerate.xml"/>
     <xi:include href="xml/libudev-queue.xml"/>
     <xi:include href="xml/libudev-util.xml"/>
+    <xi:include href="xml/api-index-deprecated.xml"/>
   </chapter>
 
   <index id="api-index-full">
     <title>Index</title>
-    <xi:include href="xml/api-index-full.xml"><xi:fallback /></xi:include>
+    <xi:include href="xml/api-index-full.xml"/>
   </index>
 </book>

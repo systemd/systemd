@@ -33,13 +33,19 @@
       <xi:include href="xml/tree_index.sgml"/>
   </chapter>
 
-  <index>
-    <title>Index</title>
+  <index id="api-index-full">
+    <title>API Index</title>
+      <xi:include href="xml/api-index-full.xml"><xi:fallback /></xi:include>
   </index>
 
   <index role="165">
     <title>Index of new symbols in 165</title>
     <xi:include href="xml/api-index-165.xml"><xi:fallback /></xi:include>
+  </index>
+
+  <index id="api-index-deprecated" role="deprecated">
+    <title>Index of deprecated API</title>
+       <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
   </index>
 
   <xi:include href="xml/annotation-glossary.xml"><xi:fallback /></xi:include>
