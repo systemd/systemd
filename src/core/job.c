@@ -96,18 +96,70 @@ void job_uninstall(Job *j) {
         j->installed = false;
 }
 
-void job_install(Job *j) {
+static bool job_type_allows_late_merge(JobType t) {
+        /* Tells whether it is OK to merge a job of type 't' with an already
+         * running job.
+         * Reloads cannot be merged this way. Think of the sequence:
+         * 1. Reload of a daemon is in progress; the daemon has already loaded
+         *    its config file, but hasn't completed the reload operation yet.
+         * 2. Edit foo's config file.
+         * 3. Trigger another reload to have the daemon use the new config.
+         * Should the second reload job be merged into the first one, the daemon
+         * would not know about the new config.
+         * JOB_RESTART jobs on the other hand can be merged, because they get
+         * patched into JOB_START after stopping the unit. So if we see a
+         * JOB_RESTART running, it means the unit hasn't stopped yet and at
+         * this time the merge is still allowed. */
+        return !(t == JOB_RELOAD || t == JOB_RELOAD_OR_START);
+}
+
+static void job_merge_into_installed(Job *j, Job *other) {
+        assert(j->installed);
+        assert(j->unit == other->unit);
+
+        j->type = job_type_lookup_merge(j->type, other->type);
+        assert(j->type >= 0);
+
+        j->override = j->override || other->override;
+}
+
+Job* job_install(Job *j) {
         Job *uj = j->unit->job;
 
+        assert(!j->installed);
+
         if (uj) {
-                job_uninstall(uj);
-                job_free(uj);
+                if (job_type_is_conflicting(uj->type, j->type))
+                        job_finish_and_invalidate(uj, JOB_CANCELED);
+                else {
+                        /* not conflicting, i.e. mergeable */
+
+                        if (uj->state == JOB_WAITING ||
+                            (job_type_allows_late_merge(j->type) && job_type_is_superset(uj->type, j->type))) {
+                                job_merge_into_installed(uj, j);
+                                log_debug("Merged into installed job %s/%s as %u",
+                                          uj->unit->id, job_type_to_string(uj->type), (unsigned) uj->id);
+                                return uj;
+                        } else {
+                                /* already running and not safe to merge into */
+                                /* Patch uj to become a merged job and re-run it. */
+                                /* XXX It should be safer to queue j to run after uj finishes, but it is
+                                 * not currently possible to have more than one installed job per unit. */
+                                job_merge_into_installed(uj, j);
+                                log_debug("Merged into running job, re-running: %s/%s as %u",
+                                          uj->unit->id, job_type_to_string(uj->type), (unsigned) uj->id);
+                                uj->state = JOB_WAITING;
+                                return uj;
+                        }
+                }
         }
 
+        /* Install the job */
         j->unit->job = j;
         j->installed = true;
         j->manager->n_installed_jobs ++;
         log_debug("Installed new job %s/%s as %u", j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
+        return j;
 }
 
 JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts) {

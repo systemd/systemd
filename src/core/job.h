@@ -138,7 +138,7 @@ struct Job {
 
 Job* job_new(Unit *unit, JobType type);
 void job_free(Job *job);
-void job_install(Job *j);
+Job* job_install(Job *j);
 void job_uninstall(Job *j);
 void job_dump(Job *j, FILE*f, const char *prefix);
 

@@ -243,20 +243,13 @@ static int transaction_merge_jobs(Transaction *tr, DBusError *e) {
                 LIST_FOREACH(transaction, k, j->transaction_next)
                         assert_se(job_type_merge(&t, k->type) == 0);
 
-                /* If an active job is mergeable, merge it too */
-                if (j->unit->job)
-                        job_type_merge(&t, j->unit->job->type); /* Might fail. Which is OK */
-
                 while ((k = j->transaction_next)) {
-                        if (j->installed) {
+                        if (tr->anchor_job == k) {
                                 transaction_merge_and_delete_job(tr, k, j, t);
                                 j = k;
                         } else
                                 transaction_merge_and_delete_job(tr, j, k, t);
                 }
-
-                if (j->unit->job && !j->installed)
-                        transaction_merge_and_delete_job(tr, j, j->unit->job, t);
 
                 assert(!j->transaction_next);
                 assert(!j->transaction_prev);
@@ -592,6 +585,8 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
         }
 
         while ((j = hashmap_steal_first(tr->jobs))) {
+                Job *installed_job;
+
                 if (j->installed) {
                         /* log_debug("Skipping already installed job %s/%s as %u", j->unit->id, job_type_to_string(j->type), (unsigned) j->id); */
                         continue;
@@ -600,7 +595,15 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
                 /* Clean the job dependencies */
                 transaction_unlink_job(tr, j, false);
 
-                job_install(j);
+                installed_job = job_install(j);
+                if (installed_job != j) {
+                        /* j has been merged into a previously installed job */
+                        if (tr->anchor_job == j)
+                                tr->anchor_job = installed_job;
+                        hashmap_remove(m->jobs, UINT32_TO_PTR(j->id));
+                        job_free(j);
+                        j = installed_job;
+                }
 
                 job_add_to_run_queue(j);
                 job_add_to_dbus_queue(j);
