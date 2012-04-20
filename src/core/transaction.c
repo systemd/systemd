@@ -866,7 +866,7 @@ int transaction_add_job_and_dependencies(
                 }
 
                 /* Finally, recursively add in all dependencies. */
-                if (type == JOB_START || type == JOB_RELOAD_OR_START) {
+                if (type == JOB_START || type == JOB_RELOAD_OR_START || type == JOB_RESTART) {
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUIRES], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, override, false, false, ignore_order, e);
                                 if (r < 0) {
