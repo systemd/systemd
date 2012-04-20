@@ -83,14 +83,13 @@ void job_free(Job *j) {
 
 void job_uninstall(Job *j) {
         assert(j->installed);
+        assert(j->unit->job == j);
         /* Detach from next 'bigger' objects */
 
         bus_job_send_removed_signal(j);
 
-        if (j->unit->job == j) {
-                j->unit->job = NULL;
-                unit_add_to_gc_queue(j->unit);
-        }
+        j->unit->job = NULL;
+        unit_add_to_gc_queue(j->unit);
 
         hashmap_remove(j->manager->jobs, UINT32_TO_PTR(j->id));
         j->installed = false;

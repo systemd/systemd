@@ -11,8 +11,7 @@ static void transaction_delete_job(Transaction *tr, Job *j, bool delete_dependen
 
         transaction_unlink_job(tr, j, delete_dependencies);
 
-        if (!j->installed)
-                job_free(j);
+        job_free(j);
 }
 
 static void transaction_delete_unit(Transaction *tr, Unit *u) {
@@ -279,7 +278,7 @@ static void transaction_drop_redundant(Transaction *tr) {
                         LIST_FOREACH(transaction, k, j) {
 
                                 if (tr->anchor_job != k &&
-                                    (k->installed || job_type_is_redundant(k->type, unit_active_state(k->unit))) &&
+                                    job_type_is_redundant(k->type, unit_active_state(k->unit)) &&
                                     (!k->unit->job || !job_type_is_conflicting(k->type, k->unit->job->type)))
                                         continue;
 
@@ -349,7 +348,6 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         log_info("Walked on cycle path to %s/%s", k->unit->id, job_type_to_string(k->type));
 
                         if (!delete &&
-                            !k->installed &&
                             !unit_matters_to_anchor(k->unit, k)) {
                                 /* Ok, we can drop this one, so let's
                                  * do so. */
@@ -478,7 +476,6 @@ static int transaction_is_destructive(Transaction *tr, DBusError *e) {
                 assert(!j->transaction_next);
 
                 if (j->unit->job &&
-                    j->unit->job != j &&
                     !job_type_is_superset(j->type, j->unit->job->type)) {
 
                         dbus_set_error(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE, "Transaction is destructive.");
@@ -576,9 +573,6 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
                 assert(!j->transaction_prev);
                 assert(!j->transaction_next);
 
-                if (j->installed)
-                        continue;
-
                 r = hashmap_put(m->jobs, UINT32_TO_PTR(j->id), j);
                 if (r < 0)
                         goto rollback;
@@ -586,11 +580,6 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
 
         while ((j = hashmap_steal_first(tr->jobs))) {
                 Job *installed_job;
-
-                if (j->installed) {
-                        /* log_debug("Skipping already installed job %s/%s as %u", j->unit->id, job_type_to_string(j->type), (unsigned) j->id); */
-                        continue;
-                }
 
                 /* Clean the job dependencies */
                 transaction_unlink_job(tr, j, false);
@@ -614,12 +603,8 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
 
 rollback:
 
-        HASHMAP_FOREACH(j, tr->jobs, i) {
-                if (j->installed)
-                        continue;
-
+        HASHMAP_FOREACH(j, tr->jobs, i)
                 hashmap_remove(m->jobs, UINT32_TO_PTR(j->id));
-        }
 
         return r;
 }
