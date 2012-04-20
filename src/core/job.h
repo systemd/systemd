@@ -137,8 +137,9 @@ struct Job {
 };
 
 Job* job_new(Unit *unit, JobType type);
-void job_uninstall(Job *j);
 void job_free(Job *job);
+void job_install(Job *j);
+void job_uninstall(Job *j);
 void job_dump(Job *j, FILE*f, const char *prefix);
 
 JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts);

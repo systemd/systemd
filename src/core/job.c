@@ -54,21 +54,6 @@ Job* job_new(Unit *unit, JobType type) {
         return j;
 }
 
-void job_uninstall(Job *j) {
-        assert(j->installed);
-        /* Detach from next 'bigger' objects */
-
-        bus_job_send_removed_signal(j);
-
-        if (j->unit->job == j) {
-                j->unit->job = NULL;
-                unit_add_to_gc_queue(j->unit);
-        }
-
-        hashmap_remove(j->manager->jobs, UINT32_TO_PTR(j->id));
-        j->installed = false;
-}
-
 void job_free(Job *j) {
         assert(j);
         assert(!j->installed);
@@ -94,6 +79,35 @@ void job_free(Job *j) {
 
         free(j->bus_client);
         free(j);
+}
+
+void job_uninstall(Job *j) {
+        assert(j->installed);
+        /* Detach from next 'bigger' objects */
+
+        bus_job_send_removed_signal(j);
+
+        if (j->unit->job == j) {
+                j->unit->job = NULL;
+                unit_add_to_gc_queue(j->unit);
+        }
+
+        hashmap_remove(j->manager->jobs, UINT32_TO_PTR(j->id));
+        j->installed = false;
+}
+
+void job_install(Job *j) {
+        Job *uj = j->unit->job;
+
+        if (uj) {
+                job_uninstall(uj);
+                job_free(uj);
+        }
+
+        j->unit->job = j;
+        j->installed = true;
+        j->manager->n_installed_jobs ++;
+        log_debug("Installed new job %s/%s as %u", j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
 }
 
 JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts) {

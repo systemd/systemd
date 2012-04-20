@@ -592,33 +592,19 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
         }
 
         while ((j = hashmap_steal_first(tr->jobs))) {
-                Job *uj;
                 if (j->installed) {
                         /* log_debug("Skipping already installed job %s/%s as %u", j->unit->id, job_type_to_string(j->type), (unsigned) j->id); */
                         continue;
                 }
 
-                uj = j->unit->job;
-                if (uj) {
-                        job_uninstall(uj);
-                        job_free(uj);
-                }
-
-                j->unit->job = j;
-                j->installed = true;
-                m->n_installed_jobs ++;
-
-                /* We're fully installed. Now let's free data we don't
-                 * need anymore. */
-
                 /* Clean the job dependencies */
                 transaction_unlink_job(tr, j, false);
+
+                job_install(j);
 
                 job_add_to_run_queue(j);
                 job_add_to_dbus_queue(j);
                 job_start_timer(j);
-
-                log_debug("Installed new job %s/%s as %u", j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
         }
 
         return 0;
