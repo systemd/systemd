@@ -11,7 +11,6 @@ typedef struct Transaction Transaction;
 struct Transaction {
         /* Jobs to be added */
         Hashmap *jobs;      /* Unit object => Job object list 1:1 */
-        JobDependency *anchor;
         Job *anchor_job;      /* the job the user asked for */
 };
 

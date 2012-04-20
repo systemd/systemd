@@ -151,18 +151,6 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
                 prefix, yes_no(j->override));
 }
 
-bool job_is_anchor(Job *j) {
-        JobDependency *l;
-
-        assert(j);
-
-        LIST_FOREACH(object, l, j->object_list)
-                if (!l->subject)
-                        return true;
-
-        return false;
-}
-
 /*
  * Merging is commutative, so imagine the matrix as symmetric. We store only
  * its lower triangle to avoid duplication. We don't store the main diagonal,
