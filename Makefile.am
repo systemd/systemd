@@ -3255,10 +3255,10 @@ upload: all distcheck
 
 doc-sync: all
 	gtkdoc-rebase --html-dir=docs/libudev/html --online
-	rsync -av --delete docs/libudev/html/ www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/libudev/
+	rsync -av --delete docs/libudev/html/ --omit-dir-times www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/libudev/
 	gtkdoc-rebase --html-dir=docs/gudev/html --online
-	rsync -av --delete docs/gudev/html/ www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/gudev/
-	rsync -av man/*.html www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/man/
+	rsync -av --delete docs/gudev/html/ --omit-dir-times www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/gudev/
+	rsync -av --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/man/
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
