@@ -137,6 +137,7 @@ struct Job {
 };
 
 Job* job_new(Manager *m, JobType type, Unit *unit);
+void job_uninstall(Job *j);
 void job_free(Job *job);
 void job_dump(Job *j, FILE*f, const char *prefix);
 

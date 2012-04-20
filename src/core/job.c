@@ -55,22 +55,24 @@ Job* job_new(Manager *m, JobType type, Unit *unit) {
         return j;
 }
 
-void job_free(Job *j) {
-        assert(j);
-
+void job_uninstall(Job *j) {
+        assert(j->installed);
         /* Detach from next 'bigger' objects */
-        if (j->installed) {
-                bus_job_send_removed_signal(j);
 
-                if (j->unit->job == j) {
-                        j->unit->job = NULL;
-                        unit_add_to_gc_queue(j->unit);
-                }
+        bus_job_send_removed_signal(j);
 
-                hashmap_remove(j->manager->jobs, UINT32_TO_PTR(j->id));
-                j->installed = false;
+        if (j->unit->job == j) {
+                j->unit->job = NULL;
+                unit_add_to_gc_queue(j->unit);
         }
 
+        hashmap_remove(j->manager->jobs, UINT32_TO_PTR(j->id));
+        j->installed = false;
+}
+
+void job_free(Job *j) {
+        assert(j);
+        assert(!j->installed);
         assert(!j->transaction_prev);
         assert(!j->transaction_next);
         assert(!j->subject_list);
@@ -492,6 +494,7 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
 
         u = j->unit;
         t = j->type;
+        job_uninstall(j);
         job_free(j);
 
         job_print_status_message(u, t, result);

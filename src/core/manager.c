@@ -1275,13 +1275,17 @@ static int transaction_apply(Manager *m, JobMode mode) {
         }
 
         while ((j = hashmap_steal_first(m->transaction_jobs))) {
+                Job *uj;
                 if (j->installed) {
                         /* log_debug("Skipping already installed job %s/%s as %u", j->unit->id, job_type_to_string(j->type), (unsigned) j->id); */
                         continue;
                 }
 
-                if (j->unit->job)
-                        job_free(j->unit->job);
+                uj = j->unit->job;
+                if (uj) {
+                        job_uninstall(uj);
+                        job_free(uj);
+                }
 
                 j->unit->job = j;
                 j->installed = true;

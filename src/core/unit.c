@@ -352,8 +352,11 @@ void unit_free(Unit *u) {
         SET_FOREACH(t, u->names, i)
                 hashmap_remove_value(u->manager->units, t, u);
 
-        if (u->job)
-                job_free(u->job);
+        if (u->job) {
+                Job *j = u->job;
+                job_uninstall(j);
+                job_free(j);
+        }
 
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                 bidi_set_free(u, u->dependencies[d]);
