@@ -454,7 +454,7 @@ static void transaction_collect_garbage(Transaction *tr) {
                 again = false;
 
                 HASHMAP_FOREACH(j, tr->jobs, i) {
-                        if (j->object_list) {
+                        if (tr->anchor_job == j || j->object_list) {
                                 /* log_debug("Keeping job %s/%s because of %s/%s", */
                                 /*           j->unit->id, job_type_to_string(j->type), */
                                 /*           j->object_list->subject ? j->object_list->subject->unit->id : "root", */
