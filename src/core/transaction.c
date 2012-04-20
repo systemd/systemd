@@ -893,8 +893,8 @@ int transaction_add_job_and_dependencies(
         /* If the link has no subject job, it's the anchor link. */
         if (!by) {
                 LIST_PREPEND(JobDependency, subject, tr->anchor, l);
-                if (!tr->anchor_job)
-                        tr->anchor_job = ret;
+                assert(!tr->anchor_job);
+                tr->anchor_job = ret;
         }
 
         if (is_new && !ignore_requirements) {
@@ -1077,7 +1077,7 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
                 if (hashmap_get(tr->jobs, u))
                         continue;
 
-                r = transaction_add_job_and_dependencies(tr, JOB_STOP, u, NULL, true, false, false, false, false, NULL);
+                r = transaction_add_job_and_dependencies(tr, JOB_STOP, u, tr->anchor_job, true, false, false, false, false, NULL);
                 if (r < 0)
                         log_warning("Cannot add isolate job for unit %s, ignoring: %s", u->id, strerror(-r));
         }
