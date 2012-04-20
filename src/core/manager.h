@@ -33,6 +33,7 @@
 #define MANAGER_MAX_NAMES 131072 /* 128K */
 
 typedef struct Manager Manager;
+typedef struct Transaction Transaction;
 typedef enum WatchType WatchType;
 typedef struct Watch Watch;
 
@@ -91,6 +92,12 @@ struct Watch {
 #include "dbus.h"
 #include "path-lookup.h"
 
+struct Transaction {
+        /* Jobs to be added */
+        Hashmap *jobs;      /* Unit object => Job object list 1:1 */
+        JobDependency *anchor;
+};
+
 struct Manager {
         /* Note that the set of units we know of is allowed to be
          * inconsistent. However the subset of it that is loaded may
@@ -122,10 +129,6 @@ struct Manager {
 
         /* Units to check when doing GC */
         LIST_HEAD(Unit, gc_queue);
-
-        /* Jobs to be added */
-        Hashmap *transaction_jobs;      /* Unit object => Job object list 1:1 */
-        JobDependency *transaction_anchor;
 
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
 

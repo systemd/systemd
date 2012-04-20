@@ -97,7 +97,7 @@ void job_free(Job *j) {
         free(j);
 }
 
-JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts) {
+JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts, Transaction *tr) {
         JobDependency *l;
 
         assert(object);
@@ -118,20 +118,20 @@ JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool 
         if (subject)
                 LIST_PREPEND(JobDependency, subject, subject->subject_list, l);
         else
-                LIST_PREPEND(JobDependency, subject, object->manager->transaction_anchor, l);
+                LIST_PREPEND(JobDependency, subject, tr->anchor, l);
 
         LIST_PREPEND(JobDependency, object, object->object_list, l);
 
         return l;
 }
 
-void job_dependency_free(JobDependency *l) {
+void job_dependency_free(JobDependency *l, Transaction *tr) {
         assert(l);
 
         if (l->subject)
                 LIST_REMOVE(JobDependency, subject, l->subject->subject_list, l);
         else
-                LIST_REMOVE(JobDependency, subject, l->object->manager->transaction_anchor, l);
+                LIST_REMOVE(JobDependency, subject, tr->anchor, l);
 
         LIST_REMOVE(JobDependency, object, l->object->object_list, l);
 

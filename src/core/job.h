@@ -141,8 +141,8 @@ void job_uninstall(Job *j);
 void job_free(Job *job);
 void job_dump(Job *j, FILE*f, const char *prefix);
 
-JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts);
-void job_dependency_free(JobDependency *l);
+JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts, Transaction *tr);
+void job_dependency_free(JobDependency *l, Transaction *tr);
 
 bool job_is_anchor(Job *j);
 
