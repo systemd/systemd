@@ -1167,13 +1167,15 @@ static void shutdown_connection(Manager *m, DBusConnection *c) {
         Job *j;
         Iterator i;
 
-        HASHMAP_FOREACH(j, m->jobs, i)
-                if (j->bus == c) {
-                        free(j->bus_client);
-                        j->bus_client = NULL;
-
-                        j->bus = NULL;
+        HASHMAP_FOREACH(j, m->jobs, i) {
+                JobBusClient *cl, *nextcl;
+                LIST_FOREACH_SAFE(client, cl, nextcl, j->bus_client_list) {
+                        if (cl->bus == c) {
+                                LIST_REMOVE(JobBusClient, client, j->bus_client_list, cl);
+                                free(cl);
+                        }
                 }
+        }
 
         set_remove(m->bus_connections, c);
         set_remove(m->bus_connections_for_dispatch, c);

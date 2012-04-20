@@ -1470,6 +1470,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 const char *name, *smode, *old_name = NULL;
                 JobMode mode;
                 Job *j;
+                JobBusClient *cl;
                 Unit *u;
                 bool b;
 
@@ -1527,10 +1528,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if ((r = manager_add_job(m, job_type, u, mode, true, &error, &j)) < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                if (!(j->bus_client = strdup(message_get_sender_with_fallback(message))))
+                cl = job_bus_client_new(connection, message_get_sender_with_fallback(message));
+                if (!cl)
                         goto oom;
 
-                j->bus = connection;
+                LIST_PREPEND(JobBusClient, client, j->bus_client_list, cl);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;

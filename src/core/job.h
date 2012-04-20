@@ -28,6 +28,7 @@
 
 typedef struct Job Job;
 typedef struct JobDependency JobDependency;
+typedef struct JobBusClient JobBusClient;
 typedef enum JobType JobType;
 typedef enum JobState JobState;
 typedef enum JobMode JobMode;
@@ -99,6 +100,13 @@ struct JobDependency {
         bool conflicts;
 };
 
+struct JobBusClient {
+        LIST_FIELDS(JobBusClient, client);
+        /* Note that this bus object is not ref counted here. */
+        DBusConnection *bus;
+        char name[0];
+};
+
 struct Job {
         Manager *manager;
         Unit *unit;
@@ -121,9 +129,8 @@ struct Job {
 
         Watch timer_watch;
 
-        /* Note that this bus object is not ref counted here. */
-        DBusConnection *bus;
-        char *bus_client;
+        /* There can be more than one client, because of job merging. */
+        LIST_HEAD(JobBusClient, bus_client_list);
 
         JobResult result;
 
@@ -135,6 +142,8 @@ struct Job {
         bool sent_dbus_new_signal:1;
         bool ignore_order:1;
 };
+
+JobBusClient* job_bus_client_new(DBusConnection *connection, const char *name);
 
 Job* job_new(Unit *unit, JobType type);
 void job_free(Job *job);

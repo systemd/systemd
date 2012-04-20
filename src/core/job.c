@@ -33,6 +33,20 @@
 #include "log.h"
 #include "dbus-job.h"
 
+JobBusClient* job_bus_client_new(DBusConnection *connection, const char *name) {
+        JobBusClient *cl;
+        size_t name_len;
+
+        name_len = strlen(name);
+        cl = malloc0(sizeof(JobBusClient) + name_len + 1);
+        if (!cl)
+                return NULL;
+
+        cl->bus = connection;
+        memcpy(cl->name, name, name_len + 1);
+        return cl;
+}
+
 Job* job_new(Unit *unit, JobType type) {
         Job *j;
 
@@ -55,6 +69,8 @@ Job* job_new(Unit *unit, JobType type) {
 }
 
 void job_free(Job *j) {
+        JobBusClient *cl;
+
         assert(j);
         assert(!j->installed);
         assert(!j->transaction_prev);
@@ -77,7 +93,10 @@ void job_free(Job *j) {
                 close_nointr_nofail(j->timer_watch.fd);
         }
 
-        free(j->bus_client);
+        while ((cl = j->bus_client_list)) {
+                LIST_REMOVE(JobBusClient, client, j->bus_client_list, cl);
+                free(cl);
+        }
         free(j);
 }
 

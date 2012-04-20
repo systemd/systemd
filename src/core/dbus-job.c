@@ -225,61 +225,71 @@ const DBusObjectPathVTable bus_job_vtable = {
         .message_function = bus_job_message_handler
 };
 
-static int job_send_message(Job *j, DBusMessage *m) {
+static int job_send_message(Job *j, DBusMessage* (*new_message)(Job *j)) {
+        DBusMessage *m = NULL;
         int r;
 
         assert(j);
-        assert(m);
+        assert(new_message);
 
         if (bus_has_subscriber(j->manager)) {
-                if ((r = bus_broadcast(j->manager, m)) < 0)
+                m = new_message(j);
+                if (!m)
+                        goto oom;
+                r = bus_broadcast(j->manager, m);
+                dbus_message_unref(m);
+                if (r < 0)
                         return r;
 
-        } else  if (j->bus_client) {
+        } else {
                 /* If nobody is subscribed, we just send the message
-                 * to the client which created the job */
+                 * to the client(s) which created the job */
+                JobBusClient *cl;
+                assert(j->bus_client_list);
+                LIST_FOREACH(client, cl, j->bus_client_list) {
+                        assert(cl->bus);
 
-                assert(j->bus);
+                        m = new_message(j);
+                        if (!m)
+                                goto oom;
 
-                if (!dbus_message_set_destination(m, j->bus_client))
-                        return -ENOMEM;
+                        if (!dbus_message_set_destination(m, cl->name))
+                                goto oom;
 
-                if (!dbus_connection_send(j->bus, m, NULL))
-                        return -ENOMEM;
+                        if (!dbus_connection_send(cl->bus, m, NULL))
+                                goto oom;
+
+                        dbus_message_unref(m);
+                        m = NULL;
+                }
         }
 
         return 0;
+oom:
+        if (m)
+                dbus_message_unref(m);
+        return -ENOMEM;
 }
 
-void bus_job_send_change_signal(Job *j) {
-        char *p = NULL;
+static DBusMessage* new_change_signal_message(Job *j) {
         DBusMessage *m = NULL;
+        char *p = NULL;
 
-        assert(j);
-
-        if (j->in_dbus_queue) {
-                LIST_REMOVE(Job, dbus_queue, j->manager->dbus_job_queue, j);
-                j->in_dbus_queue = false;
-        }
-
-        if (!bus_has_subscriber(j->manager) && !j->bus_client) {
-                j->sent_dbus_new_signal = true;
-                return;
-        }
-
-        if (!(p = job_dbus_path(j)))
+        p = job_dbus_path(j);
+        if (!p)
                 goto oom;
 
         if (j->sent_dbus_new_signal) {
                 /* Send a properties changed signal */
-
-                if (!(m = bus_properties_changed_new(p, "org.freedesktop.systemd1.Job", INVALIDATING_PROPERTIES)))
+                m = bus_properties_changed_new(p, "org.freedesktop.systemd1.Job", INVALIDATING_PROPERTIES);
+                if (!m)
                         goto oom;
 
         } else {
                 /* Send a new signal */
 
-                if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobNew")))
+                m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobNew");
+                if (!m)
                         goto oom;
 
                 if (!dbus_message_append_args(m,
@@ -289,42 +299,26 @@ void bus_job_send_change_signal(Job *j) {
                         goto oom;
         }
 
-        if (job_send_message(j, m) < 0)
-                goto oom;
-
-        free(p);
-        dbus_message_unref(m);
-
-        j->sent_dbus_new_signal = true;
-
-        return;
+        return m;
 
 oom:
-        free(p);
-
         if (m)
                 dbus_message_unref(m);
-
-        log_error("Failed to allocate job change signal.");
+        free(p);
+        return NULL;
 }
 
-void bus_job_send_removed_signal(Job *j) {
-        char *p = NULL;
+static DBusMessage* new_removed_signal_message(Job *j) {
         DBusMessage *m = NULL;
+        char *p = NULL;
         const char *r;
 
-        assert(j);
-
-        if (!bus_has_subscriber(j->manager) && !j->bus_client)
-                return;
-
-        if (!j->sent_dbus_new_signal)
-                bus_job_send_change_signal(j);
-
-        if (!(p = job_dbus_path(j)))
+        p = job_dbus_path(j);
+        if (!p)
                 goto oom;
 
-        if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobRemoved")))
+        m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobRemoved");
+        if (!m)
                 goto oom;
 
         r = job_result_to_string(j->result);
@@ -336,19 +330,53 @@ void bus_job_send_removed_signal(Job *j) {
                                       DBUS_TYPE_INVALID))
                 goto oom;
 
-        if (job_send_message(j, m) < 0)
+        return m;
+
+oom:
+        if (m)
+                dbus_message_unref(m);
+        free(p);
+        return NULL;
+}
+
+void bus_job_send_change_signal(Job *j) {
+        assert(j);
+
+        if (j->in_dbus_queue) {
+                LIST_REMOVE(Job, dbus_queue, j->manager->dbus_job_queue, j);
+                j->in_dbus_queue = false;
+        }
+
+        if (!bus_has_subscriber(j->manager) && !j->bus_client_list) {
+                j->sent_dbus_new_signal = true;
+                return;
+        }
+
+        if (job_send_message(j, new_change_signal_message) < 0)
                 goto oom;
 
-        free(p);
-        dbus_message_unref(m);
+        j->sent_dbus_new_signal = true;
 
         return;
 
 oom:
-        free(p);
+        log_error("Failed to allocate job change signal.");
+}
 
-        if (m)
-                dbus_message_unref(m);
+void bus_job_send_removed_signal(Job *j) {
+        assert(j);
 
+        if (!bus_has_subscriber(j->manager) && !j->bus_client_list)
+                return;
+
+        if (!j->sent_dbus_new_signal)
+                bus_job_send_change_signal(j);
+
+        if (job_send_message(j, new_removed_signal_message) < 0)
+                goto oom;
+
+        return;
+
+oom:
         log_error("Failed to allocate job remove signal.");
 }
