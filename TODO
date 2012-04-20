@@ -24,6 +24,10 @@ Features:
 
 * selinux: merge systemd selinux access controls (dwalsh)
 
+* ConditionSecurity= should learn about IMA
+
+* add RequiredBy to [Install]
+
 * cg_shorten_controllers() misuses alloca()
 
 * suspend/hibernate/hybrid support, auto-suspend logic with idle hint
@@ -152,8 +156,6 @@ Features:
 * clean up session cgroups that remain after logout (think sshd), but eventually run empty
 
 * support "systemctl stop foobar@.service" to stop all units matching a certain template
-
-* move to LGPL2+
 
 * logind: allow showing logout dialog from system
 
