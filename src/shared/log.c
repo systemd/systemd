@@ -546,6 +546,7 @@ static int log_dispatch(
                 if (k <= 0 &&
                     (log_target == LOG_TARGET_AUTO ||
                      log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+                     log_target == LOG_TARGET_JOURNAL_OR_KMSG ||
                      log_target == LOG_TARGET_KMSG)) {
 
                         k = write_to_kmsg(level, file, line, func, buffer);
