@@ -394,6 +394,13 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
 
         u = umask(0000);
 
+        /* We create the kmsg FIFO as /dev/kmsg, but immediately
+         * delete it after bind mounting it to /proc/kmsg. While FIFOs
+         * on the reading side behave very similar to /proc/kmsg,
+         * their writing side behaves differently from /dev/kmsg in
+         * that writing blocks when nothing is reading. In order to
+         * avoid any problems with containers deadlocking due to this
+         * we simply make /dev/kmsg unavailable to the container. */
         if (asprintf(&from, "%s/dev/kmsg", dest) < 0) {
                 log_error("Out of memory");
                 r = -ENOMEM;
@@ -455,6 +462,9 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
                 r = -errno;
                 goto finish;
         }
+
+        /* And now make the FIFO unavailable as /dev/kmsg... */
+        unlink(from);
 
 finish:
         free(from);

@@ -3123,7 +3123,6 @@ systemd-install-data-hook:
 		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )
 if HAVE_PLYMOUTH
 	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(SYSTEM_SYSVINIT_PATH) \
 		$(DESTDIR)$(systemunitdir)/reboot.target.wants \
 		$(DESTDIR)$(systemunitdir)/kexec.target.wants \
 		$(DESTDIR)$(systemunitdir)/poweroff.target.wants \
