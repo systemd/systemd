@@ -26,6 +26,14 @@ Features:
 
 * ConditionSecurity= should learn about IMA
 
+* Auke: merge Auke's bootchart
+
+* Auke: disable kernel readahead when collecting readahead data
+
+* journald: allow forwarding of log data to specific TTY instea dof console
+
+* suspend/hibernate/hybrid support, auto-suspend logic with idle hint
+
 * add RequiredBy to [Install]
 
 * cg_shorten_controllers() misuses alloca()
