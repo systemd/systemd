@@ -279,44 +279,32 @@ static int transaction_merge_jobs(Transaction *tr, DBusError *e) {
 }
 
 static void transaction_drop_redundant(Transaction *tr) {
-        bool again;
+        Job *j;
+        Iterator i;
+
+        /* Goes through the transaction and removes all jobs of the units
+         * whose jobs are all noops. If not all of a unit's jobs are
+         * redundant, they are kept. */
 
         assert(tr);
 
-        /* Goes through the transaction and removes all jobs that are
-         * a noop */
+rescan:
+        HASHMAP_FOREACH(j, tr->jobs, i) {
+                Job *k;
 
-        do {
-                Job *j;
-                Iterator i;
+                LIST_FOREACH(transaction, k, j) {
 
-                again = false;
-
-                HASHMAP_FOREACH(j, tr->jobs, i) {
-                        bool changes_something = false;
-                        Job *k;
-
-                        LIST_FOREACH(transaction, k, j) {
-
-                                if (tr->anchor_job != k &&
-                                    job_type_is_redundant(k->type, unit_active_state(k->unit)) &&
-                                    (!k->unit->job || !job_type_is_conflicting(k->type, k->unit->job->type)))
-                                        continue;
-
-                                changes_something = true;
-                                break;
-                        }
-
-                        if (changes_something)
-                                continue;
-
-                        /* log_debug("Found redundant job %s/%s, dropping.", j->unit->id, job_type_to_string(j->type)); */
-                        transaction_delete_job(tr, j, false);
-                        again = true;
-                        break;
+                        if (tr->anchor_job == k ||
+                            !job_type_is_redundant(k->type, unit_active_state(k->unit)) ||
+                            (k->unit->job && job_type_is_conflicting(k->type, k->unit->job->type)))
+                                goto next_unit;
                 }
 
-        } while (again);
+                /* log_debug("Found redundant job %s/%s, dropping.", j->unit->id, job_type_to_string(j->type)); */
+                transaction_delete_job(tr, j, false);
+                goto rescan;
+        next_unit:;
+        }
 }
 
 static bool unit_matters_to_anchor(Unit *u, Job *j) {
@@ -451,34 +439,27 @@ static int transaction_verify_order(Transaction *tr, unsigned *generation, DBusE
 }
 
 static void transaction_collect_garbage(Transaction *tr) {
-        bool again;
+        Iterator i;
+        Job *j;
 
         assert(tr);
 
         /* Drop jobs that are not required by any other job */
 
-        do {
-                Iterator i;
-                Job *j;
-
-                again = false;
-
-                HASHMAP_FOREACH(j, tr->jobs, i) {
-                        if (tr->anchor_job == j || j->object_list) {
-                                /* log_debug("Keeping job %s/%s because of %s/%s", */
-                                /*           j->unit->id, job_type_to_string(j->type), */
-                                /*           j->object_list->subject ? j->object_list->subject->unit->id : "root", */
-                                /*           j->object_list->subject ? job_type_to_string(j->object_list->subject->type) : "root"); */
-                                continue;
-                        }
-
-                        /* log_debug("Garbage collecting job %s/%s", j->unit->id, job_type_to_string(j->type)); */
-                        transaction_delete_job(tr, j, true);
-                        again = true;
-                        break;
+rescan:
+        HASHMAP_FOREACH(j, tr->jobs, i) {
+                if (tr->anchor_job == j || j->object_list) {
+                        /* log_debug("Keeping job %s/%s because of %s/%s", */
+                        /*           j->unit->id, job_type_to_string(j->type), */
+                        /*           j->object_list->subject ? j->object_list->subject->unit->id : "root", */
+                        /*           j->object_list->subject ? job_type_to_string(j->object_list->subject->type) : "root"); */
+                        continue;
                 }
 
-        } while (again);
+                /* log_debug("Garbage collecting job %s/%s", j->unit->id, job_type_to_string(j->type)); */
+                transaction_delete_job(tr, j, true);
+                goto rescan;
+        }
 }
 
 static int transaction_is_destructive(Transaction *tr, DBusError *e) {
@@ -508,59 +489,50 @@ static int transaction_is_destructive(Transaction *tr, DBusError *e) {
 }
 
 static void transaction_minimize_impact(Transaction *tr) {
-        bool again;
+        Job *j;
+        Iterator i;
+
         assert(tr);
 
         /* Drops all unnecessary jobs that reverse already active jobs
          * or that stop a running service. */
 
-        do {
-                Job *j;
-                Iterator i;
+rescan:
+        HASHMAP_FOREACH(j, tr->jobs, i) {
+                LIST_FOREACH(transaction, j, j) {
+                        bool stops_running_service, changes_existing_job;
 
-                again = false;
+                        /* If it matters, we shouldn't drop it */
+                        if (j->matters_to_anchor)
+                                continue;
 
-                HASHMAP_FOREACH(j, tr->jobs, i) {
-                        LIST_FOREACH(transaction, j, j) {
-                                bool stops_running_service, changes_existing_job;
+                        /* Would this stop a running service?
+                         * Would this change an existing job?
+                         * If so, let's drop this entry */
 
-                                /* If it matters, we shouldn't drop it */
-                                if (j->matters_to_anchor)
-                                        continue;
+                        stops_running_service =
+                                j->type == JOB_STOP && UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(j->unit));
 
-                                /* Would this stop a running service?
-                                 * Would this change an existing job?
-                                 * If so, let's drop this entry */
+                        changes_existing_job =
+                                j->unit->job &&
+                                job_type_is_conflicting(j->type, j->unit->job->type);
 
-                                stops_running_service =
-                                        j->type == JOB_STOP && UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(j->unit));
+                        if (!stops_running_service && !changes_existing_job)
+                                continue;
 
-                                changes_existing_job =
-                                        j->unit->job &&
-                                        job_type_is_conflicting(j->type, j->unit->job->type);
+                        if (stops_running_service)
+                                log_debug("%s/%s would stop a running service.", j->unit->id, job_type_to_string(j->type));
 
-                                if (!stops_running_service && !changes_existing_job)
-                                        continue;
+                        if (changes_existing_job)
+                                log_debug("%s/%s would change existing job.", j->unit->id, job_type_to_string(j->type));
 
-                                if (stops_running_service)
-                                        log_debug("%s/%s would stop a running service.", j->unit->id, job_type_to_string(j->type));
+                        /* Ok, let's get rid of this */
+                        log_debug("Deleting %s/%s to minimize impact.", j->unit->id, job_type_to_string(j->type));
 
-                                if (changes_existing_job)
-                                        log_debug("%s/%s would change existing job.", j->unit->id, job_type_to_string(j->type));
-
-                                /* Ok, let's get rid of this */
-                                log_debug("Deleting %s/%s to minimize impact.", j->unit->id, job_type_to_string(j->type));
-
-                                transaction_delete_job(tr, j, true);
-                                again = true;
-                                break;
-                        }
-
-                        if (again)
-                                break;
+                        transaction_delete_job(tr, j, true);
+                        goto rescan;
                 }
-
-        } while (again);
+        }
 }
 
 static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
