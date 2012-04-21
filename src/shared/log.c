@@ -466,12 +466,14 @@ static int write_to_journal(
                  "CODE_FILE=%s\n"
                  "CODE_LINE=%i\n"
                  "CODE_FUNCTION=%s\n"
+                 "SYSLOG_IDENTIFIER=%s\n"
                  "MESSAGE=",
                  LOG_PRI(level),
                  LOG_FAC(level),
                  file,
                  line,
-                 func);
+                 func,
+                 program_invocation_short_name);
 
         char_array_0(header);
 
