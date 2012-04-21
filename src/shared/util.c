@@ -56,6 +56,7 @@
 #include <glob.h>
 #include <grp.h>
 #include <sys/mman.h>
+#include <sys/statvfs.h>
 
 #include "macro.h"
 #include "util.h"
@@ -4319,8 +4320,10 @@ bool tty_is_vc_resolve(const char *tty) {
         if (startswith(tty, "/dev/"))
                 tty += 5;
 
-        /* Resolve where /dev/console is pointing to */
-        if (streq(tty, "console"))
+        /* Resolve where /dev/console is pointing to, if /sys is
+         * actually ours (i.e. not read-only-mounted which is a sign
+         * for container setups) */
+        if (streq(tty, "console") && path_is_read_only_fs("/sys") <= 0)
                 if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
                         /* If multiple log outputs are configured the
                          * last one is what /dev/console points to */
@@ -6144,4 +6147,15 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
                 return -errno;
 
         return 0;
+}
+
+int path_is_read_only_fs(const char *path) {
+        struct statvfs st;
+
+        assert(path);
+
+        if (statvfs(path, &st) < 0)
+                return -errno;
+
+        return !!(st.f_flag & ST_RDONLY);
 }

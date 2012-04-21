@@ -223,14 +223,8 @@ bool condition_test(Condition *c) {
         case CONDITION_PATH_IS_MOUNT_POINT:
                 return (path_is_mount_point(c->parameter, true) > 0) == !c->negate;
 
-        case CONDITION_PATH_IS_READ_WRITE: {
-                struct statvfs st;
-
-                if (statvfs(c->parameter, &st) < 0)
-                        return c->negate;
-
-                return !(st.f_flag & ST_RDONLY) == !c->negate;
-        }
+        case CONDITION_PATH_IS_READ_WRITE:
+                return (path_is_read_only_fs(c->parameter) > 0) == c->negate;
 
         case CONDITION_DIRECTORY_NOT_EMPTY: {
                 int k;

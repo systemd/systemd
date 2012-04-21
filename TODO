@@ -20,6 +20,9 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
+
+* Add pretty name for seats in logind
+
 * nspawn wants dev_setup() for /dev/fd/ and friends?
 
 * selinux: merge systemd selinux access controls (dwalsh)

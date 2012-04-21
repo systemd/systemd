@@ -350,6 +350,7 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
 ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);
 
 int path_is_mount_point(const char *path, bool allow_symlink);
+int path_is_read_only_fs(const char *path);
 
 bool is_device_path(const char *path);
 
