@@ -101,8 +101,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'D':
                         free(arg_directory);
-                        if (!(arg_directory = strdup(optarg))) {
-                                log_error("Failed to duplicate root directory.");
+                        arg_directory = canonicalize_file_name(optarg);
+                        if (!arg_directory) {
+                                log_error("Failed to canonicalize root directory.");
                                 return -ENOMEM;
                         }
 
@@ -470,6 +471,28 @@ finish:
         free(from);
         free(to);
         umask(u);
+
+        return r;
+}
+
+static int setup_hostname(void) {
+        char *hn;
+        int r = 0;
+
+        hn = file_name_from_path(arg_directory);
+        if (hn) {
+                hn = strdup(hn);
+                if (!hn)
+                        return -ENOMEM;
+
+                hostname_cleanup(hn);
+
+                if (!isempty(hn))
+                        if (sethostname(hn, strlen(hn)) < 0)
+                                r = -errno;
+
+                free(hn);
+        }
 
         return r;
 }
@@ -872,7 +895,6 @@ int main(int argc, char *argv[]) {
         if (pid == 0) {
                 /* child */
 
-                const char *hn;
                 const char *home = NULL;
                 uid_t uid = (uid_t) -1;
                 gid_t gid = (gid_t) -1;
@@ -1000,8 +1022,7 @@ int main(int argc, char *argv[]) {
                     goto child_fail;
                 }
 
-                if ((hn = file_name_from_path(arg_directory)))
-                        sethostname(hn, strlen(hn));
+                setup_hostname();
 
                 if (argc > optind)
                         execvpe(argv[optind], argv + optind, (char**) envp);
