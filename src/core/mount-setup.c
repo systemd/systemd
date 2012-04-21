@@ -72,11 +72,22 @@ static const MountPoint mount_table[] = {
 /* These are API file systems that might be mounted by other software,
  * we just list them here so that we know that we should ignore them */
 
-static const char * const ignore_paths[] = {
-        "/sys/fs/selinux",
-        "/selinux",
-        "/proc/bus/usb"
-};
+static const char ignore_paths[] =
+        /* SELinux file systems */
+        "/sys/fs/selinux\0"
+        "/selinux\0"
+        /* Legacy cgroup mount points */
+        "/dev/cgroup\0"
+        "/cgroup\0"
+        /* Legacy kernel file system */
+        "/proc/bus/usb\0"
+        /* Container bind mounts */
+        "/proc/sys\0"
+        "/dev/console\0"
+        "/proc/kmsg\0"
+        "/etc/localtime\0"
+        "/etc/timezone\0"
+        "/etc/machine-id\0";
 
 bool mount_point_is_api(const char *path) {
         unsigned i;
@@ -92,10 +103,10 @@ bool mount_point_is_api(const char *path) {
 }
 
 bool mount_point_ignore(const char *path) {
-        unsigned i;
+        const char *i;
 
-        for (i = 0; i < ELEMENTSOF(ignore_paths); i++)
-                if (path_equal(path, ignore_paths[i]))
+        NULSTR_FOREACH(i, ignore_paths)
+                if (path_equal(path, i))
                         return true;
 
         return false;
