@@ -6168,3 +6168,65 @@ int path_is_read_only_fs(const char *path) {
 
         return !!(st.f_flag & ST_RDONLY);
 }
+
+int getenv_for_pid(pid_t pid, const char *field, char **_value) {
+        char path[sizeof("/proc/")-1+10+sizeof("/environ")], *value = NULL;
+        int r;
+        FILE *f;
+        bool done = false;
+        size_t l;
+
+        assert(field);
+        assert(_value);
+
+        if (pid == 0)
+                pid = getpid();
+
+        snprintf(path, sizeof(path), "/proc/%lu/environ", (unsigned long) pid);
+        char_array_0(path);
+
+        f = fopen(path, "re");
+        if (!f)
+                return -errno;
+
+        l = strlen(field);
+        r = 0;
+
+        do {
+                char line[LINE_MAX];
+                unsigned i;
+
+                for (i = 0; i < sizeof(line)-1; i++) {
+                        int c;
+
+                        c = getc(f);
+                        if (_unlikely_(c == EOF)) {
+                                done = true;
+                                break;
+                        } else if (c == 0)
+                                break;
+
+                        line[i] = c;
+                }
+                line[i] = 0;
+
+                if (memcmp(line, field, l) == 0 && line[l] == '=') {
+                        value = strdup(line + l + 1);
+                        if (!value) {
+                                r = -ENOMEM;
+                                break;
+                        }
+
+                        r = 1;
+                        break;
+                }
+
+        } while (!done);
+
+        fclose(f);
+
+        if (r >= 0)
+                *_value = value;
+
+        return r;
+}

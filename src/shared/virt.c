@@ -153,7 +153,8 @@ int detect_vm(const char **id) {
 }
 
 int detect_container(const char **id) {
-        FILE *f;
+        char *e = NULL;
+        int r;
 
         /* Unfortunately many of these operations require root access
          * in one way or another */
@@ -180,63 +181,29 @@ int detect_container(const char **id) {
                 return 1;
         }
 
-        f = fopen("/proc/1/environ", "re");
-        if (f) {
-                bool done = false;
+        r = getenv_for_pid(1, "container", &e);
+        if (r <= 0)
+                return r;
 
-                do {
-                        char line[LINE_MAX];
-                        unsigned i;
-
-                        for (i = 0; i < sizeof(line)-1; i++) {
-                                int c;
-
-                                c = getc(f);
-                                if (_unlikely_(c == EOF)) {
-                                        done = true;
-                                        break;
-                                } else if (c == 0)
-                                        break;
-
-                                line[i] = c;
-                        }
-                        line[i] = 0;
-
-                        if (streq(line, "container=lxc")) {
-                                fclose(f);
-
-                                if (id)
-                                        *id = "lxc";
-                                return 1;
-
-                        } else if (streq(line, "container=lxc-libvirt")) {
-                                fclose(f);
-
-                                if (id)
-                                        *id = "lxc-libvirt";
-                                return 1;
-
-                        } else if (streq(line, "container=systemd-nspawn")) {
-                                fclose(f);
-
-                                if (id)
-                                        *id = "systemd-nspawn";
-                                return 1;
-
-                        } else if (startswith(line, "container=")) {
-                                fclose(f);
-
-                                if (id)
-                                        *id = "other";
-                                return 1;
-                        }
-
-                } while (!done);
-
-                fclose(f);
+        /* We only recognize a selected few here, since we want to
+         * enforce a redacted namespace */
+        if (streq(e, "lxc")) {
+                if (id)
+                        *id = "lxc";
+        } else if (streq(e, "lxc-libvirt")) {
+                if (id)
+                        *id = "lxc-libvirt";
+        } else if (streq(e, "systemd-nspawn")) {
+                if (id)
+                        *id = "systemd-nspawn";
+        } else {
+                if (id)
+                        *id = "other";
         }
 
-        return 0;
+        free(e);
+
+        return r;
 }
 
 /* Returns a short identifier for the various VM/container implementations */

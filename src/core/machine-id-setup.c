@@ -110,45 +110,22 @@ static int generate(char id[34]) {
         /* If that didn't work either, see if we are running in a
          * container, and a machine ID was passed in via
          * $container_uuid the way libvirt/LXC does it */
-
         r = detect_container(NULL);
         if (r > 0) {
-                FILE *f;
+                char *e;
 
-                f = fopen("/proc/1/environ", "re");
-                if (f) {
-                        bool done = false;
-
-                        do {
-                                char line[LINE_MAX];
-                                unsigned i;
-
-                                for (i = 0; i < sizeof(line)-1; i++) {
-                                        int c;
-
-                                        c = getc(f);
-                                        if (_unlikely_(c == EOF)) {
-                                                done = true;
-                                                break;
-                                        } else if (c == 0)
-                                                break;
-
-                                        line[i] = c;
+                r = getenv_for_pid(1, "container_uuid", &e);
+                if (r > 0) {
+                        if (strlen(e) >= 36) {
+                                r = shorten_uuid(id, e);
+                                if (r >= 0) {
+                                        log_info("Initializing machine ID from container UUID");
+                                        free(e);
+                                        return 0;
                                 }
-                                line[i] = 0;
+                        }
 
-                                if (startswith(line, "container_uuid=") &&
-                                    strlen(line + 15) >= 36) {
-                                        r = shorten_uuid(id, line + 15);
-                                        if (r >= 0) {
-                                                log_info("Initializing machine ID from container UUID");
-                                                return 0;
-                                        }
-                                }
-
-                        } while (!done);
-
-                        fclose(f);
+                        free(e);
                 }
         }
 
