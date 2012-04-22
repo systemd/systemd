@@ -11,6 +11,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=sysinit.target shutdown.target
+ConditionCapability=CAP_SYS_MODULE
 ConditionDirectoryNotEmpty=|/lib/modules-load.d
 ConditionDirectoryNotEmpty=|/usr/lib/modules-load.d
 ConditionDirectoryNotEmpty=|/usr/local/lib/modules-load.d
