@@ -12,6 +12,7 @@ Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service fsck-root.service
 Before=local-fs-pre.target local-fs.target shutdown.target
 Wants=local-fs-pre.target
+ConditionPathExists=/etc/fstab
 
 [Service]
 Type=oneshot
