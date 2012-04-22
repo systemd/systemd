@@ -35,7 +35,7 @@ Before=getty.target
 IgnoreOnIsolate=yes
 
 [Service]
-Environment=TERM=vt100
+Environment=TERM=vt102
 ExecStart=-/sbin/agetty -s %I 115200,38400,9600
 Restart=always
 RestartSec=0

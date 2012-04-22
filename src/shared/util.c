@@ -4352,7 +4352,7 @@ bool tty_is_vc_resolve(const char *tty) {
 const char *default_term_for_tty(const char *tty) {
         assert(tty);
 
-        return tty_is_vc_resolve(tty) ? "TERM=linux" : "TERM=vt100";
+        return tty_is_vc_resolve(tty) ? "TERM=linux" : "TERM=vt102";
 }
 
 bool dirent_is_file(const struct dirent *de) {
