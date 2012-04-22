@@ -13,6 +13,7 @@ Before=local-fs.target shutdown.target
 
 # Dracut informs us with this flag file if the root fsck was already run
 ConditionPathExists=!/run/initramfs/root-fsck
+ConditionPathIsReadWrite=!/
 
 [Service]
 Type=oneshot
