@@ -100,7 +100,7 @@ static int generate(char id[34]) {
                         if (k >= 36) {
                                 r = shorten_uuid(id, uuid);
                                 if (r >= 0) {
-                                        log_info("Initializing machine ID from KVM UUID");
+                                        log_info("Initializing machine ID from KVM UUID.");
                                         return 0;
                                 }
                         }
@@ -119,7 +119,7 @@ static int generate(char id[34]) {
                         if (strlen(e) >= 36) {
                                 r = shorten_uuid(id, e);
                                 if (r >= 0) {
-                                        log_info("Initializing machine ID from container UUID");
+                                        log_info("Initializing machine ID from container UUID.");
                                         free(e);
                                         return 0;
                                 }
