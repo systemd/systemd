@@ -55,6 +55,7 @@
 static char *arg_directory = NULL;
 static char *arg_user = NULL;
 static char **arg_controllers = NULL;
+static char *arg_uuid = NULL;
 static bool arg_private_network = false;
 static bool arg_boot = false;
 
@@ -67,6 +68,7 @@ static int help(void) {
                "  -b --boot             Boot up full system (i.e. invoke init)\n"
                "  -u --user=USER        Run the command under specified user or uid\n"
                "  -C --controllers=LIST Put the container in specified comma-separated cgroup hierarchies\n"
+               "     --uuid=UUID        Set a specific machine UUID for the container\n"
                "     --private-network  Disable network in container\n",
                program_invocation_short_name);
 
@@ -76,7 +78,8 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
-                ARG_PRIVATE_NETWORK = 0x100
+                ARG_PRIVATE_NETWORK = 0x100,
+                ARG_UUID
         };
 
         static const struct option options[] = {
@@ -86,6 +89,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "controllers",     required_argument, NULL, 'C'                 },
                 { "private-network", no_argument,       NULL, ARG_PRIVATE_NETWORK },
                 { "boot",            no_argument,       NULL, 'b'                 },
+                { "uuid",            required_argument, NULL, ARG_UUID            },
                 { NULL,              0,                 NULL, 0                   }
         };
 
@@ -138,6 +142,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'b':
                         arg_boot = true;
+                        break;
+
+                case ARG_UUID:
+                        arg_uuid = optarg;
                         break;
 
                 case '?':
@@ -912,6 +920,7 @@ int main(int argc, char *argv[]) {
                         NULL, /* HOME */
                         NULL, /* USER */
                         NULL, /* LOGNAME */
+                        NULL, /* container_uuid */
                         NULL
                 };
 
@@ -1022,11 +1031,18 @@ int main(int argc, char *argv[]) {
                         }
                 }
 
-                if ((asprintf((char**)(envp + 3), "HOME=%s", home? home: "/root") < 0) ||
-                    (asprintf((char**)(envp + 4), "USER=%s", arg_user? arg_user : "root") < 0) ||
-                    (asprintf((char**)(envp + 5), "LOGNAME=%s", arg_user? arg_user : "root") < 0)) {
+                if ((asprintf((char**)(envp + 3), "HOME=%s", home ? home: "/root") < 0) ||
+                    (asprintf((char**)(envp + 4), "USER=%s", arg_user ? arg_user : "root") < 0) ||
+                    (asprintf((char**)(envp + 5), "LOGNAME=%s", arg_user ? arg_user : "root") < 0)) {
                     log_error("Out of memory");
                     goto child_fail;
+                }
+
+                if (arg_uuid) {
+                        if (asprintf((char**)(envp + 6), "container_uuid=%s", arg_uuid) < 0) {
+                                log_error("Out of memory");
+                                goto child_fail;
+                        }
                 }
 
                 setup_hostname();

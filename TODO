@@ -43,8 +43,6 @@ Features:
 
 * cg_shorten_controllers() misuses alloca()
 
-* suspend/hibernate/hybrid support, auto-suspend logic with idle hint
-
 * udev systemd unify:
   - strpcpy(), strpcpyl(), strscpy(), strscpyl()
   - utf8 validator code
@@ -80,8 +78,6 @@ Features:
 
 * add man page documenting all kernel cmdline options, including stuff like fsck.mode=
 
-* show getty in container mode, not sulogin
-
 * support container_ttys=
 
 * journald: make configurable "store-on-var", "store-on-run", "dont-store", "auto"
@@ -109,7 +105,7 @@ Features:
 
 * add command to systemctl to plot dependency graph as tree (see rhbz 795365)
 
-* make logind reserve tty10 or so for text logins, so that gdm never picks it up
+* make logind reserve tty9 or so for text logins, so that gdm never picks it up
 
 * add option to sockets to avoid activation. Instead just drop packets/connections, see http://cyberelk.net/tim/2012/02/15/portreserve-systemd-solution/
 

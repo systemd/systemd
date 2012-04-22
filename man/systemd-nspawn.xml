@@ -165,6 +165,17 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--uuid=</option></term>
+
+                                <listitem><para>Set the specified uuid
+                                for the container. The init system
+                                will initialize
+                                <filename>/etc/machine-id</filename>
+                                from this if this file is not set yet.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--controllers=</option></term>
                                 <term><option>-C</option></term>
 
