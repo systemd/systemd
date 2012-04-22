@@ -56,6 +56,11 @@ int main(int argc, char *argv[]) {
 
         f = setmntent("/etc/fstab", "r");
         if (!f) {
+                if (errno == ENOENT) {
+                        ret = EXIT_SUCCESS;
+                        goto finish;
+                }
+
                 log_error("Failed to open /etc/fstab: %m");
                 goto finish;
         }

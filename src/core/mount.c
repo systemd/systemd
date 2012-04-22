@@ -1537,8 +1537,9 @@ static int mount_load_etc_fstab(Manager *m) {
         assert(m);
 
         errno = 0;
-        if (!(f = setmntent("/etc/fstab", "r")))
-                return -errno;
+        f = setmntent("/etc/fstab", "r");
+        if (!f)
+                return errno == ENOENT ? 0 : -errno;
 
         while ((me = getmntent(f))) {
                 char *where, *what;

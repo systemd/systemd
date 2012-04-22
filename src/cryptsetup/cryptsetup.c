@@ -190,7 +190,8 @@ static char *disk_mount_point(const char *label) {
         if (asprintf(&device, "/dev/mapper/%s", label) < 0)
                 goto finish;
 
-        if (!(f = setmntent("/etc/fstab", "r")))
+        f = setmntent("/etc/fstab", "r");
+        if (!f)
                 goto finish;
 
         while ((m = getmntent(f)))
