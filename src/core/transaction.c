@@ -843,7 +843,7 @@ int transaction_add_job_and_dependencies(
 
         if (type != JOB_STOP && unit->load_state == UNIT_MASKED) {
                 dbus_set_error(e, BUS_ERROR_MASKED, "Unit %s is masked.", unit->id);
-                return -EINVAL;
+                return -EADDRNOTAVAIL;
         }
 
         if (!unit_job_is_applicable(unit, type)) {
@@ -913,7 +913,8 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUIRES_OVERRIDABLE], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, !override, override, false, false, ignore_order, e);
                                 if (r < 0) {
-                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->id, bus_error(e, r));
+                                        log_full(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_WARNING,
+                                                 "Cannot add dependency job for unit %s, ignoring: %s", dep->id, bus_error(e, r));
 
                                         if (e)
                                                 dbus_error_free(e);
@@ -923,7 +924,8 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_WANTS], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, false, false, false, false, ignore_order, e);
                                 if (r < 0) {
-                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->id, bus_error(e, r));
+                                        log_full(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_WARNING,
+                                                 "Cannot add dependency job for unit %s, ignoring: %s", dep->id, bus_error(e, r));
 
                                         if (e)
                                                 dbus_error_free(e);
@@ -944,7 +946,8 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUISITE_OVERRIDABLE], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_VERIFY_ACTIVE, dep, ret, !override, override, false, false, ignore_order, e);
                                 if (r < 0) {
-                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->id, bus_error(e, r));
+                                        log_full(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_WARNING,
+                                                 "Cannot add dependency job for unit %s, ignoring: %s", dep->id, bus_error(e, r));
 
                                         if (e)
                                                 dbus_error_free(e);
