@@ -304,6 +304,7 @@ nodist_systemunit_DATA = \
 	units/getty@.service \
 	units/serial-getty@.service \
 	units/console-shell.service \
+	units/console-getty.service \
 	units/systemd-initctl.service \
 	units/systemd-shutdownd.service \
 	units/systemd-modules-load.service \
@@ -339,6 +340,7 @@ EXTRA_DIST += \
 	units/getty@.service.m4 \
 	units/serial-getty@.service.m4 \
 	units/console-shell.service.m4.in \
+	units/console-getty.service.m4.in \
 	units/rescue.service.m4.in \
 	units/systemd-initctl.service.in \
 	units/systemd-shutdownd.service.in \

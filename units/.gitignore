@@ -1,3 +1,4 @@
+/console-getty.service
 /systemd-journald.service
 user@.service
 systemd-logind.service

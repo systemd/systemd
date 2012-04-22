@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
         if (detect_container(NULL) > 0) {
                 log_debug("Automatically adding console shell.");
 
-                if (add_symlink("console-shell.service", "console-shell.service") < 0)
+                if (add_symlink("console-getty.service", "console-getty.service") < 0)
                         r = EXIT_FAILURE;
 
                 /* Don't add any further magic if we are in a container */
