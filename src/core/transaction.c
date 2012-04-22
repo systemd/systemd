@@ -603,6 +603,8 @@ rollback:
 }
 
 int transaction_activate(Transaction *tr, Manager *m, JobMode mode, DBusError *e) {
+        Iterator i;
+        Job *j;
         int r;
         unsigned generation = 1;
 
@@ -610,6 +612,12 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, DBusError *e
 
         /* This applies the changes recorded in tr->jobs to
          * the actual list of jobs, if possible. */
+
+        /* Reset the generation counter of all installed jobs. The detection of cycles
+         * looks at installed jobs. If they had a non-zero generation from some previous
+         * walk of the graph, the algorithm would break. */
+        HASHMAP_FOREACH(j, m->jobs, i)
+                j->generation = 0;
 
         /* First step: figure out which jobs matter */
         transaction_find_jobs_that_matter_to_anchor(tr->anchor_job, generation++);
