@@ -51,7 +51,7 @@ void transaction_abort(Transaction *tr) {
         assert(tr);
 
         while ((j = hashmap_first(tr->jobs)))
-                transaction_delete_job(tr, j, true);
+                transaction_delete_job(tr, j, false);
 
         assert(hashmap_isempty(tr->jobs));
 }
