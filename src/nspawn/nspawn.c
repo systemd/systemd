@@ -56,6 +56,7 @@ static char *arg_directory = NULL;
 static char *arg_user = NULL;
 static char **arg_controllers = NULL;
 static bool arg_private_network = false;
+static bool arg_boot = false;
 
 static int help(void) {
 
@@ -63,6 +64,7 @@ static int help(void) {
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
                "  -h --help             Show this help\n"
                "  -D --directory=NAME   Root directory for the container\n"
+               "  -b --boot             Boot up full system (i.e. invoke init)\n"
                "  -u --user=USER        Run the command under specified user or uid\n"
                "  -C --controllers=LIST Put the container in specified comma-separated cgroup hierarchies\n"
                "     --private-network  Disable network in container\n",
@@ -83,6 +85,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "user",            required_argument, NULL, 'u'                 },
                 { "controllers",     required_argument, NULL, 'C'                 },
                 { "private-network", no_argument,       NULL, ARG_PRIVATE_NETWORK },
+                { "boot",            no_argument,       NULL, 'b'                 },
                 { NULL,              0,                 NULL, 0                   }
         };
 
@@ -91,7 +94,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:u:C:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hD:u:C:b", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -131,6 +134,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_PRIVATE_NETWORK:
                         arg_private_network = true;
+                        break;
+
+                case 'b':
+                        arg_boot = true;
                         break;
 
                 case '?':
@@ -1024,7 +1031,25 @@ int main(int argc, char *argv[]) {
 
                 setup_hostname();
 
-                if (argc > optind)
+                if (arg_boot) {
+                        char **a;
+                        size_t l;
+
+                        /* Automatically search for the init system */
+
+                        l = 1 + argc - optind;
+                        a = newa(char*, l + 1);
+                        memcpy(a + 1, argv + optind, l * sizeof(char*));
+
+                        a[0] = (char*) "/usr/lib/systemd/systemd";
+                        execve(a[0], a, (char**) envp);
+
+                        a[0] = (char*) "/lib/systemd/systemd";
+                        execve(a[0], a, (char**) envp);
+
+                        a[0] = (char*) "/sbin/init";
+                        execve(a[0], a, (char**) envp);
+                } else if (argc > optind)
                         execvpe(argv[optind], argv + optind, (char**) envp);
                 else {
                         chdir(home ? home : "/root");

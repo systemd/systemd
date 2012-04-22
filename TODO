@@ -21,6 +21,8 @@ Bugfixes:
 
 Features:
 
+* fix utmp for console logins in containers
+
 * Add pretty name for seats in logind
 
 * nspawn wants dev_setup() for /dev/fd/ and friends?

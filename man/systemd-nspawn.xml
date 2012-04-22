@@ -142,6 +142,16 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--boot</option></term>
+                                <term><option>-b</option></term>
+
+                                <listitem><para>Automatically search
+                                for an init binary and invoke it
+                                instead of a shell or a user supplied
+                                program.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--user=</option></term>
                                 <term><option>-u</option></term>
 
