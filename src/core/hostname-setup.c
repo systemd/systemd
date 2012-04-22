@@ -47,7 +47,8 @@ static int read_and_strip_hostname(const char *path, char **hn) {
         assert(path);
         assert(hn);
 
-        if ((r = read_one_line_file(path, &s)) < 0)
+        r = read_one_line_file(path, &s);
+        if (r < 0)
                 return r;
 
         hostname_cleanup(s);
@@ -70,7 +71,8 @@ static int read_distro_hostname(char **hn) {
 
         assert(hn);
 
-        if (!(f = fopen(FILENAME, "re")))
+        f = fopen(FILENAME, "re");
+        if (!f)
                 return -errno;
 
         for (;;) {
@@ -90,7 +92,8 @@ static int read_distro_hostname(char **hn) {
                 if (!startswith_no_case(s, "HOSTNAME="))
                         continue;
 
-                if (!(k = strdup(s+9))) {
+                k = strdup(s+9);
+                if (!k) {
                         r = -ENOMEM;
                         goto finish;
                 }
@@ -129,8 +132,8 @@ static int read_hostname(char **hn) {
         /* First, try to load the generic hostname configuration file,
          * that we support on all distributions */
 
-        if ((r = read_and_strip_hostname("/etc/hostname", hn)) < 0) {
-
+        r = read_and_strip_hostname("/etc/hostname", hn);
+        if (r < 0) {
                 if (r == -ENOENT)
                         return read_distro_hostname(hn);
 
@@ -144,10 +147,12 @@ int hostname_setup(void) {
         int r;
         char *b = NULL;
         const char *hn = NULL;
+        bool enoent = false;
 
-        if ((r = read_hostname(&b)) < 0) {
+        r = read_hostname(&b);
+        if (r < 0) {
                 if (r == -ENOENT)
-                        log_info("No hostname configured.");
+                        enoent = true;
                 else
                         log_warning("Failed to read configured hostname: %s", strerror(-r));
 
@@ -161,7 +166,8 @@ int hostname_setup(void) {
 
                 char *old_hostname = NULL;
 
-                if ((old_hostname = gethostname_malloc())) {
+                old_hostname = gethostname_malloc();
+                if (old_hostname) {
                         bool already_set;
 
                         already_set = old_hostname[0] != 0;
@@ -170,6 +176,9 @@ int hostname_setup(void) {
                         if (already_set)
                                 goto finish;
                 }
+
+                if (enoent)
+                        log_info("No hostname configured.");
 
                 hn = "localhost";
         }
