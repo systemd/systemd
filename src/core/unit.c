@@ -2288,8 +2288,10 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds) {
         if ((r = UNIT_VTABLE(u)->serialize(u, f, fds)) < 0)
                 return r;
 
-        if (u->job)
-                unit_serialize_item(u, f, "job", job_type_to_string(u->job->type));
+        if (u->job) {
+                fprintf(f, "job\n");
+                job_serialize(u->job, f, fds);
+        }
 
         dual_timestamp_serialize(f, "inactive-exit-timestamp", &u->inactive_exit_timestamp);
         dual_timestamp_serialize(f, "active-enter-timestamp", &u->active_enter_timestamp);
@@ -2368,13 +2370,32 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         v = l+k;
 
                 if (streq(l, "job")) {
-                        JobType type;
+                        if (v[0] == '\0') {
+                                /* new-style serialized job */
+                                Job *j = job_new_raw(u);
+                                if (!j)
+                                        return -ENOMEM;
 
-                        if ((type = job_type_from_string(v)) < 0)
-                                log_debug("Failed to parse job type value %s", v);
-                        else
-                                u->deserialized_job = type;
+                                r = job_deserialize(j, f, fds);
+                                if (r < 0) {
+                                        job_free(j);
+                                        return r;
+                                }
 
+                                job_install_deserialized(j);
+                                r = hashmap_put(u->manager->jobs, UINT32_TO_PTR(j->id), j);
+                                if (r < 0) {
+                                        job_free(j);
+                                        return r;
+                                }
+                        } else {
+                                /* legacy */
+                                JobType type = job_type_from_string(v);
+                                if (type < 0)
+                                        log_debug("Failed to parse job type value %s", v);
+                                else
+                                        u->deserialized_job = type;
+                        }
                         continue;
                 } else if (streq(l, "inactive-exit-timestamp")) {
                         dual_timestamp_deserialize(v, &u->inactive_exit_timestamp);
@@ -2450,8 +2471,14 @@ int unit_coldplug(Unit *u) {
                 if ((r = UNIT_VTABLE(u)->coldplug(u)) < 0)
                         return r;
 
-        if (u->deserialized_job >= 0) {
-                if ((r = manager_add_job(u->manager, u->deserialized_job, u, JOB_IGNORE_REQUIREMENTS, false, NULL, NULL)) < 0)
+        if (u->job) {
+                r = job_coldplug(u->job);
+                if (r < 0)
+                        return r;
+        } else if (u->deserialized_job >= 0) {
+                /* legacy */
+                r = manager_add_job(u->manager, u->deserialized_job, u, JOB_IGNORE_REQUIREMENTS, false, NULL, NULL);
+                if (r < 0)
                         return r;
 
                 u->deserialized_job = _JOB_TYPE_INVALID;

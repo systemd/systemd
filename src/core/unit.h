@@ -200,7 +200,9 @@ struct Unit {
         unsigned gc_marker;
 
         /* When deserializing, temporarily store the job type for this
-         * unit here, if there was a job scheduled */
+         * unit here, if there was a job scheduled.
+         * Only for deserializing from a legacy version. New style uses full
+         * serialized jobs. */
         int deserialized_job; /* This is actually of type JobType */
 
         /* Error code when we didn't manage to load the unit (negative) */

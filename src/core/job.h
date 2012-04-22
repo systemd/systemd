@@ -141,15 +141,21 @@ struct Job {
         bool in_dbus_queue:1;
         bool sent_dbus_new_signal:1;
         bool ignore_order:1;
+        bool forgot_bus_clients:1;
 };
 
 JobBusClient* job_bus_client_new(DBusConnection *connection, const char *name);
 
 Job* job_new(Unit *unit, JobType type);
+Job* job_new_raw(Unit *unit);
 void job_free(Job *job);
 Job* job_install(Job *j);
+void job_install_deserialized(Job *j);
 void job_uninstall(Job *j);
 void job_dump(Job *j, FILE*f, const char *prefix);
+int job_serialize(Job *j, FILE *f, FDSet *fds);
+int job_deserialize(Job *j, FILE *f, FDSet *fds);
+int job_coldplug(Job *j);
 
 JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts);
 void job_dependency_free(JobDependency *l);

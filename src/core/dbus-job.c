@@ -232,7 +232,7 @@ static int job_send_message(Job *j, DBusMessage* (*new_message)(Job *j)) {
         assert(j);
         assert(new_message);
 
-        if (bus_has_subscriber(j->manager)) {
+        if (bus_has_subscriber(j->manager) || j->forgot_bus_clients) {
                 m = new_message(j);
                 if (!m)
                         goto oom;
@@ -347,7 +347,7 @@ void bus_job_send_change_signal(Job *j) {
                 j->in_dbus_queue = false;
         }
 
-        if (!bus_has_subscriber(j->manager) && !j->bus_client_list) {
+        if (!bus_has_subscriber(j->manager) && !j->bus_client_list && !j->forgot_bus_clients) {
                 j->sent_dbus_new_signal = true;
                 return;
         }
@@ -366,7 +366,7 @@ oom:
 void bus_job_send_removed_signal(Job *j) {
         assert(j);
 
-        if (!bus_has_subscriber(j->manager) && !j->bus_client_list)
+        if (!bus_has_subscriber(j->manager) && !j->bus_client_list && !j->forgot_bus_clients)
                 return;
 
         if (!j->sent_dbus_new_signal)

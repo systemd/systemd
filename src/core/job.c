@@ -47,21 +47,35 @@ JobBusClient* job_bus_client_new(DBusConnection *connection, const char *name) {
         return cl;
 }
 
+Job* job_new_raw(Unit *unit) {
+        Job *j;
+
+        /* used for deserialization */
+
+        assert(unit);
+
+        j = new0(Job, 1);
+        if (!j)
+                return NULL;
+
+        j->manager = unit->manager;
+        j->unit = unit;
+        j->timer_watch.type = WATCH_INVALID;
+
+        return j;
+}
+
 Job* job_new(Unit *unit, JobType type) {
         Job *j;
 
         assert(type < _JOB_TYPE_MAX);
-        assert(unit);
 
-        if (!(j = new0(Job, 1)))
+        j = job_new_raw(unit);
+        if (!j)
                 return NULL;
 
-        j->manager = unit->manager;
         j->id = j->manager->current_job_id++;
         j->type = type;
-        j->unit = unit;
-
-        j->timer_watch.type = WATCH_INVALID;
 
         /* We don't link it here, that's what job_dependency() is for */
 
@@ -105,7 +119,9 @@ void job_uninstall(Job *j) {
         assert(j->unit->job == j);
         /* Detach from next 'bigger' objects */
 
-        bus_job_send_removed_signal(j);
+        /* daemon-reload should be transparent to job observers */
+        if (j->manager->n_reloading <= 0)
+                bus_job_send_removed_signal(j);
 
         j->unit->job = NULL;
         unit_add_to_gc_queue(j->unit);
@@ -178,6 +194,18 @@ Job* job_install(Job *j) {
         j->manager->n_installed_jobs ++;
         log_debug("Installed new job %s/%s as %u", j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
         return j;
+}
+
+void job_install_deserialized(Job *j) {
+        assert(!j->installed);
+
+        if (j->unit->job) {
+                log_debug("Unit %s already has a job installed. Not installing deserialized job.", j->unit->id);
+                return;
+        }
+        j->unit->job = j;
+        j->installed = true;
+        log_debug("Reinstalled deserialized job %s/%s as %u", j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
 }
 
 JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts) {
@@ -731,6 +759,126 @@ void job_timer_event(Job *j, uint64_t n_elapsed, Watch *w) {
 
         log_warning("Job %s/%s timed out.", j->unit->id, job_type_to_string(j->type));
         job_finish_and_invalidate(j, JOB_TIMEOUT);
+}
+
+int job_serialize(Job *j, FILE *f, FDSet *fds) {
+        fprintf(f, "job-id=%u\n", j->id);
+        fprintf(f, "job-type=%s\n", job_type_to_string(j->type));
+        fprintf(f, "job-state=%s\n", job_state_to_string(j->state));
+        fprintf(f, "job-override=%s\n", yes_no(j->override));
+        fprintf(f, "job-sent-dbus-new-signal=%s\n", yes_no(j->sent_dbus_new_signal));
+        fprintf(f, "job-ignore-order=%s\n", yes_no(j->ignore_order));
+        /* Cannot save bus clients. Just note the fact that we're losing
+         * them. job_send_message() will fallback to broadcasting. */
+        fprintf(f, "job-forgot-bus-clients=%s\n",
+                yes_no(j->forgot_bus_clients || j->bus_client_list));
+        if (j->timer_watch.type == WATCH_JOB_TIMER) {
+                int copy = fdset_put_dup(fds, j->timer_watch.fd);
+                if (copy < 0)
+                        return copy;
+                fprintf(f, "job-timer-watch-fd=%d\n", copy);
+        }
+
+        /* End marker */
+        fputc('\n', f);
+        return 0;
+}
+
+int job_deserialize(Job *j, FILE *f, FDSet *fds) {
+        for (;;) {
+                char line[LINE_MAX], *l, *v;
+                size_t k;
+
+                if (!fgets(line, sizeof(line), f)) {
+                        if (feof(f))
+                                return 0;
+                        return -errno;
+                }
+
+                char_array_0(line);
+                l = strstrip(line);
+
+                /* End marker */
+                if (l[0] == 0)
+                        return 0;
+
+                k = strcspn(l, "=");
+
+                if (l[k] == '=') {
+                        l[k] = 0;
+                        v = l+k+1;
+                } else
+                        v = l+k;
+
+                if (streq(l, "job-id")) {
+                        if (safe_atou32(v, &j->id) < 0)
+                                log_debug("Failed to parse job id value %s", v);
+                } else if (streq(l, "job-type")) {
+                        JobType t = job_type_from_string(v);
+                        if (t < 0)
+                                log_debug("Failed to parse job type %s", v);
+                        else
+                                j->type = t;
+                } else if (streq(l, "job-state")) {
+                        JobState s = job_state_from_string(v);
+                        if (s < 0)
+                                log_debug("Failed to parse job state %s", v);
+                        else
+                                j->state = s;
+                } else if (streq(l, "job-override")) {
+                        int b = parse_boolean(v);
+                        if (b < 0)
+                                log_debug("Failed to parse job override flag %s", v);
+                        else
+                                j->override = j->override || b;
+                } else if (streq(l, "job-sent-dbus-new-signal")) {
+                        int b = parse_boolean(v);
+                        if (b < 0)
+                                log_debug("Failed to parse job sent_dbus_new_signal flag %s", v);
+                        else
+                                j->sent_dbus_new_signal = j->sent_dbus_new_signal || b;
+                } else if (streq(l, "job-ignore-order")) {
+                        int b = parse_boolean(v);
+                        if (b < 0)
+                                log_debug("Failed to parse job ignore_order flag %s", v);
+                        else
+                                j->ignore_order = j->ignore_order || b;
+                } else if (streq(l, "job-forgot-bus-clients")) {
+                        int b = parse_boolean(v);
+                        if (b < 0)
+                                log_debug("Failed to parse job forgot_bus_clients flag %s", v);
+                        else
+                                j->forgot_bus_clients = j->forgot_bus_clients || b;
+                } else if (streq(l, "job-timer-watch-fd")) {
+                        int fd;
+                        if (safe_atoi(v, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                                log_debug("Failed to parse job-timer-watch-fd value %s", v);
+                        else {
+                                if (j->timer_watch.type == WATCH_JOB_TIMER)
+                                        close_nointr_nofail(j->timer_watch.fd);
+
+                                j->timer_watch.type = WATCH_JOB_TIMER;
+                                j->timer_watch.fd = fdset_remove(fds, fd);
+                                j->timer_watch.data.job = j;
+                        }
+                }
+        }
+}
+
+int job_coldplug(Job *j) {
+        struct epoll_event ev;
+
+        if (j->timer_watch.type != WATCH_JOB_TIMER)
+                return 0;
+
+        zero(ev);
+        ev.data.ptr = &j->timer_watch;
+        ev.events = EPOLLIN;
+
+        if (epoll_ctl(j->manager->epoll_fd, EPOLL_CTL_ADD, j->timer_watch.fd, &ev) < 0)
+                return -errno;
+
+        return 0;
 }
 
 static const char* const job_state_table[_JOB_STATE_MAX] = {
