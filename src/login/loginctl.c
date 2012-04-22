@@ -1260,7 +1260,7 @@ static int kill_session(DBusConnection *bus, char **args, unsigned n) {
                 if (!dbus_message_append_args(m,
                                               DBUS_TYPE_STRING, &args[i],
                                               DBUS_TYPE_STRING, &arg_kill_who,
-                                              DBUS_TYPE_INT32, arg_signal,
+                                              DBUS_TYPE_INT32, &arg_signal,
                                               DBUS_TYPE_INVALID)) {
                         log_error("Could not append arguments to message.");
                         ret = -ENOMEM;
@@ -1464,7 +1464,7 @@ static int kill_user(DBusConnection *bus, char **args, unsigned n) {
                 u = (uint32_t) uid;
                 if (!dbus_message_append_args(m,
                                               DBUS_TYPE_UINT32, &u,
-                                              DBUS_TYPE_INT32, arg_signal,
+                                              DBUS_TYPE_INT32, &arg_signal,
                                               DBUS_TYPE_INVALID)) {
                         log_error("Could not append arguments to message.");
                         ret = -ENOMEM;
