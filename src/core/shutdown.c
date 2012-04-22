@@ -356,8 +356,10 @@ int main(int argc, char *argv[]) {
         log_info("Sending SIGKILL to remaining processes...");
         send_signal(SIGKILL);
 
-        if (in_container)
+        if (in_container) {
                 need_swapoff = false;
+                need_dm_detach = false;
+        }
 
         /* Unmount all mountpoints, swaps, and loopback devices */
         for (retries = 0; retries < FINALIZE_ATTEMPTS; retries++) {
