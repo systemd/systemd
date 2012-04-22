@@ -415,6 +415,7 @@ char *fstab_node_to_udev_node(const char *p);
 
 bool tty_is_vc(const char *tty);
 bool tty_is_vc_resolve(const char *tty);
+bool tty_is_console(const char *tty);
 int vtnr_from_tty(const char *tty);
 const char *default_term_for_tty(const char *tty);
 

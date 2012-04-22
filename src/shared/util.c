@@ -4287,6 +4287,15 @@ bool tty_is_vc(const char *tty) {
         return vtnr_from_tty(tty) >= 0;
 }
 
+bool tty_is_console(const char *tty) {
+        assert(tty);
+
+        if (startswith(tty, "/dev/"))
+                tty += 5;
+
+        return streq(tty, "console");
+}
+
 int vtnr_from_tty(const char *tty) {
         int i, r;
 
