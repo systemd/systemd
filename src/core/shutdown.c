@@ -347,8 +347,7 @@ int main(int argc, char *argv[]) {
         use_watchdog = !!getenv("WATCHDOG_USEC");
 
         /* lock us into memory */
-        if (mlockall(MCL_CURRENT|MCL_FUTURE) != 0)
-                log_warning("Cannot lock process memory: %m");
+        mlockall(MCL_CURRENT|MCL_FUTURE);
 
         log_info("Sending SIGTERM to remaining processes...");
         send_signal(SIGTERM);
