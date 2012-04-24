@@ -211,9 +211,9 @@ static int swap_add_device_links(Swap *s) {
                                           UNIT(s)->manager->running_as == MANAGER_SYSTEM);
         else
                 /* File based swap devices need to be ordered after
-                 * remount-rootfs.service, since they might need a
+                 * systemd-remount-fs.service, since they might need a
                  * writable file system. */
-                return unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_REMOUNT_ROOTFS_SERVICE, NULL, true);
+                return unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_REMOUNT_FS_SERVICE, NULL, true);
 }
 
 static int swap_add_default_dependencies(Swap *s) {

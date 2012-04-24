@@ -225,7 +225,7 @@ rootlibexec_PROGRAMS = \
 	systemd-shutdownd \
 	systemd-shutdown \
 	systemd-modules-load \
-	systemd-remount-api-vfs \
+	systemd-remount-fs \
 	systemd-reply-password \
 	systemd-fsck \
 	systemd-timestamp \
@@ -287,7 +287,6 @@ dist_systemunit_DATA = \
 	units/sys-kernel-debug.mount \
 	units/sys-fs-fuse-connections.mount \
 	units/tmp.mount \
-	units/remount-rootfs.service \
 	units/printer.target \
 	units/sound.target \
 	units/bluetooth.target \
@@ -308,7 +307,7 @@ nodist_systemunit_DATA = \
 	units/systemd-initctl.service \
 	units/systemd-shutdownd.service \
 	units/systemd-modules-load.service \
-	units/systemd-remount-api-vfs.service \
+	units/systemd-remount-fs.service \
 	units/systemd-update-utmp-runlevel.service \
 	units/systemd-update-utmp-shutdown.service \
 	units/systemd-tmpfiles-setup.service \
@@ -345,7 +344,7 @@ EXTRA_DIST += \
 	units/systemd-initctl.service.in \
 	units/systemd-shutdownd.service.in \
 	units/systemd-modules-load.service.in \
-	units/systemd-remount-api-vfs.service.in \
+	units/systemd-remount-fs.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
 	units/systemd-update-utmp-shutdown.service.in \
 	units/systemd-tmpfiles-setup.service.in \
@@ -1110,12 +1109,12 @@ systemd_rc_local_generator_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
-systemd_remount_api_vfs_SOURCES = \
-	src/remount-api-vfs/remount-api-vfs.c \
+systemd_remount_fs_SOURCES = \
+	src/remount-fs/remount-fs.c \
 	src/core/mount-setup.c \
 	src/core/mount-setup.h
 
-systemd_remount_api_vfs_LDADD = \
+systemd_remount_fs_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
@@ -3059,13 +3058,11 @@ systemd-install-data-hook:
 		rm -f systemd-update-utmp-shutdown.service && \
 		$(LN_S) ../systemd-update-utmp-shutdown.service systemd-update-utmp-shutdown.service )
 	( cd $(DESTDIR)$(systemunitdir)/local-fs.target.wants && \
-		rm -f systemd-remount-api-vfs.service \
+		rm -f systemd-remount-fs.service \
 			fsck-root.service \
-			remount-rootfs.service \
 			tmp.mount && \
-		$(LN_S) ../systemd-remount-api-vfs.service systemd-remount-api-vfs.service && \
+		$(LN_S) ../systemd-remount-fs.service systemd-remount-fs.service && \
 		$(LN_S) ../fsck-root.service fsck-root.service && \
-		$(LN_S) ../remount-rootfs.service remount-rootfs.service && \
 		$(LN_S) ../tmp.mount tmp.mount )
 	( cd $(DESTDIR)$(userunitdir) && \
 		rm -f shutdown.target sockets.target bluetooth.target printer.target sound.target && \

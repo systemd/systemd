@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Remount Root FS
+Description=Remount Root and Kernel File Systems
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service fsck-root.service
@@ -17,4 +17,4 @@ ConditionPathExists=/etc/fstab
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/mount / -o remount
+ExecStart=@rootlibexecdir@/systemd-remount-fs
