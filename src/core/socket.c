@@ -1152,6 +1152,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        UNIT(s)->cgroup_bondings,
                        UNIT(s)->cgroup_attributes,
                        NULL,
+                       NULL,
                        &pid);
 
         strv_free(argv);

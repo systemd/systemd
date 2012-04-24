@@ -259,6 +259,7 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         m->name_data_slot = m->conn_data_slot = m->subscribed_data_slot = -1;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->pin_cgroupfs_fd = -1;
+        m->idle_pipe[0] = m->idle_pipe[1] = -1;
 
 #ifdef HAVE_AUDIT
         m->audit_fd = -1;
@@ -517,6 +518,8 @@ void manager_free(Manager *m) {
 
         hashmap_free(m->cgroup_bondings);
         set_free_free(m->unit_path_cache);
+
+        close_pipe(m->idle_pipe);
 
         free(m);
 }
@@ -1962,10 +1965,13 @@ void manager_check_finished(Manager *m) {
 
         assert(m);
 
-        if (dual_timestamp_is_set(&m->finish_timestamp))
+        if (hashmap_size(m->jobs) > 0)
                 return;
 
-        if (hashmap_size(m->jobs) > 0)
+        /* Notify Type=idle units that we are done now */
+        close_pipe(m->idle_pipe);
+
+        if (dual_timestamp_is_set(&m->finish_timestamp))
                 return;
 
         dual_timestamp_get(&m->finish_timestamp);

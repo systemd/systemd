@@ -41,6 +41,7 @@ ConditionPathExists=/dev/tty0
 [Service]
 Environment=TERM=linux
 ExecStart=-/sbin/agetty %I 38400
+Type=idle
 Restart=always
 RestartSec=0
 UtmpIdentifier=%I

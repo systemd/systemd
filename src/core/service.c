@@ -1769,6 +1769,7 @@ static int service_spawn(
                        UNIT(s)->cgroup_bondings,
                        UNIT(s)->cgroup_attributes,
                        is_control ? "control" : NULL,
+                       s->type == SERVICE_IDLE ? UNIT(s)->manager->idle_pipe : NULL,
                        &pid);
 
         if (r < 0)
@@ -2130,7 +2131,7 @@ static void service_enter_start(Service *s) {
         if (r < 0)
                 goto fail;
 
-        if (s->type == SERVICE_SIMPLE) {
+        if (s->type == SERVICE_SIMPLE || s->type == SERVICE_IDLE) {
                 /* For simple services we immediately start
                  * the START_POST binaries. */
 
@@ -3714,7 +3715,8 @@ static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
         [SERVICE_FORKING] = "forking",
         [SERVICE_ONESHOT] = "oneshot",
         [SERVICE_DBUS] = "dbus",
-        [SERVICE_NOTIFY] = "notify"
+        [SERVICE_NOTIFY] = "notify",
+        [SERVICE_IDLE] = "idle"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);

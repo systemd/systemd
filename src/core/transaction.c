@@ -19,6 +19,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <unistd.h>
+#include <fcntl.h>
+
 #include "transaction.h"
 #include "bus-errors.h"
 
@@ -692,6 +695,17 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, DBusError *e
         }
 
         assert(hashmap_isempty(tr->jobs));
+
+        if (!hashmap_isempty(m->jobs)) {
+                /* Are there any jobs now? Then make sure we have the
+                 * idle pipe around. We don't really care too much
+                 * whether this works or not, as the idle pipe is a
+                 * feature for cosmetics, not actually useful for
+                 * anything beyond that. */
+
+                if (m->idle_pipe[0] < 0 && m->idle_pipe[1] < 0)
+                        pipe2(m->idle_pipe, O_NONBLOCK|O_CLOEXEC);
+        }
 
         return 0;
 }

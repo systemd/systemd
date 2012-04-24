@@ -227,6 +227,9 @@ struct Manager {
 
         unsigned n_installed_jobs;
         unsigned n_failed_jobs;
+
+        /* Type=idle pipes */
+        int idle_pipe[2];
 };
 
 int manager_new(ManagerRunningAs running_as, Manager **m);

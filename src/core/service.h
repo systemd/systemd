@@ -65,6 +65,7 @@ typedef enum ServiceType {
         SERVICE_ONESHOT,  /* we fork and wait until the program finishes (i.e. programs like fsck which run and need to finish before we continue) */
         SERVICE_DBUS,     /* we fork and wait until a specific D-Bus name appears on the bus */
         SERVICE_NOTIFY,   /* we fork and wait until a daemon sends us a ready message with sd_notify() */
+        SERVICE_IDLE,     /* much like simple, but delay exec() until all jobs are dispatched. */
         _SERVICE_TYPE_MAX,
         _SERVICE_TYPE_INVALID = -1
 } ServiceType;

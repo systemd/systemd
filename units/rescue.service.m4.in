@@ -33,6 +33,7 @@ m4_ifdef(`TARGET_MEEGO',
 ExecStart=-/bin/bash -c "exec ${SINGLE}"',
 `ExecStart=-/sbin/sulogin'))))
 ExecStopPost=-@SYSTEMCTL@ --fail --no-block default
+Type=idle
 StandardInput=tty-force
 StandardOutput=inherit
 StandardError=inherit

@@ -30,6 +30,7 @@ Before=getty.target
 
 [Service]
 ExecStart=-/sbin/agetty --noclear -s console 115200,38400,9600
+Type=idle
 Restart=always
 RestartSec=0
 UtmpIdentifier=cons

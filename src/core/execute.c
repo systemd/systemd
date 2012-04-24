@@ -37,6 +37,7 @@
 #include <sys/mount.h>
 #include <linux/fs.h>
 #include <linux/oom.h>
+#include <sys/poll.h>
 
 #ifdef HAVE_PAM
 #include <security/pam_appl.h>
@@ -963,6 +964,7 @@ int exec_spawn(ExecCommand *command,
                CGroupBonding *cgroup_bondings,
                CGroupAttribute *cgroup_attributes,
                const char *cgroup_suffix,
+               int idle_pipe[2],
                pid_t *ret) {
 
         pid_t pid;
@@ -1048,6 +1050,15 @@ int exec_spawn(ExecCommand *command,
                         err = -errno;
                         r = EXIT_SIGNAL_MASK;
                         goto fail_child;
+                }
+
+                if (idle_pipe) {
+                        if (idle_pipe[1] >= 0)
+                                close_nointr_nofail(idle_pipe[1]);
+                        if (idle_pipe[0] >= 0) {
+                                fd_wait_for_event(idle_pipe[0], POLLHUP, DEFAULT_TIMEOUT_USEC);
+                                close_nointr_nofail(idle_pipe[0]);
+                        }
                 }
 
                 /* Close sockets very early to make sure we don't
