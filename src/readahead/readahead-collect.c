@@ -660,11 +660,17 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if ((r = parse_argv(argc, argv)) <= 0)
+        r = parse_argv(argc, argv);
+        if (r <= 0)
                 return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
         root = optind < argc ? argv[optind] : "/";
 
+        /* Skip this step on read-only media. Note that we check the
+         * underlying block device here, not he read-only flag of the
+         * file system on top, since that one is most likely mounted
+         * read-only anyway at boot, even if the underlying block
+         * device is theoretically writable. */
         if (fs_on_read_only(root) > 0) {
                 log_info("Disabling readahead collector due to read-only media.");
                 return 0;
@@ -675,12 +681,8 @@ int main(int argc, char *argv[]) {
                 return 0;
         }
 
-        if (detect_virtualization(NULL) > 0) {
-                log_info("Disabling readahead collector due to execution in virtualized environment.");
-                return 0;
-        }
-
-        if (!(shared = shared_get()))
+        shared = shared_get();
+        if (!shared)
                 return 1;
 
         shared->collect = getpid();

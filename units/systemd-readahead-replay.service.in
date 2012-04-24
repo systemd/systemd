@@ -11,6 +11,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 Before=sysinit.target shutdown.target
 ConditionPathExists=/.readahead
+ConditionVirtualization=no
 
 [Service]
 Type=notify

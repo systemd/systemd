@@ -11,6 +11,7 @@ DefaultDependencies=no
 Wants=systemd-readahead-done.timer
 Conflicts=shutdown.target
 Before=sysinit.target shutdown.target
+ConditionVirtualization=no
 
 [Service]
 Type=notify

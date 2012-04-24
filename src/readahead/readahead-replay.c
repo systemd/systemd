@@ -350,7 +350,8 @@ int main(int argc, char*argv[]) {
 
         umask(0022);
 
-        if ((r = parse_argv(argc, argv)) <= 0)
+        r = parse_argv(argc, argv);
+        if (r <= 0)
                 return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
         root = optind < argc ? argv[optind] : "/";
@@ -360,12 +361,8 @@ int main(int argc, char*argv[]) {
                 return 0;
         }
 
-        if (detect_virtualization(NULL) > 0) {
-                log_info("Disabling readahead replay due to execution in virtualized environment.");
-                return 0;
-        }
-
-        if (!(shared = shared_get()))
+        shared = shared_get();
+        if (!shared)
                 return 1;
 
         shared->replay = getpid();
