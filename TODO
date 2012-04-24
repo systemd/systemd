@@ -21,6 +21,10 @@ Bugfixes:
 
 Features:
 
+* merge remount-api-vfs and remount-root-fs
+
+* add --read-only to nspawn
+
 * fedora: make sshd and pam_loginuid work in nspawn containers
 
 * fix utmp for console logins in containers
