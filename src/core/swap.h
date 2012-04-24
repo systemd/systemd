@@ -53,7 +53,6 @@ typedef struct SwapParameters {
         int priority;
         bool noauto:1;
         bool nofail:1;
-        bool handle:1;
 } SwapParameters;
 
 typedef enum SwapResult {
@@ -109,7 +108,7 @@ struct Swap {
 
 extern const UnitVTable swap_vtable;
 
-int swap_add_one(Manager *m, const char *what, const char *what_proc_swaps, int prio, bool no_auto, bool no_fail, bool handle, bool set_flags);
+int swap_add_one(Manager *m, const char *what, const char *what_proc_swaps, int prio, bool no_auto, bool no_fail, bool set_flags);
 
 int swap_add_one_mount_link(Swap *s, Mount *m);
 

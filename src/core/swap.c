@@ -182,7 +182,6 @@ static int swap_add_target_links(Swap *s) {
 
         if (!p->noauto &&
             !p->nofail &&
-            (p->handle || UNIT(s)->manager->swap_auto) &&
             s->from_etc_fstab &&
             UNIT(s)->manager->running_as == MANAGER_SYSTEM)
                 if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(s), true)) < 0)
@@ -322,7 +321,6 @@ int swap_add_one(
                 int priority,
                 bool noauto,
                 bool nofail,
-                bool handle,
                 bool set_flags) {
 
         Unit *u = NULL;
@@ -420,7 +418,6 @@ int swap_add_one(
         p->priority = priority;
         p->noauto = noauto;
         p->nofail = nofail;
-        p->handle = handle;
 
         unit_add_to_dbus_queue(u);
 
@@ -457,8 +454,9 @@ static int swap_process_new_swap(Manager *m, const char *device, int prio, bool 
                 if (!(d = udev_device_new_from_devnum(m->udev, 'b', st.st_rdev)))
                         return -ENOMEM;
 
-                if ((dn = udev_device_get_devnode(d)))
-                        r = swap_add_one(m, dn, device, prio, false, false, false, set_flags);
+                dn = udev_device_get_devnode(d);
+                if (dn)
+                        r = swap_add_one(m, dn, device, prio, false, false, set_flags);
 
                 /* Add additional units for all symlinks */
                 first = udev_device_get_devlinks_list_entry(d);
@@ -475,14 +473,16 @@ static int swap_process_new_swap(Manager *m, const char *device, int prio, bool 
                                 if ((!S_ISBLK(st.st_mode)) || st.st_rdev != udev_device_get_devnum(d))
                                         continue;
 
-                        if ((k = swap_add_one(m, p, device, prio, false, false, false, set_flags)) < 0)
+                        k = swap_add_one(m, p, device, prio, false, false, set_flags);
+                        if (k < 0)
                                 r = k;
                 }
 
                 udev_device_unref(d);
         }
 
-        if ((k = swap_add_one(m, device, device, prio, false, false, false, set_flags)) < 0)
+        k = swap_add_one(m, device, device, prio, false, false, set_flags);
+        if (k < 0)
                 r = k;
 
         return r;
@@ -576,7 +576,6 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPriority: %i\n"
                 "%sNoAuto: %s\n"
                 "%sNoFail: %s\n"
-                "%sHandle: %s\n"
                 "%sFrom /etc/fstab: %s\n"
                 "%sFrom /proc/swaps: %s\n"
                 "%sFrom fragment: %s\n",
@@ -586,7 +585,6 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, p->priority,
                 prefix, yes_no(p->noauto),
                 prefix, yes_no(p->nofail),
-                prefix, yes_no(p->handle),
                 prefix, yes_no(s->from_etc_fstab),
                 prefix, yes_no(s->from_proc_swaps),
                 prefix, yes_no(s->from_fragment));

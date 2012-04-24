@@ -237,8 +237,6 @@
         "  <property name=\"UnitPath\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"NotifySocket\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"MountAuto\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"SwapAuto\" type=\"b\" access=\"read\"/>\n"  \
         "  <property name=\"DefaultControllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardOutput\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardError\" type=\"s\" access=\"read\"/>\n" \
@@ -554,8 +552,6 @@ static const BusProperty bus_manager_properties[] = {
         { "UnitPath",      bus_property_append_strv,              "as", offsetof(Manager, lookup_paths.unit_path),     true },
         { "NotifySocket",  bus_property_append_string,             "s", offsetof(Manager, notify_socket),              true },
         { "ControlGroupHierarchy", bus_property_append_string,     "s", offsetof(Manager, cgroup_hierarchy),           true },
-        { "MountAuto",     bus_property_append_bool,               "b", offsetof(Manager, mount_auto)                  },
-        { "SwapAuto",      bus_property_append_bool,               "b", offsetof(Manager, swap_auto)                   },
         { "DefaultControllers", bus_property_append_strv,         "as", offsetof(Manager, default_controllers),        true },
         { "DefaultStandardOutput", bus_manager_append_exec_output, "s", offsetof(Manager, default_std_output)          },
         { "DefaultStandardError",  bus_manager_append_exec_output, "s", offsetof(Manager, default_std_error)           },

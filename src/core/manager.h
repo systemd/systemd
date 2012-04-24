@@ -219,8 +219,6 @@ struct Manager {
 #ifdef HAVE_SYSV_COMPAT
         bool sysv_console;
 #endif
-        bool mount_auto;
-        bool swap_auto;
 
         ExecOutput default_std_output, default_std_error;
 

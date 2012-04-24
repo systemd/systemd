@@ -104,18 +104,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>MountAuto=yes</varname></term>
-                                <term><varname>SwapAuto=yes</varname></term>
-
-                                <listitem><para>Configures whether
-                                systemd should automatically activate
-                                all swap or mounts listed in
-                                <filename>/etc/fstab</filename>, or
-                                whether this job is left to some other
-                                system script.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>DefaultControllers=cpu</varname></term>
 
                                 <listitem><para>Configures in which

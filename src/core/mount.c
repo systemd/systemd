@@ -325,7 +325,7 @@ static int mount_add_fstab_links(Mount *m) {
         MountParameters *p;
         Unit *tu;
         int r;
-        bool noauto, nofail, handle, automount;
+        bool noauto, nofail, automount;
 
         assert(m);
 
@@ -343,11 +343,6 @@ static int mount_add_fstab_links(Mount *m) {
         automount =
                 mount_test_option(p->options, "comment=systemd.automount") ||
                 mount_test_option(p->options, "x-systemd-automount");
-        handle =
-                automount ||
-                mount_test_option(p->options, "comment=systemd.mount") ||
-                mount_test_option(p->options, "x-systemd-mount") ||
-                UNIT(m)->manager->mount_auto;
 
         if (mount_is_network(p)) {
                 target = SPECIAL_REMOTE_FS_TARGET;
@@ -391,7 +386,7 @@ static int mount_add_fstab_links(Mount *m) {
                 else /* automount + nofail */
                         return unit_add_two_dependencies(tu, UNIT_AFTER, UNIT_WANTS, am, true);
 
-        } else if (handle && !noauto) {
+        } else if (!noauto) {
 
                 /* Automatically add mount points that aren't natively
                  * configured to local-fs.target */
@@ -1574,7 +1569,6 @@ static int mount_load_etc_fstab(Manager *m) {
                                                  pri,
                                                  !!mount_test_option(me->mnt_opts, "noauto"),
                                                  !!mount_test_option(me->mnt_opts, "nofail"),
-                                                 !!mount_test_option(me->mnt_opts, "comment=systemd.swapon"),
                                                  false);
                 } else
                         k = mount_add_one(m, what, where, me->mnt_opts, me->mnt_type, me->mnt_passno, false, false);

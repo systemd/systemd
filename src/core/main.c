@@ -76,8 +76,6 @@ static bool arg_show_status = true;
 #ifdef HAVE_SYSV_COMPAT
 static bool arg_sysv_console = true;
 #endif
-static bool arg_mount_auto = true;
-static bool arg_swap_auto = true;
 static char **arg_default_controllers = NULL;
 static char ***arg_join_controllers = NULL;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
@@ -658,8 +656,6 @@ static int parse_config_file(void) {
 #endif
                 { "Manager", "CrashChVT",             config_parse_int,          0, &arg_crash_chvt          },
                 { "Manager", "CPUAffinity",           config_parse_cpu_affinity2, 0, NULL                    },
-                { "Manager", "MountAuto",             config_parse_bool,         0, &arg_mount_auto          },
-                { "Manager", "SwapAuto",              config_parse_bool,         0, &arg_swap_auto           },
                 { "Manager", "DefaultControllers",    config_parse_strv,         0, &arg_default_controllers },
                 { "Manager", "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output  },
                 { "Manager", "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error   },
@@ -1427,8 +1423,6 @@ int main(int argc, char *argv[]) {
 #ifdef HAVE_SYSV_COMPAT
         m->sysv_console = arg_sysv_console;
 #endif
-        m->mount_auto = arg_mount_auto;
-        m->swap_auto = arg_swap_auto;
         m->default_std_output = arg_default_std_output;
         m->default_std_error = arg_default_std_error;
         m->runtime_watchdog = arg_runtime_watchdog;
