@@ -546,18 +546,16 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
 
                 /* When isolating first kill all installed jobs which
                  * aren't part of the new transaction */
-        rescan:
                 HASHMAP_FOREACH(j, m->jobs, i) {
                         assert(j->installed);
 
                         if (hashmap_get(tr->jobs, j->unit))
                                 continue;
 
-                        /* 'j' itself is safe to remove, but if other jobs
-                           are invalidated recursively, our iterator may become
-                           invalid and we need to start over. */
-                        if (job_finish_and_invalidate(j, JOB_CANCELED) > 0)
-                                goto rescan;
+                        /* Not invalidating recursively. Avoids triggering
+                         * OnFailure= actions of dependent jobs. Also avoids
+                         * invalidating our iterator. */
+                        job_finish_and_invalidate(j, JOB_CANCELED, false);
                 }
         }
 

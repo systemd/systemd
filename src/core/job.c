@@ -164,7 +164,7 @@ Job* job_install(Job *j) {
 
         if (uj) {
                 if (job_type_is_conflicting(uj->type, j->type))
-                        job_finish_and_invalidate(uj, JOB_CANCELED);
+                        job_finish_and_invalidate(uj, JOB_CANCELED, true);
                 else {
                         /* not conflicting, i.e. mergeable */
 
@@ -496,13 +496,13 @@ int job_run_and_invalidate(Job *j) {
 
         if ((j = manager_get_job(m, id))) {
                 if (r == -EALREADY)
-                        r = job_finish_and_invalidate(j, JOB_DONE);
+                        r = job_finish_and_invalidate(j, JOB_DONE, true);
                 else if (r == -ENOEXEC)
-                        r = job_finish_and_invalidate(j, JOB_SKIPPED);
+                        r = job_finish_and_invalidate(j, JOB_SKIPPED, true);
                 else if (r == -EAGAIN)
                         j->state = JOB_WAITING;
                 else if (r < 0)
-                        r = job_finish_and_invalidate(j, JOB_FAILED);
+                        r = job_finish_and_invalidate(j, JOB_FAILED, true);
         }
 
         return r;
@@ -556,12 +556,11 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         }
 }
 
-int job_finish_and_invalidate(Job *j, JobResult result) {
+int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
         Unit *u;
         Unit *other;
         JobType t;
         Iterator i;
-        bool recursed = false;
 
         assert(j);
         assert(j->installed);
@@ -595,7 +594,7 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
         job_print_status_message(u, t, result);
 
         /* Fail depending jobs on failure */
-        if (result != JOB_DONE) {
+        if (result != JOB_DONE && recursive) {
 
                 if (t == JOB_START ||
                     t == JOB_VERIFY_ACTIVE ||
@@ -605,29 +604,23 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
                                 if (other->job &&
                                     (other->job->type == JOB_START ||
                                      other->job->type == JOB_VERIFY_ACTIVE ||
-                                     other->job->type == JOB_RELOAD_OR_START)) {
-                                        job_finish_and_invalidate(other->job, JOB_DEPENDENCY);
-                                        recursed = true;
-                                }
+                                     other->job->type == JOB_RELOAD_OR_START))
+                                        job_finish_and_invalidate(other->job, JOB_DEPENDENCY, true);
 
                         SET_FOREACH(other, u->dependencies[UNIT_BOUND_BY], i)
                                 if (other->job &&
                                     (other->job->type == JOB_START ||
                                      other->job->type == JOB_VERIFY_ACTIVE ||
-                                     other->job->type == JOB_RELOAD_OR_START)) {
-                                        job_finish_and_invalidate(other->job, JOB_DEPENDENCY);
-                                        recursed = true;
-                                }
+                                     other->job->type == JOB_RELOAD_OR_START))
+                                        job_finish_and_invalidate(other->job, JOB_DEPENDENCY, true);
 
                         SET_FOREACH(other, u->dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
                                 if (other->job &&
                                     !other->job->override &&
                                     (other->job->type == JOB_START ||
                                      other->job->type == JOB_VERIFY_ACTIVE ||
-                                     other->job->type == JOB_RELOAD_OR_START)) {
-                                        job_finish_and_invalidate(other->job, JOB_DEPENDENCY);
-                                        recursed = true;
-                                }
+                                     other->job->type == JOB_RELOAD_OR_START))
+                                        job_finish_and_invalidate(other->job, JOB_DEPENDENCY, true);
 
                 } else if (t == JOB_STOP) {
 
@@ -635,10 +628,8 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
                                 if (other->job &&
                                     (other->job->type == JOB_START ||
                                      other->job->type == JOB_VERIFY_ACTIVE ||
-                                     other->job->type == JOB_RELOAD_OR_START)) {
-                                        job_finish_and_invalidate(other->job, JOB_DEPENDENCY);
-                                        recursed = true;
-                                }
+                                     other->job->type == JOB_RELOAD_OR_START))
+                                        job_finish_and_invalidate(other->job, JOB_DEPENDENCY, true);
                 }
         }
 
@@ -666,7 +657,7 @@ finish:
 
         manager_check_finished(u->manager);
 
-        return recursed;
+        return 0;
 }
 
 int job_start_timer(Job *j) {
@@ -758,7 +749,7 @@ void job_timer_event(Job *j, uint64_t n_elapsed, Watch *w) {
         assert(w == &j->timer_watch);
 
         log_warning("Job %s/%s timed out.", j->unit->id, job_type_to_string(j->type));
-        job_finish_and_invalidate(j, JOB_TIMEOUT);
+        job_finish_and_invalidate(j, JOB_TIMEOUT, true);
 }
 
 int job_serialize(Job *j, FILE *f, FDSet *fds) {

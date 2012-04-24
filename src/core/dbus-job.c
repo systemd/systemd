@@ -100,7 +100,7 @@ static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusConnection *connec
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
-                job_finish_and_invalidate(j, JOB_CANCELED);
+                job_finish_and_invalidate(j, JOB_CANCELED, true);
 
         } else {
                 const BusBoundProperties bps[] = {

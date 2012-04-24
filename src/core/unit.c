@@ -1226,12 +1226,12 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 case JOB_VERIFY_ACTIVE:
 
                         if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                                job_finish_and_invalidate(u->job, JOB_DONE);
+                                job_finish_and_invalidate(u->job, JOB_DONE, true);
                         else if (u->job->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
                                 unexpected = true;
 
                                 if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                        job_finish_and_invalidate(u->job, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE);
+                                        job_finish_and_invalidate(u->job, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true);
                         }
 
                         break;
@@ -1241,12 +1241,12 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                         if (u->job->state == JOB_RUNNING) {
                                 if (ns == UNIT_ACTIVE)
-                                        job_finish_and_invalidate(u->job, reload_success ? JOB_DONE : JOB_FAILED);
+                                        job_finish_and_invalidate(u->job, reload_success ? JOB_DONE : JOB_FAILED, true);
                                 else if (ns != UNIT_ACTIVATING && ns != UNIT_RELOADING) {
                                         unexpected = true;
 
                                         if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                                job_finish_and_invalidate(u->job, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE);
+                                                job_finish_and_invalidate(u->job, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true);
                                 }
                         }
 
@@ -1257,10 +1257,10 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 case JOB_TRY_RESTART:
 
                         if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                job_finish_and_invalidate(u->job, JOB_DONE);
+                                job_finish_and_invalidate(u->job, JOB_DONE, true);
                         else if (u->job->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                                 unexpected = true;
-                                job_finish_and_invalidate(u->job, JOB_FAILED);
+                                job_finish_and_invalidate(u->job, JOB_FAILED, true);
                         }
 
                         break;

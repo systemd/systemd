@@ -871,7 +871,8 @@ void manager_clear_jobs(Manager *m) {
         assert(m);
 
         while ((j = hashmap_first(m->jobs)))
-                job_finish_and_invalidate(j, JOB_CANCELED);
+                /* No need to recurse. We're cancelling all jobs. */
+                job_finish_and_invalidate(j, JOB_CANCELED, false);
 }
 
 unsigned manager_dispatch_run_queue(Manager *m) {
