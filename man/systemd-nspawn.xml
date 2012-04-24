@@ -93,9 +93,12 @@
                 container.</para>
 
                 <para>Use a tool like
-                <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry> or <citerefentry><refentrytitle>mock</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                or
+                <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 to set up an OS directory tree suitable as file system
-                hierarchy for <command>systemd-nspawn</command> containers.</para>
+                hierarchy for <command>systemd-nspawn</command>
+                containers.</para>
 
                 <para>Note that <command>systemd-nspawn</command> will
                 mount file systems private to the container to
@@ -202,27 +205,25 @@
         <refsect1>
                 <title>Example 1</title>
 
-                <programlisting># debootstrap --arch=amd64 unstable debian-tree/
-# systemd-nspawn -D debian-tree/</programlisting>
+                <programlisting># yum --releasever=17 --nogpgcheck --installroot ~/fedora-tree/ install yum passwd vim-minimal rootfiles systemd
+# systemd-nspawn -D ~/fedora-tree /usr/lib/systemd/systemd</programlisting>
 
-                <para>This installs a minimal Debian unstable
-                distribution into the directory
-                <filename>debian-tree/</filename> and then spawns a
-                shell in a namespace container in it.</para>
-
+                <para>This installs a minimal Fedora distribution into
+                the directory <filename>~/fedora-tree/</filename>
+                and then boots an OS in a namespace container in it,
+                with systemd as init system.</para>
         </refsect1>
 
         <refsect1>
                 <title>Example 2</title>
 
-                <programlisting># mock --init
-# systemd-nspawn -D /var/lib/mock/fedora-rawhide-x86_64/root/ /sbin/init systemd.log_level=debug</programlisting>
+                <programlisting># debootstrap --arch=amd64 unstable ~/debian-tree/
+# systemd-nspawn -D ~/debian-tree/</programlisting>
 
-                <para>This installs a minimal Fedora distribution into
-                a subdirectory of <filename>/var/lib/mock/</filename>
-                and then boots an OS in a namespace container in it,
-                with systemd as init system, configured for debug
-                logging.</para>
+                <para>This installs a minimal Debian unstable
+                distribution into the directory
+                <filename>~/debian-tree/</filename> and then spawns a
+                shell in a namespace container in it.</para>
 
         </refsect1>
 
@@ -238,8 +239,8 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>mock</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
