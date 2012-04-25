@@ -6,7 +6,7 @@
 ]>
 <book id="index" xmlns:xi="http://www.w3.org/2003/XInclude">
   <bookinfo>
-    <title>GUDev Reference Manual</title>
+    <title>GUdev Reference Manual</title>
     <releaseinfo>
        For version &version; — the latest version of this
        documentation can be found at
