@@ -1255,18 +1255,8 @@ int main(int argc, char *argv[])
 
                 setsid();
 
-                fd = open("/proc/self/oom_score_adj", O_RDWR);
-                if (fd < 0) {
-                        /* Fallback to old interface */
-                        fd = open("/proc/self/oom_adj", O_RDWR);
-                        if (fd < 0) {
-                                log_error("error disabling OOM: %m\n");
-                        } else {
-                                /* OOM_DISABLE == -17 */
-                                write(fd, "-17", 3);
-                                close(fd);
-                        }
-                } else {
+                fd = open("/proc/self/oom_score_adj", O_RDWR|O_CLOEXEC);
+                if (fd >= 0) {
                         write(fd, "-1000", 5);
                         close(fd);
                 }
