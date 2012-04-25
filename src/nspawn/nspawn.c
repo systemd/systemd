@@ -57,6 +57,7 @@ static char *arg_user = NULL;
 static char **arg_controllers = NULL;
 static char *arg_uuid = NULL;
 static bool arg_private_network = false;
+static bool arg_read_only = false;
 static bool arg_boot = false;
 
 static int help(void) {
@@ -69,7 +70,8 @@ static int help(void) {
                "  -u --user=USER        Run the command under specified user or uid\n"
                "  -C --controllers=LIST Put the container in specified comma-separated cgroup hierarchies\n"
                "     --uuid=UUID        Set a specific machine UUID for the container\n"
-               "     --private-network  Disable network in container\n",
+               "     --private-network  Disable network in container\n"
+               "     --read-only        Mount the root directory read-only\n",
                program_invocation_short_name);
 
         return 0;
@@ -79,7 +81,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_PRIVATE_NETWORK = 0x100,
-                ARG_UUID
+                ARG_UUID,
+                ARG_READ_ONLY
         };
 
         static const struct option options[] = {
@@ -90,6 +93,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "private-network", no_argument,       NULL, ARG_PRIVATE_NETWORK },
                 { "boot",            no_argument,       NULL, 'b'                 },
                 { "uuid",            required_argument, NULL, ARG_UUID            },
+                { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
                 { NULL,              0,                 NULL, 0                   }
         };
 
@@ -146,6 +150,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_UUID:
                         arg_uuid = optarg;
+                        break;
+
+                case ARG_READ_ONLY:
+                        arg_read_only = true;
                         break;
 
                 case '?':
@@ -971,6 +979,18 @@ int main(int argc, char *argv[]) {
                 if (mount(NULL, "/", NULL, MS_PRIVATE|MS_REC, NULL) < 0)
                         goto child_fail;
 
+                /* Turn directory into bind mount */
+                if (mount(arg_directory, arg_directory, "bind", MS_BIND, NULL) < 0) {
+                        log_error("Failed to make bind mount.");
+                        goto child_fail;
+                }
+
+                if (arg_read_only)
+                        if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) < 0) {
+                                log_error("Failed to make read-only.");
+                                goto child_fail;
+                        }
+
                 if (mount_all(arg_directory) < 0)
                         goto child_fail;
 
@@ -1001,8 +1021,8 @@ int main(int argc, char *argv[]) {
                     dup2(STDIN_FILENO, STDERR_FILENO) != STDERR_FILENO)
                         goto child_fail;
 
-                if (mount(arg_directory, "/", "bind", MS_BIND, NULL) < 0) {
-                        log_error("mount(MS_MOVE) failed: %m");
+                if (mount(arg_directory, "/", "bind", MS_MOVE, NULL) < 0) {
+                        log_error("mount(MS_BIND) failed: %m");
                         goto child_fail;
                 }
 
