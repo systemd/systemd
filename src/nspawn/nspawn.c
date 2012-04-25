@@ -263,6 +263,28 @@ static int setup_timezone(const char *dest) {
         return 0;
 }
 
+static int setup_resolv_conf(const char *dest) {
+        char *where;
+
+        assert(dest);
+
+        if (arg_private_network)
+                return 0;
+
+        /* Fix resolv.conf, if possible */
+        if (asprintf(&where, "%s/etc/resolv.conf", dest) < 0) {
+                log_error("Out of memory");
+                return -ENOMEM;
+        }
+
+        if (mount("/etc/resolv.conf", where, "bind", MS_BIND, NULL) >= 0)
+                mount("/etc/resolv.conf", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+
+        free(where);
+
+        return 0;
+}
+
 static int copy_devnodes(const char *dest) {
 
         static const char devnodes[] =
@@ -964,6 +986,9 @@ int main(int argc, char *argv[]) {
                 close_nointr_nofail(kmsg_socket_pair[1]);
 
                 if (setup_timezone(arg_directory) < 0)
+                        goto child_fail;
+
+                if (setup_resolv_conf(arg_directory) < 0)
                         goto child_fail;
 
                 if (chdir(arg_directory) < 0) {
