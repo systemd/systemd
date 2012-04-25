@@ -1,0 +1,17 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+# This target is enabled/disabled via the timedated mechanism when the
+# user asks for it via the UI. NTP implementations should hook
+# themselves into this target via .wants/ symlinks, and then add
+# BindTo= on this target so that they are stopped when it goes away.
+
+[Unit]
+Description=Network Time Protocol
+
+[Install]
+WantedBy=multi-user.target

@@ -304,7 +304,7 @@ static int write_data_local_rtc(void) {
 
 static int read_ntp(DBusConnection *bus) {
         DBusMessage *m = NULL, *reply = NULL;
-        const char *name = "ntpd.service", *s;
+        const char *name = "systemd-timedated-ntp.target", *s;
         DBusError error;
         int r;
 
@@ -374,7 +374,7 @@ finish:
 
 static int start_ntp(DBusConnection *bus, DBusError *error) {
         DBusMessage *m = NULL, *reply = NULL;
-        const char *name = "ntpd.service", *mode = "replace";
+        const char *name = "systemd-timedated-ntp.target", *mode = "replace";
         int r;
 
         assert(bus);
@@ -421,7 +421,7 @@ finish:
 
 static int enable_ntp(DBusConnection *bus, DBusError *error) {
         DBusMessage *m = NULL, *reply = NULL;
-        const char * const names[] = { "ntpd.service", NULL };
+        const char * const names[] = { "systemd-timedated-ntp.target", NULL };
         int r;
         DBusMessageIter iter;
         dbus_bool_t f = FALSE, t = TRUE;

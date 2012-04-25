@@ -297,7 +297,8 @@ dist_systemunit_DATA = \
 	units/systemd-ask-password-console.path \
 	units/syslog.target \
 	units/systemd-udev-control.socket \
-	units/systemd-udev-kernel.socket
+	units/systemd-udev-kernel.socket \
+	units/systemd-timedated-ntp.target
 
 nodist_systemunit_DATA = \
 	units/getty@.service \
