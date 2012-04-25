@@ -678,6 +678,8 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
 
         log_debug("Trying to enqueue job %s/%s/%s", unit->id, job_type_to_string(type), job_mode_to_string(mode));
 
+        job_type_collapse(&type, unit);
+
         tr = transaction_new();
         if (!tr)
                 return -ENOMEM;

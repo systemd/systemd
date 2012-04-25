@@ -158,9 +158,11 @@ struct Unit {
         char *fragment_path; /* if loaded from a config file this is the primary path to it */
         usec_t fragment_mtime;
 
-        /* If there is something to do with this unit, then this is
-         * the job for it */
+        /* If there is something to do with this unit, then this is the installed job for it */
         Job *job;
+
+        /* JOB_NOP jobs are special and can be installed without disturbing the real job. */
+        Job *nop_job;
 
         usec_t job_timeout;
 

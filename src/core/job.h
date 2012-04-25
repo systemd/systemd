@@ -46,14 +46,34 @@ enum JobType {
 
         JOB_STOP,
 
-        JOB_RELOAD,                 /* if running reload */
-        JOB_RELOAD_OR_START,        /* if running reload, if not running start */
+        JOB_RELOAD,                 /* if running, reload */
 
         /* Note that restarts are first treated like JOB_STOP, but
          * then instead of finishing are patched to become
          * JOB_START. */
-        JOB_RESTART,                /* if running stop, then start unconditionally */
-        JOB_TRY_RESTART,            /* if running stop and then start */
+        JOB_RESTART,                /* If running, stop. Then start unconditionally. */
+
+        _JOB_TYPE_MAX_MERGING,
+
+        /* JOB_NOP can enter into a transaction, but as it won't pull in
+         * any dependencies, it won't have to merge with anything.
+         * job_install() avoids the problem of merging JOB_NOP too (it's
+         * special-cased, only merges with other JOB_NOPs). */
+        JOB_NOP = _JOB_TYPE_MAX_MERGING, /* do nothing */
+
+        _JOB_TYPE_MAX_IN_TRANSACTION,
+
+        /* JOB_TRY_RESTART can never appear in a transaction, because
+         * it always collapses into JOB_RESTART or JOB_NOP before entering.
+         * Thus we never need to merge it with anything. */
+        JOB_TRY_RESTART = _JOB_TYPE_MAX_IN_TRANSACTION, /* if running, stop and then start */
+
+        /* JOB_RELOAD_OR_START won't enter into a transaction and cannot result
+         * from transaction merging (there's no way for JOB_RELOAD and
+         * JOB_START to meet in one transaction). It can result from a merge
+         * during job installation, but then it will immediately collapse into
+         * one of the two simpler types. */
+        JOB_RELOAD_OR_START,        /* if running, reload, otherwise start */
 
         _JOB_TYPE_MAX,
         _JOB_TYPE_INVALID = -1
@@ -150,7 +170,7 @@ Job* job_new(Unit *unit, JobType type);
 Job* job_new_raw(Unit *unit);
 void job_free(Job *job);
 Job* job_install(Job *j);
-void job_install_deserialized(Job *j);
+int job_install_deserialized(Job *j);
 void job_uninstall(Job *j);
 void job_dump(Job *j, FILE*f, const char *prefix);
 int job_serialize(Job *j, FILE *f, FDSet *fds);
@@ -163,14 +183,6 @@ void job_dependency_free(JobDependency *l);
 int job_merge(Job *j, Job *other);
 
 JobType job_type_lookup_merge(JobType a, JobType b);
-
-static inline int job_type_merge(JobType *a, JobType b) {
-        JobType t = job_type_lookup_merge(*a, b);
-        if (t < 0)
-                return -EEXIST;
-        *a = t;
-        return 0;
-}
 
 static inline bool job_type_is_mergeable(JobType a, JobType b) {
         return job_type_lookup_merge(a, b) >= 0;
@@ -186,6 +198,12 @@ static inline bool job_type_is_superset(JobType a, JobType b) {
 }
 
 bool job_type_is_redundant(JobType a, UnitActiveState b);
+
+/* Collapses a state-dependent job type into a simpler type by observing
+ * the state of the unit which it is going to be applied to. */
+void job_type_collapse(JobType *t, Unit *u);
+
+int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u);
 
 bool job_is_runnable(Job *j);
 

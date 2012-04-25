@@ -904,7 +904,8 @@ test_job_type_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 test_job_type_LDADD = \
-	libsystemd-core.la
+	libsystemd-core.la \
+	libsystemd-daemon.la
 
 test_ns_SOURCES = \
 	src/test/test-ns.c

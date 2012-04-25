@@ -249,6 +249,9 @@ bool unit_check_gc(Unit *u) {
         if (u->job)
                 return true;
 
+        if (u->nop_job)
+                return true;
+
         if (unit_active_state(u) != UNIT_INACTIVE)
                 return true;
 
@@ -354,6 +357,12 @@ void unit_free(Unit *u) {
 
         if (u->job) {
                 Job *j = u->job;
+                job_uninstall(j);
+                job_free(j);
+        }
+
+        if (u->nop_job) {
+                Job *j = u->nop_job;
                 job_uninstall(j);
                 job_free(j);
         }
@@ -499,6 +508,9 @@ int unit_merge(Unit *u, Unit *other) {
                 return -EEXIST;
 
         if (other->job)
+                return -EEXIST;
+
+        if (other->nop_job)
                 return -EEXIST;
 
         if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other)))
@@ -728,6 +740,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (u->job)
                 job_dump(u->job, f, prefix2);
+
+        if (u->nop_job)
+                job_dump(u->nop_job, f, prefix2);
 
         free(p2);
 }
@@ -1507,6 +1522,7 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
         case JOB_VERIFY_ACTIVE:
         case JOB_START:
         case JOB_STOP:
+        case JOB_NOP:
                 return true;
 
         case JOB_RESTART:
@@ -2293,6 +2309,11 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds) {
                 job_serialize(u->job, f, fds);
         }
 
+        if (u->nop_job) {
+                fprintf(f, "job\n");
+                job_serialize(u->nop_job, f, fds);
+        }
+
         dual_timestamp_serialize(f, "inactive-exit-timestamp", &u->inactive_exit_timestamp);
         dual_timestamp_serialize(f, "active-enter-timestamp", &u->active_enter_timestamp);
         dual_timestamp_serialize(f, "active-exit-timestamp", &u->active_exit_timestamp);
@@ -2382,9 +2403,15 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                         return r;
                                 }
 
-                                job_install_deserialized(j);
                                 r = hashmap_put(u->manager->jobs, UINT32_TO_PTR(j->id), j);
                                 if (r < 0) {
+                                        job_free(j);
+                                        return r;
+                                }
+
+                                r = job_install_deserialized(j);
+                                if (r < 0) {
+                                        hashmap_remove(u->manager->jobs, UINT32_TO_PTR(j->id));
                                         job_free(j);
                                         return r;
                                 }

@@ -236,7 +236,7 @@ static int transaction_merge_jobs(Transaction *tr, DBusError *e) {
 
                 t = j->type;
                 LIST_FOREACH(transaction, k, j->transaction_next) {
-                        if (job_type_merge(&t, k->type) >= 0)
+                        if (job_type_merge_and_collapse(&t, k->type, j->unit) >= 0)
                                 continue;
 
                         /* OK, we could not merge all jobs for this
@@ -262,9 +262,9 @@ static int transaction_merge_jobs(Transaction *tr, DBusError *e) {
                 JobType t = j->type;
                 Job *k;
 
-                /* Merge all transactions */
+                /* Merge all transaction jobs for j->unit */
                 LIST_FOREACH(transaction, k, j->transaction_next)
-                        assert_se(job_type_merge(&t, k->type) == 0);
+                        assert_se(job_type_merge_and_collapse(&t, k->type, j->unit) == 0);
 
                 while ((k = j->transaction_next)) {
                         if (tr->anchor_job == k) {
@@ -809,6 +809,7 @@ int transaction_add_job_and_dependencies(
 
         assert(tr);
         assert(type < _JOB_TYPE_MAX);
+        assert(type < _JOB_TYPE_MAX_IN_TRANSACTION);
         assert(unit);
 
         /* log_debug("Pulling in %s/%s from %s/%s", */
@@ -859,7 +860,8 @@ int transaction_add_job_and_dependencies(
                 assert(!tr->anchor_job);
                 tr->anchor_job = ret;
         }
-        if (is_new && !ignore_requirements) {
+
+        if (is_new && !ignore_requirements && type != JOB_NOP) {
                 Set *following;
 
                 /* If we are following some other unit, make sure we
@@ -879,7 +881,7 @@ int transaction_add_job_and_dependencies(
                 }
 
                 /* Finally, recursively add in all dependencies. */
-                if (type == JOB_START || type == JOB_RELOAD_OR_START || type == JOB_RESTART) {
+                if (type == JOB_START || type == JOB_RESTART) {
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUIRES], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, override, false, false, ignore_order, e);
                                 if (r < 0) {
@@ -969,7 +971,7 @@ int transaction_add_job_and_dependencies(
 
                 }
 
-                if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
+                if (type == JOB_STOP || type == JOB_RESTART) {
 
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_REQUIRED_BY], i) {
                                 r = transaction_add_job_and_dependencies(tr, type, dep, ret, true, override, false, false, ignore_order, e);
@@ -994,7 +996,7 @@ int transaction_add_job_and_dependencies(
                         }
                 }
 
-                if (type == JOB_RELOAD || type == JOB_RELOAD_OR_START) {
+                if (type == JOB_RELOAD) {
 
                         SET_FOREACH(dep, ret->unit->dependencies[UNIT_PROPAGATE_RELOAD_TO], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_RELOAD, dep, ret, false, override, false, false, ignore_order, e);
@@ -1007,7 +1009,7 @@ int transaction_add_job_and_dependencies(
                         }
                 }
 
-                /* JOB_VERIFY_STARTED, JOB_RELOAD require no dependency handling */
+                /* JOB_VERIFY_STARTED require no dependency handling */
         }
 
         return 0;
