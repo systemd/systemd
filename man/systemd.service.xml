@@ -121,7 +121,8 @@
                                 <option>forking</option>,
                                 <option>oneshot</option>,
                                 <option>dbus</option>,
-                                <option>notify</option>.</para>
+                                <option>notify</option> or
+                                <option>idle</option>.</para>
 
                                 <para>If set to
                                 <option>simple</option> (the default
@@ -201,6 +202,16 @@
                                 <varname>NotifyAccess=</varname> is
                                 not set, it will be implicitly set to
                                 <option>main</option>.</para>
+
+                                <para>Behaviour of
+                                <option>idle</option> is very similar
+                                to <option>idle</option>, however
+                                actual execution of a the service
+                                binary is delayed until all jobs are
+                                dispatched. This may be used to avoid
+                                interleaving of output of shell
+                                services with the status output on the
+                                console.</para>
                                 </listitem>
                         </varlistentry>
 
