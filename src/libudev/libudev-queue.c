@@ -216,7 +216,7 @@ static FILE *open_queue_file(struct udev_queue *udev_queue, unsigned long long i
                 return NULL;
 
         if (udev_queue_read_seqnum(queue_file, seqnum_start) < 0) {
-                err(udev_queue->udev, "corrupt queue file\n");
+                udev_err(udev_queue->udev, "corrupt queue file\n");
                 fclose(queue_file);
                 return NULL;
         }
@@ -473,7 +473,7 @@ _public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_qu
 struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev_queue);
 _public_ struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev_queue)
 {
-        err(udev_queue->udev, "udev_queue_get_failed_list_entry() does not return anything; failed events are not recorded\n");
+        udev_err(udev_queue->udev, "udev_queue_get_failed_list_entry() does not return anything; failed events are not recorded\n");
         errno = ENOSYS;
         return NULL;
 }

@@ -36,9 +36,9 @@
       udev_log(udev, prio, __FILE__, __LINE__, __FUNCTION__, ## arg); \
   } while (0)
 
-#define dbg(udev, arg...) udev_log_cond(udev, LOG_DEBUG, ## arg)
-#define info(udev, arg...) udev_log_cond(udev, LOG_INFO, ## arg)
-#define err(udev, arg...) udev_log_cond(udev, LOG_ERR, ## arg)
+#define udev_dbg(udev, arg...) udev_log_cond(udev, LOG_DEBUG, ## arg)
+#define udev_info(udev, arg...) udev_log_cond(udev, LOG_INFO, ## arg)
+#define udev_err(udev, arg...) udev_log_cond(udev, LOG_ERR, ## arg)
 
 /* libudev.c */
 void udev_log(struct udev *udev,

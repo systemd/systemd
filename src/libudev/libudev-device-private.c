@@ -122,7 +122,7 @@ int udev_device_update_db(struct udev_device *udev_device)
         mkdir_parents(filename_tmp, 0755);
         f = fopen(filename_tmp, "we");
         if (f == NULL) {
-                err(udev, "unable to create temporary db file '%s': %m\n", filename_tmp);
+                udev_err(udev, "unable to create temporary db file '%s': %m\n", filename_tmp);
                 return -1;
         }
 
@@ -162,7 +162,7 @@ int udev_device_update_db(struct udev_device *udev_device)
 
         fclose(f);
         rename(filename_tmp, filename);
-        dbg(udev, "created %s file '%s' for '%s'\n", has_info ? "db" : "empty",
+        udev_dbg(udev, "created %s file '%s' for '%s'\n", has_info ? "db" : "empty",
              filename, udev_device_get_devpath(udev_device));
         return 0;
 }

@@ -143,7 +143,7 @@ _public_ struct udev *udev_new(void)
                         /* split key/value */
                         val = strchr(key, '=');
                         if (val == NULL) {
-                                err(udev, "missing <key>=<value> in " SYSCONFDIR "/udev/udev.conf[%i]; skip line\n", line_nr);
+                                udev_err(udev, "missing <key>=<value> in " SYSCONFDIR "/udev/udev.conf[%i]; skip line\n", line_nr);
                                 continue;
                         }
                         val[0] = '\0';
@@ -175,7 +175,7 @@ _public_ struct udev *udev_new(void)
                         /* unquote */
                         if (val[0] == '"' || val[0] == '\'') {
                                 if (val[len-1] != val[0]) {
-                                        err(udev, "inconsistent quoting in " SYSCONFDIR "/udev/udev.conf[%i]; skip line\n", line_nr);
+                                        udev_err(udev, "inconsistent quoting in " SYSCONFDIR "/udev/udev.conf[%i]; skip line\n", line_nr);
                                         continue;
                                 }
                                 val[len-1] = '\0';
@@ -249,7 +249,7 @@ _public_ void udev_set_log_fn(struct udev *udev,
                                     const char *format, va_list args))
 {
         udev->log_fn = log_fn;
-        dbg(udev, "custom logging function %p registered\n", log_fn);
+        udev_dbg(udev, "custom logging function %p registered\n", log_fn);
 }
 
 /**

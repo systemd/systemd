@@ -85,9 +85,9 @@ uid_t util_lookup_user(struct udev *udev, const char *user)
         if (pw != NULL)
                 return pw->pw_uid;
         if (errno == 0 || errno == ENOENT || errno == ESRCH)
-                err(udev, "specified user '%s' unknown\n", user);
+                udev_err(udev, "specified user '%s' unknown\n", user);
         else
-                err(udev, "error resolving user '%s': %m\n", user);
+                udev_err(udev, "error resolving user '%s': %m\n", user);
         return 0;
 }
 
@@ -120,9 +120,9 @@ gid_t util_lookup_group(struct udev *udev, const char *group)
                         buflen *= 2;
                         continue;
                 } else if (errno == 0 || errno == ENOENT || errno == ESRCH) {
-                        err(udev, "specified group '%s' unknown\n", group);
+                        udev_err(udev, "specified group '%s' unknown\n", group);
                 } else {
-                        err(udev, "error resolving group '%s': %m\n", group);
+                        udev_err(udev, "error resolving group '%s': %m\n", group);
                 }
                 break;
         }
@@ -178,7 +178,7 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
                         util_strscpy(result, maxsize, val);
                 else
                         result[0] = '\0';
-                dbg(udev, "value '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
+                udev_dbg(udev, "value '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
         } else {
                 size_t l;
                 char *s;
@@ -187,7 +187,7 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
                 l = util_strpcpyl(&s, maxsize, udev_device_get_syspath(dev), NULL);
                 if (attr != NULL)
                         util_strpcpyl(&s, l, "/", attr, NULL);
-                dbg(udev, "path '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
+                udev_dbg(udev, "path '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
         }
         udev_device_unref(dev);
         return 0;

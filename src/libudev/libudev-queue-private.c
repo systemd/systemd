@@ -151,7 +151,7 @@ static struct queue_devpaths *build_index(struct udev_queue_export *udev_queue_e
         /* allocate the table */
         range = udev_queue_export->seqnum_min - udev_queue_export->seqnum_max;
         if (range - 1 > INT_MAX) {
-                err(udev_queue_export->udev, "queue file overflow\n");
+                udev_err(udev_queue_export->udev, "queue file overflow\n");
                 return NULL;
         }
         devpaths = calloc(1, sizeof(struct queue_devpaths) + (range + 1) * sizeof(long));
@@ -188,7 +188,7 @@ static struct queue_devpaths *build_index(struct udev_queue_export *udev_queue_e
         return devpaths;
 
 read_error:
-        err(udev_queue_export->udev, "queue file corrupted\n");
+        udev_err(udev_queue_export->udev, "queue file corrupted\n");
         free(devpaths);
         return NULL;
 }
@@ -256,7 +256,7 @@ static int rebuild_queue_file(struct udev_queue_export *udev_queue_export)
         return 0;
 
 error:
-        err(udev_queue_export->udev, "failed to create queue file: %m\n");
+        udev_err(udev_queue_export->udev, "failed to create queue file: %m\n");
         udev_queue_export_cleanup(udev_queue_export);
 
         if (udev_queue_export->queue_file != NULL) {
@@ -303,7 +303,7 @@ static int write_queue_record(struct udev_queue_export *udev_queue_export,
 write_error:
         /* if we failed half way through writing a record to a file,
            we should not try to write any further records to it. */
-        err(udev_queue_export->udev, "error writing to queue file: %m\n");
+        udev_err(udev_queue_export->udev, "error writing to queue file: %m\n");
         fclose(udev_queue_export->queue_file);
         udev_queue_export->queue_file = NULL;
 
