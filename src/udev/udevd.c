@@ -99,13 +99,9 @@ struct event {
         int ifindex;
 };
 
-static struct event *node_to_event(struct udev_list_node *node)
+static inline struct event *node_to_event(struct udev_list_node *node)
 {
-        char *event;
-
-        event = (char *)node;
-        event -= offsetof(struct event, node);
-        return (struct event *)event;
+        return container_of(node, struct event, node);
 }
 
 static void event_queue_cleanup(struct udev *udev, enum event_state type);
@@ -134,13 +130,9 @@ struct worker_message {
         int exitcode;
 };
 
-static struct worker *node_to_worker(struct udev_list_node *node)
+static inline struct worker *node_to_worker(struct udev_list_node *node)
 {
-        char *worker;
-
-        worker = (char *)node;
-        worker -= offsetof(struct worker, node);
-        return (struct worker *)worker;
+        return container_of(node, struct worker, node);
 }
 
 static void event_queue_delete(struct event *event, bool export)

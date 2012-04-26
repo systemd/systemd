@@ -55,13 +55,9 @@ static int debug;
 /* This can increase dynamically */
 static size_t bufsize = BUFSIZE;
 
-static struct _mate *node_to_mate(struct udev_list_node *node)
+static inline struct _mate *node_to_mate(struct udev_list_node *node)
 {
-        char *mate;
-
-        mate = (char *)node;
-        mate -= offsetof(struct _mate, node);
-        return (struct _mate *)mate;
+        return container_of(node, struct _mate, node);
 }
 
 static void sig_alrm(int signo)

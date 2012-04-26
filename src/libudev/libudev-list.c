@@ -80,13 +80,9 @@ void udev_list_node_remove(struct udev_list_node *entry)
 }
 
 /* return list entry which embeds this node */
-static struct udev_list_entry *list_node_to_entry(struct udev_list_node *node)
+static inline struct udev_list_entry *list_node_to_entry(struct udev_list_node *node)
 {
-        char *list;
-
-        list = (char *)node;
-        list -= offsetof(struct udev_list_entry, node);
-        return (struct udev_list_entry *)list;
+        return container_of(node, struct udev_list_entry, node);
 }
 
 void udev_list_init(struct udev *udev, struct udev_list *list, bool unique)
