@@ -28,6 +28,9 @@ Features:
 
 * ExecOnFailure=/usr/bin/foo
 
+* logind: add "mode" flag to poweroff/suspend inhibit logic so that we can
+  support both "inhibit" and "delay" mode.
+
 * fedora: make sshd and pam_loginuid work in nspawn containers
 
 * fix utmp for console logins in containers
