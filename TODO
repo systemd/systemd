@@ -1,4 +1,6 @@
 Bugfixes:
+* fix emergency mode breakage after the Type=idle change
+
 * remove MS_SHARED from src/core/execute.c and src/test/test-ns.c. They are always combined
   with MS_REMOUNT, which currently does nothing in the kernel, but might which fail in the
   future; https://bugzilla.redhat.com/show_bug.cgi?id=813563
@@ -20,10 +22,9 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
+* include unit name in D-Bus 'Job' signals
 
-* merge remount-api-vfs and remount-root-fs
-
-* add --read-only to nspawn
+* ExecOnFailure=/usr/bin/foo
 
 * fedora: make sshd and pam_loginuid work in nspawn containers
 
