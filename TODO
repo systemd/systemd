@@ -22,6 +22,8 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
+* taint flag for rtc-in-localtime
+
 * include unit name in D-Bus 'Job' signals
 
 * ExecOnFailure=/usr/bin/foo
@@ -49,6 +51,8 @@ Features:
 * add RequiredBy to [Install]
 
 * cg_shorten_controllers() misuses alloca()
+
+* udev: move to LGPL
 
 * udev systemd unify:
   - strpcpy(), strpcpyl(), strscpy(), strscpyl()
