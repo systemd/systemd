@@ -810,6 +810,7 @@ const BusProperty bus_unit_properties[] = {
         { "TriggeredBy",          bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_TRIGGERED_BY]),            true },
         { "PropagateReloadTo",    bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_PROPAGATE_RELOAD_TO]),     true },
         { "PropagateReloadFrom",  bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_PROPAGATE_RELOAD_FROM]),   true },
+        { "RequiresMountsFor",    bus_property_append_strv,          "as", offsetof(Unit, requires_mounts_for),                        true },
         { "Description",          bus_unit_append_description,        "s", 0 },
         { "LoadState",            bus_unit_append_load_state,         "s", offsetof(Unit, load_state)                         },
         { "ActiveState",          bus_unit_append_active_state,       "s", 0 },

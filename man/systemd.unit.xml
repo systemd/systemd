@@ -526,6 +526,18 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>RequiresMountsFor=</varname></term>
+
+                                <listitem><para>Takes a space
+                                separated list of paths. Automatically
+                                adds dependencies of type
+                                <varname>Requires=</varname> and
+                                <varname>After=</varname> for all
+                                mount units required to access the
+                                specified path.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>OnFailureIsolate=</varname></term>
 
                                 <listitem><para>Takes a boolean

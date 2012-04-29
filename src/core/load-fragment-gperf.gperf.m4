@@ -104,6 +104,7 @@ Unit.After,                      config_parse_unit_deps,             UNIT_AFTER,
 Unit.OnFailure,                  config_parse_unit_deps,             UNIT_ON_FAILURE,               0
 Unit.PropagateReloadTo,          config_parse_unit_deps,             UNIT_PROPAGATE_RELOAD_TO,      0
 Unit.PropagateReloadFrom,        config_parse_unit_deps,             UNIT_PROPAGATE_RELOAD_FROM,    0
+Unit.RequiresMountsFor,          config_parse_unit_requires_mounts_for, 0,                          offsetof(Unit, requires_mounts_for)
 Unit.StopWhenUnneeded,           config_parse_bool,                  0,                             offsetof(Unit, stop_when_unneeded)
 Unit.RefuseManualStart,          config_parse_bool,                  0,                             offsetof(Unit, refuse_manual_start)
 Unit.RefuseManualStop,           config_parse_bool,                  0,                             offsetof(Unit, refuse_manual_stop)

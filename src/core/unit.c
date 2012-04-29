@@ -370,6 +370,11 @@ void unit_free(Unit *u) {
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                 bidi_set_free(u, u->dependencies[d]);
 
+        if (u->requires_mounts_for) {
+                LIST_REMOVE(Unit, has_requires_mounts_for, u->manager->has_requires_mounts_for, u);
+                strv_free(u->requires_mounts_for);
+        }
+
         if (u->type != _UNIT_TYPE_INVALID)
                 LIST_REMOVE(Unit, units_by_type, u->manager->units_by_type[u->type], u);
 
@@ -691,6 +696,18 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         fprintf(f, "%s\t%s: %s\n", prefix, unit_dependency_to_string(d), other->id);
         }
 
+        if (!strv_isempty(u->requires_mounts_for)) {
+                char **j;
+
+                fprintf(f,
+                        "%s\tRequiresMountsFor:", prefix);
+
+                STRV_FOREACH(j, u->requires_mounts_for)
+                        fprintf(f, " %s", *j);
+
+                fputs("\n", f);
+        }
+
         if (u->load_state == UNIT_LOADED) {
                 CGroupBonding *b;
                 CGroupAttribute *a;
@@ -868,6 +885,12 @@ int unit_load(Unit *u) {
             u->default_dependencies)
                 if ((r = unit_add_default_dependencies(u)) < 0)
                         goto fail;
+
+        if (u->load_state == UNIT_LOADED) {
+                r = unit_add_mount_links(u);
+                if (r < 0)
+                        return r;
+        }
 
         if (u->on_failure_isolate &&
             set_size(u->dependencies[UNIT_ON_FAILURE]) > 1) {
@@ -2683,6 +2706,45 @@ void unit_ref_unset(UnitRef *ref) {
 
         LIST_REMOVE(UnitRef, refs, ref->unit->refs, ref);
         ref->unit = NULL;
+}
+
+int unit_add_one_mount_link(Unit *u, Mount *m) {
+        char **i;
+
+        assert(u);
+        assert(m);
+
+        if (u->load_state != UNIT_LOADED ||
+            UNIT(m)->load_state != UNIT_LOADED)
+                return 0;
+
+        STRV_FOREACH(i, u->requires_mounts_for) {
+
+                if (UNIT(m) == u)
+                        continue;
+
+                if (!path_startswith(*i, m->where))
+                        continue;
+
+                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true);
+        }
+
+        return 0;
+}
+
+int unit_add_mount_links(Unit *u) {
+        Unit *other;
+        int r;
+
+        assert(u);
+
+        LIST_FOREACH(units_by_type, other, u->manager->units_by_type[UNIT_MOUNT]) {
+                r = unit_add_one_mount_link(u, MOUNT(other));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {

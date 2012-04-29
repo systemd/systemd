@@ -104,6 +104,9 @@ struct Manager {
          * type we maintain a per type linked list */
         LIST_HEAD(Unit, units_by_type[_UNIT_TYPE_MAX]);
 
+        /* To optimize iteration of units that have requires_mounts_for set */
+        LIST_HEAD(Unit, has_requires_mounts_for);
+
         /* Units that need to be loaded */
         LIST_HEAD(Unit, load_queue); /* this is actually more a stack than a queue, but uh. */
 

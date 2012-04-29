@@ -153,6 +153,8 @@ struct Unit {
         Set *names;
         Set *dependencies[_UNIT_DEPENDENCY_MAX];
 
+        char **requires_mounts_for;
+
         char *description;
 
         char *fragment_path; /* if loaded from a config file this is the primary path to it */
@@ -185,6 +187,9 @@ struct Unit {
 
         /* Per type list */
         LIST_FIELDS(Unit, units_by_type);
+
+        /* All units which have requires_mounts_for set */
+        LIST_FIELDS(Unit, has_requires_mounts_for);
 
         /* Load queue */
         LIST_FIELDS(Unit, load_queue);
@@ -553,6 +558,9 @@ Unit* unit_ref_set(UnitRef *ref, Unit *u);
 void unit_ref_unset(UnitRef *ref);
 
 #define UNIT_DEREF(ref) ((ref).unit)
+
+int unit_add_one_mount_link(Unit *u, Mount *m);
+int unit_add_mount_links(Unit *u);
 
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);

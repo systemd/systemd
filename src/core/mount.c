@@ -263,6 +263,21 @@ static int mount_add_socket_links(Mount *m) {
         return 0;
 }
 
+static int mount_add_requires_mounts_links(Mount *m) {
+        Unit *other;
+        int r;
+
+        assert(m);
+
+        LIST_FOREACH(has_requires_mounts_for, other, UNIT(m)->manager->has_requires_mounts_for) {
+                r = unit_add_one_mount_link(other, m);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static char* mount_test_option(const char *haystack, const char *needle) {
         struct mntent me;
 
@@ -612,6 +627,10 @@ static int mount_load(Unit *u) {
                         return r;
 
                 if ((r = mount_add_path_links(m)) < 0)
+                        return r;
+
+                r = mount_add_requires_mounts_links(m);
+                if (r < 0)
                         return r;
 
                 if ((r = mount_add_automount_links(m)) < 0)

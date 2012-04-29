@@ -8,10 +8,10 @@
 [Unit]
 Description=Load Random Seed
 DefaultDependencies=no
-Wants=local-fs.target
 Conflicts=shutdown.target
-After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=sysinit.target shutdown.target
+RequiresMountsFor=@RANDOM_SEED@
 
 [Service]
 Type=oneshot

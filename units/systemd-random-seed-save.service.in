@@ -11,6 +11,7 @@ DefaultDependencies=no
 After=systemd-random-seed-load.service
 Before=shutdown.target
 Conflicts=systemd-random-seed-load.service
+RequiresMountsFor=@RANDOM_SEED@
 
 [Service]
 Type=oneshot

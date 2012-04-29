@@ -2032,6 +2032,35 @@ int config_parse_unit_blkio_bandwidth(const char *filename, unsigned line, const
         return 0;
 }
 
+int config_parse_unit_requires_mounts_for(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = userdata;
+        int r;
+        bool empty_before;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        empty_before = !u->requires_mounts_for;
+
+        r = config_parse_path_strv(filename, line, section, lvalue, ltype, rvalue, data, userdata);
+
+        /* Make it easy to find units with requires_mounts set */
+        if (empty_before && u->requires_mounts_for)
+                LIST_PREPEND(Unit, has_requires_mounts_for, u->manager->has_requires_mounts_for, u);
+
+        return r;
+}
 
 #define FOLLOW_MAX 8
 
@@ -2394,6 +2423,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_socket_bindtodevice,   "NETWORKINTERFACE" },
                 { config_parse_usec,                  "SECONDS" },
                 { config_parse_path_strv,             "PATH [...]" },
+                { config_parse_unit_requires_mounts_for, "PATH [...]" },
                 { config_parse_exec_mount_flags,      "MOUNTFLAG [...]" },
                 { config_parse_unit_string_printf,    "STRING" },
                 { config_parse_timer,                 "TIMER" },
