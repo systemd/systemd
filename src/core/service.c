@@ -2232,6 +2232,8 @@ static void service_enter_restart(Service *s) {
 
                 if ((r = unit_watch_timer(UNIT(s), s->restart_usec, &s->timer_watch)) < 0)
                         goto fail;
+
+                return;
         }
 
         /* Any units that are bound to this service must also be
