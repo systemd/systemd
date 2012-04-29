@@ -2460,8 +2460,7 @@ static int service_stop(Unit *u) {
 
         assert(s);
 
-        /* This is a user request, so don't do restarts on this
-         * shutdown. */
+        /* Don't create restart jobs from here. */
         s->forbid_restart = true;
 
         /* Already on it */
@@ -2473,9 +2472,9 @@ static int service_stop(Unit *u) {
             s->state == SERVICE_FINAL_SIGKILL)
                 return 0;
 
-        /* Don't allow a restart */
+        /* A restart will be scheduled or is in progress. */
         if (s->state == SERVICE_AUTO_RESTART) {
-                service_set_state(s, SERVICE_DEAD);
+                service_enter_dead(s, SERVICE_SUCCESS, false);
                 return 0;
         }
 
