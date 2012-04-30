@@ -205,7 +205,7 @@
 
                                 <para>Behaviour of
                                 <option>idle</option> is very similar
-                                to <option>idle</option>, however
+                                to <option>simple</option>, however
                                 actual execution of a the service
                                 binary is delayed until all jobs are
                                 dispatched. This may be used to avoid
