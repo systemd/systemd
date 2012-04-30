@@ -101,8 +101,6 @@ Features:
 
 * journalctl: show multiline log messages sanely, expand tabs, and show all valid utf8 messages
 
-* introduce NeedsMounts= or so to create .mount dependencies automatically for a specific path
-
 * add DeleteSocketsOnStop=yes|no option to socket units
 
 * journal: store euid in journal if it differs from uid
