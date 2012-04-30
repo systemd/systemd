@@ -9,7 +9,7 @@
 Description=Load Random Seed
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=systemd-readahead-collect.service systemd-readahead-replay.service
+After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service
 Before=sysinit.target shutdown.target
 RequiresMountsFor=@RANDOM_SEED@
 
