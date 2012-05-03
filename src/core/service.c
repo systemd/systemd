@@ -1964,7 +1964,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
                                 if ((r = set_put(pid_set, LONG_TO_PTR(s->control_pid))) < 0)
                                         goto fail;
 
-                        r = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, sig, true, pid_set, NULL);
+                        r = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, sig, true, false, pid_set, NULL);
                         if (r < 0) {
                                 if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                         log_warning("Failed to kill control group: %s", strerror(-r));
@@ -2111,7 +2111,7 @@ static void service_enter_start(Service *s) {
         /* We want to ensure that nobody leaks processes from
          * START_PRE here, so let's go on a killing spree, People
          * should not spawn long running processes from START_PRE. */
-        cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, NULL, "control");
+        cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, true, NULL, "control");
 
         if (s->type == SERVICE_FORKING) {
                 s->control_command_id = SERVICE_EXEC_START;
@@ -2187,7 +2187,7 @@ static void service_enter_start_pre(Service *s) {
 
                 /* Before we start anything, let's clear up what might
                  * be left from previous runs. */
-                cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, NULL, "control");
+                cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, true, NULL, "control");
 
                 s->control_command_id = SERVICE_EXEC_START_PRE;
 
@@ -2923,6 +2923,11 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 if (f != SERVICE_SUCCESS)
                         s->result = f;
+
+                /* Immediately get rid of the cgroup, so that the
+                 * kernel doesn't delay the cgroup empty messages for
+                 * the service cgroup any longer than necessary */
+                cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, true, NULL, "control");
 
                 if (s->control_command &&
                     s->control_command->command_next &&
@@ -3674,7 +3679,7 @@ static int service_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusErro
                                 r = q;
                                 goto finish;
                         }
-                q = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, signo, false, pid_set, NULL);
+                q = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, signo, false, false, pid_set, NULL);
                 if (q < 0)
                         if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                                 r = q;

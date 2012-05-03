@@ -65,8 +65,8 @@ int cgroup_bonding_set_group_access_list(CGroupBonding *b, mode_t mode, uid_t ui
 int cgroup_bonding_set_task_access(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid, int sticky);
 int cgroup_bonding_set_task_access_list(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid, int sticky);
 
-int cgroup_bonding_kill(CGroupBonding *b, int sig, bool sigcont, Set *s, const char *suffix);
-int cgroup_bonding_kill_list(CGroupBonding *first, int sig, bool sigcont, Set *s, const char *suffix);
+int cgroup_bonding_kill(CGroupBonding *b, int sig, bool sigcont, bool rem, Set *s, const char *suffix);
+int cgroup_bonding_kill_list(CGroupBonding *first, int sig, bool sigcont, bool rem, Set *s, const char *suffix);
 
 void cgroup_bonding_trim(CGroupBonding *first, bool delete_root);
 void cgroup_bonding_trim_list(CGroupBonding *first, bool delete_root);
