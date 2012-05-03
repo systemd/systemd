@@ -22,6 +22,11 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
+
+* automount: implement expire
+
+* vconsole: implement setterm -store -foreground xxx --background zzz
+
 * taint flag for rtc-in-localtime
 
 * include unit name in D-Bus 'Job' signals
