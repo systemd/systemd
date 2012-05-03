@@ -253,8 +253,6 @@ static int collect(const char *root) {
                 block_get_readahead(root, &previous_block_readahead) >= 0 &&
                 block_set_readahead(root, 8*1024) >= 0;
 
-        write_one_line_file("/proc/self/oom_score_adj", "1000");
-
         if (ioprio_set(IOPRIO_WHO_PROCESS, getpid(), IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE, 0)) < 0)
                 log_warning("Failed to set IDLE IO priority class: %m");
 

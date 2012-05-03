@@ -132,7 +132,6 @@ static int replay(const char *root) {
 
         assert(root);
 
-        write_one_line_file("/proc/self/oom_score_adj", "1000");
         block_bump_request_nr(root);
 
         if (asprintf(&pack_fn, "%s/.readahead", root) < 0) {

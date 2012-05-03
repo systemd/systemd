@@ -18,6 +18,7 @@ Type=notify
 ExecStart=@rootlibexecdir@/systemd-readahead-collect
 RemainAfterExit=yes
 StandardOutput=null
+OOMScoreAdjust=1000
 
 [Install]
 WantedBy=default.target
