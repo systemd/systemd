@@ -53,6 +53,7 @@ static int unpack_file(FILE *pack) {
         int r = 0, fd = -1;
         bool any = false;
         struct stat st;
+        uint64_t inode;
 
         assert(pack);
 
@@ -62,7 +63,8 @@ static int unpack_file(FILE *pack) {
         char_array_0(fn);
         truncate_nl(fn);
 
-        if ((fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW)) < 0) {
+        fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW);
+        if (fd < 0) {
 
                 if (errno != ENOENT && errno != EPERM && errno != EACCES)
                         log_warning("open(%s) failed: %m", fn);
@@ -70,6 +72,21 @@ static int unpack_file(FILE *pack) {
         } else if (file_verify(fd, fn, arg_file_size_max, &st) <= 0) {
                 close_nointr_nofail(fd);
                 fd = -1;
+        }
+
+        if (fread(&inode, sizeof(inode), 1, pack) != 1) {
+                log_error("Premature end of pack file.");
+                r = -EIO;
+                goto finish;
+        }
+
+        if (fd >= 0) {
+                /* If the inode changed the file got deleted, so just
+                 * ignore this entry */
+                if (st.st_ino != (uint64_t) inode) {
+                        close_nointr_nofail(fd);
+                        fd = -1;
+                }
         }
 
         for (;;) {
@@ -166,8 +183,8 @@ static int replay(const char *root) {
 
         char_array_0(line);
 
-        if (!streq(line, CANONICAL_HOST "\n")) {
-                log_debug("Pack file host type mismatch.");
+        if (!streq(line, CANONICAL_HOST ";VERSION=2\n")) {
+                log_debug("Pack file host or version type mismatch.");
                 goto finish;
         }
 

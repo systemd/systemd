@@ -254,8 +254,6 @@ Features:
 
 * drop /.readahead on bigger upgrades with yum
 
-* add inode nr check to readahead to suppress preloading changed files
-
 * add support for /bin/mount -s
 
 * GC unreferenced jobs (such as .device jobs)

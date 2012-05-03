@@ -86,6 +86,7 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
         void *start = MAP_FAILED;
         uint8_t *vec;
         uint32_t b, c;
+        uint64_t inode;
         size_t l, pages;
         bool mapped;
         int r = 0, fd = -1, k;
@@ -93,7 +94,8 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
         assert(pack);
         assert(fn);
 
-        if ((fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW)) < 0) {
+        fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW);
+        if (fd < 0) {
 
                 if (errno == ENOENT)
                         return 0;
@@ -106,7 +108,8 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
                 goto finish;
         }
 
-        if ((k = file_verify(fd, fn, arg_file_size_max, &st)) <= 0) {
+        k = file_verify(fd, fn, arg_file_size_max, &st);
+        if (k <= 0) {
                 r = k;
                 goto finish;
         }
@@ -115,14 +118,14 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
                 btrfs_defrag(fd);
 
         l = PAGE_ALIGN(st.st_size);
-        if ((start = mmap(NULL, l, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+        start = mmap(NULL, l, PROT_READ, MAP_SHARED, fd, 0);
+        if (start == MAP_FAILED) {
                 log_warning("mmap(%s) failed: %m", fn);
                 r = -errno;
                 goto finish;
         }
 
         pages = l / page_size();
-
         vec = alloca(pages);
         memset(vec, 0, pages);
         if (mincore(start, l, vec) < 0) {
@@ -133,6 +136,10 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
 
         fputs(fn, pack);
         fputc('\n', pack);
+
+        /* Store the inode, so that we notice when the file is deleted */
+        inode = (uint64_t) st.st_ino;
+        fwrite(&inode, sizeof(inode), 1, pack);
 
         mapped = false;
         for (c = 0; c < pages; c++) {
@@ -479,13 +486,14 @@ done:
                 goto finish;
         }
 
-        if (!(pack = fopen(pack_fn_new, "we"))) {
+        pack = fopen(pack_fn_new, "we");
+        if (!pack) {
                 log_error("Failed to open pack file: %m");
                 r = -errno;
                 goto finish;
         }
 
-        fputs(CANONICAL_HOST "\n", pack);
+        fputs(CANONICAL_HOST ";VERSION=2\n", pack);
         putc(on_ssd ? 'S' : 'R', pack);
 
         if (on_ssd || on_btrfs) {
