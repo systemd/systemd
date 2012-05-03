@@ -294,17 +294,23 @@ static int bus_manager_append_tainted(DBusMessageIter *i, const char *property, 
         assert(m);
 
         if (m->taint_usr)
-                e = stpcpy(e, "usr-separate-fs ");
+                e = stpcpy(e, "split-usr:");
 
         if (readlink_malloc("/etc/mtab", &p) < 0)
-                e = stpcpy(e, "etc-mtab-not-symlink ");
+                e = stpcpy(e, "mtab-not-symlink:");
         else
                 free(p);
 
         if (access("/proc/cgroups", F_OK) < 0)
-                stpcpy(e, "cgroups-missing ");
+                stpcpy(e, "cgroups-missing:");
 
-        t = strstrip(buf);
+        if (hwclock_is_localtime() > 0)
+                stpcpy(e, "local-hwclock:");
+
+        if (endswith(buf, ":"))
+                buf[strlen(buf)-1] = 0;
+
+        t = buf;
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t))
                 return -ENOMEM;

@@ -5001,7 +5001,6 @@ int hwclock_is_localtime(void) {
                 if (!b)
                         return -EIO;
 
-
                 truncate_nl(line);
                 local = streq(line, "LOCAL");
 
@@ -5136,7 +5135,7 @@ int hwclock_get_time(struct tm *tm) {
         if (ioctl(fd, RTC_RD_TIME, tm) < 0)
                 err = -errno;
 
-        /* We don't now daylight saving, so we reset this in order not
+        /* We don't know daylight saving, so we reset this in order not
          * to confused mktime(). */
         tm->tm_isdst = -1;
 
