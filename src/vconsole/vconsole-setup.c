@@ -247,7 +247,7 @@ int main(int argc, char **argv) {
                                         NULL)) < 0) {
 
                         if (r != -ENOENT)
-                                log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
+                                log_warning("Failed to read /etc/sysconfig/keyboard: %s", strerror(-r));
                 }
 
                 if (access("/etc/sysconfig/console/default.kmap", F_OK) >= 0) {
@@ -320,7 +320,7 @@ int main(int argc, char **argv) {
                                         NULL)) < 0) {
 
                         if (r != -ENOENT)
-                                log_warning("Failed to read /etc/sysconfig/console: %s", strerror(-r));
+                                log_warning("Failed to read /etc/sysconfig/consolefont: %s", strerror(-r));
                 }
 
 #elif defined(TARGET_GENTOO)
@@ -391,7 +391,7 @@ int main(int argc, char **argv) {
                                         NULL)) < 0) {
 
                         if (r != -ENOENT)
-                                log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
+                                log_warning("Failed to read /etc/sysconfig/keyboard: %s", strerror(-r));
                 }
 
                 if (vc_keytable) {
