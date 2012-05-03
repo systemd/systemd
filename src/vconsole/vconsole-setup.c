@@ -70,11 +70,12 @@ static int disable_utf8(int fd) {
         if (loop_write(fd, "\033%@", 3, false) < 0)
                 r = -errno;
 
-        if ((k = write_one_line_file("/sys/module/vt/parameters/default_utf8", "0")) < 0)
+        k = write_one_line_file("/sys/module/vt/parameters/default_utf8", "0");
+        if (k < 0)
                 r = k;
 
         if (r < 0)
-                log_warning("Failed to disable UTF-8: %s", strerror(errno));
+                log_warning("Failed to disable UTF-8: %s", strerror(-r));
 
         return r;
 }
@@ -101,7 +102,8 @@ static int load_keymap(const char *vc, const char *map, const char *map_toggle, 
                 args[i++] = map_toggle;
         args[i++] = NULL;
 
-        if ((pid = fork()) < 0) {
+        pid = fork();
+        if (pid < 0) {
                 log_error("Failed to fork: %m");
                 return -errno;
         } else if (pid == 0) {
@@ -138,7 +140,8 @@ static int load_font(const char *vc, const char *font, const char *map, const ch
         }
         args[i++] = NULL;
 
-        if ((pid = fork()) < 0) {
+        pid = fork();
+        if (pid < 0) {
                 log_error("Failed to fork: %m");
                 return -errno;
         } else if (pid == 0) {
@@ -179,7 +182,8 @@ int main(int argc, char **argv) {
         else
                 vc = "/dev/tty0";
 
-        if ((fd = open_terminal(vc, O_RDWR|O_CLOEXEC)) < 0) {
+        fd = open_terminal(vc, O_RDWR|O_CLOEXEC);
+        if (fd < 0) {
                 log_error("Failed to open %s: %m", vc);
                 goto finish;
         }
@@ -201,59 +205,56 @@ int main(int argc, char **argv) {
 
         r = 0;
 
-        if (detect_container(NULL) <= 0)
-                if ((r = parse_env_file("/proc/cmdline", WHITESPACE,
-                                        "vconsole.keymap", &vc_keymap,
-                                        "vconsole.keymap.toggle", &vc_keymap_toggle,
-                                        "vconsole.font", &vc_font,
-                                        "vconsole.font.map", &vc_font_map,
-                                        "vconsole.font.unimap", &vc_font_unimap,
-                                        NULL)) < 0) {
+        if (detect_container(NULL) <= 0) {
+                r = parse_env_file("/proc/cmdline", WHITESPACE,
+                                   "vconsole.keymap", &vc_keymap,
+                                   "vconsole.keymap.toggle", &vc_keymap_toggle,
+                                   "vconsole.font", &vc_font,
+                                   "vconsole.font.map", &vc_font_map,
+                                   "vconsole.font.unimap", &vc_font_unimap,
+                                   NULL);
 
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /proc/cmdline: %s", strerror(-r));
-                }
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /proc/cmdline: %s", strerror(-r));
+        }
 
         /* Hmm, nothing set on the kernel cmd line? Then let's
          * try /etc/vconsole.conf */
-        if (r <= 0 &&
-            (r = parse_env_file("/etc/vconsole.conf", NEWLINE,
-                                "KEYMAP", &vc_keymap,
-                                "KEYMAP_TOGGLE", &vc_keymap_toggle,
-                                "FONT", &vc_font,
-                                "FONT_MAP", &vc_font_map,
-                                "FONT_UNIMAP", &vc_font_unimap,
-                                NULL)) < 0) {
+        if (r <= 0) {
+                r = parse_env_file("/etc/vconsole.conf", NEWLINE,
+                                   "KEYMAP", &vc_keymap,
+                                   "KEYMAP_TOGGLE", &vc_keymap_toggle,
+                                   "FONT", &vc_font,
+                                   "FONT_MAP", &vc_font_map,
+                                   "FONT_UNIMAP", &vc_font_unimap,
+                                   NULL);
 
-                if (r != -ENOENT)
+                if (r < 0 && r != -ENOENT)
                         log_warning("Failed to read /etc/vconsole.conf: %s", strerror(-r));
         }
 
         if (r <= 0) {
 #if defined(TARGET_FEDORA) || defined(TARGET_MEEGO)
-                if ((r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
-                                        "SYSFONT", &vc_font,
-                                        "SYSFONTACM", &vc_font_map,
-                                        "UNIMAP", &vc_font_unimap,
-                                        NULL)) < 0) {
+                r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
+                                   "SYSFONT", &vc_font,
+                                   "SYSFONTACM", &vc_font_map,
+                                   "UNIMAP", &vc_font_unimap,
+                                   NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
 
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
-                }
-
-                if ((r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
-                                        "KEYTABLE", &vc_keymap,
-                                        "KEYMAP", &vc_keymap,
-                                        NULL)) < 0) {
-
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/sysconfig/keyboard: %s", strerror(-r));
-                }
+                r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
+                                   "KEYTABLE", &vc_keymap,
+                                   "KEYMAP", &vc_keymap,
+                                   NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/keyboard: %s", strerror(-r));
 
                 if (access("/etc/sysconfig/console/default.kmap", F_OK) >= 0) {
                         char *t;
 
-                        if (!(t = strdup("/etc/sysconfig/console/default.kmap"))) {
+                        t = strdup("/etc/sysconfig/console/default.kmap");
+                        if (!t) {
                                 log_error("Out of memory.");
                                 goto finish;
                         }
@@ -263,79 +264,68 @@ int main(int argc, char **argv) {
                 }
 
 #elif defined(TARGET_SUSE)
-                if ((r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
-                                        "KEYTABLE", &vc_keymap,
-                                        NULL)) < 0) {
+                r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
+                                   "KEYTABLE", &vc_keymap,
+                                   NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/keyboard: %s", strerror(-r));
 
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/sysconfig/keyboard: %s", strerror(-r));
-                }
-
-                if ((r = parse_env_file("/etc/sysconfig/console", NEWLINE,
-                                        "CONSOLE_FONT", &vc_font,
-                                        "CONSOLE_SCREENMAP", &vc_font_map,
-                                        "CONSOLE_UNICODEMAP", &vc_font_unimap,
-                                        NULL)) < 0) {
-
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/sysconfig/console: %s", strerror(-r));
-                }
+                r = parse_env_file("/etc/sysconfig/console", NEWLINE,
+                                   "CONSOLE_FONT", &vc_font,
+                                   "CONSOLE_SCREENMAP", &vc_font_map,
+                                   "CONSOLE_UNICODEMAP", &vc_font_unimap,
+                                   NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/console: %s", strerror(-r));
 
 #elif defined(TARGET_ARCH)
-                if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
-                                        "KEYMAP", &vc_keymap,
-                                        "CONSOLEFONT", &vc_font,
-                                        "CONSOLEMAP", &vc_font_map,
-                                        NULL)) < 0) {
-
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
-                }
+                r = parse_env_file("/etc/rc.conf", NEWLINE,
+                                   "KEYMAP", &vc_keymap,
+                                   "CONSOLEFONT", &vc_font,
+                                   "CONSOLEMAP", &vc_font_map,
+                                   NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
 
 #elif defined(TARGET_FRUGALWARE)
-                if ((r = parse_env_file("/etc/sysconfig/keymap", NEWLINE,
-                                        "keymap", &vc_keymap,
-                                        NULL)) < 0) {
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/sysconfig/keymap: %s", strerror(-r));
-                }
-                if ((r = parse_env_file("/etc/sysconfig/font", NEWLINE,
-                                        "font", &vc_font,
-                                        NULL)) < 0) {
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/sysconfig/font: %s", strerror(-r));
-                }
+                r = parse_env_file("/etc/sysconfig/keymap", NEWLINE,
+                                   "keymap", &vc_keymap,
+                                   NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/keymap: %s", strerror(-r));
+
+                r = parse_env_file("/etc/sysconfig/font", NEWLINE,
+                                   "font", &vc_font,
+                                   NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/font: %s", strerror(-r));
 
 #elif defined(TARGET_ALTLINUX)
-                if ((r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
-                                        "KEYTABLE", &vc_keymap,
-                                        NULL)) < 0) {
+                r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
+                                   "KEYTABLE", &vc_keymap,
+                                   NULL)
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/keyboard: %s", strerror(-r));
 
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/sysconfig/keyboard: %s", strerror(-r));
-                }
-
-                if ((r = parse_env_file("/etc/sysconfig/consolefont", NEWLINE,
-                                        "SYSFONT", &vc_font,
-                                        NULL)) < 0) {
-
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/sysconfig/consolefont: %s", strerror(-r));
-                }
+                r = parse_env_file("/etc/sysconfig/consolefont", NEWLINE,
+                                   "SYSFONT", &vc_font,
+                                   NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/consolefont: %s", strerror(-r));
 
 #elif defined(TARGET_GENTOO)
-                if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
-                                        "unicode", &vc_unicode,
-                                        NULL)) < 0) {
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
-                }
+                r = parse_env_file("/etc/rc.conf", NEWLINE,
+                                   "unicode", &vc_unicode,
+                                   NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
 
                 if (vc_unicode) {
                         int rc_unicode;
 
-                        if ((rc_unicode = parse_boolean(vc_unicode)) < 0)
-                                log_error("Unknown value for /etc/rc.conf unicode=%s", vc_unicode);
+                        rc_unicode = parse_boolean(vc_unicode);
+                        if (rc_unicode < 0)
+                                log_warning("Unknown value for /etc/rc.conf unicode=%s", vc_unicode);
                         else {
                                 if (rc_unicode && !utf8)
                                         log_warning("/etc/rc.conf wants unicode, but current locale is not UTF-8 capable!");
@@ -351,58 +341,52 @@ int main(int argc, char **argv) {
                  * contents are lowercase.  the existing
                  * /etc/init.d/consolefont tries both
                  */
-                if ((r = parse_env_file("/etc/conf.d/consolefont", NEWLINE,
-                                        "CONSOLEFONT", &vc_font,
-                                        "consolefont", &vc_font,
-                                        "consoletranslation", &vc_font_map,
-                                        "CONSOLETRANSLATION", &vc_font_map,
-                                        "unicodemap", &vc_font_unimap,
-                                        "UNICODEMAP", &vc_font_unimap,
-                                        NULL)) < 0) {
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/conf.d/consolefont: %s", strerror(-r));
-                }
+                r = parse_env_file("/etc/conf.d/consolefont", NEWLINE,
+                                   "CONSOLEFONT", &vc_font,
+                                   "consolefont", &vc_font,
+                                   "consoletranslation", &vc_font_map,
+                                   "CONSOLETRANSLATION", &vc_font_map,
+                                   "unicodemap", &vc_font_unimap,
+                                   "UNICODEMAP", &vc_font_unimap,
+                                   NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/conf.d/consolefont: %s", strerror(-r));
 
-                if ((r = parse_env_file("/etc/conf.d/keymaps", NEWLINE,
-                                        "keymap", &vc_keymap,
-                                        "KEYMAP", &vc_keymap,
-                                        NULL)) < 0) {
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/conf.d/keymaps: %s", strerror(-r));
-                }
+                r = parse_env_file("/etc/conf.d/keymaps", NEWLINE,
+                                   "keymap", &vc_keymap,
+                                   "KEYMAP", &vc_keymap,
+                                   NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/conf.d/keymaps: %s", strerror(-r));
 
 #elif defined(TARGET_MANDRIVA) || defined (TARGET_MAGEIA)
 
-                if ((r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
-                                        "SYSFONT", &vc_font,
-                                        "SYSFONTACM", &vc_font_map,
-                                        "UNIMAP", &vc_font_unimap,
-                                        NULL)) < 0) {
+                r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
+                                   "SYSFONT", &vc_font,
+                                   "SYSFONTACM", &vc_font_map,
+                                   "UNIMAP", &vc_font_unimap,
+                                   NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
 
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
-                }
-
-                if ((r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
-                                        "KEYTABLE", &vc_keytable,
-                                        "KEYMAP", &vc_keymap,
-                                        "UNIKEYTABLE", &vc_keymap,
-                                        "GRP_TOGGLE", &vc_keymap_toggle,
-                                        NULL)) < 0) {
-
-                        if (r != -ENOENT)
-                                log_warning("Failed to read /etc/sysconfig/keyboard: %s", strerror(-r));
-                }
+                r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
+                                   "KEYTABLE", &vc_keytable,
+                                   "KEYMAP", &vc_keymap,
+                                   "UNIKEYTABLE", &vc_keymap,
+                                   "GRP_TOGGLE", &vc_keymap_toggle,
+                                   NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/keyboard: %s", strerror(-r));
 
                 if (vc_keytable) {
-                        if (vc_keymap)
-                                free(vc_keymap);
+                        free(vc_keymap);
                         if (utf8) {
                                 if (endswith(vc_keytable, ".uni") || strstr(vc_keytable, ".uni."))
                                         vc_keymap = strdup(vc_keytable);
                                 else {
                                         char *s;
-                                        if ((s = strstr(vc_keytable, ".map")))
+                                        s = strstr(vc_keytable, ".map");
+                                        if (s)
                                                 vc_keytable[s-vc_keytable+1] = '\0';
                                         vc_keymap = strappend(vc_keytable, ".uni");
                                 }
@@ -420,7 +404,8 @@ int main(int argc, char **argv) {
                 if (access("/etc/sysconfig/console/default.kmap", F_OK) >= 0) {
                         char *t;
 
-                        if (!(t = strdup("/etc/sysconfig/console/default.kmap"))) {
+                        t = strdup("/etc/sysconfig/console/default.kmap");
+                        if (!t) {
                                 log_error("Out of memory.");
                                 goto finish;
                         }
