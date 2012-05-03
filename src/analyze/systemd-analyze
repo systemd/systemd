@@ -69,9 +69,9 @@ def draw_text(context, x, y, text, size = 12, r = 0, g = 0, b = 0, vcenter = 0.5
         context.restore()
 
 def help():
-        sys.stdout.write("""systemd-analyze time
-systemd-analyze blame
-systemd-analyze plot
+        sys.stdout.write("""systemd-analyze [--user] time
+systemd-analyze [--user] blame
+systemd-analyze [--user] plot
 
 Process systemd profiling information
 
@@ -80,8 +80,14 @@ Process systemd profiling information
 
 
 bus = dbus.SystemBus()
+command_index = 1
 
-if len(sys.argv) <= 1 or sys.argv[1] == 'time':
+if len(sys.argv) > 1 and sys.argv[1] == '--user':
+        bus = dbus.SessionBus()
+        command_index = 2
+
+
+if len(sys.argv) <= command_index or sys.argv[command_index] == 'time':
 
         initrd_time, start_time, finish_time = acquire_start_time()
 
@@ -98,7 +104,7 @@ if len(sys.argv) <= 1 or sys.argv[1] == 'time':
                         finish_time/1000)
 
 
-elif sys.argv[1] == 'blame':
+elif sys.argv[command_index] == 'blame':
 
         data = acquire_time_data()
         s = sorted(data, key = lambda i: i[2] - i[1], reverse = True)
@@ -113,7 +119,7 @@ elif sys.argv[1] == 'blame':
 
                 sys.stdout.write("%6lums %s\n" % ((aet - ixt) / 1000, name))
 
-elif sys.argv[1] == 'plot':
+elif sys.argv[command_index] == 'plot':
         import cairo, os
 
         initrd_time, start_time, finish_time = acquire_start_time()
@@ -269,8 +275,8 @@ elif sys.argv[1] == 'plot':
                         finish_time/1000), hcenter = 0, vcenter = -1)
 
         surface.finish()
-elif sys.argv[1] in ("help", "--help", "-h"):
+elif sys.argv[command_index] in ("help", "--help", "-h"):
         help()
 else:
-        sys.stderr.write("Unknown verb '%s'.\n" % sys.argv[1])
+        sys.stderr.write("Unknown verb '%s'.\n" % sys.argv[command_index])
         sys.exit(1)
