@@ -67,7 +67,6 @@ static char **arg_property = NULL;
 static bool arg_all = false;
 static const char *arg_job_mode = "replace";
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
-static bool arg_immediate = false;
 static bool arg_no_block = false;
 static bool arg_no_legend = false;
 static bool arg_no_pager = false;
@@ -4525,7 +4524,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
 
         if (utmp_get_runlevel(&runlevel, NULL) >= 0)
                 if (runlevel == '0' || runlevel == '6')
-                        arg_immediate = true;
+                        arg_force = 2;
 
         while ((c = getopt_long(argc, argv, "pfwdnih", options, NULL)) >= 0) {
                 switch (c) {
@@ -4548,7 +4547,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'f':
-                        arg_immediate = true;
+                        arg_force = 2;
                         break;
 
                 case 'w':
@@ -5350,7 +5349,7 @@ static int halt_main(DBusConnection *bus) {
 
                 if (arg_when <= 0 &&
                     !arg_dry &&
-                    !arg_immediate &&
+                    !arg_force &&
                     (arg_action == ACTION_POWEROFF ||
                      arg_action == ACTION_REBOOT)) {
                         r = reboot_with_logind(bus, arg_action);
@@ -5387,7 +5386,7 @@ static int halt_main(DBusConnection *bus) {
                 }
         }
 
-        if (!arg_dry && !arg_immediate)
+        if (!arg_dry && !arg_force)
                 return start_with_fallback(bus);
 
         if (!arg_no_wtmp) {
