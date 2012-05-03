@@ -12,6 +12,5 @@ Description=Locale Service
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-localed
-Type=dbus
 BusName=org.freedesktop.locale1
 CapabilityBoundingSet=

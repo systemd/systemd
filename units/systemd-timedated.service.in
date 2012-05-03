@@ -12,6 +12,5 @@ Description=Time & Date Service
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-timedated
-Type=dbus
 BusName=org.freedesktop.timedate1
 CapabilityBoundingSet=CAP_SYS_TIME
