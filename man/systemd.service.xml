@@ -126,8 +126,9 @@
 
                                 <para>If set to
                                 <option>simple</option> (the default
-                                value) it is expected that the process
-                                configured with
+                                value if <varname>BusName=</varname>
+                                is not specified) it is expected that
+                                the process configured with
                                 <varname>ExecStart=</varname> is the
                                 main process of the service. In this
                                 mode, if the process offers
@@ -182,7 +183,9 @@
                                 option configured implicitly gain
                                 dependencies on the
                                 <filename>dbus.socket</filename>
-                                unit.</para>
+                                unit. This type is the default if
+                                <varname>BusName=</varname> is
+                                specified.</para>
 
                                 <para>Behaviour of
                                 <option>notify</option> is similar to

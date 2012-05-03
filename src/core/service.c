@@ -115,6 +115,7 @@ static void service_init(Unit *u) {
 
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         s->restart_usec = DEFAULT_RESTART_USEC;
+        s->type = _SERVICE_TYPE_INVALID;
 
         s->watchdog_watch.type = WATCH_INVALID;
 
@@ -1216,6 +1217,9 @@ static int service_load(Unit *u) {
 
         /* This is a new unit? Then let's add in some extras */
         if (u->load_state == UNIT_LOADED) {
+                if (s->type == _SERVICE_TYPE_INVALID)
+                        s->type = s->bus_name ? SERVICE_DBUS : SERVICE_SIMPLE;
+
                 service_fix_output(s);
 
                 if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
