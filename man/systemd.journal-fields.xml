@@ -281,8 +281,8 @@
                                         journal protocol, for the
                                         those read from a services'
                                         standard output or error
-                                        output, resp. for those read
-                                        from the kernel.
+                                        output, and for those read
+                                        from the kernel, resp.
                                         </para>
                                 </listitem>
                         </varlistentry>
