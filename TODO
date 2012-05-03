@@ -23,6 +23,10 @@ Bugfixes:
 
 Features:
 
+* don't delete /tmp/systemd-namespace-* before a process is gone down
+
+* don't delete /run/users/lennart if lennart is still logged in even if aging is used
+
 * automount: implement expire
 
 * vconsole: implement setterm -store -foreground xxx --background zzz
