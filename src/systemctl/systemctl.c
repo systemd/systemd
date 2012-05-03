@@ -1783,7 +1783,6 @@ static int start_special(DBusConnection *bus, char **args) {
         enum action a;
         int r;
 
-        assert(bus);
         assert(args);
 
         a = verb_to_action(args[0]);
@@ -5204,7 +5203,9 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                         return 0;
                 }
 
-                if (!bus) {
+                if (((!streq(verbs[i].verb, "reboot") &&
+                     !streq(verbs[i].verb, "halt") &&
+                     !streq(verbs[i].verb, "reboot")) || arg_force <= 0) && !bus) {
                         log_error("Failed to get D-Bus connection: %s",
                                   dbus_error_is_set(error) ? error->message : "No connection to service manager.");
                         return -EIO;
