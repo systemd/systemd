@@ -155,7 +155,7 @@ int bus_property_set_uint64(DBusMessageIter *i, const char *property, void *data
                 assert(i);                                              \
                 assert(property);                                       \
                                                                         \
-                value = name##_to_string(*field);                       \
+                value = strempty(name##_to_string(*field));             \
                                                                         \
                 if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &value)) \
                         return -ENOMEM;                                 \
@@ -166,15 +166,18 @@ int bus_property_set_uint64(DBusMessageIter *i, const char *property, void *data
 #define DEFINE_BUS_PROPERTY_SET_ENUM(function,name,type)                \
         int function(DBusMessageIter *i, const char *property, void *data) { \
                 const char *value;                                      \
-                type *field = data;                                     \
+                type f, *field = data;                                  \
                                                                         \
                 assert(i);                                              \
                 assert(property);                                       \
                                                                         \
                 dbus_message_iter_get_basic(i, &value);                 \
                                                                         \
-                *field = name##_from_string(value);                     \
+                f = name##_from_string(value);                          \
+                if (f < 0)                                              \
+                        return f;                                       \
                                                                         \
+                *field = f;                                             \
                 return 0;                                               \
         }
 
