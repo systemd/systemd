@@ -3166,10 +3166,6 @@ if TARGET_MEEGO
 endif
 
 if TARGET_FEDORA
-	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
-		rm -f halt-local.service && \
-		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f display-manager.service single.service && \
 		$(LN_S) prefdm.service display-manager.service && \
@@ -3180,10 +3176,6 @@ if TARGET_FEDORA
 endif
 
 if TARGET_MANDRIVA
-	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
-		rm -f halt-local.service && \
-		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f display-manager.service dm.service single.service && \
 		$(LN_S) prefdm.service display-manager.service && \
@@ -3201,20 +3193,12 @@ if TARGET_DEBIAN_OR_UBUNTU
 endif
 
 if TARGET_SUSE
-	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f local.service && \
 		$(LN_S) rc-local.service local.service )
-	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
-		rm -f halt-local.service && \
-		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
 endif
 
 if TARGET_MAGEIA
-	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
-		rm -f halt-local.service && \
-		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f display-manager.service && \
 		$(LN_S) prefdm.service display-manager.service && \

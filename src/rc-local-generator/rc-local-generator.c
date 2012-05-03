@@ -29,21 +29,23 @@
 #include "mkdir.h"
 
 #if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
-#define SCRIPT_PATH "/etc/rc.d/rc.local"
+#define SCRIPT_PATH_START "/etc/rc.d/rc.local"
 #elif defined(TARGET_SUSE)
-#define SCRIPT_PATH "/etc/init.d/boot.local"
+#define SCRIPT_PATH_START "/etc/init.d/boot.local"
 #endif
+
+#define SCRIPT_PATH_STOP "/sbin/halt.local"
 
 const char *arg_dest = "/tmp";
 
-static int add_symlink(const char *service) {
+static int add_symlink(const char *service, const char *where) {
         char *from = NULL, *to = NULL;
         int r;
 
         assert(service);
 
         asprintf(&from, SYSTEM_DATA_UNIT_PATH "/%s", service);
-        asprintf(&to, "%s/multi-user.target.wants/%s", arg_dest, service);
+        asprintf(&to, "%s/%s.wants/%s", arg_dest, where, service);
 
         if (!from || !to) {
                 log_error("Out of memory");
@@ -96,12 +98,18 @@ int main(int argc, char *argv[]) {
         if (argc > 1)
                 arg_dest = argv[1];
 
-        if (file_is_executable(SCRIPT_PATH)) {
+        if (file_is_executable(SCRIPT_PATH_START)) {
                 log_debug("Automatically adding rc-local.service.");
 
-                if (add_symlink("rc-local.service") < 0)
+                if (add_symlink("rc-local.service", "multi-user.target") < 0)
                         r = EXIT_FAILURE;
+        }
 
+        if (file_is_executable(SCRIPT_PATH_STOP)) {
+                log_debug("Automatically adding halt-local.service.");
+
+                if (add_symlink("halt-local.service", "final.target") < 0)
+                        r = EXIT_FAILURE;
         }
 
         return r;
