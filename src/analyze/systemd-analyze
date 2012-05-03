@@ -1,6 +1,10 @@
 #!/usr/bin/python
 
-import dbus, sys
+import getopt, dbus, sys, os
+try:
+        import cairo
+except ImportError:
+        cairo = None
 
 def acquire_time_data():
 
@@ -68,7 +72,7 @@ def draw_text(context, x, y, text, size = 12, r = 0, g = 0, b = 0, vcenter = 0.5
 
         context.restore()
 
-def help():
+def usage():
         sys.stdout.write("""systemd-analyze [--user] time
 systemd-analyze [--user] blame
 systemd-analyze [--user] plot
@@ -78,16 +82,11 @@ Process systemd profiling information
   -h --help         Show this help
 """)
 
+def help():
+        usage()
+        sys.exit()
 
-bus = dbus.SystemBus()
-command_index = 1
-
-if len(sys.argv) > 1 and sys.argv[1] == '--user':
-        bus = dbus.SessionBus()
-        command_index = 2
-
-
-if len(sys.argv) <= command_index or sys.argv[command_index] == 'time':
+def time():
 
         initrd_time, start_time, finish_time = acquire_start_time()
 
@@ -104,7 +103,7 @@ if len(sys.argv) <= command_index or sys.argv[command_index] == 'time':
                         finish_time/1000)
 
 
-elif sys.argv[command_index] == 'blame':
+def blame():
 
         data = acquire_time_data()
         s = sorted(data, key = lambda i: i[2] - i[1], reverse = True)
@@ -119,9 +118,10 @@ elif sys.argv[command_index] == 'blame':
 
                 sys.stdout.write("%6lums %s\n" % ((aet - ixt) / 1000, name))
 
-elif sys.argv[command_index] == 'plot':
-        import cairo, os
-
+def plot():
+        if cairo is None:
+                sys.stderr.write("Failed to initilize python-cairo required for 'plot' verb.\n")
+                sys.exit(1)
         initrd_time, start_time, finish_time = acquire_start_time()
         data = acquire_time_data()
         s = sorted(data, key = lambda i: i[1])
@@ -275,8 +275,35 @@ elif sys.argv[command_index] == 'plot':
                         finish_time/1000), hcenter = 0, vcenter = -1)
 
         surface.finish()
-elif sys.argv[command_index] in ("help", "--help", "-h"):
-        help()
-else:
-        sys.stderr.write("Unknown verb '%s'.\n" % sys.argv[command_index])
+
+def unknown_verb():
+        sys.stderr.write("Unknown verb '%s'.\n" % args[0])
+        usage()
         sys.exit(1)
+
+bus = dbus.SystemBus()
+
+try:
+        opts, args = getopt.gnu_getopt(sys.argv[1:], "h", ["help", "user"])
+except getopt.GetoptError, err:
+        print str(err)
+        usage()
+        sys.exit(2)
+for o, a in opts:
+        if o in ("-h", "--help"):
+                help()
+        elif o == '--user':
+                bus = dbus.SessionBus()
+        else:
+                assert False, "unhandled option"
+
+verb = {'time' : time,
+	'blame': blame,
+	'plot' : plot,
+	'help' : help,
+	}
+
+if len(args) == 0:
+        time()
+else:
+        verb.get(args[0], unknown_verb)()
