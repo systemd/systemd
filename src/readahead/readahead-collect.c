@@ -233,8 +233,25 @@ static int collect(const char *root) {
         bool on_ssd, on_btrfs;
         struct statfs sfs;
         usec_t not_after;
+        uint64_t previous_block_readahead;
+        bool previous_block_readahead_set = false;
 
         assert(root);
+
+        if (asprintf(&pack_fn, "%s/.readahead", root) < 0) {
+                log_error("Out of memory");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        /* If there's no pack file yet we lower the kernel readahead
+         * so that mincore() is accurate. If there is a pack file
+         * already we assume it is accurate enough so that kernel
+         * readahead is never triggered. */
+        previous_block_readahead_set =
+                access(pack_fn, F_OK) < 0 &&
+                block_get_readahead(root, &previous_block_readahead) >= 0 &&
+                block_set_readahead(root, 8*1024) >= 0;
 
         write_one_line_file("/proc/self/oom_score_adj", "1000");
 
@@ -458,10 +475,7 @@ done:
         on_btrfs = statfs(root, &sfs) >= 0 && (long) sfs.f_type == (long) BTRFS_SUPER_MAGIC;
         log_debug("On btrfs: %s", yes_no(on_btrfs));
 
-        asprintf(&pack_fn, "%s/.readahead", root);
-        asprintf(&pack_fn_new, "%s/.readahead.new", root);
-
-        if (!pack_fn || !pack_fn_new) {
+        if (asprintf(&pack_fn_new, "%s/.readahead.new", root) < 0) {
                 log_error("Out of memory");
                 r = -ENOMEM;
                 goto finish;
@@ -551,7 +565,6 @@ finish:
                 fclose(pack);
                 unlink(pack_fn_new);
         }
-
         free(pack_fn_new);
         free(pack_fn);
 
@@ -559,6 +572,16 @@ finish:
                 free(p);
 
         hashmap_free(files);
+
+        if (previous_block_readahead_set) {
+                uint64_t bytes;
+
+                /* Restore the original kernel readahead setting if we
+                 * changed it, and nobody has overwritten it since
+                 * yet. */
+                if (block_get_readahead(root, &bytes) >= 0 && bytes == 8*1024)
+                        block_set_readahead(root, previous_block_readahead);
+        }
 
         return r;
 }

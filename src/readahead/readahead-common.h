@@ -45,6 +45,9 @@ typedef struct ReadaheadShared {
 
 ReadaheadShared *shared_get(void);
 
-int bump_request_nr(const char *p);
+int block_bump_request_nr(const char *p);
+
+int block_get_readahead(const char *p, uint64_t *bytes);
+int block_set_readahead(const char *p, uint64_t bytes);
 
 #endif

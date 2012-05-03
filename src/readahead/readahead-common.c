@@ -210,7 +210,7 @@ finish:
 
 #define BUMP_REQUEST_NR (16*1024)
 
-int bump_request_nr(const char *p) {
+int block_bump_request_nr(const char *p) {
         struct stat st;
         uint64_t u;
         char *ap = NULL, *line = NULL;
@@ -260,6 +260,86 @@ int bump_request_nr(const char *p) {
 
         log_info("Bumped block_nr parameter of %u:%u to %lu. This is a temporary hack and should be removed one day.", major(d), minor(d), (unsigned long) BUMP_REQUEST_NR);
         r = 1;
+
+finish:
+        free(ap);
+        free(line);
+
+        return r;
+}
+
+int block_get_readahead(const char *p, uint64_t *bytes) {
+        struct stat st;
+        char *ap = NULL, *line = NULL;
+        int r;
+        dev_t d;
+        uint64_t u;
+
+        assert(p);
+        assert(bytes);
+
+        if (stat(p, &st) < 0)
+                return -errno;
+
+        if (major(st.st_dev) == 0)
+                return 0;
+
+        d = st.st_dev;
+        block_get_whole_disk(d, &d);
+
+        if (asprintf(&ap, "/sys/dev/block/%u:%u/bdi/read_ahead_kb", major(d), minor(d)) < 0) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        r = read_one_line_file(ap, &line);
+        if (r < 0)
+                goto finish;
+
+        r = safe_atou64(line, &u);
+        if (r < 0)
+                goto finish;
+
+        *bytes = u * 1024ULL;
+
+finish:
+        free(ap);
+        free(line);
+
+        return r;
+}
+
+int block_set_readahead(const char *p, uint64_t bytes) {
+        struct stat st;
+        char *ap = NULL, *line = NULL;
+        int r;
+        dev_t d;
+
+        assert(p);
+        assert(bytes);
+
+        if (stat(p, &st) < 0)
+                return -errno;
+
+        if (major(st.st_dev) == 0)
+                return 0;
+
+        d = st.st_dev;
+        block_get_whole_disk(d, &d);
+
+        if (asprintf(&ap, "/sys/dev/block/%u:%u/bdi/read_ahead_kb", major(d), minor(d)) < 0) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (asprintf(&line, "%llu", (unsigned long long) bytes / 1024ULL) < 0) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        r = write_one_line_file(ap, line);
+        if (r < 0)
+                goto finish;
 
 finish:
         free(ap);
