@@ -565,9 +565,23 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         return join_path(p, path, suffix, fs);
 }
 
+static int check(const char *p) {
+        char *cc;
+
+        assert(p);
+
+        /* Check if this controller actually really exists */
+        cc = alloca(sizeof("/sys/fs/cgroup/") + strlen(p));
+        strcpy(stpcpy(cc, "/sys/fs/cgroup/"), p);
+        if (access(cc, F_OK) < 0)
+                return -errno;
+
+        return 0;
+}
+
 int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **fs) {
         const char *p;
-        char *cc;
+        int r;
 
         assert(controller);
         assert(fs);
@@ -575,13 +589,13 @@ int cg_get_path_and_check(const char *controller, const char *path, const char *
         if (isempty(controller))
                 return -EINVAL;
 
+        /* Normalize the controller syntax */
         p = normalize_controller(controller);
 
         /* Check if this controller actually really exists */
-        cc = alloca(sizeof("/sys/fs/cgroup/") + strlen(p));
-        strcpy(stpcpy(cc, "/sys/fs/cgroup/"), p);
-        if (access(cc, F_OK) < 0)
-                return -errno;
+        r = check(p);
+        if (r < 0)
+                return r;
 
         return join_path(p, path, suffix, fs);
 }
@@ -1111,17 +1125,18 @@ char **cg_shorten_controllers(char **controllers) {
                 return controllers;
 
         for (f = controllers, t = controllers; *f; f++) {
-                char *cc;
+                int r;
+                const char *p;
 
                 if (streq(*f, "systemd") || streq(*f, SYSTEMD_CGROUP_CONTROLLER)) {
                         free(*f);
                         continue;
                 }
 
-                cc = alloca(sizeof("/sys/fs/cgroup/") + strlen(*f));
-                strcpy(stpcpy(cc, "/sys/fs/cgroup/"), *f);
+                p = normalize_controller(*f);
 
-                if (access(cc, F_OK) < 0) {
+                r = check(p);
+                if (r < 0) {
                         log_debug("Controller %s is not available, removing from controllers list.", *f);
                         free(*f);
                         continue;

@@ -60,8 +60,6 @@ Features:
 
 * add RequiredBy to [Install]
 
-* cg_shorten_controllers() misuses alloca()
-
 * udev: move to LGPL
 
 * udev systemd unify:
