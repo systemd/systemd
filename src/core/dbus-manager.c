@@ -198,10 +198,12 @@
         "  <signal name=\"JobNew\">\n"                                  \
         "   <arg name=\"id\" type=\"u\"/>\n"                            \
         "   <arg name=\"job\" type=\"o\"/>\n"                           \
+        "   <arg name=\"unit\" type=\"s\"/>\n"                          \
         "  </signal>\n"                                                 \
         "  <signal name=\"JobRemoved\">\n"                              \
         "   <arg name=\"id\" type=\"u\"/>\n"                            \
         "   <arg name=\"job\" type=\"o\"/>\n"                           \
+        "   <arg name=\"unit\" type=\"s\"/>\n"                          \
         "   <arg name=\"result\" type=\"s\"/>\n"                        \
         "  </signal>"                                                   \
         "  <signal name=\"StartupFinished\">\n"                         \

@@ -23,6 +23,8 @@ Bugfixes:
 
 Features:
 
+* services which create their own subcgroups break cgroup-empty notification (needs to be fixed in the kernel)
+
 * don't delete /tmp/systemd-namespace-* before a process is gone down
 
 * don't delete /run/users/lennart if lennart is still logged in even if aging is used
@@ -30,10 +32,6 @@ Features:
 * automount: implement expire
 
 * vconsole: implement setterm -store -foreground xxx --background zzz
-
-* taint flag for rtc-in-localtime
-
-* include unit name in D-Bus 'Job' signals
 
 * ExecOnFailure=/usr/bin/foo
 

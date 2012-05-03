@@ -1349,18 +1349,19 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
 
         } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
                 uint32_t id;
-                const char *path, *result;
+                const char *path, *result, *unit;
                 dbus_bool_t success = true;
 
                 if (dbus_message_get_args(message, &error,
                                           DBUS_TYPE_UINT32, &id,
                                           DBUS_TYPE_OBJECT_PATH, &path,
+                                          DBUS_TYPE_STRING, &unit,
                                           DBUS_TYPE_STRING, &result,
                                           DBUS_TYPE_INVALID)) {
                         char *p;
 
-                        if ((p = set_remove(d->set, (char*) path)))
-                                free(p);
+                        p = set_remove(d->set, (char*) path);
+                        free(p);
 
                         if (*result)
                                 d->result = strdup(result);
@@ -1369,7 +1370,26 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
                 }
 #ifndef LEGACY
                 dbus_error_free(&error);
+                if (dbus_message_get_args(message, &error,
+                                          DBUS_TYPE_UINT32, &id,
+                                          DBUS_TYPE_OBJECT_PATH, &path,
+                                          DBUS_TYPE_STRING, &result,
+                                          DBUS_TYPE_INVALID)) {
+                        char *p;
 
+                        /* Compatibility with older systemd versions <
+                         * 183 during upgrades. This should be dropped
+                         * one day. */
+                        p = set_remove(d->set, (char*) path);
+                        free(p);
+
+                        if (*result)
+                                d->result = strdup(result);
+
+                        goto finish;
+                }
+
+                dbus_error_free(&error);
                 if (dbus_message_get_args(message, &error,
                                           DBUS_TYPE_UINT32, &id,
                                           DBUS_TYPE_OBJECT_PATH, &path,
@@ -1381,8 +1401,8 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
                          * 19 during upgrades. This should be dropped
                          * one day */
 
-                        if ((p = set_remove(d->set, (char*) path)))
-                                free(p);
+                        p = set_remove(d->set, (char*) path);
+                        free(p);
 
                         if (!success)
                                 d->result = strdup("failed");

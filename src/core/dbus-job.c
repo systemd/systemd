@@ -295,6 +295,7 @@ static DBusMessage* new_change_signal_message(Job *j) {
                 if (!dbus_message_append_args(m,
                                               DBUS_TYPE_UINT32, &j->id,
                                               DBUS_TYPE_OBJECT_PATH, &p,
+                                              DBUS_TYPE_STRING, &j->unit->id,
                                               DBUS_TYPE_INVALID))
                         goto oom;
         }
@@ -326,6 +327,7 @@ static DBusMessage* new_removed_signal_message(Job *j) {
         if (!dbus_message_append_args(m,
                                       DBUS_TYPE_UINT32, &j->id,
                                       DBUS_TYPE_OBJECT_PATH, &p,
+                                      DBUS_TYPE_STRING, &j->unit->id,
                                       DBUS_TYPE_STRING, &r,
                                       DBUS_TYPE_INVALID))
                 goto oom;
