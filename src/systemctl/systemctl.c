@@ -1788,6 +1788,11 @@ static int start_special(DBusConnection *bus, char **args) {
 
         a = verb_to_action(args[0]);
 
+        if (arg_force >= 2 && geteuid() != 0) {
+                log_error("Must be root.");
+                return -EPERM;
+        }
+
         if (arg_force >= 2 &&
             (a == ACTION_HALT ||
              a == ACTION_POWEROFF ||
