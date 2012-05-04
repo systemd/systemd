@@ -1349,11 +1349,12 @@ static int add_rule(struct udev_rules *rules, char *line,
                                 };
                                 unsigned int i;
 
-                                for (i = 0; i < ELEMENTSOF(blacklist); i++)
-                                        if (streq(attr, blacklist[i])) {
-                                                log_error("invalid ENV attribute, '%s' can not be set %s:%u\n", attr, filename, lineno);
+                                for (i = 0; i < ELEMENTSOF(blacklist); i++) {
+                                        if (!streq(attr, blacklist[i]))
                                                 continue;
-                                        }
+                                        log_error("invalid ENV attribute, '%s' can not be set %s:%u\n", attr, filename, lineno);
+                                        goto invalid;
+                                }
                                 if (rule_add_key(&rule_tmp, TK_A_ENV, op, value, attr) != 0)
                                         goto invalid;
                         }
