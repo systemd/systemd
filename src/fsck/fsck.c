@@ -41,10 +41,10 @@ static bool arg_skip = false;
 static bool arg_force = false;
 static bool arg_show_progress = false;
 
-static void start_target(const char *target, bool isolate) {
+static void start_target(const char *target) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
-        const char *mode, *basic_target = "basic.target";
+        const char *mode = "replace", *basic_target = "basic.target";
         DBusConnection *bus = NULL;
 
         assert(target);
@@ -55,11 +55,6 @@ static void start_target(const char *target, bool isolate) {
                 log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
                 goto finish;
         }
-
-        if (isolate)
-                mode = "isolate";
-        else
-                mode = "replace";
 
         log_info("Running request %s/start/%s", target, mode);
 
@@ -389,10 +384,10 @@ int main(int argc, char *argv[]) {
 
                 if (status.si_code == CLD_EXITED && (status.si_status & 2) && root_directory)
                         /* System should be rebooted. */
-                        start_target(SPECIAL_REBOOT_TARGET, false);
+                        start_target(SPECIAL_REBOOT_TARGET);
                 else if (status.si_code == CLD_EXITED && (status.si_status & 6))
                         /* Some other problem */
-                        start_target(SPECIAL_EMERGENCY_TARGET, true);
+                        start_target(SPECIAL_EMERGENCY_TARGET);
                 else {
                         r = EXIT_SUCCESS;
                         log_warning("Ignoring error.");

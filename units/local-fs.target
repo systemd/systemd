@@ -10,4 +10,4 @@ Description=Local File Systems
 Documentation=man:systemd.special(7)
 After=local-fs-pre.target
 OnFailure=emergency.target
-OnFailureIsolate=yes
+OnFailureIsolate=no
