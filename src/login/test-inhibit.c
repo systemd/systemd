@@ -30,7 +30,7 @@
 static int inhibit(DBusConnection *bus, const char *what) {
         DBusMessage *m, *reply;
         DBusError error;
-        const char *who = "Test Tool", *reason = "Just because!";
+        const char *who = "Test Tool", *reason = "Just because!", *mode = "block";
         int fd;
 
         dbus_error_init(&error);
@@ -46,6 +46,7 @@ static int inhibit(DBusConnection *bus, const char *what) {
                                            DBUS_TYPE_STRING, &what,
                                            DBUS_TYPE_STRING, &who,
                                            DBUS_TYPE_STRING, &reason,
+                                           DBUS_TYPE_STRING, &mode,
                                            DBUS_TYPE_INVALID));
 
         reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
@@ -83,19 +84,20 @@ static void print_inhibitors(DBusConnection *bus) {
         dbus_message_iter_recurse(&iter, &sub);
 
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *what, *who, *reason;
+                const char *what, *who, *why, *mode;
                 dbus_uint32_t uid, pid;
 
                 dbus_message_iter_recurse(&sub, &sub2);
 
                 assert_se(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &what, true) >= 0);
                 assert_se(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &who, true) >= 0);
-                assert_se(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &reason, true) >= 0);
+                assert_se(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &why, true) >= 0);
+                assert_se(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &mode, true) >= 0);
                 assert_se(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &uid, true) >= 0);
                 assert_se(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &pid, false) >= 0);
 
-                printf("what=<%s> who=<%s> reason=<%s> uid=<%lu> pid=<%lu>\n",
-                       what, who, reason, (unsigned long) uid, (unsigned long) pid);
+                printf("what=<%s> who=<%s> why=<%s> mode=<%s> uid=<%lu> pid=<%lu>\n",
+                       what, who, why, mode, (unsigned long) uid, (unsigned long) pid);
 
                 dbus_message_iter_next(&sub);
 
