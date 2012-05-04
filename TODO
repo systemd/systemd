@@ -22,6 +22,8 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
+* improve !/proc/*/loginuid situation: make /proc/*/loginuid less dependent on CONFIG_AUDIT,
+  or use the users cgroup information when /proc/*/loginuid is not available.
 
 * services which create their own subcgroups break cgroup-empty notification (needs to be fixed in the kernel)
 
