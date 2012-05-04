@@ -41,8 +41,6 @@ Features:
         SessionIdleMode=(explicit|ignore|login)
         ForceShutdown=(yes|no)
 
-* logind: use "sleep" as generic term for "suspend", "hibernate", ...
-
 * services which create their own subcgroups break cgroup-empty notification (needs to be fixed in the kernel)
 
 * don't delete /tmp/systemd-namespace-* before a process is gone down

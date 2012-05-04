@@ -151,11 +151,12 @@
                                 <term><varname>InhibitDelayMaxSec=</varname></term>
 
                                 <listitem><para>Specifies the maximum
-                                time a suspend or reboot is delayed
-                                due to an inhibitor lock of type
-                                <literal>delay</literal> being taken
-                                before it is ignored and the operation
-                                executed anyway. Defaults to
+                                time a system shutdown or sleep
+                                request is delayed due to an inhibitor
+                                lock of type <literal>delay</literal>
+                                being taken before it is ignored and
+                                the operation executed
+                                anyway. Defaults to
                                 5s.</para></listitem>
 
                         </varlistentry>

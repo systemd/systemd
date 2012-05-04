@@ -31,7 +31,7 @@
 #include "build.h"
 #include "strv.h"
 
-static const char* arg_what = "idle:suspend:shutdown";
+static const char* arg_what = "idle:sleep:shutdown";
 static const char* arg_who = NULL;
 static const char* arg_why = "Unknown reason";
 static const char* arg_mode = "block";
@@ -182,11 +182,11 @@ finish:
 static int help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Execute a process while inhibiting shutdown/suspend/idle.\n\n"
+               "Execute a process while inhibiting shutdown/sleep/idle.\n\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "     --what=WHAT          Operations to inhibit, colon separated list of idle,\n"
-               "                          suspend, shutdown\n"
+               "                          sleep, shutdown\n"
                "     --who=STRING         A descriptive string who is inhibiting\n"
                "     --why=STRING         A descriptive string why is being inhibited\n"
                "     --mode=MODE          One of block or delay\n"

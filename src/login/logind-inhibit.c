@@ -376,12 +376,12 @@ const char *inhibit_what_to_string(InhibitWhat w) {
         static const char* const table[_INHIBIT_WHAT_MAX] = {
                 [0] = "",
                 [INHIBIT_SHUTDOWN] = "shutdown",
-                [INHIBIT_SUSPEND] = "suspend",
+                [INHIBIT_SLEEP] = "sleep",
                 [INHIBIT_IDLE] = "idle",
-                [INHIBIT_SHUTDOWN|INHIBIT_SUSPEND] = "shutdown:suspend",
+                [INHIBIT_SHUTDOWN|INHIBIT_SLEEP] = "shutdown:sleep",
                 [INHIBIT_SHUTDOWN|INHIBIT_IDLE] = "shutdown:idle",
-                [INHIBIT_SHUTDOWN|INHIBIT_SUSPEND|INHIBIT_IDLE] = "shutdown:suspend:idle",
-                [INHIBIT_SUSPEND|INHIBIT_IDLE] = "suspend:idle"
+                [INHIBIT_SHUTDOWN|INHIBIT_SLEEP|INHIBIT_IDLE] = "shutdown:sleep:idle",
+                [INHIBIT_SLEEP|INHIBIT_IDLE] = "sleep:idle"
         };
 
         if (w < 0 || w >= _INHIBIT_WHAT_MAX)
@@ -398,8 +398,8 @@ InhibitWhat inhibit_what_from_string(const char *s) {
         FOREACH_WORD_SEPARATOR(w, l, s, ":", state) {
                 if (l == 8 && strncmp(w, "shutdown", l) == 0)
                         what |= INHIBIT_SHUTDOWN;
-                else if (l == 7 && strncmp(w, "suspend", l) == 0)
-                        what |= INHIBIT_SUSPEND;
+                else if (l == 5 && strncmp(w, "sleep", l) == 0)
+                        what |= INHIBIT_SLEEP;
                 else if (l == 4 && strncmp(w, "idle", l) == 0)
                         what |= INHIBIT_IDLE;
                 else

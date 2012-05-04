@@ -119,7 +119,7 @@ int main(int argc, char*argv[]) {
 
         print_inhibitors(bus);
 
-        fd1 = inhibit(bus, "suspend");
+        fd1 = inhibit(bus, "sleep");
         assert(fd1 >= 0);
         print_inhibitors(bus);
 

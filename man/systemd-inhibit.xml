@@ -60,14 +60,14 @@
                 <title>Description</title>
 
                 <para><command>systemd-inhibit</command> may be used
-                to execute a program with a shutdown, suspend or idle
+                to execute a program with a shutdown, sleep or idle
                 inhibitor lock taken. The lock will be acquired before
                 the specified command line is executed and released
                 afterwards.</para>
 
                 <para>Inhibitor locks may be used to block or delay
-                suspend and shutdown requests from the user, as well
-                as automatic idle handling of the OS. This may be used
+                system sleep and shutdown requests from the user, as well
+                as automatic idle handling of the OS. This is useful
                 to avoid system suspends while an optical disc is
                 being recorded, or similar operations that should not
                 be interrupted.</para>
@@ -101,7 +101,7 @@
                                 separated list of one or more
                                 operations to inhibit:
                                 <literal>shutdown</literal>,
-                                <literal>suspend</literal>,
+                                <literal>sleep</literal>,
                                 <literal>idle</literal>, for
                                 inhibiting reboot/power-off/halt/kexec,
                                 suspending/hibernating, resp. the

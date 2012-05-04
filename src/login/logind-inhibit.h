@@ -31,7 +31,7 @@ typedef struct Inhibitor Inhibitor;
 
 typedef enum InhibitWhat {
         INHIBIT_SHUTDOWN = 1,
-        INHIBIT_SUSPEND = 2,
+        INHIBIT_SLEEP = 2,
         INHIBIT_IDLE = 4,
         _INHIBIT_WHAT_MAX = 8,
         _INHIBIT_WHAT_INVALID = -1
