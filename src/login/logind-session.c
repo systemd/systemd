@@ -327,6 +327,7 @@ finish:
         free(vtnr);
         free(leader);
         free(audit_id);
+        free(class);
 
         return r;
 }
