@@ -50,6 +50,7 @@ Manager *manager_new(void) {
         m->udev_vcsa_fd = -1;
         m->epoll_fd = -1;
         m->n_autovts = 6;
+        m->inhibit_delay_max = 5 * USEC_PER_SEC;
 
         m->devices = hashmap_new(string_hash_func, string_compare_func);
         m->seats = hashmap_new(string_hash_func, string_compare_func);
@@ -1163,7 +1164,7 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
 
         assert(m);
 
-        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, t);
+        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, INHIBIT_BLOCK, t);
 
         HASHMAP_FOREACH(s, m->sessions, i) {
                 dual_timestamp k;
@@ -1264,15 +1265,28 @@ int manager_run(Manager *m) {
         for (;;) {
                 struct epoll_event event;
                 int n;
+                int msec = -1;
 
                 manager_gc(m, true);
+
+                if (manager_dispatch_delayed_shutdown(m) > 0)
+                        continue;
 
                 if (dbus_connection_dispatch(m->bus) != DBUS_DISPATCH_COMPLETE)
                         continue;
 
                 manager_gc(m, true);
 
-                n = epoll_wait(m->epoll_fd, &event, 1, -1);
+                if (m->delayed_shutdown) {
+                        usec_t x, y;
+
+                        x = now(CLOCK_MONOTONIC);
+                        y = m->delayed_shutdown_timestamp + m->inhibit_delay_max;
+
+                        msec = x >= y ? 0 : (int) ((y - x) / USEC_PER_MSEC);
+                }
+
+                n = epoll_wait(m->epoll_fd, &event, 1, msec);
                 if (n < 0) {
                         if (errno == EINTR || errno == EAGAIN)
                                 continue;
@@ -1280,6 +1294,9 @@ int manager_run(Manager *m) {
                         log_error("epoll() failed: %m");
                         return -errno;
                 }
+
+                if (n == 0)
+                        continue;
 
                 switch (event.data.u32) {
 

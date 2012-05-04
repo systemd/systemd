@@ -144,10 +144,11 @@
         "   <arg name=\"what\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"who\" type=\"s\" direction=\"in\"/>\n"          \
         "   <arg name=\"why\" type=\"s\" direction=\"in\"/>\n"          \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"fd\" type=\"h\" direction=\"out\"/>\n"          \
         "  </method>\n"                                                 \
         "  <method name=\"ListInhibitors\">\n"                          \
-        "   <arg name=\"inhibitors\" type=\"a(sssuu)\" direction=\"out\"/>\n" \
+        "   <arg name=\"inhibitors\" type=\"a(ssssuu)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <signal name=\"SessionNew\">\n"                              \
         "   <arg name=\"id\" type=\"s\"/>\n"                            \
@@ -173,6 +174,9 @@
         "   <arg name=\"id\" type=\"s\"/>\n"                            \
         "   <arg name=\"path\" type=\"o\"/>\n"                          \
         "  </signal>\n"                                                 \
+        "  <signal name=\"PrepareForShutdown\">\n"                      \
+        "   <arg name=\"active\" type=\"b\"/>\n"                        \
+        "  </signal>\n"                                                 \
         "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Controllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ResetControllers\" type=\"as\" access=\"read\"/>\n" \
@@ -183,7 +187,9 @@
         "  <property name=\"IdleHint\" type=\"b\" access=\"read\"/>\n"  \
         "  <property name=\"IdleSinceHint\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"IdleSinceHintMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"Inhibited\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"BlockInhibited\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"DelayInhibited\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"InhibitDelayMaxUSec\" type=\"t\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION_BEGIN                                             \
@@ -239,7 +245,7 @@ static int bus_manager_append_inhibited(DBusMessageIter *i, const char *property
         InhibitWhat w;
         const char *p;
 
-        w = manager_inhibit_what(m);
+        w = manager_inhibit_what(m, streq(property, "BlockInhibited") ? INHIBIT_BLOCK : INHIBIT_DELAY);
         p = inhibit_what_to_string(w);
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &p))
@@ -638,9 +644,10 @@ fail:
 static int bus_manager_inhibit(Manager *m, DBusConnection *connection, DBusMessage *message, DBusError *error, DBusMessage **_reply) {
         Inhibitor *i = NULL;
         char *id = NULL;
-        const char *who, *why, *what;
+        const char *who, *why, *what, *mode;
         pid_t pid;
         InhibitWhat w;
+        InhibitMode mm;
         unsigned long ul;
         int r, fifo_fd = -1;
         DBusMessage *reply = NULL;
@@ -657,6 +664,7 @@ static int bus_manager_inhibit(Manager *m, DBusConnection *connection, DBusMessa
                             DBUS_TYPE_STRING, &what,
                             DBUS_TYPE_STRING, &who,
                             DBUS_TYPE_STRING, &why,
+                            DBUS_TYPE_STRING, &mode,
                             DBUS_TYPE_INVALID)) {
                 r = -EIO;
                 goto fail;
@@ -668,7 +676,16 @@ static int bus_manager_inhibit(Manager *m, DBusConnection *connection, DBusMessa
                 goto fail;
         }
 
-        r = verify_polkit(connection, message, "org.freedesktop.login1.inhibit", false, NULL, error);
+        mm = inhibit_mode_from_string(mode);
+        if (mm < 0) {
+                r = -EINVAL;
+                goto fail;
+        }
+
+        r = verify_polkit(connection, message,
+                          m == INHIBIT_BLOCK ?
+                          "org.freedesktop.login1.inhibit-block" :
+                          "org.freedesktop.login1.inhibit-delay", false, NULL, error);
         if (r < 0)
                 goto fail;
 
@@ -701,6 +718,7 @@ static int bus_manager_inhibit(Manager *m, DBusConnection *connection, DBusMessa
                 goto fail;
 
         i->what = w;
+        i->mode = mm;
         i->pid = pid;
         i->uid = (uid_t) ul;
         i->why = strdup(why);
@@ -918,6 +936,76 @@ static int have_multiple_sessions(
         return false;
 }
 
+static int send_start_unit(DBusConnection *connection, const char *name, DBusError *error) {
+        DBusMessage *message, *reply;
+        const char *mode = "replace";
+
+        assert(connection);
+        assert(name);
+
+        message = dbus_message_new_method_call(
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartUnit");
+        if (!message)
+                return -ENOMEM;
+
+        if (!dbus_message_append_args(message,
+                                      DBUS_TYPE_STRING, &name,
+                                      DBUS_TYPE_STRING, &mode,
+                                      DBUS_TYPE_INVALID)) {
+                dbus_message_unref(message);
+                return -ENOMEM;
+        }
+
+        reply = dbus_connection_send_with_reply_and_block(connection, message, -1, error);
+        dbus_message_unref(message);
+
+        if (!reply)
+                return -EIO;
+
+        dbus_message_unref(reply);
+        return 0;
+}
+
+static int send_prepare_for_shutdown(Manager *m, bool _active) {
+        dbus_bool_t active = _active;
+        DBusMessage *message;
+        int r = 0;
+
+        assert(m);
+
+        message = dbus_message_new_signal("/org/freedesktop/login1", "org.freedesktop.login1.Manager", "PrepareForShutdown");
+        if (!message)
+                return -ENOMEM;
+
+        if (!dbus_message_append_args(message, DBUS_TYPE_BOOLEAN, &active, DBUS_TYPE_INVALID) ||
+            !dbus_connection_send(m->bus, message, NULL))
+                r = -ENOMEM;
+
+        dbus_message_unref(message);
+        return r;
+}
+
+static int delay_shutdown(Manager *m, const char *name) {
+        assert(m);
+
+        if (!m->delayed_shutdown) {
+                /* Tell everybody to prepare for shutdown */
+                send_prepare_for_shutdown(m, true);
+
+                /* Update timestamp for timeout */
+                m->delayed_shutdown_timestamp = now(CLOCK_MONOTONIC);
+        }
+
+        /* Remember what we want to do, possibly overriding what kind
+         * of shutdown we previously queued. */
+        m->delayed_shutdown = name;
+
+        return 0;
+}
+
 static const BusProperty bus_login_manager_properties[] = {
         { "ControlGroupHierarchy",  bus_property_append_string,         "s",  offsetof(Manager, cgroup_path),        true },
         { "Controllers",            bus_property_append_strv,           "as", offsetof(Manager, controllers),        true },
@@ -929,7 +1017,9 @@ static const BusProperty bus_login_manager_properties[] = {
         { "IdleHint",               bus_manager_append_idle_hint,       "b",  0 },
         { "IdleSinceHint",          bus_manager_append_idle_hint_since, "t",  0 },
         { "IdleSinceHintMonotonic", bus_manager_append_idle_hint_since, "t",  0 },
-        { "Inhibited",              bus_manager_append_inhibited,       "s",  0 },
+        { "BlockInhibited",         bus_manager_append_inhibited,       "s",  0 },
+        { "DelayInhibited",         bus_manager_append_inhibited,       "s",  0 },
+        { "InhibitDelayMaxUSec",    bus_property_append_usec,           "t",  offsetof(Manager, inhibit_delay_max)   },
         { NULL, }
 };
 
@@ -1228,26 +1318,28 @@ static DBusHandlerResult manager_message_handler(
 
                 dbus_message_iter_init_append(reply, &iter);
 
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(sssuu)", &sub))
+                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ssssuu)", &sub))
                         goto oom;
 
                 HASHMAP_FOREACH(inhibitor, m->inhibitors, i) {
                         DBusMessageIter sub2;
                         dbus_uint32_t uid, pid;
-                        const char *what, *who, *why;
+                        const char *what, *who, *why, *mode;
 
                         if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
                                 goto oom;
 
-                        what = inhibit_what_to_string(inhibitor->what);
+                        what = strempty(inhibit_what_to_string(inhibitor->what));
                         who = strempty(inhibitor->who);
                         why = strempty(inhibitor->why);
+                        mode = strempty(inhibit_mode_to_string(inhibitor->mode));
                         uid = (dbus_uint32_t) inhibitor->uid;
                         pid = (dbus_uint32_t) inhibitor->pid;
 
                         if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &what) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &who) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &why) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &mode) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &uid) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &pid))
                                 goto oom;
@@ -1641,10 +1733,8 @@ static DBusHandlerResult manager_message_handler(
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "PowerOff") ||
                    dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Reboot")) {
                 dbus_bool_t interactive;
-                bool multiple_sessions, inhibit;
-                DBusMessage *forward, *freply;
+                bool multiple_sessions, blocked, delayed;
                 const char *name, *action;
-                const char *mode = "replace";
 
                 if (!dbus_message_get_args(
                                     message,
@@ -1658,7 +1748,7 @@ static DBusHandlerResult manager_message_handler(
                         return bus_send_error_reply(connection, message, &error, r);
 
                 multiple_sessions = r > 0;
-                inhibit = manager_is_inhibited(m, INHIBIT_SHUTDOWN, NULL);
+                blocked = manager_is_inhibited(m, INHIBIT_SHUTDOWN, INHIBIT_BLOCK, NULL);
 
                 if (multiple_sessions) {
                         action = streq(dbus_message_get_member(message), "PowerOff") ?
@@ -1670,7 +1760,7 @@ static DBusHandlerResult manager_message_handler(
                                 return bus_send_error_reply(connection, message, &error, r);
                 }
 
-                if (inhibit) {
+                if (blocked) {
                         action = streq(dbus_message_get_member(message), "PowerOff") ?
                                 "org.freedesktop.login1.power-off-ignore-inhibit" :
                                 "org.freedesktop.login1.reboot-ignore-inhibit";
@@ -1680,7 +1770,7 @@ static DBusHandlerResult manager_message_handler(
                                 return bus_send_error_reply(connection, message, &error, r);
                 }
 
-                if (!multiple_sessions && !inhibit) {
+                if (!multiple_sessions && !blocked) {
                         action = streq(dbus_message_get_member(message), "PowerOff") ?
                                 "org.freedesktop.login1.power-off" :
                                 "org.freedesktop.login1.reboot";
@@ -1690,32 +1780,26 @@ static DBusHandlerResult manager_message_handler(
                                 return bus_send_error_reply(connection, message, &error, r);
                 }
 
-                forward = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.systemd1.Manager",
-                              "StartUnit");
-                if (!forward)
-                        return bus_send_error_reply(connection, message, NULL, -ENOMEM);
-
                 name = streq(dbus_message_get_member(message), "PowerOff") ?
                         SPECIAL_POWEROFF_TARGET : SPECIAL_REBOOT_TARGET;
 
-                if (!dbus_message_append_args(forward,
-                                              DBUS_TYPE_STRING, &name,
-                                              DBUS_TYPE_STRING, &mode,
-                                              DBUS_TYPE_INVALID)) {
-                        dbus_message_unref(forward);
-                        return bus_send_error_reply(connection, message, NULL, -ENOMEM);
+                delayed =
+                        m->inhibit_delay_max > 0 &&
+                        manager_is_inhibited(m, INHIBIT_SHUTDOWN, INHIBIT_DELAY, NULL);
+
+                if (delayed) {
+                        /* Shutdown is delayed, keep in mind what we
+                         * want to do, and start a timeout */
+                        r = delay_shutdown(m, name);
+                        if (r < 0)
+                                return bus_send_error_reply(connection, message, NULL, r);
+                } else {
+                        /* Shutdown is not delayed, execute it
+                         * immediately */
+                        r = send_start_unit(connection, name, &error);
+                        if (r < 0)
+                                return bus_send_error_reply(connection, message, &error, r);
                 }
-
-                freply = dbus_connection_send_with_reply_and_block(connection, forward, -1, &error);
-                dbus_message_unref(forward);
-
-                if (!freply)
-                        return bus_send_error_reply(connection, message, &error, -EIO);
-
-                dbus_message_unref(freply);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
@@ -1732,7 +1816,7 @@ static DBusHandlerResult manager_message_handler(
                         return bus_send_error_reply(connection, message, &error, r);
 
                 multiple_sessions = r > 0;
-                inhibit = manager_is_inhibited(m, INHIBIT_SHUTDOWN, NULL);
+                inhibit = manager_is_inhibited(m, INHIBIT_SHUTDOWN, INHIBIT_BLOCK, NULL);
 
                 if (multiple_sessions) {
                         action = streq(dbus_message_get_member(message), "CanPowerOff") ?
@@ -1942,4 +2026,40 @@ finish:
                 dbus_message_unref(m);
 
         return r;
+}
+
+int manager_dispatch_delayed_shutdown(Manager *manager) {
+        const char *name;
+        DBusError error;
+        bool delayed;
+        int r;
+
+        assert(manager);
+
+        if (!manager->delayed_shutdown)
+                return 0;
+
+        /* Continue delay? */
+        delayed =
+                manager->delayed_shutdown_timestamp + manager->inhibit_delay_max > now(CLOCK_MONOTONIC) &&
+                manager_is_inhibited(manager, INHIBIT_SHUTDOWN, INHIBIT_DELAY, NULL);
+        if (delayed)
+                return 0;
+
+        /* Reset delay data */
+        name = manager->delayed_shutdown;
+        manager->delayed_shutdown = NULL;
+
+        /* Actually do the shutdown */
+        dbus_error_init(&error);
+        r = send_start_unit(manager->bus, name, &error);
+        if (r < 0) {
+                log_warning("Failed to send delayed shutdown message: %s", bus_error_message_or_strerror(&error, -r));
+                return r;
+        }
+
+        /* Tell people about it */
+        send_prepare_for_shutdown(manager, false);
+
+        return 1;
 }

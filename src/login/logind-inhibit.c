@@ -97,9 +97,11 @@ int inhibitor_save(Inhibitor *i) {
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "WHAT=%s\n"
+                "MODE=%s\n"
                 "UID=%lu\n"
                 "PID=%lu\n",
                 inhibit_what_to_string(i->what),
+                inhibit_mode_to_string(i->mode),
                 (unsigned long) i->uid,
                 (unsigned long) i->pid);
 
@@ -152,9 +154,10 @@ int inhibitor_start(Inhibitor *i) {
 
         dual_timestamp_get(&i->since);
 
-        log_debug("Inhibitor %s (%s) pid=%lu uid=%lu started.",
+        log_debug("Inhibitor %s (%s) pid=%lu uid=%lu mode=%s started.",
                   strna(i->who), strna(i->why),
-                  (unsigned long) i->pid, (unsigned long) i->uid);
+                  (unsigned long) i->pid, (unsigned long) i->uid,
+                  inhibit_mode_to_string(i->mode));
 
         inhibitor_save(i);
 
@@ -169,9 +172,10 @@ int inhibitor_stop(Inhibitor *i) {
         assert(i);
 
         if (i->started)
-                log_debug("Inhibitor %s (%s) pid=%lu uid=%lu stopped.",
+                log_debug("Inhibitor %s (%s) pid=%lu uid=%lu mode=%s stopped.",
                           strna(i->who), strna(i->why),
-                          (unsigned long) i->pid, (unsigned long) i->uid);
+                          (unsigned long) i->pid, (unsigned long) i->uid,
+                          inhibit_mode_to_string(i->mode));
 
         if (i->state_file)
                 unlink(i->state_file);
@@ -185,13 +189,15 @@ int inhibitor_stop(Inhibitor *i) {
 
 int inhibitor_load(Inhibitor *i) {
         InhibitWhat w;
+        InhibitMode mm;
         int r;
         char *cc,
                 *what = NULL,
                 *uid = NULL,
                 *pid = NULL,
                 *who = NULL,
-                *why = NULL;
+                *why = NULL,
+                *mode = NULL;
 
         r = parse_env_file(i->state_file, NEWLINE,
                            "WHAT", &what,
@@ -199,17 +205,25 @@ int inhibitor_load(Inhibitor *i) {
                            "PID", &pid,
                            "WHO", &who,
                            "WHY", &why,
+                           "MODE", &mode,
                            "FIFO", &i->fifo_path,
                            NULL);
         if (r < 0)
                 goto finish;
 
-        w = inhibit_what_from_string(what);
+        w = what ? inhibit_what_from_string(what) : 0;
         if (w >= 0)
                 i->what = w;
 
-        parse_uid(uid, &i->uid);
-        parse_pid(pid, &i->pid);
+        mm = mode ? inhibit_mode_from_string(mode) : INHIBIT_BLOCK;
+        if  (mm >= 0)
+                i->mode = mm;
+
+        if (uid)
+                parse_uid(uid, &i->uid);
+
+        if (pid)
+                parse_pid(pid, &i->pid);
 
         if (who) {
                 cc = cunescape(who);
@@ -314,7 +328,7 @@ void inhibitor_remove_fifo(Inhibitor *i) {
         }
 }
 
-InhibitWhat manager_inhibit_what(Manager *m) {
+InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm) {
         Inhibitor *i;
         Iterator j;
         InhibitWhat what = 0;
@@ -322,12 +336,13 @@ InhibitWhat manager_inhibit_what(Manager *m) {
         assert(m);
 
         HASHMAP_FOREACH(i, m->inhibitor_fds, j)
-                what |= i->what;
+                if (i->mode == mm)
+                        what |= i->what;
 
         return what;
 }
 
-bool manager_is_inhibited(Manager *m, InhibitWhat w, dual_timestamp *since) {
+bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since) {
         Inhibitor *i;
         Iterator j;
         struct dual_timestamp ts = { 0, 0 };
@@ -338,6 +353,9 @@ bool manager_is_inhibited(Manager *m, InhibitWhat w, dual_timestamp *since) {
 
         HASHMAP_FOREACH(i, m->inhibitor_fds, j) {
                 if (!(i->what & w))
+                        continue;
+
+                if (i->mode != mm)
                         continue;
 
                 if (!inhibited ||
@@ -391,3 +409,10 @@ InhibitWhat inhibit_what_from_string(const char *s) {
         return what;
 
 }
+
+static const char* const inhibit_mode_table[_INHIBIT_MODE_MAX] = {
+        [INHIBIT_BLOCK] = "block",
+        [INHIBIT_DELAY] = "delay"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(inhibit_mode, InhibitMode);

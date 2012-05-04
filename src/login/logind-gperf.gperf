@@ -20,3 +20,4 @@ Login.KillOnlyUsers,     config_parse_strv,     0, offsetof(Manager, kill_only_u
 Login.KillExcludeUsers,  config_parse_strv,     0, offsetof(Manager, kill_exclude_users)
 Login.Controllers,       config_parse_strv,     0, offsetof(Manager, controllers)
 Login.ResetControllers,  config_parse_strv,     0, offsetof(Manager, reset_controllers)
+Login.InhibitDelayMaxSec,config_parse_usec,     0, offsetof(Manager, inhibit_delay_max)

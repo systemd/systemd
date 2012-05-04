@@ -245,7 +245,8 @@ int bus_connect_system_polkit(DBusConnection **_bus, DBusError *error) {
 }
 
 const char *bus_error_message(const DBusError *error) {
-        assert(error);
+        if (!error)
+                return NULL;
 
         /* Sometimes the D-Bus server is a little bit too verbose with
          * its error messages, so let's override them here */
@@ -253,6 +254,14 @@ const char *bus_error_message(const DBusError *error) {
                 return "Access denied";
 
         return error->message;
+}
+
+const char *bus_error_message_or_strerror(const DBusError *error, int err) {
+
+        if (error && dbus_error_is_set(error))
+                return bus_error_message(error);
+
+        return strerror(err);
 }
 
 DBusHandlerResult bus_default_message_handler(

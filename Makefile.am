@@ -481,7 +481,8 @@ MANPAGES = \
 	man/systemd-machine-id-setup.1 \
 	man/systemd-detect-virt.1 \
 	man/journald.conf.5 \
-	man/journalctl.1
+	man/journalctl.1 \
+	man/systemd-inhibit.1
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -2665,6 +2666,20 @@ loginctl_LDADD = \
 
 rootbin_PROGRAMS += \
 	loginctl
+
+systemd_inhibit_SOURCES = \
+	src/login/inhibit.c
+
+systemd_inhibit_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_inhibit_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-dbus.la
+
+rootbin_PROGRAMS += \
+	systemd-inhibit
 
 test_login_SOURCES = \
 	src/login/test-login.c

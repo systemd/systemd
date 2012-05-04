@@ -1,3 +1,4 @@
+/systemd-inhibit
 /systemd-remount-fs
 /build-aux
 /test-watchdog
