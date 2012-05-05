@@ -36,6 +36,8 @@
 #define SPECIAL_REBOOT_TARGET "reboot.target"
 #define SPECIAL_KEXEC_TARGET "kexec.target"
 #define SPECIAL_EXIT_TARGET "exit.target"
+#define SPECIAL_SUSPEND_TARGET "suspend.target"
+#define SPECIAL_HIBERNATE_TARGET "hibernate.target"
 
 /* Special boot targets */
 #define SPECIAL_RESCUE_TARGET "rescue.target"

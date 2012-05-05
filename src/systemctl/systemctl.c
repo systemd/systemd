@@ -97,6 +97,8 @@ static enum action {
         ACTION_REBOOT,
         ACTION_KEXEC,
         ACTION_EXIT,
+        ACTION_SUSPEND,
+        ACTION_HIBERNATE,
         ACTION_RUNLEVEL2,
         ACTION_RUNLEVEL3,
         ACTION_RUNLEVEL4,
@@ -1605,6 +1607,10 @@ static enum action verb_to_action(const char *verb) {
                 return ACTION_DEFAULT;
         else if (streq(verb, "exit"))
                 return ACTION_EXIT;
+        else if (streq(verb, "suspend"))
+                return ACTION_SUSPEND;
+        else if (streq(verb, "hibernate"))
+                return ACTION_HIBERNATE;
         else
                 return ACTION_INVALID;
 }
@@ -1623,7 +1629,9 @@ static int start_unit(DBusConnection *bus, char **args) {
                 [ACTION_RESCUE] = SPECIAL_RESCUE_TARGET,
                 [ACTION_EMERGENCY] = SPECIAL_EMERGENCY_TARGET,
                 [ACTION_DEFAULT] = SPECIAL_DEFAULT_TARGET,
-                [ACTION_EXIT] = SPECIAL_EXIT_TARGET
+                [ACTION_EXIT] = SPECIAL_EXIT_TARGET,
+                [ACTION_SUSPEND] = SPECIAL_SUSPEND_TARGET,
+                [ACTION_HIBERNATE] = SPECIAL_HIBERNATE_TARGET
         };
 
         int r, ret = 0;
@@ -4201,7 +4209,9 @@ static int systemctl_help(void) {
                "  poweroff                        Shut down and power-off the system\n"
                "  reboot                          Shut down and reboot the system\n"
                "  kexec                           Shut down and reboot the system with kexec\n"
-               "  exit                            Ask for user instance termination\n",
+               "  exit                            Request user instance exit\n"
+               "  suspend                         Suspend the system\n"
+               "  hibernate                       Hibernate the system\n",
                program_invocation_short_name);
 
         return 0;
@@ -5135,6 +5145,8 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "poweroff",              EQUAL, 1, start_special     },
                 { "reboot",                EQUAL, 1, start_special     },
                 { "kexec",                 EQUAL, 1, start_special     },
+                { "suspend",               EQUAL, 1, start_special     },
+                { "hibernate",             EQUAL, 1, start_special     },
                 { "default",               EQUAL, 1, start_special     },
                 { "rescue",                EQUAL, 1, start_special     },
                 { "emergency",             EQUAL, 1, start_special     },

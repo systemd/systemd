@@ -1,3 +1,5 @@
+/hibernate.service
+/suspend.service
 /console-getty.service
 /systemd-journald.service
 user@.service

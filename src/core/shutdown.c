@@ -309,6 +309,7 @@ int main(int argc, char *argv[]) {
         unsigned retries;
         bool need_umount = true, need_swapoff = true, need_loop_detach = true, need_dm_detach = true;
         bool killed_everbody = false, in_container, use_watchdog = false;
+        char *arguments[3];
 
         log_parse_environment();
         log_set_target(LOG_TARGET_CONSOLE); /* syslog will die if not gone yet */
@@ -442,7 +443,10 @@ int main(int argc, char *argv[]) {
         if (retries >= FINALIZE_ATTEMPTS)
                 log_error("Too many iterations, giving up.");
 
-        execute_directory(SYSTEM_SHUTDOWN_PATH, NULL, NULL);
+        arguments[0] = NULL;
+        arguments[1] = argv[1];
+        arguments[2] = NULL;
+        execute_directory(SYSTEM_SHUTDOWN_PATH, NULL, arguments);
 
         /* If we are in a container, just exit, this will kill our
          * container for good. */

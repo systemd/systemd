@@ -4106,8 +4106,7 @@ void execute_directory(const char *directory, DIR *d, char *argv[]) {
                                 _argv[1] = NULL;
                                 argv = _argv;
                         } else
-                                if (!argv[0])
-                                        argv[0] = path;
+                                argv[0] = path;
 
                         execv(path, argv);
 

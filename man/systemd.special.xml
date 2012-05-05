@@ -58,6 +58,7 @@
                 <filename>exit.service</filename>,
                 <filename>final.service</filename>,
                 <filename>graphical.target</filename>,
+                <filename>hibernate.target</filename>,
                 <filename>http-daemon.target</filename>,
                 <filename>halt.target</filename>,
                 <filename>kbrequest.target</filename>,
@@ -80,7 +81,9 @@
                 <filename>runlevel5.target</filename>,
                 <filename>shutdown.target</filename>,
                 <filename>sigpwr.target</filename>,
+                <filename>sleep.target</filename>,
                 <filename>sockets.target</filename>,
+                <filename>suspend.target</filename>,
                 <filename>swap.target</filename>,
                 <filename>sysinit.target</filename>,
                 <filename>syslog.service</filename>,
@@ -237,6 +240,15 @@
                                         unit to this unit (or
                                         <filename>multi-user.target</filename>)
                                         during installation.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>hibernate.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        for hibernating the
+                                        system. This pulls in
+                                        <filename>sleep.target</filename>.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -591,6 +603,19 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>sleep.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        that is pulled in by
+                                        <filename>suspend.target</filename>
+                                        and
+                                        <filename>hibernate.target</filename>
+                                        and may be used to hook units
+                                        into the sleep state
+                                        logic.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>sockets.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
@@ -602,6 +627,15 @@
                                         Wants dependencies to this
                                         unit for their socket unit
                                         during installation.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>suspend.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        for suspending the
+                                        system. This pulls in
+                                        <filename>sleep.target</filename>.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

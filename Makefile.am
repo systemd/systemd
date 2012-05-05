@@ -67,6 +67,7 @@ usergeneratordir=$(pkglibexecdir)/user-generators
 pkgincludedir=$(includedir)/systemd
 systemgeneratordir=$(rootlibexecdir)/system-generators
 systemshutdowndir=$(rootlibexecdir)/system-shutdown
+systemsleepdir=$(rootlibexecdir)/system-sleep
 systemunitdir=$(rootprefix)/lib/systemd/system
 udevlibexecdir=$(rootprefix)/lib/udev
 udevhomedir = $(libexecdir)/udev
@@ -117,6 +118,7 @@ AM_CPPFLAGS = \
 	-DSYSTEMD_CGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
 	-DSYSTEMD_BINARY_PATH=\"$(rootlibexecdir)/systemd\" \
 	-DSYSTEMD_SHUTDOWN_BINARY_PATH=\"$(rootlibexecdir)/systemd-shutdown\" \
+	-DSYSTEMD_SLEEP_BINARY_PATH=\"$(rootlibexecdir)/systemd-sleep\" \
 	-DSYSTEMCTL_BINARY_PATH=\"$(rootbindir)/systemctl\" \
 	-DSYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH=\"$(rootbindir)/systemd-tty-ask-password-agent\" \
 	-DSYSTEMD_STDIO_BRIDGE_BINARY_PATH=\"$(bindir)/systemd-stdio-bridge\" \
@@ -230,7 +232,8 @@ rootlibexec_PROGRAMS = \
 	systemd-fsck \
 	systemd-timestamp \
 	systemd-ac-power \
-	systemd-sysctl
+	systemd-sysctl \
+	systemd-sleep
 
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator
@@ -266,6 +269,7 @@ dist_systemunit_DATA = \
 	units/nss-lookup.target \
 	units/nss-user-lookup.target \
 	units/mail-transfer-agent.target \
+	units/hibernate.target \
 	units/http-daemon.target \
 	units/poweroff.target \
 	units/reboot.target \
@@ -276,7 +280,9 @@ dist_systemunit_DATA = \
 	units/final.target \
 	units/umount.target \
 	units/sigpwr.target \
+	units/sleep.target \
 	units/sockets.target \
+	units/suspend.target \
 	units/swap.target \
 	units/systemd-initctl.socket \
 	units/systemd-shutdownd.socket \
@@ -318,12 +324,14 @@ nodist_systemunit_DATA = \
 	units/systemd-sysctl.service \
 	units/halt.service \
 	units/emergency.service \
+	units/hibernate.service \
 	units/poweroff.service \
 	units/reboot.service \
 	units/kexec.service \
 	units/fsck@.service \
 	units/fsck-root.service \
 	units/rescue.service \
+	units/suspend.service \
 	units/user@.service \
 	units/systemd-udev.service \
 	units/systemd-udev-trigger.service \
@@ -1060,6 +1068,13 @@ systemd_sysctl_SOURCES = \
 	src/sysctl/sysctl.c
 
 systemd_sysctl_LDADD = \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+systemd_sleep_SOURCES = \
+	src/sleep/sleep.c
+
+systemd_sleep_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
@@ -3027,6 +3042,7 @@ systemd-install-data-hook:
 		$(DESTDIR)$(prefix)/lib/sysctl.d \
 		$(DESTDIR)$(sysconfdir)/sysctl.d \
 		$(DESTDIR)$(systemshutdowndir) \
+		$(DESTDIR)$(systemsleepdir) \
 		$(DESTDIR)$(systemgeneratordir) \
 		$(DESTDIR)$(usergeneratordir)
 	$(MKDIR_P) -m 0755 \
