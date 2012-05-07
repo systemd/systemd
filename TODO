@@ -27,6 +27,12 @@ Features:
 
 * pam_systemd: try to get old session id from cgroup, if audit sessionid cannot be determined
 
+* maybe introduce ~/.config/locale.conf and apply it within PAM
+
+* readahead: make use of EXT4_IOC_MOVE_EXT, as used by http://e4rat.sourceforge.net/
+
+* automount: implement expire
+
 * logind: auto-suspend, auto-shutdown:
         IdleAction=(none|suspend|hibernate|poweroff)
         IdleActionDelay=...
