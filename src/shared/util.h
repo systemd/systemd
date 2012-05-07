@@ -59,17 +59,6 @@ typedef struct dual_timestamp {
 #define USEC_PER_MONTH (2629800ULL*USEC_PER_SEC)
 #define USEC_PER_YEAR (31557600ULL*USEC_PER_SEC)
 
-/*
- * container_of - cast a member of a structure out to the containing structure
- * @ptr: the pointer to the member.
- * @type: the type of the container struct this is embedded in.
- * @member: the name of the member within the struct.
- *
- */
-#define container_of(ptr, type, member) ({ \
-        const typeof( ((type *)0)->member ) *__mptr = (ptr); \
-        (type *)( (char *)__mptr - offsetof(type,member) );})
-
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
 #define NEWLINE "\n\r"
@@ -460,12 +449,6 @@ int symlink_or_copy_atomic(const char *from, const char *to);
 
 int fchmod_umask(int fd, mode_t mode);
 
-int hwclock_is_localtime(void);
-int hwclock_apply_localtime_delta(int *min);
-int hwclock_reset_localtime_delta(void);
-int hwclock_get_time(struct tm *tm);
-int hwclock_set_time(const struct tm *tm);
-
 bool display_is_local(const char *display);
 int socket_from_display(const char *display, char **path);
 
@@ -537,8 +520,6 @@ char *format_bytes(char *buf, size_t l, off_t t);
 int fd_wait_for_event(int fd, int event, usec_t timeout);
 
 void* memdup(const void *p, size_t l);
-
-int rtc_open(int flags);
 
 int is_kernel_thread(pid_t pid);
 

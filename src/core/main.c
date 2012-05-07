@@ -54,6 +54,7 @@
 #include "hostname-setup.h"
 #include "machine-id-setup.h"
 #include "locale-setup.h"
+#include "hwclock.h"
 #include "selinux-setup.h"
 #include "ima-setup.h"
 

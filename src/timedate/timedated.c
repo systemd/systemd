@@ -30,6 +30,7 @@
 #include "dbus-common.h"
 #include "polkit.h"
 #include "def.h"
+#include "hwclock.h"
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"

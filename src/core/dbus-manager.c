@@ -31,6 +31,7 @@
 #include "dbus-common.h"
 #include "install.h"
 #include "watchdog.h"
+#include "hwclock.h"
 
 #define BUS_MANAGER_INTERFACE_BEGIN                                     \
         " <interface name=\"org.freedesktop.systemd1.Manager\">\n"
