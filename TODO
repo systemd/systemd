@@ -27,6 +27,8 @@ Features:
 
 * pam_systemd: try to get old session id from cgroup, if audit sessionid cannot be determined
 
+* pam: when leaving a session explicitly exclude the ReleaseSession() caller process from the killing spree
+
 * maybe introduce ~/.config/locale.conf and apply it within PAM
 
 * readahead: make use of EXT4_IOC_MOVE_EXT, as used by http://e4rat.sourceforge.net/
