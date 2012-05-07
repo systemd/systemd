@@ -36,13 +36,6 @@
 #define PREALLOC_STRBUF         32 * 1024
 #define PREALLOC_TRIE           256
 
-/* configuration directories with last modification timestamp */
-static const char *rules_dirs[] = {
-        TEST_PREFIX UDEVLIBEXECDIR "/rules.d",
-        TEST_PREFIX "/run/udev/rules.d",
-        TEST_PREFIX SYSCONFDIR "/udev/rules.d",
-};
-
 struct uid_gid {
         unsigned int name_off;
         union {
@@ -65,7 +58,8 @@ struct trie_node {
 
 struct udev_rules {
         struct udev *udev;
-        unsigned long long dirs_ts_usec[ELEMENTSOF(rules_dirs)];
+        char **dirs;
+        unsigned long long *dirs_ts_usec;
         int resolve_names;
 
         /* every key in the rules file becomes a token */
@@ -79,7 +73,7 @@ struct udev_rules {
         size_t buf_max;
         unsigned int buf_count;
 
-        /* during rule parsing, strings are indexed to find duplicates */
+        /* during rule parsing, strings are indexed and de-duplicated */
         struct trie_node *trie_nodes;
         unsigned int trie_nodes_cur;
         unsigned int trie_nodes_max;
@@ -1188,7 +1182,9 @@ static int add_rule(struct udev_rules *rules, char *line,
         memset(&rule_tmp, 0x00, sizeof(struct rule_tmp));
         rule_tmp.rules = rules;
         rule_tmp.rule.type = TK_RULE;
-        rule_tmp.rule.rule.filename_off = filename_off;
+        /* the offset in the rule is limited to unsigned short */
+        if (filename_off < USHRT_MAX)
+                rule_tmp.rule.rule.filename_off = filename_off;
         rule_tmp.rule.rule.filename_line = lineno;
 
         linepos = line;
@@ -1632,21 +1628,27 @@ invalid:
         return -1;
 }
 
-static int parse_file(struct udev_rules *rules, const char *filename, unsigned short filename_off)
+static int parse_file(struct udev_rules *rules, const char *filename)
 {
         FILE *f;
         unsigned int first_token;
+        unsigned int filename_off;
         char line[UTIL_LINE_SIZE];
         int line_nr = 0;
         unsigned int i;
 
-        log_debug("reading '%s' as rules file\n", filename);
+        if (null_or_empty_path(filename)) {
+                log_debug("skip empty file: %s\n", filename);
+                return 0;
+        }
+        log_debug("read rules file: %s\n", filename);
 
         f = fopen(filename, "r");
         if (f == NULL)
                 return -1;
 
         first_token = rules->token_cur;
+        filename_off = add_string(rules, filename);
 
         while (fgets(line, sizeof(line), f) != NULL) {
                 char *key;
@@ -1707,52 +1709,13 @@ static int parse_file(struct udev_rules *rules, const char *filename, unsigned s
         return 0;
 }
 
-static int add_matching_files(struct udev *udev, struct udev_list *file_list, const char *dirname, const char *suffix)
-{
-        DIR *dir;
-        struct dirent *dent;
-        char filename[UTIL_PATH_SIZE];
-
-        dir = opendir(dirname);
-        if (dir == NULL) {
-                log_debug("unable to open '%s': %m\n", dirname);
-                return -1;
-        }
-
-        for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-                if (dent->d_name[0] == '.')
-                        continue;
-
-                /* look for file matching with specified suffix */
-                if (suffix != NULL) {
-                        const char *ext;
-
-                        ext = strrchr(dent->d_name, '.');
-                        if (ext == NULL)
-                                continue;
-                        if (!streq(ext, suffix))
-                                continue;
-                }
-                util_strscpyl(filename, sizeof(filename), dirname, "/", dent->d_name, NULL);
-                /*
-                 * the basename is the key, the filename the value
-                 * identical basenames from different directories override each other
-                 * entries are sorted after basename
-                 */
-                udev_list_entry_add(file_list, dent->d_name, filename);
-        }
-
-        closedir(dir);
-        return 0;
-}
-
 struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 {
         struct udev_rules *rules;
         struct udev_list file_list;
-        struct udev_list_entry *file_loop;
         struct token end_token;
-        unsigned int i;
+        char **files, **f;
+        int r;
 
         rules = calloc(1, sizeof(struct udev_rules));
         if (rules == NULL)
@@ -1792,41 +1755,37 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
         memset(rules->trie_nodes, 0x00, sizeof(struct trie_node));
         rules->trie_nodes_cur = 1;
 
-        for (i = 0; i < ELEMENTSOF(rules_dirs); i++)
-                add_matching_files(udev, &file_list, rules_dirs[i], ".rules");
-
-        /* add all filenames to the string buffer */
-        udev_list_entry_foreach(file_loop, udev_list_get_entry(&file_list)) {
-                const char *filename = udev_list_entry_get_value(file_loop);
-                unsigned int filename_off;
-
-                filename_off = add_string(rules, filename);
-                /* the offset in the rule is limited to unsigned short */
-                if (filename_off < USHRT_MAX)
-                        udev_list_entry_set_num(file_loop, filename_off);
+        rules->dirs = strv_new(TEST_PREFIX SYSCONFDIR "/udev/rules.d",
+                               TEST_PREFIX "/run/udev/rules.d",
+                               TEST_PREFIX UDEVLIBEXECDIR "/rules.d",
+                               NULL);
+        if (!rules->dirs) {
+                log_error("failed to build config directory array");
+                return NULL;
         }
-
-        /* parse all rules files */
-        udev_list_entry_foreach(file_loop, udev_list_get_entry(&file_list)) {
-                const char *filename = udev_list_entry_get_value(file_loop);
-                unsigned int filename_off = udev_list_entry_get_num(file_loop);
-                struct stat st;
-
-                if (stat(filename, &st) != 0) {
-                        log_error("can not find '%s': %m\n", filename);
-                        continue;
-                }
-                if (S_ISREG(st.st_mode) && st.st_size <= 0) {
-                        log_debug("ignore empty '%s'\n", filename);
-                        continue;
-                }
-                if (S_ISCHR(st.st_mode)) {
-                        log_debug("ignore masked '%s'\n", filename);
-                        continue;
-                }
-                parse_file(rules, filename, filename_off);
+        if (!strv_path_canonicalize(rules->dirs)) {
+                log_error("failed to canonicalize config directories\n");
+                return NULL;
         }
-        udev_list_cleanup(&file_list);
+        strv_uniq(rules->dirs);
+        r = conf_files_list_strv(&files, ".rules", (const char **)rules->dirs);
+        if (r < 0) {
+                log_error("failed to enumerate rules files: %s\n", strerror(-r));
+                return NULL;
+        }
+        rules->dirs_ts_usec = calloc(strv_length(rules->dirs), sizeof(long long));
+
+        /*
+         * The offset value in the rules strct is limited; add all
+         * rules file names to the beginning of the string buffer.
+         */
+        STRV_FOREACH(f, files)
+                add_string(rules, *f);
+
+        STRV_FOREACH(f, files)
+                parse_file(rules, *f);
+
+        strv_free(files);
 
         memset(&end_token, 0x00, sizeof(struct token));
         end_token.type = TK_END;
@@ -1886,6 +1845,8 @@ struct udev_rules *udev_rules_unref(struct udev_rules *rules)
         free(rules->trie_nodes);
         free(rules->uids);
         free(rules->gids);
+        strv_free(rules->dirs);
+        free(rules->dirs_ts_usec);
         free(rules);
         return NULL;
 }
@@ -1895,10 +1856,10 @@ bool udev_rules_check_timestamp(struct udev_rules *rules)
         unsigned int i;
         bool changed = false;
 
-        for (i = 0; i < ELEMENTSOF(rules_dirs); i++) {
+        for (i = 0; rules->dirs[i]; i++) {
                 struct stat stats;
 
-                if (stat(rules_dirs[i], &stats) < 0)
+                if (stat(rules->dirs[i], &stats) < 0)
                         continue;
 
                 if (rules->dirs_ts_usec[i] == ts_usec(&stats.st_mtim))
@@ -1906,7 +1867,7 @@ bool udev_rules_check_timestamp(struct udev_rules *rules)
 
                 /* first check */
                 if (rules->dirs_ts_usec[i] != 0) {
-                        log_debug("reload - timestamp of '%s' changed\n", rules_dirs[i]);
+                        log_debug("reload - timestamp of '%s' changed\n", rules->dirs[i]);
                         changed = true;
                 }
 
