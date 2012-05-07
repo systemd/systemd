@@ -4877,7 +4877,7 @@ static int files_add(Hashmap *h, const char *path, const char *suffix) {
 
         for (;;) {
                 int k;
-                char *p, *f;
+                char *p;
 
                 k = readdir_r(dir, &buffer, &de);
                 if (k != 0) {
@@ -4896,17 +4896,10 @@ static int files_add(Hashmap *h, const char *path, const char *suffix) {
                         goto finish;
                 }
 
-                f = canonicalize_file_name(p);
-                if (!f) {
-                        log_error("Failed to canonicalize file name '%s': %m", p);
+                if (hashmap_put(h, file_name_from_path(p), p) <= 0) {
+                        log_debug("Skip overridden file: %s.", p);
                         free(p);
-                        continue;
                 }
-                free(p);
-
-                log_debug("found: %s\n", f);
-                if (hashmap_put(h, file_name_from_path(f), f) <= 0)
-                        free(f);
         }
 
 finish:
