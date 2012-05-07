@@ -407,6 +407,7 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
 {
         struct udev_device *parent;
         char *path = NULL;
+        bool some_transport = false;
 
         /* S390 ccw bus */
         parent = udev_device_get_parent_with_subsystem_devtype(dev, "ccw", NULL);
@@ -427,8 +428,10 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
                         handle_scsi_tape(parent, &path);
                 } else if (strcmp(subsys, "scsi") == 0) {
                         parent = handle_scsi(parent, &path);
+                        some_transport = true;
                 } else if (strcmp(subsys, "usb") == 0) {
                         parent = handle_usb(parent, &path);
+                        some_transport = true;
                 } else if (strcmp(subsys, "serio") == 0) {
                         path_prepend(&path, "serio-%s", udev_device_get_sysnum(parent));
                         parent = skip_subsystem(parent, "serio");
@@ -451,6 +454,17 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
 
                 parent = udev_device_get_parent(parent);
         }
+
+        /*
+         * Do not return a single-parent-device-only for block
+         * devices, they might have entire buses behind it which
+         * do not get unique IDs only by using the parent device.
+         */
+        if (!some_transport && streq(udev_device_get_subsystem(dev), "block")) {
+                free(path);
+                path = NULL;
+        }
+
 out:
         if (path != NULL) {
                 char tag[UTIL_NAME_SIZE];
