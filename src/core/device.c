@@ -30,6 +30,7 @@
 #include "unit-name.h"
 #include "dbus-device.h"
 #include "def.h"
+#include "path-util.h"
 
 static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
         [DEVICE_DEAD] = UNIT_INACTIVE,

@@ -55,7 +55,6 @@
 #include <glob.h>
 #include <grp.h>
 #include <sys/mman.h>
-#include <sys/statvfs.h>
 
 #include "macro.h"
 #include "util.h"
@@ -64,6 +63,7 @@
 #include "log.h"
 #include "strv.h"
 #include "label.h"
+#include "path-util.h"
 #include "exit-status.h"
 #include "hashmap.h"
 
@@ -484,21 +484,6 @@ char *split_quoted(const char *c, size_t *l, char **state) {
         }
 
         return (char*) current;
-}
-
-char **split_path_and_make_absolute(const char *p) {
-        char **l;
-        assert(p);
-
-        if (!(l = strv_split(p, ":")))
-                return NULL;
-
-        if (!strv_path_make_absolute_cwd(l)) {
-                strv_free(l);
-                return NULL;
-        }
-
-        return l;
 }
 
 int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
@@ -1313,187 +1298,6 @@ int readlink_and_canonicalize(const char *p, char **r) {
         return 0;
 }
 
-int parent_of_path(const char *path, char **_r) {
-        const char *e, *a = NULL, *b = NULL, *p;
-        char *r;
-        bool slash = false;
-
-        assert(path);
-        assert(_r);
-
-        if (!*path)
-                return -EINVAL;
-
-        for (e = path; *e; e++) {
-
-                if (!slash && *e == '/') {
-                        a = b;
-                        b = e;
-                        slash = true;
-                } else if (slash && *e != '/')
-                        slash = false;
-        }
-
-        if (*(e-1) == '/')
-                p = a;
-        else
-                p = b;
-
-        if (!p)
-                return -EINVAL;
-
-        if (p == path)
-                r = strdup("/");
-        else
-                r = strndup(path, p-path);
-
-        if (!r)
-                return -ENOMEM;
-
-        *_r = r;
-        return 0;
-}
-
-
-char *file_name_from_path(const char *p) {
-        char *r;
-
-        assert(p);
-
-        if ((r = strrchr(p, '/')))
-                return r + 1;
-
-        return (char*) p;
-}
-
-bool path_is_absolute(const char *p) {
-        assert(p);
-
-        return p[0] == '/';
-}
-
-bool is_path(const char *p) {
-
-        return !!strchr(p, '/');
-}
-
-char *path_make_absolute(const char *p, const char *prefix) {
-        assert(p);
-
-        /* Makes every item in the list an absolute path by prepending
-         * the prefix, if specified and necessary */
-
-        if (path_is_absolute(p) || !prefix)
-                return strdup(p);
-
-        return join(prefix, "/", p, NULL);
-}
-
-char *path_make_absolute_cwd(const char *p) {
-        char *cwd, *r;
-
-        assert(p);
-
-        /* Similar to path_make_absolute(), but prefixes with the
-         * current working directory. */
-
-        if (path_is_absolute(p))
-                return strdup(p);
-
-        if (!(cwd = get_current_dir_name()))
-                return NULL;
-
-        r = path_make_absolute(p, cwd);
-        free(cwd);
-
-        return r;
-}
-
-char **strv_path_make_absolute_cwd(char **l) {
-        char **s;
-
-        /* Goes through every item in the string list and makes it
-         * absolute. This works in place and won't rollback any
-         * changes on failure. */
-
-        STRV_FOREACH(s, l) {
-                char *t;
-
-                if (!(t = path_make_absolute_cwd(*s)))
-                        return NULL;
-
-                free(*s);
-                *s = t;
-        }
-
-        return l;
-}
-
-char **strv_path_canonicalize(char **l) {
-        char **s;
-        unsigned k = 0;
-        bool enomem = false;
-
-        if (strv_isempty(l))
-                return l;
-
-        /* Goes through every item in the string list and canonicalize
-         * the path. This works in place and won't rollback any
-         * changes on failure. */
-
-        STRV_FOREACH(s, l) {
-                char *t, *u;
-
-                t = path_make_absolute_cwd(*s);
-                free(*s);
-
-                if (!t) {
-                        enomem = true;
-                        continue;
-                }
-
-                errno = 0;
-                u = canonicalize_file_name(t);
-                free(t);
-
-                if (!u) {
-                        if (errno == ENOMEM || !errno)
-                                enomem = true;
-
-                        continue;
-                }
-
-                l[k++] = u;
-        }
-
-        l[k] = NULL;
-
-        if (enomem)
-                return NULL;
-
-        return l;
-}
-
-char **strv_path_remove_empty(char **l) {
-        char **f, **t;
-
-        if (!l)
-                return NULL;
-
-        for (f = t = l; *f; f++) {
-
-                if (dir_is_empty(*f) > 0) {
-                        free(*f);
-                        continue;
-                }
-
-                *(t++) = *f;
-        }
-
-        *t = NULL;
-        return l;
-}
-
 int reset_all_signal_handlers(void) {
         int sig;
 
@@ -1970,107 +1774,6 @@ char *bus_path_unescape(const char *f) {
         *t = 0;
 
         return r;
-}
-
-char *path_kill_slashes(char *path) {
-        char *f, *t;
-        bool slash = false;
-
-        /* Removes redundant inner and trailing slashes. Modifies the
-         * passed string in-place.
-         *
-         * ///foo///bar/ becomes /foo/bar
-         */
-
-        for (f = path, t = path; *f; f++) {
-
-                if (*f == '/') {
-                        slash = true;
-                        continue;
-                }
-
-                if (slash) {
-                        slash = false;
-                        *(t++) = '/';
-                }
-
-                *(t++) = *f;
-        }
-
-        /* Special rule, if we are talking of the root directory, a
-        trailing slash is good */
-
-        if (t == path && slash)
-                *(t++) = '/';
-
-        *t = 0;
-        return path;
-}
-
-bool path_startswith(const char *path, const char *prefix) {
-        assert(path);
-        assert(prefix);
-
-        if ((path[0] == '/') != (prefix[0] == '/'))
-                return false;
-
-        for (;;) {
-                size_t a, b;
-
-                path += strspn(path, "/");
-                prefix += strspn(prefix, "/");
-
-                if (*prefix == 0)
-                        return true;
-
-                if (*path == 0)
-                        return false;
-
-                a = strcspn(path, "/");
-                b = strcspn(prefix, "/");
-
-                if (a != b)
-                        return false;
-
-                if (memcmp(path, prefix, a) != 0)
-                        return false;
-
-                path += a;
-                prefix += b;
-        }
-}
-
-bool path_equal(const char *a, const char *b) {
-        assert(a);
-        assert(b);
-
-        if ((a[0] == '/') != (b[0] == '/'))
-                return false;
-
-        for (;;) {
-                size_t j, k;
-
-                a += strspn(a, "/");
-                b += strspn(b, "/");
-
-                if (*a == 0 && *b == 0)
-                        return true;
-
-                if (*a == 0 || *b == 0)
-                        return false;
-
-                j = strcspn(a, "/");
-                k = strcspn(b, "/");
-
-                if (j != k)
-                        return false;
-
-                if (memcmp(a, b, j) != 0)
-                        return false;
-
-                a += j;
-                b += k;
-        }
 }
 
 char *ascii_strlower(char *t) {
@@ -2984,36 +2687,6 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
         }
 
         return n;
-}
-
-int path_is_mount_point(const char *t, bool allow_symlink) {
-        struct stat a, b;
-        char *parent;
-        int r;
-
-        if (allow_symlink)
-                r = stat(t, &a);
-        else
-                r = lstat(t, &a);
-
-        if (r < 0) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return -errno;
-        }
-
-        r = parent_of_path(t, &parent);
-        if (r < 0)
-                return r;
-
-        r = lstat(parent, &b);
-        free(parent);
-
-        if (r < 0)
-                return -errno;
-
-        return a.st_dev != b.st_dev;
 }
 
 int parse_usec(const char *t, usec_t *usec) {
@@ -4746,7 +4419,7 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
         if (!t)
                 return -ENOMEM;
 
-        fn = file_name_from_path(path);
+        fn = path_get_file_name(path);
         k = fn-path;
         memcpy(t, path, k);
         t[k] = '.';
@@ -4928,8 +4601,8 @@ int symlink_or_copy(const char *from, const char *to) {
         assert(from);
         assert(to);
 
-        if (parent_of_path(from, &pf) < 0 ||
-            parent_of_path(to, &pt) < 0) {
+        if (path_get_parent(from, &pf) < 0 ||
+            path_get_parent(to, &pt) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }
@@ -4976,7 +4649,7 @@ int symlink_or_copy_atomic(const char *from, const char *to) {
         if (!t)
                 return -ENOMEM;
 
-        fn = file_name_from_path(to);
+        fn = path_get_file_name(to);
         k = fn-to;
         memcpy(t, to, k);
         t[k] = '.';
@@ -5218,7 +4891,7 @@ int in_search_path(const char *path, char **search) {
         char **i, *parent;
         int r;
 
-        r = parent_of_path(path, &parent);
+        r = path_get_parent(path, &parent);
         if (r < 0)
                 return r;
 
@@ -5855,17 +5528,6 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
                 return -errno;
 
         return 0;
-}
-
-int path_is_read_only_fs(const char *path) {
-        struct statvfs st;
-
-        assert(path);
-
-        if (statvfs(path, &st) < 0)
-                return -errno;
-
-        return !!(st.f_flag & ST_RDONLY);
 }
 
 int getenv_for_pid(pid_t pid, const char *field, char **_value) {

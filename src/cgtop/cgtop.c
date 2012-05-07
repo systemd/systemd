@@ -26,6 +26,7 @@
 #include <alloca.h>
 #include <getopt.h>
 
+#include "path-util.h"
 #include "util.h"
 #include "hashmap.h"
 #include "cgroup-util.h"

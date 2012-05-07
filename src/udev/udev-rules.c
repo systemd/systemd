@@ -31,6 +31,7 @@
 #include <time.h>
 
 #include "udev.h"
+#include "path-util.h"
 #include "conf-files.h"
 
 #define PREALLOC_TOKEN          2048
@@ -1764,7 +1765,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
                 log_error("failed to build config directory array");
                 return NULL;
         }
-        if (!strv_path_canonicalize(rules->dirs)) {
+        if (!path_strv_canonicalize(rules->dirs)) {
                 log_error("failed to canonicalize config directories\n");
                 return NULL;
         }

@@ -31,6 +31,7 @@
 #include "cgroup-util.h"
 #include "log.h"
 #include "strv.h"
+#include "path-util.h"
 
 int cgroup_bonding_realize(CGroupBonding *b) {
         int r;

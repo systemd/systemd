@@ -65,6 +65,7 @@
 #include "virt.h"
 #include "watchdog.h"
 #include "cgroup-util.h"
+#include "path-util.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -785,7 +786,7 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DB
         }
 
         if (!name)
-                name = file_name_from_path(path);
+                name = path_get_file_name(path);
 
         t = unit_name_to_type(name);
 

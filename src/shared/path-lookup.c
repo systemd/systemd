@@ -28,7 +28,7 @@
 #include "util.h"
 #include "mkdir.h"
 #include "strv.h"
-
+#include "path-util.h"
 #include "path-lookup.h"
 
 int user_config_home(char **config_home) {
@@ -165,7 +165,7 @@ static char** user_dirs(void) {
         strv_free(r);
         r = t;
 
-        if (!strv_path_make_absolute_cwd(r))
+        if (!path_strv_make_absolute_cwd(r))
             goto fail;
 
 finish:
@@ -191,7 +191,7 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
         /* First priority is whatever has been passed to us via env
          * vars */
         if ((e = getenv("SYSTEMD_UNIT_PATH")))
-                if (!(p->unit_path = split_path_and_make_absolute(e)))
+                if (!(p->unit_path = path_split_and_make_absolute(e)))
                         return -ENOMEM;
 
         if (strv_isempty(p->unit_path)) {
@@ -239,11 +239,11 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
         }
 
         if (p->unit_path)
-                if (!strv_path_canonicalize(p->unit_path))
+                if (!path_strv_canonicalize(p->unit_path))
                         return -ENOMEM;
 
         strv_uniq(p->unit_path);
-        strv_path_remove_empty(p->unit_path);
+        path_strv_remove_empty(p->unit_path);
 
         if (!strv_isempty(p->unit_path)) {
 
@@ -262,7 +262,7 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
                 /* /etc/init.d/ compatibility does not matter to users */
 
                 if ((e = getenv("SYSTEMD_SYSVINIT_PATH")))
-                        if (!(p->sysvinit_path = split_path_and_make_absolute(e)))
+                        if (!(p->sysvinit_path = path_split_and_make_absolute(e)))
                                 return -ENOMEM;
 
                 if (strv_isempty(p->sysvinit_path)) {
@@ -275,7 +275,7 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
                 }
 
                 if ((e = getenv("SYSTEMD_SYSVRCND_PATH")))
-                        if (!(p->sysvrcnd_path = split_path_and_make_absolute(e)))
+                        if (!(p->sysvrcnd_path = path_split_and_make_absolute(e)))
                                 return -ENOMEM;
 
                 if (strv_isempty(p->sysvrcnd_path)) {
@@ -288,18 +288,18 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
                 }
 
                 if (p->sysvinit_path)
-                        if (!strv_path_canonicalize(p->sysvinit_path))
+                        if (!path_strv_canonicalize(p->sysvinit_path))
                                 return -ENOMEM;
 
                 if (p->sysvrcnd_path)
-                        if (!strv_path_canonicalize(p->sysvrcnd_path))
+                        if (!path_strv_canonicalize(p->sysvrcnd_path))
                                 return -ENOMEM;
 
                 strv_uniq(p->sysvinit_path);
                 strv_uniq(p->sysvrcnd_path);
 
-                strv_path_remove_empty(p->sysvinit_path);
-                strv_path_remove_empty(p->sysvrcnd_path);
+                path_strv_remove_empty(p->sysvinit_path);
+                path_strv_remove_empty(p->sysvrcnd_path);
 
                 if (!strv_isempty(p->sysvinit_path)) {
 

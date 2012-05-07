@@ -31,6 +31,7 @@
 #include "strv.h"
 #include "log.h"
 #include "utf8.h"
+#include "path-util.h"
 
 int config_item_table_lookup(
                 void *table,

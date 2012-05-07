@@ -45,6 +45,7 @@
 #include "utmp-wtmp.h"
 #include "special.h"
 #include "initreq.h"
+#include "path-util.h"
 #include "strv.h"
 #include "dbus-common.h"
 #include "cgroup-show.h"
@@ -61,6 +62,7 @@
 #include "spawn-polkit-agent.h"
 #include "install.h"
 #include "logs-show.h"
+#include "path-util.h"
 
 static const char *arg_type = NULL;
 static char **arg_property = NULL;
@@ -560,7 +562,7 @@ static int compare_unit_file_list(const void *a, const void *b) {
                         return r;
         }
 
-        return strcasecmp(file_name_from_path(u->path), file_name_from_path(v->path));
+        return strcasecmp(path_get_file_name(u->path), path_get_file_name(v->path));
 }
 
 static bool output_show_unit_file(const UnitFileList *u) {
@@ -579,7 +581,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 if (!output_show_unit_file(u))
                         continue;
 
-                max_id_len = MAX(max_id_len, strlen(file_name_from_path(u->path)));
+                max_id_len = MAX(max_id_len, strlen(path_get_file_name(u->path)));
                 state_cols = MAX(state_cols, strlen(unit_file_state_to_string(u->state)));
         }
 
@@ -616,7 +618,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 } else
                         on = off = "";
 
-                id = file_name_from_path(u->path);
+                id = path_get_file_name(u->path);
 
                 e = arg_full ? NULL : ellipsize(id, id_cols, 33);
 
@@ -3721,7 +3723,7 @@ static int enable_sysv_units(char **args) {
                 if (!isempty(arg_root))
                         argv[c++] = q = strappend("--root=", arg_root);
 
-                argv[c++] = file_name_from_path(p);
+                argv[c++] = path_get_file_name(p);
                 argv[c++] =
                         streq(verb, "enable") ? "on" :
                         streq(verb, "disable") ? "off" : "--level=5";

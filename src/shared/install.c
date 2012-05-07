@@ -29,6 +29,7 @@
 #include "mkdir.h"
 #include "hashmap.h"
 #include "set.h"
+#include "path-util.h"
 #include "path-lookup.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -283,7 +284,7 @@ static int remove_marked_symlinks_fd(
 
                         found =
                                 set_get(remove_symlinks_to, dest) ||
-                                set_get(remove_symlinks_to, file_name_from_path(dest));
+                                set_get(remove_symlinks_to, path_get_file_name(dest));
 
                         if (found) {
 
@@ -468,7 +469,7 @@ static int find_symlinks_fd(
                         if (path_is_absolute(name))
                                 found_dest = path_equal(dest, name);
                         else
-                                found_dest = streq(file_name_from_path(dest), name);
+                                found_dest = streq(path_get_file_name(dest), name);
 
                         free(dest);
 
@@ -754,7 +755,7 @@ int unit_file_link(
                 char *path, *fn;
                 struct stat st;
 
-                fn = file_name_from_path(*i);
+                fn = path_get_file_name(*i);
 
                 if (!path_is_absolute(*i) ||
                     !unit_name_is_valid_no_type(fn, true)) {
@@ -917,7 +918,7 @@ static int install_info_add(
         assert(name || path);
 
         if (!name)
-                name = file_name_from_path(path);
+                name = path_get_file_name(path);
 
         if (!unit_name_is_valid_no_type(name, true))
                 return -EINVAL;
@@ -1915,7 +1916,7 @@ int unit_file_get_list(
                         continue;
 
                 found:
-                        r = hashmap_put(h, file_name_from_path(f->path), f);
+                        r = hashmap_put(h, path_get_file_name(f->path), f);
                         if (r < 0) {
                                 free(f->path);
                                 free(f);

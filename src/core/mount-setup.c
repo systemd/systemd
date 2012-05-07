@@ -38,6 +38,7 @@
 #include "set.h"
 #include "strv.h"
 #include "mkdir.h"
+#include "path-util.h"
 
 #ifndef TTY_GID
 #define TTY_GID 5

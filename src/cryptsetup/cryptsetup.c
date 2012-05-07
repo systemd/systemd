@@ -29,6 +29,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "path-util.h"
 #include "strv.h"
 #include "ask-password-api.h"
 #include "def.h"

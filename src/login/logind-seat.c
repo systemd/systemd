@@ -31,6 +31,7 @@
 #include "logind-acl.h"
 #include "util.h"
 #include "mkdir.h"
+#include "path-util.h"
 
 Seat *seat_new(Manager *m, const char *id) {
         Seat *s;
@@ -48,7 +49,7 @@ Seat *seat_new(Manager *m, const char *id) {
                 return NULL;
         }
 
-        s->id = file_name_from_path(s->state_file);
+        s->id = path_get_file_name(s->state_file);
         s->manager = m;
 
         if (hashmap_put(m->seats, s->id, s) < 0) {

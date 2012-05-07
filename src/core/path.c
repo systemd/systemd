@@ -32,6 +32,7 @@
 #include "dbus-path.h"
 #include "special.h"
 #include "bus-errors.h"
+#include "path-util.h"
 
 static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = UNIT_INACTIVE,

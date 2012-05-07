@@ -32,6 +32,7 @@
 #include "list.h"
 #include "mount-setup.h"
 #include "umount.h"
+#include "path-util.h"
 #include "util.h"
 
 typedef struct MountPoint {

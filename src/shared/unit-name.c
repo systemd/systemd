@@ -23,6 +23,7 @@
 #include <string.h>
 #include <assert.h>
 
+#include "path-util.h"
 #include "util.h"
 #include "unit-name.h"
 

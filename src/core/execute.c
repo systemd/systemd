@@ -59,6 +59,7 @@
 #include "utmp-wtmp.h"
 #include "def.h"
 #include "loopback-setup.h"
+#include "path-util.h"
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
@@ -929,7 +930,7 @@ static void rename_process_from_path(const char *path) {
         /* This resulting string must fit in 10 chars (i.e. the length
          * of "/sbin/init") to look pretty in /bin/ps */
 
-        p = file_name_from_path(path);
+        p = path_get_file_name(path);
         if (isempty(p)) {
                 rename_process("(...)");
                 return;
@@ -1152,14 +1153,14 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 if (!keep_stdout) {
-                        err = setup_output(context, socket_fd, file_name_from_path(command->path), apply_tty_stdin);
+                        err = setup_output(context, socket_fd, path_get_file_name(command->path), apply_tty_stdin);
                         if (err < 0) {
                                 r = EXIT_STDOUT;
                                 goto fail_child;
                         }
                 }
 
-                err = setup_error(context, socket_fd, file_name_from_path(command->path), apply_tty_stdin);
+                err = setup_error(context, socket_fd, path_get_file_name(command->path), apply_tty_stdin);
                 if (err < 0) {
                         r = EXIT_STDERR;
                         goto fail_child;

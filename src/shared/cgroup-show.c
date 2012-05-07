@@ -26,6 +26,7 @@
 
 #include "util.h"
 #include "macro.h"
+#include "path-util.h"
 #include "cgroup-util.h"
 #include "cgroup-show.h"
 
@@ -205,7 +206,7 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
                 }
 
                 if (last) {
-                        printf("%s\342\224\234 %s\n", prefix, file_name_from_path(last));
+                        printf("%s\342\224\234 %s\n", prefix, path_get_file_name(last));
 
                         if (!p1) {
                                 p1 = strappend(prefix, "\342\224\202 ");
@@ -230,7 +231,7 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
                 show_cgroup_one_by_path(path, prefix, n_columns, !!last, kernel_threads);
 
         if (last) {
-                printf("%s\342\224\224 %s\n", prefix, file_name_from_path(last));
+                printf("%s\342\224\224 %s\n", prefix, path_get_file_name(last));
 
                 if (!p2) {
                         p2 = strappend(prefix, "  ");

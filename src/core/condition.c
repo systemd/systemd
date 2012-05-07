@@ -33,6 +33,7 @@
 #include "util.h"
 #include "condition.h"
 #include "virt.h"
+#include "path-util.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;

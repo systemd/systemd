@@ -28,6 +28,7 @@
 #include "dbus-common.h"
 #include "strv.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "polkit.h"
 #include "special.h"
 

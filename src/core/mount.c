@@ -32,6 +32,7 @@
 #include "log.h"
 #include "strv.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "mount-setup.h"
 #include "unit-name.h"
 #include "dbus-mount.h"

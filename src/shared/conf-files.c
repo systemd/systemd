@@ -33,6 +33,7 @@
 #include "missing.h"
 #include "log.h"
 #include "strv.h"
+#include "path-util.h"
 #include "hashmap.h"
 #include "conf-files.h"
 
@@ -69,7 +70,7 @@ static int files_add(Hashmap *h, const char *path, const char *suffix) {
                         goto finish;
                 }
 
-                if (hashmap_put(h, file_name_from_path(p), p) <= 0) {
+                if (hashmap_put(h, path_get_file_name(p), p) <= 0) {
                         log_debug("Skip overridden file: %s.", p);
                         free(p);
                 }
@@ -85,7 +86,7 @@ static int base_cmp(const void *a, const void *b) {
 
         s1 = *(char * const *)a;
         s2 = *(char * const *)b;
-        return strcmp(file_name_from_path(s1), file_name_from_path(s2));
+        return strcmp(path_get_file_name(s1), path_get_file_name(s2));
 }
 
 int conf_files_list_strv(char ***strv, const char *suffix, const char **dirs) {
@@ -137,7 +138,7 @@ int conf_files_list(char ***strv, const char *suffix, const char *dir, ...) {
                 goto finish;
         }
 
-        if (!strv_path_canonicalize(dirs)) {
+        if (!path_strv_canonicalize(dirs)) {
                 r = -ENOMEM;
                 goto finish;
         }

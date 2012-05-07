@@ -29,6 +29,7 @@
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "log.h"
+#include "path-util.h"
 #include "util.h"
 #include "pager.h"
 #include "build.h"

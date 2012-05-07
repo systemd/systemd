@@ -30,6 +30,7 @@
 #include "journal-file.h"
 #include "hashmap.h"
 #include "list.h"
+#include "path-util.h"
 #include "lookup3.h"
 #include "compress.h"
 #include "journal-internal.h"
@@ -765,7 +766,7 @@ _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
                      bid, (unsigned long long) le64toh(o->entry.monotonic),
                      (unsigned long long) le64toh(o->entry.realtime),
                      (unsigned long long) le64toh(o->entry.xor_hash),
-                     file_name_from_path(j->current_file->path)) < 0)
+                     path_get_file_name(j->current_file->path)) < 0)
                 return -ENOMEM;
 
         return 1;

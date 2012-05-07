@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include "cgroup-util.h"
+#include "path-util.h"
 #include "util.h"
 #include "log.h"
 

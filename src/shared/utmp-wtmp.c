@@ -29,6 +29,7 @@
 #include <sys/poll.h>
 
 #include "macro.h"
+#include "path-util.h"
 #include "utmp-wtmp.h"
 
 int utmp_get_runlevel(int *runlevel, int *previous) {
@@ -224,7 +225,7 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
         strncpy(store.ut_id, sanitize_id(id), sizeof(store.ut_id));
 
         if (line)
-                strncpy(store.ut_line, file_name_from_path(line), sizeof(store.ut_line));
+                strncpy(store.ut_line, path_get_file_name(line), sizeof(store.ut_line));
 
         return write_entry_both(&store);
 }

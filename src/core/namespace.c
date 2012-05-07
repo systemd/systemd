@@ -33,6 +33,7 @@
 
 #include "strv.h"
 #include "util.h"
+#include "path-util.h"
 #include "namespace.h"
 #include "missing.h"
 

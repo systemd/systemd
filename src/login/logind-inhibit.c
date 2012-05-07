@@ -28,7 +28,7 @@
 
 #include "util.h"
 #include "mkdir.h"
-
+#include "path-util.h"
 #include "logind-inhibit.h"
 
 Inhibitor* inhibitor_new(Manager *m, const char* id) {
@@ -46,7 +46,7 @@ Inhibitor* inhibitor_new(Manager *m, const char* id) {
                 return NULL;
         }
 
-        i->id = file_name_from_path(i->state_file);
+        i->id = path_get_file_name(i->state_file);
 
         if (hashmap_put(m->inhibitors, i->id, i) < 0) {
                 free(i->state_file);

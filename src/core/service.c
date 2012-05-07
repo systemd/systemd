@@ -38,6 +38,7 @@
 #include "bus-errors.h"
 #include "exit-status.h"
 #include "def.h"
+#include "path-util.h"
 #include "util.h"
 #include "utf8.h"
 
@@ -722,7 +723,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                         }
 
-                                        r = sysv_translate_facility(n, file_name_from_path(path), &m);
+                                        r = sysv_translate_facility(n, path_get_file_name(path), &m);
                                         free(n);
 
                                         if (r < 0)
@@ -772,7 +773,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                         }
 
-                                        r = sysv_translate_facility(n, file_name_from_path(path), &m);
+                                        r = sysv_translate_facility(n, path_get_file_name(path), &m);
 
                                         if (r < 0) {
                                                 log_error("[%s:%u] Failed to translate LSB dependency %s, ignoring: %s", path, line, n, strerror(-r));

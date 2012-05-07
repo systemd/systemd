@@ -122,10 +122,6 @@ static inline const char *strna(const char *s) {
         return s ? s : "n/a";
 }
 
-static inline bool is_path_absolute(const char *p) {
-        return *p == '/';
-}
-
 static inline bool isempty(const char *p) {
         return !p || !p[0];
 }
@@ -205,8 +201,6 @@ char *split_quoted(const char *c, size_t *l, char **state);
 #define FOREACH_WORD_QUOTED(word, length, s, state)                     \
         for ((state) = NULL, (word) = split_quoted((s), &(length), &(state)); (word); (word) = split_quoted((s), &(length), &(state)))
 
-char **split_path_and_make_absolute(const char *p);
-
 pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 int get_starttime_of_pid(pid_t pid, unsigned long long *st);
 
@@ -229,17 +223,6 @@ int readlink_malloc(const char *p, char **r);
 int readlink_and_make_absolute(const char *p, char **r);
 int readlink_and_canonicalize(const char *p, char **r);
 
-char *file_name_from_path(const char *p);
-bool is_path(const char *p);
-
-bool path_is_absolute(const char *p);
-char *path_make_absolute(const char *p, const char *prefix);
-char *path_make_absolute_cwd(const char *p);
-
-char **strv_path_make_absolute_cwd(char **l);
-char **strv_path_canonicalize(char **l);
-char **strv_path_remove_empty(char **l);
-
 int reset_all_signal_handlers(void);
 
 char *strstrip(char *s);
@@ -247,8 +230,6 @@ char *delete_chars(char *s, const char *bad);
 char *truncate_nl(char *s);
 
 char *file_in_same_dir(const char *path, const char *filename);
-
-int parent_of_path(const char *path, char **parent);
 
 int rmdir_parents(const char *path, const char *stop);
 
@@ -272,11 +253,6 @@ char *xescape(const char *s, const char *bad);
 
 char *bus_path_escape(const char *s);
 char *bus_path_unescape(const char *s);
-
-char *path_kill_slashes(char *path);
-
-bool path_startswith(const char *path, const char *prefix);
-bool path_equal(const char *a, const char *b);
 
 char *ascii_strlower(char *path);
 
@@ -350,9 +326,6 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
 
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
 ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);
-
-int path_is_mount_point(const char *path, bool allow_symlink);
-int path_is_read_only_fs(const char *path);
 
 bool is_device_path(const char *path);
 

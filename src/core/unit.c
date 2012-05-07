@@ -33,6 +33,7 @@
 #include "unit.h"
 #include "macro.h"
 #include "strv.h"
+#include "path-util.h"
 #include "load-fragment.h"
 #include "load-dropin.h"
 #include "log.h"
@@ -1670,7 +1671,7 @@ static const char *resolve_template(Unit *u, const char *name, const char*path, 
         assert(name || path);
 
         if (!name)
-                name = file_name_from_path(path);
+                name = path_get_file_name(path);
 
         if (!unit_name_is_template(name)) {
                 *p = NULL;
@@ -2179,7 +2180,7 @@ static char *specifier_cgroup_root(char specifier, void *data, void *userdata) {
         if (specifier == 'r')
                 return strdup(u->manager->cgroup_hierarchy);
 
-        if (parent_of_path(u->manager->cgroup_hierarchy, &p) < 0)
+        if (path_get_parent(u->manager->cgroup_hierarchy, &p) < 0)
                 return strdup("");
 
         if (streq(p, "/")) {
@@ -2681,7 +2682,7 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
         if (u->unit_file_state < 0 && u->fragment_path)
                 u->unit_file_state = unit_file_get_state(
                                 u->manager->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
-                                NULL, file_name_from_path(u->fragment_path));
+                                NULL, path_get_file_name(u->fragment_path));
 
         return u->unit_file_state;
 }

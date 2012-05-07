@@ -39,6 +39,7 @@
 #include "special.h"
 #include "label.h"
 #include "mkdir.h"
+#include "path-util.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,

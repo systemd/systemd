@@ -38,6 +38,7 @@
 #include "bus-errors.h"
 #include "exit-status.h"
 #include "def.h"
+#include "path-util.h"
 
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = UNIT_INACTIVE,

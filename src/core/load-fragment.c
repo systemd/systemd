@@ -44,6 +44,7 @@
 #include "unit-name.h"
 #include "bus-errors.h"
 #include "utf8.h"
+#include "path-util.h"
 
 #ifndef HAVE_SYSV_COMPAT
 int config_parse_warn_compat(
@@ -2089,7 +2090,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                 /* Add the file name we are currently looking at to
                  * the names of this unit, but only if it is a valid
                  * unit name. */
-                name = file_name_from_path(*filename);
+                name = path_get_file_name(*filename);
 
                 if (unit_name_is_valid(name, true)) {
 

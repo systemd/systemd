@@ -34,6 +34,7 @@
 #include "set.h"
 #include "macro.h"
 #include "util.h"
+#include "path-util.h"
 #include "strv.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
@@ -673,7 +674,7 @@ int cg_delete(const char *controller, const char *path) {
         assert(controller);
         assert(path);
 
-        if ((r = parent_of_path(path, &parent)) < 0)
+        if ((r = path_get_parent(path, &parent)) < 0)
                 return r;
 
         r = cg_migrate_recursive(controller, path, parent, false, true);

@@ -28,6 +28,7 @@
 
 #include "label.h"
 #include "util.h"
+#include "path-util.h"
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>

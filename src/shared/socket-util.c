@@ -35,6 +35,7 @@
 #include "macro.h"
 #include "util.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "socket-util.h"
 #include "missing.h"
 

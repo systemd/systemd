@@ -28,6 +28,7 @@
 #include "strv.h"
 #include "util.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "cgroup-util.h"
 #include "logind-session.h"
 
@@ -49,7 +50,7 @@ Session* session_new(Manager *m, User *u, const char *id) {
                 return NULL;
         }
 
-        s->id = file_name_from_path(s->state_file);
+        s->id = path_get_file_name(s->state_file);
 
         if (hashmap_put(m->sessions, s->id, s) < 0) {
                 free(s->state_file);

@@ -50,6 +50,7 @@
 #include "missing.h"
 #include "cgroup-util.h"
 #include "strv.h"
+#include "path-util.h"
 #include "loopback-setup.h"
 
 static char *arg_directory = NULL;
@@ -524,7 +525,7 @@ static int setup_hostname(void) {
         char *hn;
         int r = 0;
 
-        hn = file_name_from_path(arg_directory);
+        hn = path_get_file_name(arg_directory);
         if (hn) {
                 hn = strdup(hn);
                 if (!hn)
