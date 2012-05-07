@@ -45,6 +45,7 @@
 #include "strv.h"
 #include "label.h"
 #include "set.h"
+#include "conf-files.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create

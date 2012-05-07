@@ -31,6 +31,7 @@
 #include "hashmap.h"
 #include "strv.h"
 #include "util.h"
+#include "conf-files.h"
 
 static int delete_rule(const char *rule) {
         char *x, *fn = NULL, *e;

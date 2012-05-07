@@ -31,6 +31,7 @@
 #include <time.h>
 
 #include "udev.h"
+#include "conf-files.h"
 
 #define PREALLOC_TOKEN          2048
 #define PREALLOC_STRBUF         32 * 1024

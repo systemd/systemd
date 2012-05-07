@@ -31,6 +31,7 @@
 #include "log.h"
 #include "util.h"
 #include "strv.h"
+#include "conf-files.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"

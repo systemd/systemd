@@ -31,6 +31,7 @@
 #include "strv.h"
 #include "util.h"
 #include "strv.h"
+#include "conf-files.h"
 
 #define PROC_SYS_PREFIX "/proc/sys/"
 

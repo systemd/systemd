@@ -34,6 +34,7 @@
 #include "unit-name.h"
 #include "install.h"
 #include "conf-parser.h"
+#include "conf-files.h"
 
 typedef struct {
         char *name;

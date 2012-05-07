@@ -547,6 +547,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/ioprio.h \
 	src/shared/socket-util.c \
 	src/shared/socket-util.h \
+	src/shared/conf-files.c \
+	src/shared/conf-files.h \
 	src/shared/cgroup-util.c \
 	src/shared/cgroup-util.h \
 	src/shared/cgroup-show.c \
@@ -563,10 +565,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/specifier.h \
 	src/shared/spawn-polkit-agent.c \
 	src/shared/spawn-polkit-agent.h
-
-libsystemd_shared_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
 
 #-------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
