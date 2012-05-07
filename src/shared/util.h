@@ -461,6 +461,7 @@ int symlink_or_copy_atomic(const char *from, const char *to);
 int fchmod_umask(int fd, mode_t mode);
 
 int conf_files_list(char ***strv, const char *suffix, const char *dir, ...);
+int conf_files_list_strv(char ***strv, const char *suffix, const char **dirs);
 
 int hwclock_is_localtime(void);
 int hwclock_apply_localtime_delta(int *min);

@@ -4915,29 +4915,13 @@ static int base_cmp(const void *a, const void *b) {
         return strcmp(file_name_from_path(s1), file_name_from_path(s2));
 }
 
-int conf_files_list(char ***strv, const char *suffix, const char *dir, ...) {
+int conf_files_list_strv(char ***strv, const char *suffix, const char **dirs) {
         Hashmap *fh = NULL;
-        char **dirs = NULL;
         char **files = NULL;
-        char **p;
-        va_list ap;
+        const char **p;
         int r = 0;
 
-        va_start(ap, dir);
-        dirs = strv_new_ap(dir, ap);
-        va_end(ap);
-        if (!dirs) {
-                r = -ENOMEM;
-                goto finish;
-        }
-        if (!strv_path_canonicalize(dirs)) {
-                r = -ENOMEM;
-                goto finish;
-        }
-        if (!strv_uniq(dirs)) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        assert(dirs);
 
         fh = hashmap_new(string_hash_func, string_compare_func);
         if (!fh) {
@@ -4959,13 +4943,37 @@ int conf_files_list(char ***strv, const char *suffix, const char *dir, ...) {
                 r = -ENOMEM;
                 goto finish;
         }
-
         qsort(files, hashmap_size(fh), sizeof(char *), base_cmp);
 
 finish:
-        strv_free(dirs);
         hashmap_free(fh);
         *strv = files;
+        return r;
+}
+
+int conf_files_list(char ***strv, const char *suffix, const char *dir, ...) {
+        char **dirs = NULL;
+        va_list ap;
+        int r;
+
+        va_start(ap, dir);
+        dirs = strv_new_ap(dir, ap);
+        va_end(ap);
+        if (!dirs) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (!strv_path_canonicalize(dirs)) {
+                r = -ENOMEM;
+                goto finish;
+        }
+        strv_uniq(dirs);
+
+        r = conf_files_list_strv(strv, suffix, (const char **)dirs);
+
+finish:
+        strv_free(dirs);
         return r;
 }
 
