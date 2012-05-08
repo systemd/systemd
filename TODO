@@ -36,7 +36,7 @@ Features:
 * automount: implement expire
 
 * logind: auto-suspend, auto-shutdown:
-        IdleAction=(none|suspend|hibernate|poweroff)
+        IdleAction=(none|suspend|opportunistic|hibernate|poweroff)
         IdleActionDelay=...
         SessionIdleMode=(explicit|ignore|login)
         ForceShutdown=(yes|no)

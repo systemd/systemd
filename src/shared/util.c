@@ -5590,3 +5590,28 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
 
         return r;
 }
+
+int can_sleep(const char *type) {
+        char *p, *w, *state;
+        size_t l, k;
+        bool found = false;
+        int r;
+
+        assert(type);
+
+        r = read_one_line_file("/sys/power/state", &p);
+        if (r < 0)
+                return r == -ENOENT ? 0 : r;
+
+        k = strlen(type);
+
+        FOREACH_WORD_SEPARATOR(w, l, p, WHITESPACE, state) {
+                if (l == k && strncmp(w, type, l) == 0) {
+                        found = true;
+                        break;
+                }
+        }
+
+        free(p);
+        return found;
+}

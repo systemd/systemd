@@ -23,11 +23,10 @@
 ***/
 
 typedef struct Inhibitor Inhibitor;
+typedef enum InhibitWhat InhibitWhat;
 
 #include "list.h"
 #include "util.h"
-#include "logind.h"
-#include "logind-seat.h"
 
 typedef enum InhibitWhat {
         INHIBIT_SHUTDOWN = 1,
@@ -43,6 +42,9 @@ typedef enum InhibitMode {
         _INHIBIT_MODE_MAX,
         _INHIBIT_MODE_INVALID = -1
 } InhibitMode;
+
+#include "logind.h"
+#include "logind-seat.h"
 
 struct Inhibitor {
         Manager *manager;

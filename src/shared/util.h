@@ -505,4 +505,6 @@ int setrlimit_closest(int resource, const struct rlimit *rlim);
 
 int getenv_for_pid(pid_t pid, const char *field, char **_value);
 
+int can_sleep(const char *type);
+
 #endif

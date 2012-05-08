@@ -85,8 +85,9 @@ struct Manager {
         /* If a shutdown was delayed due to a inhibitor this contains
            the unit name we are supposed to start after the delay is
            over */
-        const char *delayed_shutdown;
-        usec_t delayed_shutdown_timestamp;
+        const char *delayed_unit;
+        InhibitWhat delayed_what;
+        usec_t delayed_timestamp;
 
         usec_t inhibit_delay_max;
 };
@@ -140,7 +141,7 @@ DBusHandlerResult bus_message_filter(DBusConnection *c, DBusMessage *message, vo
 
 int manager_send_changed(Manager *manager, const char *properties);
 
-int manager_dispatch_delayed_shutdown(Manager *manager);
+int manager_dispatch_delayed(Manager *manager);
 
 /* gperf lookup function */
 const struct ConfigPerfItem* logind_gperf_lookup(const char *key, unsigned length);

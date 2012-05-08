@@ -1269,7 +1269,7 @@ int manager_run(Manager *m) {
 
                 manager_gc(m, true);
 
-                if (manager_dispatch_delayed_shutdown(m) > 0)
+                if (manager_dispatch_delayed(m) > 0)
                         continue;
 
                 if (dbus_connection_dispatch(m->bus) != DBUS_DISPATCH_COMPLETE)
@@ -1277,11 +1277,11 @@ int manager_run(Manager *m) {
 
                 manager_gc(m, true);
 
-                if (m->delayed_shutdown) {
+                if (m->delayed_unit) {
                         usec_t x, y;
 
                         x = now(CLOCK_MONOTONIC);
-                        y = m->delayed_shutdown_timestamp + m->inhibit_delay_max;
+                        y = m->delayed_timestamp + m->inhibit_delay_max;
 
                         msec = x >= y ? 0 : (int) ((y - x) / USEC_PER_MSEC);
                 }

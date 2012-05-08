@@ -163,7 +163,7 @@ int inhibitor_start(Inhibitor *i) {
 
         i->started = true;
 
-        manager_send_changed(i->manager, "Inhibited\0");
+        manager_send_changed(i->manager, i->mode == INHIBIT_BLOCK ? "BlockInhibited\0" : "DelayInhibited\0");
 
         return 0;
 }
@@ -182,7 +182,7 @@ int inhibitor_stop(Inhibitor *i) {
 
         i->started = false;
 
-        manager_send_changed(i->manager, "Inhibited\0");
+        manager_send_changed(i->manager, i->mode == INHIBIT_BLOCK ? "BlockInhibited\0" : "DelayInhibited\0");
 
         return 0;
 }

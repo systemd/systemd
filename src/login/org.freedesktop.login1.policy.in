@@ -48,7 +48,7 @@
 
         <action id="org.freedesktop.login1.attach-device">
                 <_description>Allow attaching devices to seats</_description>
-                <_message>Authentication is required to allow attaching a device to a seat.</_message>
+                <_message>Authentication is required for attaching a device to a seat.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -58,7 +58,7 @@
 
         <action id="org.freedesktop.login1.flush-devices">
                 <_description>Flush device to seat attachments</_description>
-                <_message>Authentication is required to allow resetting how devices are attached to seats.</_message>
+                <_message>Authentication is required for resetting how devices are attached to seats.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -68,7 +68,7 @@
 
         <action id="org.freedesktop.login1.power-off">
                 <_description>Power off the system</_description>
-                <_message>Authentication is required to allow powering off the system.</_message>
+                <_message>Authentication is required for powering off the system.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -77,8 +77,8 @@
         </action>
 
         <action id="org.freedesktop.login1.power-off-multiple-sessions">
-                <_description>Power off the system when other users are logged in</_description>
-                <_message>Authentication is required to allow powering off the system while other users are logged in.</_message>
+                <_description>Power off the system while other users are logged in</_description>
+                <_message>Authentication is required for powering off the system while other users are logged in.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -87,8 +87,8 @@
         </action>
 
         <action id="org.freedesktop.login1.power-off-ignore-inhibit">
-                <_description>Power off the system when an application asked to inhibit it</_description>
-                <_message>Authentication is required to allow powering off the system while an application asked to inhibit it.</_message>
+                <_description>Power off the system while an application asked to inhibit it</_description>
+                <_message>Authentication is required for powering off the system while an application asked to inhibit it.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -98,7 +98,7 @@
 
         <action id="org.freedesktop.login1.reboot">
                 <_description>Reboot the system</_description>
-                <_message>Authentication is required to allow rebooting the system.</_message>
+                <_message>Authentication is required for rebooting the system.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -107,8 +107,8 @@
         </action>
 
         <action id="org.freedesktop.login1.reboot-multiple-sessions">
-                <_description>Reboot the system when other users are logged in</_description>
-                <_message>Authentication is required to allow rebooting the system while other users are logged in.</_message>
+                <_description>Reboot the system while other users are logged in</_description>
+                <_message>Authentication is required for rebooting the system while other users are logged in.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -117,8 +117,68 @@
         </action>
 
         <action id="org.freedesktop.login1.reboot-ignore-inhibit">
-                <_description>Reboot the system when an application asked to inhibit it</_description>
-                <_message>Authentication is required to allow rebooting the system while an application asked to inhibit it.</_message>
+                <_description>Reboot the system while an application asked to inhibit it</_description>
+                <_message>Authentication is required for rebooting the system while an application asked to inhibit it.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.suspend">
+                <_description>Suspend the system</_description>
+                <_message>Authentication is required for suspending the system.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.suspend-multiple-sessions">
+                <_description>Suspend the system while other users are logged in</_description>
+                <_message>Authentication is required for suspending the system while other users are logged in.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.suspend-ignore-inhibit">
+                <_description>Suspend the system while an application asked to inhibit it</_description>
+                <_message>Authentication is required for suspending the system while an application asked to inhibit it.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.hibernate">
+                <_description>Hibernate the system</_description>
+                <_message>Authentication is required for hibernating the system.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.hibernate-multiple-sessions">
+                <_description>Hibernate the system while other users are logged in</_description>
+                <_message>Authentication is required for hibernating the system while other users are logged in.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.hibernate-ignore-inhibit">
+                <_description>Hibernate the system while an application asked to inhibit it</_description>
+                <_message>Authentication is required for hibernating the system while an application asked to inhibit it.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>

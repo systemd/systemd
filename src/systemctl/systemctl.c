@@ -1750,6 +1750,14 @@ static int reboot_with_logind(DBusConnection *bus, enum action a) {
                 method = "PowerOff";
                 break;
 
+        case ACTION_SUSPEND:
+                method = "Suspend";
+                break;
+
+        case ACTION_HIBERNATE:
+                method = "Hibernate";
+                break;
+
         default:
                 return -EINVAL;
         }
@@ -1839,7 +1847,9 @@ static int start_special(DBusConnection *bus, char **args) {
         /* first try logind, to allow authentication with polkit */
         if (geteuid() != 0 &&
             (a == ACTION_POWEROFF ||
-             a == ACTION_REBOOT)) {
+             a == ACTION_REBOOT ||
+             a == ACTION_SUSPEND ||
+             a == ACTION_HIBERNATE)) {
                 r = reboot_with_logind(bus, a);
                 if (r >= 0)
                         return r;

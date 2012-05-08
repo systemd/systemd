@@ -135,10 +135,22 @@
         "  <method name=\"Reboot\">\n"                                  \
         "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
         "  </method>\n"                                                 \
+        "  <method name=\"Suspend\">\n"                                 \
+        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
+        "  </method>\n"                                                 \
+        "  <method name=\"Hibernate\">\n"                               \
+        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
+        "  </method>\n"                                                 \
         "  <method name=\"CanPowerOff\">\n"                             \
         "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
         "  </method>\n"                                                 \
         "  <method name=\"CanReboot\">\n"                               \
+        "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
+        "  </method>\n"                                                 \
+        "  <method name=\"CanSuspend\">\n"                              \
+        "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
+        "  </method>\n"                                                 \
+        "  <method name=\"CanHibernate\">\n"                            \
         "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
         "  </method>\n"                                                 \
         "  <method name=\"Inhibit\">\n"                                 \
@@ -176,6 +188,9 @@
         "   <arg name=\"path\" type=\"o\"/>\n"                          \
         "  </signal>\n"                                                 \
         "  <signal name=\"PrepareForShutdown\">\n"                      \
+        "   <arg name=\"active\" type=\"b\"/>\n"                        \
+        "  </signal>\n"                                                 \
+        "  <signal name=\"PrepareForSleep\">\n"                         \
         "   <arg name=\"active\" type=\"b\"/>\n"                        \
         "  </signal>\n"                                                 \
         "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
@@ -937,12 +952,12 @@ static int have_multiple_sessions(
         return false;
 }
 
-static int send_start_unit(DBusConnection *connection, const char *name, DBusError *error) {
+static int send_start_unit(DBusConnection *connection, const char *unit_name, DBusError *error) {
         DBusMessage *message, *reply;
         const char *mode = "replace";
 
         assert(connection);
-        assert(name);
+        assert(unit_name);
 
         message = dbus_message_new_method_call(
                         "org.freedesktop.systemd1",
@@ -953,7 +968,7 @@ static int send_start_unit(DBusConnection *connection, const char *name, DBusErr
                 return -ENOMEM;
 
         if (!dbus_message_append_args(message,
-                                      DBUS_TYPE_STRING, &name,
+                                      DBUS_TYPE_STRING, &unit_name,
                                       DBUS_TYPE_STRING, &mode,
                                       DBUS_TYPE_INVALID)) {
                 dbus_message_unref(message);
@@ -970,14 +985,22 @@ static int send_start_unit(DBusConnection *connection, const char *name, DBusErr
         return 0;
 }
 
-static int send_prepare_for_shutdown(Manager *m, bool _active) {
+static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
+        static const char * const signal_name[_INHIBIT_WHAT_MAX] = {
+                [INHIBIT_SHUTDOWN] = "PrepareForShutdown",
+                [INHIBIT_SLEEP] = "PrepareForSleep"
+        };
+
         dbus_bool_t active = _active;
         DBusMessage *message;
         int r = 0;
 
         assert(m);
+        assert(w >= 0);
+        assert(w < _INHIBIT_WHAT_MAX);
+        assert(signal_name[w]);
 
-        message = dbus_message_new_signal("/org/freedesktop/login1", "org.freedesktop.login1.Manager", "PrepareForShutdown");
+        message = dbus_message_new_signal("/org/freedesktop/login1", "org.freedesktop.login1.Manager", signal_name[w]);
         if (!message)
                 return -ENOMEM;
 
@@ -989,21 +1012,222 @@ static int send_prepare_for_shutdown(Manager *m, bool _active) {
         return r;
 }
 
-static int delay_shutdown(Manager *m, const char *name) {
+static int delay_shutdown_or_sleep(Manager *m, InhibitWhat w, const char *unit_name) {
         assert(m);
+        assert(w >= 0);
+        assert(w < _INHIBIT_WHAT_MAX);
 
-        if (!m->delayed_shutdown) {
-                /* Tell everybody to prepare for shutdown */
-                send_prepare_for_shutdown(m, true);
+        /* Tell everybody to prepare for shutdown/sleep */
+        send_prepare_for(m, w, true);
 
-                /* Update timestamp for timeout */
-                m->delayed_shutdown_timestamp = now(CLOCK_MONOTONIC);
-        }
+        /* Update timestamp for timeout */
+        if (!m->delayed_unit)
+                m->delayed_timestamp = now(CLOCK_MONOTONIC);
 
         /* Remember what we want to do, possibly overriding what kind
-         * of shutdown we previously queued. */
-        m->delayed_shutdown = name;
+         * of unit we previously queued. */
+        m->delayed_unit = unit_name;
+        m->delayed_what = w;
 
+        return 0;
+}
+
+static int bus_manager_can_shutdown_or_sleep(
+                Manager *m,
+                DBusConnection *connection,
+                DBusMessage *message,
+                InhibitWhat w,
+                const char *action,
+                const char *action_multiple_sessions,
+                const char *action_ignore_inhibit,
+                const char *sleep_type,
+                DBusError *error,
+                DBusMessage **_reply) {
+
+        bool multiple_sessions, challenge, blocked, b;
+        const char *result;
+        DBusMessage *reply = NULL;
+        int r;
+
+        assert(m);
+        assert(connection);
+        assert(message);
+        assert(w >= 0);
+        assert(w <= _INHIBIT_WHAT_MAX);
+        assert(action);
+        assert(action_multiple_sessions);
+        assert(action_ignore_inhibit);
+        assert(error);
+        assert(_reply);
+
+        if (sleep_type) {
+                r = can_sleep(sleep_type);
+                if (r < 0)
+                        return r;
+
+                result = "na";
+                goto finish;
+        }
+
+        r = have_multiple_sessions(connection, m, message, error);
+        if (r < 0)
+                return r;
+
+        multiple_sessions = r > 0;
+        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL);
+
+        if (multiple_sessions) {
+                r = verify_polkit(connection, message, action_multiple_sessions, false, &challenge, error);
+                if (r < 0)
+                        return r;
+
+                if (r > 0)
+                        result = "yes";
+                        else if (challenge)
+                                result = "challenge";
+                        else
+                                result = "no";
+                }
+
+        if (blocked) {
+                r = verify_polkit(connection, message, action_ignore_inhibit, false, &challenge, error);
+                if (r < 0)
+                        return r;
+
+                if (r > 0 && !result)
+                        result = "yes";
+                else if (challenge && (!result || streq(result, "yes")))
+                        result = "challenge";
+                else
+                        result = "no";
+        }
+
+        if (!multiple_sessions && !blocked) {
+                /* If neither inhibit nor multiple sessions
+                 * apply then just check the normal policy */
+
+                r = verify_polkit(connection, message, action, false, &challenge, error);
+                if (r < 0)
+                        return r;
+
+                if (r > 0)
+                        result = "yes";
+                else if (challenge)
+                        result = "challenge";
+                else
+                        result = "no";
+        }
+
+finish:
+        reply = dbus_message_new_method_return(message);
+        if (!reply)
+                return -ENOMEM;
+
+        b = dbus_message_append_args(
+                        reply,
+                        DBUS_TYPE_STRING, &result,
+                        DBUS_TYPE_INVALID);
+        if (!b) {
+                dbus_message_unref(reply);
+                return -ENOMEM;
+        }
+
+        *_reply = reply;
+        return 0;
+}
+
+static int bus_manager_do_shutdown_or_sleep(
+                Manager *m,
+                DBusConnection *connection,
+                DBusMessage *message,
+                const char *unit_name,
+                InhibitWhat w,
+                const char *action,
+                const char *action_multiple_sessions,
+                const char *action_ignore_inhibit,
+                const char *sleep_type,
+                DBusError *error,
+                DBusMessage **_reply) {
+
+        dbus_bool_t interactive;
+        bool multiple_sessions, blocked, delayed;
+        DBusMessage *reply = NULL;
+        int r;
+
+        assert(m);
+        assert(connection);
+        assert(message);
+        assert(unit_name);
+        assert(w >= 0);
+        assert(w <= _INHIBIT_WHAT_MAX);
+        assert(action);
+        assert(action_multiple_sessions);
+        assert(action_ignore_inhibit);
+        assert(error);
+        assert(_reply);
+
+        if (!dbus_message_get_args(
+                            message,
+                            error,
+                            DBUS_TYPE_BOOLEAN, &interactive,
+                            DBUS_TYPE_INVALID))
+                return -EINVAL;
+
+        if (sleep_type) {
+                r = can_sleep(sleep_type);
+                if (r < 0)
+                        return r;
+
+                if (r == 0)
+                        return -ENOTSUP;
+        }
+
+        r = have_multiple_sessions(connection, m, message, error);
+        if (r < 0)
+                return r;
+
+        multiple_sessions = r > 0;
+        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL);
+
+        if (multiple_sessions) {
+                r = verify_polkit(connection, message, action_multiple_sessions, interactive, NULL, error);
+                if (r < 0)
+                        return r;
+        }
+
+        if (blocked) {
+                r = verify_polkit(connection, message, action_ignore_inhibit, interactive, NULL, error);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!multiple_sessions && !blocked) {
+                r = verify_polkit(connection, message, action, interactive, NULL, error);
+                if (r < 0)
+                        return r;
+        }
+
+        delayed =
+                m->inhibit_delay_max > 0 &&
+                manager_is_inhibited(m, w, INHIBIT_DELAY, NULL);
+
+        if (delayed) {
+                /* Shutdown is delayed, keep in mind what we
+                 * want to do, and start a timeout */
+                r = delay_shutdown_or_sleep(m, w, unit_name);
+        } else
+                /* Shutdown is not delayed, execute it
+                 * immediately */
+                r = send_start_unit(connection, unit_name, error);
+
+        if (r < 0)
+                return r;
+
+        reply = dbus_message_new_method_return(message);
+        if (!reply)
+                return -ENOMEM;
+
+        *_reply = reply;
         return 0;
 }
 
@@ -1731,158 +1955,104 @@ static DBusHandlerResult manager_message_handler(
                 if (!reply)
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "PowerOff") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Reboot")) {
-                dbus_bool_t interactive;
-                bool multiple_sessions, blocked, delayed;
-                const char *name, *action;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "PowerOff")) {
 
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_BOOLEAN, &interactive,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                r = have_multiple_sessions(connection, m, message, &error);
+                r = bus_manager_do_shutdown_or_sleep(
+                                m, connection, message,
+                                SPECIAL_POWEROFF_TARGET,
+                                INHIBIT_SHUTDOWN,
+                                "org.freedesktop.login1.power-off",
+                                "org.freedesktop.login1.power-off-multiple-sessions",
+                                "org.freedesktop.login1.power-off-ignore-inhibit",
+                                NULL,
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Reboot")) {
+                r = bus_manager_do_shutdown_or_sleep(
+                                m, connection, message,
+                                SPECIAL_REBOOT_TARGET,
+                                INHIBIT_SHUTDOWN,
+                                "org.freedesktop.login1.reboot",
+                                "org.freedesktop.login1.reboot-multiple-sessions",
+                                "org.freedesktop.login1.reboot-ignore-inhibit",
+                                NULL,
+                                &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                multiple_sessions = r > 0;
-                blocked = manager_is_inhibited(m, INHIBIT_SHUTDOWN, INHIBIT_BLOCK, NULL);
-
-                if (multiple_sessions) {
-                        action = streq(dbus_message_get_member(message), "PowerOff") ?
-                                "org.freedesktop.login1.power-off-multiple-sessions" :
-                                "org.freedesktop.login1.reboot-multiple-sessions";
-
-                        r = verify_polkit(connection, message, action, interactive, NULL, &error);
-                        if (r < 0)
-                                return bus_send_error_reply(connection, message, &error, r);
-                }
-
-                if (blocked) {
-                        action = streq(dbus_message_get_member(message), "PowerOff") ?
-                                "org.freedesktop.login1.power-off-ignore-inhibit" :
-                                "org.freedesktop.login1.reboot-ignore-inhibit";
-
-                        r = verify_polkit(connection, message, action, interactive, NULL, &error);
-                        if (r < 0)
-                                return bus_send_error_reply(connection, message, &error, r);
-                }
-
-                if (!multiple_sessions && !blocked) {
-                        action = streq(dbus_message_get_member(message), "PowerOff") ?
-                                "org.freedesktop.login1.power-off" :
-                                "org.freedesktop.login1.reboot";
-
-                        r = verify_polkit(connection, message, action, interactive, NULL, &error);
-                        if (r < 0)
-                                return bus_send_error_reply(connection, message, &error, r);
-                }
-
-                name = streq(dbus_message_get_member(message), "PowerOff") ?
-                        SPECIAL_POWEROFF_TARGET : SPECIAL_REBOOT_TARGET;
-
-                delayed =
-                        m->inhibit_delay_max > 0 &&
-                        manager_is_inhibited(m, INHIBIT_SHUTDOWN, INHIBIT_DELAY, NULL);
-
-                if (delayed) {
-                        /* Shutdown is delayed, keep in mind what we
-                         * want to do, and start a timeout */
-                        r = delay_shutdown(m, name);
-                        if (r < 0)
-                                return bus_send_error_reply(connection, message, NULL, r);
-                } else {
-                        /* Shutdown is not delayed, execute it
-                         * immediately */
-                        r = send_start_unit(connection, name, &error);
-                        if (r < 0)
-                                return bus_send_error_reply(connection, message, &error, r);
-                }
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanPowerOff") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanReboot")) {
-
-                bool multiple_sessions, challenge, inhibit, b;
-                const char *action, *result;
-
-                r = have_multiple_sessions(connection, m, message, &error);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Suspend")) {
+                r = bus_manager_do_shutdown_or_sleep(
+                                m, connection, message,
+                                SPECIAL_SUSPEND_TARGET,
+                                INHIBIT_SLEEP,
+                                "org.freedesktop.login1.suspend",
+                                "org.freedesktop.login1.suspend-multiple-sessions",
+                                "org.freedesktop.login1.suspend-ignore-inhibit",
+                                "mem",
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Hibernate")) {
+                r = bus_manager_do_shutdown_or_sleep(
+                                m, connection, message,
+                                SPECIAL_HIBERNATE_TARGET,
+                                INHIBIT_SLEEP,
+                                "org.freedesktop.login1.hibernate",
+                                "org.freedesktop.login1.hibernate-multiple-sessions",
+                                "org.freedesktop.login1.hibernate-ignore-inhibit",
+                                "disk",
+                                &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                multiple_sessions = r > 0;
-                inhibit = manager_is_inhibited(m, INHIBIT_SHUTDOWN, INHIBIT_BLOCK, NULL);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanPowerOff")) {
 
-                if (multiple_sessions) {
-                        action = streq(dbus_message_get_member(message), "CanPowerOff") ?
-                                "org.freedesktop.login1.power-off-multiple-sessions" :
-                                "org.freedesktop.login1.reboot-multiple-sessions";
+                r = bus_manager_can_shutdown_or_sleep(
+                                m, connection, message,
+                                INHIBIT_SHUTDOWN,
+                                "org.freedesktop.login1.power-off",
+                                "org.freedesktop.login1.power-off-multiple-sessions",
+                                "org.freedesktop.login1.power-off-ignore-inhibit",
+                                NULL,
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanReboot")) {
+                r = bus_manager_can_shutdown_or_sleep(
+                                m, connection, message,
+                                INHIBIT_SHUTDOWN,
+                                "org.freedesktop.login1.reboot",
+                                "org.freedesktop.login1.reboot-multiple-sessions",
+                                "org.freedesktop.login1.reboot-ignore-inhibit",
+                                NULL,
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
 
-                        r = verify_polkit(connection, message, action, false, &challenge, &error);
-                        if (r < 0)
-                                return bus_send_error_reply(connection, message, &error, r);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanSuspend")) {
+                r = bus_manager_can_shutdown_or_sleep(
+                                m, connection, message,
+                                INHIBIT_SLEEP,
+                                "org.freedesktop.login1.suspend",
+                                "org.freedesktop.login1.suspend-multiple-sessions",
+                                "org.freedesktop.login1.suspend-ignore-inhibit",
+                                "mem",
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
 
-                        if (r > 0)
-                                result = "yes";
-                        else if (challenge)
-                                result = "challenge";
-                        else
-                                result = "no";
-                }
-
-                if (inhibit) {
-                        action = streq(dbus_message_get_member(message), "CanPowerOff") ?
-                                "org.freedesktop.login1.power-off-ignore-inhibit" :
-                                "org.freedesktop.login1.reboot-ignore-inhibit";
-
-                        r = verify_polkit(connection, message, action, false, &challenge, &error);
-                        if (r < 0)
-                                return bus_send_error_reply(connection, message, &error, r);
-
-                        if (r > 0 && !result)
-                                result = "yes";
-                        else if (challenge && (!result || streq(result, "yes")))
-                                result = "challenge";
-                        else
-                                result = "no";
-                }
-
-                if (!multiple_sessions && !inhibit) {
-                        /* If neither inhibit nor multiple sessions
-                         * apply then just check the normal policy */
-
-                        action = streq(dbus_message_get_member(message), "CanPowerOff") ?
-                                "org.freedesktop.login1.power-off" :
-                                "org.freedesktop.login1.reboot";
-
-                        r = verify_polkit(connection, message, action, false, &challenge, &error);
-                        if (r < 0)
-                                return bus_send_error_reply(connection, message, &error, r);
-
-                        if (r > 0)
-                                result = "yes";
-                        else if (challenge)
-                                result = "challenge";
-                        else
-                                result = "no";
-                }
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                b = dbus_message_append_args(
-                                reply,
-                                DBUS_TYPE_STRING, &result,
-                                DBUS_TYPE_INVALID);
-                if (!b)
-                        goto oom;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanHibernate")) {
+                r = bus_manager_can_shutdown_or_sleep(
+                                m, connection, message,
+                                INHIBIT_SLEEP,
+                                "org.freedesktop.login1.hibernate",
+                                "org.freedesktop.login1.hibernate-multiple-sessions",
+                                "org.freedesktop.login1.hibernate-ignore-inhibit",
+                                "disk",
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
                 char *introspection = NULL;
@@ -2029,38 +2199,39 @@ finish:
         return r;
 }
 
-int manager_dispatch_delayed_shutdown(Manager *manager) {
-        const char *name;
+int manager_dispatch_delayed(Manager *manager) {
+        const char *unit_name;
         DBusError error;
         bool delayed;
         int r;
 
         assert(manager);
 
-        if (!manager->delayed_shutdown)
+        if (!manager->delayed_unit)
                 return 0;
 
         /* Continue delay? */
         delayed =
-                manager->delayed_shutdown_timestamp + manager->inhibit_delay_max > now(CLOCK_MONOTONIC) &&
-                manager_is_inhibited(manager, INHIBIT_SHUTDOWN, INHIBIT_DELAY, NULL);
+                manager->delayed_timestamp + manager->inhibit_delay_max > now(CLOCK_MONOTONIC) &&
+                manager_is_inhibited(manager, manager->delayed_what, INHIBIT_DELAY, NULL);
         if (delayed)
                 return 0;
 
         /* Reset delay data */
-        name = manager->delayed_shutdown;
-        manager->delayed_shutdown = NULL;
+        unit_name = manager->delayed_unit;
+        manager->delayed_unit = NULL;
 
         /* Actually do the shutdown */
         dbus_error_init(&error);
-        r = send_start_unit(manager->bus, name, &error);
+        r = send_start_unit(manager->bus, unit_name, &error);
         if (r < 0) {
-                log_warning("Failed to send delayed shutdown message: %s", bus_error_message_or_strerror(&error, -r));
+                log_warning("Failed to send delayed message: %s", bus_error_message_or_strerror(&error, -r));
+                dbus_error_free(&error);
                 return r;
         }
 
         /* Tell people about it */
-        send_prepare_for_shutdown(manager, false);
+        send_prepare_for(manager, manager->delayed_what, false);
 
         return 1;
 }
