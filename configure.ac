@@ -767,4 +767,8 @@ AC_MSG_RESULT([
         D-Bus interfaces dir:    ${with_dbusinterfacedir}
         Split /usr:              ${enable_split_usr}
         man pages:               ${have_manpages}
+
+        CFLAGS:                  ${CFLAGS}
+        CPPLAGS:                 ${CPPFLAGS}
+        LDFLAGS:                 ${LDFLAGS}
 ])
