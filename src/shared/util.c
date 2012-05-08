@@ -3139,7 +3139,8 @@ static int rm_rf_children(int fd, bool only_dirs, bool honour_sticky) {
         /* This returns the first error we run into, but nevertheless
          * tries to go on */
 
-        if (!(d = fdopendir(fd))) {
+        d = fdopendir(fd);
+        if (!d) {
                 close_nointr_nofail(fd);
 
                 return errno == ENOENT ? 0 : -errno;
@@ -3150,9 +3151,9 @@ static int rm_rf_children(int fd, bool only_dirs, bool honour_sticky) {
                 bool is_dir, keep_around = false;
                 int r;
 
-                if ((r = readdir_r(d, &buf, &de)) != 0) {
-                        if (ret == 0)
-                                ret = -r;
+                r = readdir_r(d, &buf, &de);
+                if (r != 0 && ret == 0) {
+                        ret = -r;
                         break;
                 }
 
@@ -3199,17 +3200,16 @@ static int rm_rf_children(int fd, bool only_dirs, bool honour_sticky) {
                 if (is_dir) {
                         int subdir_fd;
 
-                        subdir_fd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                        subdir_fd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
                         if (subdir_fd < 0) {
                                 if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
                                 continue;
                         }
 
-                        if ((r = rm_rf_children(subdir_fd, only_dirs, honour_sticky)) < 0) {
-                                if (ret == 0)
-                                        ret = r;
-                        }
+                        r = rm_rf_children(subdir_fd, only_dirs, honour_sticky);
+                        if (r < 0 && ret == 0)
+                                ret = r;
 
                         if (!keep_around)
                                 if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
@@ -3237,13 +3237,14 @@ int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky
 
         assert(path);
 
-        if ((fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC)) < 0) {
+        fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+        if (fd < 0) {
 
                 if (errno != ENOTDIR)
                         return -errno;
 
                 if (delete_root && !only_dirs)
-                        if (unlink(path) < 0)
+                        if (unlink(path) < 0 && errno != ENOENT)
                                 return -errno;
 
                 return 0;
