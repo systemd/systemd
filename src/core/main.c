@@ -760,9 +760,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "test",                     no_argument,       NULL, ARG_TEST                     },
                 { "help",                     no_argument,       NULL, 'h'                          },
                 { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
-                { "dump-core",                no_argument,       NULL, ARG_DUMP_CORE                },
-                { "crash-shell",              no_argument,       NULL, ARG_CRASH_SHELL              },
-                { "confirm-spawn",            no_argument,       NULL, ARG_CONFIRM_SPAWN            },
+                { "dump-core",                optional_argument, NULL, ARG_DUMP_CORE                },
+                { "crash-shell",              optional_argument, NULL, ARG_CRASH_SHELL              },
+                { "confirm-spawn",            optional_argument, NULL, ARG_CONFIRM_SPAWN            },
                 { "show-status",              optional_argument, NULL, ARG_SHOW_STATUS              },
 #ifdef HAVE_SYSV_COMPAT
                 { "sysv-console",             optional_argument, NULL, ARG_SYSV_CONSOLE             },
@@ -871,39 +871,49 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DUMP_CORE:
-                        arg_dump_core = true;
+                        r = optarg ? parse_boolean(optarg) : 1;
+                        if (r < 0) {
+                                log_error("Failed to parse dump core boolean %s.", optarg);
+                                return r;
+                        }
+                        arg_dump_core = r;
                         break;
 
                 case ARG_CRASH_SHELL:
-                        arg_crash_shell = true;
+                        r = optarg ? parse_boolean(optarg) : 1;
+                        if (r < 0) {
+                                log_error("Failed to parse crash shell boolean %s.", optarg);
+                                return r;
+                        }
+                        arg_crash_shell = r;
                         break;
 
                 case ARG_CONFIRM_SPAWN:
-                        arg_confirm_spawn = true;
+                        r = optarg ? parse_boolean(optarg) : 1;
+                        if (r < 0) {
+                                log_error("Failed to parse confirm spawn boolean %s.", optarg);
+                                return r;
+                        }
+                        arg_confirm_spawn = r;
                         break;
 
                 case ARG_SHOW_STATUS:
-
-                        if (optarg) {
-                                if ((r = parse_boolean(optarg)) < 0) {
-                                        log_error("Failed to show status boolean %s.", optarg);
-                                        return r;
-                                }
-                                arg_show_status = r;
-                        } else
-                                arg_show_status = true;
+                        r = optarg ? parse_boolean(optarg) : 1;
+                        if (r < 0) {
+                                log_error("Failed to parse show status boolean %s.", optarg);
+                                return r;
+                        }
+                        arg_show_status = r;
                         break;
+
 #ifdef HAVE_SYSV_COMPAT
                 case ARG_SYSV_CONSOLE:
-
-                        if (optarg) {
-                                if ((r = parse_boolean(optarg)) < 0) {
-                                        log_error("Failed to SysV console boolean %s.", optarg);
-                                        return r;
-                                }
-                                arg_sysv_console = r;
-                        } else
-                                arg_sysv_console = true;
+                        r = optarg ? parse_boolean(optarg) : 1;
+                        if (r < 0) {
+                                log_error("Failed to parse SysV console boolean %s.", optarg);
+                                return r;
+                        }
+                        arg_sysv_console = r;
                         break;
 #endif
 
@@ -1014,9 +1024,9 @@ static int help(void) {
                "     --unit=UNIT                 Set default unit\n"
                "     --system                    Run a system instance, even if PID != 1\n"
                "     --user                      Run a user instance\n"
-               "     --dump-core                 Dump core on crash\n"
-               "     --crash-shell               Run shell on crash\n"
-               "     --confirm-spawn             Ask for confirmation when spawning processes\n"
+               "     --dump-core[=0|1]           Dump core on crash\n"
+               "     --crash-shell[=0|1]         Run shell on crash\n"
+               "     --confirm-spawn[=0|1]       Ask for confirmation when spawning processes\n"
                "     --show-status[=0|1]         Show status updates on the console during bootup\n"
 #ifdef HAVE_SYSV_COMPAT
                "     --sysv-console[=0|1]        Connect output of SysV scripts to console\n"
