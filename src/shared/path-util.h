@@ -31,7 +31,6 @@ int path_get_parent(const char *path, char **parent);
 bool path_is_absolute(const char *p);
 char *path_make_absolute(const char *p, const char *prefix);
 char *path_make_absolute_cwd(const char *p);
-int path_parent(const char *path, char **parent);
 char *path_kill_slashes(char *path);
 bool path_startswith(const char *path, const char *prefix);
 bool path_equal(const char *a, const char *b);
