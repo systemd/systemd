@@ -32,6 +32,7 @@
 #include "install.h"
 #include "watchdog.h"
 #include "hwclock.h"
+#include "path-util.h"
 
 #define BUS_MANAGER_INTERFACE_BEGIN                                     \
         " <interface name=\"org.freedesktop.systemd1.Manager\">\n"
@@ -126,6 +127,10 @@
         "  <method name=\"PowerOff\"/>\n"                               \
         "  <method name=\"Halt\"/>\n"                                   \
         "  <method name=\"KExec\"/>\n"                                  \
+        "  <method name=\"SwitchRoot\">\n"                              \
+        "   <arg name=\"new_root\" type=\"s\" direction=\"in\"/>\n"     \
+        "   <arg name=\"init\" type=\"s\" direction=\"in\"/>\n"         \
+        "  </method>\n"                                                 \
         "  <method name=\"SetEnvironment\">\n"                          \
         "   <arg name=\"names\" type=\"as\" direction=\"in\"/>\n"       \
         "  </method>\n"                                                 \
@@ -1176,6 +1181,53 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
 
                 m->exit_code = MANAGER_KEXEC;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SwitchRoot")) {
+                const char *switch_root, *switch_root_init;
+                char *u, *v;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &switch_root,
+                                    DBUS_TYPE_STRING, &switch_root_init,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                if (path_equal(switch_root, "/") || !is_path(switch_root))
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                if (!isempty(switch_root_init) && !is_path(switch_root_init))
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                if (m->running_as != MANAGER_SYSTEM) {
+                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Switching root is only supported for system managers.");
+                        return bus_send_error_reply(connection, message, &error, -ENOTSUP);
+                }
+
+                u = strdup(switch_root);
+                if (!u)
+                        goto oom;
+
+                if (!isempty(switch_root_init)) {
+                        v = strdup(switch_root_init);
+                        if (!v) {
+                                free(u);
+                                goto oom;
+                        }
+                } else
+                        v = NULL;
+
+                free(m->switch_root);
+                free(m->switch_root_init);
+                m->switch_root = u;
+                m->switch_root_init = v;
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                m->exit_code = MANAGER_SWITCH_ROOT;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetEnvironment")) {
                 char **l = NULL, **e = NULL;

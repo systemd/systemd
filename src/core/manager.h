@@ -45,6 +45,7 @@ typedef enum ManagerExitCode {
         MANAGER_POWEROFF,
         MANAGER_HALT,
         MANAGER_KEXEC,
+        MANAGER_SWITCH_ROOT,
         _MANAGER_EXIT_CODE_MAX,
         _MANAGER_EXIT_CODE_INVALID = -1
 } ManagerExitCode;
@@ -233,6 +234,9 @@ struct Manager {
 
         /* Type=idle pipes */
         int idle_pipe[2];
+
+        char *switch_root;
+        char *switch_root_init;
 };
 
 int manager_new(ManagerRunningAs running_as, Manager **m);

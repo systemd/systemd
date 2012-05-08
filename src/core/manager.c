@@ -522,6 +522,9 @@ void manager_free(Manager *m) {
 
         close_pipe(m->idle_pipe);
 
+        free(m->switch_root);
+        free(m->switch_root_init);
+
         free(m);
 }
 

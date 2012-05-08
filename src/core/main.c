@@ -32,6 +32,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <sys/prctl.h>
+#include <sys/mount.h>
 
 #include "manager.h"
 #include "log.h"
@@ -47,6 +48,7 @@
 #include "def.h"
 #include "virt.h"
 #include "watchdog.h"
+#include "path-util.h"
 
 #include "mount-setup.h"
 #include "loopback-setup.h"
@@ -1165,6 +1167,36 @@ static void test_cgroups(void) {
         sleep(10);
 }
 
+static int do_switch_root(const char *switch_root) {
+        int r;
+
+        if (path_equal(switch_root, "/"))
+                return 0;
+
+        if (chdir(switch_root) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        if (mount(switch_root, "/", NULL, MS_MOVE, NULL) < 0) {
+                r = -errno;
+                chdir("/");
+                goto fail;
+        }
+
+        if (chroot(".") < 0)
+                log_warning("Failed to change root, ignoring: %s", strerror(-r));
+
+        /* FIXME: remove old root */
+
+        return 0;
+
+fail:
+        log_error("Failed to switch root, ignoring: %s", strerror(-r));
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -1179,6 +1211,7 @@ int main(int argc, char *argv[]) {
         int j;
         bool loaded_policy = false;
         bool arm_reboot_watchdog = false;
+        char *switch_root = NULL, *switch_root_init = NULL;
 
 #ifdef HAVE_SYSV_COMPAT
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
@@ -1549,11 +1582,26 @@ int main(int argc, char *argv[]) {
                         break;
 
                 case MANAGER_REEXECUTE:
+
                         if (prepare_reexecute(m, &serialization, &fds) < 0)
                                 goto finish;
 
                         reexecute = true;
                         log_notice("Reexecuting.");
+                        goto finish;
+
+                case MANAGER_SWITCH_ROOT:
+                        /* Steal the switch root parameters */
+                        switch_root = m->switch_root;
+                        switch_root_init = m->switch_root_init;
+                        m->switch_root = m->switch_root_init = NULL;
+
+                        if (!switch_root_init)
+                                if (prepare_reexecute(m, &serialization, &fds) < 0)
+                                        goto finish;
+
+                        reexecute = true;
+                        log_notice("Switching root.");
                         goto finish;
 
                 case MANAGER_REBOOT:
@@ -1588,66 +1636,66 @@ finish:
         free_join_controllers();
 
         dbus_shutdown();
-
         label_finish();
 
         if (reexecute) {
-                const char *args[15];
-                unsigned i = 0;
-                char sfd[16];
-
-                assert(serialization);
-                assert(fds);
-
-                args[i++] = SYSTEMD_BINARY_PATH;
-
-                args[i++] = "--log-level";
-                args[i++] = log_level_to_string(log_get_max_level());
-
-                args[i++] = "--log-target";
-                args[i++] = log_target_to_string(log_get_target());
-
-                if (arg_running_as == MANAGER_SYSTEM)
-                        args[i++] = "--system";
-                else
-                        args[i++] = "--user";
-
-                if (arg_dump_core)
-                        args[i++] = "--dump-core";
-
-                if (arg_crash_shell)
-                        args[i++] = "--crash-shell";
-
-                if (arg_confirm_spawn)
-                        args[i++] = "--confirm-spawn";
-
-                if (arg_show_status)
-                        args[i++] = "--show-status=1";
-                else
-                        args[i++] = "--show-status=0";
-
-#ifdef HAVE_SYSV_COMPAT
-                if (arg_sysv_console)
-                        args[i++] = "--sysv-console=1";
-                else
-                        args[i++] = "--sysv-console=0";
-#endif
-
-                snprintf(sfd, sizeof(sfd), "%i", fileno(serialization));
-                char_array_0(sfd);
-
-                args[i++] = "--deserialize";
-                args[i++] = sfd;
-
-                args[i++] = NULL;
-
-                assert(i <= ELEMENTSOF(args));
+                const char **args;
+                unsigned i;
 
                 /* Close and disarm the watchdog, so that the new
                  * instance can reinitialize it, but doesn't get
                  * rebooted while we do that */
                 watchdog_close(true);
 
+                if (switch_root)
+                        do_switch_root(switch_root);
+
+                args = newa(const char*, MAX(5, argc+1));
+
+                if (!switch_root_init) {
+                        char sfd[16];
+
+                        /* First try to spawn ourselves with the right
+                         * path, and with full serialization. We do
+                         * this only if the user didn't specify an
+                         * explicit init to spawn. */
+
+                        assert(serialization);
+                        assert(fds);
+
+                        snprintf(sfd, sizeof(sfd), "%i", fileno(serialization));
+                        char_array_0(sfd);
+
+                        i = 0;
+                        args[i++] = SYSTEMD_BINARY_PATH;
+                        args[i++] = arg_running_as == MANAGER_SYSTEM ? "--system" : "--user";
+                        args[i++] = "--deserialize";
+                        args[i++] = sfd;
+                        args[i++] = NULL;
+
+                        assert(i <= ELEMENTSOF(args));
+                        execv(args[0], (char* const*) args);
+                }
+
+                /* Try the fallback, if there is any, without any
+                 * serialization. We pass the original argv[] and
+                 * envp[]. (Well, modulo the ordering changes due to
+                 * getopt() in argv[], and some cleanups in envp[],
+                 * but let's hope that doesn't matter.) */
+
+                if (serialization)
+                        fclose(serialization);
+
+                if (fds)
+                        fdset_free(fds);
+
+                i = 0;
+                args[i++] = switch_root_init ? switch_root_init : "/sbin/init";
+                for (j = 1; j < argc; j++)
+                        args[i++] = argv[j];
+                args[i++] = NULL;
+
+                assert(i <= ELEMENTSOF(args));
                 execv(args[0], (char* const*) args);
 
                 log_error("Failed to reexecute: %m");
