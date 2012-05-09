@@ -1640,7 +1640,7 @@ finish:
 
         if (reexecute) {
                 const char **args;
-                unsigned i;
+                unsigned i, args_size;
 
                 /* Close and disarm the watchdog, so that the new
                  * instance can reinitialize it, but doesn't get
@@ -1650,7 +1650,8 @@ finish:
                 if (switch_root)
                         do_switch_root(switch_root);
 
-                args = newa(const char*, MAX(5, argc+1));
+                args_size = MAX(5, argc+1);
+                args = newa(const char*, args_size);
 
                 if (!switch_root_init) {
                         char sfd[16];
@@ -1673,7 +1674,7 @@ finish:
                         args[i++] = sfd;
                         args[i++] = NULL;
 
-                        assert(i <= ELEMENTSOF(args));
+                        assert(i <= args_size);
                         execv(args[0], (char* const*) args);
                 }
 
@@ -1695,7 +1696,7 @@ finish:
                         args[i++] = argv[j];
                 args[i++] = NULL;
 
-                assert(i <= ELEMENTSOF(args));
+                assert(i <= args_size);
                 execv(args[0], (char* const*) args);
 
                 log_error("Failed to reexecute: %m");
