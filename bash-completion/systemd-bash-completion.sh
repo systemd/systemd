@@ -33,25 +33,25 @@ __filter_units_by_property () {
             <(__systemctl show --property "$property" -- "${units[@]}")
         for ((i=0; $i < ${#units[*]}; i++)); do
                 if [[ "${props[i]}" = "$property=$value" ]]; then
-                        echo "${units[i]}"
+                        printf "%s\n" "${units[i]}"
                 fi
         done
 }
 
 __get_all_units      () { __systemctl list-units --all \
-        | { while read -r a b; do echo "$a"; done; }; }
+        | { while read -r a b; do printf "%s\n" "$a"; done; }; }
 __get_active_units   () { __systemctl list-units       \
-        | { while read -r a b; do echo "$a"; done; }; }
+        | { while read -r a b; do printf "%s\n" "$a"; done; }; }
 __get_inactive_units () { __systemctl list-units --all \
-        | { while read -r a b c d; do [[ $c == "inactive" ]] && echo "$a"; done; }; }
+        | { while read -r a b c d; do [[ $c == "inactive" ]] && printf "%s\n" "$a"; done; }; }
 __get_failed_units   () { __systemctl list-units       \
-        | { while read -r a b c d; do [[ $c == "failed"   ]] && echo "$a"; done; }; }
+        | { while read -r a b c d; do [[ $c == "failed"   ]] && printf "%s\n" "$a"; done; }; }
 __get_enabled_units  () { __systemctl list-unit-files  \
-        | { while read -r a b c  ; do [[ $b == "enabled"  ]] && echo "$a"; done; }; }
+        | { while read -r a b c  ; do [[ $b == "enabled"  ]] && printf "%s\n" "$a"; done; }; }
 __get_disabled_units () { __systemctl list-unit-files  \
-        | { while read -r a b c  ; do [[ $b == "disabled" ]] && echo "$a"; done; }; }
+        | { while read -r a b c  ; do [[ $b == "disabled" ]] && printf "%s\n" "$a"; done; }; }
 __get_masked_units   () { __systemctl list-unit-files  \
-        | { while read -r a b c  ; do [[ $b == "masked"   ]] && echo "$a"; done; }; }
+        | { while read -r a b c  ; do [[ $b == "masked"   ]] && printf "%s\n" "$a"; done; }; }
 
 _systemctl () {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -144,14 +144,14 @@ _systemctl () {
                 comps=$( __filter_units_by_property CanStart yes \
                       $( __get_inactive_units \
 		        | while read -r line; do \
-		                [[ "$line" =~ \.(device|snapshot)$ ]] || echo "$line"; \
+		                [[ "$line" =~ \.(device|snapshot)$ ]] || printf "%s\n" "$line"; \
 		        done ))
 
         elif __contains_word "$verb" ${VERBS[RESTARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property CanStart yes \
                       $( __get_all_units \
 		        | while read -r line; do \
-		                [[ "$line" =~ \.(device|snapshot|socket|timer)$ ]] || echo "$line"; \
+		                [[ "$line" =~ \.(device|snapshot|socket|timer)$ ]] || printf "%s\n" "$line"; \
 		        done ))
 
         elif __contains_word "$verb" ${VERBS[STOPPABLE_UNITS]}; then
@@ -176,15 +176,15 @@ _systemctl () {
                 comps=''
 
         elif __contains_word "$verb" ${VERBS[JOBS]}; then
-                comps=$( __systemctl list-jobs | { while read -r a b; do echo "$a"; done; } )
+                comps=$( __systemctl list-jobs | { while read -r a b; do printf "%s\n" "$a"; done; } )
 
         elif __contains_word "$verb" ${VERBS[SNAPSHOTS]}; then
                 comps=$( __systemctl list-units --type snapshot --full --all \
-                        | { while read -r a b; do echo "$a"; done; } )
+                        | { while read -r a b; do printf "%s\n" "$a"; done; } )
 
         elif __contains_word "$verb" ${VERBS[ENVS]}; then
                 comps=$( __systemctl show-environment \
-                    | while read -r line; do echo "${line%%=*}=";done )
+                    | while read -r line; do printf "%s\n" "${line%%=*}=";done )
                 compopt -o nospace
 
         elif __contains_word "$verb" ${VERBS[FILE]}; then
@@ -197,9 +197,9 @@ _systemctl () {
 }
 complete -F _systemctl systemctl
 
-__get_all_sessions () { systemd-loginctl list-sessions | { while read -r a b; do echo "$a"; done; } ; }
-__get_all_users    () { systemd-loginctl list-users    | { while read -r a b; do echo "$b"; done; } ; }
-__get_all_seats    () { systemd-loginctl list-seats    | { while read -r a b; do echo "$a"; done; } ; }
+__get_all_sessions () { systemd-loginctl list-sessions | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
+__get_all_users    () { systemd-loginctl list-users    | { while read -r a b; do printf "%s\n" "$b"; done; } ; }
+__get_all_seats    () { systemd-loginctl list-seats    | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
 
 _loginctl () {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
