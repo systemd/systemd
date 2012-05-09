@@ -188,6 +188,7 @@ static int journal_file_verify_header(JournalFile *f) {
 
 static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size) {
         uint64_t old_size, new_size;
+        int r;
 
         assert(f);
 
@@ -232,8 +233,9 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         /* Note that the glibc fallocate() fallback is very
            inefficient, hence we try to minimize the allocation area
            as we can. */
-        if (posix_fallocate(f->fd, old_size, new_size - old_size) < 0)
-                return -errno;
+        r = posix_fallocate(f->fd, old_size, new_size - old_size);
+        if (r != 0)
+                return -r;
 
         if (fstat(f->fd, &f->last_stat) < 0)
                 return -errno;
