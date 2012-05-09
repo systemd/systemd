@@ -310,13 +310,14 @@ static int bus_manager_append_tainted(DBusMessageIter *i, const char *property, 
                 free(p);
 
         if (access("/proc/cgroups", F_OK) < 0)
-                stpcpy(e, "cgroups-missing:");
+                e = stpcpy(e, "cgroups-missing:");
 
         if (hwclock_is_localtime() > 0)
-                stpcpy(e, "local-hwclock:");
+                e = stpcpy(e, "local-hwclock:");
 
-        if (endswith(buf, ":"))
-                buf[strlen(buf)-1] = 0;
+        /* remove the last ':' */
+        if (e != buf)
+                e[-1] = 0;
 
         t = buf;
 
