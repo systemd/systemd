@@ -1185,7 +1185,7 @@ static int do_switch_root(const char *switch_root) {
         }
 
         if (chroot(".") < 0)
-                log_warning("Failed to change root, ignoring: %s", strerror(-r));
+                log_warning("Failed to change root, ignoring: %m");
 
         /* FIXME: remove old root */
 
