@@ -39,19 +39,19 @@ __filter_units_by_property () {
 }
 
 __get_all_units      () { __systemctl list-units --all \
-        | { while read a b; do echo "$a"; done; }; }
+        | { while read -r a b; do echo "$a"; done; }; }
 __get_active_units   () { __systemctl list-units       \
-        | { while read a b; do echo "$a"; done; }; }
+        | { while read -r a b; do echo "$a"; done; }; }
 __get_inactive_units () { __systemctl list-units --all \
-        | { while read a b c d; do [[ $c == "inactive" ]] && echo "$a"; done; }; }
+        | { while read -r a b c d; do [[ $c == "inactive" ]] && echo "$a"; done; }; }
 __get_failed_units   () { __systemctl list-units       \
-        | { while read a b c d; do [[ $c == "failed"   ]] && echo "$a"; done; }; }
+        | { while read -r a b c d; do [[ $c == "failed"   ]] && echo "$a"; done; }; }
 __get_enabled_units  () { __systemctl list-unit-files  \
-        | { while read a b c  ; do [[ $b == "enabled"  ]] && echo "$a"; done; }; }
+        | { while read -r a b c  ; do [[ $b == "enabled"  ]] && echo "$a"; done; }; }
 __get_disabled_units () { __systemctl list-unit-files  \
-        | { while read a b c  ; do [[ $b == "disabled" ]] && echo "$a"; done; }; }
+        | { while read -r a b c  ; do [[ $b == "disabled" ]] && echo "$a"; done; }; }
 __get_masked_units   () { __systemctl list-unit-files  \
-        | { while read a b c  ; do [[ $b == "masked"   ]] && echo "$a"; done; }; }
+        | { while read -r a b c  ; do [[ $b == "masked"   ]] && echo "$a"; done; }; }
 
 _systemctl () {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -89,13 +89,13 @@ _systemctl () {
                                 comps=''
                         ;;
                 esac
-                COMPREPLY=( $(compgen -W "$comps" -- "$cur") )
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
                 return 0
         fi
 
 
         if [[ "$cur" = -* ]]; then
-                COMPREPLY=( $(compgen -W "${OPTS[*]}" -- "$cur") )
+                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
                 return 0
         fi
 
@@ -143,14 +143,14 @@ _systemctl () {
         elif __contains_word "$verb" ${VERBS[STARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property CanStart yes \
                       $( __get_inactive_units \
-		        | while read line; do \
+		        | while read -r line; do \
 		                [[ "$line" =~ \.(device|snapshot)$ ]] || echo "$line"; \
 		        done ))
 
         elif __contains_word "$verb" ${VERBS[RESTARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property CanStart yes \
                       $( __get_all_units \
-		        | while read line; do \
+		        | while read -r line; do \
 		                [[ "$line" =~ \.(device|snapshot|socket|timer)$ ]] || echo "$line"; \
 		        done ))
 
@@ -176,15 +176,15 @@ _systemctl () {
                 comps=''
 
         elif __contains_word "$verb" ${VERBS[JOBS]}; then
-                comps=$( __systemctl list-jobs | { while read a b; do echo "$a"; done; } )
+                comps=$( __systemctl list-jobs | { while read -r a b; do echo "$a"; done; } )
 
         elif __contains_word "$verb" ${VERBS[SNAPSHOTS]}; then
                 comps=$( __systemctl list-units --type snapshot --full --all \
-                        | { while read a b; do echo "$a"; done; } )
+                        | { while read -r a b; do echo "$a"; done; } )
 
         elif __contains_word "$verb" ${VERBS[ENVS]}; then
                 comps=$( __systemctl show-environment \
-                    | while read line; do echo "${line%%=*}=";done )
+                    | while read -r line; do echo "${line%%=*}=";done )
                 compopt -o nospace
 
         elif __contains_word "$verb" ${VERBS[FILE]}; then
@@ -192,14 +192,14 @@ _systemctl () {
                 compopt -o filenames
         fi
 
-        COMPREPLY=( $(compgen -W "$comps" -- "$cur") )
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
         return 0
 }
 complete -F _systemctl systemctl
 
-__get_all_sessions () { systemd-loginctl list-sessions | { while read a b; do echo "$a"; done; } ; }
-__get_all_users    () { systemd-loginctl list-users    | { while read a b; do echo "$b"; done; } ; }
-__get_all_seats    () { systemd-loginctl list-seats    | { while read a b; do echo "$a"; done; } ; }
+__get_all_sessions () { systemd-loginctl list-sessions | { while read -r a b; do echo "$a"; done; } ; }
+__get_all_users    () { systemd-loginctl list-users    | { while read -r a b; do echo "$b"; done; } ; }
+__get_all_seats    () { systemd-loginctl list-seats    | { while read -r a b; do echo "$a"; done; } ; }
 
 _loginctl () {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
@@ -225,13 +225,13 @@ _loginctl () {
                                 comps=''
                         ;;
                 esac
-                COMPREPLY=( $(compgen -W "$comps" -- "$cur") )
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
                 return 0
         fi
 
 
         if [[ "$cur" = -* ]]; then
-                COMPREPLY=( $(compgen -W "${OPTS[*]}" -- "$cur") )
+                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
                 return 0
         fi
 
@@ -275,7 +275,7 @@ _loginctl () {
                 fi
         fi
 
-        COMPREPLY=( $(compgen -W "$comps" -- "$cur") )
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
         return 0
 }
 complete -F _loginctl loginctl
