@@ -445,6 +445,7 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
                         some_transport = true;
                 } else if (strcmp(subsys, "cciss") == 0) {
                         parent = handle_cciss(parent, &path);
+                        some_transport = true;
                 } else if (strcmp(subsys, "usb") == 0) {
                         parent = handle_usb(parent, &path);
                         some_transport = true;
