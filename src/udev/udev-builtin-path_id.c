@@ -340,6 +340,20 @@ out:
         return parent;
 }
 
+static struct udev_device *handle_cciss(struct udev_device *parent, char **path)
+{
+        const char *str;
+        unsigned int controller, disk;
+
+        str = udev_device_get_sysname(parent);
+        if (sscanf(str, "c%ud%u%*s", &controller, &disk) != 2)
+                return NULL;
+
+        path_prepend(path, "cciss-disk%u", disk);
+        parent = skip_subsystem(parent, "cciss");
+        return parent;
+}
+
 static void handle_scsi_tape(struct udev_device *dev, char **path)
 {
         const char *name;
@@ -429,6 +443,8 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
                 } else if (strcmp(subsys, "scsi") == 0) {
                         parent = handle_scsi(parent, &path);
                         some_transport = true;
+                } else if (strcmp(subsys, "cciss") == 0) {
+                        parent = handle_cciss(parent, &path);
                 } else if (strcmp(subsys, "usb") == 0) {
                         parent = handle_usb(parent, &path);
                         some_transport = true;
