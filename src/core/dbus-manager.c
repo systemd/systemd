@@ -1186,6 +1186,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SwitchRoot")) {
                 const char *switch_root, *switch_root_init;
                 char *u, *v;
+                int k;
 
                 if (!dbus_message_get_args(
                                     message,
@@ -1205,6 +1206,22 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Switching root is only supported for system managers.");
                         return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
+
+                /* Safety check */
+                if (isempty(switch_root_init))
+                        k = access(switch_root, F_OK);
+                else {
+                        char *p;
+
+                        p = join(switch_root, "/", switch_root_init, NULL);
+                        if (!p)
+                                goto oom;
+
+                        k = access(p, X_OK);
+                        free(p);
+                }
+                if (k < 0)
+                        return bus_send_error_reply(connection, message, NULL, -errno);
 
                 u = strdup(switch_root);
                 if (!u)
