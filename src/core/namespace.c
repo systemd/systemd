@@ -131,7 +131,8 @@ static int apply_mount(Path *p, const char *root_dir, const char *inaccessible_d
         assert(inaccessible_dir);
         assert(private_dir);
 
-        if (!(where = strappend(root_dir, p->path)))
+        where = strappend(root_dir, p->path);
+        if (!where)
                 return -ENOMEM;
 
         switch (p->mode) {
@@ -157,7 +158,8 @@ static int apply_mount(Path *p, const char *root_dir, const char *inaccessible_d
                 assert_not_reached("Unknown mode");
         }
 
-        if ((r = mount(what, where, NULL, MS_BIND|MS_REC, NULL)) >= 0) {
+        r = mount(what, where, NULL, MS_BIND|MS_REC, NULL);
+        if (r >= 0) {
                 log_debug("Successfully mounted %s to %s", what, where);
 
                 /* The bind mount will always inherit the original
@@ -205,9 +207,10 @@ int setup_namespace(
                 strv_length(writable) +
                 strv_length(readable) +
                 strv_length(inaccessible) +
-                (private_tmp ? 2 : 1);
+                (private_tmp ? 3 : 1);
 
-        if (!(paths = new(Path, n)))
+        paths = new(Path, n);
+        if (!paths)
                 return -ENOMEM;
 
         p = paths;
@@ -218,6 +221,10 @@ int setup_namespace(
 
         if (private_tmp) {
                 p->path = "/tmp";
+                p->mode = PRIVATE;
+                p++;
+
+                p->path = "/var/tmp";
                 p->mode = PRIVATE;
                 p++;
         }
@@ -282,9 +289,11 @@ int setup_namespace(
                 goto fail;
         }
 
-        for (p = paths; p < paths + n; p++)
-                if ((r = apply_mount(p, root_dir, inaccessible_dir, private_dir, flags)) < 0)
+        for (p = paths; p < paths + n; p++) {
+                r = apply_mount(p, root_dir, inaccessible_dir, private_dir, flags);
+                if (r < 0)
                         goto undo_mounts;
+        }
 
         memcpy(old_root_dir, tmp_dir, sizeof(tmp_dir)-1);
         if (!mkdtemp(old_root_dir)) {
@@ -341,7 +350,7 @@ fail:
         if (remove_tmp)
                 rmdir(tmp_dir);
 
-             free(paths);
+        free(paths);
 
         return r;
 }
