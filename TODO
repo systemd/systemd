@@ -23,7 +23,7 @@ Bugfixes:
 
 Features:
 
-* expose switch-root in systemctl
+* actually queue the new default unit after switch-root
 
 * remove old root in switch-root logic
 
@@ -52,8 +52,6 @@ Features:
 
 * don't delete /run/users/lennart if lennart is still logged in even if aging is used
 
-* automount: implement expire
-
 * vconsole: implement setterm -store -foreground xxx --background zzz
 
 * ExecOnFailure=/usr/bin/foo
@@ -72,7 +70,7 @@ Features:
 
 * Auke: merge Auke's bootchart
 
-* journald: allow forwarding of log data to specific TTY instea dof console
+* journald: allow forwarding of log data to specific TTY instead of console
 
 * add RequiredBy to [Install]
 
