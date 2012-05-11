@@ -3580,6 +3580,65 @@ finish:
         return r;
 }
 
+static int switch_root(DBusConnection *bus, char **args) {
+        DBusMessage *m = NULL, *reply = NULL;
+        unsigned l;
+        const char *root, *init;
+        DBusError error;
+        int r;
+
+        dbus_error_init(&error);
+
+        l = strv_length(args);
+        if (l < 2 || l > 3) {
+                log_error("Wrong number of arguments.");
+                return -EINVAL;
+        }
+
+        root = args[1];
+        init = l >= 3 ? args[2] : "";
+
+        m = dbus_message_new_method_call(
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "SwitchRoot");
+        if (!m) {
+                log_error("Could not allocate message.");
+                return -ENOMEM;
+        }
+
+        if (!dbus_message_append_args(
+                            m,
+                            DBUS_TYPE_STRING, &root,
+                            DBUS_TYPE_STRING, &init,
+                            DBUS_TYPE_INVALID)) {
+                log_error("Could not append arguments to message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
+                r = -EIO;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
 static int set_environment(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
@@ -4220,6 +4279,7 @@ static int systemctl_help(void) {
                "  reboot                          Shut down and reboot the system\n"
                "  kexec                           Shut down and reboot the system with kexec\n"
                "  exit                            Request user instance exit\n"
+               "  switch-root [ROOT] [INIT]       Change to a different root file system\n"
                "  suspend                         Suspend the system\n"
                "  hibernate                       Hibernate the system\n",
                program_invocation_short_name);
@@ -5169,7 +5229,8 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "preset",                MORE,  2, enable_unit       },
                 { "mask",                  MORE,  2, enable_unit       },
                 { "unmask",                MORE,  2, enable_unit       },
-                { "link",                  MORE,  2, enable_unit       }
+                { "link",                  MORE,  2, enable_unit       },
+                { "switch-root",           MORE,  2, switch_root       },
         };
 
         int left;
