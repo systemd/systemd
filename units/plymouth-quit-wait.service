@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Wait for Plymouth Boot Screen to Quit
-After=rc-local.service plymouth-start.service
+After=rc-local.service plymouth-start.service systemd-user-sessions.service
 
 [Service]
 ExecStart=-/bin/plymouth --wait
