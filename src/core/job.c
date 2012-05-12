@@ -470,11 +470,10 @@ int job_run_and_invalidate(Job *j) {
         assert(j);
         assert(j->installed);
         assert(j->type < _JOB_TYPE_MAX_IN_TRANSACTION);
+        assert(j->in_run_queue);
 
-        if (j->in_run_queue) {
-                LIST_REMOVE(Job, run_queue, j->manager->run_queue, j);
-                j->in_run_queue = false;
-        }
+        LIST_REMOVE(Job, run_queue, j->manager->run_queue, j);
+        j->in_run_queue = false;
 
         if (j->state != JOB_WAITING)
                 return 0;
