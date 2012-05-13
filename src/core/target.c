@@ -220,5 +220,15 @@ const UnitVTable target_vtable = {
         .sub_state_to_string = target_sub_state_to_string,
 
         .bus_interface = "org.freedesktop.systemd1.Target",
-        .bus_message_handler = bus_target_message_handler
+        .bus_message_handler = bus_target_message_handler,
+
+        .status_message_formats = {
+                .finished_start_job = {
+                        [JOB_DONE]       = "Reached target %s.",
+                        [JOB_DEPENDENCY] = "Dependency failed for %s.",
+                },
+                .finished_stop_job = {
+                        [JOB_DONE]       = "Stopped target %s.",
+                },
+        },
 };

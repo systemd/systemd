@@ -3780,7 +3780,6 @@ const UnitVTable service_vtable = {
                 "Unit\0"
                 "Service\0"
                 "Install\0",
-        .show_status = true,
 
         .init = service_init,
         .done = service_done,
@@ -3826,6 +3825,23 @@ const UnitVTable service_vtable = {
         .bus_invalidating_properties =  bus_service_invalidating_properties,
 
 #ifdef HAVE_SYSV_COMPAT
-        .enumerate = service_enumerate
+        .enumerate = service_enumerate,
 #endif
+        .status_message_formats = {
+                .starting_stopping = {
+                        [0] = "Starting %s...",
+                        [1] = "Stopping %s...",
+                },
+                .finished_start_job = {
+                        [JOB_DONE]       = "Started %s.",
+                        [JOB_FAILED]     = "Failed to start %s.",
+                        [JOB_DEPENDENCY] = "Dependency failed for %s.",
+                        [JOB_TIMEOUT]    = "Timed out starting %s.",
+                },
+                .finished_stop_job = {
+                        [JOB_DONE]       = "Stopped %s.",
+                        [JOB_FAILED]     = "Stopped (with error) %s.",
+                        [JOB_TIMEOUT]    = "Timed out stopping %s.",
+                },
+        },
 };

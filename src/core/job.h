@@ -34,11 +34,6 @@ typedef enum JobState JobState;
 typedef enum JobMode JobMode;
 typedef enum JobResult JobResult;
 
-#include "manager.h"
-#include "unit.h"
-#include "hashmap.h"
-#include "list.h"
-
 /* Be careful when changing the job types! Adjust job_merging_table[] accordingly! */
 enum JobType {
         JOB_START,                  /* if a unit does not support being started, we'll just wait until it becomes active */
@@ -106,6 +101,11 @@ enum JobResult {
         _JOB_RESULT_MAX,
         _JOB_RESULT_INVALID = -1
 };
+
+#include "manager.h"
+#include "unit.h"
+#include "hashmap.h"
+#include "list.h"
 
 struct JobDependency {
         /* Encodes that the 'subject' job needs the 'object' job in

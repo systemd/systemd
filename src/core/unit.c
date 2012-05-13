@@ -930,6 +930,21 @@ bool unit_condition_test(Unit *u) {
         return u->condition_result;
 }
 
+static void unit_status_print_starting_stopping(Unit *u, bool stopping) {
+        const UnitStatusMessageFormats *format_table;
+        const char *format;
+
+        format_table = &UNIT_VTABLE(u)->status_message_formats;
+        if (!format_table)
+                return;
+
+        format = format_table->starting_stopping[stopping];
+        if (!format)
+                return;
+
+        unit_status_printf(u, "", format, unit_description(u));
+}
+
 /* Errors:
  *         -EBADR:     This unit type does not support starting.
  *         -EALREADY:  Unit is already started.
@@ -969,6 +984,8 @@ int unit_start(Unit *u) {
                 return unit_start(following);
         }
 
+        unit_status_print_starting_stopping(u, false);
+
         /* If it is stopped, but we cannot start it, then fail */
         if (!UNIT_VTABLE(u)->start)
                 return -EBADR;
@@ -981,7 +998,6 @@ int unit_start(Unit *u) {
 
         unit_add_to_dbus_queue(u);
 
-        unit_status_printf(u, "", "Starting %s...", unit_description(u));
         return UNIT_VTABLE(u)->start(u);
 }
 
@@ -1018,12 +1034,13 @@ int unit_stop(Unit *u) {
                 return unit_stop(following);
         }
 
+        unit_status_print_starting_stopping(u, true);
+
         if (!UNIT_VTABLE(u)->stop)
                 return -EBADR;
 
         unit_add_to_dbus_queue(u);
 
-        unit_status_printf(u, "", "Stopping %s...", unit_description(u));
         return UNIT_VTABLE(u)->stop(u);
 }
 
@@ -2543,9 +2560,6 @@ void unit_status_printf(Unit *u, const char *status, const char *format, ...) {
 
         assert(u);
         assert(format);
-
-        if (!UNIT_VTABLE(u)->show_status)
-                return;
 
         if (!manager_get_show_status(u->manager))
                 return;

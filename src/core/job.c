@@ -550,28 +550,37 @@ int job_run_and_invalidate(Job *j) {
 }
 
 static void job_print_status_message(Unit *u, JobType t, JobResult result) {
-        assert(u);
+        const UnitStatusMessageFormats *format_table;
+        const char *format;
+
+        format_table = &UNIT_VTABLE(u)->status_message_formats;
+        if (!format_table)
+                return;
 
         if (t == JOB_START) {
+
+                format = format_table->finished_start_job[result];
+                if (!format)
+                        return;
 
                 switch (result) {
 
                 case JOB_DONE:
                         if (u->condition_result)
-                                unit_status_printf(u, ANSI_HIGHLIGHT_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, "Started %s.", unit_description(u));
+                                unit_status_printf(u, ANSI_HIGHLIGHT_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, format, unit_description(u));
                         break;
 
                 case JOB_FAILED:
-                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON "FAILED" ANSI_HIGHLIGHT_OFF, "Failed to start %s.", unit_description(u));
-                        unit_status_printf(u, NULL, "See 'systemctl status %s' for details.", u->id);
+                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON "FAILED" ANSI_HIGHLIGHT_OFF, format, unit_description(u));
+                        unit_status_printf(u, "", "See 'systemctl status %s' for details.", u->id);
                         break;
 
                 case JOB_DEPENDENCY:
-                        unit_status_printf(u, ANSI_HIGHLIGHT_YELLOW_ON "DEPEND" ANSI_HIGHLIGHT_OFF, "Dependency failed. Aborted start of %s.", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_YELLOW_ON "DEPEND" ANSI_HIGHLIGHT_OFF, format, unit_description(u));
                         break;
 
                 case JOB_TIMEOUT:
-                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, "Timed out starting %s.", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, format, unit_description(u));
                         break;
 
                 default:
@@ -580,15 +589,19 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
 
         } else if (t == JOB_STOP) {
 
+                format = format_table->finished_stop_job[result];
+                if (!format)
+                        return;
+
                 switch (result) {
 
                 case JOB_TIMEOUT:
-                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, "Timed out stopping %s.", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, format, unit_description(u));
                         break;
 
                 case JOB_DONE:
                 case JOB_FAILED:
-                        unit_status_printf(u, ANSI_HIGHLIGHT_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, "Stopped %s.", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, format, unit_description(u));
                         break;
 
                 default:
@@ -607,33 +620,33 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
         assert(j->installed);
         assert(j->type < _JOB_TYPE_MAX_IN_TRANSACTION);
 
+        u = j->unit;
+        t = j->type;
+
+        j->result = result;
+
+        log_debug("Job %s/%s finished, result=%s", u->id, job_type_to_string(t), job_result_to_string(result));
+
+        job_print_status_message(u, t, result);
+
         job_add_to_dbus_queue(j);
 
         /* Patch restart jobs so that they become normal start jobs */
-        if (result == JOB_DONE && j->type == JOB_RESTART) {
+        if (result == JOB_DONE && t == JOB_RESTART) {
 
                 job_change_type(j, JOB_START);
                 j->state = JOB_WAITING;
 
                 job_add_to_run_queue(j);
 
-                u = j->unit;
                 goto finish;
         }
-
-        j->result = result;
-
-        log_debug("Job %s/%s finished, result=%s", j->unit->id, job_type_to_string(j->type), job_result_to_string(result));
 
         if (result == JOB_FAILED)
                 j->manager->n_failed_jobs ++;
 
-        u = j->unit;
-        t = j->type;
         job_uninstall(j);
         job_free(j);
-
-        job_print_status_message(u, t, result);
 
         /* Fail depending jobs on failure */
         if (result != JOB_DONE && recursive) {

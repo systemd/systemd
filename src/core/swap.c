@@ -1378,7 +1378,6 @@ const UnitVTable swap_vtable = {
 
         .no_alias = true,
         .no_instances = true,
-        .show_status = true,
 
         .init = swap_init,
         .load = swap_load,
@@ -1414,5 +1413,23 @@ const UnitVTable swap_vtable = {
         .following_set = swap_following_set,
 
         .enumerate = swap_enumerate,
-        .shutdown = swap_shutdown
+        .shutdown = swap_shutdown,
+
+        .status_message_formats = {
+                .starting_stopping = {
+                        [0] = "Activating swap %s...",
+                        [1] = "Deactivating swap %s...",
+                },
+                .finished_start_job = {
+                        [JOB_DONE]       = "Activated swap %s.",
+                        [JOB_FAILED]     = "Failed to activate swap %s.",
+                        [JOB_DEPENDENCY] = "Dependency failed for %s.",
+                        [JOB_TIMEOUT]    = "Timed out activating swap %s.",
+                },
+                .finished_stop_job = {
+                        [JOB_DONE]       = "Deactivated swap %s.",
+                        [JOB_FAILED]     = "Failed deactivating swap %s.",
+                        [JOB_TIMEOUT]    = "Timed out deactivating swap %s.",
+                },
+        },
 };

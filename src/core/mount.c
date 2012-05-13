@@ -1911,7 +1911,6 @@ const UnitVTable mount_vtable = {
 
         .no_alias = true,
         .no_instances = true,
-        .show_status = true,
 
         .init = mount_init,
         .load = mount_load,
@@ -1945,5 +1944,23 @@ const UnitVTable mount_vtable = {
         .bus_invalidating_properties =  bus_mount_invalidating_properties,
 
         .enumerate = mount_enumerate,
-        .shutdown = mount_shutdown
+        .shutdown = mount_shutdown,
+
+        .status_message_formats = {
+                .starting_stopping = {
+                        [0] = "Mounting %s...",
+                        [1] = "Unmounting %s...",
+                },
+                .finished_start_job = {
+                        [JOB_DONE]       = "Mounted %s.",
+                        [JOB_FAILED]     = "Failed to mount %s.",
+                        [JOB_DEPENDENCY] = "Dependency failed for %s.",
+                        [JOB_TIMEOUT]    = "Timed out mounting %s.",
+                },
+                .finished_stop_job = {
+                        [JOB_DONE]       = "Unmounted %s.",
+                        [JOB_FAILED]     = "Failed unmounting %s.",
+                        [JOB_TIMEOUT]    = "Timed out unmounting %s.",
+                },
+        },
 };

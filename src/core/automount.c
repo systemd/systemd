@@ -885,5 +885,17 @@ const UnitVTable automount_vtable = {
         .bus_message_handler = bus_automount_message_handler,
         .bus_invalidating_properties = bus_automount_invalidating_properties,
 
-        .shutdown = automount_shutdown
+        .shutdown = automount_shutdown,
+
+        .status_message_formats = {
+                .finished_start_job = {
+                        [JOB_DONE]       = "Set up automount %s.",
+                        [JOB_FAILED]     = "Failed to set up automount %s.",
+                        [JOB_DEPENDENCY] = "Dependency failed for %s.",
+                },
+                .finished_stop_job = {
+                        [JOB_DONE]       = "Unset automount %s.",
+                        [JOB_FAILED]     = "Failed to unset automount %s.",
+                },
+        },
 };

@@ -32,6 +32,7 @@ typedef enum UnitLoadState UnitLoadState;
 typedef enum UnitActiveState UnitActiveState;
 typedef enum UnitDependency UnitDependency;
 typedef struct UnitRef UnitRef;
+typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
 #include "set.h"
 #include "util.h"
@@ -266,6 +267,12 @@ struct UnitRef {
         LIST_FIELDS(UnitRef, refs);
 };
 
+struct UnitStatusMessageFormats {
+        const char *starting_stopping[2];
+        const char *finished_start_job[_JOB_RESULT_MAX];
+        const char *finished_stop_job[_JOB_RESULT_MAX];
+};
+
 #include "service.h"
 #include "timer.h"
 #include "socket.h"
@@ -392,6 +399,8 @@ struct UnitVTable {
         /* The interface name */
         const char *bus_interface;
 
+        UnitStatusMessageFormats status_message_formats;
+
         /* Can units of this type have multiple names? */
         bool no_alias:1;
 
@@ -400,9 +409,6 @@ struct UnitVTable {
 
         /* Exclude from automatic gc */
         bool no_gc:1;
-
-        /* Show status updates on the console */
-        bool show_status:1;
 };
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];

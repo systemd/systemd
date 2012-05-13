@@ -613,5 +613,15 @@ const UnitVTable device_vtable = {
         .following_set = device_following_set,
 
         .enumerate = device_enumerate,
-        .shutdown = device_shutdown
+        .shutdown = device_shutdown,
+
+        .status_message_formats = {
+                .starting_stopping = {
+                        [0] = "Expecting device %s...",
+                },
+                .finished_start_job = {
+                        [JOB_DONE]       = "Found device %s.",
+                        [JOB_TIMEOUT]    = "Timed out waiting for device %s.",
+                },
+        },
 };

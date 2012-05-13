@@ -2220,5 +2220,23 @@ const UnitVTable socket_vtable = {
 
         .bus_interface = "org.freedesktop.systemd1.Socket",
         .bus_message_handler = bus_socket_message_handler,
-        .bus_invalidating_properties =  bus_socket_invalidating_properties
+        .bus_invalidating_properties =  bus_socket_invalidating_properties,
+
+        .status_message_formats = {
+                /*.starting_stopping = {
+                        [0] = "Starting socket %s...",
+                        [1] = "Stopping socket %s...",
+                },*/
+                .finished_start_job = {
+                        [JOB_DONE]       = "Listening on %s.",
+                        [JOB_FAILED]     = "Failed to listen on %s.",
+                        [JOB_DEPENDENCY] = "Dependency failed for %s.",
+                        [JOB_TIMEOUT]    = "Timed out starting %s.",
+                },
+                .finished_stop_job = {
+                        [JOB_DONE]       = "Closed %s.",
+                        [JOB_FAILED]     = "Failed stopping %s.",
+                        [JOB_TIMEOUT]    = "Timed out stopping %s.",
+                },
+        },
 };
