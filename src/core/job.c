@@ -607,6 +607,14 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                 default:
                         ;
                 }
+
+        } else if (t == JOB_VERIFY_ACTIVE) {
+
+                /* When verify-active detects the unit is inactive, report it.
+                 * Most likely a DEPEND warning from a requisiting unit will
+                 * occur next and it's nice to see what was requisited. */
+                if (result == JOB_SKIPPED)
+                        unit_status_printf(u, ANSI_HIGHLIGHT_ON " INFO " ANSI_HIGHLIGHT_OFF, "%s is not active.", unit_description(u));
         }
 }
 
