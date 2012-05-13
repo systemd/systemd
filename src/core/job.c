@@ -587,7 +587,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                         ;
                 }
 
-        } else if (t == JOB_STOP) {
+        } else if (t == JOB_STOP || t == JOB_RESTART) {
 
                 format = format_table->finished_stop_job[result];
                 if (!format)
