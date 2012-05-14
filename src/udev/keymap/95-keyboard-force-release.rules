@@ -31,6 +31,8 @@ ENV{DMI_VENDOR}=="FOXCONN", ATTR{[dmi/id]product_name}=="QBOOK", RUN+="keyboard-
 
 ENV{DMI_VENDOR}=="MTC", ATTR{[dmi/id]product_version}=="A0", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
 
+ENV{DMI_VENDOR}=="Mio Technology", ATTR{[dmi/id]product_name}=="N890", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
 ENV{DMI_VENDOR}=="PEGATRON CORP.", ATTR{[dmi/id]product_name}=="Spring Peak", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
 
 ENV{DMI_VENDOR}=="TOSHIBA", ATTR{[dmi/id]product_name}=="Satellite [uU]300*|Satellite Pro [uU]300*|Satellite [uU]305*|SATELLITE [uU]500*", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
