@@ -567,7 +567,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                         break;
 
                 case JOB_DEPENDENCY:
-                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " ABORT" ANSI_HIGHLIGHT_OFF, "Dependency failed. Aborted start of %s.", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_YELLOW_ON "DEPEND" ANSI_HIGHLIGHT_OFF, "Dependency failed. Aborted start of %s.", unit_description(u));
                         break;
 
                 case JOB_TIMEOUT:

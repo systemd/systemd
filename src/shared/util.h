@@ -73,6 +73,7 @@ typedef struct dual_timestamp {
 #define ANSI_HIGHLIGHT_ON "\x1B[1;39m"
 #define ANSI_HIGHLIGHT_RED_ON "\x1B[1;31m"
 #define ANSI_HIGHLIGHT_GREEN_ON "\x1B[1;32m"
+#define ANSI_HIGHLIGHT_YELLOW_ON "\x1B[1;33m"
 #define ANSI_HIGHLIGHT_OFF "\x1B[0m"
 
 usec_t now(clockid_t clock);
