@@ -34,7 +34,9 @@ extern "C" {
  * Instead of returning an empty string array or empty uid array, we
  * may return NULL.
  *
- * Free the data we return with libc free().
+ * Free the data the library returns with libc free(). String arrays
+ * are NULL terminated and you need to free the array itself in
+ * addition to the strings contained.
  *
  * We return error codes as negative errno, kernel-style. 0 or
  * positive on success.
