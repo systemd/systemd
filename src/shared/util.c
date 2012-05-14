@@ -3329,15 +3329,15 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
 }
 
 void status_vprintf(const char *status, bool ellipse, const char *format, va_list ap) {
-        char *s = NULL, *spaces = NULL, *e;
-        int fd = -1, c;
-        size_t emax, sl, left;
+        char *s = NULL;
+        static const char status_indent[] = "         "; /* "[" STATUS "] " */
+        int fd = -1;
         struct iovec iovec[5];
         int n = 0;
 
         assert(format);
 
-        /* This independent of logging, as status messages are
+        /* This is independent of logging, as status messages are
          * optional and go exclusively to the console. */
 
         if (vasprintf(&s, format, ap) < 0)
@@ -3348,15 +3348,19 @@ void status_vprintf(const char *status, bool ellipse, const char *format, va_lis
                 goto finish;
 
         if (ellipse) {
+                char *e;
+                size_t emax, sl;
+                int c;
+
                 c = fd_columns(fd);
                 if (c <= 0)
                         c = 80;
 
-                if (status) {
-                        sl = 2 + 6 + 1; /* " [" status "]" */
-                        emax = (size_t) c > sl ? c - sl - 1 : 0;
-                } else
-                        emax = c - 1;
+                sl = status ? strlen(status_indent) : 0;
+
+                emax = c - sl - 1;
+                if (emax < 3)
+                        emax = 3;
 
                 e = ellipsize(s, emax, 75);
                 if (e) {
@@ -3366,34 +3370,23 @@ void status_vprintf(const char *status, bool ellipse, const char *format, va_lis
         }
 
         zero(iovec);
-        IOVEC_SET_STRING(iovec[n++], s);
-
-        if (ellipse) {
-                sl = strlen(s);
-                left = emax > sl ? emax - sl : 0;
-                if (left > 0) {
-                        spaces = malloc(left);
-                        if (spaces) {
-                                memset(spaces, ' ', left);
-                                iovec[n].iov_base = spaces;
-                                iovec[n].iov_len = left;
-                                n++;
-                        }
-                }
-        }
 
         if (status) {
-                IOVEC_SET_STRING(iovec[n++], " [");
-                IOVEC_SET_STRING(iovec[n++], status);
-                IOVEC_SET_STRING(iovec[n++], "]\n");
-        } else
-                IOVEC_SET_STRING(iovec[n++], "\n");
+                if (!isempty(status)) {
+                        IOVEC_SET_STRING(iovec[n++], "[");
+                        IOVEC_SET_STRING(iovec[n++], status);
+                        IOVEC_SET_STRING(iovec[n++], "] ");
+                } else
+                        IOVEC_SET_STRING(iovec[n++], status_indent);
+        }
+
+        IOVEC_SET_STRING(iovec[n++], s);
+        IOVEC_SET_STRING(iovec[n++], "\n");
 
         writev(fd, iovec, n);
 
 finish:
         free(s);
-        free(spaces);
 
         if (fd >= 0)
                 close_nointr_nofail(fd);

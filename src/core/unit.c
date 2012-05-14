@@ -981,7 +981,7 @@ int unit_start(Unit *u) {
 
         unit_add_to_dbus_queue(u);
 
-        unit_status_printf(u, NULL, "Starting %s...", unit_description(u));
+        unit_status_printf(u, "", "Starting %s...", unit_description(u));
         return UNIT_VTABLE(u)->start(u);
 }
 
@@ -1023,7 +1023,7 @@ int unit_stop(Unit *u) {
 
         unit_add_to_dbus_queue(u);
 
-        unit_status_printf(u, NULL, "Stopping %s...", unit_description(u));
+        unit_status_printf(u, "", "Stopping %s...", unit_description(u));
         return UNIT_VTABLE(u)->stop(u);
 }
 
