@@ -16,25 +16,25 @@
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 if [ -f .git/hooks/pre-commit.sample -a ! -f .git/hooks/pre-commit ] ; then
-    cp -p .git/hooks/pre-commit.sample .git/hooks/pre-commit && \
-    chmod +x .git/hooks/pre-commit && \
-    echo "Activated pre-commit hook."
+        cp -p .git/hooks/pre-commit.sample .git/hooks/pre-commit && \
+        chmod +x .git/hooks/pre-commit && \
+        echo "Activated pre-commit hook."
 fi
 
 GTKDOCIZE=$(which gtkdocize 2>/dev/null)
 if test -z $GTKDOCIZE; then
-    echo "You don't have gtk-doc installed, and thus won't be able to generate the documentation."
-    echo 'EXTRA_DIST =' > gtk-doc.make
+        echo "You don't have gtk-doc installed, and thus won't be able to generate the documentation."
+        echo 'EXTRA_DIST =' > gtk-doc.make
 else
-    gtkdocize
-    gtkdocargs=--enable-gtk-doc
+        gtkdocize --docdir docs/
+        gtkdocargs=--enable-gtk-doc
 fi
 
 intltoolize --force --automake
 autoreconf --force --install --symlink
 
 libdir() {
-    echo $(cd $1/$(gcc -print-multi-os-directory); pwd)
+        echo $(cd $1/$(gcc -print-multi-os-directory); pwd)
 }
 
 args="\
@@ -51,14 +51,15 @@ args="$args \
 "
 fi
 
-echo
-echo "----------------------------------------------------------------"
-echo "Initialized build system. For a common configuration please run:"
-echo "----------------------------------------------------------------"
-echo
-echo "./configure CFLAGS='-g -O0 -Wp,-U_FORTIFY_SOURCE' $args"
-echo
 if [ "x$1" == "xc" ]; then
-    ./configure CFLAGS='-g -O0 -Wp,-U_FORTIFY_SOURCE' $args
-    make clean
+        ./configure CFLAGS='-g -O0 -Wp,-U_FORTIFY_SOURCE' $args
+        make clean
+else
+        echo
+        echo "----------------------------------------------------------------"
+        echo "Initialized build system. For a common configuration please run:"
+        echo "----------------------------------------------------------------"
+        echo
+        echo "./configure CFLAGS='-g -O0 -Wp,-U_FORTIFY_SOURCE' $args"
+        echo
 fi

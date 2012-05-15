@@ -12,6 +12,8 @@
 /libudev.interfaces
 /libudev.prerequisites
 /libudev.signals
-/html/*
-/xml/*
+/html/
+/xml/
 /*.stamp
+/*.bak
+/tmpl/
