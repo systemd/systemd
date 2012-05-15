@@ -24,7 +24,7 @@ fi
 GTKDOCIZE=$(which gtkdocize 2>/dev/null)
 if test -z $GTKDOCIZE; then
         echo "You don't have gtk-doc installed, and thus won't be able to generate the documentation."
-        echo 'EXTRA_DIST =' > gtk-doc.make
+        echo 'EXTRA_DIST =' > docs/gtk-doc.make
 else
         gtkdocize --docdir docs/
         gtkdocargs=--enable-gtk-doc
