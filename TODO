@@ -87,14 +87,6 @@ Features:
 
 * udev: add trigger --subsystem-match=usb/usb_device device
 
-* udev: libudev.so.1
-  - use symbol versioning
-  - always return object with *_unref()
-  - remove deprecated symbols
-    - udev_monitor_from_socket()
-    - udev_queue_get_failed_list_entry()
-    - udev_get_{dev,sys,run}_path()
-
 * allow configuration of console width/height in vconsole.conf
 
 * fstab should take priority over units in /usr

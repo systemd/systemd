@@ -1023,13 +1023,13 @@ _public_ struct udev_device *udev_device_ref(struct udev_device *udev_device)
  * the resources of the device will be released.
  *
  **/
-_public_ void udev_device_unref(struct udev_device *udev_device)
+_public_ struct udev_device *udev_device_unref(struct udev_device *udev_device)
 {
         if (udev_device == NULL)
-                return;
+                return NULL;
         udev_device->refcount--;
         if (udev_device->refcount > 0)
-                return;
+                return udev_device;
         if (udev_device->parent_device != NULL)
                 udev_device_unref(udev_device->parent_device);
         free(udev_device->syspath);
@@ -1049,6 +1049,7 @@ _public_ void udev_device_unref(struct udev_device *udev_device)
         free(udev_device->envp);
         free(udev_device->monitor_buf);
         free(udev_device);
+        return NULL;
 }
 
 /**

@@ -23,9 +23,9 @@ AM_MAKEFLAGS = --no-print-directory
 
 SUBDIRS = . po
 
-LIBUDEV_CURRENT=13
-LIBUDEV_REVISION=3
-LIBUDEV_AGE=13
+LIBUDEV_CURRENT=1
+LIBUDEV_REVISION=0
+LIBUDEV_AGE=0
 
 LIBGUDEV_CURRENT=1
 LIBGUDEV_REVISION=1
@@ -1330,7 +1330,8 @@ libudev_la_CFLAGS = \
 
 libudev_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
-	-version-info $(LIBUDEV_CURRENT):$(LIBUDEV_REVISION):$(LIBUDEV_AGE)
+	-version-info $(LIBUDEV_CURRENT):$(LIBUDEV_REVISION):$(LIBUDEV_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/libudev/libudev.sym
 
 libudev_la_LIBADD = \
 	libsystemd-shared.la
@@ -1339,7 +1340,8 @@ pkgconfiglib_DATA += \
 	src/libudev/libudev.pc
 
 EXTRA_DIST += \
-	src/libudev/libudev.pc.in
+	src/libudev/libudev.pc.in \
+	src/libudev/libudev.sym
 
 CLEANFILES += \
 	src/libudev/libudev.pc

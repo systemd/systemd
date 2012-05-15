@@ -93,15 +93,16 @@ _public_ struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue)
  * Drop a reference of a udev queue context. If the refcount reaches zero,
  * the resources of the queue context will be released.
  **/
-_public_ void udev_queue_unref(struct udev_queue *udev_queue)
+_public_ struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue)
 {
         if (udev_queue == NULL)
-                return;
+                return NULL;
         udev_queue->refcount--;
         if (udev_queue->refcount > 0)
-                return;
+                return udev_queue;
         udev_list_cleanup(&udev_queue->queue_list);
         free(udev_queue);
+        return NULL;
 }
 
 /**
@@ -468,12 +469,4 @@ _public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_qu
         fclose(queue_file);
 
         return udev_list_get_entry(&udev_queue->queue_list);
-}
-
-struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev_queue);
-_public_ struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev_queue)
-{
-        udev_err(udev_queue->udev, "udev_queue_get_failed_list_entry() does not return anything; failed events are not recorded\n");
-        errno = ENOSYS;
-        return NULL;
 }

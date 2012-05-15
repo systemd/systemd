@@ -97,23 +97,6 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
         return udev_monitor;
 }
 
-/**
- * udev_monitor_new_from_socket:
- * @udev: udev library context
- * @socket_path: unix socket path
- *
- * This function is removed from libudev and will not do anything.
- *
- * Returns: #NULL
- **/
-struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);
-_public_ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path)
-{
-        udev_err(udev, "udev_monitor_new_from_socket() does not do anything; please migrate to netlink\n");
-        errno = ENOSYS;
-        return NULL;
-}
-
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd)
 {
         struct udev_monitor *udev_monitor;
@@ -418,18 +401,19 @@ _public_ struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor
  * will be released.
  *
  **/
-_public_ void udev_monitor_unref(struct udev_monitor *udev_monitor)
+_public_ struct udev_monitor *udev_monitor_unref(struct udev_monitor *udev_monitor)
 {
         if (udev_monitor == NULL)
-                return;
+                return NULL;
         udev_monitor->refcount--;
         if (udev_monitor->refcount > 0)
-                return;
+                return udev_monitor;
         if (udev_monitor->sock >= 0)
                 close(udev_monitor->sock);
         udev_list_cleanup(&udev_monitor->filter_subsystem_list);
         udev_list_cleanup(&udev_monitor->filter_tag_list);
         free(udev_monitor);
+        return NULL;
 }
 
 /**

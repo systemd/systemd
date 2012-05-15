@@ -28,7 +28,7 @@ extern "C" {
  */
 struct udev;
 struct udev *udev_ref(struct udev *udev);
-void udev_unref(struct udev *udev);
+struct udev *udev_unref(struct udev *udev);
 struct udev *udev_new(void);
 void udev_set_log_fn(struct udev *udev,
                             void (*log_fn)(struct udev *udev,
@@ -36,9 +36,6 @@ void udev_set_log_fn(struct udev *udev,
                                            const char *format, va_list args));
 int udev_get_log_priority(struct udev *udev);
 void udev_set_log_priority(struct udev *udev, int priority);
-const char *udev_get_sys_path(struct udev *udev);
-const char *udev_get_dev_path(struct udev *udev);
-const char *udev_get_run_path(struct udev *udev);
 void *udev_get_userdata(struct udev *udev);
 void udev_set_userdata(struct udev *udev, void *userdata);
 
@@ -71,7 +68,7 @@ const char *udev_list_entry_get_value(struct udev_list_entry *list_entry);
  */
 struct udev_device;
 struct udev_device *udev_device_ref(struct udev_device *udev_device);
-void udev_device_unref(struct udev_device *udev_device);
+struct udev_device *udev_device_unref(struct udev_device *udev_device);
 struct udev *udev_device_get_udev(struct udev_device *udev_device);
 struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath);
 struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum);
@@ -110,7 +107,7 @@ int udev_device_has_tag(struct udev_device *udev_device, const char *tag);
  */
 struct udev_monitor;
 struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor);
-void udev_monitor_unref(struct udev_monitor *udev_monitor);
+struct udev_monitor *udev_monitor_unref(struct udev_monitor *udev_monitor);
 struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor);
 /* kernel and udev generated events over netlink */
 struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name);
@@ -133,7 +130,7 @@ int udev_monitor_filter_remove(struct udev_monitor *udev_monitor);
  */
 struct udev_enumerate;
 struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate);
-void udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
+struct udev_enumerate *udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
 struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate);
 struct udev_enumerate *udev_enumerate_new(struct udev *udev);
 /* device properties filter */
@@ -160,7 +157,7 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
  */
 struct udev_queue;
 struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue);
-void udev_queue_unref(struct udev_queue *udev_queue);
+struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue);
 struct udev *udev_queue_get_udev(struct udev_queue *udev_queue);
 struct udev_queue *udev_queue_new(struct udev *udev);
 unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queue);

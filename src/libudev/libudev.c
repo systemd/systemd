@@ -222,15 +222,16 @@ _public_ struct udev *udev_ref(struct udev *udev)
  * reaches zero, the resources of the context will be released.
  *
  **/
-_public_ void udev_unref(struct udev *udev)
+_public_ struct udev *udev_unref(struct udev *udev)
 {
         if (udev == NULL)
-                return;
+                return NULL;
         udev->refcount--;
         if (udev->refcount > 0)
-                return;
+                return udev;
         udev_list_cleanup(&udev->properties_list);
         free(udev);
+        return NULL;
 }
 
 /**
@@ -281,51 +282,6 @@ _public_ void udev_set_log_priority(struct udev *udev, int priority)
         udev->log_priority = priority;
         snprintf(num, sizeof(num), "%u", udev->log_priority);
         udev_add_property(udev, "UDEV_LOG", num);
-}
-
-/**
- * udev_get_sys_path:
- * @udev: udev library context
- *
- * Returns always "/sys"; deprecated, will be removed in a future version.
- *
- * Returns: the sys mount point
- **/
-_public_ const char *udev_get_sys_path(struct udev *udev)
-{
-        if (udev == NULL)
-                return NULL;
-        return "/sys";
-}
-
-/**
- * udev_get_dev_path:
- * @udev: udev library context
- *
- * Returns always "/dev"; deprecated, will be removed in a future version.
- *
- * Returns: the device directory path
- **/
-_public_ const char *udev_get_dev_path(struct udev *udev)
-{
-        if (udev == NULL)
-                return NULL;
-        return "/dev";
-}
-
-/**
- * udev_get_run_path:
- * @udev: udev library context
- *
- * Returns always "/run/udev"; deprecated, will be removed in a future version.
- *
- * Returns: the runtime directory path
- **/
-_public_ const char *udev_get_run_path(struct udev *udev)
-{
-        if (udev == NULL)
-                return NULL;
-        return "/run/udev";
 }
 
 struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value)
