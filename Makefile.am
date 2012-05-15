@@ -373,6 +373,8 @@ EXTRA_DIST += \
 	units/systemd-udev.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
+	units/hibernate.service.in \
+	units/suspend.service.in \
 	introspect.awk \
 	man/custom-html.xsl
 
