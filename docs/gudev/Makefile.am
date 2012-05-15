@@ -87,7 +87,7 @@ GTKDOC_LIBS = \
 	$(top_builddir)/libgudev-1.0.la
 
 # This includes the standard gtk-doc make rules, copied by gtkdocize.
-include $(top_srcdir)/gtk-doc.make
+include $(top_srcdir)/docs/gtk-doc.make
 
 # Other files to distribute
 # e.g. EXTRA_DIST += version.xml.in
