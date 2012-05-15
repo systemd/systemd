@@ -1162,7 +1162,7 @@ static int create_symlink(
 
         free(dest);
 
-        if (force)
+        if (!force)
                 return -EEXIST;
 
         unlink(new_path);
