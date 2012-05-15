@@ -597,7 +597,8 @@ int write_one_line_file(const char *fn, const char *line) {
         assert(fn);
         assert(line);
 
-        if (!(f = fopen(fn, "we")))
+        f = fopen(fn, "we");
+        if (!f)
                 return -errno;
 
         errno = 0;

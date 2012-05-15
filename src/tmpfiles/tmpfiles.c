@@ -617,8 +617,13 @@ static int create_item(Item *i) {
                         iovec[1].iov_len = 1;
 
                         n = writev(fd, iovec, 2);
-                        if (n < 0 || (size_t) n != l+1) {
-                                log_error("Failed to write file %s: %s", i->path, n < 0 ? strerror(-n) : "Short");
+
+                        /* It's OK if we don't write the trailing
+                         * newline, hence we check for l, instead of
+                         * l+1 here. Files in /sys often refuse
+                         * writing of the trailing newline. */
+                        if (n < 0 || (size_t) n < l) {
+                                log_error("Failed to write file %s: %s", i->path, n < 0 ? strerror(-n) : "Short write");
                                 close_nointr_nofail(fd);
                                 return n < 0 ? n : -EIO;
                         }
