@@ -343,7 +343,7 @@
                                 <term><option>-f</option></term>
 
                                 <listitem><para>When used with
-                                <command>enable</command>, override any
+                                <command>enable</command>, overwrite any
                                 existing conflicting
                                 symlinks.</para></listitem>
 

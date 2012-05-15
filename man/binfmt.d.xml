@@ -75,14 +75,14 @@
 
                 <para>Each configuration file is named in the style of
                 <filename>&lt;program&gt;.conf</filename>.
-                Files in <filename>/etc/</filename> overwrite
+                Files in <filename>/etc/</filename> override
                 files with the same name in <filename>/usr/lib/</filename>.
-                Files in <filename>/run</filename> overwrite files with
+                Files in <filename>/run</filename> override files with
                 the same name in <filename>/etc/</filename> and
                 <filename>/usr/lib/</filename>. Packages should install their
                 configuration files in <filename>/usr/lib/</filename>, files
                 in <filename>/etc/</filename> are reserved for the local
-                administration, which possibly decides to overwrite the
+                administration, which possibly decides to override the
                 configurations installed from packages. All files are sorted
                 by filename in alphabetical order, regardless in which of the
                 directories they reside, to ensure that a specific
