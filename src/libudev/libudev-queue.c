@@ -92,6 +92,8 @@ _public_ struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue)
  *
  * Drop a reference of a udev queue context. If the refcount reaches zero,
  * the resources of the queue context will be released.
+ *
+ * Returns: the passed queue context if it has still an active reference, or #NULL otherwise.
  **/
 _public_ struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue)
 {

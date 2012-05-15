@@ -111,6 +111,8 @@ _public_ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_e
  *
  * Drop a reference of an enumeration context. If the refcount reaches zero,
  * all resources of the enumeration context will be released.
+ *
+ * Returns: the passed enumeration context if it has still an active reference, or #NULL otherwise.
  **/
 _public_ struct udev_enumerate *udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 {

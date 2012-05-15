@@ -1022,6 +1022,7 @@ _public_ struct udev_device *udev_device_ref(struct udev_device *udev_device)
  * Drop a reference of a udev device. If the refcount reaches zero,
  * the resources of the device will be released.
  *
+ * Returns: the passed udev device if it has still an active reference, or #NULL otherwise.
  **/
 _public_ struct udev_device *udev_device_unref(struct udev_device *udev_device)
 {

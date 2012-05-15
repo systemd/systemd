@@ -221,6 +221,7 @@ _public_ struct udev *udev_ref(struct udev *udev)
  * Drop a reference of the udev library context. If the refcount
  * reaches zero, the resources of the context will be released.
  *
+ * Returns: the passed udev library context if it has still an active reference, or #NULL otherwise.
  **/
 _public_ struct udev *udev_unref(struct udev *udev)
 {

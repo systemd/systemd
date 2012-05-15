@@ -400,6 +400,7 @@ _public_ struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor
  * the bound socket will be closed, and the resources of the monitor
  * will be released.
  *
+ * Returns: the passed udev monitor if it has still an active reference, or #NULL otherwise.
  **/
 _public_ struct udev_monitor *udev_monitor_unref(struct udev_monitor *udev_monitor)
 {

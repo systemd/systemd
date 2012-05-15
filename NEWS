@@ -28,6 +28,12 @@ CHANGES WITH 182:
           to adapt to that, create symlink, or rename the binary after building
           it.
 
+        * Libudev does no longer provide these symbols:
+            udev_monitor_from_socket()
+            udev_queue_get_failed_list_entry()
+            udev_get_{dev,sys,run}_path()
+          The verions number was bumped and symbol versioning introduced.
+
         * systemd-logingctl and systemd-journalctl have been renamed
           to logingctl and journalctl to match systemctl.
 
