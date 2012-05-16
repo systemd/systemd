@@ -231,7 +231,7 @@ finish:
 static int process_suffix(const char *prefixes, const char *suffix) {
         const char *p;
         char *f;
-        Hashmap *top, *bottom;
+        Hashmap *top, *bottom=NULL;
         int r = 0, k;
         Iterator i;
         int n_found = 0;
