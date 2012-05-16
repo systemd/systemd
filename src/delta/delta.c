@@ -34,6 +34,18 @@
 
 static bool arg_no_pager = false;
 
+enum {
+        SHOW_MASKED = 1 << 0,
+        SHOW_EQUIV = 1 << 1,
+        SHOW_REDIR = 1 << 2,
+        SHOW_OVERRIDEN = 1 << 3,
+        SHOW_UNCHANGED = 1 << 4,
+        SHOW_DIFF = 1 << 5,
+
+        SHOW_DEFAULTS =
+        (SHOW_MASKED | SHOW_EQUIV | SHOW_REDIR | SHOW_OVERRIDEN | SHOW_DIFF)
+};
+
 static int equivalent(const char *a, const char *b) {
         char *x, *y;
         int r;
@@ -55,15 +67,7 @@ static int equivalent(const char *a, const char *b) {
         return r;
 }
 
-#define SHOW_MASKED		1 << 0
-#define SHOW_EQUIV		1 << 1
-#define SHOW_REDIR		1 << 2
-#define SHOW_OVERRIDEN		1 << 3
-#define SHOW_UNCHANGED		1 << 4
-#define SHOW_DIFF		1 << 5
 
-#define SHOW_DEFAULTS \
-        (SHOW_MASKED | SHOW_EQUIV | SHOW_REDIR | SHOW_OVERRIDEN | SHOW_DIFF)
 
 static int notify_override_masked(int flags, const char *top, const char *bottom) {
         if (!(flags & SHOW_MASKED))
