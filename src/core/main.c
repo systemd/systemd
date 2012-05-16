@@ -1180,6 +1180,7 @@ static int do_switch_root(const char *switch_root) {
         int i;
         int cfd = -1;
         struct stat switch_root_stat, sb;
+        bool remove_old_root;
 
         if (path_equal(switch_root, "/"))
                 return 0;
@@ -1189,6 +1190,8 @@ static int do_switch_root(const char *switch_root) {
                 log_error("failed to stat directory %s", switch_root);
                 goto fail;
         }
+
+        remove_old_root = in_initrd();
 
         for (i = 0; umounts[i] != NULL; i++) {
                 char newmount[PATH_MAX];
@@ -1215,7 +1218,8 @@ static int do_switch_root(const char *switch_root) {
                 goto fail;
         }
 
-        cfd = open("/", O_RDONLY);
+        if (remove_old_root)
+                cfd = open("/", O_RDONLY);
 
         if (mount(switch_root, "/", NULL, MS_MOVE, NULL) < 0) {
                 r = -errno;
