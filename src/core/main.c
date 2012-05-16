@@ -1310,6 +1310,19 @@ int main(int argc, char *argv[]) {
         log_set_max_level(LOG_INFO);
 
         if (getpid() == 1) {
+                if (in_initrd()) {
+                        char *rd_timestamp = NULL;
+
+                        dual_timestamp_get(&initrd_timestamp);
+                        asprintf(&rd_timestamp, "%llu %llu",
+                                 (unsigned long long) initrd_timestamp.realtime,
+                                 (unsigned long long) initrd_timestamp.monotonic);
+                        if (rd_timestamp) {
+                                setenv("RD_TIMESTAMP", rd_timestamp, 1);
+                                free(rd_timestamp);
+                        }
+                }
+
                 arg_running_as = MANAGER_SYSTEM;
                 log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_JOURNAL : LOG_TARGET_JOURNAL_OR_KMSG);
 
@@ -1437,7 +1450,8 @@ int main(int argc, char *argv[]) {
                 /* Parse the data passed to us. We leave this
                  * variables set, but the manager later on will not
                  * pass them on to our children. */
-                parse_initrd_timestamp(&initrd_timestamp);
+                if(!in_initrd())
+                        parse_initrd_timestamp(&initrd_timestamp);
 
                 /* Unset some environment variables passed in from the
                  * kernel that don't really make sense for us. */
