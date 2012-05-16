@@ -208,7 +208,7 @@
                                 is running the respective option has
                                 no effect. By default only forwarding
                                 to syslog is enabled. These settings
-                                may be overriden at boot time with the
+                                may be overridden at boot time with the
                                 kernel command line options
                                 <literal>systemd_journald.forward_to_syslog=</literal>,
                                 <literal>systemd_journald.forward_to_kmsg=</literal>

@@ -39,11 +39,11 @@ static enum {
         SHOW_MASKED = 1 << 0,
         SHOW_EQUIVALENT = 1 << 1,
         SHOW_REDIRECTED = 1 << 2,
-        SHOW_OVERRIDEN = 1 << 3,
+        SHOW_OVERRIDDEN = 1 << 3,
         SHOW_UNCHANGED = 1 << 4,
 
         SHOW_DEFAULTS =
-        (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDEN)
+        (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDDEN)
 } arg_flags = 0;
 
 static int equivalent(const char *a, const char *b) {
@@ -91,11 +91,11 @@ static int notify_override_redirected(const char *top, const char *bottom) {
         return 1;
 }
 
-static int notify_override_overriden(const char *top, const char *bottom) {
-        if (!(arg_flags & SHOW_OVERRIDEN))
+static int notify_override_overridden(const char *top, const char *bottom) {
+        if (!(arg_flags & SHOW_OVERRIDDEN))
                 return 0;
 
-        printf(ANSI_HIGHLIGHT_ON "[OVERRIDEN]" ANSI_HIGHLIGHT_OFF "  %s → %s\n", top, bottom);
+        printf(ANSI_HIGHLIGHT_ON "[OVERRIDDEN]" ANSI_HIGHLIGHT_OFF " %s → %s\n", top, bottom);
         return 1;
 }
 
@@ -131,7 +131,7 @@ static int found_override(const char *top, const char *bottom) {
                 goto finish;
         }
 
-        notify_override_overriden(top, bottom);
+        notify_override_overridden(top, bottom);
         if (!arg_diff)
                 goto finish;
 
@@ -324,7 +324,7 @@ static void help(void) {
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
                "     --no-pager       Do not pipe output into a pager\n"
-               "     --diff[=1|0]     Show a diff when overriden files differ\n"
+               "     --diff[=1|0]     Show a diff when overridden files differ\n"
                "  -t --type=LIST...   Only display a selected set of override types\n",
                program_invocation_short_name);
 }
@@ -340,8 +340,8 @@ static int parse_flags(const char *flag_str, int flags) {
                         flags |= SHOW_EQUIVALENT;
                 else if (strncmp("redirected", w, l) == 0)
                         flags |= SHOW_REDIRECTED;
-                else if (strncmp("overriden", w, l) == 0)
-                        flags |= SHOW_OVERRIDEN;
+                else if (strncmp("overridden", w, l) == 0)
+                        flags |= SHOW_OVERRIDDEN;
                 else if (strncmp("unchanged", w, l) == 0)
                         flags |= SHOW_UNCHANGED;
                 else if (strncmp("default", w, l) == 0)
@@ -472,9 +472,9 @@ int main(int argc, char *argv[]) {
                 arg_flags = SHOW_DEFAULTS;
 
         if (arg_diff < 0)
-                arg_diff = !!(arg_flags & SHOW_OVERRIDEN);
+                arg_diff = !!(arg_flags & SHOW_OVERRIDDEN);
         else if (arg_diff)
-                arg_flags |= SHOW_OVERRIDEN;
+                arg_flags |= SHOW_OVERRIDDEN;
 
         if (!arg_no_pager)
                 pager_open();
@@ -503,7 +503,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (r >= 0)
-                printf("\n%i overriden configuration files found.\n", n_found);
+                printf("\n%i overridden configuration files found.\n", n_found);
 
 finish:
         pager_close();

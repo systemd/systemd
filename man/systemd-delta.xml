@@ -67,7 +67,7 @@
                 <filename>systemd/system</filename>.</para>
 
                 <para>When no argument is specified a number of
-                well-known subdirectories are searched for overriden
+                well-known subdirectories are searched for overridden
                 files.</para>
         </refsect1>
 
@@ -121,8 +121,8 @@
                                                 <varlistentry>
                                                         <term><varname>equivalent</varname></term>
 
-                                                        <listitem><para>Show overriden
-                                                        files that while overriden, do
+                                                        <listitem><para>Show overridden
+                                                        files that while overridden, do
                                                         not differ in content.</para></listitem>
                                                 </varlistentry>
 
@@ -134,9 +134,9 @@
                                                 </varlistentry>
 
                                                 <varlistentry>
-                                                        <term><varname>overriden</varname></term>
+                                                        <term><varname>overridden</varname></term>
 
-                                                        <listitem><para>Show overriden,
+                                                        <listitem><para>Show overridden,
                                                         and changed files.</para></listitem>
                                                 </varlistentry>
 
@@ -154,7 +154,7 @@
                                 <term><option>--diff=</option></term>
 
                                 <listitem><para>When showing modified
-                                files, when a file is overriden show a
+                                files, when a file is overridden show a
                                 diff aswell. This option takes a
                                 boolean argument.</para></listitem>
                         </varlistentry>

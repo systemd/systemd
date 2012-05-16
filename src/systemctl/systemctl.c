@@ -4304,7 +4304,7 @@ static int shutdown_help(void) {
                "  -H --halt      Halt the machine\n"
                "  -P --poweroff  Power-off the machine\n"
                "  -r --reboot    Reboot the machine\n"
-               "  -h             Equivalent to --poweroff, overriden by --halt\n"
+               "  -h             Equivalent to --poweroff, overridden by --halt\n"
                "  -k             Don't halt/power-off/reboot, just send warnings\n"
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
                "  -c             Cancel a pending shutdown\n",
