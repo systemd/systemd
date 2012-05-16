@@ -3139,7 +3139,7 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
         return 0;
 }
 
-int rm_rf_children(int fd, bool only_dirs, bool honour_sticky) {
+int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev) {
         DIR *d;
         int ret = 0;
 
@@ -3208,23 +3208,36 @@ int rm_rf_children(int fd, bool only_dirs, bool honour_sticky) {
 
                 if (is_dir) {
                         int subdir_fd;
-
-                        subdir_fd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
-                        if (subdir_fd < 0) {
-                                if (ret == 0 && errno != ENOENT)
-                                        ret = -errno;
-                                continue;
-                        }
-
-                        r = rm_rf_children(subdir_fd, only_dirs, honour_sticky);
-                        if (r < 0 && ret == 0)
-                                ret = r;
-
-                        if (!keep_around)
-                                if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
+                        struct stat sb;
+                        if (root_dev) {
+                                if (fstatat(fd, de->d_name, &sb, AT_SYMLINK_NOFOLLOW)) {
                                         if (ret == 0 && errno != ENOENT)
                                                 ret = -errno;
+                                        continue;
                                 }
+                        }
+
+                        /* if root_dev is set, remove subdirectories only, if device is same as dir */
+                        if ((root_dev == NULL) || (sb.st_dev == root_dev->st_dev)) {
+
+                                subdir_fd = openat(fd, de->d_name,
+                                                   O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+                                if (subdir_fd < 0) {
+                                        if (ret == 0 && errno != ENOENT)
+                                                ret = -errno;
+                                        continue;
+                                }
+
+                                r = rm_rf_children(subdir_fd, only_dirs, honour_sticky, root_dev);
+                                if (r < 0 && ret == 0)
+                                        ret = r;
+
+                                if (!keep_around)
+                                        if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
+                                                if (ret == 0 && errno != ENOENT)
+                                                        ret = -errno;
+                                        }
+                        }
 
                 } else if (!only_dirs && !keep_around) {
 
@@ -3259,7 +3272,7 @@ int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky
                 return 0;
         }
 
-        r = rm_rf_children(fd, only_dirs, honour_sticky);
+        r = rm_rf_children(fd, only_dirs, honour_sticky, NULL);
 
         if (delete_root) {
 
