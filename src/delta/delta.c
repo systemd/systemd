@@ -36,14 +36,14 @@ static bool arg_no_pager = false;
 
 enum {
         SHOW_MASKED = 1 << 0,
-        SHOW_EQUIV = 1 << 1,
-        SHOW_REDIR = 1 << 2,
+        SHOW_EQUIVALENT = 1 << 1,
+        SHOW_REDIRECTED = 1 << 2,
         SHOW_OVERRIDEN = 1 << 3,
         SHOW_UNCHANGED = 1 << 4,
         SHOW_DIFF = 1 << 5,
 
         SHOW_DEFAULTS =
-        (SHOW_MASKED | SHOW_EQUIV | SHOW_REDIR | SHOW_OVERRIDEN | SHOW_DIFF)
+        (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDEN | SHOW_DIFF)
 };
 
 static int equivalent(const char *a, const char *b) {
@@ -67,29 +67,27 @@ static int equivalent(const char *a, const char *b) {
         return r;
 }
 
-
-
 static int notify_override_masked(int flags, const char *top, const char *bottom) {
         if (!(flags & SHOW_MASKED))
                 return 0;
 
-        printf(ANSI_HIGHLIGHT_RED_ON "[MASK]" ANSI_HIGHLIGHT_OFF "       %s → %s\n", top, bottom);
+        printf(ANSI_HIGHLIGHT_RED_ON "[MASKED]" ANSI_HIGHLIGHT_OFF "     %s → %s\n", top, bottom);
         return 1;
 }
 
-static int notify_override_equiv(int flags, const char *top, const char *bottom) {
-        if (!(flags & SHOW_EQUIV))
+static int notify_override_equivalent(int flags, const char *top, const char *bottom) {
+        if (!(flags & SHOW_EQUIVALENT))
                 return 0;
 
         printf(ANSI_HIGHLIGHT_GREEN_ON "[EQUIVALENT]" ANSI_HIGHLIGHT_OFF " %s → %s\n", top, bottom);
         return 1;
 }
 
-static int notify_override_redir(int flags, const char *top, const char *bottom) {
-        if (!(flags & SHOW_REDIR))
+static int notify_override_redirirected(int flags, const char *top, const char *bottom) {
+        if (!(flags & SHOW_REDIRECTED))
                 return 0;
 
-        printf(ANSI_HIGHLIGHT_ON "[REDIRECT]" ANSI_HIGHLIGHT_OFF "   %s → %s\n", top, bottom);
+        printf(ANSI_HIGHLIGHT_ON "[REDIRECTED]" ANSI_HIGHLIGHT_OFF "   %s → %s\n", top, bottom);
         return 1;
 }
 
@@ -97,7 +95,7 @@ static int notify_override_overriden(int flags, const char *top, const char *bot
         if (!(flags & SHOW_OVERRIDEN))
                 return 0;
 
-        printf(ANSI_HIGHLIGHT_ON "[OVERRIDE]" ANSI_HIGHLIGHT_OFF "   %s → %s\n", top, bottom);
+        printf(ANSI_HIGHLIGHT_ON "[OVERRIDEN]" ANSI_HIGHLIGHT_OFF "  %s → %s\n", top, bottom);
         return 1;
 }
 
@@ -105,7 +103,7 @@ static int notify_override_unchanged(int flags, const char *top, const char *bot
         if (!(flags & SHOW_UNCHANGED))
                 return 0;
 
-        printf(ANSI_HIGHLIGHT_ON "[UNCHANGED]" ANSI_HIGHLIGHT_OFF "   %s → %s\n", top, bottom);
+        printf(ANSI_HIGHLIGHT_ON "[UNCHANGED]" ANSI_HIGHLIGHT_OFF "  %s → %s\n", top, bottom);
         return 1;
 }
 
@@ -125,9 +123,9 @@ static int found_override(int flags, const char *top, const char *bottom) {
         k = readlink_malloc(top, &dest);
         if (k >= 0) {
                 if (equivalent(dest, bottom) > 0)
-                        notify_override_equiv(flags, top, bottom);
+                        notify_override_equivalent(flags, top, bottom);
                 else
-                        notify_override_redir(flags, top, bottom);
+                        notify_override_redirirected(flags, top, bottom);
 
                 free(dest);
                 goto finish;
@@ -339,9 +337,9 @@ static int parse_flags(int flags, const char *flag_str) {
                 if (strncmp("masked", w, l) == 0) {
                         flags |= SHOW_MASKED;
                 } else if (strncmp ("equivalent", w, l) == 0) {
-                        flags |= SHOW_EQUIV;
+                        flags |= SHOW_EQUIVALENT;
                 } else if (strncmp("redirected", w, l) == 0) {
-                        flags |= SHOW_REDIR;
+                        flags |= SHOW_REDIRECTED;
                 } else if (strncmp("override", w, l) == 0) {
                         flags |= SHOW_OVERRIDEN;
                 } else if (strncmp("unchanged", w, l) == 0) {
