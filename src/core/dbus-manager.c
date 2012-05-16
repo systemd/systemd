@@ -1196,10 +1196,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if (path_equal(switch_root, "/") || !is_path(switch_root))
+                if (path_equal(switch_root, "/") || !path_is_absolute(switch_root))
                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
 
-                if (!isempty(switch_root_init) && !is_path(switch_root_init))
+                if (!isempty(switch_root_init) && !path_is_absolute(switch_root_init))
                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
 
                 if (m->running_as != MANAGER_SYSTEM) {
