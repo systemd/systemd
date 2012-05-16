@@ -5639,3 +5639,18 @@ bool is_valid_documentation_url(const char *url) {
 
         return false;
 }
+
+bool in_initrd(void) {
+        static bool checked=false;
+        static bool is_in_initrd=false;
+
+        if (!checked) {
+                struct stat sb;
+                if (stat("/", &sb) == 0) {
+                        is_in_initrd = (sb.st_dev == 1);
+                        checked = true;
+                }
+        }
+
+        return is_in_initrd;
+}
