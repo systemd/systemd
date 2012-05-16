@@ -214,7 +214,8 @@ bin_PROGRAMS = \
 	systemd-cgtop \
 	systemd-stdio-bridge \
 	systemd-nspawn \
-	systemd-detect-virt
+	systemd-detect-virt \
+	systemd-delta
 
 dist_bin_SCRIPTS = \
 	src/analyze/systemd-analyze
@@ -452,6 +453,7 @@ MANPAGES = \
 	man/systemd.1 \
 	man/systemctl.1 \
 	man/systemd-cgls.1 \
+	man/systemd-delta.1 \
 	man/systemd-cgtop.1 \
 	man/systemd-nspawn.1 \
 	man/systemd-tmpfiles.8 \
@@ -1112,6 +1114,13 @@ systemd_detect_virt_SOURCES = \
 	src/detect-virt/detect-virt.c
 
 systemd_detect_virt_LDADD = \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+systemd_delta_SOURCES = \
+	src/delta/delta.c
+
+systemd_delta_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
