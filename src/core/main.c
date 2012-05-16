@@ -1234,7 +1234,14 @@ static int do_switch_root(const char *switch_root) {
         }
 
         if (cfd >= 0) {
-                rm_rf_children(cfd, false, false);
+                struct stat rb;
+
+                if (fstat(cfd, &rb)) {
+                        log_error("failed to stat old root directory");
+                        goto fail;
+                }
+
+                rm_rf_children(cfd, false, false, &rb);
                 close(cfd);
                 cfd=-1;
         }
