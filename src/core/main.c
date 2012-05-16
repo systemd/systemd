@@ -746,6 +746,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SHOW_STATUS,
                 ARG_SYSV_CONSOLE,
                 ARG_DESERIALIZE,
+                ARG_SWITCHEDROOT,
                 ARG_INTROSPECT,
                 ARG_DEFAULT_STD_OUTPUT,
                 ARG_DEFAULT_STD_ERROR
@@ -770,6 +771,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "sysv-console",             optional_argument, NULL, ARG_SYSV_CONSOLE             },
 #endif
                 { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
+                { "switchedroot",             no_argument,       NULL, ARG_SWITCHEDROOT             },
                 { "introspect",               optional_argument, NULL, ARG_INTROSPECT               },
                 { "default-standard-output",  required_argument, NULL, ARG_DEFAULT_STD_OUTPUT,      },
                 { "default-standard-error",   required_argument, NULL, ARG_DEFAULT_STD_ERROR,       },
@@ -940,6 +942,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case ARG_SWITCHEDROOT:
+                        /* Nothing special yet */
+                        break;
 
                 case ARG_INTROSPECT: {
                         const char * const * i = NULL;
@@ -1275,6 +1281,13 @@ int main(int argc, char *argv[]) {
         for (j = 1; j < argc; j++)
                 if (streq(argv[j], "--deserialize")) {
                         is_reexec = true;
+                        break;
+                }
+
+        /* If we have switched root, do all the special things */
+        for (j = 1; j < argc; j++)
+                if (streq(argv[j], "--switchedroot")) {
+                        is_reexec = false;
                         break;
                 }
 
@@ -1693,7 +1706,7 @@ finish:
                 if (switch_root)
                         do_switch_root(switch_root);
 
-                args_size = MAX(5, argc+1);
+                args_size = MAX(6, argc+1);
                 args = newa(const char*, args_size);
 
                 if (!switch_root_init) {
@@ -1712,6 +1725,8 @@ finish:
 
                         i = 0;
                         args[i++] = SYSTEMD_BINARY_PATH;
+                        if (switch_root)
+                                args[i++] = "--switchedroot";
                         args[i++] = arg_running_as == MANAGER_SYSTEM ? "--system" : "--user";
                         args[i++] = "--deserialize";
                         args[i++] = sfd;
