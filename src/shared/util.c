@@ -3139,7 +3139,7 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
         return 0;
 }
 
-static int rm_rf_children(int fd, bool only_dirs, bool honour_sticky) {
+int rm_rf_children(int fd, bool only_dirs, bool honour_sticky) {
         DIR *d;
         int ret = 0;
 

@@ -1168,30 +1168,73 @@ static void test_cgroups(void) {
 }
 
 static int do_switch_root(const char *switch_root) {
-        int r;
+        int r=0;
+        /*  Don't try to unmount the old "/", there's no way to do it. */
+        const char *umounts[] = { "/dev", "/proc", "/sys", "/run", NULL };
+        int i;
+        int cfd = -1;
+        struct stat switch_root_stat, sb;
 
         if (path_equal(switch_root, "/"))
                 return 0;
 
-        if (chdir(switch_root) < 0) {
+        if (stat(switch_root, &switch_root_stat) != 0) {
                 r = -errno;
+                log_error("failed to stat directory %s", switch_root);
                 goto fail;
         }
+
+        for (i = 0; umounts[i] != NULL; i++) {
+                char newmount[PATH_MAX];
+
+                snprintf(newmount, sizeof(newmount), "%s%s", switch_root, umounts[i]);
+
+                if ((stat(newmount, &sb) != 0) || (sb.st_dev != switch_root_stat.st_dev)) {
+                        /* mount point seems to be mounted already or stat failed */
+                        umount2(umounts[i], MNT_DETACH);
+                        continue;
+                }
+
+                if (mount(umounts[i], newmount, NULL, MS_MOVE, NULL) < 0) {
+                        log_error("failed to mount moving %s to %s",
+                                  umounts[i], newmount);
+                        log_error("forcing unmount of %s", umounts[i]);
+                        umount2(umounts[i], MNT_FORCE);
+                }
+        }
+
+        if (chdir(switch_root)) {
+                r = -errno;
+                log_error("failed to change directory to %s", switch_root);
+                goto fail;
+        }
+
+        cfd = open("/", O_RDONLY);
 
         if (mount(switch_root, "/", NULL, MS_MOVE, NULL) < 0) {
                 r = -errno;
-                chdir("/");
+                log_error("failed to mount moving %s to /", switch_root);
                 goto fail;
         }
 
-        if (chroot(".") < 0)
-                log_warning("Failed to change root, ignoring: %m");
+        if (chroot(".")) {
+                r = -errno;
+                log_error("failed to change root");
+                goto fail;
+        }
 
-        /* FIXME: remove old root */
+        if (cfd >= 0) {
+                rm_rf_children(cfd, false, false);
+                close(cfd);
+                cfd=-1;
+        }
 
         return 0;
 
 fail:
+        if (cfd >= 0)
+                close(cfd);
+
         log_error("Failed to switch root, ignoring: %s", strerror(-r));
 
         return r;
