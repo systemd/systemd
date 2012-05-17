@@ -703,6 +703,7 @@ static int null_conv(
 static int setup_pam(
                 const char *name,
                 const char *user,
+                uid_t uid,
                 const char *tty,
                 char ***pam_env,
                 int fds[], unsigned n_fds) {
@@ -781,10 +782,17 @@ static int setup_pam(
                 open here that have been opened by PAM. */
                 close_many(fds, n_fds);
 
-                /* Wait until our parent died. This will most likely
-                 * not work since the kernel does not allow
-                 * unprivileged parents kill their privileged children
-                 * this way. We rely on the control groups kill logic
+                /* Drop privileges - we don't need any to pam_close_session
+                 * and this will make PR_SET_PDEATHSIG work in most cases.
+                 * If this fails, ignore the error - but expect sd-pam threads
+                 * to fail to exit normally */
+                if (setresuid(uid, uid, uid) < 0)
+                        log_error("Error: Failed to setresuid() in sd-pam: %s", strerror(-r));
+
+                /* Wait until our parent died. This will only work if
+                 * the above setresuid() succeeds, otherwise the kernel
+                 * will not allow unprivileged parents kill their privileged
+                 * children this way. We rely on the control groups kill logic
                  * to do the rest for us. */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
                         goto child_finish;
@@ -1294,7 +1302,7 @@ int exec_spawn(ExecCommand *command,
 
 #ifdef HAVE_PAM
                 if (context->pam_name && username) {
-                        err = setup_pam(context->pam_name, username, context->tty_path, &pam_env, fds, n_fds);
+                        err = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
                         if (err < 0) {
                                 r = EXIT_PAM;
                                 goto fail_child;
