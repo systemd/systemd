@@ -50,7 +50,7 @@ static bool arg_local = false;
 
 static int help(void) {
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
+        printf("%s [OPTIONS...] [MATCH]\n\n"
                "Send control commands to or query the journal.\n\n"
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
