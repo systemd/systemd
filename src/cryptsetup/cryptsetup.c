@@ -41,6 +41,7 @@ static char *opt_hash = NULL;
 static unsigned opt_tries = 0;
 static bool opt_readonly = false;
 static bool opt_verify = false;
+static bool opt_discards = false;
 static usec_t opt_timeout = DEFAULT_TIMEOUT_USEC;
 
 /* Options Debian's crypttab knows we don't:
@@ -98,6 +99,8 @@ static int parse_one_option(const char *option) {
                 opt_readonly = true;
         else if (streq(option, "verify"))
                 opt_verify = true;
+        else if (streq(option, "allow-discards"))
+                opt_discards = true;
         else if (streq(option, "luks"))
                 opt_type = CRYPT_LUKS1;
         else if (streq(option, "plain") ||
@@ -313,6 +316,9 @@ int main(int argc, char *argv[]) {
 
                 if (opt_readonly)
                         flags |= CRYPT_ACTIVATE_READONLY;
+
+                if (opt_discards)
+                        flags |= CRYPT_ACTIVATE_ALLOW_DISCARDS;
 
                 if (opt_timeout > 0)
                         until = now(CLOCK_MONOTONIC) + opt_timeout;
