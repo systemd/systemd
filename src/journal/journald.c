@@ -1235,10 +1235,10 @@ static void process_native_message(
                                         priority = (priority & LOG_PRIMASK) | (((p[16] - '0')*10 + (p[17] - '0')) << 3);
 
                                 else if (l >= 12 &&
-                                         memcmp(p, "SYSLOG_IDENTIFIER=", 11) == 0) {
+                                         memcmp(p, "SYSLOG_IDENTIFIER=", 18) == 0) {
                                         char *t;
 
-                                        t = strndup(p + 11, l - 11);
+                                        t = strndup(p + 18, l - 18);
                                         if (t) {
                                                 free(identifier);
                                                 identifier = t;
