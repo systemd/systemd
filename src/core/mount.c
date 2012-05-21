@@ -1647,7 +1647,8 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                         goto clean_up;
                 }
 
-                if (asprintf(&o, "%s,%s", options, options2) < 0) {
+                o = join(options, ",", options2, NULL);
+                if (!o) {
                         r = -ENOMEM;
                         goto finish;
                 }

@@ -23,6 +23,8 @@ Bugfixes:
 
 Features:
 
+* readahead: when bumping /sys readahead variable save mtime and compare later to detect changes
+
 * in rescue mode don't pull in sockets
 
 * Document boot options such as forcefsck

@@ -76,31 +76,36 @@ static int create_disk(
         noauto = has_option(options, "noauto");
         nofail = has_option(options, "nofail");
 
-        if (!(n = unit_name_build_escape("cryptsetup", name, ".service"))) {
+        n = unit_name_build_escape("cryptsetup", name, ".service");
+        if (!n) {
                 r = -ENOMEM;
                 log_error("Failed to allocate unit name.");
                 goto fail;
         }
 
-        if (asprintf(&p, "%s/%s", arg_dest, n) < 0) {
+        p = join(arg_dest, "/", n, NULL);
+        if (!p) {
                 r = -ENOMEM;
                 log_error("Failed to allocate unit file name.");
                 goto fail;
         }
 
-        if (!(u = fstab_node_to_udev_node(device))) {
+        u = fstab_node_to_udev_node(device);
+        if (!u) {
                 r = -ENOMEM;
                 log_error("Failed to allocate device node.");
                 goto fail;
         }
 
-        if (!(d = unit_name_from_path(u, ".device"))) {
+        d = unit_name_from_path(u, ".device");
+        if (!d) {
                 r = -ENOMEM;
                 log_error("Failed to allocate device name.");
                 goto fail;
         }
 
-        if (!(f = fopen(p, "wxe"))) {
+        f = fopen(p, "wxe");
+        if (!f) {
                 r = -errno;
                 log_error("Failed to create unit file: %m");
                 goto fail;
@@ -164,13 +169,31 @@ static int create_disk(
 
         if (!noauto) {
 
-                if (asprintf(&to, "%s/%s.wants/%s", arg_dest, d, n) < 0) {
+                to = join(arg_dest, "/", d, ".wants/", n, NULL);
+                if (!to) {
                         r = -ENOMEM;
                         goto fail;
                 }
 
                 mkdir_parents(to, 0755);
+                if (symlink(from, to) < 0) {
+                        log_error("Failed to create symlink '%s' to '%s': %m", from, to);
+                        r = -errno;
+                        goto fail;
+                }
 
+                free(to);
+
+                if (!nofail)
+                        to = join(arg_dest, "/cryptsetup.target.requires/", n, NULL);
+                else
+                        to = join(arg_dest, "/cryptsetup.target.wants/", n, NULL);
+                if (!to) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                mkdir_parents(to, 0755);
                 if (symlink(from, to) < 0) {
                         log_error("Failed to create symlink '%s' to '%s': %m", from, to);
                         r = -errno;
@@ -179,37 +202,16 @@ static int create_disk(
 
                 free(to);
                 to = NULL;
-
-                if (!nofail)
-                        asprintf(&to, "%s/cryptsetup.target.requires/%s", arg_dest, n);
-                else
-                        asprintf(&to, "%s/cryptsetup.target.wants/%s", arg_dest, n);
-
-                if (!to) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                mkdir_parents(to, 0755);
-
-                if (symlink(from, to) < 0) {
-                        log_error("Failed to create symlink '%s' to '%s': %m", from, to);
-                        r = -errno;
-                        goto fail;
-                }
         }
 
-        free(to);
-        to = NULL;
-
         e = unit_name_escape(name);
-        if (asprintf(&to, "%s/dev-mapper-%s.device.requires/%s", arg_dest, e, n) < 0) {
+        to = join(arg_dest, "/dev-mapper-", e, ".device.requires/", n, NULL);
+        if (!to) {
                 r = -ENOMEM;
                 goto fail;
         }
 
         mkdir_parents(to, 0755);
-
         if (symlink(from, to) < 0) {
                 log_error("Failed to create symlink '%s' to '%s': %m", from, to);
                 r = -errno;
@@ -252,7 +254,8 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (!(f = fopen("/etc/crypttab", "re"))) {
+        f = fopen("/etc/crypttab", "re");
+        if (!f) {
 
                 if (errno == ENOENT)
                         r = EXIT_SUCCESS;
@@ -269,7 +272,7 @@ int main(int argc, char *argv[]) {
                 char *name = NULL, *device = NULL, *password = NULL, *options = NULL;
                 int k;
 
-                if (!(fgets(line, sizeof(line), f)))
+                if (!fgets(line, sizeof(line), f))
                         break;
 
                 n++;
@@ -278,7 +281,8 @@ int main(int argc, char *argv[]) {
                 if (*l == '#' || *l == 0)
                         continue;
 
-                if ((k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &password, &options)) < 2 || k > 4) {
+                k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &password, &options);
+                if (k < 2 || k > 4) {
                         log_error("Failed to parse /etc/crypttab:%u, ignoring.", n);
                         r = EXIT_FAILURE;
                         goto next;
