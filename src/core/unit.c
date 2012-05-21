@@ -397,6 +397,7 @@ void unit_free(Unit *u) {
         cgroup_attribute_free_list(u->cgroup_attributes);
 
         free(u->description);
+        strv_free(u->documentation);
         free(u->fragment_path);
         free(u->instance);
 
@@ -624,7 +625,7 @@ const char *unit_description(Unit *u) {
 }
 
 void unit_dump(Unit *u, FILE *f, const char *prefix) {
-        char *t;
+        char *t, **j;
         UnitDependency d;
         Iterator i;
         char *p2;
@@ -672,6 +673,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         SET_FOREACH(t, u->names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
 
+        STRV_FOREACH(j, u->documentation)
+                fprintf(f, "%s\tDocumentation: %s\n", prefix, *j);
+
         if ((following = unit_following(u)))
                 fprintf(f, "%s\tFollowing: %s\n", prefix, following->id);
 
@@ -698,8 +702,6 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         }
 
         if (!strv_isempty(u->requires_mounts_for)) {
-                char **j;
-
                 fprintf(f,
                         "%s\tRequiresMountsFor:", prefix);
 

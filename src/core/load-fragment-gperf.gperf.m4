@@ -92,6 +92,7 @@ $1.ControlGroupPersistent,       config_parse_tristate,              0,         
 )m4_dnl
 Unit.Names,                      config_parse_unit_names,            0,                             0
 Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Unit, description)
+Unit.Documentation,              config_parse_documentation,         0,                             offsetof(Unit, documentation)
 Unit.Requires,                   config_parse_unit_deps,             UNIT_REQUIRES,                 0
 Unit.RequiresOverridable,        config_parse_unit_deps,             UNIT_REQUIRES_OVERRIDABLE,     0
 Unit.Requisite,                  config_parse_unit_deps,             UNIT_REQUISITE,                0

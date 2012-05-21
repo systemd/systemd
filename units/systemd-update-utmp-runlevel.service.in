@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Update UTMP about System Runlevel Changes
+Documentation=man:utmp(5)
 DefaultDependencies=no
 After=local-fs.target sysinit.target auditd.service runlevel1.target runlevel2.target runlevel3.target runlevel4.target runlevel5.target systemd-tmpfiles-setup.service
 Before=poweroff.service reboot.service halt.service

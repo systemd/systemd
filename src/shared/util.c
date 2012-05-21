@@ -5610,3 +5610,24 @@ int can_sleep(const char *type) {
         free(p);
         return found;
 }
+
+bool is_valid_documentation_url(const char *url) {
+        assert(url);
+
+        if (startswith(url, "http://") && url[7])
+                return true;
+
+        if (startswith(url, "https://") && url[8])
+                return true;
+
+        if (startswith(url, "file:") && url[5])
+                return true;
+
+        if (startswith(url, "info:") && url[5])
+                return true;
+
+        if (startswith(url, "man:") && url[4])
+                return true;
+
+        return false;
+}

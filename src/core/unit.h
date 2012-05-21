@@ -157,6 +157,7 @@ struct Unit {
         char **requires_mounts_for;
 
         char *description;
+        char **documentation;
 
         char *fragment_path; /* if loaded from a config file this is the primary path to it */
         usec_t fragment_mtime;

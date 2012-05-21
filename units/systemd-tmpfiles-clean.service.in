@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Cleanup of Temporary Directories
+Documentation=man:tmpfiles.d(5)
 DefaultDependencies=no
 Wants=local-fs.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target

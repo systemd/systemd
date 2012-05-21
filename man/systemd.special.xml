@@ -49,7 +49,9 @@
 
         <refsynopsisdiv>
                 <para><filename>basic.target</filename>,
+                <filename>bluetooth.target</filename>,
                 <filename>ctrl-alt-del.target</filename>,
+                <filename>cryptsetup.target</filename>,
                 <filename>dbus.service</filename>,
                 <filename>dbus.socket</filename>,
                 <filename>default.target</filename>,
@@ -57,6 +59,7 @@
                 <filename>emergency.target</filename>,
                 <filename>exit.service</filename>,
                 <filename>final.service</filename>,
+                <filename>getty.target</filename>,
                 <filename>graphical.target</filename>,
                 <filename>hibernate.target</filename>,
                 <filename>http-daemon.target</filename>,
@@ -69,7 +72,9 @@
                 <filename>multi-user.target</filename>,
                 <filename>network.target</filename>,
                 <filename>nss-lookup.target</filename>,
+                <filename>nss-user-lookup.target</filename>,
                 <filename>poweroff.target</filename>,
+                <filename>printer.target</filename>,
                 <filename>reboot.target</filename>,
                 <filename>remote-fs.target</filename>,
                 <filename>remote-fs-pre.target</filename>,
@@ -82,7 +87,9 @@
                 <filename>shutdown.target</filename>,
                 <filename>sigpwr.target</filename>,
                 <filename>sleep.target</filename>,
+                <filename>smartcard.target</filename>,
                 <filename>sockets.target</filename>,
+                <filename>sound.target</filename>,
                 <filename>suspend.target</filename>,
                 <filename>swap.target</filename>,
                 <filename>sysinit.target</filename>,
@@ -128,6 +135,16 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>bluetooth.target</filename></term>
+                                <listitem>
+                                        <para>This target is started
+                                        automatically as soon as a
+                                        bluetooth controller is
+                                        plugged in or becomes
+                                        available at boot.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>ctrl-alt-del.target</filename></term>
                                 <listitem>
                                         <para>systemd starts this
@@ -137,6 +154,15 @@
                                         should be aliased (symlinked)
                                         to
                                         <filename>reboot.target</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>cryptsetup.target</filename></term>
+                                <listitem>
+                                        <para>A target that pulls in
+                                        setup services for all
+                                        encrypted block
+                                        devices.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -223,6 +249,15 @@
                                         all normal services are
                                         already terminated and all
                                         mounts unmounted.
+                                        </para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>getty.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        that pulls in all local TTY
+                                        <filename>getty</filename> instances.
                                         </para>
                                 </listitem>
                         </varlistentry>
@@ -443,6 +478,16 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>printer.target</filename></term>
+                                <listitem>
+                                        <para>This target is started
+                                        automatically as soon as a
+                                        printer is plugged in or
+                                        becomes available at
+                                        boot.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>reboot.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
@@ -616,6 +661,16 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>smartcard.target</filename></term>
+                                <listitem>
+                                        <para>This target is started
+                                        automatically as soon as a
+                                        smartcard controller is
+                                        plugged in or becomes
+                                        available at boot.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>sockets.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
@@ -627,6 +682,16 @@
                                         Wants dependencies to this
                                         unit for their socket unit
                                         during installation.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>sound.target</filename></term>
+                                <listitem>
+                                        <para>This target is started
+                                        automatically as soon as a
+                                        sound card is plugged in or
+                                        becomes available at
+                                        boot.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

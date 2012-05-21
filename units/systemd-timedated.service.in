@@ -5,10 +5,10 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-# See systemd.special(7) for details
-
 [Unit]
 Description=Time & Date Service
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/timedated
+Documentation=man:timezone(5)
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-timedated

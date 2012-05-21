@@ -1,3 +1,10 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
 # This service is usually not enabled by default. If enabled, it
 # acts as a barrier for basic.target -- so all later services will
 # wait for udev completely finishing its coldplug run.
@@ -10,6 +17,8 @@
 
 [Unit]
 Description=udev Wait for Complete Device Initialization
+Documentation=man:udev(7)
+Documentation=man:udevd(8)
 DefaultDependencies=no
 Wants=systemd-udev.service
 After=udev-trigger.service

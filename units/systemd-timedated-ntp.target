@@ -12,6 +12,7 @@
 
 [Unit]
 Description=Network Time Protocol
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/timedated
 
 [Install]
 WantedBy=multi-user.target

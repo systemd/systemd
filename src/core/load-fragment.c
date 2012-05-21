@@ -2063,6 +2063,43 @@ int config_parse_unit_requires_mounts_for(
         return r;
 }
 
+int config_parse_documentation(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = userdata;
+        int r;
+        char **a, **b;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(u);
+
+        r = config_parse_unit_strv_printf(filename, line, section, lvalue, ltype, rvalue, data, userdata);
+        if (r < 0)
+                return r;
+
+        for (a = b = u->documentation; a && *a; a++) {
+
+                if (is_valid_documentation_url(*a))
+                        *(b++) = *a;
+                else {
+                        log_error("[%s:%u] Invalid URL, ignoring: %s", filename, line, *a);
+                        free(*a);
+                }
+        }
+        *b = NULL;
+
+        return r;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {

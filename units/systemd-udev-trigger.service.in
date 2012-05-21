@@ -1,5 +1,14 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
 [Unit]
 Description=udev Coldplug all Devices
+Documentation=man:udev(7)
+Documentation=man:udevd(8)
 Wants=systemd-udev.service
 After=systemd-udev-kernel.socket systemd-udev-control.socket
 DefaultDependencies=no

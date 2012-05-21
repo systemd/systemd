@@ -295,6 +295,23 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>Documentation=</varname></term>
+                                <listitem><para>A space separated list
+                                of URIs referencing documentation for
+                                this unit or its
+                                configuration. Accepted are only URIs
+                                of the types
+                                <literal>http://</literal>,
+                                <literal>https://</literal>,
+                                <literal>file:</literal>,
+                                <literal>info:</literal>,
+                                <literal>man:</literal>. For more
+                                information about the syntax of these
+                                URIs see
+                                <citerefentry><refentrytitle>uri</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>Requires=</varname></term>
 
                                 <listitem><para>Configures requirement

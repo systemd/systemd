@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Arbitrary Executable File Formats File System
+Documentation=https://www.kernel.org/doc/Documentation/binfmt_misc.txt
 DefaultDependencies=no
 
 [Mount]

@@ -5,10 +5,10 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-# See systemd.special(7) for details
-
 [Unit]
 Description=Syslog Socket
+Documentation=man:systemd.special(7)
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/syslog
 DefaultDependencies=no
 Before=sockets.target syslog.target
 Conflicts=shutdown.target

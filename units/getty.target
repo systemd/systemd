@@ -7,3 +7,4 @@
 
 [Unit]
 Description=Login Prompts
+Documentation=man:systemd.special(7)

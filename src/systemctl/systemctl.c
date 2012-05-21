@@ -2158,6 +2158,8 @@ typedef struct UnitStatusInfo {
         const char *description;
         const char *following;
 
+        char **documentation;
+
         const char *path;
         const char *default_control_group;
 
@@ -2302,6 +2304,19 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("\t   Where: %s\n", i->where);
         if (i->what)
                 printf("\t    What: %s\n", i->what);
+
+        if (!strv_isempty(i->documentation)) {
+                char **t;
+                bool first = true;
+
+                STRV_FOREACH(t, i->documentation) {
+                        if (first) {
+                                printf("\t    Docs: %s\n", *t);
+                                first = false;
+                        } else
+                                printf("\t          %s\n", *t);
+                }
+        }
 
         if (i->accept)
                 printf("\tAccepted: %u; Connected: %u\n", i->n_accepted, i->n_connections);
@@ -2606,6 +2621,27 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 }
 
                                 LIST_PREPEND(ExecStatusInfo, exec, i->exec, info);
+
+                                dbus_message_iter_next(&sub);
+                        }
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING &&
+                           streq(name, "Documentation")) {
+
+                        DBusMessageIter sub;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING) {
+                                const char *s;
+                                char **l;
+
+                                dbus_message_iter_get_basic(&sub, &s);
+
+                                l = strv_append(i->documentation, s);
+                                if (!l)
+                                        return -ENOMEM;
+
+                                strv_free(i->documentation);
+                                i->documentation = l;
 
                                 dbus_message_iter_next(&sub);
                         }
@@ -2931,6 +2967,8 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
 
         if (!show_properties)
                 print_status_info(&info);
+
+        strv_free(info.documentation);
 
         if (!streq_ptr(info.active_state, "active") &&
             !streq_ptr(info.active_state, "reloading") &&

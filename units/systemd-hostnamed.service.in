@@ -5,10 +5,11 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-# See systemd.special(7) for details
-
 [Unit]
 Description=Hostname Service
+Documentation=man:hostname(5)
+Documentation=man:machine-info(5)
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/hostnamed
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-hostnamed

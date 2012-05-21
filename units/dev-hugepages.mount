@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Huge Pages File System
+Documentation=https://www.kernel.org/doc/Documentation/vm/hugetlbpage.txt
 DefaultDependencies=no
 Before=sysinit.target
 ConditionPathExists=/sys/kernel/mm/hugepages

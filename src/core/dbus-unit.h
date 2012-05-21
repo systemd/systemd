@@ -87,6 +87,7 @@
         "  <property name=\"PropagateReloadFrom\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"RequiresMountsFor\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Description\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"Documentation\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"LoadState\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ActiveState\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SubState\" type=\"s\" access=\"read\"/>\n"  \
