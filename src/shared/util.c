@@ -5654,16 +5654,10 @@ bool is_valid_documentation_url(const char *url) {
 }
 
 bool in_initrd(void) {
-        static bool checked=false;
-        static bool is_in_initrd=false;
+        static int saved = -1;
 
-        if (!checked) {
-                struct stat sb;
-                if (stat("/", &sb) == 0) {
-                        is_in_initrd = (sb.st_dev == 1);
-                        checked = true;
-                }
-        }
+        if (saved < 0)
+                saved = access("/etc/initrd-release", F_OK) >= 0;
 
-        return is_in_initrd;
+        return saved;
 }

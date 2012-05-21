@@ -53,8 +53,6 @@ Features:
 
 * actually queue the new default unit after switch-root
 
-* remove old root in switch-root logic
-
 * improve !/proc/*/loginuid situation: make /proc/*/loginuid less dependent on CONFIG_AUDIT,
   or use the users cgroup information when /proc/*/loginuid is not available.
 
