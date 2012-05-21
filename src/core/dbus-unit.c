@@ -558,11 +558,14 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
         Manager *m = data;
         Unit *u;
         int r;
-        DBusMessage *reply;
+        DBusMessage *reply = NULL;
+        DBusError error;
 
         assert(connection);
         assert(message);
         assert(m);
+
+        dbus_error_init(&error);
 
         if (streq(dbus_message_get_path(message), "/org/freedesktop/systemd1/unit")) {
                 /* Be nice to gdbus and return introspection data for our mid-level paths */
@@ -638,20 +641,12 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
                 return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
         }
 
-        if ((r = manager_get_unit_from_dbus_path(m, dbus_message_get_path(message), &u)) < 0) {
-
+        r = manager_load_unit_from_dbus_path(m, dbus_message_get_path(message), &error, &u);
+        if (r < 0) {
                 if (r == -ENOMEM)
-                        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+                        goto oom;
 
-                if (r == -ENOENT) {
-                        DBusError e;
-
-                        dbus_error_init(&e);
-                        dbus_set_error_const(&e, DBUS_ERROR_UNKNOWN_OBJECT, "Unknown unit");
-                        return bus_send_error_reply(connection, message, &e, r);
-                }
-
-                return bus_send_error_reply(connection, message, NULL, r);
+                return bus_send_error_reply(connection, message, &error, r);
         }
 
         return bus_unit_message_dispatch(u, connection, message);
@@ -659,6 +654,8 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
 oom:
         if (reply)
                 dbus_message_unref(reply);
+
+        dbus_error_free(&error);
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
