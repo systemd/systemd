@@ -230,4 +230,5 @@ Path.DirectoryMode,              config_parse_mode,                  0,         
 m4_dnl The [Install] section is ignored here.
 Install.Alias,                   NULL,                               0,                             0
 Install.WantedBy,                NULL,                               0,                             0
+Install.RequiredBy,              NULL,                               0,                             0
 Install.Also,                    NULL,                               0,                             0

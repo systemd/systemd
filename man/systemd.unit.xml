@@ -951,9 +951,11 @@
 
                         <varlistentry>
                                 <term><varname>WantedBy=</varname></term>
+                                <term><varname>RequiredBy=</varname></term>
 
                                 <listitem><para>Installs a symlink in
                                 the <filename>.wants/</filename>
+                                resp. <filename>.requires/</filename>
                                 subdirectory for a unit. This has the
                                 effect that when the listed unit name
                                 is activated the unit listing it is

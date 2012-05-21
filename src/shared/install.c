@@ -43,6 +43,7 @@ typedef struct {
 
         char **aliases;
         char **wanted_by;
+        char **required_by;
 } InstallInfo;
 
 typedef struct {
@@ -883,6 +884,7 @@ static void install_info_free(InstallInfo *i) {
         free(i->path);
         strv_free(i->aliases);
         strv_free(i->wanted_by);
+        strv_free(i->required_by);
         free(i);
 }
 
@@ -1021,9 +1023,10 @@ static int unit_file_load(
                 bool allow_symlink) {
 
         const ConfigTableItem items[] = {
-                { "Install", "Alias",    config_parse_strv, 0, &info->aliases   },
-                { "Install", "WantedBy", config_parse_strv, 0, &info->wanted_by },
-                { "Install", "Also",     config_parse_also, 0, c                },
+                { "Install", "Alias",      config_parse_strv, 0, &info->aliases     },
+                { "Install", "WantedBy",   config_parse_strv, 0, &info->wanted_by   },
+                { "Install", "RequiredBy", config_parse_strv, 0, &info->required_by },
+                { "Install", "Also",       config_parse_also, 0, c                  },
                 { NULL, NULL, NULL, 0, NULL }
         };
 
@@ -1050,7 +1053,10 @@ static int unit_file_load(
         if (r < 0)
                 return r;
 
-        return strv_length(info->aliases) + strv_length(info->wanted_by);
+        return
+                strv_length(info->aliases) +
+                strv_length(info->wanted_by) +
+                strv_length(info->required_by);
 }
 
 static int unit_file_search(
@@ -1121,7 +1127,10 @@ static int unit_file_can_install(
         r = unit_file_search(&c, i, paths, root_dir, allow_symlink);
 
         if (r >= 0)
-                r = strv_length(i->aliases) + strv_length(i->wanted_by);
+                r =
+                        strv_length(i->aliases) +
+                        strv_length(i->wanted_by) +
+                        strv_length(i->required_by);
 
         install_context_done(&c);
 
@@ -1241,6 +1250,40 @@ static int install_info_symlink_wants(
         return r;
 }
 
+static int install_info_symlink_requires(
+                InstallInfo *i,
+                const char *config_path,
+                bool force,
+                UnitFileChange **changes,
+                unsigned *n_changes) {
+
+        char **s;
+        int r = 0, q;
+
+        assert(i);
+        assert(config_path);
+
+        STRV_FOREACH(s, i->required_by) {
+                char *path;
+
+                if (!unit_name_is_valid_no_type(*s, true)) {
+                        r = -EINVAL;
+                        continue;
+                }
+
+                if (asprintf(&path, "%s/%s.requires/%s", config_path, *s, i->name) < 0)
+                        return -ENOMEM;
+
+                q = create_symlink(i->path, path, force, changes, n_changes);
+                free(path);
+
+                if (r == 0)
+                        r = q;
+        }
+
+        return r;
+}
+
 static int install_info_symlink_link(
                 InstallInfo *i,
                 LookupPaths *paths,
@@ -1287,6 +1330,10 @@ static int install_info_apply(
         r = install_info_symlink_alias(i, config_path, force, changes, n_changes);
 
         q = install_info_symlink_wants(i, config_path, force, changes, n_changes);
+        if (r == 0)
+                r = q;
+
+        q = install_info_symlink_requires(i, config_path, force, changes, n_changes);
         if (r == 0)
                 r = q;
 
