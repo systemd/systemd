@@ -23,6 +23,8 @@ Bugfixes:
 
 Features:
 
+* in rescue mode don't pull in sockets
+
 * Document boot options such as forcefsck
 
 * beef up links between systemctl output and man pages. i.e. add a new unit
@@ -32,6 +34,18 @@ Features:
 * (attempt to) make Debianites happy:
         - implement .d/ auto includes for unit files
         - add syntax to reset ExecStart= lists (and similar)
+
+* properly detect mimo devices, the current VID/PID check is too broad
+
+* introduce upgrade.target for offline upgrades
+
+* manipulate CPU governor during boot, set it to performance
+
+* steal SBF management from the kernel
+
+* delay journal /var writeout to after boot if SBF is clean
+
+* move passno parsing to fstab generator
 
 * actually queue the new default unit after switch-root
 
