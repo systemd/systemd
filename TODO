@@ -23,6 +23,8 @@ Bugfixes:
 
 Features:
 
+* when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
+
 * readahead: when bumping /sys readahead variable save mtime and compare later to detect changes
 
 * in rescue mode don't pull in sockets
