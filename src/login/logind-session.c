@@ -382,7 +382,7 @@ static int session_link_x11_socket(Session *s) {
         c[k] = 0;
 
         if (access(f, F_OK) < 0) {
-                log_warning("Session %s has display %s with nonexisting socket %s.", s->id, s->display, f);
+                log_warning("Session %s has display %s with non-existing socket %s.", s->id, s->display, f);
                 free(f);
                 return -ENOENT;
         }
