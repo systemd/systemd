@@ -1234,7 +1234,7 @@ static void process_native_message(
                                          p[17] >= '0' && p[17] <= '9')
                                         priority = (priority & LOG_PRIMASK) | (((p[16] - '0')*10 + (p[17] - '0')) << 3);
 
-                                else if (l >= 12 &&
+                                else if (l >= 19 &&
                                          memcmp(p, "SYSLOG_IDENTIFIER=", 18) == 0) {
                                         char *t;
 
