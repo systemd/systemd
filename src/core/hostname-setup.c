@@ -151,31 +151,20 @@ int hostname_setup(void) {
 
         r = read_hostname(&b);
         if (r < 0) {
+                hn = NULL;
+
                 if (r == -ENOENT)
                         enoent = true;
                 else
                         log_warning("Failed to read configured hostname: %s", strerror(-r));
-
-                hn = NULL;
         } else
                 hn = b;
 
-        if (!hn) {
-                /* Don't override the hostname if it is unset and not
-                 * explicitly configured */
-
-                char *old_hostname = NULL;
-
-                old_hostname = gethostname_malloc();
-                if (old_hostname) {
-                        bool already_set;
-
-                        already_set = old_hostname[0] != 0;
-                        free(old_hostname);
-
-                        if (already_set)
-                                goto finish;
-                }
+        if (isempty(hn)) {
+                /* Don't override the hostname if it is already set
+                 * and not explicitly configured */
+                if (hostname_is_set())
+                        goto finish;
 
                 if (enoent)
                         log_info("No hostname configured.");

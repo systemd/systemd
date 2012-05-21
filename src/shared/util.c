@@ -2949,10 +2949,18 @@ char* gethostname_malloc(void) {
 
         assert_se(uname(&u) >= 0);
 
-        if (u.nodename[0])
+        if (!isempty(u.nodename) && !streq(u.nodename, "(none)"))
                 return strdup(u.nodename);
 
         return strdup(u.sysname);
+}
+
+bool hostname_is_set(void) {
+        struct utsname u;
+
+        assert_se(uname(&u) >= 0);
+
+        return !isempty(u.nodename) && !streq(u.nodename, "(none)");
 }
 
 char* getlogname_malloc(void) {

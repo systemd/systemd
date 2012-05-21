@@ -337,6 +337,7 @@ void rename_process(const char name[8]);
 void sigset_add_many(sigset_t *ss, ...);
 
 char* gethostname_malloc(void);
+bool hostname_is_set(void);
 char* getlogname_malloc(void);
 
 int getttyname_malloc(int fd, char **r);
