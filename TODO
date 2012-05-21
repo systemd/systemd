@@ -23,6 +23,10 @@ Bugfixes:
 
 Features:
 
+* make sure show-logs checks for utf8 validity, not ascii validity
+
+* add CapbilityBoundingSet to system.conf to set system-wide caps bounds, and same for TimerSlackNS
+
 * when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
 
 * readahead: when bumping /sys readahead variable save mtime and compare later to detect changes
