@@ -103,7 +103,7 @@ static int notify_override_unchanged(const char *f) {
         if (!(arg_flags & SHOW_UNCHANGED))
                 return 0;
 
-        printf(ANSI_HIGHLIGHT_ON "[UNCHANGED]" ANSI_HIGHLIGHT_OFF "  %s → %s\n", top, bottom);
+        printf("[UNCHANGED]  %s\n", f);
         return 1;
 }
 
