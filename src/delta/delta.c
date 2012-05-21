@@ -33,18 +33,18 @@
 #include "build.h"
 
 static bool arg_no_pager = false;
+static int arg_diff = -1;
 
-enum {
+static enum {
         SHOW_MASKED = 1 << 0,
         SHOW_EQUIVALENT = 1 << 1,
         SHOW_REDIRECTED = 1 << 2,
         SHOW_OVERRIDEN = 1 << 3,
         SHOW_UNCHANGED = 1 << 4,
-        SHOW_DIFF = 1 << 5,
 
         SHOW_DEFAULTS =
-        (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDEN | SHOW_DIFF)
-};
+        (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDEN)
+} arg_flags = 0;
 
 static int equivalent(const char *a, const char *b) {
         char *x, *y;
@@ -67,47 +67,47 @@ static int equivalent(const char *a, const char *b) {
         return r;
 }
 
-static int notify_override_masked(int flags, const char *top, const char *bottom) {
-        if (!(flags & SHOW_MASKED))
+static int notify_override_masked(const char *top, const char *bottom) {
+        if (!(arg_flags & SHOW_MASKED))
                 return 0;
 
         printf(ANSI_HIGHLIGHT_RED_ON "[MASKED]" ANSI_HIGHLIGHT_OFF "     %s → %s\n", top, bottom);
         return 1;
 }
 
-static int notify_override_equivalent(int flags, const char *top, const char *bottom) {
-        if (!(flags & SHOW_EQUIVALENT))
+static int notify_override_equivalent(const char *top, const char *bottom) {
+        if (!(arg_flags & SHOW_EQUIVALENT))
                 return 0;
 
         printf(ANSI_HIGHLIGHT_GREEN_ON "[EQUIVALENT]" ANSI_HIGHLIGHT_OFF " %s → %s\n", top, bottom);
         return 1;
 }
 
-static int notify_override_redirirected(int flags, const char *top, const char *bottom) {
-        if (!(flags & SHOW_REDIRECTED))
+static int notify_override_redirected(const char *top, const char *bottom) {
+        if (!(arg_flags & SHOW_REDIRECTED))
                 return 0;
 
         printf(ANSI_HIGHLIGHT_ON "[REDIRECTED]" ANSI_HIGHLIGHT_OFF "   %s → %s\n", top, bottom);
         return 1;
 }
 
-static int notify_override_overriden(int flags, const char *top, const char *bottom) {
-        if (!(flags & SHOW_OVERRIDEN))
+static int notify_override_overriden(const char *top, const char *bottom) {
+        if (!(arg_flags & SHOW_OVERRIDEN))
                 return 0;
 
         printf(ANSI_HIGHLIGHT_ON "[OVERRIDEN]" ANSI_HIGHLIGHT_OFF "  %s → %s\n", top, bottom);
         return 1;
 }
 
-static int notify_override_unchanged(int flags, const char *top, const char *bottom) {
-        if (!(flags & SHOW_UNCHANGED))
+static int notify_override_unchanged(const char *f) {
+        if (!(arg_flags & SHOW_UNCHANGED))
                 return 0;
 
         printf(ANSI_HIGHLIGHT_ON "[UNCHANGED]" ANSI_HIGHLIGHT_OFF "  %s → %s\n", top, bottom);
         return 1;
 }
 
-static int found_override(int flags, const char *top, const char *bottom) {
+static int found_override(const char *top, const char *bottom) {
         char *dest;
         int k;
         pid_t pid;
@@ -116,23 +116,23 @@ static int found_override(int flags, const char *top, const char *bottom) {
         assert(bottom);
 
         if (null_or_empty_path(top) > 0) {
-                notify_override_masked(flags, top, bottom);
+                notify_override_masked(top, bottom);
                 goto finish;
         }
 
         k = readlink_malloc(top, &dest);
         if (k >= 0) {
                 if (equivalent(dest, bottom) > 0)
-                        notify_override_equivalent(flags, top, bottom);
+                        notify_override_equivalent(top, bottom);
                 else
-                        notify_override_redirirected(flags, top, bottom);
+                        notify_override_redirected(top, bottom);
 
                 free(dest);
                 goto finish;
         }
 
-        notify_override_overriden(flags, top, bottom);
-        if (!(flags & SHOW_DIFF))
+        notify_override_overriden(top, bottom);
+        if (!arg_diff)
                 goto finish;
 
         putchar('\n');
@@ -228,7 +228,7 @@ finish:
         return r;
 }
 
-static int process_suffix(int flags, const char *prefixes, const char *suffix) {
+static int process_suffix(const char *prefixes, const char *suffix) {
         const char *p;
         char *f;
         Hashmap *top, *bottom;
@@ -275,11 +275,11 @@ static int process_suffix(int flags, const char *prefixes, const char *suffix) {
                 assert(o);
 
                 if (path_equal(o, f)) {
-                        notify_override_unchanged(flags, f, o);
+                        notify_override_unchanged(f);
                         continue;
                 }
 
-                k = found_override(flags, f, o);
+                k = found_override(f, o);
                 if (k < 0)
                         r = k;
 
@@ -295,21 +295,21 @@ finish:
         return r < 0 ? r : n_found;
 }
 
-static int process_suffix_chop(int flags, const char *prefixes, const char *suffix) {
+static int process_suffix_chop(const char *prefixes, const char *suffix) {
         const char *p;
 
         assert(prefixes);
         assert(suffix);
 
         if (!path_is_absolute(suffix))
-                return process_suffix(flags, prefixes, suffix);
+                return process_suffix(prefixes, suffix);
 
         /* Strip prefix from the suffix */
         NULSTR_FOREACH(p, prefixes) {
                 if (startswith(suffix, p)) {
                         suffix += strlen(p);;
                         suffix += strspn(suffix, "/");
-                        return process_suffix(flags, prefixes, suffix);
+                        return process_suffix(prefixes, suffix);
                 }
         }
 
@@ -329,7 +329,7 @@ static void help(void) {
                program_invocation_short_name);
 }
 
-static int parse_flags(int flags, const char *flag_str) {
+static int parse_flags(const char *flag_str, int flags) {
         char *w, *state;
         size_t l;
 
@@ -346,15 +346,13 @@ static int parse_flags(int flags, const char *flag_str) {
                         flags |= SHOW_UNCHANGED;
                 } else if (strncmp("default", w, l) == 0) {
                         flags |= SHOW_DEFAULTS;
-                } else {
-                        log_error("Unknown type filter: %s", w);
-                        return -1;
-                }
+                else
+                        return -EINVAL;
         }
         return flags;
 }
 
-static int parse_argv(int argc, char *argv[], int *flags) {
+static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_NO_PAGER = 0x100,
@@ -397,20 +395,31 @@ static int parse_argv(int argc, char *argv[], int *flags) {
                 case '?':
                         return -EINVAL;
 
-                case 't':
-                        *flags = parse_flags(*flags, optarg);
-                        if (*flags < 0)
+                case 't': {
+                        int f;
+                        f = parse_flags(optarg, arg_flags);
+                        if (f < 0) {
+                                log_error("Failed to parse flags field.");
                                 return -EINVAL;
+                        }
+                        arg_flags = f;
                         break;
+                }
 
                 case ARG_DIFF:
-                        if (!optarg) {
-                                *flags |= SHOW_DIFF;
-                        } else {
-                                if (parse_boolean(optarg))
-                                        *flags |= SHOW_DIFF;
+                        if (!optarg)
+                                arg_diff = 1;
+                        else {
+                                int b;
+
+                                b = parse_boolean(optarg);
+                                if (b < 0) {
+                                        log_error("Failed to parse diff boolean.");
+                                        return -EINVAL;
+                                } else if (b)
+                                        arg_diff = 1;
                                 else
-                                        *flags &= ~SHOW_DIFF;
+                                        arg_diff = 0;
                         }
                         break;
 
@@ -451,19 +460,21 @@ int main(int argc, char *argv[]) {
 
         int r = 0, k;
         int n_found = 0;
-        int flags = 0;
 
         log_parse_environment();
         log_open();
 
-        r = parse_argv(argc, argv, &flags);
+        r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
 
-        if (flags == 0)
-                flags = SHOW_DEFAULTS;
-        if (flags == SHOW_DIFF)
-                flags |= SHOW_OVERRIDEN;
+        if (arg_flags == 0)
+                arg_flags = SHOW_DEFAULTS;
+
+        if (arg_diff < 0)
+                arg_diff = !!(arg_flags & SHOW_OVERRIDEN);
+        else if (arg_diff)
+                arg_flags |= SHOW_OVERRIDEN;
 
         if (!arg_no_pager)
                 pager_open();
@@ -472,7 +483,7 @@ int main(int argc, char *argv[]) {
                 int i;
 
                 for (i = optind; i < argc; i++) {
-                        k = process_suffix_chop(flags, prefixes, argv[i]);
+                        k = process_suffix_chop(prefixes, argv[i]);
                         if (k < 0)
                                 r = k;
                         else
@@ -483,7 +494,7 @@ int main(int argc, char *argv[]) {
                 const char *n;
 
                 NULSTR_FOREACH(n, suffixes) {
-                        k = process_suffix(flags, prefixes, n);
+                        k = process_suffix(prefixes, n);
                         if (k < 0)
                                 r = k;
                         else
