@@ -74,9 +74,11 @@
                                         message string for this
                                         entry. This is supposed to be
                                         the primary text shown to the
-                                        user. It is not translated,
-                                        and is not supposed to be
-                                        parsed for meta data.</para>
+                                        user. It is usually not
+                                        translated (but might be in
+                                        some cases), and is not
+                                        supposed to be parsed for meta
+                                        data.</para>
                                 </listitem>
                         </varlistentry>
 
