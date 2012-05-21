@@ -835,6 +835,15 @@
                                 <option>none</option>.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>FsckPassNo=</varname></term>
+
+                                <listitem><para>If this is an file
+                                system checking service specify the
+                                pass number. This should not be used
+                                for normal services.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 
