@@ -1684,22 +1684,36 @@ finish:
                  * getopt() in argv[], and some cleanups in envp[],
                  * but let's hope that doesn't matter.) */
 
-                if (serialization)
+                if (serialization) {
                         fclose(serialization);
+                        serialization = NULL;
+                }
 
-                if (fds)
+                if (fds) {
                         fdset_free(fds);
+                        fds = NULL;
+                }
 
-                i = 0;
-                args[i++] = switch_root_init ? switch_root_init : "/sbin/init";
-                for (j = 1; j < argc; j++)
+                for (j = 1, i = 1; j < argc; j++)
                         args[i++] = argv[j];
                 args[i++] = NULL;
-
                 assert(i <= args_size);
+
+                if (switch_root_init) {
+                        args[0] = switch_root_init;
+                        execv(args[0], (char* const*) args);
+                        log_warning("Failed to execute configured init, trying fallback: %m");
+                }
+
+                args[0] = "/sbin/init";
                 execv(args[0], (char* const*) args);
 
-                log_error("Failed to reexecute: %m");
+                log_warning("Failed to execute /sbin/init, trying fallback: %m");
+
+                args[0] = "/bin/sh";
+                args[1] = NULL;
+                execv(args[0], (char* const*) args);
+                log_error("Failed to execute /bin/sh, giving up: %m");
         }
 
         if (serialization)
