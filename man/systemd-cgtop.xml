@@ -166,7 +166,7 @@
                                 the root group is monitored, for 1
                                 only the first level of control groups
                                 is monitored, and so on. Defaults to
-                                2.</para></listitem>
+                                3.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

@@ -54,7 +54,7 @@ typedef struct Group {
         uint64_t io_input_bps, io_output_bps;
 } Group;
 
-static unsigned arg_depth = 2;
+static unsigned arg_depth = 3;
 static usec_t arg_delay = 1*USEC_PER_SEC;
 
 static enum {
