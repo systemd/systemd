@@ -49,6 +49,7 @@
 #include "virt.h"
 #include "watchdog.h"
 #include "path-util.h"
+#include "switch-root.h"
 
 #include "mount-setup.h"
 #include "loopback-setup.h"
@@ -1173,90 +1174,6 @@ static void test_cgroups(void) {
         sleep(10);
 }
 
-static int do_switch_root(const char *switch_root) {
-        int r=0;
-        /*  Don't try to unmount the old "/", there's no way to do it. */
-        const char *umounts[] = { "/dev", "/proc", "/sys", "/run", NULL };
-        int i;
-        int cfd = -1;
-        struct stat switch_root_stat, sb;
-        bool remove_old_root;
-
-        if (path_equal(switch_root, "/"))
-                return 0;
-
-        if (stat(switch_root, &switch_root_stat) != 0) {
-                r = -errno;
-                log_error("failed to stat directory %s", switch_root);
-                goto fail;
-        }
-
-        remove_old_root = in_initrd();
-
-        for (i = 0; umounts[i] != NULL; i++) {
-                char newmount[PATH_MAX];
-
-                snprintf(newmount, sizeof(newmount), "%s%s", switch_root, umounts[i]);
-
-                if ((stat(newmount, &sb) != 0) || (sb.st_dev != switch_root_stat.st_dev)) {
-                        /* mount point seems to be mounted already or stat failed */
-                        umount2(umounts[i], MNT_DETACH);
-                        continue;
-                }
-
-                if (mount(umounts[i], newmount, NULL, MS_MOVE, NULL) < 0) {
-                        log_error("failed to mount moving %s to %s",
-                                  umounts[i], newmount);
-                        log_error("forcing unmount of %s", umounts[i]);
-                        umount2(umounts[i], MNT_FORCE);
-                }
-        }
-
-        if (chdir(switch_root)) {
-                r = -errno;
-                log_error("failed to change directory to %s", switch_root);
-                goto fail;
-        }
-
-        if (remove_old_root)
-                cfd = open("/", O_RDONLY);
-
-        if (mount(switch_root, "/", NULL, MS_MOVE, NULL) < 0) {
-                r = -errno;
-                log_error("failed to mount moving %s to /", switch_root);
-                goto fail;
-        }
-
-        if (chroot(".")) {
-                r = -errno;
-                log_error("failed to change root");
-                goto fail;
-        }
-
-        if (cfd >= 0) {
-                struct stat rb;
-
-                if (fstat(cfd, &rb)) {
-                        log_error("failed to stat old root directory");
-                        goto fail;
-                }
-
-                rm_rf_children(cfd, false, false, &rb);
-                close(cfd);
-                cfd=-1;
-        }
-
-        return 0;
-
-fail:
-        if (cfd >= 0)
-                close(cfd);
-
-        log_error("Failed to switch root, ignoring: %s", strerror(-r));
-
-        return r;
-}
-
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -1271,7 +1188,7 @@ int main(int argc, char *argv[]) {
         int j;
         bool loaded_policy = false;
         bool arm_reboot_watchdog = false;
-        char *switch_root = NULL, *switch_root_init = NULL;
+        char *switch_root_dir = NULL, *switch_root_init = NULL;
 
 #ifdef HAVE_SYSV_COMPAT
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
@@ -1673,7 +1590,7 @@ int main(int argc, char *argv[]) {
 
                 case MANAGER_SWITCH_ROOT:
                         /* Steal the switch root parameters */
-                        switch_root = m->switch_root;
+                        switch_root_dir = m->switch_root;
                         switch_root_init = m->switch_root_init;
                         m->switch_root = m->switch_root_init = NULL;
 
@@ -1728,8 +1645,11 @@ finish:
                  * rebooted while we do that */
                 watchdog_close(true);
 
-                if (switch_root)
-                        do_switch_root(switch_root);
+                if (switch_root_dir) {
+                        r = switch_root(switch_root_dir);
+                        if (r < 0)
+                                log_error("Failed to switch root, ignoring: %s", strerror(-r));
+                }
 
                 args_size = MAX(6, argc+1);
                 args = newa(const char*, args_size);
@@ -1750,7 +1670,7 @@ finish:
 
                         i = 0;
                         args[i++] = SYSTEMD_BINARY_PATH;
-                        if (switch_root)
+                        if (switch_root_dir)
                                 args[i++] = "--switchedroot";
                         args[i++] = arg_running_as == MANAGER_SYSTEM ? "--system" : "--user";
                         args[i++] = "--deserialize";

@@ -789,7 +789,9 @@ libsystemd_core_la_SOURCES = \
 	src/core/special.h \
 	src/core/bus-errors.h \
 	src/core/build.h \
-	src/core/sysfs-show.h
+	src/core/sysfs-show.h \
+	src/core/switch-root.h \
+	src/core/switch-root.c
 
 nodist_libsystemd_core_la_SOURCES = \
 	src/core/load-fragment-gperf.c \
