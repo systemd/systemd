@@ -747,7 +747,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SHOW_STATUS,
                 ARG_SYSV_CONSOLE,
                 ARG_DESERIALIZE,
-                ARG_SWITCHEDROOT,
+                ARG_SWITCHED_ROOT,
                 ARG_INTROSPECT,
                 ARG_DEFAULT_STD_OUTPUT,
                 ARG_DEFAULT_STD_ERROR
@@ -772,7 +772,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "sysv-console",             optional_argument, NULL, ARG_SYSV_CONSOLE             },
 #endif
                 { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
-                { "switchedroot",             no_argument,       NULL, ARG_SWITCHEDROOT             },
+                { "switched-root",            no_argument,       NULL, ARG_SWITCHED_ROOT            },
                 { "introspect",               optional_argument, NULL, ARG_INTROSPECT               },
                 { "default-standard-output",  required_argument, NULL, ARG_DEFAULT_STD_OUTPUT,      },
                 { "default-standard-error",   required_argument, NULL, ARG_DEFAULT_STD_ERROR,       },
@@ -944,7 +944,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_SWITCHEDROOT:
+                case ARG_SWITCHED_ROOT:
                         /* Nothing special yet */
                         break;
 
@@ -1184,7 +1184,7 @@ int main(int argc, char *argv[]) {
         const char *shutdown_verb = NULL;
         dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
         static char systemd[] = "systemd";
-        bool is_reexec = false;
+        bool skip_setup = false;
         int j;
         bool loaded_policy = false;
         bool arm_reboot_watchdog = false;
@@ -1205,17 +1205,17 @@ int main(int argc, char *argv[]) {
         /* Determine if this is a reexecution or normal bootup. We do
          * the full command line parsing much later, so let's just
          * have a quick peek here. */
-
         for (j = 1; j < argc; j++)
                 if (streq(argv[j], "--deserialize")) {
-                        is_reexec = true;
+                        skip_setup = true;
                         break;
                 }
 
-        /* If we have switched root, do all the special things */
+        /* If we have switched root, do all the special setup
+         * things */
         for (j = 1; j < argc; j++)
-                if (streq(argv[j], "--switchedroot")) {
-                        is_reexec = false;
+                if (streq(argv[j], "--switched-root")) {
+                        skip_setup = false;
                         break;
                 }
 
@@ -1250,7 +1250,7 @@ int main(int argc, char *argv[]) {
                 arg_running_as = MANAGER_SYSTEM;
                 log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_JOURNAL : LOG_TARGET_JOURNAL_OR_KMSG);
 
-                if (!is_reexec) {
+                if (!skip_setup) {
                         if (selinux_setup(&loaded_policy) < 0)
                                 goto finish;
                         if (ima_setup() < 0)
@@ -1262,7 +1262,7 @@ int main(int argc, char *argv[]) {
                 if (label_init(NULL) < 0)
                         goto finish;
 
-                if (!is_reexec)
+                if (!skip_setup)
                         if (hwclock_is_localtime() > 0) {
                                 int min;
 
@@ -1374,7 +1374,7 @@ int main(int argc, char *argv[]) {
                 /* Parse the data passed to us. We leave this
                  * variables set, but the manager later on will not
                  * pass them on to our children. */
-                if(!in_initrd())
+                if (!in_initrd())
                         parse_initrd_timestamp(&initrd_timestamp);
 
                 /* Unset some environment variables passed in from the
@@ -1388,7 +1388,7 @@ int main(int argc, char *argv[]) {
                 unsetenv("SHLVL");
                 unsetenv("_");
 
-                /* When we are invoked by a tool chroot-like such as
+                /* When we are invoked by a chroot-like tool such as
                  * nspawn, these might be set, but make little sense
                  * to pass on */
                 unsetenv("USER");
@@ -1415,7 +1415,7 @@ int main(int argc, char *argv[]) {
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
         if (arg_running_as == MANAGER_SYSTEM && arg_action == ACTION_RUN) {
-                console_setup(getpid() == 1 && !is_reexec);
+                console_setup(getpid() == 1 && !skip_setup);
                 make_null_stdio();
         }
 
@@ -1436,7 +1436,7 @@ int main(int argc, char *argv[]) {
         log_full(arg_running_as == MANAGER_SYSTEM ? LOG_INFO : LOG_DEBUG,
                  PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")", manager_running_as_to_string(arg_running_as));
 
-        if (arg_running_as == MANAGER_SYSTEM && !is_reexec) {
+        if (arg_running_as == MANAGER_SYSTEM && !skip_setup) {
                 locale_setup();
 
                 if (arg_show_status || plymouth_running())
@@ -1671,7 +1671,7 @@ finish:
                         i = 0;
                         args[i++] = SYSTEMD_BINARY_PATH;
                         if (switch_root_dir)
-                                args[i++] = "--switchedroot";
+                                args[i++] = "--switched-root";
                         args[i++] = arg_running_as == MANAGER_SYSTEM ? "--system" : "--user";
                         args[i++] = "--deserialize";
                         args[i++] = sfd;
