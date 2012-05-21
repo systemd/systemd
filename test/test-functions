@@ -1,0 +1,636 @@
+#!/bin/bash
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+export PATH
+
+setup_basic_dirs() {
+    for d in usr/bin usr/sbin bin etc lib "$libdir" sbin tmp usr var var/log; do
+        [[ -e "${initdir}${prefix}/$d" ]] && continue
+        if [ -L "/$d" ]; then
+            inst_symlink "/$d" "${prefix}/$d"
+        else
+            mkdir -m 0755 -p "${initdir}${prefix}/$d"
+        fi
+    done
+
+    for d in dev proc sys sysroot root run run/lock run/initramfs; do
+        if [ -L "/$d" ]; then
+            inst_symlink "/$d"
+        else
+            mkdir -m 0755 -p "$initdir/$d"
+        fi
+    done
+
+    ln -sfn /run "$initdir/var/run"
+    ln -sfn /run/lock "$initdir/var/lock"
+}
+
+inst_libs() {
+    local _bin=$1
+    local _so_regex='([^ ]*/lib[^/]*/[^ ]*\.so[^ ]*)'
+    local _file _line
+
+    LC_ALL=C ldd "$_bin" 2>/dev/null | while read _line; do
+        [[ $_line = 'not a dynamic executable' ]] && break
+
+        if [[ $_line =~ $_so_regex ]]; then
+            _file=${BASH_REMATCH[1]}
+            [[ -e ${initdir}/$_file ]] && continue
+            inst_library "$_file"
+            continue
+        fi
+
+        if [[ $_line =~ not\ found ]]; then
+            dfatal "Missing a shared library required by $_bin."
+            dfatal "Run \"ldd $_bin\" to find out what it is."
+            dfatal "$_line"
+            dfatal "dracut cannot create an initrd."
+            exit 1
+        fi
+    done
+}
+
+import_testdir() {
+    STATEFILE=".testdir"
+    [[ -e $STATEFILE ]] && . $STATEFILE
+    if [[ -z "$TESTDIR" ]] || [[ ! -d "$TESTDIR" ]]; then
+        TESTDIR=$(mktemp --tmpdir=/var/tmp -d -t systemd-test.XXXXXX)
+        echo "TESTDIR=\"$TESTDIR\"" > $STATEFILE
+        export TESTDIR
+    fi
+}
+
+## @brief Converts numeric logging level to the first letter of level name.
+#
+# @param lvl Numeric logging level in range from 1 to 6.
+# @retval 1 if @a lvl is out of range.
+# @retval 0 if @a lvl is correct.
+# @result Echoes first letter of level name.
+_lvl2char() {
+    case "$1" in
+        1) echo F;;
+        2) echo E;;
+        3) echo W;;
+        4) echo I;;
+        5) echo D;;
+        6) echo T;;
+        *) return 1;;
+    esac
+}
+
+## @brief Internal helper function for _do_dlog()
+#
+# @param lvl Numeric logging level.
+# @param msg Message.
+# @retval 0 It's always returned, even if logging failed.
+#
+# @note This function is not supposed to be called manually. Please use
+# dtrace(), ddebug(), or others instead which wrap this one.
+#
+# This function calls _do_dlog() either with parameter msg, or if
+# none is given, it will read standard input and will use every line as
+# a message.
+#
+# This enables:
+# dwarn "This is a warning"
+# echo "This is a warning" | dwarn
+LOG_LEVEL=4
+
+dlog() {
+    [ -z "$LOG_LEVEL" ] && return 0
+    [ $1 -le $LOG_LEVEL ] || return 0
+    local lvl="$1"; shift
+    local lvlc=$(_lvl2char "$lvl") || return 0
+
+    if [ $# -ge 1 ]; then
+        echo "$lvlc: $*"
+    else
+        while read line; do
+            echo "$lvlc: " "$line"
+        done
+    fi
+}
+
+## @brief Logs message at TRACE level (6)
+#
+# @param msg Message.
+# @retval 0 It's always returned, even if logging failed.
+dtrace() {
+    set +x
+    dlog 6 "$@"
+    [ -n "$debug" ] && set -x || :
+}
+
+## @brief Logs message at DEBUG level (5)
+#
+# @param msg Message.
+# @retval 0 It's always returned, even if logging failed.
+ddebug() {
+    set +x
+    dlog 5 "$@"
+    [ -n "$debug" ] && set -x || :
+}
+
+## @brief Logs message at INFO level (4)
+#
+# @param msg Message.
+# @retval 0 It's always returned, even if logging failed.
+dinfo() {
+    set +x
+    dlog 4 "$@"
+    [ -n "$debug" ] && set -x || :
+}
+
+## @brief Logs message at WARN level (3)
+#
+# @param msg Message.
+# @retval 0 It's always returned, even if logging failed.
+dwarn() {
+    set +x
+    dlog 3 "$@"
+    [ -n "$debug" ] && set -x || :
+}
+
+## @brief Logs message at ERROR level (2)
+#
+# @param msg Message.
+# @retval 0 It's always returned, even if logging failed.
+derror() {
+    set +x
+    dlog 2 "$@"
+    [ -n "$debug" ] && set -x || :
+}
+
+## @brief Logs message at FATAL level (1)
+#
+# @param msg Message.
+# @retval 0 It's always returned, even if logging failed.
+dfatal() {
+    set +x
+    dlog 1 "$@"
+    [ -n "$debug" ] && set -x || :
+}
+
+
+# Generic substring function.  If $2 is in $1, return 0.
+strstr() { [ "${1#*$2*}" != "$1" ]; }
+
+# normalize_path <path>
+# Prints the normalized path, where it removes any duplicated
+# and trailing slashes.
+# Example:
+# $ normalize_path ///test/test//
+# /test/test
+normalize_path() {
+    shopt -q -s extglob
+    set -- "${1//+(\/)//}"
+    shopt -q -u extglob
+    echo "${1%/}"
+}
+
+# convert_abs_rel <from> <to>
+# Prints the relative path, when creating a symlink to <to> from <from>.
+# Example:
+# $ convert_abs_rel /usr/bin/test /bin/test-2
+# ../../bin/test-2
+# $ ln -s $(convert_abs_rel /usr/bin/test /bin/test-2) /usr/bin/test
+convert_abs_rel() {
+    local __current __absolute __abssize __cursize __newpath
+    local -i __i __level
+
+    set -- "$(normalize_path "$1")" "$(normalize_path "$2")"
+
+    # corner case #1 - self looping link
+    [[ "$1" == "$2" ]] && { echo "${1##*/}"; return; }
+
+    # corner case #2 - own dir link
+    [[ "${1%/*}" == "$2" ]] && { echo "."; return; }
+
+    IFS="/" __current=($1)
+    IFS="/" __absolute=($2)
+
+    __abssize=${#__absolute[@]}
+    __cursize=${#__current[@]}
+
+    while [[ ${__absolute[__level]} == ${__current[__level]} ]]
+    do
+        (( __level++ ))
+        if (( __level > __abssize || __level > __cursize ))
+        then
+            break
+        fi
+    done
+
+    for ((__i = __level; __i < __cursize-1; __i++))
+    do
+        if ((__i > __level))
+        then
+            __newpath=$__newpath"/"
+        fi
+        __newpath=$__newpath".."
+    done
+
+    for ((__i = __level; __i < __abssize; __i++))
+    do
+        if [[ -n $__newpath ]]
+        then
+            __newpath=$__newpath"/"
+        fi
+        __newpath=$__newpath${__absolute[__i]}
+    done
+
+    echo "$__newpath"
+}
+
+
+# Install a directory, keeping symlinks as on the original system.
+# Example: if /lib points to /lib64 on the host, "inst_dir /lib/file"
+# will create ${initdir}/lib64, ${initdir}/lib64/file,
+# and a symlink ${initdir}/lib -> lib64.
+inst_dir() {
+    [[ -e ${initdir}/"$1" ]] && return 0  # already there
+
+    local _dir="$1" _part="${1%/*}" _file
+    while [[ "$_part" != "${_part%/*}" ]] && ! [[ -e "${initdir}/${_part}" ]]; do
+        _dir="$_part $_dir"
+        _part=${_part%/*}
+    done
+
+    # iterate over parent directories
+    for _file in $_dir; do
+        [[ -e "${initdir}/$_file" ]] && continue
+        if [[ -L $_file ]]; then
+            inst_symlink "$_file"
+        else
+            # create directory
+            mkdir -m 0755 -p "${initdir}/$_file" || return 1
+            [[ -e "$_file" ]] && chmod --reference="$_file" "${initdir}/$_file"
+            chmod u+w "${initdir}/$_file"
+        fi
+    done
+}
+
+# $1 = file to copy to ramdisk
+# $2 (optional) Name for the file on the ramdisk
+# Location of the image dir is assumed to be $initdir
+# We never overwrite the target if it exists.
+inst_simple() {
+    [[ -f "$1" ]] || return 1
+    strstr "$1" "/" || return 1
+
+    local _src=$1 target="${2:-$1}"
+    if ! [[ -d ${initdir}/$target ]]; then
+        [[ -e ${initdir}/$target ]] && return 0
+        [[ -L ${initdir}/$target ]] && return 0
+        [[ -d "${initdir}/${target%/*}" ]] || inst_dir "${target%/*}"
+    fi
+    # install checksum files also
+    if [[ -e "${_src%/*}/.${_src##*/}.hmac" ]]; then
+        inst "${_src%/*}/.${_src##*/}.hmac" "${target%/*}/.${target##*/}.hmac"
+    fi
+    ddebug "Installing $_src"
+    cp --sparse=always -pfL "$_src" "${initdir}/$target"
+}
+
+# find symlinks linked to given library file
+# $1 = library file
+# Function searches for symlinks by stripping version numbers appended to
+# library filename, checks if it points to the same target and finally
+# prints the list of symlinks to stdout.
+#
+# Example:
+# rev_lib_symlinks libfoo.so.8.1
+# output: libfoo.so.8 libfoo.so
+# (Only if libfoo.so.8 and libfoo.so exists on host system.)
+rev_lib_symlinks() {
+    [[ ! $1 ]] && return 0
+
+    local fn="$1" orig="$(readlink -f "$1")" links=''
+
+    [[ ${fn} =~ .*\.so\..* ]] || return 1
+
+    until [[ ${fn##*.} == so ]]; do
+        fn="${fn%.*}"
+        [[ -L ${fn} && $(readlink -f "${fn}") == ${orig} ]] && links+=" ${fn}"
+    done
+
+    echo "${links}"
+}
+
+# Same as above, but specialized to handle dynamic libraries.
+# It handles making symlinks according to how the original library
+# is referenced.
+inst_library() {
+    local _src="$1" _dest=${2:-$1} _lib _reallib _symlink
+    strstr "$1" "/" || return 1
+    [[ -e $initdir/$_dest ]] && return 0
+    if [[ -L $_src ]]; then
+        # install checksum files also
+        if [[ -e "${_src%/*}/.${_src##*/}.hmac" ]]; then
+            inst "${_src%/*}/.${_src##*/}.hmac" "${_dest%/*}/.${_dest##*/}.hmac"
+        fi
+        _reallib=$(readlink -f "$_src")
+        inst_simple "$_reallib" "$_reallib"
+        inst_dir "${_dest%/*}"
+        [[ -d "${_dest%/*}" ]] && _dest=$(readlink -f "${_dest%/*}")/${_dest##*/}
+        ln -sfn $(convert_abs_rel "${_dest}" "${_reallib}") "${initdir}/${_dest}"
+    else
+        inst_simple "$_src" "$_dest"
+    fi
+
+    # Create additional symlinks.  See rev_symlinks description.
+    for _symlink in $(rev_lib_symlinks $_src) $(rev_lib_symlinks $_reallib); do
+        [[ ! -e $initdir/$_symlink ]] && {
+            ddebug "Creating extra symlink: $_symlink"
+            inst_symlink $_symlink
+        }
+    done
+}
+
+# find a binary.  If we were not passed the full path directly,
+# search in the usual places to find the binary.
+find_binary() {
+    if [[ -z ${1##/*} ]]; then
+        if [[ -x $1 ]] || { strstr "$1" ".so" && ldd $1 &>/dev/null; };  then
+            echo $1
+            return 0
+        fi
+    fi
+
+    type -P $1
+}
+
+# Same as above, but specialized to install binary executables.
+# Install binary executable, and all shared library dependencies, if any.
+inst_binary() {
+    local _bin _target
+    _bin=$(find_binary "$1") || return 1
+    _target=${2:-$_bin}
+    [[ -e $initdir/$_target ]] && return 0
+    [[ -L $_bin ]] && inst_symlink $_bin $_target && return 0
+    local _file _line
+    local _so_regex='([^ ]*/lib[^/]*/[^ ]*\.so[^ ]*)'
+    # I love bash!
+    LC_ALL=C ldd "$_bin" 2>/dev/null | while read _line; do
+        [[ $_line = 'not a dynamic executable' ]] && break
+
+        if [[ $_line =~ $_so_regex ]]; then
+            _file=${BASH_REMATCH[1]}
+            [[ -e ${initdir}/$_file ]] && continue
+            inst_library "$_file"
+            continue
+        fi
+
+        if [[ $_line =~ not\ found ]]; then
+            dfatal "Missing a shared library required by $_bin."
+            dfatal "Run \"ldd $_bin\" to find out what it is."
+            dfatal "$_line"
+            dfatal "dracut cannot create an initrd."
+            exit 1
+        fi
+    done
+    inst_simple "$_bin" "$_target"
+}
+
+# same as above, except for shell scripts.
+# If your shell script does not start with shebang, it is not a shell script.
+inst_script() {
+    local _bin
+    _bin=$(find_binary "$1") || return 1
+    shift
+    local _line _shebang_regex
+    read -r -n 80 _line <"$_bin"
+    # If debug is set, clean unprintable chars to prevent messing up the term
+    [[ $debug ]] && _line=$(echo -n "$_line" | tr -c -d '[:print:][:space:]')
+    _shebang_regex='(#! *)(/[^ ]+).*'
+    [[ $_line =~ $_shebang_regex ]] || return 1
+    inst "${BASH_REMATCH[2]}" && inst_simple "$_bin" "$@"
+}
+
+# same as above, but specialized for symlinks
+inst_symlink() {
+    local _src=$1 _target=${2:-$1} _realsrc
+    strstr "$1" "/" || return 1
+    [[ -L $1 ]] || return 1
+    [[ -L $initdir/$_target ]] && return 0
+    _realsrc=$(readlink -f "$_src")
+    if ! [[ -e $initdir/$_realsrc ]]; then
+        if [[ -d $_realsrc ]]; then
+            inst_dir "$_realsrc"
+        else
+            inst "$_realsrc"
+        fi
+    fi
+    [[ ! -e $initdir/${_target%/*} ]] && inst_dir "${_target%/*}"
+    [[ -d ${_target%/*} ]] && _target=$(readlink -f ${_target%/*})/${_target##*/}
+    ln -sfn $(convert_abs_rel "${_target}" "${_realsrc}") "$initdir/$_target"
+}
+
+# attempt to install any programs specified in a udev rule
+inst_rule_programs() {
+    local _prog _bin
+
+    if grep -qE 'PROGRAM==?"[^ "]+' "$1"; then
+        for _prog in $(grep -E 'PROGRAM==?"[^ "]+' "$1" | sed -r 's/.*PROGRAM==?"([^ "]+).*/\1/'); do
+            if [ -x /lib/udev/$_prog ]; then
+                _bin=/lib/udev/$_prog
+            else
+                _bin=$(find_binary "$_prog") || {
+                    dinfo "Skipping program $_prog using in udev rule $(basename $1) as it cannot be found"
+                    continue;
+                }
+            fi
+
+            #dinfo "Installing $_bin due to it's use in the udev rule $(basename $1)"
+            dracut_install "$_bin"
+        done
+    fi
+}
+
+# udev rules always get installed in the same place, so
+# create a function to install them to make life simpler.
+inst_rules() {
+    local _target=/etc/udev/rules.d _rule _found
+
+    inst_dir "/lib/udev/rules.d"
+    inst_dir "$_target"
+    for _rule in "$@"; do
+        if [ "${rule#/}" = "$rule" ]; then
+            for r in /lib/udev/rules.d /etc/udev/rules.d; do
+                if [[ -f $r/$_rule ]]; then
+                    _found="$r/$_rule"
+                    inst_simple "$_found"
+                    inst_rule_programs "$_found"
+                fi
+            done
+        fi
+        for r in '' ./ $dracutbasedir/rules.d/; do
+            if [[ -f ${r}$_rule ]]; then
+                _found="${r}$_rule"
+                inst_simple "$_found" "$_target/${_found##*/}"
+                inst_rule_programs "$_found"
+            fi
+        done
+        [[ $_found ]] || dinfo "Skipping udev rule: $_rule"
+    done
+}
+
+# general purpose installation function
+# Same args as above.
+inst() {
+    local _x
+
+    case $# in
+        1) ;;
+        2) [[ ! $initdir && -d $2 ]] && export initdir=$2
+            [[ $initdir = $2 ]] && set $1;;
+        3) [[ -z $initdir ]] && export initdir=$2
+            set $1 $3;;
+        *) dfatal "inst only takes 1 or 2 or 3 arguments"
+            exit 1;;
+    esac
+    for _x in inst_symlink inst_script inst_binary inst_simple; do
+        $_x "$@" && return 0
+    done
+    return 1
+}
+
+# install any of listed files
+#
+# If first argument is '-d' and second some destination path, first accessible
+# source is installed into this path, otherwise it will installed in the same
+# path as source.  If none of listed files was installed, function return 1.
+# On first successful installation it returns with 0 status.
+#
+# Example:
+#
+# inst_any -d /bin/foo /bin/bar /bin/baz
+#
+# Lets assume that /bin/baz exists, so it will be installed as /bin/foo in
+# initramfs.
+inst_any() {
+    local to f
+
+    [[ $1 = '-d' ]] && to="$2" && shift 2
+
+    for f in "$@"; do
+        if [[ -e $f ]]; then
+            [[ $to ]] && inst "$f" "$to" && return 0
+            inst "$f" && return 0
+        fi
+    done
+
+    return 1
+}
+
+# dracut_install [-o ] <file> [<file> ... ]
+# Install <file> to the initramfs image
+# -o optionally install the <file> and don't fail, if it is not there
+dracut_install() {
+    local _optional=no
+    if [[ $1 = '-o' ]]; then
+        _optional=yes
+        shift
+    fi
+    while (($# > 0)); do
+        if ! inst "$1" ; then
+            if [[ $_optional = yes ]]; then
+                dinfo "Skipping program $1 as it cannot be found and is" \
+                    "flagged to be optional"
+            else
+                dfatal "Failed to install $1"
+                exit 1
+            fi
+        fi
+        shift
+    done
+}
+
+
+# inst_libdir_file [-n <pattern>] <file> [<file>...]
+# Install a <file> located on a lib directory to the initramfs image
+# -n <pattern> install non-matching files
+inst_libdir_file() {
+    if [[ "$1" == "-n" ]]; then
+        local _pattern=$1
+        shift 2
+        for _dir in $libdirs; do
+            for _i in "$@"; do
+                for _f in "$_dir"/$_i; do
+                    [[ "$_i" =~ $_pattern ]] || continue
+                    [[ -e "$_i" ]] && dracut_install "$_i"
+                done
+            done
+        done
+    else
+        for _dir in $libdirs; do
+            for _i in "$@"; do
+                for _f in "$_dir"/$_i; do
+                    [[ -e "$_f" ]] && dracut_install "$_f"
+                done
+            done
+        done
+    fi
+}
+
+do_test() {
+    [[ $UID != "0" ]] && exit 0
+    command -v qemu-kvm &>/dev/null || exit 0
+# Detect lib paths
+    [[ $libdir ]] || for libdir in /lib64 /lib; do
+        [[ -d $libdir ]] && libdirs+=" $libdir" && break
+    done
+
+    [[ $usrlibdir ]] || for usrlibdir in /usr/lib64 /usr/lib; do
+        [[ -d $usrlibdir ]] && libdirs+=" $usrlibdir" && break
+    done
+
+    import_testdir
+
+    while (($# > 0)); do
+        case $1 in
+            --run)
+                echo "TEST RUN: $TEST_DESCRIPTION"
+                test_run
+                ret=$?
+                if [ $ret -eq 0 ]; then
+                    echo "TEST RUN: $TEST_DESCRIPTION [OK]"
+                else
+                    echo "TEST RUN: $TEST_DESCRIPTION [FAILED]"
+                fi
+                exit $ret;;
+            --setup)
+                echo "TEST SETUP: $TEST_DESCRIPTION"
+                test_setup
+                exit $?;;
+            --clean)
+                echo "TEST CLEANUP: $TEST_DESCRIPTION"
+                test_cleanup
+                rm -fr "$TESTDIR"
+                rm -f .testdir
+                exit $?;;
+            --all)
+                echo -n "TEST: $TEST_DESCRIPTION ";
+                (
+                    test_setup && test_run
+                    ret=$?
+                    test_cleanup
+                    rm -fr "$TESTDIR"
+                    rm -f .testdir
+                    exit $ret
+                ) </dev/null >test.log 2>&1
+                ret=$?
+                if [ $ret -eq 0 ]; then
+                    rm test.log
+                    echo "[OK]"
+                else
+                    echo "[FAILED]"
+                    echo "see $(pwd)/test.log"
+                fi
+                exit $ret;;
+            *) break ;;
+        esac
+        shift
+    done
+}
