@@ -23,6 +23,12 @@ Bugfixes:
 
 Features:
 
+* Document boot options such as forcefsck
+
+* beef up links between systemctl output and man pages. i.e. add a new unit
+  file setting that links to man and other sources of documentation, and hook
+  all systemd internal units accordingly.
+
 * (attempt to) make Debianites happy:
         - implement .d/ auto includes for unit files
         - add syntax to reset ExecStart= lists (and similar)
