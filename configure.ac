@@ -416,33 +416,28 @@ fi
 AM_CONDITIONAL(ENABLE_COREDUMP, [test "$have_coredump" = "yes"])
 
 # ------------------------------------------------------------------------------
-if test "x$cross_compiling" = "xno" ; then
-       AC_CHECK_FILES([/usr/share/pci.ids], [pciids=/usr/share/pci.ids])
-       AC_CHECK_FILES([/usr/share/hwdata/pci.ids], [pciids=/usr/share/hwdata/pci.ids])
-       AC_CHECK_FILES([/usr/share/misc/pci.ids], [pciids=/usr/share/misc/pci.ids])
-fi
-
 AC_ARG_WITH(usb-ids-path,
-       [AS_HELP_STRING([--with-usb-ids-path=DIR], [Path to usb.ids file])],
-       [USB_DATABASE=${withval}],
-       [if test -n "$usbids" ; then
-              USB_DATABASE="$usbids"
-       else
-              PKG_CHECK_MODULES(USBUTILS, usbutils >= 0.82)
-              AC_SUBST([USB_DATABASE], [$($PKG_CONFIG --variable=usbids usbutils)])
-       fi])
+        [AS_HELP_STRING([--with-usb-ids-path=DIR], [Path to usb.ids file])],
+        [USB_DATABASE=${withval}],
+        [if test -n "$usbids" ; then
+                USB_DATABASE="$usbids"
+        else
+                PKG_CHECK_MODULES(USBUTILS, usbutils >= 0.82)
+                AC_SUBST([USB_DATABASE], [$($PKG_CONFIG --variable=usbids usbutils)])
+        fi])
 AC_MSG_CHECKING([for USB database location])
 AC_MSG_RESULT([$USB_DATABASE])
 AC_SUBST(USB_DATABASE)
 
 AC_ARG_WITH(pci-ids-path,
-       [AS_HELP_STRING([--with-pci-ids-path=DIR], [Path to pci.ids file])],
-       [PCI_DATABASE=${withval}],
-       [if test -n "$pciids" ; then
-              PCI_DATABASE="$pciids"
-       else
-              AC_MSG_ERROR([pci.ids not found, try --with-pci-ids-path=])
-       fi])
+        [AS_HELP_STRING([--with-pci-ids-path=DIR], [Path to pci.ids file])],
+        [PCI_DATABASE=${withval}],
+        [if test -n "$pciids" ; then
+                PCI_DATABASE="$pciids"
+        else
+                PKG_CHECK_MODULES(LIBPCI, libpci >= 3)
+                AC_SUBST([PCI_DATABASE], [$($PKG_CONFIG --variable=idsdir libpci)/pci.ids])
+        fi])
 AC_MSG_CHECKING([for PCI database location])
 AC_MSG_RESULT([$PCI_DATABASE])
 AC_SUBST(PCI_DATABASE)
