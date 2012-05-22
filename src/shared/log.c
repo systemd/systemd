@@ -240,7 +240,7 @@ int log_open(void) {
                 return 0;
         }
 
-        if (log_target != LOG_TARGET_AUTO ||
+        if ((log_target != LOG_TARGET_AUTO && log_target != LOG_TARGET_SAFE) ||
             getpid() == 1 ||
             isatty(STDERR_FILENO) <= 0) {
 
@@ -266,6 +266,7 @@ int log_open(void) {
                 }
 
                 if (log_target == LOG_TARGET_AUTO ||
+                    log_target == LOG_TARGET_SAFE ||
                     log_target == LOG_TARGET_JOURNAL_OR_KMSG ||
                     log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
                     log_target == LOG_TARGET_KMSG) {
@@ -547,6 +548,7 @@ static int log_dispatch(
 
                 if (k <= 0 &&
                     (log_target == LOG_TARGET_AUTO ||
+                     log_target == LOG_TARGET_SAFE ||
                      log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
                      log_target == LOG_TARGET_JOURNAL_OR_KMSG ||
                      log_target == LOG_TARGET_KMSG)) {
@@ -744,6 +746,7 @@ static const char *const log_target_table[] = {
         [LOG_TARGET_SYSLOG] = "syslog",
         [LOG_TARGET_SYSLOG_OR_KMSG] = "syslog-or-kmsg",
         [LOG_TARGET_AUTO] = "auto",
+        [LOG_TARGET_SAFE] = "safe",
         [LOG_TARGET_NULL] = "null"
 };
 

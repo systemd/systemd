@@ -36,6 +36,7 @@ typedef enum LogTarget{
         LOG_TARGET_SYSLOG,
         LOG_TARGET_SYSLOG_OR_KMSG,
         LOG_TARGET_AUTO, /* console if stderr is tty, JOURNAL_OR_KMSG otherwise */
+        LOG_TARGET_SAFE, /* console if stderr is tty, KMSG otherwise */
         LOG_TARGET_NULL,
         _LOG_TARGET_MAX,
         _LOG_TARGET_INVALID = -1
