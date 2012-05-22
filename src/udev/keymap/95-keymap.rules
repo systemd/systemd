@@ -45,6 +45,7 @@ ENV{DMI_VENDOR}=="", GOTO="keyboard_end"
 
 ENV{DMI_VENDOR}=="LENOVO*", KERNELS=="input*", ATTRS{name}=="ThinkPad Extra Buttons", RUN+="keymap $name module-lenovo"
 ENV{DMI_VENDOR}=="LENOVO*", KERNELS=="input*", ATTRS{name}=="Lenovo ThinkPad SL Series extra buttons", RUN+="keymap $name 0x0E bluetooth"
+ENV{DMI_VENDOR}=="LENOVO*", KERNELS=="input*", ATTRS{name}=="Ideapad extra buttons", RUN+="keymap $name 0x42 f23 0x43 f22"
 
 ENV{DMI_VENDOR}=="ASUS*", KERNELS=="input*", ATTRS{name}=="Asus Extra Buttons", ATTR{[dmi/id]product_name}=="W3J", RUN+="keymap $name module-asus-w3j"
 ENV{DMI_VENDOR}=="ASUS*", KERNELS=="input*", ATTRS{name}=="Eee PC WMI hotkeys|Asus Laptop Support|Asus*WMI*", RUN+="keymap $name 0x6B f21"
