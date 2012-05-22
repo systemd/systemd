@@ -341,17 +341,22 @@ static int refresh(Hashmap *a, Hashmap *b, unsigned iteration) {
 
         r = refresh_one("name=systemd", "/", a, b, iteration, 0);
         if (r < 0)
-                return r;
-
+                if (r != -ENOENT)
+                    return r;
         r = refresh_one("cpuacct", "/", a, b, iteration, 0);
         if (r < 0)
-                return r;
-
+                if (r != -ENOENT)
+                    return r;
         r = refresh_one("memory", "/", a, b, iteration, 0);
         if (r < 0)
-                return r;
+                if (r != -ENOENT)
+                    return r;
 
-        return refresh_one("blkio", "/", a, b, iteration, 0);
+        r = refresh_one("blkio", "/", a, b, iteration, 0);
+        if (r < 0)
+                if (r != -ENOENT)
+                    return r;
+        return 0;
 }
 
 static int group_compare(const void*a, const void *b) {
