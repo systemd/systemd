@@ -23,8 +23,6 @@ Bugfixes:
 
 Features:
 
-* replace sysvpath by a new more generic property
-
 * make sure show-logs checks for utf8 validity, not ascii validity
 
 * add CapbilityBoundingSet to system.conf to set system-wide caps bounds, and same for TimerSlackNS
@@ -40,8 +38,6 @@ Features:
         - add syntax to reset ExecStart= lists (and similar)
 
 * properly detect mimo devices, the current VID/PID check is too broad
-
-* introduce upgrade.target for offline upgrades
 
 * manipulate CPU governor during boot, set it to performance
 
