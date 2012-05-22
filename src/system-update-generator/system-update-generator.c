@@ -27,6 +27,11 @@
 #include "unit-name.h"
 #include "path-util.h"
 
+/*
+ * Implements the logic described in
+ * http://freedesktop.org/wiki/Software/systemd/SystemUpdates
+ */
+
 static const char *arg_dest = "/tmp";
 
 static int generate_symlink(void) {

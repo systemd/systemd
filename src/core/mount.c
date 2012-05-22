@@ -1451,27 +1451,6 @@ fail:
         return r;
 }
 
-static int mount_find_pri(char *options) {
-        char *end, *pri;
-        unsigned long r;
-
-        if (!(pri = mount_test_option(options, "pri")))
-                return 0;
-
-        pri += 4;
-
-        errno = 0;
-        r = strtoul(pri, &end, 10);
-
-        if (errno != 0)
-                return -errno;
-
-        if (end == pri || (*end != ',' && *end != 0))
-                return -EINVAL;
-
-        return (int) r;
-}
-
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         int r = 0;
         unsigned i;
