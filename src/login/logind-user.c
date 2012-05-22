@@ -137,40 +137,59 @@ int user_save(User *u) {
 
         if (u->sessions) {
                 Session *i;
+                bool first;
 
                 fputs("SESSIONS=", f);
+                first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
-                        fprintf(f,
-                                "%s%c",
-                                i->id,
-                                i->sessions_by_user_next ? ' ' : '\n');
+                        if (first)
+                                first = false;
+                        else
+                                fputc(' ', f);
+
+                        fputs(i->id, f);
                 }
 
-                fputs("SEATS=", f);
+                fputs("\nSEATS=", f);
+                first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
-                        if (i->seat)
-                                fprintf(f,
-                                        "%s%c",
-                                        i->seat->id,
-                                        i->sessions_by_user_next ? ' ' : '\n');
+                        if (!i->seat)
+                                continue;
+
+                        if (first)
+                                first = false;
+                        else
+                                fputc(' ', f);
+
+                        fputs(i->seat->id, f);
                 }
 
-                fputs("ACTIVE_SESSIONS=", f);
-                LIST_FOREACH(sessions_by_user, i, u->sessions)
-                        if (session_is_active(i))
-                                fprintf(f,
-                                        "%lu%c",
-                                        (unsigned long) i->user->uid,
-                                        i->sessions_by_user_next ? ' ' : '\n');
-
-                fputs("ACTIVE_SEATS=", f);
+                fputs("\nACTIVE_SESSIONS=", f);
+                first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
-                        if (session_is_active(i) && i->seat)
-                                fprintf(f,
-                                        "%s%c",
-                                        i->seat->id,
-                                        i->sessions_by_user_next ? ' ' : '\n');
+                        if (!session_is_active(i))
+                                continue;
+
+                        if (first)
+                                first = false;
+                        else
+                                fputc(' ', f);
+
+                        fputs(i->id, f);
                 }
+
+                fputs("\nACTIVE_SEATS=", f);
+                first = true;
+                LIST_FOREACH(sessions_by_user, i, u->sessions) {
+                        if (!session_is_active(i) || !i->seat)
+                                continue;
+
+                        if (first)
+                                first = false;
+                        else
+                                fputs(i->seat->id, f);
+                }
+                fputc('\n', f);
         }
 
         fflush(f);
