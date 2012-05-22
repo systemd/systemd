@@ -3146,7 +3146,7 @@ int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root
         assert(fd >= 0);
 
         /* This returns the first error we run into, but nevertheless
-         * tries to go on */
+         * tries to go on. This closes the passed fd. */
 
         d = fdopendir(fd);
         if (!d) {
@@ -3157,7 +3157,8 @@ int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root
 
         for (;;) {
                 struct dirent buf, *de;
-                bool is_dir, keep_around = false;
+                bool is_dir, keep_around;
+                struct stat st;
                 int r;
 
                 r = readdir_r(d, &buf, &de);
@@ -3172,72 +3173,49 @@ int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root
                 if (streq(de->d_name, ".") || streq(de->d_name, ".."))
                         continue;
 
-                if (de->d_type == DT_UNKNOWN) {
-                        struct stat st;
-
+                if (de->d_type == DT_UNKNOWN ||
+                    honour_sticky ||
+                    (de->d_type == DT_DIR && root_dev)) {
                         if (fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
                                 if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
                                 continue;
                         }
 
-                        if (honour_sticky)
-                                keep_around =
-                                        (st.st_uid == 0 || st.st_uid == getuid()) &&
-                                        (st.st_mode & S_ISVTX);
-
                         is_dir = S_ISDIR(st.st_mode);
-
+                        keep_around =
+                                honour_sticky &&
+                                (st.st_uid == 0 || st.st_uid == getuid()) &&
+                                (st.st_mode & S_ISVTX);
                 } else {
-                        if (honour_sticky) {
-                                struct stat st;
-
-                                if (fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
-                                        if (ret == 0 && errno != ENOENT)
-                                                ret = -errno;
-                                        continue;
-                                }
-
-                                keep_around =
-                                        (st.st_uid == 0 || st.st_uid == getuid()) &&
-                                        (st.st_mode & S_ISVTX);
-                        }
-
                         is_dir = de->d_type == DT_DIR;
+                        keep_around = false;
                 }
 
                 if (is_dir) {
                         int subdir_fd;
-                        struct stat sb;
-                        if (root_dev) {
-                                if (fstatat(fd, de->d_name, &sb, AT_SYMLINK_NOFOLLOW)) {
-                                        if (ret == 0 && errno != ENOENT)
-                                                ret = -errno;
-                                        continue;
-                                }
-                        }
 
                         /* if root_dev is set, remove subdirectories only, if device is same as dir */
-                        if ((root_dev == NULL) || (sb.st_dev == root_dev->st_dev)) {
+                        if (root_dev && st.st_dev != root_dev->st_dev)
+                                continue;
 
-                                subdir_fd = openat(fd, de->d_name,
-                                                   O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
-                                if (subdir_fd < 0) {
+                        subdir_fd = openat(fd, de->d_name,
+                                           O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+                        if (subdir_fd < 0) {
+                                if (ret == 0 && errno != ENOENT)
+                                        ret = -errno;
+                                continue;
+                        }
+
+                        r = rm_rf_children(subdir_fd, only_dirs, honour_sticky, root_dev);
+                        if (r < 0 && ret == 0)
+                                ret = r;
+
+                        if (!keep_around)
+                                if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
                                         if (ret == 0 && errno != ENOENT)
                                                 ret = -errno;
-                                        continue;
                                 }
-
-                                r = rm_rf_children(subdir_fd, only_dirs, honour_sticky, root_dev);
-                                if (r < 0 && ret == 0)
-                                        ret = r;
-
-                                if (!keep_around)
-                                        if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
-                                                if (ret == 0 && errno != ENOENT)
-                                                        ret = -errno;
-                                        }
-                        }
 
                 } else if (!only_dirs && !keep_around) {
 
