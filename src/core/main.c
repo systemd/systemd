@@ -77,6 +77,7 @@ static bool arg_crash_shell = false;
 static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
 static bool arg_show_status = true;
+static bool arg_switched_root = false;
 #ifdef HAVE_SYSV_COMPAT
 static bool arg_sysv_console = true;
 #endif
@@ -229,11 +230,13 @@ static int set_default_unit(const char *u) {
 
         assert(u);
 
-        if (!(c = strdup(u)))
+        c = strdup(u);
+        if (!c)
                 return -ENOMEM;
 
         free(arg_default_unit);
         arg_default_unit = c;
+
         return 0;
 }
 
@@ -255,10 +258,17 @@ static int parse_proc_cmdline_word(const char *word) {
 
         assert(word);
 
-        if (startswith(word, "systemd.unit="))
-                return set_default_unit(word + 13);
+        if (startswith(word, "systemd.unit=")) {
 
-        else if (startswith(word, "systemd.log_target=")) {
+                if (!in_initrd())
+                        return set_default_unit(word + 13);
+
+        } else if (startswith(word, "rd.systemd.unit=")) {
+
+                if (in_initrd())
+                        return set_default_unit(word + 16);
+
+        } else if (startswith(word, "systemd.log_target=")) {
 
                 if (log_set_target_from_string(word + 19) < 0)
                         log_warning("Failed to parse log target %s. Ignoring.", word + 19);
@@ -367,6 +377,7 @@ static int parse_proc_cmdline_word(const char *word) {
 
                 log_info("Supported kernel switches:\n"
                          "systemd.unit=UNIT                        Default unit to start\n"
+                         "rd.systemd.unit=UNIT                     Default unit to start when run in initrd\n"
                          "systemd.dump_core=0|1                    Dump core on crash\n"
                          "systemd.crash_shell=0|1                  Run shell on crash\n"
                          "systemd.crash_chvt=N                     Change to VT #N on crash\n"
@@ -962,7 +973,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_SWITCHED_ROOT:
-                        /* Nothing special yet */
+                        arg_switched_root = true;
                         break;
 
                 case ARG_INTROSPECT: {
@@ -1205,6 +1216,7 @@ int main(int argc, char *argv[]) {
         int j;
         bool loaded_policy = false;
         bool arm_reboot_watchdog = false;
+        bool queue_default_job = false;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
 
 #ifdef HAVE_SYSV_COMPAT
@@ -1497,16 +1509,18 @@ int main(int argc, char *argv[]) {
 
         manager_set_show_status(m, arg_show_status);
 
+        /* Remember whether we should queue the default job */
+        queue_default_job = !serialization || arg_switched_root;
+
         before_startup = now(CLOCK_MONOTONIC);
 
         r = manager_startup(m, serialization, fds);
         if (r < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));
 
+        /* This will close all file descriptors that were opened, but
+         * not claimed by any unit. */
         if (fds) {
-                /* This will close all file descriptors that were opened, but
-                 * not claimed by any unit. */
-
                 fdset_free(fds);
                 fds = NULL;
         }
@@ -1514,7 +1528,9 @@ int main(int argc, char *argv[]) {
         if (serialization) {
                 fclose(serialization);
                 serialization = NULL;
-        } else {
+        }
+
+        if (queue_default_job) {
                 DBusError error;
                 Unit *target = NULL;
                 Job *default_unit_job;
