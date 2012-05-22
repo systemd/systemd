@@ -23,6 +23,8 @@ Bugfixes:
 
 Features:
 
+* replace sysvpath by a new more generic property
+
 * make sure show-logs checks for utf8 validity, not ascii validity
 
 * add CapbilityBoundingSet to system.conf to set system-wide caps bounds, and same for TimerSlackNS
@@ -30,8 +32,6 @@ Features:
 * when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
 
 * readahead: when bumping /sys readahead variable save mtime and compare later to detect changes
-
-* in rescue mode don't pull in sockets
 
 * Document boot options such as forcefsck
 
@@ -50,8 +50,6 @@ Features:
 * delay journal /var writeout to after boot if SBF is clean
 
 * move passno parsing to fstab generator
-
-* actually queue the new default unit after switch-root
 
 * improve !/proc/*/loginuid situation: make /proc/*/loginuid less dependent on CONFIG_AUDIT,
   or use the users cgroup information when /proc/*/loginuid is not available.

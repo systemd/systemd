@@ -75,11 +75,9 @@ struct Mount {
 
         char *where;
 
-        MountParameters parameters_etc_fstab;
         MountParameters parameters_proc_self_mountinfo;
         MountParameters parameters_fragment;
 
-        bool from_etc_fstab:1;
         bool from_proc_self_mountinfo:1;
         bool from_fragment:1;
 

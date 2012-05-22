@@ -71,11 +71,9 @@ struct Swap {
 
         char *what;
 
-        SwapParameters parameters_etc_fstab;
         SwapParameters parameters_proc_swaps;
         SwapParameters parameters_fragment;
 
-        bool from_etc_fstab:1;
         bool from_proc_swaps:1;
         bool from_fragment:1;
 
@@ -107,8 +105,6 @@ struct Swap {
 };
 
 extern const UnitVTable swap_vtable;
-
-int swap_add_one(Manager *m, const char *what, const char *what_proc_swaps, int prio, bool no_auto, bool no_fail, bool set_flags);
 
 int swap_add_one_mount_link(Swap *s, Mount *m);
 

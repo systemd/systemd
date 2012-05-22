@@ -80,8 +80,6 @@ static int bus_mount_append_what(DBusMessageIter *i, const char *property, void 
                 d = m->parameters_proc_self_mountinfo.what;
         else if (m->from_fragment && m->parameters_fragment.what)
                 d = m->parameters_fragment.what;
-        else if (m->from_etc_fstab && m->parameters_etc_fstab.what)
-                d = m->parameters_etc_fstab.what;
         else
                 d = "";
 
@@ -103,8 +101,6 @@ static int bus_mount_append_options(DBusMessageIter *i, const char *property, vo
                 d = m->parameters_proc_self_mountinfo.options;
         else if (m->from_fragment && m->parameters_fragment.options)
                 d = m->parameters_fragment.options;
-        else if (m->from_etc_fstab && m->parameters_etc_fstab.options)
-                d = m->parameters_etc_fstab.options;
         else
                 d = "";
 
@@ -126,8 +122,6 @@ static int bus_mount_append_type(DBusMessageIter *i, const char *property, void 
                 d = m->parameters_proc_self_mountinfo.fstype;
         else if (m->from_fragment && m->parameters_fragment.fstype)
                 d = m->parameters_fragment.fstype;
-        else if (m->from_etc_fstab && m->parameters_etc_fstab.fstype)
-                d = m->parameters_etc_fstab.fstype;
         else
                 d = "";
 

@@ -75,8 +75,6 @@ static int bus_swap_append_priority(DBusMessageIter *i, const char *property, vo
                 j = s->parameters_proc_swaps.priority;
         else if (s->from_fragment)
                 j = s->parameters_fragment.priority;
-        else if (s->from_etc_fstab)
-                j = s->parameters_etc_fstab.priority;
         else
                 j = -1;
 
