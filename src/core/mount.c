@@ -358,7 +358,7 @@ static int mount_add_fstab_links(Mount *m) {
         nofail = !!mount_test_option(p->options, "nofail");
         automount =
                 mount_test_option(p->options, "comment=systemd.automount") ||
-                mount_test_option(p->options, "x-systemd-automount");
+                mount_test_option(p->options, "x-systemd.automount");
 
         if (mount_is_network(p)) {
                 target = SPECIAL_REMOTE_FS_TARGET;
@@ -515,7 +515,7 @@ static int mount_fix_timeouts(Mount *m) {
 
         if ((timeout = mount_test_option(p->options, "comment=systemd.device-timeout")))
                 timeout += 31;
-        else if ((timeout = mount_test_option(p->options, "x-systemd-device-timeout")))
+        else if ((timeout = mount_test_option(p->options, "x-systemd.device-timeout")))
                 timeout += 25;
         else
                 return 0;

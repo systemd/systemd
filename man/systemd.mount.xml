@@ -109,12 +109,9 @@
                 <para>When reading <filename>/etc/fstab</filename> a
                 few special mount options are understood by systemd
                 which influence how dependencies are created for mount
-                points from <filename>/etc/fstab</filename>. If
-                <option>MountAuto=yes</option> is set in
-                <filename>system.conf</filename> (which is the
-                default), or if <option>x-systemd.mount</option> is
-                specified as mount option, then systemd will create a
-                dependency of type <option>Wants</option> from either
+                points from <filename>/etc/fstab</filename>. systemd
+                will create a dependency of type
+                <option>Wants</option> from either
                 <filename>local-fs.target</filename> or
                 <filename>remote-fs.target</filename>, depending
                 whether the file system is local or remote. If
@@ -123,7 +120,7 @@
                 system. See
                 <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for details. If
-                <option>x-systemd-device-timeout=</option> is
+                <option>x-systemd.device-timeout=</option> is
                 specified it may be used to configure how long systemd
                 should wait for a device to show up before giving up
                 on an entry from
