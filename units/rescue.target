@@ -8,8 +8,8 @@
 [Unit]
 Description=Rescue Mode
 Documentation=man:systemd.special(7)
-Requires=basic.target rescue.service
-After=basic.target rescue.service
+Requires=sysinit.target rescue.service
+After=sysinit.target rescue.service
 AllowIsolate=yes
 
 [Install]

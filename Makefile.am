@@ -1446,9 +1446,9 @@ systemd-install-hook:
 	mkdir -p $(DESTDIR)$(systemunitdir)/sockets.target.wants
 	ln -sf ../systemd-udev-control.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/systemd-udev-control.socket
 	ln -sf ../systemd-udev-kernel.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/systemd-udev-kernel.socket
-	mkdir -p $(DESTDIR)$(systemunitdir)/basic.target.wants
-	ln -sf ../systemd-udev.service $(DESTDIR)$(systemunitdir)/basic.target.wants/systemd-udev.service
-	ln -sf ../systemd-udev-trigger.service $(DESTDIR)$(systemunitdir)/basic.target.wants/systemd-udev-trigger.service
+	mkdir -p $(DESTDIR)$(systemunitdir)/sysinit.target.wants
+	ln -sf ../systemd-udev.service $(DESTDIR)$(systemunitdir)/sysinit.target.wants/systemd-udev.service
+	ln -sf ../systemd-udev-trigger.service $(DESTDIR)$(systemunitdir)/sysinit.target.wants/systemd-udev-trigger.service
 
 INSTALL_DATA_HOOKS += systemd-install-hook
 
