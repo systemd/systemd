@@ -160,7 +160,9 @@ struct Unit {
         char **documentation;
 
         char *fragment_path; /* if loaded from a config file this is the primary path to it */
+        char *source_path; /* if converted, the source file */
         usec_t fragment_mtime;
+        usec_t source_mtime;
 
         /* If there is something to do with this unit, then this is the installed job for it */
         Job *job;
@@ -352,9 +354,6 @@ struct UnitVTable {
         void (*fd_event)(Unit *u, int fd, uint32_t events, Watch *w);
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
         void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
-
-        /* Check whether unit needs a daemon reload */
-        bool (*need_daemon_reload)(Unit *u);
 
         /* Reset failed state if we are in failed state */
         void (*reset_failed)(Unit *u);

@@ -2320,6 +2320,13 @@ static int load_from_path(Unit *u, const char *path) {
 
         u->fragment_mtime = timespec_load(&st.st_mtim);
 
+        if (u->source_path) {
+                if (stat(u->source_path, &st) >= 0)
+                        u->source_mtime = timespec_load(&st.st_mtim);
+                else
+                        u->source_mtime = 0;
+        }
+
         r = 0;
 
 finish:

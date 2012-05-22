@@ -2160,7 +2160,8 @@ typedef struct UnitStatusInfo {
 
         char **documentation;
 
-        const char *path;
+        const char *fragment_path;
+        const char *source_path;
         const char *default_control_group;
 
         const char *load_error;
@@ -2179,9 +2180,6 @@ typedef struct UnitStatusInfo {
         pid_t control_pid;
         const char *status_text;
         bool running:1;
-#ifdef HAVE_SYSV_COMPAT
-        bool is_sysv:1;
-#endif
 
         usec_t start_timestamp;
         usec_t exit_timestamp;
@@ -2214,6 +2212,7 @@ static void print_status_info(UnitStatusInfo *i) {
         usec_t timestamp;
         char since1[FORMAT_TIMESTAMP_PRETTY_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
+        const char *path;
 
         assert(i);
 
@@ -2236,12 +2235,14 @@ static void print_status_info(UnitStatusInfo *i) {
         } else
                 on = off = "";
 
+        path = i->source_path ? i->source_path : i->fragment_path;
+
         if (i->load_error)
                 printf("\t  Loaded: %s%s%s (Reason: %s)\n", on, strna(i->load_state), off, i->load_error);
-        else if (i->path && i->unit_file_state)
-                printf("\t  Loaded: %s%s%s (%s; %s)\n", on, strna(i->load_state), off, i->path, i->unit_file_state);
-        else if (i->path)
-                printf("\t  Loaded: %s%s%s (%s)\n", on, strna(i->load_state), off, i->path);
+        else if (path && i->unit_file_state)
+                printf("\t  Loaded: %s%s%s (%s; %s)\n", on, strna(i->load_state), off, path, i->unit_file_state);
+        else if (path)
+                printf("\t  Loaded: %s%s%s (%s)\n", on, strna(i->load_state), off, path);
         else
                 printf("\t  Loaded: %s%s%s\n", on, strna(i->load_state), off);
 
@@ -2333,13 +2334,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("\t Process: %u %s=%s ", p->pid, p->name, strna(t));
                 free(t);
 
-#ifdef HAVE_SYSV_COMPAT
-                if (i->is_sysv)
-                        good = is_clean_exit_lsb(p->code, p->status);
-                else
-#endif
-                        good = is_clean_exit(p->code, p->status);
-
+                good = is_clean_exit_lsb(p->code, p->status);
                 if (!good) {
                         on = ansi_highlight_red(true);
                         off = ansi_highlight_red(false);
@@ -2353,11 +2348,8 @@ static void print_status_info(UnitStatusInfo *i) {
 
                         printf("status=%i", p->status);
 
-#ifdef HAVE_SYSV_COMPAT
-                        if ((c = exit_status_to_string(p->status, i->is_sysv ? EXIT_STATUS_LSB : EXIT_STATUS_SYSTEMD)))
-#else
-                        if ((c = exit_status_to_string(p->status, EXIT_STATUS_SYSTEMD)))
-#endif
+                        c = exit_status_to_string(p->status, EXIT_STATUS_SYSTEMD);
+                        if (c)
                                 printf("/%s", c);
 
                 } else
@@ -2396,11 +2388,8 @@ static void print_status_info(UnitStatusInfo *i) {
 
                                         printf("status=%i", i->exit_status);
 
-#ifdef HAVE_SYSV_COMPAT
-                                        if ((c = exit_status_to_string(i->exit_status, i->is_sysv ? EXIT_STATUS_LSB : EXIT_STATUS_SYSTEMD)))
-#else
-                                        if ((c = exit_status_to_string(i->exit_status, EXIT_STATUS_SYSTEMD)))
-#endif
+                                        c = exit_status_to_string(i->exit_status, EXIT_STATUS_SYSTEMD);
+                                        if (c)
                                                 printf("/%s", c);
 
                                 } else
@@ -2492,13 +2481,9 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         else if (streq(name, "Description"))
                                 i->description = s;
                         else if (streq(name, "FragmentPath"))
-                                i->path = s;
-#ifdef HAVE_SYSV_COMPAT
-                        else if (streq(name, "SysVPath")) {
-                                i->is_sysv = true;
-                                i->path = s;
-                        }
-#endif
+                                i->fragment_path = s;
+                        else if (streq(name, "SourcePath"))
+                                i->source_path = s;
                         else if (streq(name, "DefaultControlGroup"))
                                 i->default_control_group = s;
                         else if (streq(name, "StatusText"))

@@ -814,6 +814,7 @@ const BusProperty bus_unit_properties[] = {
         { "ActiveState",          bus_unit_append_active_state,       "s", 0 },
         { "SubState",             bus_unit_append_sub_state,          "s", 0 },
         { "FragmentPath",         bus_property_append_string,         "s", offsetof(Unit, fragment_path),                              true },
+        { "SourcePath",           bus_property_append_string,         "s", offsetof(Unit, source_path),                                true },
         { "UnitFileState",        bus_unit_append_file_state,         "s", 0 },
         { "InactiveExitTimestamp",bus_property_append_usec,           "t", offsetof(Unit, inactive_exit_timestamp.realtime)   },
         { "InactiveExitTimestampMonotonic", bus_property_append_usec, "t", offsetof(Unit, inactive_exit_timestamp.monotonic)  },

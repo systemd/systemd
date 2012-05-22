@@ -399,6 +399,7 @@ void unit_free(Unit *u) {
         free(u->description);
         strv_free(u->documentation);
         free(u->fragment_path);
+        free(u->source_path);
         free(u->instance);
 
         set_free_free(u->names);
@@ -681,6 +682,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (u->fragment_path)
                 fprintf(f, "%s\tFragment Path: %s\n", prefix, u->fragment_path);
+
+        if (u->source_path)
+                fprintf(f, "%s\tSource Path: %s\n", prefix, u->source_path);
 
         if (u->job_timeout > 0)
                 fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->job_timeout));
@@ -2575,11 +2579,11 @@ void unit_status_printf(Unit *u, const char *status, const char *format, ...) {
 }
 
 bool unit_need_daemon_reload(Unit *u) {
+        struct stat st;
+
         assert(u);
 
         if (u->fragment_path) {
-                struct stat st;
-
                 zero(st);
                 if (stat(u->fragment_path, &st) < 0)
                         /* What, cannot access this anymore? */
@@ -2590,8 +2594,15 @@ bool unit_need_daemon_reload(Unit *u) {
                         return true;
         }
 
-        if (UNIT_VTABLE(u)->need_daemon_reload)
-                return UNIT_VTABLE(u)->need_daemon_reload(u);
+        if (u->source_path) {
+                zero(st);
+                if (stat(u->source_path, &st) < 0)
+                        return true;
+
+                if (u->source_mtime > 0 &&
+                    timespec_load(&st.st_mtim) != u->source_mtime)
+                        return true;
+        }
 
         return false;
 }

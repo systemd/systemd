@@ -897,6 +897,19 @@
                                 instances.</para>
                                 </listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>SourcePath=</varname></term>
+                                <listitem><para>A path to a
+                                configuration file this unit has been
+                                generated from. This is primarily
+                                useful for implementation of generator
+                                tools that convert configuration from
+                                an external configuration file format
+                                into native unit files. Thus
+                                functionality should not be used in
+                                normal units.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
                 <para>Unit file may include a [Install] section, which

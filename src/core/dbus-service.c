@@ -29,8 +29,7 @@
 #ifdef HAVE_SYSV_COMPAT
 #define BUS_SERVICE_SYSV_INTERFACE_FRAGMENT                            \
         "  <property name=\"SysVStartPriority\" type=\"i\" access=\"read\"/>\n" \
-        "  <property name=\"SysVRunLevels\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"SysVPath\" type=\"s\" access=\"read\"/>\n"
+        "  <property name=\"SysVRunLevels\" type=\"s\" access=\"read\"/>\n"
 #else
 #define BUS_SERVICE_SYSV_INTERFACE_FRAGMENT ""
 #endif
@@ -148,7 +147,6 @@ static const BusProperty bus_service_properties[] = {
 #ifdef HAVE_SYSV_COMPAT
         { "SysVRunLevels",          bus_property_append_string,       "s", offsetof(Service, sysv_runlevels),         true },
         { "SysVStartPriority",      bus_property_append_int,          "i", offsetof(Service, sysv_start_priority)          },
-        { "SysVPath",               bus_property_append_string,       "s", offsetof(Service, sysv_path),              true },
 #endif
         { "FsckPassNo",             bus_property_append_int,          "i", offsetof(Service, fsck_passno)                  },
         { "Result",                 bus_service_append_service_result,"s", offsetof(Service, result)                       },

@@ -264,9 +264,6 @@ static void service_done(Unit *u) {
         s->pid_file = NULL;
 
 #ifdef HAVE_SYSV_COMPAT
-        free(s->sysv_path);
-        s->sysv_path = NULL;
-
         free(s->sysv_runlevels);
         s->sysv_runlevels = NULL;
 #endif
@@ -504,17 +501,21 @@ static int sysv_exec_commands(Service *s) {
         ExecCommand *c;
 
         assert(s);
-        assert(s->sysv_path);
+        assert(s->is_sysv);
+        assert(UNIT(s)->source_path);
 
-        if (!(c = exec_command_new(s->sysv_path, "start")))
+        c = exec_command_new(UNIT(s)->source_path, "start");
+        if (!c)
                 return -ENOMEM;
         exec_command_append_list(s->exec_command+SERVICE_EXEC_START, c);
 
-        if (!(c = exec_command_new(s->sysv_path, "stop")))
+        c = exec_command_new(UNIT(s)->source_path, "stop");
+        if (!c)
                 return -ENOMEM;
         exec_command_append_list(s->exec_command+SERVICE_EXEC_STOP, c);
 
-        if (!(c = exec_command_new(s->sysv_path, "reload")))
+        c = exec_command_new(UNIT(s)->source_path, "reload");
+        if (!c)
                 return -ENOMEM;
         exec_command_append_list(s->exec_command+SERVICE_EXEC_RELOAD, c);
 
@@ -540,7 +541,8 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
         u = UNIT(s);
 
-        if (!(f = fopen(path, "re"))) {
+        f = fopen(path, "re");
+        if (!f) {
                 r = errno == ENOENT ? 0 : -errno;
                 goto finish;
         }
@@ -551,19 +553,21 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 goto finish;
         }
 
-        free(s->sysv_path);
-        if (!(s->sysv_path = strdup(path))) {
+        free(u->source_path);
+        u->source_path = strdup(path);
+        if (!u->source_path) {
                 r = -ENOMEM;
                 goto finish;
         }
-
-        s->sysv_mtime = timespec_load(&st.st_mtim);
+        u->source_mtime = timespec_load(&st.st_mtim);
 
         if (null_or_empty(&st)) {
                 u->load_state = UNIT_MASKED;
                 r = 0;
                 goto finish;
         }
+
+        s->is_sysv = true;
 
         while (!feof(f)) {
                 char l[LINE_MAX], *t;
@@ -1337,12 +1341,10 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         }
 
 #ifdef HAVE_SYSV_COMPAT
-        if (s->sysv_path)
+        if (s->is_sysv)
                 fprintf(f,
-                        "%sSysV Init Script Path: %s\n"
                         "%sSysV Init Script has LSB Header: %s\n"
                         "%sSysVEnabled: %s\n",
-                        prefix, s->sysv_path,
                         prefix, yes_no(s->sysv_has_lsb),
                         prefix, yes_no(s->sysv_enabled));
 
@@ -2716,7 +2718,7 @@ static bool service_check_gc(Unit *u) {
                 return true;
 
 #ifdef HAVE_SYSV_COMPAT
-        if (s->sysv_path)
+        if (s->is_sysv)
                 return true;
 #endif
 
@@ -3626,29 +3628,6 @@ static void service_reset_failed(Unit *u) {
         s->reload_result = SERVICE_SUCCESS;
 }
 
-static bool service_need_daemon_reload(Unit *u) {
-        Service *s = SERVICE(u);
-
-        assert(s);
-
-#ifdef HAVE_SYSV_COMPAT
-        if (s->sysv_path) {
-                struct stat st;
-
-                zero(st);
-                if (stat(s->sysv_path, &st) < 0)
-                        /* What, cannot access this anymore? */
-                        return true;
-
-                if (s->sysv_mtime > 0 &&
-                    timespec_load(&st.st_mtim) != s->sysv_mtime)
-                        return true;
-        }
-#endif
-
-        return false;
-}
-
 static int service_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *error) {
         Service *s = SERVICE(u);
         int r = 0;
@@ -3825,8 +3804,6 @@ const UnitVTable service_vtable = {
         .fd_event = service_fd_event,
 
         .reset_failed = service_reset_failed,
-
-        .need_daemon_reload = service_need_daemon_reload,
 
         .cgroup_notify_empty = service_cgroup_notify_event,
         .notify_message = service_notify_message,

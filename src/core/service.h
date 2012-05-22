@@ -165,14 +165,13 @@ struct Service {
         bool forbid_restart:1;
         bool got_socket_fd:1;
 #ifdef HAVE_SYSV_COMPAT
+        bool is_sysv:1;
         bool sysv_has_lsb:1;
         bool sysv_enabled:1;
         int sysv_start_priority_from_rcnd;
         int sysv_start_priority;
 
-        char *sysv_path;
         char *sysv_runlevels;
-        usec_t sysv_mtime;
 #endif
 
         char *bus_name;
@@ -181,7 +180,6 @@ struct Service {
 
         RateLimit start_limit;
         StartLimitAction start_limit_action;
-
 
         UnitRef accept_socket;
 

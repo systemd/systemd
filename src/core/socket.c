@@ -165,7 +165,7 @@ static int socket_instantiate_service(Socket *s) {
                 return r;
 
 #ifdef HAVE_SYSV_COMPAT
-        if (SERVICE(u)->sysv_path) {
+        if (SERVICE(u)->is_sysv) {
                 log_error("Using SysV services for socket activation is not supported. Refusing.");
                 return -ENOENT;
         }
@@ -1575,7 +1575,7 @@ static int socket_start(Unit *u) {
                 }
 
 #ifdef HAVE_SYSV_COMPAT
-                if (service->sysv_path) {
+                if (service->is_sysv) {
                         log_error("Using SysV services for socket activation is not supported. Refusing.");
                         return -ENOENT;
                 }
