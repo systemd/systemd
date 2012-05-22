@@ -1749,12 +1749,15 @@ finish:
                 args[0] = "/sbin/init";
                 execv(args[0], (char* const*) args);
 
-                log_warning("Failed to execute /sbin/init, trying fallback: %m");
+                if (errno == ENOENT) {
+                        log_warning("No /sbin/init, trying fallback");
 
-                args[0] = "/bin/sh";
-                args[1] = NULL;
-                execv(args[0], (char* const*) args);
-                log_error("Failed to execute /bin/sh, giving up: %m");
+                        args[0] = "/bin/sh";
+                        args[1] = NULL;
+                        execv(args[0], (char* const*) args);
+                        log_error("Failed to execute /bin/sh, giving up: %m");
+                } else
+                        log_warning("Failed to execute /sbin/init, giving up: %m");
         }
 
         if (serialization)
