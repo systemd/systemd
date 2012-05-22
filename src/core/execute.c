@@ -61,6 +61,8 @@
 #include "loopback-setup.h"
 #include "path-util.h"
 
+#define IDLE_TIMEOUT_USEC (1*USEC_PER_SEC)
+
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
 
@@ -1065,7 +1067,7 @@ int exec_spawn(ExecCommand *command,
                         if (idle_pipe[1] >= 0)
                                 close_nointr_nofail(idle_pipe[1]);
                         if (idle_pipe[0] >= 0) {
-                                fd_wait_for_event(idle_pipe[0], POLLHUP, DEFAULT_TIMEOUT_USEC);
+                                fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT_USEC);
                                 close_nointr_nofail(idle_pipe[0]);
                         }
                 }
