@@ -238,7 +238,8 @@ rootlibexec_PROGRAMS = \
 
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator \
-	systemd-fstab-generator
+	systemd-fstab-generator \
+	systemd-system-update-generator
 
 dist_bashcompletion_DATA = \
 	bash-completion/systemd-bash-completion.sh
@@ -306,7 +307,8 @@ dist_systemunit_DATA = \
 	units/syslog.target \
 	units/systemd-udev-control.socket \
 	units/systemd-udev-kernel.socket \
-	units/systemd-timedated-ntp.target
+	units/systemd-timedated-ntp.target  \
+	units/system-update.target
 
 nodist_systemunit_DATA = \
 	units/getty@.service \
@@ -1140,6 +1142,14 @@ systemd_fstab_generator_SOURCES = \
 	src/core/mount-setup.c
 
 systemd_fstab_generator_LDADD = \
+	libsystemd-label.la \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+systemd_system_update_generator_SOURCES = \
+	src/system-update-generator/system-update-generator.c
+
+systemd_system_update_generator_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
