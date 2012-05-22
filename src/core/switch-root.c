@@ -111,8 +111,10 @@ int switch_root(const char *new_root) {
 
                 if (fstat(old_root_fd, &rb) < 0)
                         log_warning("Failed to stat old root directory, leaving: %m");
-                else
+                else {
                         rm_rf_children(old_root_fd, false, false, &rb);
+                        old_root_fd = -1;
+                }
         }
 
         r = 0;
