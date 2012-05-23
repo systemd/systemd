@@ -23,6 +23,8 @@ Bugfixes:
 
 Features:
 
+* For Type=idle don't get confused by ExecStartPre= getting the effect of the idle hup but delaying jobs going away
+
 * drop accountsservice's StandardOutput=syslog and Type=dbus fields
 
 * systemctl status for a unloaded unit is broken (Michal?)
@@ -110,8 +112,6 @@ Features:
 * udev: add trigger --subsystem-match=usb/usb_device device
 
 * allow configuration of console width/height in vconsole.conf
-
-* fstab should take priority over units in /usr
 
 * cleanup syslog 'priority' vs. 'level' wording
 

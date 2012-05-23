@@ -1692,8 +1692,8 @@ static int stdout_stream_new(Server *s) {
         }
 
 #ifdef HAVE_SELINUX
-        if (getpeercon(fd, &stream->security_context) < 0)
-                log_error("Failed to determine peer security context.");
+        if (getpeercon(fd, &stream->security_context) < 0 && errno != ENOPROTOOPT)
+                log_error("Failed to determine peer security context: %m");
 #endif
 
         if (shutdown(fd, SHUT_WR) < 0) {
