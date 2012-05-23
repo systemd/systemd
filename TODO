@@ -23,6 +23,10 @@ Bugfixes:
 
 Features:
 
+* drop accountsservice's StandardOutput=syslog and Type=dbus fields
+
+* systemctl status for a unloaded unit is broken (Michal?)
+
 * make sure show-logs checks for utf8 validity, not ascii validity
 
 * add CapbilityBoundingSet to system.conf to set system-wide caps bounds, and same for TimerSlackNS
