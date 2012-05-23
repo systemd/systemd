@@ -57,7 +57,8 @@ static int touch(const char *path) {
         mkdir("/run/systemd", 0755);
         mkdir("/run/systemd/readahead", 0755);
 
-        if ((fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0666)) < 0)
+        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0666);
+        if (fd < 0)
                 return -errno;
 
         for (;;) {

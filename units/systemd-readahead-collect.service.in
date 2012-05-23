@@ -11,6 +11,8 @@ DefaultDependencies=no
 Wants=systemd-readahead-done.timer
 Conflicts=shutdown.target
 Before=sysinit.target shutdown.target
+ConditionFileExists=!/run/systemd/readahead/cancel
+ConditionFileExists=!/run/systemd/readahead/done
 ConditionVirtualization=no
 
 [Service]

@@ -10,6 +10,7 @@ Description=Replay Read-Ahead Data
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=sysinit.target shutdown.target
+ConditionPathExists=!/run/systemd/readahead/noreplay
 ConditionPathExists=/.readahead
 ConditionVirtualization=no
 
