@@ -257,6 +257,18 @@
                                 value. Defaults to "yes".
                                 </para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>FsckPassNo=</varname></term>
+
+                                <listitem><para>The pass number for
+                                the file system checking service for
+                                this mount. See
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for more information on this setting.
+                                </para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 
@@ -267,6 +279,7 @@
                           <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>

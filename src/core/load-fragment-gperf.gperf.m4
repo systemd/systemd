@@ -201,7 +201,7 @@ Mount.What,                      config_parse_string,                0,         
 Mount.Where,                     config_parse_path,                  0,                             offsetof(Mount, where)
 Mount.Options,                   config_parse_string,                0,                             offsetof(Mount, parameters_fragment.options)
 Mount.Type,                      config_parse_string,                0,                             offsetof(Mount, parameters_fragment.fstype)
-Mount.FsckPassNo,                config_parse_int,                   0,                             offsetof(Mount, parameters_fragment.passno)
+Mount.FsckPassNo,                config_parse_fsck_passno,           0,                             offsetof(Mount, parameters_fragment.passno)
 Mount.TimeoutSec,                config_parse_usec,                  0,                             offsetof(Mount, timeout_usec)
 Mount.DirectoryMode,             config_parse_mode,                  0,                             offsetof(Mount, directory_mode)
 EXEC_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
