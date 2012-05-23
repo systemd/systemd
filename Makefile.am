@@ -2379,6 +2379,7 @@ rootlibexec_PROGRAMS += \
 	systemd-readahead-replay
 
 dist_systemunit_DATA += \
+	units/systemd-readahead-drop.service \
 	units/systemd-readahead-done.timer
 
 nodist_systemunit_DATA += \
