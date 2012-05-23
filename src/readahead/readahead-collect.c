@@ -683,7 +683,7 @@ int main(int argc, char *argv[]) {
         int r;
         const char *root;
 
-        log_set_target(LOG_TARGET_AUTO);
+        log_set_target(LOG_TARGET_SAFE);
         log_parse_environment();
         log_open();
 
