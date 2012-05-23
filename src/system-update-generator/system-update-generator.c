@@ -60,19 +60,6 @@ static int generate_symlink(void) {
 
         free(p);
 
-        /* Also try to disable readahead, but don't try too hard */
-        p = strappend(arg_dest, "/systemd-readahead-collect.service");
-        if (p) {
-                symlink("/dev/null", p);
-                free(p);
-        }
-
-        p = strappend(arg_dest, "/systemd-readahead-replay.service");
-        if (p) {
-                symlink("/dev/null", p);
-                free(p);
-        }
-
         return 0;
 }
 
