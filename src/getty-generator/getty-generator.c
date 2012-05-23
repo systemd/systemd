@@ -38,8 +38,8 @@ static int add_symlink(const char *fservice, const char *tservice) {
         assert(fservice);
         assert(tservice);
 
-        asprintf(&from, SYSTEM_DATA_UNIT_PATH "/%s", fservice);
-        asprintf(&to, "%s/getty.target.wants/%s", arg_dest, tservice);
+        from = strappend(SYSTEM_DATA_UNIT_PATH "/", fservice);
+        to = join(arg_dest,"/getty.target.wants/", tservice, NULL);
 
         if (!from || !to) {
                 log_error("Out of memory");
@@ -99,19 +99,19 @@ int main(int argc, char *argv[]) {
         char *active;
         const char *j;
 
-        if (argc > 2) {
-                log_error("This program takes one or no arguments.");
+        if (argc > 1 && argc != 4) {
+                log_error("This program takes three or no arguments.");
                 return EXIT_FAILURE;
         }
+
+        if (argc > 1)
+                arg_dest = argv[1];
 
         log_set_target(LOG_TARGET_SAFE);
         log_parse_environment();
         log_open();
 
         umask(0022);
-
-        if (argc > 1)
-            arg_dest = argv[1];
 
         if (detect_container(NULL) > 0) {
                 log_debug("Automatically adding console shell.");

@@ -299,9 +299,6 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         if ((m->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
                 goto fail;
 
-        if ((r = lookup_paths_init(&m->lookup_paths, m->running_as, true)) < 0)
-                goto fail;
-
         if ((r = manager_setup_signals(m)) < 0)
                 goto fail;
 
@@ -637,6 +634,14 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         manager_run_generators(m);
 
+        r = lookup_paths_init(
+                        &m->lookup_paths, m->running_as, true,
+                        m->generator_unit_path,
+                        m->generator_unit_path_early,
+                        m->generator_unit_path_late);
+        if (r < 0)
+                return r;
+
         manager_build_unit_path_cache(m);
 
         /* If we will deserialize make sure that during enumeration
@@ -649,12 +654,15 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         r = manager_enumerate(m);
 
         /* Second, deserialize if there is something to deserialize */
-        if (serialization)
-                if ((q = manager_deserialize(m, serialization, fds)) < 0)
+        if (serialization) {
+                q = manager_deserialize(m, serialization, fds);
+                if (q < 0)
                         r = q;
+        }
 
         /* Third, fire things up! */
-        if ((q = manager_coldplug(m)) < 0)
+        q = manager_coldplug(m);
+        if (q < 0)
                 r = q;
 
         if (serialization) {
@@ -1871,18 +1879,21 @@ int manager_reload(Manager *m) {
 
         assert(m);
 
-        if ((r = manager_open_serialization(m, &f)) < 0)
+        r = manager_open_serialization(m, &f);
+        if (r < 0)
                 return r;
 
         m->n_reloading ++;
 
-        if (!(fds = fdset_new())) {
+        fds = fdset_new();
+        if (!fds) {
                 m->n_reloading --;
                 r = -ENOMEM;
                 goto finish;
         }
 
-        if ((r = manager_serialize(m, f, fds)) < 0) {
+        r = manager_serialize(m, f, fds);
+        if (r < 0) {
                 m->n_reloading --;
                 goto finish;
         }
@@ -1896,29 +1907,37 @@ int manager_reload(Manager *m) {
         /* From here on there is no way back. */
         manager_clear_jobs_and_units(m);
         manager_undo_generators(m);
+        lookup_paths_free(&m->lookup_paths);
 
         /* Find new unit paths */
-        lookup_paths_free(&m->lookup_paths);
-        if ((q = lookup_paths_init(&m->lookup_paths, m->running_as, true)) < 0)
-                r = q;
-
         manager_run_generators(m);
+
+        q = lookup_paths_init(
+                        &m->lookup_paths, m->running_as, true,
+                        m->generator_unit_path,
+                        m->generator_unit_path_early,
+                        m->generator_unit_path_late);
+        if (q < 0)
+                r = q;
 
         manager_build_unit_path_cache(m);
 
         /* First, enumerate what we can from all config files */
-        if ((q = manager_enumerate(m)) < 0)
+        q = manager_enumerate(m);
+        if (q < 0)
                 r = q;
 
         /* Second, deserialize our stored data */
-        if ((q = manager_deserialize(m, f, fds)) < 0)
+        q = manager_deserialize(m, f, fds);
+        if (q < 0)
                 r = q;
 
         fclose(f);
         f = NULL;
 
         /* Third, fire things up! */
-        if ((q = manager_coldplug(m)) < 0)
+        q = manager_coldplug(m);
+        if (q < 0)
                 r = q;
 
         assert(m->n_reloading > 0);
@@ -2030,17 +2049,76 @@ void manager_check_finished(Manager *m) {
                    format_timespan(sum, sizeof(sum), total_usec));
 }
 
+static int create_generator_dir(Manager *m, char **generator, const char *name) {
+        char *p;
+        int r;
+
+        assert(m);
+        assert(generator);
+        assert(name);
+
+        if (*generator)
+                return 0;
+
+        if (m->running_as == MANAGER_SYSTEM && getpid() == 1) {
+
+                p = strappend("/run/systemd/", name);
+                if (!p) {
+                        log_error("Out of memory");
+                        return -ENOMEM;
+                }
+
+                r = mkdir_p(p, 0755);
+                if (r < 0) {
+                        log_error("Failed to create generator directory: %s", strerror(-r));
+                        free(p);
+                        return r;
+                }
+        } else {
+                p = join("/tmp/systemd-", name, ".XXXXXX", NULL);
+                if (!p) {
+                        log_error("Out of memory");
+                        return -ENOMEM;
+                }
+
+                if (!mkdtemp(p)) {
+                        free(p);
+                        log_error("Failed to create generator directory: %m");
+                        return -errno;
+                }
+        }
+
+        *generator = p;
+        return 0;
+}
+
+static void trim_generator_dir(Manager *m, char **generator) {
+        assert(m);
+        assert(generator);
+
+        if (!*generator)
+                return;
+
+        if (rmdir(*generator) >= 0) {
+                free(*generator);
+                *generator = NULL;
+        }
+
+        return;
+}
+
 void manager_run_generators(Manager *m) {
         DIR *d = NULL;
         const char *generator_path;
-        const char *argv[3];
+        const char *argv[5];
         mode_t u;
+        int r;
 
         assert(m);
 
         generator_path = m->running_as == MANAGER_SYSTEM ? SYSTEM_GENERATOR_PATH : USER_GENERATOR_PATH;
-        if (!(d = opendir(generator_path))) {
-
+        d = opendir(generator_path);
+        if (!d) {
                 if (errno == ENOENT)
                         return;
 
@@ -2048,79 +2126,57 @@ void manager_run_generators(Manager *m) {
                 return;
         }
 
-        if (!m->generator_unit_path) {
-                const char *p;
-                char user_path[] = "/tmp/systemd-generator-XXXXXX";
+        r = create_generator_dir(m, &m->generator_unit_path, "generator");
+        if (r < 0)
+                goto finish;
 
-                if (m->running_as == MANAGER_SYSTEM && getpid() == 1) {
-                        p = "/run/systemd/generator";
+        r = create_generator_dir(m, &m->generator_unit_path_early, "generator.early");
+        if (r < 0)
+                goto finish;
 
-                        if (mkdir_p(p, 0755) < 0) {
-                                log_error("Failed to create generator directory: %m");
-                                goto finish;
-                        }
-
-                } else {
-                        if (!(p = mkdtemp(user_path))) {
-                                log_error("Failed to create generator directory: %m");
-                                goto finish;
-                        }
-                }
-
-                if (!(m->generator_unit_path = strdup(p))) {
-                        log_error("Failed to allocate generator unit path.");
-                        goto finish;
-                }
-        }
+        r = create_generator_dir(m, &m->generator_unit_path_late, "generator.late");
+        if (r < 0)
+                goto finish;
 
         argv[0] = NULL; /* Leave this empty, execute_directory() will fill something in */
         argv[1] = m->generator_unit_path;
-        argv[2] = NULL;
+        argv[2] = m->generator_unit_path_early;
+        argv[3] = m->generator_unit_path_late;
+        argv[4] = NULL;
 
         u = umask(0022);
         execute_directory(generator_path, d, (char**) argv);
         umask(u);
 
-        if (rmdir(m->generator_unit_path) >= 0) {
-                /* Uh? we were able to remove this dir? I guess that
-                 * means the directory was empty, hence let's shortcut
-                 * this */
-
-                free(m->generator_unit_path);
-                m->generator_unit_path = NULL;
-                goto finish;
-        }
-
-        if (!strv_find(m->lookup_paths.unit_path, m->generator_unit_path)) {
-                char **l;
-
-                if (!(l = strv_append(m->lookup_paths.unit_path, m->generator_unit_path))) {
-                        log_error("Failed to add generator directory to unit search path: %m");
-                        goto finish;
-                }
-
-                strv_free(m->lookup_paths.unit_path);
-                m->lookup_paths.unit_path = l;
-
-                log_debug("Added generator unit path %s to search path.", m->generator_unit_path);
-        }
+        trim_generator_dir(m, &m->generator_unit_path);
+        trim_generator_dir(m, &m->generator_unit_path_early);
+        trim_generator_dir(m, &m->generator_unit_path_late);
 
 finish:
         if (d)
                 closedir(d);
 }
 
+static void remove_generator_dir(Manager *m, char **generator) {
+        assert(m);
+        assert(generator);
+
+        if (!*generator)
+                return;
+
+        strv_remove(m->lookup_paths.unit_path, *generator);
+        rm_rf(*generator, false, true, false);
+
+        free(*generator);
+        *generator = NULL;
+}
+
 void manager_undo_generators(Manager *m) {
         assert(m);
 
-        if (!m->generator_unit_path)
-                return;
-
-        strv_remove(m->lookup_paths.unit_path, m->generator_unit_path);
-        rm_rf(m->generator_unit_path, false, true, false);
-
-        free(m->generator_unit_path);
-        m->generator_unit_path = NULL;
+        remove_generator_dir(m, &m->generator_unit_path);
+        remove_generator_dir(m, &m->generator_unit_path_early);
+        remove_generator_dir(m, &m->generator_unit_path_late);
 }
 
 int manager_set_default_controllers(Manager *m, char **controllers) {
@@ -2146,17 +2202,16 @@ int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
         assert(m);
 
         for (i = 0; i < RLIMIT_NLIMITS; i++) {
-                if (default_rlimit[i]) {
-                        m->rlimit[i] = newdup(struct rlimit, default_rlimit[i], 1);
+                if (!default_rlimit[i])
+                        continue;
 
-                        if (!m->rlimit[i])
-                                return -ENOMEM;
-                }
+                m->rlimit[i] = newdup(struct rlimit, default_rlimit[i], 1);
+                if (!m->rlimit[i])
+                        return -ENOMEM;
         }
 
         return 0;
 }
-
 
 void manager_recheck_journal(Manager *m) {
         Unit *u;

@@ -60,7 +60,8 @@ static int lookup_paths_init_from_scope(LookupPaths *paths, UnitFileScope scope)
 
         return lookup_paths_init(paths,
                                  scope == UNIT_FILE_SYSTEM ? MANAGER_SYSTEM : MANAGER_USER,
-                                 scope == UNIT_FILE_USER);
+                                 scope == UNIT_FILE_USER,
+                                 NULL, NULL, NULL);
 }
 
 static int get_config_path(UnitFileScope scope, bool runtime, const char *root_dir, char **ret) {

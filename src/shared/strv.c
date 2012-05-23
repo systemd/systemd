@@ -106,28 +106,44 @@ char **strv_new_ap(const char *x, va_list ap) {
         unsigned n = 0, i = 0;
         va_list aq;
 
+        /* As a special trick we ignore all listed strings that equal
+         * (const char*) -1. This is supposed to be used with the
+         * STRV_IFNOTNULL() macro to include possibly NULL strings in
+         * the string list. */
+
         if (x) {
-                n = 1;
+                n = x == (const char*) -1 ? 0 : 1;
 
                 va_copy(aq, ap);
-                while (va_arg(aq, const char*))
+                while ((s = va_arg(aq, const char*))) {
+                        if (s == (const char*) -1)
+                                continue;
+
                         n++;
+                }
+
                 va_end(aq);
         }
 
-        if (!(a = new(char*, n+1)))
+        a = new(char*, n+1);
+        if (!a)
                 return NULL;
 
         if (x) {
-                if (!(a[i] = strdup(x))) {
-                        free(a);
-                        return NULL;
+                if (x != (const char*) -1) {
+                        a[i] = strdup(x);
+                        if (!a[i])
+                                goto fail;
+                        i++;
                 }
 
-                i++;
-
                 while ((s = va_arg(ap, const char*))) {
-                        if (!(a[i] = strdup(s)))
+
+                        if (s == (const char*) -1)
+                                continue;
+
+                        a[i] = strdup(s);
+                        if (!a[i])
                                 goto fail;
 
                         i++;
@@ -169,25 +185,27 @@ char **strv_merge(char **a, char **b) {
         if (!b)
                 return strv_copy(a);
 
-        if (!(r = new(char*, strv_length(a)+strv_length(b)+1)))
+        r = new(char*, strv_length(a) + strv_length(b) + 1);
+        if (!r)
                 return NULL;
 
-        for (k = r; *a; k++, a++)
-                if (!(*k = strdup(*a)))
+        for (k = r; *a; k++, a++) {
+                *k = strdup(*a);
+                if (!*k)
                         goto fail;
-        for (; *b; k++, b++)
-                if (!(*k = strdup(*b)))
+        }
+
+        for (; *b; k++, b++) {
+                *k = strdup(*b);
+                if (!*k)
                         goto fail;
+        }
 
         *k = NULL;
         return r;
 
 fail:
-        for (k--; k >= r; k--)
-                free(*k);
-
-        free(r);
-
+        strv_free(r);
         return NULL;
 }
 
@@ -221,11 +239,7 @@ char **strv_merge_concat(char **a, char **b, const char *suffix) {
         return r;
 
 fail:
-        for (k--; k >= r; k--)
-                free(*k);
-
-        free(r);
-
+        strv_free(r);
         return NULL;
 
 }

@@ -152,6 +152,8 @@ struct Manager {
         dual_timestamp finish_timestamp;
 
         char *generator_unit_path;
+        char *generator_unit_path_early;
+        char *generator_unit_path_late;
 
         /* Data specific to the device subsystem */
         struct udev* udev;

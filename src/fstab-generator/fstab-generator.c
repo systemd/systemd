@@ -498,8 +498,8 @@ finish:
 int main(int argc, char *argv[]) {
         int r;
 
-        if (argc > 2) {
-                log_error("This program takes one or no arguments.");
+        if (argc > 1 && argc != 4) {
+                log_error("This program takes three or no arguments.");
                 return EXIT_FAILURE;
         }
 
@@ -509,8 +509,6 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_SAFE);
         log_parse_environment();
         log_open();
-
-        log_set_max_level(LOG_DEBUG);
 
         umask(0022);
 

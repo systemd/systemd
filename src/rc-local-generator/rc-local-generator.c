@@ -66,7 +66,6 @@ static int add_symlink(const char *service, const char *where) {
         }
 
 finish:
-
         free(from);
         free(to);
 
@@ -83,20 +82,21 @@ static bool file_is_executable(const char *f) {
 }
 
 int main(int argc, char *argv[]) {
-
         int r = EXIT_SUCCESS;
 
-        if (argc > 2) {
-                log_error("This program takes one or no arguments.");
+        if (argc > 1 && argc != 4) {
+                log_error("This program takes three or no arguments.");
                 return EXIT_FAILURE;
         }
+
+        if (argc > 1)
+                arg_dest = argv[1];
 
         log_set_target(LOG_TARGET_SAFE);
         log_parse_environment();
         log_open();
 
-        if (argc > 1)
-                arg_dest = argv[1];
+        umask(0022);
 
         if (file_is_executable(SCRIPT_PATH_START)) {
                 log_debug("Automatically adding rc-local.service.");

@@ -47,6 +47,10 @@ char **strv_uniq(char **l);
 char **strv_new(const char *x, ...) _sentinel_ _malloc_;
 char **strv_new_ap(const char *x, va_list ap) _malloc_;
 
+static inline const char* STRV_IFNOTNULL(const char *x) {
+        return x ? x : (const char *) -1;
+}
+
 static inline bool strv_isempty(char **l) {
         return !l || !*l;
 }

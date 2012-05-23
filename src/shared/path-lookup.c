@@ -34,7 +34,8 @@
 int user_config_home(char **config_home) {
         const char *e;
 
-        if ((e = getenv("XDG_CONFIG_HOME"))) {
+        e = getenv("XDG_CONFIG_HOME");
+        if (e) {
                 if (asprintf(config_home, "%s/systemd/user", e) < 0)
                         return -ENOMEM;
 
@@ -42,7 +43,8 @@ int user_config_home(char **config_home) {
         } else {
                 const char *home;
 
-                if ((home = getenv("HOME"))) {
+                home = getenv("HOME");
+                if (home) {
                         if (asprintf(config_home, "%s/.config/systemd/user", home) < 0)
                                 return -ENOMEM;
 
@@ -53,7 +55,11 @@ int user_config_home(char **config_home) {
         return 0;
 }
 
-static char** user_dirs(void) {
+static char** user_dirs(
+                const char *generator,
+                const char *generator_early,
+                const char *generator_late) {
+
         const char * const config_unit_paths[] = {
                 USER_CONFIG_UNIT_PATH,
                 "/etc/systemd/user",
@@ -89,15 +95,19 @@ static char** user_dirs(void) {
 
         home = getenv("HOME");
 
-        if ((e = getenv("XDG_CONFIG_DIRS")))
-                if (!(config_dirs = strv_split(e, ":")))
+        e = getenv("XDG_CONFIG_DIRS");
+        if (e) {
+                config_dirs = strv_split(e, ":");
+                if (!config_dirs)
                         goto fail;
+        }
 
         /* We don't treat /etc/xdg/systemd here as the spec
          * suggests because we assume that that is a link to
          * /etc/systemd/ anyway. */
 
-        if ((e = getenv("XDG_DATA_HOME"))) {
+        e = getenv("XDG_DATA_HOME");
+        if (e) {
                 if (asprintf(&data_home, "%s/systemd/user", e) < 0)
                         goto fail;
 
@@ -116,57 +126,87 @@ static char** user_dirs(void) {
                 (void) symlink("../../../.config/systemd/user", data_home);
         }
 
-        if ((e = getenv("XDG_DATA_DIRS")))
+        e = getenv("XDG_DATA_DIRS");
+        if (e)
                 data_dirs = strv_split(e, ":");
         else
                 data_dirs = strv_new("/usr/local/share",
                                      "/usr/share",
                                      NULL);
-
         if (!data_dirs)
                 goto fail;
 
         /* Now merge everything we found. */
+        if (generator_early) {
+                t = strv_append(r, generator_early);
+                if (!t)
+                        goto fail;
+                strv_free(r);
+                r = t;
+        }
+
         if (config_home) {
-                if (!(t = strv_append(r, config_home)))
+                t = strv_append(r, config_home);
+                if (!t)
                         goto fail;
                 strv_free(r);
                 r = t;
         }
 
         if (!strv_isempty(config_dirs)) {
-                if (!(t = strv_merge_concat(r, config_dirs, "/systemd/user")))
+                t = strv_merge_concat(r, config_dirs, "/systemd/user");
+                if (!t)
                         goto finish;
                 strv_free(r);
                 r = t;
         }
 
-        if (!(t = strv_merge(r, (char**) config_unit_paths)))
+        t = strv_merge(r, (char**) config_unit_paths);
+        if (!t)
                 goto fail;
         strv_free(r);
         r = t;
 
+        if (generator) {
+                t = strv_append(r, generator);
+                if (!t)
+                        goto fail;
+                strv_free(r);
+                r = t;
+        }
+
         if (data_home) {
-                if (!(t = strv_append(r, data_home)))
+                t = strv_append(r, data_home);
+                if (!t)
                         goto fail;
                 strv_free(r);
                 r = t;
         }
 
         if (!strv_isempty(data_dirs)) {
-                if (!(t = strv_merge_concat(r, data_dirs, "/systemd/user")))
+                t = strv_merge_concat(r, data_dirs, "/systemd/user");
+                if (!t)
                         goto fail;
                 strv_free(r);
                 r = t;
         }
 
-        if (!(t = strv_merge(r, (char**) data_unit_paths)))
+        t = strv_merge(r, (char**) data_unit_paths);
+        if (!t)
                 goto fail;
         strv_free(r);
         r = t;
 
+        if (generator_late) {
+                t = strv_append(r, generator_late);
+                if (!t)
+                        goto fail;
+                strv_free(r);
+                r = t;
+        }
+
         if (!path_strv_make_absolute_cwd(r))
-            goto fail;
+                goto fail;
 
 finish:
         free(config_home);
@@ -182,7 +222,14 @@ fail:
         goto finish;
 }
 
-int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal) {
+int lookup_paths_init(
+                LookupPaths *p,
+                ManagerRunningAs running_as,
+                bool personal,
+                const char *generator,
+                const char *generator_early,
+                const char *generator_late) {
+
         const char *e;
         char *t;
 
@@ -190,64 +237,83 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
 
         /* First priority is whatever has been passed to us via env
          * vars */
-        if ((e = getenv("SYSTEMD_UNIT_PATH")))
-                if (!(p->unit_path = path_split_and_make_absolute(e)))
+        e = getenv("SYSTEMD_UNIT_PATH");
+        if (e) {
+                p->unit_path = path_split_and_make_absolute(e);
+                if (!p->unit_path)
                         return -ENOMEM;
+        } else
+                p->unit_path = NULL;
 
         if (strv_isempty(p->unit_path)) {
-
                 /* Nothing is set, so let's figure something out. */
                 strv_free(p->unit_path);
+
+                /* For the user units we include share/ in the search
+                 * path in order to comply with the XDG basedir
+                 * spec. For the system stuff we avoid such
+                 * nonsense. OTOH we include /lib in the search path
+                 * for the system stuff but avoid it for user
+                 * stuff. */
 
                 if (running_as == MANAGER_USER) {
 
                         if (personal)
-                                p->unit_path = user_dirs();
+                                p->unit_path = user_dirs(generator, generator_early, generator_late);
                         else
                                 p->unit_path = strv_new(
                                                 /* If you modify this you also want to modify
                                                  * systemduserunitpath= in systemd.pc.in, and
                                                  * the arrays in user_dirs() above! */
+                                                STRV_IFNOTNULL(generator_early),
                                                 USER_CONFIG_UNIT_PATH,
                                                 "/etc/systemd/user",
                                                 "/run/systemd/user",
+                                                STRV_IFNOTNULL(generator),
                                                 "/usr/local/lib/systemd/user",
                                                 "/usr/local/share/systemd/user",
                                                 USER_DATA_UNIT_PATH,
                                                 "/usr/lib/systemd/user",
                                                 "/usr/share/systemd/user",
+                                                STRV_IFNOTNULL(generator_late),
                                                 NULL);
 
                         if (!p->unit_path)
                                 return -ENOMEM;
 
-                } else
-                        if (!(p->unit_path = strv_new(
-                                              /* If you modify this you also want to modify
-                                               * systemdsystemunitpath= in systemd.pc.in! */
-                                              SYSTEM_CONFIG_UNIT_PATH,
-                                              "/etc/systemd/system",
-                                              "/run/systemd/system",
-                                              "/usr/local/lib/systemd/system",
-                                              SYSTEM_DATA_UNIT_PATH,
-                                              "/usr/lib/systemd/system",
+                } else {
+                        p->unit_path = strv_new(
+                                        /* If you modify this you also want to modify
+                                         * systemdsystemunitpath= in systemd.pc.in! */
+                                        STRV_IFNOTNULL(generator_early),
+                                        SYSTEM_CONFIG_UNIT_PATH,
+                                        "/etc/systemd/system",
+                                        "/run/systemd/system",
+                                        STRV_IFNOTNULL(generator),
+                                        "/usr/local/lib/systemd/system",
+                                        SYSTEM_DATA_UNIT_PATH,
+                                        "/usr/lib/systemd/system",
 #ifdef HAVE_SPLIT_USR
-                                              "/lib/systemd/system",
+                                        "/lib/systemd/system",
 #endif
-                                              NULL)))
+                                        STRV_IFNOTNULL(generator_late),
+                                        NULL);
+
+                        if (!p->unit_path)
                                 return -ENOMEM;
+                }
         }
 
-        if (p->unit_path)
-                if (!path_strv_canonicalize(p->unit_path))
-                        return -ENOMEM;
+        if (!path_strv_canonicalize(p->unit_path))
+                return -ENOMEM;
 
         strv_uniq(p->unit_path);
         path_strv_remove_empty(p->unit_path);
 
         if (!strv_isempty(p->unit_path)) {
 
-                if (!(t = strv_join(p->unit_path, "\n\t")))
+                t = strv_join(p->unit_path, "\n\t");
+                if (!t)
                         return -ENOMEM;
                 log_debug("Looking for unit files in:\n\t%s", t);
                 free(t);
@@ -261,51 +327,58 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
 #ifdef HAVE_SYSV_COMPAT
                 /* /etc/init.d/ compatibility does not matter to users */
 
-                if ((e = getenv("SYSTEMD_SYSVINIT_PATH")))
-                        if (!(p->sysvinit_path = path_split_and_make_absolute(e)))
+                e = getenv("SYSTEMD_SYSVINIT_PATH");
+                if (e) {
+                        p->sysvinit_path = path_split_and_make_absolute(e);
+                        if (!p->sysvinit_path)
                                 return -ENOMEM;
+                } else
+                        p->sysvinit_path = NULL;
 
                 if (strv_isempty(p->sysvinit_path)) {
                         strv_free(p->sysvinit_path);
 
-                        if (!(p->sysvinit_path = strv_new(
-                                              SYSTEM_SYSVINIT_PATH,     /* /etc/init.d/ */
-                                              NULL)))
+                        p->sysvinit_path = strv_new(
+                                        SYSTEM_SYSVINIT_PATH,     /* /etc/init.d/ */
+                                        NULL);
+                        if (!p->sysvinit_path)
                                 return -ENOMEM;
                 }
 
-                if ((e = getenv("SYSTEMD_SYSVRCND_PATH")))
-                        if (!(p->sysvrcnd_path = path_split_and_make_absolute(e)))
+                e = getenv("SYSTEMD_SYSVRCND_PATH");
+                if (e) {
+                        p->sysvrcnd_path = path_split_and_make_absolute(e);
+                        if (!p->sysvrcnd_path)
                                 return -ENOMEM;
+                } else
+                        p->sysvrcnd_path = NULL;
 
                 if (strv_isempty(p->sysvrcnd_path)) {
                         strv_free(p->sysvrcnd_path);
 
-                        if (!(p->sysvrcnd_path = strv_new(
-                                              SYSTEM_SYSVRCND_PATH,     /* /etc/rcN.d/ */
-                                              NULL)))
+                        p->sysvrcnd_path = strv_new(
+                                        SYSTEM_SYSVRCND_PATH,     /* /etc/rcN.d/ */
+                                        NULL);
+                        if (!p->sysvrcnd_path)
                                 return -ENOMEM;
                 }
 
-                if (p->sysvinit_path)
-                        if (!path_strv_canonicalize(p->sysvinit_path))
-                                return -ENOMEM;
+                if (!path_strv_canonicalize(p->sysvinit_path))
+                        return -ENOMEM;
 
-                if (p->sysvrcnd_path)
-                        if (!path_strv_canonicalize(p->sysvrcnd_path))
-                                return -ENOMEM;
+                if (!path_strv_canonicalize(p->sysvrcnd_path))
+                        return -ENOMEM;
 
                 strv_uniq(p->sysvinit_path);
                 strv_uniq(p->sysvrcnd_path);
-
                 path_strv_remove_empty(p->sysvinit_path);
                 path_strv_remove_empty(p->sysvrcnd_path);
 
                 if (!strv_isempty(p->sysvinit_path)) {
 
-                        if (!(t = strv_join(p->sysvinit_path, "\n\t")))
+                        t = strv_join(p->sysvinit_path, "\n\t");
+                        if (!t)
                                 return -ENOMEM;
-
                         log_debug("Looking for SysV init scripts in:\n\t%s", t);
                         free(t);
                 } else {
@@ -316,7 +389,8 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
 
                 if (!strv_isempty(p->sysvrcnd_path)) {
 
-                        if (!(t = strv_join(p->sysvrcnd_path, "\n\t")))
+                        t = strv_join(p->sysvrcnd_path, "\n\t");
+                        if (!t)
                                 return -ENOMEM;
 
                         log_debug("Looking for SysV rcN.d links in:\n\t%s", t);

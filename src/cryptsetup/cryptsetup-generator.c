@@ -240,8 +240,8 @@ int main(int argc, char *argv[]) {
         int r = EXIT_SUCCESS;
         unsigned n = 0;
 
-        if (argc > 2) {
-                log_error("This program takes one or no arguments.");
+        if (argc > 1 && argc != 4) {
+                log_error("This program takes three or no arguments.");
                 return EXIT_FAILURE;
         }
 

@@ -3697,12 +3697,11 @@ static int enable_sysv_units(char **args) {
          * afterwards only the native units remain */
 
         zero(paths);
-        r = lookup_paths_init(&paths, MANAGER_SYSTEM, false);
+        r = lookup_paths_init(&paths, MANAGER_SYSTEM, false, NULL, NULL, NULL);
         if (r < 0)
                 return r;
 
         r = 0;
-
         for (f = 1; args[f]; f++) {
                 const char *name;
                 char *p;
