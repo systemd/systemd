@@ -10,10 +10,10 @@ KVERSION=${KVERSION-$(uname -r)}
 
 test_run() {
     qemu-kvm \
-	-hda $TESTDIR/rootdisk.img \
-	-m 256M -nographic \
-	-net none -kernel /boot/vmlinuz-$KVERSION \
-	-append "root=/dev/sda1 systemd.log_level=debug raid=noautodetect loglevel=2 init=/usr/lib/systemd/systemd rw console=ttyS0,115200n81 selinux=0 $DEBUGFAIL"
+        -hda $TESTDIR/rootdisk.img \
+        -m 256M -nographic \
+        -net none -kernel /boot/vmlinuz-$KVERSION \
+        -append "root=/dev/sda1 systemd.log_level=debug raid=noautodetect loglevel=2 init=/usr/lib/systemd/systemd rw console=ttyS0,115200n81 selinux=0 $DEBUGFAIL"
     ret=1
     mkdir -p $TESTDIR/root
     mount ${LOOPDEV}p1 $TESTDIR/root
@@ -47,7 +47,7 @@ EOF
     # Create what will eventually be our root filesystem onto an overlay
     (
         LOG_LEVEL=5
-	initdir=$TESTDIR/root
+        initdir=$TESTDIR/root
 
         # create the basic filesystem layout
         setup_basic_dirs
@@ -76,7 +76,7 @@ EOF
 	inst /etc/pam.conf
 	inst /etc/securetty
 	inst /etc/os-release
-
+        inst /etc/localtime
         # we want an empty environment
 	> $initdir/etc/environment
 
