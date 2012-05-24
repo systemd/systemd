@@ -110,7 +110,12 @@ EOF
 
         # make the testsuite the default target
 	ln -fs testsuite.target $initdir/etc/systemd/system/default.target
-
+        mkdir -p $initdir/etc/rc.d
+        cat >$initdir/etc/rc.d/rc.local <<EOF
+#!/bin/bash
+exit 0
+EOF
+        chmod 0755 $initdir/etc/rc.d/rc.local
         # install basic tools needed
         dracut_install sh bash setsid loadkeys setfont \
             login sushell sulogin gzip sleep echo
