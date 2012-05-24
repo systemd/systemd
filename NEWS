@@ -1,12 +1,12 @@
 systemd System and Service Manager
 
-CHANGES WITH 182:
+CHANGES WITH 183:
         * udev: all udev sources are merged into the systemd source tree now.
           All future udev development will happen in the systemd tree. It
           is still fully supported to use the udev daemon and tools without
           systemd running, like in initramfs or other init systems. Building
           udev though, will require the *build* of the systemd tree, but
-          udev can be properly *run* without systems.
+          udev can be properly *run* without systemd.
 
         * udev: /lib/udev/devices/ are not read anymore; systemd-tmpfiles
           should be used to create dead device nodes as workarounds for broken
@@ -20,7 +20,7 @@ CHANGES WITH 182:
           behind by forking them off of udev rules, are unconditionally cleaned
           up and killed now after the event handling has finished. Services or
           daemons must be started as systemd services. Services can be
-          pulled-in by udev to ge started, but they can no longer be directly
+          pulled-in by udev to get started, but they can no longer be directly
           forked by udev rules.
 
         * udev: the daemon binary is called systemd-udevd now and installed
@@ -28,19 +28,149 @@ CHANGES WITH 182:
           to adapt to that, create symlink, or rename the binary after building
           it.
 
-        * Libudev does no longer provide these symbols:
+        * libudev no longer provides these symbols:
             udev_monitor_from_socket()
             udev_queue_get_failed_list_entry()
             udev_get_{dev,sys,run}_path()
-          The verions number was bumped and symbol versioning introduced.
+          The versions number was bumped and symbol versioning introduced.
 
-        * systemd-logingctl and systemd-journalctl have been renamed
+        * systemd-loginctl and systemd-journalctl have been renamed
           to logingctl and journalctl to match systemctl.
 
         * The config files: /etc/systemd/systemd-logind.conf and
           /etc/systemd/systemd-journald.conf have been renamed to
           logind.conf and journald.conf. Package updates should rename
           the files to the new names on upgrade.
+
+        * For almost all files the license is now LGPL2.1+, changed
+          from the previous GPL2.0+. Exceptions are some minor stuff
+          of udev (which will be changed to LGPL2.1 eventually, too),
+          and the MIT licensed sd-daemon.[ch] library that is suitable
+          to be used as drop-in files.
+
+        * systemd and logind now handle system sleep states, in
+          particulary suspending and hibernating.
+
+        * logind now implements a sleep/shutdown/idle inhibiting logic
+          suitable for a variety of uses. Soonishly Lennart will blog
+          about this in more detail.
+
+        * var-run.mount and var-lock.mount are no longer provided
+          (which prevously bind mounted these directories to their new
+          places). Distributions which have not converted these
+          directories to symlinks should consider stealing these files
+          from git history and add them downstream.
+
+        * We introduced the Documentation= field for units and added
+          this to all our shipped units. This is useful to make it
+          easier to explore that boot and the purpose of the various
+          units.
+
+        * All smaller setup units (such as
+          systemd-vconsole-setup.service) now detect properly if they
+          are run in a container and are skipped when
+          appropriate. This guarantees an entirely noise-free boot in
+          Linux container environments such as systemd-nspawn.
+
+        * A framework for implementing offline system updates is now
+          integrated, for details see:
+          http://freedesktop.org/wiki/Software/systemd/SystemUpdates
+
+        * A new service type Type=idle is available now which helps us
+          avoiding ugly interleaving of getty output and boot status
+          messages.
+
+        * There's now a system-wide CapabalityBoundingSet= option to
+          globally reduce the set of capabailities for the
+          system. This is useful to drop CAP_SYS_MKNOD, CAP_SYS_RAWIO,
+          CAP_NET_RAW, CAP_SYS_MODULE, CAP_SYS_TIME, CAP_SYS_PTRACE or
+          even CAP_NET_ADMIN system-wide for secure systems.
+
+        * There are now system-wide DefaultLimitXXX= options to
+          globally change the defaults of the various resource limits
+          for all units started by PID 1.
+
+        * Harald Hoyer's systemd test suite has been integrated into
+          systemd which allows easy testing of systemd builds in qemu
+          and nspawn. (This is really awesome! Ask us for details!)
+
+        * The fstab parser is now implemented as generator not inside
+          of PID 1.
+
+        * systemctl will now warn you if .mount units generated from
+          /etc/fstab are out of date due to changes in fstab that
+          haven't been read by systemd yet.
+
+        * systemd is now suitable for usage in initrds. Dracut has
+          already been updated to make use of this. With this in place
+          initrds get a slight bit faster but primarily are much
+          easier to introspect and debug since "systemctl status" in
+          the host system can be used to introspect initrd services,
+          and the journal from the initrd is kept around too.
+
+        * systemd-delta has been added, a tool to explore differences
+          between user/admin configuration and vendor defaults.
+
+        * PrivateTmp= now affects both /tmp and /var/tmp.
+
+        * Boot time status messages are now much prettier and feature
+          proper english language. Booting up systemd has never been
+          so sexy.
+
+        * Read-ahead pack files now include the inode number of all
+          files to pre-cache. When the inode changes the pre-caching
+          is not attempted. This should be nicer to deal with updated
+          packages which might result in changes of read-ahead
+          patterns.
+
+        * We now temporaritly lower the kernel's read_ahead_kb variable
+          when collecting read-ahead data to ensure the kernel's
+          built-in read-ahead does not add noise to our measurements
+          of necessary blocks to pre-cache.
+
+        * There's now RequiresMountsFor= to add automatic dependencies
+          for all mounts necessary for a specific file system path.
+
+        * MountAuto= and SwapAuto= have been removed from
+          system.conf. Mounting file systems at boot has to take place
+          in systemd now.
+
+        * nspawn now learned a new switch --uuid= to set the machine
+          ID on the command line.
+
+        * nspawn now loearned the -b switch to automatically search
+          for an init system.
+
+        * vt102 is now the default TERM for serial TTYs, upgraded from
+          vt100.
+
+        * systemd-logind now works on VT-less systems.
+
+        * The build tree has been reorganized. The individual
+          componets now have directories of their own.
+
+        * A new condition type ConditionPathIsReadWrite= is now available.
+
+        * nspawn learned the new -C switch to create cgroups for the
+          container in other hierarchies.
+
+        * We now have support for hardware watchdogs, configurable in
+          system.conf.
+
+        * The scheduled shutdown logic now has a public API.
+
+        * We now mount /tmp as tmpfs by default, but this can be
+          masked and /etc/fstab can override it.
+
+        * Since udisks doesn't make use of /media anymore we are not
+          mounting a tmpfs on it anymore.
+
+        * journalctl gained a new --local switch to only interleave
+          locally generated journal files.
+
+        * We can now load the IMA policy at boot automatically.
+
+        * The GTK tools have been split off into a systemd-ui.
 
 CHANGES WITH 44:
         * This is mostly a bugfix release
