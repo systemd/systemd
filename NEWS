@@ -84,8 +84,8 @@ CHANGES WITH 183:
           avoiding ugly interleaving of getty output and boot status
           messages.
 
-        * There's now a system-wide CapabalityBoundingSet= option to
-          globally reduce the set of capabailities for the
+        * There's now a system-wide CapabilityBoundingSet= option to
+          globally reduce the set of capabilities for the
           system. This is useful to drop CAP_SYS_MKNOD, CAP_SYS_RAWIO,
           CAP_NET_RAW, CAP_SYS_MODULE, CAP_SYS_TIME, CAP_SYS_PTRACE or
           even CAP_NET_ADMIN system-wide for secure systems.
