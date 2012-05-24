@@ -108,6 +108,26 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING
 };
 
+/* For Type=idle we never want to delay any other jobs, hence we
+ * consider idle jobs active as soon as we start working on them */
+static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = {
+        [SERVICE_DEAD] = UNIT_INACTIVE,
+        [SERVICE_START_PRE] = UNIT_ACTIVE,
+        [SERVICE_START] = UNIT_ACTIVE,
+        [SERVICE_START_POST] = UNIT_ACTIVE,
+        [SERVICE_RUNNING] = UNIT_ACTIVE,
+        [SERVICE_EXITED] = UNIT_ACTIVE,
+        [SERVICE_RELOAD] = UNIT_RELOADING,
+        [SERVICE_STOP] = UNIT_DEACTIVATING,
+        [SERVICE_STOP_SIGTERM] = UNIT_DEACTIVATING,
+        [SERVICE_STOP_SIGKILL] = UNIT_DEACTIVATING,
+        [SERVICE_STOP_POST] = UNIT_DEACTIVATING,
+        [SERVICE_FINAL_SIGTERM] = UNIT_DEACTIVATING,
+        [SERVICE_FINAL_SIGKILL] = UNIT_DEACTIVATING,
+        [SERVICE_FAILED] = UNIT_FAILED,
+        [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING
+};
+
 static void service_init(Unit *u) {
         Service *s = SERVICE(u);
         int i;
@@ -1471,7 +1491,10 @@ static void service_notify_sockets_dead(Service *s, bool failed_permanent) {
 
 static void service_set_state(Service *s, ServiceState state) {
         ServiceState old_state;
+        const UnitActiveState *table;
         assert(s);
+
+        table = s->type == SERVICE_IDLE ? state_translation_table_idle : state_translation_table;
 
         old_state = s->state;
         s->state = state;
@@ -1555,7 +1578,7 @@ static void service_set_state(Service *s, ServiceState state) {
         if (old_state != state)
                 log_debug("%s changed %s -> %s", UNIT(s)->id, service_state_to_string(old_state), service_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], s->reload_result == SERVICE_SUCCESS);
+        unit_notify(UNIT(s), table[old_state], table[state], s->reload_result == SERVICE_SUCCESS);
         s->reload_result = SERVICE_SUCCESS;
 }
 
@@ -2694,9 +2717,13 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 }
 
 static UnitActiveState service_active_state(Unit *u) {
+        const UnitActiveState *table;
+
         assert(u);
 
-        return state_translation_table[SERVICE(u)->state];
+        table = SERVICE(u)->type == SERVICE_IDLE ? state_translation_table_idle : state_translation_table;
+
+        return table[SERVICE(u)->state];
 }
 
 static const char *service_sub_state_to_string(Unit *u) {

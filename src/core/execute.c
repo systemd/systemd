@@ -61,7 +61,7 @@
 #include "loopback-setup.h"
 #include "path-util.h"
 
-#define IDLE_TIMEOUT_USEC (1*USEC_PER_SEC)
+#define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
