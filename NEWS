@@ -39,7 +39,7 @@ CHANGES WITH 183:
           The versions number was bumped and symbol versioning introduced.
 
         * systemd-loginctl and systemd-journalctl have been renamed
-          to logingctl and journalctl to match systemctl.
+          to loginctl and journalctl to match systemctl.
 
         * The config files: /etc/systemd/systemd-logind.conf and
           /etc/systemd/systemd-journald.conf have been renamed to
