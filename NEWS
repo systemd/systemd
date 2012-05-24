@@ -142,7 +142,7 @@ CHANGES WITH 183:
         * nspawn now learned a new switch --uuid= to set the machine
           ID on the command line.
 
-        * nspawn now loearned the -b switch to automatically search
+        * nspawn now learned the -b switch to automatically search
           for an init system.
 
         * vt102 is now the default TERM for serial TTYs, upgraded from
