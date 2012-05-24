@@ -8,7 +8,7 @@ KVERSION=${KVERSION-$(uname -r)}
 # Uncomment this to debug failures
 #DEBUGFAIL="systemd.unit=multi-user.target"
 
-test_run() {
+run_qemu() {
     qemu-kvm \
         -hda $TESTDIR/rootdisk.img \
         -m 256M -nographic \
@@ -25,6 +25,26 @@ test_run() {
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
     return $ret
+}
+
+
+run_nspawn() {
+    systemd-nspawn -b -D $TESTDIR/nspawn-root /usr/lib/systemd/systemd
+    ret=1
+    [[ -e $TESTDIR/nspawn-root/testok ]] && ret=0
+    cp -a $TESTDIR/nspawn-root/var/log/journal $TESTDIR
+    cp -a $TESTDIR/nspawn-root/failed $TESTDIR
+    cat $TESTDIR/failed
+    ls -l $TESTDIR/journal/*/*.journal
+    test -s $TESTDIR/failed && ret=$(($ret+1))
+    return $ret
+}
+
+
+test_run() {
+    run_qemu || return 1
+    run_nspawn || return 1
+    return 0
 }
 
 test_setup() {
@@ -184,8 +204,10 @@ EOF
         ldconfig -r "$initdir"
 
     )
-    umount $TESTDIR/root
+    rm -fr $TESTDIR/nspawn-root
+    cp -avr $TESTDIR/root $TESTDIR/nspawn-root
 
+    umount $TESTDIR/root
 }
 
 test_cleanup() {
