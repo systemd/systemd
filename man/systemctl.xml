@@ -754,7 +754,7 @@
                                 command does not implicitly stop the
                                 units that is being disabled. If this
                                 is desired an additional
-                                <command>stop</command>command should
+                                <command>stop</command> command should
                                 be executed afterwards.</para>
 
                                 <para>This command will print the
