@@ -67,7 +67,7 @@ CHANGES WITH 183:
 
         * We introduced the Documentation= field for units and added
           this to all our shipped units. This is useful to make it
-          easier to explore that boot and the purpose of the various
+          easier to explore the boot and the purpose of the various
           units.
 
         * All smaller setup units (such as
@@ -98,8 +98,8 @@ CHANGES WITH 183:
           systemd which allows easy testing of systemd builds in qemu
           and nspawn. (This is really awesome! Ask us for details!)
 
-        * The fstab parser is now implemented as generator not inside
-          of PID 1.
+        * The fstab parser is now implemented as generator, not inside
+          of PID 1 anymore.
 
         * systemctl will now warn you if .mount units generated from
           /etc/fstab are out of date due to changes in fstab that
@@ -151,7 +151,7 @@ CHANGES WITH 183:
         * systemd-logind now works on VT-less systems.
 
         * The build tree has been reorganized. The individual
-          componets now have directories of their own.
+          components now have directories of their own.
 
         * A new condition type ConditionPathIsReadWrite= is now available.
 
