@@ -1,6 +1,10 @@
 systemd System and Service Manager
 
 CHANGES WITH 183:
+        * Note that we skipped 139 releases here in order to set the
+          new version to something that is greater than both udev's
+          and systemd's most recent version number.
+
         * udev: all udev sources are merged into the systemd source tree now.
           All future udev development will happen in the systemd tree. It
           is still fully supported to use the udev daemon and tools without
