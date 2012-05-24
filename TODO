@@ -289,6 +289,9 @@ Features:
   - how to pass throw-away units to systemd, or dynamically change properties of existing units
   - how to integrate cgconfig and suchlike with systemd
   - resource control in systemd
+  - inhibiting
+  - testing with Harald's awesome test kit
+  - the Documentation=
 
 * allow port=0 in .socket units
 
