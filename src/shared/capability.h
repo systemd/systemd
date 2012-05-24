@@ -22,6 +22,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <inttypes.h>
+#include <stdbool.h>
+
 unsigned long cap_last_cap(void);
 int have_effective_cap(int value);
+int capability_bounding_set_drop(uint64_t caps, bool right_now);
+
 #endif

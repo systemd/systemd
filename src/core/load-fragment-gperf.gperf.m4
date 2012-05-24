@@ -46,7 +46,7 @@ $1.SyslogLevel,                  config_parse_level,                 0,         
 $1.SyslogLevelPrefix,            config_parse_bool,                  0,                             offsetof($1, exec_context.syslog_level_prefix)
 $1.Capabilities,                 config_parse_exec_capabilities,     0,                             offsetof($1, exec_context)
 $1.SecureBits,                   config_parse_exec_secure_bits,      0,                             offsetof($1, exec_context)
-$1.CapabilityBoundingSet,        config_parse_exec_bounding_set,     0,                             offsetof($1, exec_context)
+$1.CapabilityBoundingSet,        config_parse_bounding_set,          0,                             offsetof($1, exec_context.capability_bounding_set_drop)
 $1.TimerSlackNSec,               config_parse_exec_timer_slack_nsec, 0,                             offsetof($1, exec_context)
 $1.LimitCPU,                     config_parse_limit,                 RLIMIT_CPU,                    offsetof($1, exec_context.rlimit)
 $1.LimitFSIZE,                   config_parse_limit,                 RLIMIT_FSIZE,                  offsetof($1, exec_context.rlimit)

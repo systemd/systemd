@@ -40,7 +40,8 @@ int have_effective_cap(int value) {
         cap_flag_value_t fv;
         int r;
 
-        if (!(cap = cap_get_proc()))
+        cap = cap_get_proc();
+        if (!cap)
                 return -errno;
 
         if (cap_get_flag(cap, value, CAP_EFFECTIVE, &fv) < 0)
@@ -83,4 +84,90 @@ unsigned long cap_last_cap(void) {
         valid = true;
 
         return p;
+}
+
+int capability_bounding_set_drop(uint64_t drop, bool right_now) {
+        unsigned long i;
+        cap_t after_cap = NULL, temp_cap = NULL;
+        cap_flag_value_t fv;
+        int r;
+
+        /* If we are run as PID 1 we will lack CAP_SETPCAP by default
+         * in the effective set (yes, the kernel drops that when
+         * executing init!), so get it back temporarily so that we can
+         * call PR_CAPBSET_DROP. */
+
+        after_cap = cap_get_proc();
+        if (!after_cap)
+                return -errno;
+
+        if (cap_get_flag(after_cap, CAP_SETPCAP, CAP_EFFECTIVE, &fv) < 0) {
+                cap_free(after_cap);
+                return -errno;
+        }
+
+        if (fv != CAP_SET) {
+                static const cap_value_t v = CAP_SETPCAP;
+
+                temp_cap = cap_dup(after_cap);
+                if (!temp_cap) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                if (cap_set_flag(temp_cap, CAP_EFFECTIVE, 1, &v, CAP_SET) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                if (cap_set_proc(temp_cap) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+        }
+
+        for (i = 0; i <= cap_last_cap(); i++) {
+
+                if (drop & ((uint64_t) 1ULL << (uint64_t) i)) {
+                        cap_value_t v;
+
+                        /* Drop it from the bounding set */
+                        if (prctl(PR_CAPBSET_DROP, i) < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
+                        v = i;
+
+                        /* Also drop it from the inheritable set, so
+                         * that anything we exec() loses the
+                         * capability for good. */
+                        if (cap_set_flag(after_cap, CAP_INHERITABLE, 1, &v, CAP_CLEAR) < 0) {
+                                r = -errno;
+                                goto finish;
+                        }
+
+                        /* If we shall apply this right now drop it
+                         * also from our own capability sets. */
+                        if (right_now) {
+                                if (cap_set_flag(after_cap, CAP_PERMITTED, 1, &v, CAP_CLEAR) < 0 ||
+                                    cap_set_flag(after_cap, CAP_EFFECTIVE, 1, &v, CAP_CLEAR) < 0) {
+                                        r = -errno;
+                                        goto finish;
+                                }
+                        }
+                }
+        }
+
+        r = 0;
+
+finish:
+        if (temp_cap)
+                cap_free(temp_cap);
+
+        if (after_cap) {
+                cap_set_proc(after_cap);
+                cap_free(after_cap);
+        }
+
+        return r;
 }

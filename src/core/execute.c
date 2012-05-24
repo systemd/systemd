@@ -870,68 +870,6 @@ fail:
 }
 #endif
 
-static int do_capability_bounding_set_drop(uint64_t drop) {
-        unsigned long i;
-        cap_t old_cap = NULL, new_cap = NULL;
-        cap_flag_value_t fv;
-        int r;
-
-        /* If we are run as PID 1 we will lack CAP_SETPCAP by default
-         * in the effective set (yes, the kernel drops that when
-         * executing init!), so get it back temporarily so that we can
-         * call PR_CAPBSET_DROP. */
-
-        old_cap = cap_get_proc();
-        if (!old_cap)
-                return -errno;
-
-        if (cap_get_flag(old_cap, CAP_SETPCAP, CAP_EFFECTIVE, &fv) < 0) {
-                r = -errno;
-                goto finish;
-        }
-
-        if (fv != CAP_SET) {
-                static const cap_value_t v = CAP_SETPCAP;
-
-                new_cap = cap_dup(old_cap);
-                if (!new_cap) {
-                        r = -errno;
-                        goto finish;
-                }
-
-                if (cap_set_flag(new_cap, CAP_EFFECTIVE, 1, &v, CAP_SET) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
-                if (cap_set_proc(new_cap) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-        }
-
-        for (i = 0; i <= cap_last_cap(); i++)
-                if (drop & ((uint64_t) 1ULL << (uint64_t) i)) {
-                        if (prctl(PR_CAPBSET_DROP, i) < 0) {
-                                r = -errno;
-                                goto finish;
-                        }
-                }
-
-        r = 0;
-
-finish:
-        if (new_cap)
-                cap_free(new_cap);
-
-        if (old_cap) {
-                cap_set_proc(old_cap);
-                cap_free(old_cap);
-        }
-
-        return r;
-}
-
 static void rename_process_from_path(const char *path) {
         char process_name[11];
         const char *p;
@@ -1398,7 +1336,7 @@ int exec_spawn(ExecCommand *command,
                         }
 
                         if (context->capability_bounding_set_drop) {
-                                err = do_capability_bounding_set_drop(context->capability_bounding_set_drop);
+                                err = capability_bounding_set_drop(context->capability_bounding_set_drop, false);
                                 if (err < 0) {
                                         r = EXIT_CAPABILITIES;
                                         goto fail_child;

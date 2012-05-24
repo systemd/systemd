@@ -931,7 +931,7 @@ int config_parse_exec_secure_bits(
         return 0;
 }
 
-int config_parse_exec_bounding_set(
+int config_parse_bounding_set(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -941,7 +941,7 @@ int config_parse_exec_bounding_set(
                 void *data,
                 void *userdata) {
 
-        ExecContext *c = data;
+        uint64_t *capability_bounding_set_drop = data;
         char *w;
         size_t l;
         char *state;
@@ -968,7 +968,8 @@ int config_parse_exec_bounding_set(
                 int r;
                 cap_value_t cap;
 
-                if (!(t = strndup(w, l)))
+                t = strndup(w, l);
+                if (!t)
                         return -ENOMEM;
 
                 r = cap_from_name(t, &cap);
@@ -983,9 +984,9 @@ int config_parse_exec_bounding_set(
         }
 
         if (invert)
-                c->capability_bounding_set_drop |= sum;
+                *capability_bounding_set_drop |= sum;
         else
-                c->capability_bounding_set_drop |= ~sum;
+                *capability_bounding_set_drop |= ~sum;
 
         return 0;
 }
@@ -2447,7 +2448,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_level,                 "LEVEL" },
                 { config_parse_exec_capabilities,     "CAPABILITIES" },
                 { config_parse_exec_secure_bits,      "SECUREBITS" },
-                { config_parse_exec_bounding_set,     "BOUNDINGSET" },
+                { config_parse_bounding_set,          "BOUNDINGSET" },
                 { config_parse_exec_timer_slack_nsec, "TIMERSLACK" },
                 { config_parse_limit,                 "LIMIT" },
                 { config_parse_unit_cgroup,           "CGROUP [...]" },

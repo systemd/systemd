@@ -184,6 +184,38 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>CapabilityBoundingSet=</varname></term>
+
+                                <listitem><para>Controls which
+                                capabilities to include in the
+                                capability bounding set for PID 1 and
+                                its children. See
+                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details. Takes a whitespace
+                                separated list of capability names as
+                                read by
+                                <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                                Capabilities listed will be included
+                                in the bounding set, all others are
+                                removed. If the list of capabilities
+                                is prefixed with ~ all but the listed
+                                capabilities will be included, the
+                                effect of the assignment
+                                inverted. Note that this option also
+                                effects the respective capabilities in
+                                the effective, permitted and
+                                inheritable capability sets. The
+                                capability bounding set may also be
+                                individually configured for units
+                                using the
+                                <varname>CapabilityBoundingSet=</varname>
+                                directive for units, but note that
+                                capabilities dropped for PID 1 cannot
+                                be regained in individual units, they
+                                are lost for good.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>DefaultLimitCPU=</varname></term>
                                 <term><varname>DefaultLimitFSIZE=</varname></term>
                                 <term><varname>DefaultLimitDATA=</varname></term>
@@ -200,14 +232,21 @@
                                 <term><varname>DefaultLimitNICE=</varname></term>
                                 <term><varname>DefaultLimitRTPRIO=</varname></term>
                                 <term><varname>DefaultLimitRTTIME=</varname></term>
+
                                 <listitem><para>These settings control
-                                various default resource limits for units. See
+                                various default resource limits for
+                                units. See
                                 <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for details. Use the string
                                 <varname>infinity</varname> to
                                 configure no limit on a specific
-				resource. They can be overriden in units files
-				using corresponding LimitXXXX parameter.</para></listitem>
+                                resource. These settings may be
+                                overriden in individual units
+                                using the corresponding LimitXXX=
+                                directives. Note that these resource
+                                limits are only defaults for units,
+                                they are not applied to PID 1
+                                itself.</para></listitem>
                         </varlistentry>
                 </variablelist>
         </refsect1>

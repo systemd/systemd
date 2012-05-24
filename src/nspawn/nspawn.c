@@ -544,49 +544,31 @@ static int setup_hostname(void) {
 }
 
 static int drop_capabilities(void) {
-        static const unsigned long retain[] = {
-                CAP_CHOWN,
-                CAP_DAC_OVERRIDE,
-                CAP_DAC_READ_SEARCH,
-                CAP_FOWNER,
-                CAP_FSETID,
-                CAP_IPC_OWNER,
-                CAP_KILL,
-                CAP_LEASE,
-                CAP_LINUX_IMMUTABLE,
-                CAP_NET_BIND_SERVICE,
-                CAP_NET_BROADCAST,
-                CAP_NET_RAW,
-                CAP_SETGID,
-                CAP_SETFCAP,
-                CAP_SETPCAP,
-                CAP_SETUID,
-                CAP_SYS_ADMIN,
-                CAP_SYS_CHROOT,
-                CAP_SYS_NICE,
-                CAP_SYS_PTRACE,
-                CAP_SYS_TTY_CONFIG
-        };
 
-        unsigned long l;
+        static const uint64_t retain =
+                (1ULL << CAP_CHOWN) |
+                (1ULL << CAP_DAC_OVERRIDE) |
+                (1ULL << CAP_DAC_READ_SEARCH) |
+                (1ULL << CAP_FOWNER) |
+                (1ULL << CAP_FSETID) |
+                (1ULL << CAP_IPC_OWNER) |
+                (1ULL << CAP_KILL) |
+                (1ULL << CAP_LEASE) |
+                (1ULL << CAP_LINUX_IMMUTABLE) |
+                (1ULL << CAP_NET_BIND_SERVICE) |
+                (1ULL << CAP_NET_BROADCAST) |
+                (1ULL << CAP_NET_RAW) |
+                (1ULL << CAP_SETGID) |
+                (1ULL << CAP_SETFCAP) |
+                (1ULL << CAP_SETPCAP) |
+                (1ULL << CAP_SETUID) |
+                (1ULL << CAP_SYS_ADMIN) |
+                (1ULL << CAP_SYS_CHROOT) |
+                (1ULL << CAP_SYS_NICE) |
+                (1ULL << CAP_SYS_PTRACE) |
+                (1ULL << CAP_SYS_TTY_CONFIG);
 
-        for (l = 0; l <= cap_last_cap(); l++) {
-                unsigned i;
-
-                for (i = 0; i < ELEMENTSOF(retain); i++)
-                        if (retain[i] == l)
-                                break;
-
-                if (i < ELEMENTSOF(retain))
-                        continue;
-
-                if (prctl(PR_CAPBSET_DROP, l) < 0) {
-                        log_error("PR_CAPBSET_DROP failed: %m");
-                        return -errno;
-                }
-        }
-
-        return 0;
+        return capability_bounding_set_drop(~retain, false);
 }
 
 static int is_os_tree(const char *path) {
@@ -1041,8 +1023,10 @@ int main(int argc, char *argv[]) {
 
                 loopback_setup();
 
-                if (drop_capabilities() < 0)
+                if (drop_capabilities() < 0) {
+                        log_error("drop_capabilities() failed: %m");
                         goto child_fail;
+                }
 
                 if (arg_user) {
 

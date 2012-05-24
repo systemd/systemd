@@ -50,6 +50,7 @@
 #include "watchdog.h"
 #include "path-util.h"
 #include "switch-root.h"
+#include "capability.h"
 
 #include "mount-setup.h"
 #include "loopback-setup.h"
@@ -88,6 +89,7 @@ static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 static usec_t arg_runtime_watchdog = 0;
 static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
 static struct rlimit *arg_default_rlimit[RLIMIT_NLIMITS] = {};
+static uint64_t arg_capability_bounding_set_drop = 0;
 
 static FILE* serialization = NULL;
 
@@ -678,6 +680,7 @@ static int parse_config_file(void) {
                 { "Manager", "JoinControllers",       config_parse_join_controllers, 0, &arg_join_controllers },
                 { "Manager", "RuntimeWatchdogSec",    config_parse_usec,         0, &arg_runtime_watchdog    },
                 { "Manager", "ShutdownWatchdogSec",   config_parse_usec,         0, &arg_shutdown_watchdog   },
+                { "Manager", "CapabilityBoundingSet", config_parse_bounding_set, 0, &arg_capability_bounding_set_drop },
                 { "Manager", "DefaultLimitCPU",       config_parse_limit,        0, &arg_default_rlimit[RLIMIT_CPU]},
                 { "Manager", "DefaultLimitFSIZE",     config_parse_limit,        0, &arg_default_rlimit[RLIMIT_FSIZE]},
                 { "Manager", "DefaultLimitDATA",      config_parse_limit,        0, &arg_default_rlimit[RLIMIT_DATA]},
@@ -1483,6 +1486,14 @@ int main(int argc, char *argv[]) {
 
         if (arg_running_as == MANAGER_SYSTEM && arg_runtime_watchdog > 0)
                 watchdog_set_timeout(&arg_runtime_watchdog);
+
+        if (arg_capability_bounding_set_drop) {
+                r = capability_bounding_set_drop(arg_capability_bounding_set_drop, true);
+                if (r < 0) {
+                        log_error("Failed to drop capability bounding set: %s", strerror(-r));
+                        goto finish;
+                }
+        }
 
         r = manager_new(arg_running_as, &m);
         if (r < 0) {

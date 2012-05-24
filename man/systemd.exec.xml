@@ -678,17 +678,17 @@
                                 is prefixed with ~ all but the listed
                                 capabilities will be included, the
                                 effect of the assignment
-                                inverted. Note that this option does
-                                not actually set or unset any
-                                capabilities in the effective,
-                                permitted or inherited capability
-                                sets. That's what
-                                <varname>Capabilities=</varname> is
-                                for. If this option is not used the
+                                inverted. Note that this option also
+                                effects the respective capabilities in
+                                the effective, permitted and
+                                inheritable capability sets, on top of
+                                what <varname>Capabilities=</varname>
+                                does. If this option is not used the
                                 capability bounding set is not
                                 modified on process execution, hence
                                 no limits on the capabilities of the
-                                process are enforced.</para></listitem>
+                                process are
+                                enforced.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
