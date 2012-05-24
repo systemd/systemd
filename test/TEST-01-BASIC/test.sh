@@ -19,8 +19,11 @@ test_run() {
     mount ${LOOPDEV}p1 $TESTDIR/root
     [[ -e $TESTDIR/root/testok ]] && ret=0
     cp -a $TESTDIR/root/var/log/journal $TESTDIR
+    cp -a $TESTDIR/root/failed $TESTDIR
     umount $TESTDIR/root
+    cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
+    test -s $TESTDIR/failed && ret=$(($ret+1))
     return $ret
 }
 
@@ -97,7 +100,7 @@ Description=Testsuite service
 After=multi-user.target
 
 [Service]
-ExecStart=/bin/sh -c 'echo OK > /testok; /bin/sleep 5'
+ExecStart=/bin/sh -c 'systemctl --failed --no-legend --no-pager > /failed ; echo OK > /testok'
 ExecStartPost=/usr/sbin/poweroff
 Type=oneshot
 
@@ -169,7 +172,7 @@ EOF
 	dracut_install sh df free ls shutdown poweroff \
             stty cat ps ln ip route \
 	    mount dmesg dhclient mkdir cp ping dhclient \
-	    umount strace less grep
+	    umount strace less grep id tty
 
         # install ld.so.conf* and run ldconfig
 	cp -a /etc/ld.so.conf* $initdir/etc
