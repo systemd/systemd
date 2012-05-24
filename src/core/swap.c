@@ -535,24 +535,29 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                 p = &s->parameters_proc_swaps;
         else if (s->from_fragment)
                 p = &s->parameters_fragment;
+        else
+                p = NULL;
 
         fprintf(f,
                 "%sSwap State: %s\n"
                 "%sResult: %s\n"
                 "%sWhat: %s\n"
-                "%sPriority: %i\n"
-                "%sNoAuto: %s\n"
-                "%sNoFail: %s\n"
                 "%sFrom /proc/swaps: %s\n"
                 "%sFrom fragment: %s\n",
                 prefix, swap_state_to_string(s->state),
                 prefix, swap_result_to_string(s->result),
                 prefix, s->what,
-                prefix, p->priority,
-                prefix, yes_no(p->noauto),
-                prefix, yes_no(p->nofail),
                 prefix, yes_no(s->from_proc_swaps),
                 prefix, yes_no(s->from_fragment));
+
+        if (p)
+                fprintf(f,
+                        "%sPriority: %i\n"
+                        "%sNoAuto: %s\n"
+                        "%sNoFail: %s\n",
+                        prefix, p->priority,
+                        prefix, yes_no(p->noauto),
+                        prefix, yes_no(p->nofail));
 
         if (s->control_pid > 0)
                 fprintf(f,
