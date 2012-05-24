@@ -56,35 +56,35 @@ EOF
         (cd ../..; make DESTDIR=$initdir install)
 
         # install possible missing libraries
-	for i in $initdir/{sbin,bin}/* $initdir/lib/systemd/*; do
+        for i in $initdir/{sbin,bin}/* $initdir/lib/systemd/*; do
             inst_libs $i
         done
 
         # activate kmsg import
-	echo 'ImportKernel=yes' >> $initdir/etc/systemd/journald.conf
+        echo 'ImportKernel=yes' >> $initdir/etc/systemd/journald.conf
 
         # make a journal directory
-	mkdir -p $initdir/var/log/journal
+        mkdir -p $initdir/var/log/journal
 
         # install some basic config files
-	inst /etc/sysconfig/init
-	inst /etc/passwd
-	inst /etc/shadow
-	inst /etc/group
-	inst /etc/shells
-	inst /etc/nsswitch.conf
-	inst /etc/pam.conf
-	inst /etc/securetty
-	inst /etc/os-release
+        inst /etc/sysconfig/init
+        inst /etc/passwd
+        inst /etc/shadow
+        inst /etc/group
+        inst /etc/shells
+        inst /etc/nsswitch.conf
+        inst /etc/pam.conf
+        inst /etc/securetty
+        inst /etc/os-release
         inst /etc/localtime
         # we want an empty environment
-	> $initdir/etc/environment
+        > $initdir/etc/environment
 
         # set the hostname
-	echo  systemd-testsuite > $initdir/etc/hostname
+        echo  systemd-testsuite > $initdir/etc/hostname
 
         # setup the testsuite target
-	cat >$initdir/etc/systemd/system/testsuite.target <<EOF
+        cat >$initdir/etc/systemd/system/testsuite.target <<EOF
 [Unit]
 Description=Testsuite target
 Requires=multi-user.target
@@ -94,7 +94,7 @@ AllowIsolate=yes
 EOF
 
         # setup the testsuite service
-	cat >$initdir/etc/systemd/system/testsuite.service <<EOF
+        cat >$initdir/etc/systemd/system/testsuite.service <<EOF
 [Unit]
 Description=Testsuite service
 After=multi-user.target
@@ -105,11 +105,11 @@ ExecStartPost=/usr/sbin/poweroff
 Type=oneshot
 
 EOF
-	mkdir -p $initdir/etc/systemd/system/testsuite.target.wants
-	ln -fs ../testsuite.service $initdir/etc/systemd/system/testsuite.target.wants/testsuite.service
+        mkdir -p $initdir/etc/systemd/system/testsuite.target.wants
+        ln -fs ../testsuite.service $initdir/etc/systemd/system/testsuite.target.wants/testsuite.service
 
         # make the testsuite the default target
-	ln -fs testsuite.target $initdir/etc/systemd/system/default.target
+        ln -fs testsuite.target $initdir/etc/systemd/system/default.target
         mkdir -p $initdir/etc/rc.d
         cat >$initdir/etc/rc.d/rc.local <<EOF
 #!/bin/bash
@@ -124,7 +124,7 @@ EOF
         inst_libdir_file "libnss_files*"
 
         # install dbus and pam
-	find \
+        find \
             /etc/dbus-1 \
             /etc/pam.d \
             /etc/security \
@@ -135,27 +135,27 @@ EOF
         done
 
         # install dbus socket and service file
-	inst /usr/lib/systemd/system/dbus.socket
-	inst /usr/lib/systemd/system/dbus.service
+        inst /usr/lib/systemd/system/dbus.socket
+        inst /usr/lib/systemd/system/dbus.service
 
         # install basic keyboard maps and fonts
-	for i in \
+        for i in \
             /usr/lib/kbd/consolefonts/latarcyrheb-sun16* \
             /usr/lib/kbd/keymaps/include/* \
             /usr/lib/kbd/keymaps/i386/include/* \
             /usr/lib/kbd/keymaps/i386/qwerty/us.*; do
-		[[ -f $i ]] || continue
-		inst $i
-	done
+                [[ -f $i ]] || continue
+                inst $i
+        done
 
         # some basic terminfo files
-	for _terminfodir in /lib/terminfo /etc/terminfo /usr/share/terminfo; do
+        for _terminfodir in /lib/terminfo /etc/terminfo /usr/share/terminfo; do
             [ -f ${_terminfodir}/l/linux ] && break
-	done
-	dracut_install -o ${_terminfodir}/l/linux
+        done
+        dracut_install -o ${_terminfodir}/l/linux
 
         # softlink mtab
-	ln -fs /proc/self/mounts $initdir/etc/mtab
+        ln -fs /proc/self/mounts $initdir/etc/mtab
 
         # install any Exec's from the service files
         egrep -ho '^Exec[^ ]*=[^ ]+' $initdir/lib/systemd/system/*.service \
@@ -165,23 +165,23 @@ EOF
         done
 
         # install plymouth, if found... else remove plymouth service files
-	if [ -x /usr/libexec/plymouth/plymouth-populate-initrd ]; then
+        if [ -x /usr/libexec/plymouth/plymouth-populate-initrd ]; then
             PLYMOUTH_POPULATE_SOURCE_FUNCTIONS="$TEST_BASE_DIR/test-functions" \
                 /usr/libexec/plymouth/plymouth-populate-initrd -t $initdir
-		dracut_install plymouth plymouthd
-	else
-		rm -f $initdir/usr/lib/systemd/system/plymouth* $initdir/usr/lib/systemd/system/*/plymouth*
+                dracut_install plymouth plymouthd
+        else
+                rm -f $initdir/usr/lib/systemd/system/plymouth* $initdir/usr/lib/systemd/system/*/plymouth*
         fi
 
         # some helper tools for debugging
-	dracut_install sh df free ls shutdown poweroff \
+        dracut_install sh df free ls shutdown poweroff \
             stty cat ps ln ip route \
-	    mount dmesg dhclient mkdir cp ping dhclient \
-	    umount strace less grep id tty touch
+            mount dmesg dhclient mkdir cp ping dhclient \
+            umount strace less grep id tty touch
 
         # install ld.so.conf* and run ldconfig
-	cp -a /etc/ld.so.conf* $initdir/etc
-	ldconfig -r "$initdir"
+        cp -a /etc/ld.so.conf* $initdir/etc
+        ldconfig -r "$initdir"
 
     )
     umount $TESTDIR/root
