@@ -43,7 +43,9 @@ run_nspawn() {
 
 test_run() {
     run_qemu || return 1
-    run_nspawn || return 1
+    if [[ -d /sys/fs/cgroup/systemd ]]
+        run_nspawn || return 1
+    fi
     return 0
 }
 
