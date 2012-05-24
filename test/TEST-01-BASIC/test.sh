@@ -172,7 +172,7 @@ EOF
 	dracut_install sh df free ls shutdown poweroff \
             stty cat ps ln ip route \
 	    mount dmesg dhclient mkdir cp ping dhclient \
-	    umount strace less grep id tty
+	    umount strace less grep id tty touch
 
         # install ld.so.conf* and run ldconfig
 	cp -a /etc/ld.so.conf* $initdir/etc
