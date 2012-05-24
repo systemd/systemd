@@ -176,6 +176,17 @@ CHANGES WITH 183:
 
         * The GTK tools have been split off into a systemd-ui.
 
+        Contributions from: Andreas Schwab, Auke Kok, Ayan George,
+        Colin Guthrie, Daniel Mack, Dave Reisner, David Ward, Elan
+        Ruusamäe, Frederic Crozat, Gergely Nagy, Guillermo Vidal,
+        Hannes Reinecke, Harald Hoyer, Javier Jardón, Kay Sievers,
+        Lennart Poettering, Lucas De Marchi, Léo Gillot-Lamure,
+        Marc-Antoine Perennou, Martin Pitt, Matthew Monaco, Maxim
+        A. Mikityanskiy, Michael Biebl, Michael Olbrich, Michal
+        Schmidt, Nis Martensen, Patrick McCarty, Roberto Sassu, Shawn
+        Landden, Sjoerd Simons, Sven Anders, Tollef Fog Heen, Tom
+        Gundersen
+
 CHANGES WITH 44:
         * This is mostly a bugfix release
 
