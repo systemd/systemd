@@ -44,7 +44,7 @@ local:
         *;
 };
 
-LIBSYSTEMD_JOURNAL_45 {
+LIBSYSTEMD_JOURNAL_183 {
 global:
         sd_journal_print_with_location;
         sd_journal_printv_with_location;
