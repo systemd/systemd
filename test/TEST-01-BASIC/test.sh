@@ -7,6 +7,8 @@ KVERSION=${KVERSION-$(uname -r)}
 
 # Uncomment this to debug failures
 #DEBUGFAIL="systemd.unit=multi-user.target"
+DEBUGTOOLS="df free ls stty cat ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort"
+
 
 run_qemu() {
     qemu-kvm \
@@ -196,10 +198,7 @@ EOF
         fi
 
         # some helper tools for debugging
-        dracut_install sh df free ls shutdown poweroff \
-            stty cat ps ln ip route \
-            mount dmesg dhclient mkdir cp ping dhclient \
-            umount strace less grep id tty touch
+        [[ $DEBUGTOOLS ]] && dracut_install $DEBUGTOOLS
 
         # install ld.so.conf* and run ldconfig
         cp -a /etc/ld.so.conf* $initdir/etc
