@@ -15,7 +15,8 @@ run_qemu() {
         -hda $TESTDIR/rootdisk.img \
         -m 256M -nographic \
         -net none -kernel /boot/vmlinuz-$KVERSION \
-        -append "root=/dev/sda1 systemd.log_level=debug raid=noautodetect loglevel=2 init=/usr/lib/systemd/systemd rw console=ttyS0,115200n81 selinux=0 $DEBUGFAIL"
+        -append "root=/dev/sda1 systemd.log_level=debug raid=noautodetect loglevel=2 init=/usr/lib/systemd/systemd rw console=ttyS0,115200n81 selinux=0 $DEBUGFAIL" || return 1
+
     ret=1
     mkdir -p $TESTDIR/root
     mount ${LOOPDEV}p1 $TESTDIR/root
