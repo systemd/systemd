@@ -574,19 +574,18 @@ inst_libdir_file() {
     fi
 }
 
+check_qemu() {
+    command -v qemu-kvm &>/dev/null && [[ -c /dev/kvm ]]
+}
+
+check_nspawn() {
+    [[ -d /sys/fs/cgroup/systemd ]]
+}
+
+
 do_test() {
     if [[ $UID != "0" ]]; then
         echo "TEST: $TEST_DESCRIPTION [SKIPPED]: not root" >&2
-        exit 0
-    fi
-
-    if ! command -v qemu-kvm &>/dev/null; then
-        echo "TEST: $TEST_DESCRIPTION [SKIPPED]: no qemu-kvm found" >&2
-        exit 0
-    fi
-
-    if ! [[ -c /dev/kvm ]]; then
-        echo "TEST: $TEST_DESCRIPTION [SKIPPED]: /dev/kvm not found" >&2
         exit 0
     fi
 
