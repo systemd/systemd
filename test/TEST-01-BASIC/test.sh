@@ -4,26 +4,31 @@
 TEST_DESCRIPTION="Basic systemd setup"
 
 KVERSION=${KVERSION-$(uname -r)}
+KERNEL_VER=$(uname -r)
 
 # Uncomment this to debug failures
 #DEBUGFAIL="systemd.unit=multi-user.target"
 DEBUGTOOLS="df free ls stty cat ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort"
 
-
 run_qemu() {
+    # TODO: qemu wrapper script: http://www.spinics.net/lists/kvm/msg72389.html
     qemu-kvm \
         -hda $TESTDIR/rootdisk.img \
-        -m 256M -nographic \
-        -net none -kernel /boot/vmlinuz-$KVERSION \
-        -append "root=/dev/sda1 systemd.log_level=debug raid=noautodetect loglevel=2 init=/usr/lib/systemd/systemd rw console=ttyS0,115200n81 selinux=0 $DEBUGFAIL" || return 1
+        -m 512M -nographic \
+        -net none -kernel /boot/vmlinuz-$KERNEL_VER \
+        -append "root=/dev/sda1 systemd.log_level=debug raid=noautodetect loglevel=2 init=/usr/lib/systemd/systemd ro console=ttyS0,115200n81 selinux=0 $DEBUGFAIL" || return 1
 
     ret=1
     mkdir -p $TESTDIR/root
     mount ${LOOPDEV}p1 $TESTDIR/root
     [[ -e $TESTDIR/root/testok ]] && ret=0
-    cp -a $TESTDIR/root/var/log/journal $TESTDIR
     cp -a $TESTDIR/root/failed $TESTDIR
+    cryptsetup luksOpen ${LOOPDEV}p2 varcrypt <$TESTDIR/keyfile
+    mount /dev/mapper/varcrypt $TESTDIR/root/var
+    cp -a $TESTDIR/root/var/log/journal $TESTDIR
+    umount $TESTDIR/root/var
     umount $TESTDIR/root
+    cryptsetup luksClose /dev/mapper/varcrypt
     cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
@@ -45,9 +50,16 @@ run_nspawn() {
 
 
 test_run() {
-    run_qemu || return 1
-    if [[ -d /sys/fs/cgroup/systemd ]]; then
-        run_nspawn || return 1
+    if check_qemu ; then
+        run_qemu || return 1
+    else
+        dwarn "can't run qemu-kvm, skipping"
+    fi
+    if check_nspawn; then
+#run_nspawn || return 1
+    :
+    else
+        dwarn "can't run systemd-nspawn, skipping"
     fi
     return 0
 }
@@ -55,20 +67,26 @@ test_run() {
 test_setup() {
     rm -f $TESTDIR/rootdisk.img
     # Create the blank file to use as a root filesystem
-    dd if=/dev/null of=$TESTDIR/rootdisk.img bs=1M seek=100
+    dd if=/dev/null of=$TESTDIR/rootdisk.img bs=1M seek=200
     LOOPDEV=$(losetup --show -P -f $TESTDIR/rootdisk.img)
     [ -b $LOOPDEV ] || return 1
     echo "LOOPDEV=$LOOPDEV" >> $STATEFILE
-    sfdisk -C 3200 -H 2 -S 32 -L $LOOPDEV <<EOF
+    sfdisk -C 6400 -H 2 -S 32 -L $LOOPDEV <<EOF
+,3200
 ,
 EOF
 
     mkfs.ext3 -L systemd ${LOOPDEV}p1
+    echo -n test >$TESTDIR/keyfile
+    cryptsetup -q luksFormat ${LOOPDEV}p2 $TESTDIR/keyfile
+    cryptsetup luksOpen ${LOOPDEV}p2 varcrypt <$TESTDIR/keyfile
+    mkfs.ext3 -L var /dev/mapper/varcrypt
     mkdir -p $TESTDIR/root
     mount ${LOOPDEV}p1 $TESTDIR/root
     mkdir -p $TESTDIR/root/run
+    mkdir -p $TESTDIR/root/var
+    mount /dev/mapper/varcrypt $TESTDIR/root/var
 
-    kernel=$KVERSION
     # Create what will eventually be our root filesystem onto an overlay
     (
         LOG_LEVEL=5
@@ -79,6 +97,9 @@ EOF
 
         # install compiled files
         (cd ../..; make DESTDIR=$initdir install)
+
+        # remove unneeded documentation
+        rm -fr $initdir/usr/share/{man,doc,gtk-doc}
 
         # install possible missing libraries
         for i in $initdir/{sbin,bin}/* $initdir/lib/systemd/*; do
@@ -104,9 +125,24 @@ EOF
         inst /etc/localtime
         # we want an empty environment
         > $initdir/etc/environment
+        > $initdir/etc/machine-id
 
         # set the hostname
         echo  systemd-testsuite > $initdir/etc/hostname
+
+        eval $(udevadm info --export --query=env --name=/dev/mapper/varcrypt)
+        eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
+
+        cat >$initdir/etc/crypttab <<EOF
+$DM_NAME UUID=$ID_FS_UUID /etc/varkey
+EOF
+        echo -n test > $initdir/etc/varkey
+        cat $initdir/etc/crypttab | ddebug
+
+        cat >$initdir/etc/fstab <<EOF
+LABEL=systemd           /       ext3    rw 0 1
+/dev/mapper/varcrypt    /var    ext3    defaults 0 1
+EOF
 
         # setup the testsuite target
         cat >$initdir/etc/systemd/system/testsuite.target <<EOF
@@ -125,10 +161,9 @@ Description=Testsuite service
 After=multi-user.target
 
 [Service]
-ExecStart=/bin/sh -c 'systemctl --failed --no-legend --no-pager > /failed ; echo OK > /testok'
-ExecStartPost=/usr/sbin/poweroff
+ExecStart=/bin/bash -c 'set -x; systemctl --failed --no-legend --no-pager > /failed ; echo OK > /testok; while : ;do systemd-cat echo "testsuite service waiting for /var/log/journal" ; echo "testsuite service waiting for journal to move to /var/log/journal" > /dev/console ; for i in /var/log/journal/*;do [ -d "\$i" ] && echo "\$i" && break 2; done; sleep 1; done; sleep 1; exit 0;'
+ExecStopPost=/usr/bin/systemctl poweroff
 Type=oneshot
-
 EOF
         mkdir -p $initdir/etc/systemd/system/testsuite.target.wants
         ln -fs ../testsuite.service $initdir/etc/systemd/system/testsuite.target.wants/testsuite.service
@@ -143,7 +178,16 @@ EOF
         chmod 0755 $initdir/etc/rc.d/rc.local
         # install basic tools needed
         dracut_install sh bash setsid loadkeys setfont \
-            login sushell sulogin gzip sleep echo
+            login sushell sulogin gzip sleep echo mount umount cryptsetup
+        dracut_install dmsetup modprobe
+
+        instmods dm_crypt =crypto
+
+        type -P dmeventd >/dev/null && dracut_install dmeventd
+
+        inst_libdir_file "libdevmapper-event.so*"
+
+        inst_rules 10-dm.rules 13-dm-disk.rules 95-dm-notify.rules
 
         # install libnss_files for login
         inst_libdir_file "libnss_files*"
@@ -190,13 +234,13 @@ EOF
         done
 
         # install plymouth, if found... else remove plymouth service files
-        if [ -x /usr/libexec/plymouth/plymouth-populate-initrd ]; then
-            PLYMOUTH_POPULATE_SOURCE_FUNCTIONS="$TEST_BASE_DIR/test-functions" \
-                /usr/libexec/plymouth/plymouth-populate-initrd -t $initdir
-                dracut_install plymouth plymouthd
-        else
-                rm -f $initdir/usr/lib/systemd/system/plymouth* $initdir/usr/lib/systemd/system/*/plymouth*
-        fi
+        # if [ -x /usr/libexec/plymouth/plymouth-populate-initrd ]; then
+        #     PLYMOUTH_POPULATE_SOURCE_FUNCTIONS="$TEST_BASE_DIR/test-functions" \
+        #         /usr/libexec/plymouth/plymouth-populate-initrd -t $initdir
+        #         dracut_install plymouth plymouthd
+        # else
+        rm -f $initdir/{usr/lib,etc}/systemd/system/plymouth* $initdir/{usr/lib,etc}/systemd/system/*/plymouth*
+        # fi
 
         # some helper tools for debugging
         [[ $DEBUGTOOLS ]] && dracut_install $DEBUGTOOLS
@@ -204,15 +248,35 @@ EOF
         # install ld.so.conf* and run ldconfig
         cp -a /etc/ld.so.conf* $initdir/etc
         ldconfig -r "$initdir"
+        ddebug "Strip binaeries"
+        find "$initdir" -perm +111 -type f | xargs strip --strip-unneeded | ddebug
 
+        # copy depmod files
+        inst /lib/modules/$KERNEL_VER/modules.order
+        inst /lib/modules/$KERNEL_VER/modules.builtin
+        # generate module dependencies
+        if [[ -d $initdir/lib/modules/$KERNEL_VER ]] && \
+            ! depmod -a -b "$initdir" $KERNEL_VER; then
+                dfatal "\"depmod -a $KERNEL_VER\" failed."
+                exit 1
+        fi
     )
     rm -fr $TESTDIR/nspawn-root
-    cp -avr $TESTDIR/root $TESTDIR/nspawn-root
+    ddebug "cp -ar $TESTDIR/root $TESTDIR/nspawn-root"
+    cp -ar $TESTDIR/root $TESTDIR/nspawn-root
+    # we don't mount in the nspawn root
+    rm -fr $TESTDIR/nspawn-root/etc/fstab
 
+    ddebug "umount $TESTDIR/root/var"
+    umount $TESTDIR/root/var
+    cryptsetup luksClose /dev/mapper/varcrypt
+    ddebug "umount $TESTDIR/root"
     umount $TESTDIR/root
 }
 
 test_cleanup() {
+    umount $TESTDIR/root/var 2>/dev/null
+    [[ -b /dev/mapper/varcrypt ]] && cryptsetup luksClose /dev/mapper/varcrypt
     umount $TESTDIR/root 2>/dev/null
     [[ $LOOPDEV ]] && losetup -d $LOOPDEV
     return 0

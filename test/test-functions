@@ -4,21 +4,15 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 
-setup_basic_dirs() {
-    for d in usr/bin usr/sbin bin etc lib "$libdir" sbin tmp usr var var/log; do
-        [[ -e "${initdir}${prefix}/$d" ]] && continue
-        if [ -L "/$d" ]; then
-            inst_symlink "/$d" "${prefix}/$d"
-        else
-            mkdir -m 0755 -p "${initdir}${prefix}/$d"
-        fi
-    done
+KERNEL_VER=${KERNEL_VER-$(uname -r)}
+KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 
-    for d in dev proc sys sysroot root run run/lock run/initramfs; do
+setup_basic_dirs() {
+    for d in usr/bin usr/sbin bin etc lib "$libdir" sbin tmp usr var var/log dev proc sys sysroot root run run/lock run/initramfs; do
         if [ -L "/$d" ]; then
             inst_symlink "/$d"
         else
-            mkdir -m 0755 -p "$initdir/$d"
+            inst_dir "/$d"
         fi
     done
 
@@ -127,9 +121,9 @@ dtrace() {
 # @param msg Message.
 # @retval 0 It's always returned, even if logging failed.
 ddebug() {
-    set +x
+#    set +x
     dlog 5 "$@"
-    [ -n "$debug" ] && set -x || :
+#    [ -n "$debug" ] && set -x || :
 }
 
 ## @brief Logs message at INFO level (4)
@@ -157,9 +151,9 @@ dwarn() {
 # @param msg Message.
 # @retval 0 It's always returned, even if logging failed.
 derror() {
-    set +x
+#    set +x
     dlog 2 "$@"
-    [ -n "$debug" ] && set -x || :
+#    [ -n "$debug" ] && set -x || :
 }
 
 ## @brief Logs message at FATAL level (1)
@@ -547,6 +541,228 @@ dracut_install() {
     done
 }
 
+# Install a single kernel module along with any firmware it may require.
+# $1 = full path to kernel module to install
+install_kmod_with_fw() {
+    # no need to go further if the module is already installed
+
+    [[ -e "${initdir}/lib/modules/$KERNEL_VER/${1##*/lib/modules/$KERNEL_VER/}" ]] \
+        && return 0
+
+    [[ -e "$initdir/.kernelmodseen/${1##*/}" ]] && return 0
+
+    if [[ $omit_drivers ]]; then
+        local _kmod=${1##*/}
+        _kmod=${_kmod%.ko}
+        _kmod=${_kmod/-/_}
+        if [[ "$_kmod" =~ $omit_drivers ]]; then
+            dinfo "Omitting driver $_kmod"
+            return 1
+        fi
+        if [[ "${1##*/lib/modules/$KERNEL_VER/}" =~ $omit_drivers ]]; then
+            dinfo "Omitting driver $_kmod"
+            return 1
+        fi
+    fi
+
+    [ -d "$initdir/.kernelmodseen" ] && \
+        > "$initdir/.kernelmodseen/${1##*/}"
+
+    inst_simple "$1" "/lib/modules/$KERNEL_VER/${1##*/lib/modules/$KERNEL_VER/}" \
+        || return $?
+
+    local _modname=${1##*/} _fwdir _found _fw
+    _modname=${_modname%.ko*}
+    for _fw in $(modinfo -k $KERNEL_VER -F firmware $1 2>/dev/null); do
+        _found=''
+        for _fwdir in $fw_dir; do
+            if [[ -d $_fwdir && -f $_fwdir/$_fw ]]; then
+                inst_simple "$_fwdir/$_fw" "/lib/firmware/$_fw"
+                _found=yes
+            fi
+        done
+        if [[ $_found != yes ]]; then
+            if ! grep -qe "\<${_modname//-/_}\>" /proc/modules; then
+                dinfo "Possible missing firmware \"${_fw}\" for kernel module" \
+                    "\"${_modname}.ko\""
+            else
+                dwarn "Possible missing firmware \"${_fw}\" for kernel module" \
+                    "\"${_modname}.ko\""
+            fi
+        fi
+    done
+    return 0
+}
+
+# Do something with all the dependencies of a kernel module.
+# Note that kernel modules depend on themselves using the technique we use
+# $1 = function to call for each dependency we find
+#      It will be passed the full path to the found kernel module
+# $2 = module to get dependencies for
+# rest of args = arguments to modprobe
+# _fderr specifies FD passed from surrounding scope
+for_each_kmod_dep() {
+    local _func=$1 _kmod=$2 _cmd _modpath _options _found=0
+    shift 2
+    modprobe "$@" --ignore-install --show-depends $_kmod 2>&${_fderr} | (
+        while read _cmd _modpath _options; do
+            [[ $_cmd = insmod ]] || continue
+            $_func ${_modpath} || exit $?
+            _found=1
+        done
+        [[ $_found -eq 0 ]] && exit 1
+        exit 0
+    )
+}
+
+# filter kernel modules to install certain modules that meet specific
+# requirements.
+# $1 = search only in subdirectory of /kernel/$1
+# $2 = function to call with module name to filter.
+#      This function will be passed the full path to the module to test.
+# The behaviour of this function can vary depending on whether $hostonly is set.
+# If it is, we will only look at modules that are already in memory.
+# If it is not, we will look at all kernel modules
+# This function returns the full filenames of modules that match $1
+filter_kernel_modules_by_path () (
+    local _modname _filtercmd
+    if ! [[ $hostonly ]]; then
+        _filtercmd='find "$KERNEL_MODS/kernel/$1" "$KERNEL_MODS/extra"'
+        _filtercmd+=' "$KERNEL_MODS/weak-updates" -name "*.ko" -o -name "*.ko.gz"'
+        _filtercmd+=' -o -name "*.ko.xz"'
+        _filtercmd+=' 2>/dev/null'
+    else
+        _filtercmd='cut -d " " -f 1 </proc/modules|xargs modinfo -F filename '
+        _filtercmd+='-k $KERNEL_VER 2>/dev/null'
+    fi
+    for _modname in $(eval $_filtercmd); do
+        case $_modname in
+            *.ko) "$2" "$_modname" && echo "$_modname";;
+            *.ko.gz) gzip -dc "$_modname" > $initdir/$$.ko
+                $2 $initdir/$$.ko && echo "$_modname"
+                rm -f $initdir/$$.ko
+                ;;
+            *.ko.xz) xz -dc "$_modname" > $initdir/$$.ko
+                $2 $initdir/$$.ko && echo "$_modname"
+                rm -f $initdir/$$.ko
+                ;;
+        esac
+    done
+)
+find_kernel_modules_by_path () (
+    if ! [[ $hostonly ]]; then
+        find "$KERNEL_MODS/kernel/$1" "$KERNEL_MODS/extra" "$KERNEL_MODS/weak-updates" \
+          -name "*.ko" -o -name "*.ko.gz" -o -name "*.ko.xz" 2>/dev/null
+    else
+        cut -d " " -f 1 </proc/modules \
+        | xargs modinfo -F filename -k $KERNEL_VER 2>/dev/null
+    fi
+)
+
+filter_kernel_modules () {
+    filter_kernel_modules_by_path  drivers  "$1"
+}
+
+find_kernel_modules () {
+    find_kernel_modules_by_path  drivers
+}
+
+# instmods [-c] <kernel module> [<kernel module> ... ]
+# instmods [-c] <kernel subsystem>
+# install kernel modules along with all their dependencies.
+# <kernel subsystem> can be e.g. "=block" or "=drivers/usb/storage"
+instmods() {
+    [[ $no_kernel = yes ]] && return
+    # called [sub]functions inherit _fderr
+    local _fderr=9
+    local _check=no
+    if [[ $1 = '-c' ]]; then
+        _check=yes
+        shift
+    fi
+
+    function inst1mod() {
+        local _ret=0 _mod="$1"
+        case $_mod in
+            =*)
+                if [ -f $KERNEL_MODS/modules.${_mod#=} ]; then
+                    ( [[ "$_mpargs" ]] && echo $_mpargs
+                      cat "${KERNEL_MODS}/modules.${_mod#=}" ) \
+                    | instmods
+                else
+                    ( [[ "$_mpargs" ]] && echo $_mpargs
+                      find "$KERNEL_MODS" -path "*/${_mod#=}/*" -printf '%f\n' ) \
+                    | instmods
+                fi
+                ;;
+            --*) _mpargs+=" $_mod" ;;
+            i2o_scsi) return ;; # Do not load this diagnostic-only module
+            *)
+                _mod=${_mod##*/}
+                # if we are already installed, skip this module and go on
+                # to the next one.
+                [[ -f "$initdir/.kernelmodseen/${_mod%.ko}.ko" ]] && return
+
+                if [[ $omit_drivers ]] && [[ "$1" =~ $omit_drivers ]]; then
+                    dinfo "Omitting driver ${_mod##$KERNEL_MODS}"
+                    return
+                fi
+                # If we are building a host-specific initramfs and this
+                # module is not already loaded, move on to the next one.
+                [[ $hostonly ]] && ! grep -qe "\<${_mod//-/_}\>" /proc/modules \
+                    && ! echo $add_drivers | grep -qe "\<${_mod}\>" \
+                    && return
+
+                # We use '-d' option in modprobe only if modules prefix path
+                # differs from default '/'.  This allows us to use Dracut with
+                # old version of modprobe which doesn't have '-d' option.
+                local _moddirname=${KERNEL_MODS%%/lib/modules/*}
+                [[ -n ${_moddirname} ]] && _moddirname="-d ${_moddirname}/"
+
+                # ok, load the module, all its dependencies, and any firmware
+                # it may require
+                for_each_kmod_dep install_kmod_with_fw $_mod \
+                    --set-version $KERNEL_VER ${_moddirname} $_mpargs
+                ((_ret+=$?))
+                ;;
+        esac
+        return $_ret
+    }
+
+    function instmods_1() {
+        local _mod _mpargs
+        if (($# == 0)); then  # filenames from stdin
+            while read _mod; do
+                inst1mod "${_mod%.ko*}" || {
+                    if [ "$_check" = "yes" ]; then
+                        dfatal "Failed to install $_mod"
+                        return 1
+                    fi
+                }
+            done
+        fi
+        while (($# > 0)); do  # filenames as arguments
+            inst1mod ${1%.ko*} || {
+                if [ "$_check" = "yes" ]; then
+                    dfatal "Failed to install $1"
+                    return 1
+                fi
+            }
+            shift
+        done
+        return 0
+    }
+
+    local _ret _filter_not_found='FATAL: Module .* not found.'
+    set -o pipefail
+    # Capture all stderr from modprobe to _fderr. We could use {var}>...
+    # redirections, but that would make dracut require bash4 at least.
+    eval "( instmods_1 \"\$@\" ) ${_fderr}>&1" \
+    | while read line; do [[ "$line" =~ $_filter_not_found ]] && echo $line || echo $line >&2 ;done | derror
+    _ret=$?
+    set +o pipefail
+    return $_ret
+}
 
 # inst_libdir_file [-n <pattern>] <file> [<file>...]
 # Install a <file> located on a lib directory to the initramfs image
