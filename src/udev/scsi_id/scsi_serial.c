@@ -799,6 +799,7 @@ static int do_scsi_page80_inquiry(struct udev *udev,
                 ser_ind = prepend_vendor_model(udev, dev_scsi, &serial[1]);
                 if (ser_ind < 0)
                         return 1;
+                ser_ind++;	/* for the leading 'S' */
                 for (i = 4; i < len + 4; i++, ser_ind++)
                         serial[ser_ind] = buf[i];
         }
