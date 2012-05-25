@@ -575,8 +575,21 @@ inst_libdir_file() {
 }
 
 do_test() {
-    [[ $UID != "0" ]] && exit 0
-    command -v qemu-kvm &>/dev/null || exit 0
+    if [[ $UID != "0" ]]; then
+        echo "TEST: $TEST_DESCRIPTION [SKIPPED]: not root" >&2
+        exit 0
+    fi
+
+    if ! command -v qemu-kvm &>/dev/null; then
+        echo "TEST: $TEST_DESCRIPTION [SKIPPED]: no qemu-kvm found" >&2
+        exit 0
+    fi
+
+    if ! [[ -c /dev/kvm ]]; then
+        echo "TEST: $TEST_DESCRIPTION [SKIPPED]: /dev/kvm not found" >&2
+        exit 0
+    fi
+
 # Detect lib paths
     [[ $libdir ]] || for libdir in /lib64 /lib; do
         [[ -d $libdir ]] && libdirs+=" $libdir" && break
