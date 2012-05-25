@@ -578,7 +578,7 @@ retry:
                             nlh->magic, htonl(UDEV_MONITOR_MAGIC));
                         return NULL;
                 }
-                if (nlh->properties_off+32 > buflen)
+                if (nlh->properties_off+32 > (size_t)buflen)
                         return NULL;
                 bufpos = nlh->properties_off;
         } else {

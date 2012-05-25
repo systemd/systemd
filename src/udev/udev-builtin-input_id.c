@@ -159,7 +159,7 @@ static void test_key (struct udev_device *dev,
         found = 0;
         for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i) {
                 found |= bitmask_key[i];
-                log_debug("test_key: checking bit block %lu for any keys; found=%i\n", i*BITS_PER_LONG, found > 0);
+                log_debug("test_key: checking bit block %lu for any keys; found=%i\n", (unsigned long)i*BITS_PER_LONG, found > 0);
         }
         /* If there are no keys in the lower block, check the higher block */
         if (!found) {
