@@ -37,6 +37,10 @@ Features:
   - graphical sessions will show a dialog, like they do already today
   - use udev to tag input devices we want to subscribe to
 
+* power/suspend/lid button logic in logind
+
+* journalctl /dev/sda, journalctl /usr/bin/httpd
+
 * also reset /proc/sys/kernel/usermodehelper/bset /proc/sys/kernel/usermodehelper/inheritable in system.conf's CapabilityBoundingSet=
 
 * make use of /sys/power/wake_lock in inhibitors
