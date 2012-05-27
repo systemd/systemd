@@ -197,9 +197,9 @@ _systemctl () {
 }
 complete -F _systemctl systemctl
 
-__get_all_sessions () { systemd-loginctl list-sessions | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
-__get_all_users    () { systemd-loginctl list-users    | { while read -r a b; do printf "%s\n" "$b"; done; } ; }
-__get_all_seats    () { systemd-loginctl list-seats    | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
+__get_all_sessions () { loginctl list-sessions | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
+__get_all_users    () { loginctl list-users    | { while read -r a b; do printf "%s\n" "$b"; done; } ; }
+__get_all_seats    () { loginctl list-seats    | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
 
 _loginctl () {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
