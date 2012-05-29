@@ -9,7 +9,7 @@
 Description=Show Plymouth Boot Screen
 DefaultDependencies=no
 Wants=systemd-ask-password-plymouth.path
-After=systemd-vconsole-setup.service udev-settle.service
+After=systemd-vconsole-setup.service systemd-udev-settle.service
 Before=systemd-ask-password-plymouth.service
 
 # Dracut informs us with this flag file if plymouth is already running
