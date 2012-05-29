@@ -171,3 +171,54 @@ finish:
 
         return r;
 }
+
+static int drop_from_file(const char *fn, uint64_t drop) {
+        int r, k;
+        uint32_t hi, lo;
+        uint64_t current, after;
+        char *p;
+
+        r = read_one_line_file(fn, &p);
+        if (r < 0)
+                return r;
+
+        assert_cc(sizeof(hi) == sizeof(unsigned));
+        assert_cc(sizeof(lo) == sizeof(unsigned));
+
+        k = sscanf(p, "%u %u", &lo, &hi);
+        free(p);
+
+        if (k != 2)
+                return -EIO;
+
+        current = (uint64_t) lo | ((uint64_t) hi << 32ULL);
+        after = current & ~drop;
+
+        if (current == after)
+                return 0;
+
+        lo = (unsigned) (after & 0xFFFFFFFFULL);
+        hi = (unsigned) ((after >> 32ULL) & 0xFFFFFFFFULL);
+
+        if (asprintf(&p, "%u %u", lo, hi) < 0)
+                return -ENOMEM;
+
+        r = write_one_line_file(fn, p);
+        free(p);
+
+        return r;
+}
+
+int capability_bounding_set_drop_usermode(uint64_t drop) {
+        int r;
+
+        r = drop_from_file("/proc/sys/kernel/usermodehelper/inheritable", drop);
+        if (r < 0)
+                return r;
+
+        r = drop_from_file("/proc/sys/kernel/usermodehelper/bset", drop);
+        if (r < 0)
+                return r;
+
+        return r;
+}

@@ -6,9 +6,9 @@ Fedora 18:
 * chrony/ntp target?
 
 Bugfixes:
-* fix building of --disable-logind, hournald and coredunp pull-in parts of sd_login
+* log_warning() in journald gets looped back into journal via kmsg?
 
-* fix emergency mode breakage after the Type=idle change
+* fix building of --disable-logind, hournald and coredunp pull-in parts of sd_login
 
 * remove MS_SHARED from src/core/execute.c and src/test/test-ns.c. They are always combined
   with MS_REMOUNT, which currently does nothing in the kernel, but might which fail in the
@@ -31,15 +31,15 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
-* logind: listen to power/suspend/lid-button events
+* parse kernel cmdline option for capability bset
+
+* logind: listen to power-button events
   - run poweroff if no session is active
   - console session should beep when we refuse to poweroff
   - graphical sessions will show a dialog, like they do already today
   - use udev to tag input devices we want to subscribe to
 
 * journalctl /dev/sda, journalctl /usr/bin/httpd, journalctl --device=b12:8 (--device=n12, --device=+usb:1-1)
-
-* also reset /proc/sys/kernel/usermodehelper/bset /proc/sys/kernel/usermodehelper/inheritable in system.conf's CapabilityBoundingSet=
 
 * make use of /sys/power/wake_lock in inhibitors
 
@@ -49,7 +49,7 @@ Features:
 
 * make sure show-logs checks for utf8 validity, not ascii validity
 
-* add CapbilityBoundingSet to system.conf to set system-wide caps bounds, and same for TimerSlackNS
+* add TimerSlackNS to system.conf to set system-wide caps bounds
 
 * when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
 

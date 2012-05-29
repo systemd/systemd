@@ -27,6 +27,7 @@
 
 unsigned long cap_last_cap(void);
 int have_effective_cap(int value);
-int capability_bounding_set_drop(uint64_t caps, bool right_now);
+int capability_bounding_set_drop(uint64_t drop, bool right_now);
+int capability_bounding_set_drop_usermode(uint64_t drop);
 
 #endif
