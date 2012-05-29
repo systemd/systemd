@@ -31,15 +31,13 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
-* logind: listen to power-button events
+* logind: listen to power/suspend/lid-button events
   - run poweroff if no session is active
   - console session should beep when we refuse to poweroff
   - graphical sessions will show a dialog, like they do already today
   - use udev to tag input devices we want to subscribe to
 
-* power/suspend/lid button logic in logind
-
-* journalctl /dev/sda, journalctl /usr/bin/httpd
+* journalctl /dev/sda, journalctl /usr/bin/httpd, journalctl --device=b12:8 (--device=n12, --device=+usb:1-1)
 
 * also reset /proc/sys/kernel/usermodehelper/bset /proc/sys/kernel/usermodehelper/inheritable in system.conf's CapabilityBoundingSet=
 
