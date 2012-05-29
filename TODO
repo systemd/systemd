@@ -3,6 +3,7 @@ Fedora 18:
 * fix mimo VID/PID check that claims "innocent" hubs
 * storage: rename udev-settle.service to systemd-udev-settle.service
 * split-out systemd-libs.rpm to allow parallel install of 32 and 64 bit packages
+* chrony/ntp target?
 
 Bugfixes:
 * fix building of --disable-logind, hournald and coredunp pull-in parts of sd_login
@@ -119,6 +120,10 @@ Features:
   - strpcpy(), strpcpyl(), strscpy(), strscpyl()
   - utf8 validator code
   - now() vs. now_usec()
+
+* udev: remove network interface renaming, sleep and retry logic, we do
+        no support renaming of interfaces in the conflicting kernel
+        namespace
 
 * udev: find a way to tell udev to not cancel firmware requests when running in initramfs
 
