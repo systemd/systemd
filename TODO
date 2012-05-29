@@ -1,4 +1,12 @@
+Fedora 18:
+* important: udev.pc is broken in 183, fixed in master
+* fix mimo VID/PID check that claims "innocent" hubs
+* storage: rename udev-settle.service to systemd-udev-settle.service
+* split-out systemd-libs.rpm to allow parallel install of 32 and 64 bit packages
+
 Bugfixes:
+* fix building of --disable-logind, hournald and coredunp pull-in parts of sd_login
+
 * fix emergency mode breakage after the Type=idle change
 
 * remove MS_SHARED from src/core/execute.c and src/test/test-ns.c. They are always combined
@@ -22,6 +30,11 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
+* logind: listen to power-button events
+  - run poweroff if no session is active
+  - console session should beep when we refuse to poweroff
+  - graphical sessions will show a dialog, like they do already today
+  - use udev to tag input devices we want to subscribe to
 
 * also reset /proc/sys/kernel/usermodehelper/bset /proc/sys/kernel/usermodehelper/inheritable in system.conf's CapabilityBoundingSet=
 
