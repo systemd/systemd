@@ -1827,7 +1827,7 @@ static void proc_kmsg_line(Server *s, const char *p) {
 
                 /* Avoid any messages we generated ourselves via
                  * log_info() and friends. */
-                if (is_us(pid))
+                if (pid && is_us(pid))
                         goto finish;
 
                 if (s->forward_to_syslog)
