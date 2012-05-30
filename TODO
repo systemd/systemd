@@ -1,5 +1,4 @@
 Fedora 18:
-* fix mimo VID/PID check that claims "innocent" hubs
 * chrony/ntp target?
 
 Bugfixes:
@@ -50,8 +49,6 @@ Features:
 * (attempt to) make Debianites happy:
         - implement .d/ auto includes for unit files
         - add syntax to reset ExecStart= lists (and similar)
-
-* properly detect mimo devices, the current VID/PID check is too broad
 
 * manipulate CPU governor during boot, set it to performance
 

@@ -2883,10 +2883,10 @@ rootlibexec_PROGRAMS += \
 
 dist_udevrules_DATA += \
 	src/login/70-uaccess.rules \
-	src/login/71-seat.rules \
 	src/login/70-power-switch.rules
 
 nodist_udevrules_DATA += \
+	src/login/71-seat.rules \
 	src/login/73-seat-late.rules
 
 MANPAGES += \
@@ -2943,12 +2943,14 @@ EXTRA_DIST += \
 	src/login/logind-gperf.gperf \
 	src/login/libsystemd-login.pc.in \
 	src/login/libsystemd-login.sym \
+	src/login/71-seat.rules.in \
 	src/login/73-seat-late.rules.in \
 	units/systemd-logind.service.in \
 	units/systemd-user-sessions.service.in
 
 CLEANFILES += \
 	src/login/logind-gperf.c \
+	src/login/71-seat.rules \
 	src/login/73-seat-late.rules
 endif
 # ------------------------------------------------------------------------------
