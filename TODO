@@ -36,12 +36,6 @@ Features:
 
 * parse kernel cmdline option for capability bset
 
-* logind: listen to power-button events
-  - run poweroff if no session is active
-  - console session should beep when we refuse to poweroff
-  - graphical sessions will show a dialog, like they do already today
-  - use udev to tag input devices we want to subscribe to
-
 * journalctl /dev/sda, journalctl /usr/bin/httpd, journalctl --device=b12:8 (--device=n12, --device=+usb:1-1)
 
 * make use of /sys/power/wake_lock in inhibitors

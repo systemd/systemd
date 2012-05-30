@@ -65,11 +65,21 @@ int main(int argc, char *argv[]) {
         arguments[3] = NULL;
         execute_directory(SYSTEMD_SLEEP_BINARY_PATH, NULL, arguments);
 
+        if (streq(argv[1], "suspend"))
+                log_info("Suspending system...");
+        else
+                log_info("Hibernating system...");
+
         fputs(verb, f);
         fputc('\n', f);
         fflush(f);
 
         r = ferror(f) ? -errno : 0;
+
+        if (streq(argv[1], "suspend"))
+                log_info("System resumed.");
+        else
+                log_info("System thawed.");
 
         arguments[1] = (char*) "post";
         execute_directory(SYSTEMD_SLEEP_BINARY_PATH, NULL, arguments);
