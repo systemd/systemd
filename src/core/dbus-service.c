@@ -26,14 +26,6 @@
 #include "dbus-service.h"
 #include "dbus-common.h"
 
-#ifdef HAVE_SYSV_COMPAT
-#define BUS_SERVICE_SYSV_INTERFACE_FRAGMENT                            \
-        "  <property name=\"SysVStartPriority\" type=\"i\" access=\"read\"/>\n" \
-        "  <property name=\"SysVRunLevels\" type=\"s\" access=\"read\"/>\n"
-#else
-#define BUS_SERVICE_SYSV_INTERFACE_FRAGMENT ""
-#endif
-
 #define BUS_SERVICE_INTERFACE                                           \
         " <interface name=\"org.freedesktop.systemd1.Service\">\n"      \
         "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
@@ -63,9 +55,7 @@
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"BusName\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"StatusText\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"FsckPassNo\" type=\"i\" access=\"read\"/>\n" \
         "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
-        BUS_SERVICE_SYSV_INTERFACE_FRAGMENT                             \
        " </interface>\n"
 
 #define INTROSPECTION                                                   \
@@ -144,11 +134,6 @@ static const BusProperty bus_service_properties[] = {
         { "ControlPID",             bus_property_append_pid,          "u", offsetof(Service, control_pid)                  },
         { "BusName",                bus_property_append_string,       "s", offsetof(Service, bus_name),               true },
         { "StatusText",             bus_property_append_string,       "s", offsetof(Service, status_text),            true },
-#ifdef HAVE_SYSV_COMPAT
-        { "SysVRunLevels",          bus_property_append_string,       "s", offsetof(Service, sysv_runlevels),         true },
-        { "SysVStartPriority",      bus_property_append_int,          "i", offsetof(Service, sysv_start_priority)          },
-#endif
-        { "FsckPassNo",             bus_property_append_int,          "i", offsetof(Service, fsck_passno)                  },
         { "Result",                 bus_service_append_service_result,"s", offsetof(Service, result)                       },
         { NULL, }
 };

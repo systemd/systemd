@@ -587,29 +587,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>SysVStartPriority=</varname></term>
-                                <listitem><para>Set the SysV start
-                                priority to use to order this service
-                                in relation to SysV services lacking
-                                LSB headers. This option is only
-                                necessary to fix ordering in relation
-                                to legacy SysV services, that have no
-                                ordering information encoded in the
-                                script headers. As such it should only
-                                be used as temporary compatibility
-                                option, and not be used in new unit
-                                files. Almost always it is a better
-                                choice to add explicit ordering
-                                directives via
-                                <varname>After=</varname> or
-                                <varname>Before=</varname>,
-                                instead. For more details see
-                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. If
-                                used, pass an integer value in the
-                                range 0-99.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>KillMode=</varname></term>
                                 <listitem><para>Specifies how
                                 processes of this service shall be
@@ -749,33 +726,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>FsckPassNo=</varname></term>
-                                <listitem><para>Set the fsck passno
-                                priority to use to order this service
-                                in relation to other file system
-                                checking services. This option is only
-                                necessary to fix ordering in relation
-                                to fsck jobs automatically created for
-                                all <filename>/etc/fstab</filename>
-                                entries with a value in the fs_passno
-                                column > 0. As such it should only be
-                                used as option for fsck
-                                services. Almost always it is a better
-                                choice to add explicit ordering
-                                directives via
-                                <varname>After=</varname> or
-                                <varname>Before=</varname>,
-                                instead. For more details see
-                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. If
-                                used, pass an integer value in the
-                                same range as
-                                <filename>/etc/fstab</filename>'s
-                                fs_passno column. See
-                                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                for details.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>StartLimitInterval=</varname></term>
                                 <term><varname>StartLimitBurst=</varname></term>
 
@@ -833,6 +783,68 @@
                                 system call, which might result in
                                 data loss.  Defaults to
                                 <option>none</option>.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Compatibility Options</title>
+
+                <para>The following options are also available in the
+                <literal>[Service]</literal> section, but exist purely
+                for compatibility reasons and should not be used in
+                newly written service files.</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>SysVStartPriority=</varname></term>
+                                <listitem><para>Set the SysV start
+                                priority to use to order this service
+                                in relation to SysV services lacking
+                                LSB headers. This option is only
+                                necessary to fix ordering in relation
+                                to legacy SysV services, that have no
+                                ordering information encoded in the
+                                script headers. As such it should only
+                                be used as temporary compatibility
+                                option, and not be used in new unit
+                                files. Almost always it is a better
+                                choice to add explicit ordering
+                                directives via
+                                <varname>After=</varname> or
+                                <varname>Before=</varname>,
+                                instead. For more details see
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. If
+                                used, pass an integer value in the
+                                range 0-99.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>FsckPassNo=</varname></term>
+                                <listitem><para>Set the fsck passno
+                                priority to use to order this service
+                                in relation to other file system
+                                checking services. This option is only
+                                necessary to fix ordering in relation
+                                to fsck jobs automatically created for
+                                all <filename>/etc/fstab</filename>
+                                entries with a value in the fs_passno
+                                column > 0. As such it should only be
+                                used as option for fsck
+                                services. Almost always it is a better
+                                choice to add explicit ordering
+                                directives via
+                                <varname>After=</varname> or
+                                <varname>Before=</varname>,
+                                instead. For more details see
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. If
+                                used, pass an integer value in the
+                                same range as
+                                <filename>/etc/fstab</filename>'s
+                                fs_passno column. See
+                                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
                         </varlistentry>
 
                 </variablelist>
