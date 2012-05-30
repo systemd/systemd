@@ -1,5 +1,21 @@
 systemd System and Service Manager
 
+CHANGES WITH 184:
+        * logind is now capable of (optionally) handling power and
+          sleep keys as well as the lid switch.
+
+        * journalctl now understands the syntax "journalctl
+          /usr/bin/avahi-daemon" to get all log output of a specific
+          daemon.
+
+        * CapabilityBoundingSet= in system.conf now also influences
+          the capability bound set of usermode helpers of the kernel.
+
+        Contributions from: Daniel Drake, Daniel J. Walsh, Gert
+        Michael Kulyk, Harald Hoyer, Jean Delvare, Kay Sievers,
+        Lennart Poettering, Matthew Garrett, Matthias Clasen, Paul
+        Menzel, Shawn Landden, Tero Roponen, Tom Gundersen
+
 CHANGES WITH 183:
         * Note that we skipped 139 releases here in order to set the
           new version to something that is greater than both udev's
@@ -450,7 +466,7 @@ CHANGES WITH 38:
         * New PropagateReloadTo=/PropagateReloadFrom= options to bind
           reloading of units together.
 
-        Contributions from: Bill Nottingham, Daniel Walsh, Dave
+        Contributions from: Bill Nottingham, Daniel J. Walsh, Dave
         Reisner, Dexter Morgan, Gregs Gregs, Jonathan Nieder, Kay
         Sievers, Lennart Poettering, Michael Biebl, Michal Schmidt,
         Michał Górny, Ran Benita, Thomas Jarosch, Tim Waugh, Tollef
