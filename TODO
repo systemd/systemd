@@ -6,8 +6,6 @@ Fedora 18:
 * chrony/ntp target?
 
 Bugfixes:
-* log_warning() in journald gets looped back into journal via kmsg?
-
 * fix building of --disable-logind, hournald and coredunp pull-in parts of sd_login
 
 * remove MS_SHARED from src/core/execute.c and src/test/test-ns.c. They are always combined

@@ -1768,6 +1768,17 @@ static int parse_kernel_timestamp(char **_p, usec_t *t) {
         return 1;
 }
 
+static bool is_us(const char *pid) {
+        pid_t t;
+
+        assert(pid);
+
+        if (parse_pid(pid, &t) < 0)
+                return false;
+
+        return t == getpid();
+}
+
 static void proc_kmsg_line(Server *s, const char *p) {
         struct iovec iovec[N_IOVEC_META_FIELDS + 7];
         char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL;
@@ -1807,6 +1818,11 @@ static void proc_kmsg_line(Server *s, const char *p) {
         } else {
                 read_identifier(&p, &identifier, &pid);
 
+                /* Avoid any messages we generated ourselves via
+                 * log_info() and friends. */
+                if (is_us(pid))
+                        goto finish;
+
                 if (s->forward_to_syslog)
                         forward_syslog(s, priority, identifier, p, NULL, NULL);
 
@@ -1832,6 +1848,7 @@ static void proc_kmsg_line(Server *s, const char *p) {
 
         dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, NULL, 0, priority);
 
+finish:
         free(message);
         free(syslog_priority);
         free(syslog_identifier);
