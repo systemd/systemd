@@ -115,7 +115,11 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
                 return -EINVAL;
         if (!data)
                 return -EINVAL;
-        if (size <= 0)
+        if (size <= 1)
+                return -EINVAL;
+        if (!memchr(data, '=', size))
+                return -EINVAL;
+        if (*(char*) data == '=')
                 return -EINVAL;
 
         /* FIXME: iterating with multiple matches is currently
