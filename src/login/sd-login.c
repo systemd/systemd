@@ -30,67 +30,17 @@
 #include "sd-login.h"
 #include "strv.h"
 
-static int pid_get_cgroup(pid_t pid, char **root, char **cgroup) {
-        char *cg_process, *cg_init, *p;
-        int r;
-
-        if (pid == 0)
-                pid = getpid();
-
-        if (pid <= 0)
-                return -EINVAL;
-
-        r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, pid, &cg_process);
-        if (r < 0)
-                return r;
-
-        r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 1, &cg_init);
-        if (r < 0) {
-                free(cg_process);
-                return r;
-        }
-
-        if (endswith(cg_init, "/system"))
-                cg_init[strlen(cg_init)-7] = 0;
-        else if (streq(cg_init, "/"))
-                cg_init[0] = 0;
-
-        if (startswith(cg_process, cg_init))
-                p = cg_process + strlen(cg_init);
-        else
-                p = cg_process;
-
-        free(cg_init);
-
-        if (cgroup) {
-                char* c;
-
-                c = strdup(p);
-                if (!c) {
-                        free(cg_process);
-                        return -ENOMEM;
-                }
-
-                *cgroup = c;
-        }
-
-        if (root) {
-                cg_process[p-cg_process] = 0;
-                *root = cg_process;
-        } else
-                free(cg_process);
-
-        return 0;
-}
-
 _public_ int sd_pid_get_session(pid_t pid, char **session) {
         int r;
         char *cgroup, *p;
 
+        if (pid < 0)
+                return -EINVAL;
+
         if (!session)
                 return -EINVAL;
 
-        r = pid_get_cgroup(pid, NULL, &cgroup);
+        r = cg_pid_get_cgroup(pid, NULL, &cgroup);
         if (r < 0)
                 return r;
 
@@ -122,55 +72,14 @@ _public_ int sd_pid_get_session(pid_t pid, char **session) {
 }
 
 _public_ int sd_pid_get_unit(pid_t pid, char **unit) {
-        int r;
-        char *cgroup, *p, *at, *b;
-        size_t k;
+
+        if (pid < 0)
+                return -EINVAL;
 
         if (!unit)
                 return -EINVAL;
 
-        r = pid_get_cgroup(pid, NULL, &cgroup);
-        if (r < 0)
-                return r;
-
-        if (!startswith(cgroup, "/system/")) {
-                free(cgroup);
-                return -ENOENT;
-        }
-
-        p = cgroup + 8;
-        k = strcspn(p, "/");
-
-        at = memchr(p, '@', k);
-        if (at && at[1] == '.') {
-                size_t j;
-
-                /* This is a templated service */
-                if (p[k] != '/') {
-                        free(cgroup);
-                        return -EIO;
-                }
-
-                j = strcspn(p+k+1, "/");
-
-                b = malloc(k + j + 1);
-
-                if (b) {
-                        memcpy(b, p, at - p + 1);
-                        memcpy(b + (at - p) + 1, p + k + 1, j);
-                        memcpy(b + (at - p) + 1 + j, at + 1, k - (at - p) - 1);
-                        b[k+j] = 0;
-                }
-        } else
-                  b = strndup(p, k);
-
-        free(cgroup);
-
-        if (!b)
-                return -ENOMEM;
-
-        *unit = b;
-        return 0;
+        return cg_pid_get_unit(pid, unit);
 }
 
 _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
@@ -178,10 +87,13 @@ _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
         char *root, *cgroup, *p, *cc;
         struct stat st;
 
+        if (pid < 0)
+                return -EINVAL;
+
         if (!uid)
                 return -EINVAL;
 
-        r = pid_get_cgroup(pid, &root, &cgroup);
+        r = cg_pid_get_cgroup(pid, &root, &cgroup);
         if (r < 0)
                 return r;
 

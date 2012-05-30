@@ -25,12 +25,16 @@
 #include <sys/prctl.h>
 
 #include <systemd/sd-journal.h>
+
+#ifdef HAVE_LOGIND
 #include <systemd/sd-login.h>
+#endif
 
 #include "log.h"
 #include "util.h"
 #include "mkdir.h"
 #include "special.h"
+#include "cgroup-util.h"
 
 #define COREDUMP_MAX (24*1024*1024)
 
@@ -126,7 +130,7 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        if (sd_pid_get_unit(pid, &t) >= 0) {
+        if (cg_pid_get_unit(pid, &t) >= 0) {
 
                 if (streq(t, SPECIAL_JOURNALD_SERVICE)) {
                         /* Make sure we don't make use of the journal,
@@ -182,6 +186,7 @@ int main(int argc, char* argv[]) {
         if (core_comm)
                 IOVEC_SET_STRING(iovec[j++], core_comm);
 
+#ifdef HAVE_LOGIND
         if (sd_pid_get_session(pid, &t) >= 0) {
                 core_session = strappend("COREDUMP_SESSION=", t);
                 free(t);
@@ -189,6 +194,8 @@ int main(int argc, char* argv[]) {
                 if (core_session)
                         IOVEC_SET_STRING(iovec[j++], core_session);
         }
+
+#endif
 
         if (get_process_exe(pid, &t) >= 0) {
                 core_exe = strappend("COREDUMP_EXE=", t);

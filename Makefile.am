@@ -2083,8 +2083,12 @@ systemd_journald_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-audit.la \
 	libsystemd-daemon.la \
-	libsystemd-login.la \
 	libsystemd-id128.la
+
+if ENABLE_LOGIND
+systemd_journald_LDADD += \
+	libsystemd-login.la
+endif
 
 if HAVE_ACL
 systemd_journald_LDADD += \
@@ -2263,9 +2267,13 @@ systemd_coredump_SOURCES = \
 
 systemd_coredump_LDADD = \
 	libsystemd-journal.la \
-	libsystemd-login.la \
 	libsystemd-label.la \
 	libsystemd-shared.la
+
+if ENABLE_LOGIND
+systemd_coredump_LDADD += \
+	libsystemd-login.la
+endif
 
 rootlibexec_PROGRAMS += \
 	systemd-coredump

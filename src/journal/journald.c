@@ -31,9 +31,12 @@
 #include <sys/statvfs.h>
 
 #include <systemd/sd-journal.h>
-#include <systemd/sd-login.h>
 #include <systemd/sd-messages.h>
 #include <systemd/sd-daemon.h>
+
+#ifdef HAVE_LOGIND
+#include <systemd/sd-login.h>
+#endif
 
 #include "mkdir.h"
 #include "hashmap.h"
@@ -479,7 +482,9 @@ static void dispatch_message_real(
 
         if (ucred) {
                 uint32_t audit;
+#ifdef HAVE_LOGIND
                 uid_t owner;
+#endif
 
                 realuid = ucred->uid;
 
@@ -538,6 +543,7 @@ static void dispatch_message_real(
                                 IOVEC_SET_STRING(iovec[n++], cgroup);
                 }
 
+#ifdef HAVE_LOGIND
                 if (sd_pid_get_session(ucred->pid, &t) >= 0) {
                         session = strappend("_SYSTEMD_SESSION=", t);
                         free(t);
@@ -546,17 +552,18 @@ static void dispatch_message_real(
                                 IOVEC_SET_STRING(iovec[n++], session);
                 }
 
-                if (sd_pid_get_unit(ucred->pid, &t) >= 0) {
+                if (sd_pid_get_owner_uid(ucred->uid, &owner) >= 0)
+                        if (asprintf(&owner_uid, "_SYSTEMD_OWNER_UID=%lu", (unsigned long) owner) >= 0)
+                                IOVEC_SET_STRING(iovec[n++], owner_uid);
+#endif
+
+                if (cg_pid_get_unit(ucred->pid, &t) >= 0) {
                         unit = strappend("_SYSTEMD_UNIT=", t);
                         free(t);
 
                         if (unit)
                                 IOVEC_SET_STRING(iovec[n++], unit);
                 }
-
-                if (sd_pid_get_owner_uid(ucred->uid, &owner) >= 0)
-                        if (asprintf(&owner_uid, "_SYSTEMD_OWNER_UID=%lu", (unsigned long) owner) >= 0)
-                                IOVEC_SET_STRING(iovec[n++], owner_uid);
 
 #ifdef HAVE_SELINUX
                 if (label) {

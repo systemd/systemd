@@ -171,6 +171,7 @@ static void ask_password_agent_open_if_enabled(void) {
         ask_password_agent_open();
 }
 
+#ifdef HAVE_LOGIND
 static void polkit_agent_open_if_enabled(void) {
 
         /* Open the polkit agent as a child process if necessary */
@@ -183,6 +184,7 @@ static void polkit_agent_open_if_enabled(void) {
 
         polkit_agent_open();
 }
+#endif
 
 static const char *ansi_highlight_red(bool b) {
 

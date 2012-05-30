@@ -6,8 +6,6 @@ Fedora 18:
 * chrony/ntp target?
 
 Bugfixes:
-* fix building of --disable-logind, hournald and coredunp pull-in parts of sd_login
-
 * remove MS_SHARED from src/core/execute.c and src/test/test-ns.c. They are always combined
   with MS_REMOUNT, which currently does nothing in the kernel, but might which fail in the
   future; https://bugzilla.redhat.com/show_bug.cgi?id=813563

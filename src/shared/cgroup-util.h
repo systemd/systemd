@@ -69,6 +69,8 @@ int cg_is_empty(const char *controller, const char *path, bool ignore_self);
 int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self);
 
 int cg_get_user_path(char **path);
+int cg_pid_get_cgroup(pid_t pid, char **root, char **cgroup);
+int cg_pid_get_unit(pid_t pid, char **unit);
 
 char **cg_shorten_controllers(char **controllers);
 
