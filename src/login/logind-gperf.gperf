@@ -21,3 +21,6 @@ Login.KillExcludeUsers,  config_parse_strv,     0, offsetof(Manager, kill_exclud
 Login.Controllers,       config_parse_strv,     0, offsetof(Manager, controllers)
 Login.ResetControllers,  config_parse_strv,     0, offsetof(Manager, reset_controllers)
 Login.InhibitDelayMaxSec,config_parse_usec,     0, offsetof(Manager, inhibit_delay_max)
+Login.HandlePowerKey,    config_parse_handle_button, 0, offsetof(Manager, handle_power_key)
+Login.HandleSleepKey,    config_parse_handle_button, 0, offsetof(Manager, handle_sleep_key)
+Login.HandleLidSwitch,   config_parse_handle_button, 0, offsetof(Manager, handle_lid_switch)

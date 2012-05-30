@@ -2658,6 +2658,8 @@ systemd_logind_SOURCES = \
 	src/login/logind-dbus.c \
 	src/login/logind-device.c \
 	src/login/logind-device.h \
+	src/login/logind-button.c \
+	src/login/logind-button.h \
 	src/login/logind-seat.c \
 	src/login/logind-seat.h \
 	src/login/logind-session.c \
@@ -2873,7 +2875,8 @@ rootlibexec_PROGRAMS += \
 
 dist_udevrules_DATA += \
 	src/login/70-uaccess.rules \
-	src/login/71-seat.rules
+	src/login/71-seat.rules \
+	src/login/70-power-switch.rules
 
 nodist_udevrules_DATA += \
 	src/login/73-seat-late.rules

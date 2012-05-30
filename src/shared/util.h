@@ -513,4 +513,7 @@ int can_sleep(const char *type);
 bool is_valid_documentation_url(const char *url);
 
 bool in_initrd(void);
+
+void warn_melody(void);
+
 #endif

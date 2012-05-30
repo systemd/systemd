@@ -841,7 +841,7 @@ int session_create_fifo(Session *s) {
 
                 zero(ev);
                 ev.events = 0;
-                ev.data.u32 = FD_FIFO_BASE + s->fifo_fd;
+                ev.data.u32 = FD_OTHER_BASE + s->fifo_fd;
 
                 if (epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_ADD, s->fifo_fd, &ev) < 0)
                         return -errno;

@@ -40,6 +40,7 @@ typedef struct Manager Manager;
 #include "logind-session.h"
 #include "logind-user.h"
 #include "logind-inhibit.h"
+#include "logind-button.h"
 
 struct Manager {
         DBusConnection *bus;
@@ -49,16 +50,18 @@ struct Manager {
         Hashmap *sessions;
         Hashmap *users;
         Hashmap *inhibitors;
+        Hashmap *buttons;
 
         LIST_HEAD(Seat, seat_gc_queue);
         LIST_HEAD(Session, session_gc_queue);
         LIST_HEAD(User, user_gc_queue);
 
         struct udev *udev;
-        struct udev_monitor *udev_seat_monitor, *udev_vcsa_monitor;
+        struct udev_monitor *udev_seat_monitor, *udev_vcsa_monitor, *udev_button_monitor;
 
         int udev_seat_fd;
         int udev_vcsa_fd;
+        int udev_button_fd;
 
         int console_active_fd;
         int bus_fd;
@@ -81,6 +84,7 @@ struct Manager {
         Hashmap *cgroups;
         Hashmap *session_fds;
         Hashmap *inhibitor_fds;
+        Hashmap *button_fds;
 
         /* If a shutdown was delayed due to a inhibitor this contains
            the unit name we are supposed to start after the delay is
@@ -90,20 +94,26 @@ struct Manager {
         usec_t delayed_timestamp;
 
         usec_t inhibit_delay_max;
+
+        HandleButton handle_power_key;
+        HandleButton handle_sleep_key;
+        HandleButton handle_lid_switch;
 };
 
 enum {
         FD_SEAT_UDEV,
         FD_VCSA_UDEV,
+        FD_BUTTON_UDEV,
         FD_CONSOLE,
         FD_BUS,
-        FD_FIFO_BASE
+        FD_OTHER_BASE
 };
 
 Manager *manager_new(void);
 void manager_free(Manager *m);
 
 int manager_add_device(Manager *m, const char *sysfs, Device **_device);
+int manager_add_button(Manager *m, const char *name, Button **_button);
 int manager_add_seat(Manager *m, const char *id, Seat **_seat);
 int manager_add_session(Manager *m, User *u, const char *id, Session **_session);
 int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **_user);
@@ -112,11 +122,15 @@ int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user);
 int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor);
 
 int manager_process_seat_device(Manager *m, struct udev_device *d);
+int manager_process_button_device(Manager *m, struct udev_device *d);
+
 int manager_dispatch_seat_udev(Manager *m);
 int manager_dispatch_vcsa_udev(Manager *m);
+int manager_dispatch_button_udev(Manager *m);
 int manager_dispatch_console(Manager *m);
 
 int manager_enumerate_devices(Manager *m);
+int manager_enumerate_buttons(Manager *m);
 int manager_enumerate_seats(Manager *m);
 int manager_enumerate_sessions(Manager *m);
 int manager_enumerate_users(Manager *m);
@@ -138,6 +152,8 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session);
 extern const DBusObjectPathVTable bus_manager_vtable;
 
 DBusHandlerResult bus_message_filter(DBusConnection *c, DBusMessage *message, void *userdata);
+
+int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const char *unit_name, InhibitWhat w, DBusError *error);
 
 int manager_send_changed(Manager *manager, const char *properties);
 

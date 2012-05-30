@@ -206,6 +206,9 @@
         "  <property name=\"BlockInhibited\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DelayInhibited\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"InhibitDelayMaxUSec\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"HandlePowerKey\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"HandleSleepKey\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"HandleLidSwitch\" type=\"s\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION_BEGIN                                             \
@@ -1136,6 +1139,36 @@ finish:
         return 0;
 }
 
+int bus_manager_shutdown_or_sleep_now_or_later(
+                Manager *m,
+                const char *unit_name,
+                InhibitWhat w,
+                DBusError *error) {
+
+        bool delayed;
+        int r;
+
+        assert(m);
+        assert(unit_name);
+        assert(w >= 0);
+        assert(w <= _INHIBIT_WHAT_MAX);
+
+        delayed =
+                m->inhibit_delay_max > 0 &&
+                manager_is_inhibited(m, w, INHIBIT_DELAY, NULL);
+
+        if (delayed)
+                /* Shutdown is delayed, keep in mind what we
+                 * want to do, and start a timeout */
+                r = delay_shutdown_or_sleep(m, w, unit_name);
+        else
+                /* Shutdown is not delayed, execute it
+                 * immediately */
+                r = send_start_unit(m->bus, unit_name, error);
+
+        return r;
+}
+
 static int bus_manager_do_shutdown_or_sleep(
                 Manager *m,
                 DBusConnection *connection,
@@ -1150,7 +1183,7 @@ static int bus_manager_do_shutdown_or_sleep(
                 DBusMessage **_reply) {
 
         dbus_bool_t interactive;
-        bool multiple_sessions, blocked, delayed;
+        bool multiple_sessions, blocked;
         DBusMessage *reply = NULL;
         int r;
 
@@ -1207,19 +1240,7 @@ static int bus_manager_do_shutdown_or_sleep(
                         return r;
         }
 
-        delayed =
-                m->inhibit_delay_max > 0 &&
-                manager_is_inhibited(m, w, INHIBIT_DELAY, NULL);
-
-        if (delayed) {
-                /* Shutdown is delayed, keep in mind what we
-                 * want to do, and start a timeout */
-                r = delay_shutdown_or_sleep(m, w, unit_name);
-        } else
-                /* Shutdown is not delayed, execute it
-                 * immediately */
-                r = send_start_unit(connection, unit_name, error);
-
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, unit_name, w, error);
         if (r < 0)
                 return r;
 
@@ -1230,6 +1251,8 @@ static int bus_manager_do_shutdown_or_sleep(
         *_reply = reply;
         return 0;
 }
+
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_handle_button, handle_button, HandleButton);
 
 static const BusProperty bus_login_manager_properties[] = {
         { "ControlGroupHierarchy",  bus_property_append_string,         "s",  offsetof(Manager, cgroup_path),        true },
@@ -1245,6 +1268,9 @@ static const BusProperty bus_login_manager_properties[] = {
         { "BlockInhibited",         bus_manager_append_inhibited,       "s",  0 },
         { "DelayInhibited",         bus_manager_append_inhibited,       "s",  0 },
         { "InhibitDelayMaxUSec",    bus_property_append_usec,           "t",  offsetof(Manager, inhibit_delay_max)   },
+        { "HandlePowerKey",         bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_power_key)    },
+        { "HandleSleepKey",         bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_sleep_key)    },
+        { "HandleLidSwitch",        bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_lid_switch)   },
         { NULL, }
 };
 

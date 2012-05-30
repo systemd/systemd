@@ -48,22 +48,29 @@ Manager *manager_new(void) {
         m->bus_fd = -1;
         m->udev_seat_fd = -1;
         m->udev_vcsa_fd = -1;
+        m->udev_button_fd = -1;
         m->epoll_fd = -1;
+
         m->n_autovts = 6;
         m->inhibit_delay_max = 5 * USEC_PER_SEC;
+        m->handle_power_key = HANDLE_YES;
+        m->handle_sleep_key = HANDLE_YES;
+        m->handle_lid_switch = HANDLE_NO;
 
         m->devices = hashmap_new(string_hash_func, string_compare_func);
         m->seats = hashmap_new(string_hash_func, string_compare_func);
         m->sessions = hashmap_new(string_hash_func, string_compare_func);
         m->users = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->inhibitors = hashmap_new(string_hash_func, string_compare_func);
+        m->buttons = hashmap_new(string_hash_func, string_compare_func);
 
         m->cgroups = hashmap_new(string_hash_func, string_compare_func);
         m->session_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->inhibitor_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
+        m->button_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
 
-        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors ||
-            !m->cgroups || !m->session_fds || !m->inhibitor_fds) {
+        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons ||
+            !m->cgroups || !m->session_fds || !m->inhibitor_fds || !m->button_fds) {
                 manager_free(m);
                 return NULL;
         }
@@ -95,6 +102,7 @@ void manager_free(Manager *m) {
         Device *d;
         Seat *s;
         Inhibitor *i;
+        Button *b;
 
         assert(m);
 
@@ -113,24 +121,30 @@ void manager_free(Manager *m) {
         while ((i = hashmap_first(m->inhibitors)))
                 inhibitor_free(i);
 
+        while ((b = hashmap_first(m->buttons)))
+                button_free(b);
+
         hashmap_free(m->devices);
         hashmap_free(m->seats);
         hashmap_free(m->sessions);
         hashmap_free(m->users);
         hashmap_free(m->inhibitors);
+        hashmap_free(m->buttons);
 
         hashmap_free(m->cgroups);
         hashmap_free(m->session_fds);
         hashmap_free(m->inhibitor_fds);
+        hashmap_free(m->button_fds);
 
         if (m->console_active_fd >= 0)
                 close_nointr_nofail(m->console_active_fd);
 
         if (m->udev_seat_monitor)
                 udev_monitor_unref(m->udev_seat_monitor);
-
         if (m->udev_vcsa_monitor)
                 udev_monitor_unref(m->udev_vcsa_monitor);
+        if (m->udev_button_monitor)
+                udev_monitor_unref(m->udev_button_monitor);
 
         if (m->udev)
                 udev_unref(m->udev);
@@ -304,6 +318,30 @@ int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor) {
         return 0;
 }
 
+int manager_add_button(Manager *m, const char *name, Button **_button) {
+        Button *b;
+
+        assert(m);
+        assert(name);
+
+        b = hashmap_get(m->buttons, name);
+        if (b) {
+                if (_button)
+                        *_button = b;
+
+                return 0;
+        }
+
+        b = button_new(m, name);
+        if (!b)
+                return -ENOMEM;
+
+        if (_button)
+                *_button = b;
+
+        return 0;
+}
+
 int manager_process_seat_device(Manager *m, struct udev_device *d) {
         Device *device;
         int r;
@@ -351,6 +389,39 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
         return 0;
 }
 
+int manager_process_button_device(Manager *m, struct udev_device *d) {
+        Button *b;
+
+        int r;
+
+        assert(m);
+
+        if (streq_ptr(udev_device_get_action(d), "remove")) {
+
+                b = hashmap_get(m->buttons, udev_device_get_sysname(d));
+                if (!b)
+                        return 0;
+
+                button_free(b);
+
+        } else {
+                const char *sn;
+
+                r = manager_add_button(m, udev_device_get_sysname(d), &b);
+                if (r < 0)
+                        return r;
+
+                sn = udev_device_get_property_value(d, "ID_SEAT");
+                if (isempty(sn))
+                        sn = "seat0";
+
+                button_set_seat(b, sn);
+                button_open(b);
+        }
+
+        return 0;
+}
+
 int manager_enumerate_devices(Manager *m) {
         struct udev_list_entry *item = NULL, *first = NULL;
         struct udev_enumerate *e;
@@ -391,6 +462,58 @@ int manager_enumerate_devices(Manager *m) {
                 }
 
                 k = manager_process_seat_device(m, d);
+                udev_device_unref(d);
+
+                if (k < 0)
+                        r = k;
+        }
+
+finish:
+        if (e)
+                udev_enumerate_unref(e);
+
+        return r;
+}
+
+int manager_enumerate_buttons(Manager *m) {
+        struct udev_list_entry *item = NULL, *first = NULL;
+        struct udev_enumerate *e;
+        int r;
+
+        assert(m);
+
+        /* Loads buttons from udev */
+
+        e = udev_enumerate_new(m->udev);
+        if (!e) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        r = udev_enumerate_add_match_subsystem(e, "input");
+        if (r < 0)
+                goto finish;
+
+        r = udev_enumerate_add_match_tag(e, "power-switch");
+        if (r < 0)
+                goto finish;
+
+        r = udev_enumerate_scan_devices(e);
+        if (r < 0)
+                goto finish;
+
+        first = udev_enumerate_get_list_entry(e);
+        udev_list_entry_foreach(item, first) {
+                struct udev_device *d;
+                int k;
+
+                d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
+                if (!d) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                k = manager_process_button_device(m, d);
                 udev_device_unref(d);
 
                 if (k < 0)
@@ -756,6 +879,22 @@ int manager_dispatch_vcsa_udev(Manager *m) {
         return r;
 }
 
+int manager_dispatch_button_udev(Manager *m) {
+        struct udev_device *d;
+        int r;
+
+        assert(m);
+
+        d = udev_monitor_receive_device(m->udev_button_monitor);
+        if (!d)
+                return -ENOMEM;
+
+        r = manager_process_button_device(m, d);
+        udev_device_unref(d);
+
+        return r;
+}
+
 int manager_dispatch_console(Manager *m) {
         assert(m);
 
@@ -926,9 +1065,10 @@ void manager_cgroup_notify_empty(Manager *m, const char *cgroup) {
         session_add_to_gc_queue(s);
 }
 
-static void manager_pipe_notify_eof(Manager *m, int fd) {
+static void manager_dispatch_other(Manager *m, int fd) {
         Session *s;
         Inhibitor *i;
+        Button *b;
 
         assert_se(m);
         assert_se(fd >= 0);
@@ -949,7 +1089,14 @@ static void manager_pipe_notify_eof(Manager *m, int fd) {
                 return;
         }
 
-        assert_not_reached("Got EOF on unknown pipe");
+        b = hashmap_get(m->button_fds, INT_TO_PTR(fd + 1));
+        if (b) {
+                assert(b->fd == fd);
+                button_process(b);
+                return;
+        }
+
+        assert_not_reached("Got event for unknown fd");
 }
 
 static int manager_connect_bus(Manager *m) {
@@ -1064,6 +1211,7 @@ static int manager_connect_udev(Manager *m) {
         assert(m);
         assert(!m->udev_seat_monitor);
         assert(!m->udev_vcsa_monitor);
+        assert(!m->udev_button_monitor);
 
         m->udev_seat_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
         if (!m->udev_seat_monitor)
@@ -1087,12 +1235,37 @@ static int manager_connect_udev(Manager *m) {
         ev.events = EPOLLIN;
         ev.data.u32 = FD_SEAT_UDEV;
 
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_seat_fd, &ev) < 0)
+                return -errno;
+
+        m->udev_button_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+        if (!m->udev_button_monitor)
+                return -ENOMEM;
+
+        r = udev_monitor_filter_add_match_tag(m->udev_button_monitor, "power-switch");
+        if (r < 0)
+                return r;
+
+        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_button_monitor, "input", NULL);
+        if (r < 0)
+                return r;
+
+        r = udev_monitor_enable_receiving(m->udev_button_monitor);
+        if (r < 0)
+                return r;
+
+        m->udev_button_fd = udev_monitor_get_fd(m->udev_button_monitor);
+
+        zero(ev);
+        ev.events = EPOLLIN;
+        ev.data.u32 = FD_BUTTON_UDEV;
+
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_button_fd, &ev) < 0)
+                return -errno;
+
         /* Don't bother watching VCSA devices, if nobody cares */
         if (m->n_autovts <= 0 || m->console_active_fd < 0)
                 return 0;
-
-        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_seat_fd, &ev) < 0)
-                return -errno;
 
         m->udev_vcsa_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
         if (!m->udev_vcsa_monitor)
@@ -1239,6 +1412,7 @@ int manager_startup(Manager *m) {
         manager_enumerate_users(m);
         manager_enumerate_sessions(m);
         manager_enumerate_inhibitors(m);
+        manager_enumerate_buttons(m);
 
         /* Remove stale objects before we start them */
         manager_gc(m, false);
@@ -1308,6 +1482,10 @@ int manager_run(Manager *m) {
                         manager_dispatch_vcsa_udev(m);
                         break;
 
+                case FD_BUTTON_UDEV:
+                        manager_dispatch_button_udev(m);
+                        break;
+
                 case FD_CONSOLE:
                         manager_dispatch_console(m);
                         break;
@@ -1317,8 +1495,8 @@ int manager_run(Manager *m) {
                         break;
 
                 default:
-                        if (event.data.u32 >= FD_FIFO_BASE)
-                                manager_pipe_notify_eof(m, event.data.u32 - FD_FIFO_BASE);
+                        if (event.data.u32 >= FD_OTHER_BASE)
+                                manager_dispatch_other(m, event.data.u32 - FD_OTHER_BASE);
                 }
         }
 

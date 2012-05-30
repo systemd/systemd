@@ -31,6 +31,9 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Features:
+
+* nspawn: make use of device cgroup contrller by default
+
 * parse kernel cmdline option for capability bset
 
 * logind: listen to power-button events

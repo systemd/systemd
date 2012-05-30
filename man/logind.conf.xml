@@ -158,7 +158,45 @@
                                 the operation executed
                                 anyway. Defaults to
                                 5s.</para></listitem>
+                        </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>HandlePowerKey=</varname></term>
+                                <term><varname>HandleSleepKey=</varname></term>
+                                <term><varname>HandleLidSwitch=</varname></term>
+
+                                <listitem><para>Controls whether
+                                logind shall handle the system power
+                                and sleep keys and the lid switch to
+                                trigger system power-off or
+                                suspend. Can be one of
+                                <literal>no</literal>,
+                                <literal>yes</literal> and
+                                <literal>always</literal>. If
+                                <literal>no</literal> logind will
+                                never handle these keys. If
+                                <literal>yes</literal> logind will
+                                handle these keys when no user is
+                                logged in and no inhibitor lock is
+                                taken, and trigger a warnig beep
+                                otherwise. If set to
+                                <literal>always</literal> logind will
+                                handle these keys even if a user is
+                                logged in or an inhibitor lock is
+                                taken. In all cases logind will not
+                                handle these keys if a graphical
+                                session is in the foreground under the
+                                assumption that the graphical session
+                                will handle these keys
+                                internally. Only input devices with
+                                the <literal>power-switch</literal>
+                                udev tag will be watched for key
+                                events. <varname>HandlePowerKey=</varname>
+                                and <varname>HandleSleepKey=</varname>
+                                default to <literal>yes</literal>,
+                                <varname>HandleLidSwitch=</varname>
+                                defaults to
+                                <literal>no</literal>.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

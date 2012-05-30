@@ -5639,3 +5639,25 @@ bool in_initrd(void) {
 
         return saved;
 }
+
+void warn_melody(void) {
+        int fd;
+
+        fd = open("/dev/console", O_WRONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return;
+
+        /* Yeah, this is synchronous. Kinda sucks. Bute well... */
+
+        ioctl(fd, KIOCSOUND, (int)(1193180/440));
+        usleep(125*USEC_PER_MSEC);
+
+        ioctl(fd, KIOCSOUND, (int)(1193180/220));
+        usleep(125*USEC_PER_MSEC);
+
+        ioctl(fd, KIOCSOUND, (int)(1193180/220));
+        usleep(125*USEC_PER_MSEC);
+
+        ioctl(fd, KIOCSOUND, 0);
+        close_nointr_nofail(fd);
+}

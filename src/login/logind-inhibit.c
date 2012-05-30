@@ -297,7 +297,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
 
                 zero(ev);
                 ev.events = 0;
-                ev.data.u32 = FD_FIFO_BASE + i->fifo_fd;
+                ev.data.u32 = FD_OTHER_BASE + i->fifo_fd;
 
                 if (epoll_ctl(i->manager->epoll_fd, EPOLL_CTL_ADD, i->fifo_fd, &ev) < 0)
                         return -errno;
