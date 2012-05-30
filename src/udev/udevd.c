@@ -1030,6 +1030,7 @@ int main(int argc, char *argv[])
         int fd_ctrl = -1;
         int fd_netlink = -1;
         int fd_worker = -1;
+        const char *prefixes[] = { "/dev", "/run", NULL };
         struct epoll_event ep_ctrl, ep_inotify, ep_signal, ep_netlink, ep_worker;
         struct udev_ctrl_connection *ctrl_conn = NULL;
         int rc = 1;
@@ -1042,7 +1043,7 @@ int main(int argc, char *argv[])
         log_parse_environment();
         udev_set_log_fn(udev, udev_main_log);
         log_debug("version %s\n", VERSION);
-        label_init("/dev");
+        label_init(prefixes);
 
         for (;;) {
                 int option;

@@ -45,12 +45,13 @@ int main(int argc, char *argv[])
         const char *action;
         sigset_t mask, sigmask_orig;
         int err = -EINVAL;
+        const char *prefixes[] = { "/dev", "/run", NULL };
 
         udev = udev_new();
         if (udev == NULL)
                 exit(EXIT_FAILURE);
         log_debug("version %s\n", VERSION);
-        label_init("/dev");
+        label_init(prefixes);
 
         sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
 

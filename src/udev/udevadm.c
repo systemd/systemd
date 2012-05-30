@@ -91,6 +91,7 @@ int main(int argc, char *argv[])
                 { "version", no_argument, NULL, 'V' },
                 {}
         };
+        const char *prefixes[] = { "/dev", "/run", NULL };
         const char *command;
         unsigned int i;
         int rc = 1;
@@ -102,7 +103,8 @@ int main(int argc, char *argv[])
         log_open();
         log_parse_environment();
         udev_set_log_fn(udev, udev_main_log);
-        label_init("/dev");
+
+        label_init(prefixes);
 
         for (;;) {
                 int option;
