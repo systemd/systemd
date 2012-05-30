@@ -35,11 +35,10 @@
 
 #include "log.h"
 #include "util.h"
+#include "path-util.h"
 #include "build.h"
 #include "pager.h"
 #include "logs-show.h"
-
-#define SD_JOURNALCTL_EXE "_EXE="
 
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_follow = false;
@@ -209,7 +208,6 @@ int main(int argc, char *argv[]) {
         unsigned line = 0;
         bool need_seek = false;
         struct stat st;
-        char* journal_exe_buff;
 
         log_parse_environment();
         log_open();
@@ -235,25 +233,42 @@ int main(int argc, char *argv[]) {
         }
 
         for (i = optind; i < argc; i++) {
-                if (strchr(argv[i], '=')) {
-                        r = sd_journal_add_match(j, argv[i], strlen(argv[i]));
-                } else {
-                        if (stat(argv[i], &st) < 0) {
-                                log_error("Failed to add match: %s", strerror(-r));
-                                goto finish; /* maybe try sd_journal_add_match() when stat() fails,
-                                              * even thought we know there is no '=' ? */
-                        } else if (S_ISREG(st.st_mode) &&
-                                   S_IXUSR & st.st_mode) {
-                                journal_exe_buff = malloc(strlen(SD_JOURNALCTL_EXE) + strlen(argv[i]) + 1);
-                                journal_exe_buff = strcpy(journal_exe_buff, SD_JOURNALCTL_EXE);
-                                strncat(journal_exe_buff, argv[i], strlen(argv[i]));
-                                r = sd_journal_add_match(j, journal_exe_buff, strlen(journal_exe_buff));
-                                free(journal_exe_buff);
+                if (path_is_absolute(argv[i])) {
+                        char *p = NULL;
+                        const char *path;
+
+                        p = canonicalize_file_name(argv[i]);
+                        path = p ? p : argv[i];
+
+                        if (stat(path, &st) < 0)  {
+                                free(p);
+                                log_error("Couldn't stat file: %m");
+                                r = -errno;
+                                goto finish;
+                        }
+
+                        if (S_ISREG(st.st_mode) && (0111 & st.st_mode)) {
+                                char *t;
+
+                                t = strappend("_EXE=", path);
+                                if (!t) {
+                                        free(p);
+                                        log_error("Out of memory");
+                                        goto finish;
+                                }
+
+                                r = sd_journal_add_match(j, t, strlen(t));
+                                free(t);
                         } else {
+                                free(p);
                                 log_error("File is not a regular file or is not executable: %s", argv[i]);
                                 goto finish;
                         }
-                }
+
+                        free(p);
+                } else
+                        r = sd_journal_add_match(j, argv[i], strlen(argv[i]));
+
                 if (r < 0) {
                         log_error("Failed to add match: %s", strerror(-r));
                         goto finish;
