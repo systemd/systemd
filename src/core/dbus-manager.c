@@ -225,7 +225,6 @@
         "  <property name=\"Distribution\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Features\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"Tainted\" type=\"s\" access=\"read\"/>\n"   \
-        "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"InitRDTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"InitRDTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"StartupTimestamp\" type=\"t\" access=\"read\"/>\n" \
@@ -243,7 +242,6 @@
         "  <property name=\"ConfirmSpawn\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"ShowStatus\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"UnitPath\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"NotifySocket\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DefaultControllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardOutput\" type=\"s\" access=\"read\"/>\n" \
@@ -289,7 +287,6 @@
 
 const char bus_manager_interface[] _introspect_("Manager") = BUS_MANAGER_INTERFACE;
 
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_running_as, manager_running_as, ManagerRunningAs);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_exec_output, exec_output, ExecOutput);
 
 static int bus_manager_append_tainted(DBusMessageIter *i, const char *property, void *data) {
@@ -546,7 +543,6 @@ static const BusProperty bus_systemd_properties[] = {
 };
 
 static const BusProperty bus_manager_properties[] = {
-        { "RunningAs",     bus_manager_append_running_as,          "s", offsetof(Manager, running_as)                  },
         { "Tainted",       bus_manager_append_tainted,             "s", 0                                              },
         { "InitRDTimestamp", bus_property_append_uint64,           "t", offsetof(Manager, initrd_timestamp.realtime)   },
         { "InitRDTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, initrd_timestamp.monotonic)  },
@@ -565,7 +561,6 @@ static const BusProperty bus_manager_properties[] = {
         { "ConfirmSpawn",  bus_property_append_bool,               "b", offsetof(Manager, confirm_spawn)               },
         { "ShowStatus",    bus_property_append_bool,               "b", offsetof(Manager, show_status)                 },
         { "UnitPath",      bus_property_append_strv,              "as", offsetof(Manager, lookup_paths.unit_path),     true },
-        { "NotifySocket",  bus_property_append_string,             "s", offsetof(Manager, notify_socket),              true },
         { "ControlGroupHierarchy", bus_property_append_string,     "s", offsetof(Manager, cgroup_hierarchy),           true },
         { "DefaultControllers", bus_property_append_strv,         "as", offsetof(Manager, default_controllers),        true },
         { "DefaultStandardOutput", bus_manager_append_exec_output, "s", offsetof(Manager, default_std_output)          },
