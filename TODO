@@ -32,7 +32,7 @@ Features:
 
 * parse kernel cmdline option for capability bset
 
-* journalctl /dev/sda, journalctl /usr/bin/httpd, journalctl --device=b12:8 (--device=n12, --device=+usb:1-1)
+* journalctl /dev/sda, journalctl --device=b12:8 (--device=n12, --device=+usb:1-1)
 
 * make use of /sys/power/wake_lock in inhibitors
 
