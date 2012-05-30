@@ -25,9 +25,11 @@
 typedef struct Button Button;
 
 typedef enum HandleButton {
-        HANDLE_NO,
-        HANDLE_YES, /* only if no inhibitor is taken/no session is around */
-        HANDLE_ALWAYS, /* regardless if inhibitor is taken/session is around */
+        HANDLE_OFF,
+        HANDLE_NO_SESSION,   /* Only handle key when nobody is logged in; honour inhibitors */
+        HANDLE_TTY_SESSION,  /* Only handle key when nobody is logged in, or the fg session is the only one and non-graphical; honour inhibitors */
+        HANDLE_ANY_SESSION,  /* Only handle key when nobody is logged in, or the fg session is the only one; honour inhibtors */
+        HANDLE_ALWAYS,       /* Always handle, ignore sessions; ignore inhibitors */
         _HANDLE_BUTTON_MAX,
         _HANDLE_BUTTON_INVALID = -1
 } HandleButton;

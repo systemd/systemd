@@ -170,33 +170,47 @@
                                 and sleep keys and the lid switch to
                                 trigger system power-off or
                                 suspend. Can be one of
-                                <literal>no</literal>,
-                                <literal>yes</literal> and
+                                <literal>off</literal>,
+                                <literal>no-session</literal>,
+                                <literal>tty-session</literal>,
+                                <literal>any-session</literal> and
                                 <literal>always</literal>. If
-                                <literal>no</literal> logind will
+                                <literal>off</literal> logind will
                                 never handle these keys. If
-                                <literal>yes</literal> logind will
-                                handle these keys when no user is
+                                <literal>no-session</literal> logind
+                                will handle these keys when no user is
                                 logged in and no inhibitor lock is
                                 taken, and trigger a warnig beep
                                 otherwise. If set to
+                                <literal>tty-session</literal> logind
+                                will handle these keys if no inhibitor
+                                lock is taken, and either no user is
+                                logged in or the foreground session is
+                                a text login and the only one
+                                existing. If
+                                <literal>any-session</literal> is set
+                                logind will handle these keys if no
+                                inhibitor lock is taken, and either no
+                                user is logged in or the foreground
+                                session is the only one existing
+                                (regardless whether graphical or
+                                text). If set to
                                 <literal>always</literal> logind will
-                                handle these keys even if a user is
-                                logged in or an inhibitor lock is
-                                taken. In all cases logind will not
-                                handle these keys if a graphical
-                                session is in the foreground under the
-                                assumption that the graphical session
-                                will handle these keys
-                                internally. Only input devices with
-                                the <literal>power-switch</literal>
-                                udev tag will be watched for key
+                                handle these keys in any case, even if
+                                one or more users are logged in or an
+                                inhibitor lock is taken. Only input
+                                devices with the
+                                <literal>power-switch</literal> udev
+                                tag will be watched for key
                                 events. <varname>HandlePowerKey=</varname>
-                                and <varname>HandleSleepKey=</varname>
-                                default to <literal>yes</literal>,
+                                defaults to
+                                <literal>no-session</literal>.
+                                <varname>HandleSleepKey=</varname>
+                                defaults to
+                                <literal>tty-session</literal>,
                                 <varname>HandleLidSwitch=</varname>
                                 defaults to
-                                <literal>no</literal>.</para></listitem>
+                                <literal>off</literal>.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

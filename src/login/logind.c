@@ -53,9 +53,9 @@ Manager *manager_new(void) {
 
         m->n_autovts = 6;
         m->inhibit_delay_max = 5 * USEC_PER_SEC;
-        m->handle_power_key = HANDLE_YES;
-        m->handle_sleep_key = HANDLE_YES;
-        m->handle_lid_switch = HANDLE_NO;
+        m->handle_power_key = HANDLE_NO_SESSION;
+        m->handle_sleep_key = HANDLE_TTY_SESSION;
+        m->handle_lid_switch = HANDLE_OFF;
 
         m->devices = hashmap_new(string_hash_func, string_compare_func);
         m->seats = hashmap_new(string_hash_func, string_compare_func);
@@ -483,6 +483,11 @@ int manager_enumerate_buttons(Manager *m) {
         assert(m);
 
         /* Loads buttons from udev */
+
+        if (m->handle_power_key == HANDLE_OFF &&
+            m->handle_sleep_key == HANDLE_OFF &&
+            m->handle_lid_switch == HANDLE_OFF)
+                return 0;
 
         e = udev_enumerate_new(m->udev);
         if (!e) {
@@ -1234,59 +1239,62 @@ static int manager_connect_udev(Manager *m) {
         zero(ev);
         ev.events = EPOLLIN;
         ev.data.u32 = FD_SEAT_UDEV;
-
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_seat_fd, &ev) < 0)
                 return -errno;
 
-        m->udev_button_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
-        if (!m->udev_button_monitor)
-                return -ENOMEM;
+        /* Don't watch keys if nobody cares */
+        if (m->handle_power_key != HANDLE_OFF ||
+            m->handle_sleep_key != HANDLE_OFF ||
+            m->handle_lid_switch != HANDLE_OFF) {
 
-        r = udev_monitor_filter_add_match_tag(m->udev_button_monitor, "power-switch");
-        if (r < 0)
-                return r;
+                m->udev_button_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+                if (!m->udev_button_monitor)
+                        return -ENOMEM;
 
-        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_button_monitor, "input", NULL);
-        if (r < 0)
-                return r;
+                r = udev_monitor_filter_add_match_tag(m->udev_button_monitor, "power-switch");
+                if (r < 0)
+                        return r;
 
-        r = udev_monitor_enable_receiving(m->udev_button_monitor);
-        if (r < 0)
-                return r;
+                r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_button_monitor, "input", NULL);
+                if (r < 0)
+                        return r;
 
-        m->udev_button_fd = udev_monitor_get_fd(m->udev_button_monitor);
+                r = udev_monitor_enable_receiving(m->udev_button_monitor);
+                if (r < 0)
+                        return r;
 
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.u32 = FD_BUTTON_UDEV;
+                m->udev_button_fd = udev_monitor_get_fd(m->udev_button_monitor);
 
-        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_button_fd, &ev) < 0)
-                return -errno;
+                zero(ev);
+                ev.events = EPOLLIN;
+                ev.data.u32 = FD_BUTTON_UDEV;
+                if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_button_fd, &ev) < 0)
+                        return -errno;
+        }
 
         /* Don't bother watching VCSA devices, if nobody cares */
-        if (m->n_autovts <= 0 || m->console_active_fd < 0)
-                return 0;
+        if (m->n_autovts > 0 && m->console_active_fd >= 0) {
 
-        m->udev_vcsa_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
-        if (!m->udev_vcsa_monitor)
-                return -ENOMEM;
+                m->udev_vcsa_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+                if (!m->udev_vcsa_monitor)
+                        return -ENOMEM;
 
-        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_vcsa_monitor, "vc", NULL);
-        if (r < 0)
-                return r;
+                r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_vcsa_monitor, "vc", NULL);
+                if (r < 0)
+                        return r;
 
-        r = udev_monitor_enable_receiving(m->udev_vcsa_monitor);
-        if (r < 0)
-                return r;
+                r = udev_monitor_enable_receiving(m->udev_vcsa_monitor);
+                if (r < 0)
+                        return r;
 
-        m->udev_vcsa_fd = udev_monitor_get_fd(m->udev_vcsa_monitor);
+                m->udev_vcsa_fd = udev_monitor_get_fd(m->udev_vcsa_monitor);
 
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.u32 = FD_VCSA_UDEV;
-
-        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_vcsa_fd, &ev) < 0)
-                return -errno;
+                zero(ev);
+                ev.events = EPOLLIN;
+                ev.data.u32 = FD_VCSA_UDEV;
+                if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_vcsa_fd, &ev) < 0)
+                        return -errno;
+        }
 
         return 0;
 }

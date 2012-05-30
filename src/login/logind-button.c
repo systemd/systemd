@@ -152,20 +152,18 @@ fail:
         return r;
 }
 
-static bool has_graphical_session(Manager *m, const char *seat) {
-        Seat *s;
+static Session *button_get_session(Button *b) {
+        Seat *seat;
+        assert(b);
 
-        assert(m);
-        assert(seat);
+        if (!b->seat)
+                return NULL;
 
-        s = hashmap_get(m->seats, seat);
-        if (!s)
-                return false;
+        seat = hashmap_get(b->manager->seats, b->seat);
+        if (!seat)
+                return NULL;
 
-        if (!s->active)
-                return false;
-
-        return s->active->type == SESSION_X11;
+        return seat->active;
 }
 
 static int button_power_off(Button *b, HandleButton handle) {
@@ -174,17 +172,38 @@ static int button_power_off(Button *b, HandleButton handle) {
 
         assert(b);
 
-        if (handle == HANDLE_NO)
+        if (handle == HANDLE_OFF)
                 return 0;
 
-        if (handle != HANDLE_ALWAYS) {
-
+        if (handle == HANDLE_NO_SESSION) {
                 if (hashmap_size(b->manager->sessions) > 0) {
                         log_error("Refusing power-off, user is logged in.");
                         warn_melody();
                         return -EPERM;
                 }
 
+        } else if (handle == HANDLE_TTY_SESSION ||
+                   handle == HANDLE_ANY_SESSION) {
+                unsigned n;
+                Session *s;
+
+                n = hashmap_size(b->manager->sessions);
+                s = button_get_session(b);
+
+                /* Silently ignore events of graphical sessions */
+                if (handle == HANDLE_TTY_SESSION &&
+                    s && s->type == SESSION_X11)
+                        return 0;
+
+                if (n > 1 || (n == 1 && !s)) {
+                        log_error("Refusing power-off, other user is logged in.");
+                        warn_melody();
+                        return -EPERM;
+                }
+
+        }
+
+        if (handle != HANDLE_ALWAYS) {
                 if (manager_is_inhibited(b->manager, INHIBIT_SHUTDOWN, INHIBIT_BLOCK, NULL)) {
                         log_error("Refusing power-off, shutdown is inhibited.");
                         warn_melody();
@@ -210,17 +229,37 @@ static int button_suspend(Button *b, HandleButton handle) {
 
         assert(b);
 
-        if (handle == HANDLE_NO)
+        if (handle == HANDLE_OFF)
                 return 0;
 
-        if (handle != HANDLE_ALWAYS) {
-
+        if (handle == HANDLE_NO_SESSION) {
                 if (hashmap_size(b->manager->sessions) > 0) {
                         log_error("Refusing suspend, user is logged in.");
                         warn_melody();
                         return -EPERM;
                 }
 
+        } else if (handle == HANDLE_TTY_SESSION ||
+                   handle == HANDLE_ANY_SESSION) {
+                unsigned n;
+                Session *s;
+
+                n = hashmap_size(b->manager->sessions);
+                s = button_get_session(b);
+
+                /* Silently ignore events of graphical sessions */
+                if (handle == HANDLE_TTY_SESSION &&
+                    s && s->type == SESSION_X11)
+                        return 0;
+
+                if (n > 1 || (n == 1 && !s)) {
+                        log_error("Refusing suspend, other user is logged in.");
+                        warn_melody();
+                        return -EPERM;
+                }
+        }
+
+        if (handle != HANDLE_ALWAYS) {
                 if (manager_is_inhibited(b->manager, INHIBIT_SLEEP, INHIBIT_BLOCK, NULL)) {
                         log_error("Refusing suspend, sleeping is inhibited.");
                         warn_melody();
@@ -252,12 +291,6 @@ int button_process(Button *b) {
         if ((size_t) l < sizeof(ev))
                 return -EIO;
 
-        /* If there's a graphical session on the seat this device
-         * belongs to we ignore events, it is job of the graphical
-         * session to handle the event. */
-        if (has_graphical_session(b->manager, b->seat))
-                return 0;
-
         if (ev.type == EV_KEY && ev.value > 0) {
 
                 switch (ev.code) {
@@ -287,8 +320,10 @@ int button_process(Button *b) {
 }
 
 static const char* const handle_button_table[_HANDLE_BUTTON_MAX] = {
-        [HANDLE_YES] = "yes",
-        [HANDLE_NO] = "no",
+        [HANDLE_OFF] = "off",
+        [HANDLE_NO_SESSION] = "no-session",
+        [HANDLE_TTY_SESSION] = "tty-session",
+        [HANDLE_ANY_SESSION] = "any-session",
         [HANDLE_ALWAYS] = "always"
 };
 DEFINE_STRING_TABLE_LOOKUP(handle_button, HandleButton);
