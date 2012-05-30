@@ -118,6 +118,11 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         if (size <= 0)
                 return -EINVAL;
 
+        /* FIXME: iterating with multiple matches is currently
+         * broken */
+        if (j->matches)
+                return -ENOTSUP;
+
         le_hash = htole64(hash64(data, size));
 
         LIST_FOREACH(matches, m, j->matches) {
