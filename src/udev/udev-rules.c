@@ -1858,6 +1858,9 @@ bool udev_rules_check_timestamp(struct udev_rules *rules)
         unsigned int i;
         bool changed = false;
 
+        if (rules == NULL)
+                goto out;
+
         for (i = 0; rules->dirs[i]; i++) {
                 struct stat stats;
 
@@ -1876,7 +1879,7 @@ bool udev_rules_check_timestamp(struct udev_rules *rules)
                 /* update timestamp */
                 rules->dirs_ts_usec[i] = ts_usec(&stats.st_mtim);
         }
-
+out:
         return changed;
 }
 
