@@ -1,8 +1,5 @@
 Fedora 18:
-* important: udev.pc is broken in 183, fixed in master
 * fix mimo VID/PID check that claims "innocent" hubs
-* storage: rename udev-settle.service to systemd-udev-settle.service
-* split-out systemd-libs.rpm to allow parallel install of 32 and 64 bit packages
 * chrony/ntp target?
 
 Bugfixes:
