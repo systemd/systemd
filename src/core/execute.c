@@ -1183,7 +1183,7 @@ int exec_spawn(ExecCommand *command,
                                 goto fail_child;
                         }
 
-                if (context->timer_slack_nsec_set)
+                if (context->timer_slack_nsec != (nsec_t) -1)
                         if (prctl(PR_SET_TIMERSLACK, context->timer_slack_nsec) < 0) {
                                 err = -errno;
                                 r = EXIT_TIMERSLACK;
@@ -1494,6 +1494,7 @@ void exec_context_init(ExecContext *c) {
         c->send_sigkill = true;
         c->control_group_persistent = -1;
         c->ignore_sigpipe = true;
+        c->timer_slack_nsec = (nsec_t) -1;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -1739,7 +1740,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fputs("\n", f);
         }
 
-        if (c->timer_slack_nsec_set)
+        if (c->timer_slack_nsec != (nsec_t) -1)
                 fprintf(f, "%sTimerSlackNSec: %lu\n", prefix, c->timer_slack_nsec);
 
         fprintf(f,

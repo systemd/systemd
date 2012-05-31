@@ -991,34 +991,6 @@ int config_parse_bounding_set(
         return 0;
 }
 
-int config_parse_exec_timer_slack_nsec(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ExecContext *c = data;
-        unsigned long u;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (safe_atolu(rvalue, &u) < 0) {
-                log_error("[%s:%u] Failed to parse time slack value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        c->timer_slack_nsec = u;
-
-        return 0;
-}
-
 int config_parse_limit(
                 const char *filename,
                 unsigned line,
@@ -2449,7 +2421,6 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_exec_capabilities,     "CAPABILITIES" },
                 { config_parse_exec_secure_bits,      "SECUREBITS" },
                 { config_parse_bounding_set,          "BOUNDINGSET" },
-                { config_parse_exec_timer_slack_nsec, "TIMERSLACK" },
                 { config_parse_limit,                 "LIMIT" },
                 { config_parse_unit_cgroup,           "CGROUP [...]" },
                 { config_parse_unit_deps,             "UNIT [...]" },
@@ -2468,6 +2439,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_socket_bind,           "SOCKETBIND" },
                 { config_parse_socket_bindtodevice,   "NETWORKINTERFACE" },
                 { config_parse_usec,                  "SECONDS" },
+                { config_parse_nsec,                  "NANOSECONDS" },
                 { config_parse_path_strv,             "PATH [...]" },
                 { config_parse_unit_requires_mounts_for, "PATH [...]" },
                 { config_parse_exec_mount_flags,      "MOUNTFLAG [...]" },

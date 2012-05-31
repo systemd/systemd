@@ -216,7 +216,7 @@ int bus_execute_append_timer_slack_nsec(DBusMessageIter *i, const char *property
         assert(property);
         assert(c);
 
-        if (c->timer_slack_nsec_set)
+        if (c->timer_slack_nsec != (nsec_t) -1)
                 u = (uint64_t) c->timer_slack_nsec;
         else
                 u = (uint64_t) prctl(PR_GET_TIMERSLACK);

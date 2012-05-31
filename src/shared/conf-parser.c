@@ -817,6 +817,31 @@ int config_parse_usec(
         return 0;
 }
 
+int config_parse_nsec(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        nsec_t *nsec = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (parse_nsec(rvalue, nsec) < 0) {
+                log_error("[%s:%u] Failed to parse time value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
 int config_parse_mode(
                 const char *filename,
                 unsigned line,

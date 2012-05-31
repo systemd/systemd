@@ -2707,7 +2707,7 @@ int parse_usec(const char *t, usec_t *usec) {
                 { "m", USEC_PER_MINUTE },
                 { "usec", 1ULL },
                 { "us", 1ULL },
-                { "", USEC_PER_SEC },
+                { "", USEC_PER_SEC }, /* default is sec */
         };
 
         const char *p;
@@ -2749,6 +2749,71 @@ int parse_usec(const char *t, usec_t *usec) {
         } while (*p != 0);
 
         *usec = r;
+
+        return 0;
+}
+
+int parse_nsec(const char *t, nsec_t *nsec) {
+        static const struct {
+                const char *suffix;
+                nsec_t nsec;
+        } table[] = {
+                { "sec", NSEC_PER_SEC },
+                { "s", NSEC_PER_SEC },
+                { "min", NSEC_PER_MINUTE },
+                { "hr", NSEC_PER_HOUR },
+                { "h", NSEC_PER_HOUR },
+                { "d", NSEC_PER_DAY },
+                { "w", NSEC_PER_WEEK },
+                { "msec", NSEC_PER_MSEC },
+                { "ms", NSEC_PER_MSEC },
+                { "m", NSEC_PER_MINUTE },
+                { "usec", NSEC_PER_USEC },
+                { "us", NSEC_PER_USEC },
+                { "nsec", 1ULL },
+                { "ns", 1ULL },
+                { "", 1ULL }, /* default is nsec */
+        };
+
+        const char *p;
+        nsec_t r = 0;
+
+        assert(t);
+        assert(nsec);
+
+        p = t;
+        do {
+                long long l;
+                char *e;
+                unsigned i;
+
+                errno = 0;
+                l = strtoll(p, &e, 10);
+
+                if (errno != 0)
+                        return -errno;
+
+                if (l < 0)
+                        return -ERANGE;
+
+                if (e == p)
+                        return -EINVAL;
+
+                e += strspn(e, WHITESPACE);
+
+                for (i = 0; i < ELEMENTSOF(table); i++)
+                        if (startswith(e, table[i].suffix)) {
+                                r += (nsec_t) l * table[i].nsec;
+                                p = e + strlen(table[i].suffix);
+                                break;
+                        }
+
+                if (i >= ELEMENTSOF(table))
+                        return -EINVAL;
+
+        } while (*p != 0);
+
+        *nsec = r;
 
         return 0;
 }

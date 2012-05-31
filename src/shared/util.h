@@ -39,6 +39,7 @@
 #include "macro.h"
 
 typedef uint64_t usec_t;
+typedef unsigned long nsec_t;
 
 typedef struct dual_timestamp {
         usec_t realtime;
@@ -53,11 +54,17 @@ typedef struct dual_timestamp {
 #define NSEC_PER_USEC 1000ULL
 
 #define USEC_PER_MINUTE (60ULL*USEC_PER_SEC)
+#define NSEC_PER_MINUTE (60ULL*NSEC_PER_SEC)
 #define USEC_PER_HOUR (60ULL*USEC_PER_MINUTE)
+#define NSEC_PER_HOUR (60ULL*NSEC_PER_MINUTE)
 #define USEC_PER_DAY (24ULL*USEC_PER_HOUR)
+#define NSEC_PER_DAY (24ULL*NSEC_PER_HOUR)
 #define USEC_PER_WEEK (7ULL*USEC_PER_DAY)
+#define NSEC_PER_WEEK (7ULL*NSEC_PER_DAY)
 #define USEC_PER_MONTH (2629800ULL*USEC_PER_SEC)
+#define NSEC_PER_MONTH (2629800ULL*NSEC_PER_SEC)
 #define USEC_PER_YEAR (31557600ULL*USEC_PER_SEC)
+#define NSEC_PER_YEAR (31557600ULL*NSEC_PER_SEC)
 
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
@@ -139,6 +146,7 @@ void close_many(const int fds[], unsigned n_fd);
 
 int parse_boolean(const char *v);
 int parse_usec(const char *t, usec_t *usec);
+int parse_nsec(const char *t, nsec_t *nsec);
 int parse_bytes(const char *t, off_t *bytes);
 int parse_pid(const char *s, pid_t* ret_pid);
 int parse_uid(const char *s, uid_t* ret_uid);

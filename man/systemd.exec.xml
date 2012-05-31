@@ -581,16 +581,17 @@
                                 <term><varname>TimerSlackNSec=</varname></term>
                                 <listitem><para>Sets the timer slack
                                 in nanoseconds for the executed
-                                processes. The timer slack controls the
-                                accuracy of wake-ups triggered by
+                                processes. The timer slack controls
+                                the accuracy of wake-ups triggered by
                                 timers. See
                                 <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for more information. Note that in
                                 contrast to most other time span
                                 definitions this parameter takes an
-                                integer value in nano-seconds and does
-                                not understand any other
-                                units.</para></listitem>
+                                integer value in nano-seconds if no
+                                unit is specified. The usual time
+                                units are understood
+                                too.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

@@ -102,6 +102,7 @@ int config_parse_path(const char *filename, unsigned line, const char *section, 
 int config_parse_strv(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_path_strv(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_usec(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_nsec(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_mode(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 #define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \

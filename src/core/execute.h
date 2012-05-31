@@ -118,7 +118,7 @@ struct ExecContext {
         ExecOutput std_output;
         ExecOutput std_error;
 
-        unsigned long timer_slack_nsec;
+        nsec_t timer_slack_nsec;
 
         char *tcpwrap_name;
 
@@ -178,7 +178,6 @@ struct ExecContext {
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
-        bool timer_slack_nsec_set:1;
 };
 
 int exec_spawn(ExecCommand *command,
