@@ -52,7 +52,7 @@ void label_retest_selinux(void) {
 
 #endif
 
-int label_init(const char *prefixes[]) {
+int label_init(const char *prefix) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
@@ -68,9 +68,9 @@ int label_init(const char *prefixes[]) {
         before_mallinfo = mallinfo();
         before_timestamp = now(CLOCK_MONOTONIC);
 
-        if (prefixes) {
+        if (prefix) {
                 struct selinux_opt options[] = {
-                        { .type = SELABEL_OPT_SUBSET, .values = prefixes },
+                        { .type = SELABEL_OPT_SUBSET, .value = prefix },
                 };
 
                 label_hnd = selabel_open(SELABEL_CTX_FILE, options, ELEMENTSOF(options));
