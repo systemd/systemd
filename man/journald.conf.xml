@@ -225,6 +225,16 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>TTYPath=</varname></term>
+
+                                <listitem><para>Change the console TTY
+                                to use if
+                                <varname>ForwardToConsole=yes</varname>
+                                is used. Defaults to
+                                <filename>/dev/console</filename>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>ImportKernel=</varname></term>
 
                                 <listitem><para>Controls whether

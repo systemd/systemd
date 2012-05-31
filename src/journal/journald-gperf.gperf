@@ -29,3 +29,4 @@ Journal.ForwardToSyslog,    config_parse_bool,      0, offsetof(Server, forward_
 Journal.ForwardToKMsg,      config_parse_bool,      0, offsetof(Server, forward_to_kmsg)
 Journal.ForwardToConsole,   config_parse_bool,      0, offsetof(Server, forward_to_console)
 Journal.ImportKernel,       config_parse_bool,      0, offsetof(Server, import_proc_kmsg)
+Journal.TTYPath,            config_parse_path,      0, offsetof(Server, tty_path)

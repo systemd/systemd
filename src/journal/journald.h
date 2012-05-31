@@ -79,6 +79,8 @@ typedef struct Server {
 
         LIST_HEAD(StdoutStream, stdout_streams);
         unsigned n_stdout_streams;
+
+        char *tty_path;
 } Server;
 
 /* gperf lookup function */

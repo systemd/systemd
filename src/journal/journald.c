@@ -965,6 +965,7 @@ static void forward_console(Server *s, const char *identifier, const char *messa
         char header_pid[16];
         int n = 0, fd;
         char *ident_buf = NULL;
+        const char *tty;
 
         assert(s);
         assert(message);
@@ -992,14 +993,16 @@ static void forward_console(Server *s, const char *identifier, const char *messa
         IOVEC_SET_STRING(iovec[n++], message);
         IOVEC_SET_STRING(iovec[n++], "\n");
 
-        fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        tty = s->tty_path ? s->tty_path : "/dev/console";
+
+        fd = open_terminal(tty, O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0) {
-                log_debug("Failed to open /dev/console for logging: %s", strerror(errno));
+                log_debug("Failed to open %s for logging: %s", tty, strerror(errno));
                 goto finish;
         }
 
         if (writev(fd, iovec, n) < 0)
-                log_debug("Failed to write to /dev/console for logging: %s", strerror(errno));
+                log_debug("Failed to write to %s for logging: %s", tty, strerror(errno));
 
         close_nointr_nofail(fd);
 
@@ -2782,6 +2785,7 @@ static void server_done(Server *s) {
                 journal_rate_limit_free(s->rate_limit);
 
         free(s->buffer);
+        free(s->tty_path);
 }
 
 int main(int argc, char *argv[]) {

@@ -31,8 +31,6 @@ Features:
 
 * nspawn: make use of device cgroup contrller by default
 
-* parse kernel cmdline option for capability bset
-
 * journalctl /dev/sda, journalctl --device=b12:8 (--device=n12, --device=+usb:1-1)
 
 * make use of /sys/power/wake_lock in inhibitors
@@ -40,8 +38,6 @@ Features:
 * drop accountsservice's StandardOutput=syslog and Type=dbus fields
 
 * make sure show-logs checks for utf8 validity, not ascii validity
-
-* add TimerSlackNS to system.conf to set system-wide caps bounds
 
 * when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
 
@@ -103,8 +99,6 @@ Features:
 * ConditionSecurity= should learn about IMA
 
 * Auke: merge Auke's bootchart
-
-* journald: allow forwarding of log data to specific TTY instead of console
 
 * udev: move to LGPL
 
