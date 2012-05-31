@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>pam_systemd</refname>
-                <refpurpose>Register user sessions in the systemd control group hierarchy</refpurpose>
+                <refpurpose>Register user sessions in the systemd login manager</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -57,8 +57,9 @@
                 <title>Description</title>
 
                 <para><command>pam_systemd</command> registers user
-                sessions in the systemd control group
-                hierarchy.</para>
+                sessions in the systemd login manager
+                <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                and hence the systemd control group hierarchy.</para>
 
                 <para>On login, this module ensures the following:</para>
 
@@ -304,12 +305,14 @@ session    required     pam_systemd.so kill-session-processes=1</programlisting>
         <refsect1>
                 <title>See Also</title>
                 <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>pam.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>pam.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pam_loginuid</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>pam_loginuid</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

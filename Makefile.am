@@ -2915,6 +2915,7 @@ nodist_udevrules_DATA += \
 	src/login/73-seat-late.rules
 
 MANPAGES += \
+	man/systemd-logind.service.8 \
 	man/logind.conf.5 \
 	man/sd-login.7 \
 	man/loginctl.1 \
@@ -2926,6 +2927,7 @@ MANPAGES += \
 	man/sd_get_seats.3
 
 MANPAGES_ALIAS += \
+	man/systemd-logind.8 \
 	man/sd_login_monitor_unref.3 \
 	man/sd_login_monitor_flush.3 \
 	man/sd_login_monitor_get_fd.3 \
@@ -2945,6 +2947,7 @@ MANPAGES_ALIAS += \
 	man/sd_get_sessions.3 \
 	man/sd_get_uids.3
 
+man/systemd-logind.8: man/systemd-logind.service.8
 man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_flush.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
