@@ -34,6 +34,7 @@ typedef enum UserState {
         USER_LINGERING,
         USER_ONLINE,
         USER_ACTIVE,
+        USER_CLOSING,
         _USER_STATE_MAX,
         _USER_STATE_INVALID = -1
 } UserState;

@@ -523,9 +523,21 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
         return idle_hint;
 }
 
+static int user_check_linger_file(User *u) {
+        char *p;
+        int r;
+
+        if (asprintf(&p, "/var/lib/systemd/linger/%s", u->name) < 0)
+                return -ENOMEM;
+
+        r = access(p, F_OK) >= 0;
+        free(p);
+
+        return r;
+}
+
 int user_check_gc(User *u, bool drop_not_started) {
         int r;
-        char *p;
 
         assert(u);
 
@@ -535,13 +547,7 @@ int user_check_gc(User *u, bool drop_not_started) {
         if (u->sessions)
                 return 1;
 
-        if (asprintf(&p, "/var/lib/systemd/linger/%s", u->name) < 0)
-                return -ENOMEM;
-
-        r = access(p, F_OK) >= 0;
-        free(p);
-
-        if (r > 0)
+        if (user_check_linger_file(u) > 0)
                 return 1;
 
         if (u->cgroup_path) {
@@ -571,14 +577,17 @@ UserState user_get_state(User *u) {
 
         assert(u);
 
-        if (!u->sessions)
-                return USER_LINGERING;
-
         LIST_FOREACH(sessions_by_user, i, u->sessions)
                 if (session_is_active(i))
                         return USER_ACTIVE;
 
-        return USER_ONLINE;
+        if (u->sessions)
+                return USER_ONLINE;
+
+        if (user_check_linger_file(u) > 0)
+                return USER_LINGERING;
+
+        return USER_CLOSING;
 }
 
 int user_kill(User *u, int signo) {
@@ -609,7 +618,8 @@ static const char* const user_state_table[_USER_STATE_MAX] = {
         [USER_OFFLINE] = "offline",
         [USER_LINGERING] = "lingering",
         [USER_ONLINE] = "online",
-        [USER_ACTIVE] = "active"
+        [USER_ACTIVE] = "active",
+        [USER_CLOSING] = "closing"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(user_state, UserState);
