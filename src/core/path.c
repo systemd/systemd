@@ -215,7 +215,7 @@ static void path_spec_mkdir(PathSpec *s, mode_t mode) {
         if (s->type == PATH_EXISTS || s->type == PATH_EXISTS_GLOB)
                 return;
 
-        if ((r = mkdir_p(s->path, mode)) < 0)
+        if ((r = mkdir_p_label(s->path, mode)) < 0)
                 log_warning("mkdir(%s) failed: %s", s->path, strerror(-r));
 }
 

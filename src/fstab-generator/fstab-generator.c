@@ -151,7 +151,7 @@ static int add_swap(const char *what, struct mntent *me) {
                         goto finish;
                 }
 
-                mkdir_parents(lnk, 0755);
+                mkdir_parents_label(lnk, 0755);
                 if (symlink(unit, lnk) < 0) {
                         log_error("Failed to create symlink: %m");
                         r = -errno;
@@ -174,7 +174,7 @@ static int add_swap(const char *what, struct mntent *me) {
                                 goto finish;
                         }
 
-                        mkdir_parents(lnk, 0755);
+                        mkdir_parents_label(lnk, 0755);
                         if (symlink(unit, lnk) < 0) {
                                 log_error("Failed to create symlink: %m");
                                 r = -errno;
@@ -326,7 +326,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
                         goto finish;
                 }
 
-                mkdir_parents(lnk, 0755);
+                mkdir_parents_label(lnk, 0755);
                 if (symlink(unit, lnk) < 0) {
                         log_error("Failed to create symlink: %m");
                         r = -errno;
@@ -352,7 +352,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
                                         goto finish;
                                 }
 
-                                mkdir_parents(lnk, 0755);
+                                mkdir_parents_label(lnk, 0755);
                                 if (symlink(unit, lnk) < 0) {
                                         log_error("Failed to creat symlink: %m");
                                         r = -errno;
@@ -413,7 +413,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
                         goto finish;
                 }
 
-                mkdir_parents(lnk, 0755);
+                mkdir_parents_label(lnk, 0755);
                 if (symlink(automount_unit, lnk) < 0) {
                         log_error("Failed to create symlink: %m");
                         r = -errno;

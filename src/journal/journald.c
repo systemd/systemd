@@ -1973,7 +1973,7 @@ static int system_journal_open(Server *s) {
                         /* OK, we really need the runtime journal, so create
                          * it if necessary. */
 
-                        (void) mkdir_parents(fn, 0755);
+                        (void) mkdir_parents_label(fn, 0755);
                         r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, NULL, &s->runtime_journal);
                         free(fn);
 

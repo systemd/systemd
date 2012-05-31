@@ -915,12 +915,12 @@ static void mount_enter_mounting(Mount *m) {
         m->control_command_id = MOUNT_EXEC_MOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
 
-        mkdir_p(m->where, m->directory_mode);
+        mkdir_p_label(m->where, m->directory_mode);
 
         /* Create the source directory for bind-mounts if needed */
         p = get_mount_parameters_fragment(m);
         if (p && mount_is_bind(p))
-                mkdir_p(p->what, m->directory_mode);
+                mkdir_p_label(p->what, m->directory_mode);
 
         if (m->from_fragment)
                 r = exec_command_set(

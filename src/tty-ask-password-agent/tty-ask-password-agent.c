@@ -446,7 +446,7 @@ static int wall_tty_block(void) {
         if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(devnr), minor(devnr)) < 0)
                 return -ENOMEM;
 
-        mkdir_parents(p, 0700);
+        mkdir_parents_label(p, 0700);
         mkfifo(p, 0600);
 
         fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
@@ -570,7 +570,7 @@ static int watch_passwords(void) {
 
         tty_block_fd = wall_tty_block();
 
-        mkdir_p("/run/systemd/ask-password", 0755);
+        mkdir_p_label("/run/systemd/ask-password", 0755);
 
         if ((notify = inotify_init1(IN_CLOEXEC)) < 0) {
                 r = -errno;

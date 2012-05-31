@@ -98,7 +98,7 @@ int user_save(User *u) {
         if (!u->started)
                 return 0;
 
-        r = safe_mkdir("/run/systemd/users", 0755, 0, 0);
+        r = mkdir_safe_label("/run/systemd/users", 0755, 0, 0);
         if (r < 0)
                 goto finish;
 
@@ -250,7 +250,7 @@ static int user_mkdir_runtime_path(User *u) {
 
         assert(u);
 
-        r = safe_mkdir("/run/user", 0755, 0, 0);
+        r = mkdir_safe_label("/run/user", 0755, 0, 0);
         if (r < 0) {
                 log_error("Failed to create /run/user: %s", strerror(-r));
                 return r;
@@ -266,7 +266,7 @@ static int user_mkdir_runtime_path(User *u) {
         } else
                 p = u->runtime_path;
 
-        r = safe_mkdir(p, 0700, u->uid, u->gid);
+        r = mkdir_safe_label(p, 0700, u->uid, u->gid);
         if (r < 0) {
                 log_error("Failed to create runtime directory %s: %s", p, strerror(-r));
                 free(p);

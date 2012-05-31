@@ -122,7 +122,7 @@ static char** user_dirs(
                  * then filter out this link, if it is actually is
                  * one. */
 
-                mkdir_parents(data_home, 0777);
+                mkdir_parents_label(data_home, 0777);
                 (void) symlink("../../../.config/systemd/user", data_home);
         }
 

@@ -205,7 +205,7 @@ static int update_schedule_file(struct sd_shutdown_command *c) {
 
         assert(c);
 
-        r = safe_mkdir("/run/systemd/shutdown", 0755, 0, 0);
+        r = mkdir_safe_label("/run/systemd/shutdown", 0755, 0, 0);
         if (r < 0) {
                 log_error("Failed to create shutdown subdirectory: %s", strerror(-r));
                 return r;

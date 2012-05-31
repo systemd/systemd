@@ -1095,7 +1095,7 @@ static int bus_init_private(Manager *m) {
                         goto fail;
                 }
 
-                mkdir_parents(p+10, 0755);
+                mkdir_parents_label(p+10, 0755);
                 unlink(p+10);
                 m->private_bus = dbus_server_listen(p, &error);
                 free(p);

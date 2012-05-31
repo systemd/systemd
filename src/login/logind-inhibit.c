@@ -84,7 +84,7 @@ int inhibitor_save(Inhibitor *i) {
 
         assert(i);
 
-        r = safe_mkdir("/run/systemd/inhibit", 0755, 0, 0);
+        r = mkdir_safe_label("/run/systemd/inhibit", 0755, 0, 0);
         if (r < 0)
                 goto finish;
 
@@ -272,7 +272,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
 
         /* Create FIFO */
         if (!i->fifo_path) {
-                r = safe_mkdir("/run/systemd/inhibit", 0755, 0, 0);
+                r = mkdir_safe_label("/run/systemd/inhibit", 0755, 0, 0);
                 if (r < 0)
                         return r;
 

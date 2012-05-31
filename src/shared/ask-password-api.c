@@ -324,7 +324,7 @@ int ask_password_agent(
         sigset_add_many(&mask, SIGINT, SIGTERM, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) == 0);
 
-        mkdir_p("/run/systemd/ask-password", 0755);
+        mkdir_p_label("/run/systemd/ask-password", 0755);
 
         u = umask(0022);
         fd = mkostemp(temp, O_CLOEXEC|O_CREAT|O_WRONLY);

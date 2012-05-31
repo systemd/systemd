@@ -54,7 +54,7 @@ static int divert_coredump(void) {
 
         log_info("Detected coredump of the journal daemon itself, diverting coredump to /var/lib/systemd/coredump/.");
 
-        mkdir_p("/var/lib/systemd/coredump", 0755);
+        mkdir_p_label("/var/lib/systemd/coredump", 0755);
 
         f = fopen("/var/lib/systemd/coredump/core.systemd-journald", "we");
         if (!f) {

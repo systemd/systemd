@@ -47,7 +47,7 @@ int cg_create(const char *controller, const char *path) {
         if (r < 0)
                 return r;
 
-        r = mkdir_parents(fs, 0755);
+        r = mkdir_parents_label(fs, 0755);
 
         if (r >= 0) {
                 if (mkdir(fs, 0755) >= 0)

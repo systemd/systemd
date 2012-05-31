@@ -591,7 +591,7 @@ static int write_data_x11(void) {
                 return 0;
         }
 
-        mkdir_parents("/etc/X11/xorg.conf.d", 0755);
+        mkdir_parents_label("/etc/X11/xorg.conf.d", 0755);
 
         r = fopen_temporary("/etc/X11/xorg.conf.d/00-keyboard.conf", &f, &temp_path);
         if (r < 0)

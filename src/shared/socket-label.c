@@ -106,7 +106,7 @@ int socket_address_listen(
                 mode_t old_mask;
 
                 /* Create parents */
-                mkdir_parents(a->sockaddr.un.sun_path, directory_mode);
+                mkdir_parents_label(a->sockaddr.un.sun_path, directory_mode);
 
                 /* Enforce the right access mode for the socket*/
                 old_mask = umask(~ socket_mode);

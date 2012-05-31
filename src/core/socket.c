@@ -761,7 +761,7 @@ static int fifo_address_create(
         assert(path);
         assert(_fd);
 
-        mkdir_parents(path, directory_mode);
+        mkdir_parents_label(path, directory_mode);
 
         r = label_context_set(path, S_IFIFO);
         if (r < 0)

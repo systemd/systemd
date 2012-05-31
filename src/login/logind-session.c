@@ -116,7 +116,7 @@ int session_save(Session *s) {
         if (!s->started)
                 return 0;
 
-        r = safe_mkdir("/run/systemd/sessions", 0755, 0, 0);
+        r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0);
         if (r < 0)
                 goto finish;
 
@@ -816,7 +816,7 @@ int session_create_fifo(Session *s) {
 
         /* Create FIFO */
         if (!s->fifo_path) {
-                r = safe_mkdir("/run/systemd/sessions", 0755, 0, 0);
+                r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0);
                 if (r < 0)
                         return r;
 

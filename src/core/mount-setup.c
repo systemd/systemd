@@ -130,7 +130,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
 
         /* The access mode here doesn't really matter too much, since
          * the mounted file system will take precedence anyway. */
-        mkdir_p(p->where, 0755);
+        mkdir_p_label(p->where, 0755);
 
         log_debug("Mounting %s to %s of type %s with options %s.",
                   p->what,
@@ -404,8 +404,8 @@ int mount_setup(bool loaded_policy) {
         dev_setup();
 
         /* Create a few directories we always want around */
-        label_mkdir("/run/systemd", 0755);
-        label_mkdir("/run/systemd/system", 0755);
+        mkdir_label("/run/systemd", 0755);
+        mkdir_label("/run/systemd/system", 0755);
 
         return 0;
 }

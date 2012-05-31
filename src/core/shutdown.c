@@ -238,7 +238,7 @@ static int prepare_new_root(void) {
         }
 
         NULSTR_FOREACH(dir, dirs)
-                if (mkdir_p(dir, 0755) < 0 && errno != EEXIST) {
+                if (mkdir_p_label(dir, 0755) < 0 && errno != EEXIST) {
                         log_error("Failed to mkdir %s: %m", dir);
                         return -errno;
                 }

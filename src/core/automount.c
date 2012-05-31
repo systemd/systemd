@@ -499,7 +499,7 @@ static void automount_enter_waiting(Automount *a) {
         }
 
         /* We knowingly ignore the results of this call */
-        mkdir_p(a->where, 0555);
+        mkdir_p_label(a->where, 0555);
 
         if (pipe2(p, O_NONBLOCK|O_CLOEXEC) < 0) {
                 r = -errno;
@@ -588,7 +588,7 @@ static void automount_enter_runnning(Automount *a) {
                 return;
         }
 
-        mkdir_p(a->where, a->directory_mode);
+        mkdir_p_label(a->where, a->directory_mode);
 
         /* Before we do anything, let's see if somebody is playing games with us? */
         if (lstat(a->where, &st) < 0) {

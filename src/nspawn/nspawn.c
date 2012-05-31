@@ -222,7 +222,7 @@ static int mount_all(const char *dest) {
                         continue;
                 }
 
-                mkdir_p(where, 0755);
+                mkdir_p_label(where, 0755);
 
                 if (mount(mount_table[k].what,
                           where,
@@ -1035,13 +1035,13 @@ int main(int argc, char *argv[]) {
                                 goto child_fail;
                         }
 
-                        if (mkdir_parents(home, 0775) < 0) {
-                                log_error("mkdir_parents() failed: %m");
+                        if (mkdir_parents_label(home, 0775) < 0) {
+                                log_error("mkdir_parents_label() failed: %m");
                                 goto child_fail;
                         }
 
-                        if (safe_mkdir(home, 0775, uid, gid) < 0) {
-                                log_error("safe_mkdir() failed: %m");
+                        if (mkdir_safe_label(home, 0775, uid, gid) < 0) {
+                                log_error("mkdir_safe_label() failed: %m");
                                 goto child_fail;
                         }
 

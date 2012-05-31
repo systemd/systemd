@@ -53,7 +53,7 @@ static int add_symlink(const char *service, const char *where) {
                 goto finish;
         }
 
-        mkdir_parents(to, 0755);
+        mkdir_parents_label(to, 0755);
 
         r = symlink(from, to);
         if (r < 0) {

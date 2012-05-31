@@ -121,7 +121,7 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
                 /* This link indicates the missing firmware file and the associated device */
                 log_debug("did not find firmware file '%s'\n", firmware);
                 do {
-                        err = mkdir_parents(misspath, 0755);
+                        err = mkdir_parents_label(misspath, 0755);
                         if (err != 0 && err != -ENOENT)
                                 break;
                         err = symlink(udev_device_get_devpath(dev), misspath);

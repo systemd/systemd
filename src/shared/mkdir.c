@@ -31,7 +31,11 @@
 #include "util.h"
 #include "log.h"
 
-int safe_mkdir(const char *path, mode_t mode, uid_t uid, gid_t gid) {
+int mkdir_label(const char *path, mode_t mode) {
+        return label_mkdir(path, mode);
+}
+
+int mkdir_safe_label(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         struct stat st;
 
         if (label_mkdir(path, mode) >= 0)
@@ -52,7 +56,7 @@ int safe_mkdir(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         return 0;
 }
 
-int mkdir_parents(const char *path, mode_t mode) {
+int mkdir_parents_label(const char *path, mode_t mode) {
         struct stat st;
         const char *p, *e;
 
@@ -96,12 +100,12 @@ int mkdir_parents(const char *path, mode_t mode) {
         }
 }
 
-int mkdir_p(const char *path, mode_t mode) {
+int mkdir_p_label(const char *path, mode_t mode) {
         int r;
 
         /* Like mkdir -p */
 
-        if ((r = mkdir_parents(path, mode)) < 0)
+        if ((r = mkdir_parents_label(path, mode)) < 0)
                 return r;
 
         if (label_mkdir(path, mode) < 0 && errno != EEXIST)

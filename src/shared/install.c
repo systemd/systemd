@@ -1151,7 +1151,7 @@ static int create_symlink(
         assert(old_path);
         assert(new_path);
 
-        mkdir_parents(new_path, 0755);
+        mkdir_parents_label(new_path, 0755);
 
         if (symlink(old_path, new_path) >= 0) {
                 add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);

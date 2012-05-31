@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (mkdir_parents(RANDOM_SEED, 0755) < 0) {
+        if (mkdir_parents_label(RANDOM_SEED, 0755) < 0) {
                 log_error("Failed to create directories parents of %s: %m", RANDOM_SEED);
                 goto finish;
         }

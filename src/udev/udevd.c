@@ -850,7 +850,7 @@ static void static_dev_create_from_modules(struct udev *udev)
                         continue;
 
                 util_strscpyl(filename, sizeof(filename), "/dev/", devname, NULL);
-                mkdir_parents(filename, 0755);
+                mkdir_parents_label(filename, 0755);
                 label_context_set(filename, mode);
                 log_debug("mknod '%s' %c%u:%u\n", filename, type, maj, min);
                 if (mknod(filename, mode, makedev(maj, min)) < 0 && errno == EEXIST)
@@ -896,7 +896,7 @@ static int convert_db(struct udev *udev)
                 return 0;
 
         /* make sure we do not get here again */
-        mkdir_parents("/run/udev/data", 0755);
+        mkdir_parents_label("/run/udev/data", 0755);
         mkdir(filename, 0755);
 
         /* old database */

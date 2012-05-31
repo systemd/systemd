@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
                 goto fail;
         }
 
-        r = safe_mkdir("/run/systemd/multi-session-x", 0755, 0, 0);
+        r = mkdir_safe_label("/run/systemd/multi-session-x", 0755, 0, 0);
         if (r < 0) {
                 log_error("Failed to create directory: %s", strerror(-r));
                 goto fail;

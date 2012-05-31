@@ -874,7 +874,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
                 goto finish;
         }
 
-        mkdir_p("/etc/udev/rules.d", 0755);
+        mkdir_p_label("/etc/udev/rules.d", 0755);
         r = write_one_line_file_atomic(file, rule);
         if (r < 0)
                 goto finish;
@@ -1890,9 +1890,9 @@ static DBusHandlerResult manager_message_handler(
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                mkdir_p("/var/lib/systemd", 0755);
+                mkdir_p_label("/var/lib/systemd", 0755);
 
-                r = safe_mkdir("/var/lib/systemd/linger", 0755, 0, 0);
+                r = mkdir_safe_label("/var/lib/systemd/linger", 0755, 0, 0);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 

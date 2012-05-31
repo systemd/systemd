@@ -2068,7 +2068,7 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
                         return -ENOMEM;
                 }
 
-                r = mkdir_p(p, 0755);
+                r = mkdir_p_label(p, 0755);
                 if (r < 0) {
                         log_error("Failed to create generator directory: %s", strerror(-r));
                         free(p);
