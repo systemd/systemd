@@ -39,7 +39,7 @@
 #include "macro.h"
 
 typedef uint64_t usec_t;
-typedef unsigned long nsec_t;
+typedef uint64_t nsec_t;
 
 typedef struct dual_timestamp {
         usec_t realtime;
