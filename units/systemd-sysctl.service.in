@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Apply Kernel Variables
-Documentation=man:sysctl.d(5)
+Documentation=man:systemd-sysctl.service(8) man:sysctl.d(5)
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service

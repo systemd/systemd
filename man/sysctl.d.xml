@@ -54,10 +54,12 @@
         <refsect1>
                 <title>Description</title>
 
-		<para><command>systemd</command> uses configuration
-		files from the above directories to configure
+		<para>At boot,
+		<citerefentry><refentrytitle>systemd-binfmt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+		reads configuration files from the above directories
+		to configure
 		<citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-		kernel parameters during boot.</para>
+		kernel parameters.</para>
         </refsect1>
 
         <refsect1>
@@ -76,17 +78,17 @@
 
                 <para>Each configuration file shall be named in the
                 style of <filename>&lt;program&gt;.conf</filename>.
-                Files in <filename>/run/</filename> override files
-                with the same name in <filename>/usr/lib/</filename>.
-                Files in <filename>/etc</filename> override files with
-                the same name in <filename>/run/</filename> and
-                <filename>/usr/lib/</filename>. Packages should
-                install their configuration files in
+                Files in <filename>/etc/</filename> override files
+                with the same name in <filename>/usr/lib/</filename>
+                and <filename>/run/</filename>.  Files in
+                <filename>/run</filename> override files with the same
+                name in <filename>/usr/lib/</filename>. Packages
+                should install their configuration files in
                 <filename>/usr/lib/</filename>. Files in
                 <filename>/etc/</filename> are reserved for the local
                 administrator, who may use this logic to override the
-                configuration installed by vendor packages. All
-                configuration files are sorted by their name in
+                configuration files installed by vendor packages. All
+                configuration files are sorted by their filename in
                 alphabetical order, regardless in which of the
                 directories they reside, to guarantee that a specific
                 configuration file takes precedence over another file
@@ -97,8 +99,8 @@
                 configuration file supplied by the vendor the
                 recommended way is to place a symlink to
                 <filename>/dev/null</filename> in
-                <filename>/etc/sysctl.d</filename> carrying with the
-                same name.</para>
+                <filename>/etc/sysctl.d/</filename> bearing the
+                same file name.</para>
         </refsect1>
 
         <refsect1>
@@ -115,6 +117,8 @@ kernel.domainname=example.com</programlisting>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-sysctl.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>

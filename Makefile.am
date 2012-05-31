@@ -490,7 +490,9 @@ MANPAGES = \
 	man/os-release.5 \
 	man/machine-info.5 \
 	man/modules-load.d.5 \
+	man/systemd-modules-load.service.8 \
 	man/sysctl.d.5 \
+	man/systemd-sysctl.service.8 \
 	man/systemd-ask-password.1 \
 	man/systemd-cat.1 \
 	man/systemd-machine-id-setup.1 \
@@ -502,11 +504,15 @@ MANPAGES = \
 MANPAGES_ALIAS = \
 	man/reboot.8 \
 	man/poweroff.8 \
-	man/init.1
+	man/init.1 \
+	man/systemd-modules-load.8 \
+	man/systemd-sysctl.8
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
 man/init.1: man/systemd.1
+man/systemd-modules-load.8: man/systemd-modules-load.service.8
+man/systemd-sysctl.8: man/systemd-sysctl.service.8
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
@@ -2321,7 +2327,13 @@ INSTALL_DATA_HOOKS += \
 	binfmt-install-data-hook
 
 MANPAGES += \
-	man/binfmt.d.5
+	man/binfmt.d.5 \
+	man/systemd-binfmt.service.8
+
+MANPAGES_ALIAS +=  \
+	man/systemd-binfmt.8
+
+man/systemd-binfmt.8: man/systemd-binfmt.service.8
 
 EXTRA_DIST += \
 	units/systemd-binfmt.service.in

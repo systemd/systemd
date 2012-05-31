@@ -54,16 +54,17 @@
         <refsect1>
                 <title>Description</title>
 
-		<para><command>systemd</command> uses
-		files from the above directories to configure
+		<para><citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+		reads files from the above directories which contain
 		kernel modules to load during boot in a static list.
 		Each configuration file is named in the style of
 		<filename>/etc/modules-load.d/&lt;program&gt;.conf</filename>. Note
-		that it is usually a better idea to use the automatic
-		module loading by PCI ID, by DMI ID or similar
-		triggers configured in the kernel modules themselves
-		instead of relying on static configuration like
-		this.</para>
+		that it is usually a better idea to rely on the
+		automatic module loading by PCI IDs, USB IDs, DMI IDs
+		or similar triggers encoded in the kernel modules
+		themselves instead of static configuration like
+		this. In fact, most modern kernel modules are prepared
+		for automatic loading already.</para>
         </refsect1>
 
         <refsect1>
@@ -74,21 +75,26 @@
 		newlines. Empty lines and lines whose first
 		non-whitespace character is # or ; are ignored.</para>
 
-                <para>Each configuration file is named in the style of
-                <filename>&lt;program&gt;.conf</filename>.
-                Files in <filename>/etc/</filename> override
-                files with the same name in <filename>/usr/lib/</filename>.
-                Files in <filename>/run</filename> override files with
-                the same name in <filename>/etc/</filename> and
-                <filename>/usr/lib/</filename>. Packages should install their
-                configuration files in <filename>/usr/lib/</filename>, files
-                in <filename>/etc/</filename> are reserved for the local
-                administration, which possibly decides to override the
-                configurations installed from packages. All files are sorted
-                by filename in alphabetical order, regardless in which of the
-                directories they reside, to ensure that a specific
-                configuration file takes precedence over another file with
-                an alphabetically later name.</para>
+                <para>Each configuration file shall be named in the
+                style of <filename>&lt;program&gt;.conf</filename>.
+                Files in <filename>/etc/</filename> override files
+                with the same name in <filename>/usr/lib/</filename>
+                and <filename>/run/</filename>. Files in
+                <filename>/run/</filename> override files with the
+                same name in <filename>/usr/lib/</filename>. Packages
+                should install their configuration files in
+                <filename>/usr/lib/</filename>, files in
+                <filename>/etc/</filename> are reserved for the local
+                administrator, who may use this logic to override the
+                configuration files installed from vendor
+                packages.</para>
+
+                <para>If the administrator wants to disable a
+                configuration file supplied by the vendor the
+                recommended way is to place a symlink to
+                <filename>/dev/null</filename> in
+                <filename>/etc/modules-load.d/</filename> bearing the
+                same file name.</para>
         </refsect1>
 
         <refsect1>
@@ -105,6 +111,8 @@ virtio-net</programlisting>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>modprobe</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
