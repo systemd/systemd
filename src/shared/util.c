@@ -50,7 +50,6 @@
 #include <linux/kd.h>
 #include <dlfcn.h>
 #include <sys/wait.h>
-#include <sys/capability.h>
 #include <sys/time.h>
 #include <glob.h>
 #include <grp.h>
