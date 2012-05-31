@@ -1,0 +1,110 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-journald.service">
+
+        <refentryinfo>
+                <title>systemd-journald</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-journald</refentrytitle>
+                <manvolnum>8</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-journald.service</refname>
+                <refname>systemd-journald</refname>
+                <refpurpose>systemd Journal Service</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd-journald.service</filename></para>
+                <para><filename>/usr/lib/systemd/systemd-journald</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><filename>systemd-journald</filename> is a
+                system service that collects and stores logging
+                data. It creates and maintains structured, indexed
+                journals based on logging information that is received
+                from the kernel, from user processes via the libc
+                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call, from STDOUT/STDERR of system services or via its
+                native API. It will implicitly collect numerous meta
+                data fields for each log messages in a secure and
+                unfakeable way. See
+                <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                for more information about the collected meta data.
+                </para>
+
+                <para>Log data collected by the journal is primarily
+                text based but can also include binary data where
+                necessary. All objects stored in the journal can be up
+                to 2^64-1 bytes in size.</para>
+
+                <para>By default the journal stores log data in
+                <filename>/run/log/journal/</filename>. Since
+                <filename>/run/</filename> is volatile log data is
+                lost at reboot. To make the data persistant it
+                is sufficient to create
+                <filename>/var/log/journal/</filename> where
+                <filename>systemd-journald</filename> will then store
+                the data.</para>
+
+                <para><filename>systemd-journald</filename> will
+                forward all received log messages to the AF_UNIX
+                SOCK_DGRAM socket
+                <filename>/run/systemd/journal/syslog</filename> (if it exists) which
+                may be used by UNIX syslog daemons to process the data
+                further.</para>
+
+                <para>See
+                <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for information about the configuration of this
+                service.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

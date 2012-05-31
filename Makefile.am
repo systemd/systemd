@@ -499,6 +499,7 @@ MANPAGES = \
 	man/systemd-machine-id-setup.1 \
 	man/systemd-detect-virt.1 \
 	man/journald.conf.5 \
+	man/systemd-journald.service.8 \
 	man/journalctl.1 \
 	man/systemd-inhibit.1
 
@@ -507,13 +508,15 @@ MANPAGES_ALIAS = \
 	man/poweroff.8 \
 	man/init.1 \
 	man/systemd-modules-load.8 \
-	man/systemd-sysctl.8
+	man/systemd-sysctl.8 \
+	man/systemd-journald.8
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
 man/init.1: man/systemd.1
 man/systemd-modules-load.8: man/systemd-modules-load.service.8
 man/systemd-sysctl.8: man/systemd-sysctl.service.8
+man/systemd-journald.8: man/systemd-journald.service.8
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}

@@ -48,7 +48,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>logind.conf</filename></para>
+                <para><filename>/etc/systemd/logind.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
