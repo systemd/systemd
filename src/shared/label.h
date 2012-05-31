@@ -41,7 +41,7 @@ void label_free(const char *label);
 
 int label_get_create_label_from_exe(const char *exe, char **label);
 
-int label_mkdir(const char *path, mode_t mode);
+int label_mkdir(const char *path, mode_t mode, bool apply);
 
 void label_retest_selinux(void);
 

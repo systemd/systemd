@@ -32,13 +32,13 @@
 #include "log.h"
 
 int mkdir_label(const char *path, mode_t mode) {
-        return label_mkdir(path, mode);
+        return label_mkdir(path, mode, true);
 }
 
-int mkdir_safe_label(const char *path, mode_t mode, uid_t uid, gid_t gid) {
+static int makedir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid, bool apply) {
         struct stat st;
 
-        if (label_mkdir(path, mode) >= 0)
+        if (label_mkdir(path, mode, apply) >= 0)
                 if (chmod_and_chown(path, mode, uid, gid) < 0)
                         return -errno;
 
@@ -56,7 +56,15 @@ int mkdir_safe_label(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         return 0;
 }
 
-int mkdir_parents_label(const char *path, mode_t mode) {
+int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid) {
+        return makedir_safe(path, mode, uid, gid, false);
+}
+
+int mkdir_safe_label(const char *path, mode_t mode, uid_t uid, gid_t gid) {
+        return makedir_safe(path, mode, uid, gid, true);
+}
+
+static int makedir_parents(const char *path, mode_t mode, bool apply) {
         struct stat st;
         const char *p, *e;
 
@@ -92,7 +100,7 @@ int mkdir_parents_label(const char *path, mode_t mode) {
                 if (!t)
                         return -ENOMEM;
 
-                r = label_mkdir(t, mode);
+                r = label_mkdir(t, mode, apply);
                 free(t);
 
                 if (r < 0 && errno != EEXIST)
@@ -100,16 +108,33 @@ int mkdir_parents_label(const char *path, mode_t mode) {
         }
 }
 
-int mkdir_p_label(const char *path, mode_t mode) {
+int mkdir_parents(const char *path, mode_t mode) {
+        return makedir_parents(path, mode, false);
+}
+
+int mkdir_parents_label(const char *path, mode_t mode) {
+        return makedir_parents(path, mode, true);
+}
+
+static int makedir_p(const char *path, mode_t mode, bool apply) {
         int r;
 
         /* Like mkdir -p */
 
-        if ((r = mkdir_parents_label(path, mode)) < 0)
+        r = makedir_parents(path, mode, apply);
+        if (r < 0)
                 return r;
 
-        if (label_mkdir(path, mode) < 0 && errno != EEXIST)
+        if (label_mkdir(path, mode, apply) < 0 && errno != EEXIST)
                 return -errno;
 
         return 0;
+}
+
+int mkdir_p(const char *path, mode_t mode) {
+        return makedir_p(path, mode, false);
+}
+
+int mkdir_p_label(const char *path, mode_t mode) {
+        return makedir_p(path, mode, true);
 }
