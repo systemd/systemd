@@ -612,13 +612,23 @@ libsystemd_dbus_la_LIBADD = \
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
-	libsystemd-label.la
+	libsystemd-units.la
 
-libsystemd_label_la_SOURCES = \
+libsystemd_units_la_SOURCES = \
 	src/shared/install.c \
 	src/shared/install.h \
 	src/shared/path-lookup.c \
-	src/shared/path-lookup.h \
+	src/shared/path-lookup.h
+
+libsystemd_units_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+# ------------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
+	libsystemd-label.la
+
+libsystemd_label_la_SOURCES = \
 	src/shared/cgroup-label.c \
 	src/shared/socket-label.c \
 	src/shared/label.c \
@@ -632,7 +642,6 @@ libsystemd_label_la_SOURCES = \
 
 libsystemd_label_la_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS) \
 	$(SELINUX_CFLAGS)
 
 libsystemd_label_la_LIBADD = \
@@ -816,6 +825,7 @@ libsystemd_core_la_CFLAGS = \
 
 libsystemd_core_la_LIBADD = \
 	libsystemd-capability.la \
+	libsystemd-units.la \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-dbus.la \
@@ -986,6 +996,7 @@ test_install_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 test_install_LDADD = \
+	libsystemd-units.la \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
@@ -1197,6 +1208,7 @@ systemctl_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemctl_LDADD = \
+	libsystemd-units.la \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
