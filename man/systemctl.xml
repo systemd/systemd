@@ -632,7 +632,15 @@
                                 looking for formatted human-readable
                                 output.</para></listitem>
                         </varlistentry>
+                        <varlistentry>
+                                <term><command>man [NAME...|PID...]</command></term>
 
+                                <listitem><para>Show manual pages for
+                                one or more units, if available. If a
+                                PID is passed the manual pages for the
+                                unit the process of the PID belongs to
+                                is shown.</para></listitem>
+                        </varlistentry>
                         <varlistentry>
                                 <term><command>reset-failed [NAME...]</command></term>
 

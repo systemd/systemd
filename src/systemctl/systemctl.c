@@ -2458,6 +2458,73 @@ static void print_status_info(UnitStatusInfo *i) {
                        arg_scope == UNIT_FILE_SYSTEM ? "--system" : "--user");
 }
 
+static void man_status_info(UnitStatusInfo *i) {
+        char **p;
+
+        assert(i);
+
+        if (!i->documentation) {
+                log_info("Documentation for %s not known.", i->id);
+                return;
+        }
+
+        STRV_FOREACH(p, i->documentation) {
+
+                if (startswith(*p, "man:")) {
+                        size_t k;
+                        char *e = NULL;
+                        char *page = NULL, *section = NULL;
+                        const char *args[4] = { "man", NULL, NULL, NULL };
+                        pid_t pid;
+
+                        k = strlen(*p);
+
+                        if ((*p)[k-1] == ')')
+                                e = strrchr(*p, '(');
+
+                        if (e) {
+                                page = strndup((*p) + 4, e - *p - 4);
+                                if (!page) {
+                                        log_error("Out of memory.");
+                                        return;
+                                }
+
+                                section = strndup(e + 1, *p + k - e - 2);
+                                if (!section) {
+                                        free(page);
+                                        log_error("Out of memory");
+                                        return;
+                                }
+
+                                args[1] = section;
+                                args[2] = page;
+                        } else
+                                args[1] = *p + 4;
+
+                        pid = fork();
+                        if (pid < 0) {
+                                log_error("Failed to fork: %m");
+                                free(page);
+                                free(section);
+                                continue;
+                        }
+
+                        if (pid == 0) {
+                                /* Child */
+                                execvp(args[0], (char**) args);
+                                log_error("Failed to execute man: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        free(page);
+                        free(section);
+
+                        wait_for_terminate(pid, NULL);
+                } else
+                        log_info("Can't show %s.", *p);
+        }
+}
+
 static int status_property(const char *name, DBusMessageIter *iter, UnitStatusInfo *i) {
 
         assert(name);
@@ -2952,8 +3019,12 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
 
         r = 0;
 
-        if (!show_properties)
-                print_status_info(&info);
+        if (!show_properties) {
+                if (streq(verb, "man"))
+                        man_status_info(&info);
+                else
+                        print_status_info(&info);
+        }
 
         strv_free(info.documentation);
 
@@ -3044,7 +3115,7 @@ static int show(DBusConnection *bus, char **args) {
         assert(bus);
         assert(args);
 
-        show_properties = !streq(args[0], "status");
+        show_properties = streq(args[0], "show");
 
         if (show_properties)
                 pager_open_if_enabled();
@@ -4213,6 +4284,7 @@ static int systemctl_help(void) {
                "  status [NAME...|PID...]         Show runtime status of one or more units\n"
                "  show [NAME...|JOB...]           Show properties of one or more\n"
                "                                  units/jobs or the manager\n"
+               "  man [NAME...|PID...]            Show manual for one or more units\n"
                "  reset-failed [NAME...]          Reset failed state for all, one, or more\n"
                "                                  units\n"
                "  load [NAME...]                  Load one or more units\n\n"
@@ -5176,6 +5248,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "check",                 MORE,  2, check_unit        },
                 { "show",                  MORE,  1, show              },
                 { "status",                MORE,  2, show              },
+                { "man",                   MORE,  2, show              },
                 { "dump",                  EQUAL, 1, dump              },
                 { "dot",                   EQUAL, 1, dot               },
                 { "snapshot",              LESS,  2, snapshot          },

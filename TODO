@@ -32,8 +32,6 @@ Features:
 
 * make use of /sys/power/wake_lock in inhibitors
 
-* introduce "systemctl help" which invokes man for the man pages listed in Documentation=
-
 * drop accountsservice's StandardOutput=syslog and Type=dbus fields
 
 * make sure show-logs checks for utf8 validity, not ascii validity
