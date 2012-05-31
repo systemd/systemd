@@ -24,6 +24,8 @@ Bugfixes:
 
 Features:
 
+* handle C-A-Del in logind, like the power/suspend buttons?
+
 * nspawn: make use of device cgroup contrller by default
 
 * parse kernel cmdline option for capability bset
