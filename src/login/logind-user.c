@@ -75,6 +75,8 @@ void user_free(User *u) {
         while (u->sessions)
                 session_free(u->sessions);
 
+        if (u->cgroup_path)
+                hashmap_remove(u->manager->user_cgroups, u->cgroup_path);
         free(u->cgroup_path);
 
         free(u->service);
@@ -313,6 +315,8 @@ static int user_create_cgroup(User *u) {
                         log_warning("Failed to create cgroup %s:%s: %s", *k, p, strerror(-r));
         }
 
+        hashmap_put(u->manager->user_cgroups, u->cgroup_path, u);
+
         return 0;
 }
 
@@ -416,6 +420,8 @@ static int user_terminate_cgroup(User *u) {
 
         STRV_FOREACH(k, u->manager->controllers)
                 cg_trim(*k, u->cgroup_path, true);
+
+        hashmap_remove(u->manager->user_cgroups, u->cgroup_path);
 
         free(u->cgroup_path);
         u->cgroup_path = NULL;

@@ -64,13 +64,16 @@ Manager *manager_new(void) {
         m->inhibitors = hashmap_new(string_hash_func, string_compare_func);
         m->buttons = hashmap_new(string_hash_func, string_compare_func);
 
-        m->cgroups = hashmap_new(string_hash_func, string_compare_func);
+        m->user_cgroups = hashmap_new(string_hash_func, string_compare_func);
+        m->session_cgroups = hashmap_new(string_hash_func, string_compare_func);
+
         m->session_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->inhibitor_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->button_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
 
         if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons ||
-            !m->cgroups || !m->session_fds || !m->inhibitor_fds || !m->button_fds) {
+            !m->user_cgroups || !m->session_cgroups ||
+            !m->session_fds || !m->inhibitor_fds || !m->button_fds) {
                 manager_free(m);
                 return NULL;
         }
@@ -131,7 +134,9 @@ void manager_free(Manager *m) {
         hashmap_free(m->inhibitors);
         hashmap_free(m->buttons);
 
-        hashmap_free(m->cgroups);
+        hashmap_free(m->user_cgroups);
+        hashmap_free(m->session_cgroups);
+
         hashmap_free(m->session_fds);
         hashmap_free(m->inhibitor_fds);
         hashmap_free(m->button_fds);
@@ -1008,7 +1013,7 @@ int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **sess
         assert(cgroup);
         assert(session);
 
-        s = hashmap_get(m->cgroups, cgroup);
+        s = hashmap_get(m->session_cgroups, cgroup);
         if (s) {
                 *session = s;
                 return 1;
@@ -1032,10 +1037,51 @@ int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **sess
 
                 *e = 0;
 
-                s = hashmap_get(m->cgroups, p);
+                s = hashmap_get(m->session_cgroups, p);
                 if (s) {
                         free(p);
                         *session = s;
+                        return 1;
+                }
+        }
+}
+
+int manager_get_user_by_cgroup(Manager *m, const char *cgroup, User **user) {
+        User *u;
+        char *p;
+
+        assert(m);
+        assert(cgroup);
+        assert(user);
+
+        u = hashmap_get(m->user_cgroups, cgroup);
+        if (u) {
+                *user = u;
+                return 1;
+        }
+
+        p = strdup(cgroup);
+        if (!p) {
+                log_error("Out of memory.");
+                return -ENOMEM;
+        }
+
+        for (;;) {
+                char *e;
+
+                e = strrchr(p, '/');
+                if (!e || e == p) {
+                        free(p);
+                        *user = NULL;
+                        return 0;
+                }
+
+                *e = 0;
+
+                u = hashmap_get(m->user_cgroups, p);
+                if (u) {
+                        free(p);
+                        *user = u;
                         return 1;
                 }
         }
@@ -1061,13 +1107,16 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
 
 void manager_cgroup_notify_empty(Manager *m, const char *cgroup) {
         Session *s;
+        User *u;
         int r;
 
         r = manager_get_session_by_cgroup(m, cgroup, &s);
-        if (r <= 0)
-                return;
+        if (r > 0)
+                session_add_to_gc_queue(s);
 
-        session_add_to_gc_queue(s);
+        r = manager_get_user_by_cgroup(m, cgroup, &u);
+        if (r > 0)
+                user_add_to_gc_queue(u);
 }
 
 static void manager_dispatch_other(Manager *m, int fd) {

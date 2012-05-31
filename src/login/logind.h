@@ -81,7 +81,9 @@ struct Manager {
         unsigned long session_counter;
         unsigned long inhibit_counter;
 
-        Hashmap *cgroups;
+        Hashmap *session_cgroups;
+        Hashmap *user_cgroups;
+
         Hashmap *session_fds;
         Hashmap *inhibitor_fds;
         Hashmap *button_fds;
@@ -146,6 +148,7 @@ void manager_gc(Manager *m, bool drop_not_started);
 
 int manager_get_idle_hint(Manager *m, dual_timestamp *t);
 
+int manager_get_user_by_cgroup(Manager *m, const char *cgroup, User **user);
 int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **session);
 int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session);
 
