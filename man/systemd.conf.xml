@@ -216,6 +216,30 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>TimerSlackNSec=</varname></term>
+
+                                <listitem><para>Sets the timer slack
+                                in nanoseconds for PID 1 which is then
+                                inherited to all executed processes,
+                                unless overriden individually, for
+                                example with the
+                                <varname>TimerSlackNSec=</varname>
+                                setting in service units (for details
+                                see
+                                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>). The
+                                timer slack controls the accuracy of
+                                wake-ups triggered by timers. See
+                                <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for more information. Note that in
+                                contrast to most other time span
+                                definitions this parameter takes an
+                                integer value in nano-seconds if no
+                                unit is specified. The usual time
+                                units are understood
+                                too.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>DefaultLimitCPU=</varname></term>
                                 <term><varname>DefaultLimitFSIZE=</varname></term>
                                 <term><varname>DefaultLimitDATA=</varname></term>
