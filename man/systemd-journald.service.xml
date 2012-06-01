@@ -78,7 +78,7 @@
                 <para>By default the journal stores log data in
                 <filename>/run/log/journal/</filename>. Since
                 <filename>/run/</filename> is volatile log data is
-                lost at reboot. To make the data persistant it
+                lost at reboot. To make the data persistent it
                 is sufficient to create
                 <filename>/var/log/journal/</filename> where
                 <filename>systemd-journald</filename> will then store

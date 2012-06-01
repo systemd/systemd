@@ -128,7 +128,7 @@
                                 prefixed with
                                 <literal>System</literal> apply to the
                                 journal files when stored on a
-                                persistant file system, more
+                                persistent file system, more
                                 specifically
                                 <filename>/var/log/journal</filename>. The
                                 options prefixed with
@@ -144,9 +144,9 @@
                                 exists. Otherwise only the latter
                                 applies. Note that this means that
                                 during early boot and if the
-                                administrator disabled persistant
+                                administrator disabled persistent
                                 logging only the latter options apply,
-                                while the former apply if persistant
+                                while the former apply if persistent
                                 logging is enabled and the system is
                                 fully booted
                                 up. <varname>SystemMaxUse=</varname>
