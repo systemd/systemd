@@ -1088,11 +1088,11 @@ static int bus_manager_can_shutdown_or_sleep(
 
                 if (r > 0)
                         result = "yes";
-                        else if (challenge)
-                                result = "challenge";
-                        else
-                                result = "no";
-                }
+                else if (challenge)
+                        result = "challenge";
+                else
+                        result = "no";
+        }
 
         if (blocked) {
                 r = verify_polkit(connection, message, action_ignore_inhibit, false, &challenge, error);
