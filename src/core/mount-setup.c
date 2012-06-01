@@ -39,6 +39,7 @@
 #include "strv.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "missing.h"
 
 #ifndef TTY_GID
 #define TTY_GID 5

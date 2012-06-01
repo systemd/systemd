@@ -184,4 +184,8 @@ static inline pid_t gettid(void) {
 #define SCM_SECURITY 0x03
 #endif
 
+#ifndef MS_STRICTATIME
+#define MS_STRICTATIME (1<<24)
+#endif
+
 #endif
