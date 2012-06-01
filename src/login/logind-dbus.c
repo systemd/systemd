@@ -1068,8 +1068,10 @@ static int bus_manager_can_shutdown_or_sleep(
                 if (r < 0)
                         return r;
 
-                result = "na";
-                goto finish;
+                if (r == 0) {
+                        result = "na";
+                        goto finish;
+                }
         }
 
         r = have_multiple_sessions(connection, m, message, error);
