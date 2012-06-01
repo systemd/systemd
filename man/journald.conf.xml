@@ -225,6 +225,42 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>MaxLevelStore=</varname></term>
+                                <term><varname>MaxLevelSyslog=</varname></term>
+                                <term><varname>MaxLevelKMsg=</varname></term>
+                                <term><varname>MaxLevelConsole=</varname></term>
+
+                                <listitem><para>Controls the maximum
+                                log level of messages that are stored
+                                on disk, forwarded to syslog, kmsg or
+                                the console (if that is enabled, see
+                                above). As argument, takes one of
+                                <literal>emerg</literal>,
+                                <literal>alert</literal>,
+                                <literal>crit</literal>,
+                                <literal>err</literal>,
+                                <literal>warning</literal>,
+                                <literal>notice</literal>,
+                                <literal>info</literal>,
+                                <literal>debug</literal> or integer
+                                values in the range of 0..7 (corresponding
+                                to the same levels). Messages equal or below
+                                the log level specified are
+                                stored/forwarded, messages above are
+                                dropped. Defaults to
+                                <literal>debug</literal> for
+                                <varname>MaxLevelStore=</varname> and
+                                <varname>MaxLevelSyslog=</varname>, to
+                                ensure that the all messages are
+                                written to disk and forwarded to
+                                syslog. Defaults to
+                                <literal>notice</literal> for
+                                <varname>MaxLevelKMsg=</varname> and
+                                <literal>info</literal> for
+                                <varname>MaxLevelConsole=</varname>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>TTYPath=</varname></term>
 
                                 <listitem><para>Change the console TTY

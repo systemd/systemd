@@ -876,3 +876,60 @@ int config_parse_mode(
         *m = (mode_t) l;
         return 0;
 }
+
+int config_parse_facility(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+
+        int *o = data, x;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        x = log_facility_unshifted_from_string(rvalue);
+        if (x < 0) {
+                log_error("[%s:%u] Failed to parse log facility, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        *o = (x << 3) | LOG_PRI(*o);
+
+        return 0;
+}
+
+int config_parse_level(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+
+        int *o = data, x;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        x = log_level_from_string(rvalue);
+        if (x < 0) {
+                log_error("[%s:%u] Failed to parse log level, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        *o = (*o & LOG_FACMASK) | x;
+        return 0;
+}

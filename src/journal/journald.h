@@ -81,6 +81,11 @@ typedef struct Server {
         unsigned n_stdout_streams;
 
         char *tty_path;
+
+        int max_level_store;
+        int max_level_syslog;
+        int max_level_kmsg;
+        int max_level_console;
 } Server;
 
 /* gperf lookup function */

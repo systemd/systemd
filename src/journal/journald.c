@@ -720,6 +720,9 @@ static void dispatch_message(Server *s,
         if (n == 0)
                 return;
 
+        if (LOG_PRI(priority) > s->max_level_store)
+                return;
+
         if (!ucred)
                 goto finish;
 
@@ -829,11 +832,14 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
         log_debug("Failed to forward syslog message: %m");
 }
 
-static void forward_syslog_raw(Server *s, const char *buffer, struct ucred *ucred, struct timeval *tv) {
+static void forward_syslog_raw(Server *s, int priority, const char *buffer, struct ucred *ucred, struct timeval *tv) {
         struct iovec iovec;
 
         assert(s);
         assert(buffer);
+
+        if (LOG_PRI(priority) > s->max_level_syslog)
+                return;
 
         IOVEC_SET_STRING(iovec, buffer);
         forward_syslog_iovec(s, &iovec, 1, ucred, tv);
@@ -851,6 +857,9 @@ static void forward_syslog(Server *s, int priority, const char *identifier, cons
         assert(priority >= 0);
         assert(priority <= 999);
         assert(message);
+
+        if (LOG_PRI(priority) > s->max_level_syslog)
+                return;
 
         /* First: priority field */
         snprintf(header_priority, sizeof(header_priority), "<%i>", priority);
@@ -913,6 +922,9 @@ static void forward_kmsg(Server *s, int priority, const char *identifier, const 
         assert(priority <= 999);
         assert(message);
 
+        if (LOG_PRI(priority) > s->max_level_kmsg)
+                return;
+
         /* Never allow messages with kernel facility to be written to
          * kmsg, regardless where the data comes from. */
         priority = fixup_priority(priority);
@@ -960,7 +972,7 @@ finish:
         free(ident_buf);
 }
 
-static void forward_console(Server *s, const char *identifier, const char *message, struct ucred *ucred) {
+static void forward_console(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred) {
         struct iovec iovec[4];
         char header_pid[16];
         int n = 0, fd;
@@ -969,6 +981,9 @@ static void forward_console(Server *s, const char *identifier, const char *messa
 
         assert(s);
         assert(message);
+
+        if (LOG_PRI(priority) > s->max_level_console)
+                return;
 
         /* First: identifier and PID */
         if (ucred) {
@@ -1066,14 +1081,17 @@ static void process_syslog_message(Server *s, const char *buf, struct ucred *ucr
         unsigned n = 0;
         int priority = LOG_USER | LOG_INFO;
         char *identifier = NULL, *pid = NULL;
+        const char *orig;
 
         assert(s);
         assert(buf);
 
-        if (s->forward_to_syslog)
-                forward_syslog_raw(s, buf, ucred, tv);
-
+        orig = buf;
         parse_syslog_priority((char**) &buf, &priority);
+
+        if (s->forward_to_syslog)
+                forward_syslog_raw(s, priority, orig, ucred, tv);
+
         skip_syslog_date((char**) &buf);
         read_identifier(&buf, &identifier, &pid);
 
@@ -1081,7 +1099,7 @@ static void process_syslog_message(Server *s, const char *buf, struct ucred *ucr
                 forward_kmsg(s, priority, identifier, buf, ucred);
 
         if (s->forward_to_console)
-                forward_console(s, identifier, buf, ucred);
+                forward_console(s, priority, identifier, buf, ucred);
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=syslog");
 
@@ -1333,7 +1351,7 @@ static void process_native_message(
                         forward_kmsg(s, priority, identifier, message, ucred);
 
                 if (s->forward_to_console)
-                        forward_console(s, identifier, message, ucred);
+                        forward_console(s, priority, identifier, message, ucred);
         }
 
         dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, priority);
@@ -1431,7 +1449,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
                 forward_kmsg(s->server, priority, s->identifier, p, &s->ucred);
 
         if (s->forward_to_console || s->server->forward_to_console)
-                forward_console(s->server, s->identifier, p, &s->ucred);
+                forward_console(s->server, priority, s->identifier, p, &s->ucred);
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=stdout");
 
@@ -2654,6 +2672,11 @@ static int server_init(Server *s) {
 
         s->forward_to_syslog = true;
         s->import_proc_kmsg = true;
+
+        s->max_level_store = LOG_DEBUG;
+        s->max_level_syslog = LOG_DEBUG;
+        s->max_level_kmsg = LOG_NOTICE;
+        s->max_level_console = LOG_INFO;
 
         memset(&s->system_metrics, 0xFF, sizeof(s->system_metrics));
         memset(&s->runtime_metrics, 0xFF, sizeof(s->runtime_metrics));

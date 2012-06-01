@@ -637,61 +637,6 @@ int config_parse_socket_bindtodevice(
 DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "Failed to parse output specifier");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_input, exec_input, ExecInput, "Failed to parse input specifier");
 
-int config_parse_facility(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-
-        int *o = data, x;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if ((x = log_facility_unshifted_from_string(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse log facility, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        *o = (x << 3) | LOG_PRI(*o);
-
-        return 0;
-}
-
-int config_parse_level(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-
-        int *o = data, x;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if ((x = log_level_from_string(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse log level, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        *o = (*o & LOG_FACMASK) | x;
-        return 0;
-}
-
 int config_parse_exec_io_class(
                 const char *filename,
                 unsigned line,

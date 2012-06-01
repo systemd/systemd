@@ -30,3 +30,7 @@ Journal.ForwardToKMsg,      config_parse_bool,      0, offsetof(Server, forward_
 Journal.ForwardToConsole,   config_parse_bool,      0, offsetof(Server, forward_to_console)
 Journal.ImportKernel,       config_parse_bool,      0, offsetof(Server, import_proc_kmsg)
 Journal.TTYPath,            config_parse_path,      0, offsetof(Server, tty_path)
+Journal.MaxLevelStore,      config_parse_level,     0, offsetof(Server, max_level_store)
+Journal.MaxLevelSyslog,     config_parse_level,     0, offsetof(Server, max_level_syslog)
+Journal.MaxLevelKMsg,       config_parse_level,     0, offsetof(Server, max_level_kmsg)
+Journal.MaxLevelConsole,    config_parse_level,     0, offsetof(Server, max_level_console)
