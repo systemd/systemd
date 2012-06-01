@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
         arguments[1] = (char*) "pre";
         arguments[2] = argv[1];
         arguments[3] = NULL;
-        execute_directory(SYSTEMD_SLEEP_BINARY_PATH, NULL, arguments);
+        execute_directory(SYSTEM_SLEEP_PATH, NULL, arguments);
 
         if (streq(argv[1], "suspend"))
                 log_info("Suspending system...");
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
                 log_info("System thawed.");
 
         arguments[1] = (char*) "post";
-        execute_directory(SYSTEMD_SLEEP_BINARY_PATH, NULL, arguments);
+        execute_directory(SYSTEM_SLEEP_PATH, NULL, arguments);
 
         fclose(f);
 
