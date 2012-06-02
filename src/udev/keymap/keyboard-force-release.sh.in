@@ -6,7 +6,7 @@
 
 case "$2" in
         /*) scf="$2" ;;
-        *)  scf="@pkglibexecdir@/keymaps/force-release/$2" ;;
+        *)  scf="@udevlibexecdir@/keymaps/force-release/$2" ;;
 esac
 
 read attr <"/sys/$1/force_release"

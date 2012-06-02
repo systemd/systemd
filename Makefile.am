@@ -1911,12 +1911,14 @@ TESTS += \
 	src/udev/keymap/check-keymaps.sh
 
 EXTRA_DIST += \
-	src/udev/keymap/check-keymaps.sh
+	src/udev/keymap/check-keymaps.sh \
+	src/udev/keymap/keyboard-force-release.sh.in
 
 CLEANFILES += \
 	$(nodist_keymap_SOURCES) \
 	src/udev/keymap/keys.txt \
-	src/udev/keymap/keys-from-name.gperf
+	src/udev/keymap/keys-from-name.gperf \
+	src/udev/keymap/keyboard-force-release.sh
 
 udevkeymapdir = $(libexecdir)/udev/keymaps
 dist_udevkeymap_DATA = \
