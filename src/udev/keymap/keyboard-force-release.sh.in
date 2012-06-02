@@ -1,4 +1,4 @@
-#/bin/sh -e
+#!/bin/sh -e
 # read list of scancodes, convert hex to decimal and
 # append to the atkbd force_release sysfs attribute
 # $1 sysfs devpath for serioX
