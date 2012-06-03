@@ -1353,9 +1353,9 @@ int main(int argc, char *argv[])
 
                 /* set value depending on the amount of RAM */
                 if (memsize > 0)
-                        children_max = 128 + (memsize / 8);
+                        children_max = 28 + (memsize / 8);
                 else
-                        children_max = 128;
+                        children_max = 28;
         }
         log_debug("set children_max to %u\n", children_max);
 
