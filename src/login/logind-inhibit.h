@@ -23,7 +23,6 @@
 ***/
 
 typedef struct Inhibitor Inhibitor;
-typedef enum InhibitWhat InhibitWhat;
 
 #include "list.h"
 #include "util.h"
