@@ -470,10 +470,7 @@ static int parse_fstab(void) {
                         goto finish;
                 }
 
-                if (path_is_absolute(what))
-                        path_kill_slashes(what);
-
-                if (path_is_absolute(where))
+                if (is_path(where))
                         path_kill_slashes(where);
 
                 log_debug("Found entry what=%s where=%s type=%s", what, where, me->mnt_type);
