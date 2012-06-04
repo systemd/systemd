@@ -61,7 +61,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "container", no_argument,       NULL, 'c'           },
                 { "vm",        optional_argument, NULL, 'v'           },
-                { "quiet",     required_argument, NULL, 'q'           },
+                { "quiet",     no_argument,       NULL, 'q'           },
                 { NULL,        0,                 NULL, 0             }
         };
 
