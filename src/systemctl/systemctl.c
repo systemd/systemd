@@ -2458,7 +2458,7 @@ static void print_status_info(UnitStatusInfo *i) {
                        arg_scope == UNIT_FILE_SYSTEM ? "--system" : "--user");
 }
 
-static void man_status_info(UnitStatusInfo *i) {
+static void show_unit_help(UnitStatusInfo *i) {
         char **p;
 
         assert(i);
@@ -3020,8 +3020,8 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
         r = 0;
 
         if (!show_properties) {
-                if (streq(verb, "man"))
-                        man_status_info(&info);
+                if (streq(verb, "help"))
+                        show_unit_help(&info);
                 else
                         print_status_info(&info);
         }
@@ -4284,7 +4284,7 @@ static int systemctl_help(void) {
                "  status [NAME...|PID...]         Show runtime status of one or more units\n"
                "  show [NAME...|JOB...]           Show properties of one or more\n"
                "                                  units/jobs or the manager\n"
-               "  man [NAME...|PID...]            Show manual for one or more units\n"
+               "  help [NAME...|PID...]            Show manual for one or more units\n"
                "  reset-failed [NAME...]          Reset failed state for all, one, or more\n"
                "                                  units\n"
                "  load [NAME...]                  Load one or more units\n\n"
@@ -5248,7 +5248,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "check",                 MORE,  2, check_unit        },
                 { "show",                  MORE,  1, show              },
                 { "status",                MORE,  2, show              },
-                { "man",                   MORE,  2, show              },
+                { "help",                  MORE,  2, show              },
                 { "dump",                  EQUAL, 1, dump              },
                 { "dot",                   EQUAL, 1, dot               },
                 { "snapshot",              LESS,  2, snapshot          },
@@ -5293,9 +5293,10 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 /* Special rule: no arguments means "list-units" */
                 i = 0;
         else {
-                if (streq(argv[optind], "help")) {
-                        systemctl_help();
-                        return 0;
+                if (streq(argv[optind], "help") && !argv[optind+1]) {
+                        log_error("This command expects one or more "
+                                  "unit names. Did you mean --help?");
+                        return -EINVAL;
                 }
 
                 for (i = 0; i < ELEMENTSOF(verbs); i++)

@@ -633,7 +633,7 @@
                                 output.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><command>man [NAME...|PID...]</command></term>
+                                <term><command>help [NAME...|PID...]</command></term>
 
                                 <listitem><para>Show manual pages for
                                 one or more units, if available. If a
