@@ -83,14 +83,6 @@ int bus_execute_append_oom_score_adjust(DBusMessageIter *i, const char *property
                 if (read_one_line_file("/proc/self/oom_score_adj", &t) >= 0) {
                         safe_atoi(t, &n);
                         free(t);
-                } else if (read_one_line_file("/proc/self/oom_adj", &t) >= 0) {
-                        safe_atoi(t, &n);
-                        free(t);
-
-                        if (n == OOM_ADJUST_MAX)
-                                n = OOM_SCORE_ADJ_MAX;
-                        else
-                                n = (n * OOM_SCORE_ADJ_MAX) / -OOM_DISABLE;
                 }
         }
 

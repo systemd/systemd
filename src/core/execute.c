@@ -1129,22 +1129,9 @@ int exec_spawn(ExecCommand *command,
                         char_array_0(t);
 
                         if (write_one_line_file("/proc/self/oom_score_adj", t) < 0) {
-                                /* Compatibility with Linux <= 2.6.35 */
-
-                                int adj;
-
-                                adj = (context->oom_score_adjust * -OOM_DISABLE) / OOM_SCORE_ADJ_MAX;
-                                adj = CLAMP(adj, OOM_DISABLE, OOM_ADJUST_MAX);
-
-                                snprintf(t, sizeof(t), "%i", adj);
-                                char_array_0(t);
-
-                                if (write_one_line_file("/proc/self/oom_adj", t) < 0
-                                    && errno != EACCES) {
-                                        err = -errno;
-                                        r = EXIT_OOM_ADJUST;
-                                        goto fail_child;
-                                }
+                                err = -errno;
+                                r = EXIT_OOM_ADJUST;
+                                goto fail_child;
                         }
                 }
 
