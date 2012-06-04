@@ -26,6 +26,7 @@ Bugfixes:
    rename enum "ManagerRunningAs" to "SystemdRunningAs" and move it to shared/
 
 Features:
+* falconindy: allow unescaped pathes for mount units, like "systmectl status /.mount"?
 
 * handle C-A-Del in logind, like the power/suspend buttons?
 
