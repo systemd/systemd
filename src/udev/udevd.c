@@ -1013,6 +1013,48 @@ static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink)
         return 0;
 }
 
+/*
+ * read the kernel commandline, in case we need to get into debug mode
+ *   udev.log-priority=<level>              syslog priority
+ *   udev.children-max=<number of workers>  events are fully serialized if set to 1
+ *   udev.exec-delay=<number of seconds>    delay execution of every executed program
+ */
+static void kernel_cmdline_options(struct udev *udev)
+{
+        char *line, *w, *state;
+        size_t l;
+
+        if (read_one_line_file("/proc/cmdline", &line) < 0)
+                return;
+
+        FOREACH_WORD_QUOTED(w, l, line, state) {
+                char *s, *opt;
+
+                s = strndup(w, l);
+                if (!s)
+                        break;
+
+                /* accept the same options for the initrd, prefixed with "rd." */
+                if (in_initrd() && startswith(s, "rd."))
+                        opt = s + 3;
+                else
+                        opt = s;
+
+                if (startswith(opt, "udev.log-priority="))
+                        udev_set_log_priority(udev, util_log_priority(opt + 18));
+
+                if (startswith(opt, "udev.children-max="))
+                        children_max = strtoul(opt + 18, NULL, 0);
+
+                if (startswith(opt, "udev.exec-delay="))
+                        exec_delay = strtoul(opt + 16, NULL, 0);
+
+                free(s);
+        }
+
+        free(line);
+}
+
 int main(int argc, char *argv[])
 {
         struct udev *udev;
@@ -1101,39 +1143,7 @@ int main(int argc, char *argv[])
                 }
         }
 
-        /*
-         * read the kernel commandline, in case we need to get into debug mode
-         *   udev.log-priority=<level>              syslog priority
-         *   udev.children-max=<number of workers>  events are fully serialized if set to 1
-         *
-         */
-        f = fopen("/proc/cmdline", "r");
-        if (f != NULL) {
-                char cmdline[4096];
-
-                if (fgets(cmdline, sizeof(cmdline), f) != NULL) {
-                        char *pos;
-
-                        pos = strstr(cmdline, "udev.log-priority=");
-                        if (pos != NULL) {
-                                pos += strlen("udev.log-priority=");
-                                udev_set_log_priority(udev, util_log_priority(pos));
-                        }
-
-                        pos = strstr(cmdline, "udev.children-max=");
-                        if (pos != NULL) {
-                                pos += strlen("udev.children-max=");
-                                children_max = strtoul(pos, NULL, 0);
-                        }
-
-                        pos = strstr(cmdline, "udev.exec-delay=");
-                        if (pos != NULL) {
-                                pos += strlen("udev.exec-delay=");
-                                exec_delay = strtoul(pos, NULL, 0);
-                        }
-                }
-                fclose(f);
-        }
+        kernel_cmdline_options(udev);
 
         if (getuid() != 0) {
                 fprintf(stderr, "root privileges required\n");

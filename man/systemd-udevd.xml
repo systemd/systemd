@@ -116,20 +116,24 @@
 
   <refsect1><title>Kernel command line</title>
     <variablelist>
+      <para>The parameters starting with "rd.", will be read when udev is used in an initrd.</para>
       <varlistentry>
         <term><varname>udev.log-priority=</varname></term>
+        <term><varname>rd.udev.log-priority=</varname></term>
         <listitem>
           <para>Set the logging priority.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>udev.children-max=</varname></term>
+        <term><varname>rd.udev.children-max=</varname></term>
         <listitem>
           <para>Limit the number of parallel executed events.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>udev.exec-delay=</varname></term>
+        <term><varname>rd.udev.exec-delay=</varname></term>
         <listitem>
           <para>Number of seconds to delay the execution of RUN instructions.
           This might be useful when debugging system crashes during coldplug
