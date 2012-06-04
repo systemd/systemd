@@ -1728,7 +1728,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         }
 
         if (c->timer_slack_nsec != (nsec_t) -1)
-                fprintf(f, "%sTimerSlackNSec: %lu\n", prefix, c->timer_slack_nsec);
+                fprintf(f, "%sTimerSlackNSec: %lu\n", prefix, (unsigned long)c->timer_slack_nsec);
 
         fprintf(f,
                 "%sStandardInput: %s\n"
