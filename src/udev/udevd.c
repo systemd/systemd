@@ -262,6 +262,9 @@ static void worker_new(struct event *event)
                 /* request TERM signal if parent exits */
                 prctl(PR_SET_PDEATHSIG, SIGTERM);
 
+                /* reset OOM score, we only protect the main daemon */
+                write_one_line_file("/proc/self/oom_score_adj", "0");
+
                 for (;;) {
                         struct udev_event *udev_event;
                         struct worker_message msg;
@@ -1230,7 +1233,6 @@ int main(int argc, char *argv[])
 
         if (daemonize) {
                 pid_t pid;
-                int fd;
 
                 pid = fork();
                 switch (pid) {
@@ -1247,11 +1249,7 @@ int main(int argc, char *argv[])
 
                 setsid();
 
-                fd = open("/proc/self/oom_score_adj", O_RDWR|O_CLOEXEC);
-                if (fd >= 0) {
-                        write(fd, "-1000", 5);
-                        close(fd);
-                }
+                write_one_line_file("/proc/self/oom_score_adj", "-1000");
         } else {
                 sd_notify(1, "READY=1");
         }
