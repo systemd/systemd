@@ -179,19 +179,30 @@ char *unit_name_build(const char *prefix, const char *instance, const char *suff
         return join(prefix, "@", instance, suffix, NULL);
 }
 
-static char* do_escape(const char *f, char *t) {
+static char *do_escape_char(char c, char *t) {
+        *(t++) = '\\';
+        *(t++) = 'x';
+        *(t++) = hexchar(c >> 4);
+        *(t++) = hexchar(c);
+        return t;
+}
+
+static char *do_escape(const char *f, char *t) {
         assert(f);
         assert(t);
+
+        /* do not create units with a leading '.', like for "/.dotdir" mount points */
+        if (*f == '.') {
+                t = do_escape_char(*f, t);
+                f++;
+        }
 
         for (; *f; f++) {
                 if (*f == '/')
                         *(t++) = '-';
-                else if (*f == '-' || *f == '\\' || !strchr(VALID_CHARS, *f)) {
-                        *(t++) = '\\';
-                        *(t++) = 'x';
-                        *(t++) = hexchar(*f >> 4);
-                        *(t++) = hexchar(*f);
-                } else
+                else if (*f == '-' || *f == '\\' || !strchr(VALID_CHARS, *f))
+                        t = do_escape_char(*f, t);
+                else
                         *(t++) = *f;
         }
 
@@ -209,8 +220,8 @@ char *unit_name_build_escape(const char *prefix, const char *instance, const cha
          * suffix and makes a nice string suitable as unit name of it,
          * escaping all weird chars on the way.
          *
-         * / becomes ., and all chars not allowed in a unit name get
-         * escaped as \xFF, including \ and ., of course. This
+         * / becomes -, and all chars not allowed in a unit name get
+         * escaped as \xFF, including \ and -, of course. This
          * escaping is hence reversible.
          *
          * This is primarily useful to make nice unit names from
