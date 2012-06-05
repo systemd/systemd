@@ -183,7 +183,7 @@ static int replay(const char *root) {
 
         char_array_0(line);
 
-        if (!streq(line, CANONICAL_HOST ";VERSION=2\n")) {
+        if (!streq(line, CANONICAL_HOST READAHEAD_PACK_FILE_VERSION)) {
                 log_debug("Pack file host or version type mismatch.");
                 goto finish;
         }

@@ -493,7 +493,7 @@ done:
                 goto finish;
         }
 
-        fputs(CANONICAL_HOST ";VERSION=2\n", pack);
+        fputs(CANONICAL_HOST READAHEAD_PACK_FILE_VERSION, pack);
         putc(on_ssd ? 'S' : 'R', pack);
 
         if (on_ssd || on_btrfs) {

@@ -29,6 +29,8 @@
 
 #define READAHEAD_FILE_SIZE_MAX (10*1024*1024)
 
+#define READAHEAD_PACK_FILE_VERSION ";VERSION=2\n"
+
 int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st);
 
 int fs_on_ssd(const char *p);
