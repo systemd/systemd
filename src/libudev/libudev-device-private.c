@@ -35,7 +35,7 @@ static void udev_device_tag(struct udev_device *dev, const char *tag, bool add)
         if (add) {
                 int fd;
 
-                mkdir_parents_label(filename, 0755);
+                mkdir_parents(filename, 0755);
                 fd = open(filename, O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC|O_NOFOLLOW, 0444);
                 if (fd >= 0)
                         close(fd);
@@ -119,7 +119,7 @@ int udev_device_update_db(struct udev_device *udev_device)
 
         /* write a database file */
         util_strscpyl(filename_tmp, sizeof(filename_tmp), filename, ".tmp", NULL);
-        mkdir_parents_label(filename_tmp, 0755);
+        mkdir_parents(filename_tmp, 0755);
         f = fopen(filename_tmp, "we");
         if (f == NULL) {
                 udev_err(udev, "unable to create temporary db file '%s': %m\n", filename_tmp);
