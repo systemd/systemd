@@ -1702,6 +1702,10 @@ void journal_file_dump(JournalFile *f) {
                 case OBJECT_ENTRY_ARRAY:
                         printf("Type: OBJECT_ENTRY_ARRAY\n");
                         break;
+
+                case OBJECT_SIGNATURE:
+                        printf("Type: OBJECT_SIGNATURE\n");
+                        break;
                 }
 
                 if (o->object.flags & OBJECT_COMPRESSED)

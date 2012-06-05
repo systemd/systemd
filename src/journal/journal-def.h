@@ -29,13 +29,17 @@
 #include "macro.h"
 
 typedef struct Header Header;
+
 typedef struct ObjectHeader ObjectHeader;
 typedef union Object Object;
+
 typedef struct DataObject DataObject;
 typedef struct FieldObject FieldObject;
 typedef struct EntryObject EntryObject;
 typedef struct HashTableObject HashTableObject;
 typedef struct EntryArrayObject EntryArrayObject;
+typedef struct SignatureObject SignatureObject;
+
 typedef struct EntryItem EntryItem;
 typedef struct HashItem HashItem;
 
@@ -48,6 +52,7 @@ enum {
         OBJECT_DATA_HASH_TABLE,
         OBJECT_FIELD_HASH_TABLE,
         OBJECT_ENTRY_ARRAY,
+        OBJECT_SIGNATURE,
         _OBJECT_TYPE_MAX
 };
 
@@ -115,6 +120,14 @@ _packed_ struct EntryArrayObject {
         le64_t items[];
 };
 
+#define SIGNATURE_LENGTH 160
+
+_packed_ struct SignatureObject {
+        ObjectHeader object;
+        le64_t from;
+        uint8_t signature[SIGNATURE_LENGTH];
+};
+
 union Object {
         ObjectHeader object;
         DataObject data;
@@ -122,6 +135,7 @@ union Object {
         EntryObject entry;
         HashTableObject hash_table;
         EntryArrayObject entry_array;
+        SignatureObject signature;
 };
 
 enum {
@@ -133,6 +147,10 @@ enum {
 /* Header flags */
 enum {
         HEADER_INCOMPATIBLE_COMPRESSED = 1
+};
+
+enum {
+        HEADER_COMPATIBLE_SIGNED = 1
 };
 
 _packed_ struct Header {
