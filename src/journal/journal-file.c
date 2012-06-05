@@ -99,7 +99,7 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
 
         zero(h);
         memcpy(h.signature, signature, 8);
-        h.arena_offset = htole64(ALIGN64(sizeof(h)));
+        h.header_size = htole64(ALIGN64(sizeof(h)));
 
         r = sd_id128_randomize(&h.file_id);
         if (r < 0)
@@ -161,7 +161,10 @@ static int journal_file_verify_header(JournalFile *f) {
                 return -EPROTONOSUPPORT;
 #endif
 
-        if ((uint64_t) f->last_stat.st_size < (le64toh(f->header->arena_offset) + le64toh(f->header->arena_size)))
+        if (f->header->header_size != htole64(ALIGN64(sizeof(*(f->header)))))
+                return -EBADMSG;
+
+        if ((uint64_t) f->last_stat.st_size < (le64toh(f->header->header_size) + le64toh(f->header->arena_size)))
                 return -ENODATA;
 
         if (f->writable) {
@@ -200,12 +203,12 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
          * ourselves */
 
         old_size =
-                le64toh(f->header->arena_offset) +
+                le64toh(f->header->header_size) +
                 le64toh(f->header->arena_size);
 
         new_size = PAGE_ALIGN(offset + size);
-        if (new_size < le64toh(f->header->arena_offset))
-                new_size = le64toh(f->header->arena_offset);
+        if (new_size < le64toh(f->header->header_size))
+                new_size = le64toh(f->header->header_size);
 
         if (new_size <= old_size)
                 return 0;
@@ -243,7 +246,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (fstat(f->fd, &f->last_stat) < 0)
                 return -errno;
 
-        f->header->arena_size = htole64(new_size - le64toh(f->header->arena_offset));
+        f->header->arena_size = htole64(new_size - le64toh(f->header->header_size));
 
         return 0;
 }
@@ -457,7 +460,7 @@ static int journal_file_append_object(JournalFile *f, int type, uint64_t size, O
 
         p = le64toh(f->header->tail_object_offset);
         if (p == 0)
-                p = le64toh(f->header->arena_offset);
+                p = le64toh(f->header->header_size);
         else {
                 r = journal_file_move_to_object(f, -1, p, &tail);
                 if (r < 0)
@@ -1665,7 +1668,7 @@ void journal_file_dump(JournalFile *f) {
                (unsigned long) le64toh(f->header->n_objects),
                (unsigned long) le64toh(f->header->n_entries));
 
-        p = le64toh(f->header->arena_offset);
+        p = le64toh(f->header->header_size);
         while (p != 0) {
                 r = journal_file_move_to_object(f, -1, p, &o);
                 if (r < 0)

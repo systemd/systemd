@@ -145,7 +145,7 @@ _packed_ struct Header {
         sd_id128_t machine_id;
         sd_id128_t boot_id;
         sd_id128_t seqnum_id;
-        le64_t arena_offset;
+        le64_t header_size;
         le64_t arena_size;
         le64_t data_hash_table_offset;     /* for looking up data objects */
         le64_t data_hash_table_size;
