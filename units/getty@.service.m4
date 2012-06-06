@@ -41,7 +41,8 @@ ConditionPathExists=/dev/tty0
 
 [Service]
 Environment=TERM=linux
-ExecStart=-/sbin/agetty %I 38400
+# the VT is cleared by TTYVTDisallocate
+ExecStart=-/sbin/agetty --noclear %I 38400
 Type=idle
 Restart=always
 RestartSec=0
