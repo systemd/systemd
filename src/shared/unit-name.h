@@ -26,6 +26,26 @@
 
 #define UNIT_NAME_MAX 256
 
+typedef enum UnitType UnitType;
+
+enum UnitType {
+        UNIT_SERVICE = 0,
+        UNIT_SOCKET,
+        UNIT_TARGET,
+        UNIT_DEVICE,
+        UNIT_MOUNT,
+        UNIT_AUTOMOUNT,
+        UNIT_SNAPSHOT,
+        UNIT_TIMER,
+        UNIT_SWAP,
+        UNIT_PATH,
+        _UNIT_TYPE_MAX,
+        _UNIT_TYPE_INVALID = -1
+};
+
+const char *unit_type_to_string(UnitType i);
+UnitType unit_type_from_string(const char *s);
+
 int unit_name_to_instance(const char *n, char **instance);
 char* unit_name_to_prefix(const char *n);
 char* unit_name_to_prefix_and_instance(const char *n);

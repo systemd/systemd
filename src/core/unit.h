@@ -41,21 +41,7 @@ typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 #include "execute.h"
 #include "condition.h"
 #include "install.h"
-
-enum UnitType {
-        UNIT_SERVICE = 0,
-        UNIT_SOCKET,
-        UNIT_TARGET,
-        UNIT_DEVICE,
-        UNIT_MOUNT,
-        UNIT_AUTOMOUNT,
-        UNIT_SNAPSHOT,
-        UNIT_TIMER,
-        UNIT_SWAP,
-        UNIT_PATH,
-        _UNIT_TYPE_MAX,
-        _UNIT_TYPE_INVALID = -1
-};
+#include "unit-name.h"
 
 enum UnitLoadState {
         UNIT_STUB,

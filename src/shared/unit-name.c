@@ -33,6 +33,21 @@
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            \
         ":-_.\\"
 
+static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
+        [UNIT_SERVICE] = "service",
+        [UNIT_SOCKET] = "socket",
+        [UNIT_TARGET] = "target",
+        [UNIT_DEVICE] = "device",
+        [UNIT_MOUNT] = "mount",
+        [UNIT_AUTOMOUNT] = "automount",
+        [UNIT_SNAPSHOT] = "snapshot",
+        [UNIT_TIMER] = "timer",
+        [UNIT_SWAP] = "swap",
+        [UNIT_PATH] = "path",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);
+
 bool unit_name_is_valid_no_type(const char *n, bool template_ok) {
         const char *e, *i, *at;
 
