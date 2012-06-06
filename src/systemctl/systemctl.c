@@ -4650,6 +4650,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case 't':
+                        if (unit_type_from_string(optarg) < 0) {
+                                log_error("Invalid unit type '%s'.", optarg);
+                                return -EINVAL;
+                        }
                         arg_type = optarg;
                         break;
 
