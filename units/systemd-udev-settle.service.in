@@ -21,7 +21,7 @@ Documentation=man:udev(7)
 Documentation=man:systemd-udevd(8)
 DefaultDependencies=no
 Wants=systemd-udev.service
-After=udev-trigger.service
+After=systemd-udev-trigger.service
 Before=basic.target
 ConditionCapability=CAP_MKNOD
 
