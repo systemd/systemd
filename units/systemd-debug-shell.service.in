@@ -1,0 +1,25 @@
+[Unit]
+Description=Early root shell on tty9 FOR DEBUGGING ONLY
+DefaultDependencies=no
+IgnoreOnIsolate=yes
+
+[Service]
+Environment=TERM=linux
+ExecStart=@sushell@
+Restart=always
+RestartSec=0
+StandardInput=tty
+TTYPath=/dev/tty9
+TTYReset=yes
+TTYVHangup=yes
+KillMode=process
+IgnoreSIGPIPE=no
+# bash ignores SIGTERM
+KillSignal=SIGHUP
+
+# Unset locale for the console getty since the console has problems
+# displaying some internationalized messages.
+Environment=LANG= LANGUAGE= LC_CTYPE= LC_NUMERIC= LC_TIME= LC_COLLATE= LC_MONETARY= LC_MESSAGES= LC_PAPER= LC_NAME= LC_ADDRESS= LC_TELEPHONE= LC_MEASUREMENT= LC_IDENTIFICATION=
+
+[Install]
+WantedBy=sysinit.target

@@ -340,7 +340,8 @@ nodist_systemunit_DATA = \
 	units/user@.service \
 	units/systemd-udev.service \
 	units/systemd-udev-trigger.service \
-	units/systemd-udev-settle.service
+	units/systemd-udev-settle.service \
+	units/systemd-debug-shell.service
 
 dist_userunit_DATA = \
 	units/user/default.target \
@@ -378,6 +379,7 @@ EXTRA_DIST += \
 	units/systemd-udev.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
+	units/systemd-debug-shell.service.in \
 	units/hibernate.service.in \
 	units/suspend.service.in \
 	introspect.awk \
@@ -3019,6 +3021,7 @@ SED_PROCESS = \
 		-e 's,@VERSION\@,$(VERSION),g' \
 		-e 's,@rootprefix\@,$(rootprefix),g' \
 		-e 's,@udevlibexecdir\@,$(libexecdir)/udev,g' \
+		-e 's,@sushell\@,$(sushell),g' \
 		< $< > $@ || rm $@
 
 units/%: units/%.in Makefile

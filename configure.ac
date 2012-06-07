@@ -172,6 +172,12 @@ if test "x$enable_selinux" != "xno"; then
         fi
 fi
 AM_CONDITIONAL(HAVE_SELINUX, [test "$have_selinux" = "yes"])
+if test "x${have_selinux}" != xno ; then
+        sushell=/sbin/sushell
+else
+        sushell=/bin/bash
+fi
+AC_SUBST(sushell)
 
 # ------------------------------------------------------------------------------
 have_xz=no
