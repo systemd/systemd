@@ -60,7 +60,6 @@ REQUIREMENTS:
 
         util-linux > v2.18 (requires fsck -l, agetty -s)
         sulogin (from sysvinit-tools, optional but recommended)
-        plymouth (optional)
         dracut (optional)
 
         When systemd-hostnamed is used it is strongly recommended to

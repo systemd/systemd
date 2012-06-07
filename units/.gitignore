@@ -11,7 +11,6 @@ console-shell.service
 systemd-sysctl.service
 systemd-ask-password-console.service
 rescue.service
-systemd-ask-password-plymouth.service
 systemd-ask-password-wall.service
 quotacheck.service
 fsck@.service

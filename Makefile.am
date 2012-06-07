@@ -425,25 +425,6 @@ systemgenerator_PROGRAMS += \
 	systemd-rc-local-generator
 endif
 
-if HAVE_PLYMOUTH
-dist_systemunit_DATA += \
-	units/plymouth-start.service \
-	units/plymouth-read-write.service \
-	units/plymouth-quit.service \
-	units/plymouth-quit-wait.service \
-	units/plymouth-reboot.service \
-	units/plymouth-kexec.service \
-	units/plymouth-poweroff.service \
-	units/plymouth-halt.service \
-	units/systemd-ask-password-plymouth.path
-
-nodist_systemunit_DATA += \
-	units/systemd-ask-password-plymouth.service
-
-EXTRA_DIST += \
-	units/systemd-ask-password-plymouth.service.in
-endif
-
 dist_doc_DATA = \
 	README \
 	NEWS \
@@ -3249,33 +3230,6 @@ systemd-install-data-hook:
 	( cd $(DESTDIR)$(dbussessionservicedir) && \
 		rm -f org.freedesktop.systemd1.service && \
 		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )
-if HAVE_PLYMOUTH
-	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(systemunitdir)/reboot.target.wants \
-		$(DESTDIR)$(systemunitdir)/kexec.target.wants \
-		$(DESTDIR)$(systemunitdir)/poweroff.target.wants \
-		$(DESTDIR)$(systemunitdir)/halt.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f plymouth-start.service plymouth-read-write.service && \
-		$(LN_S) ../plymouth-start.service plymouth-start.service && \
-		$(LN_S) ../plymouth-read-write.service plymouth-read-write.service )
-	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f plymouth-quit.service plymouth-quit-wait.service && \
-		$(LN_S) ../plymouth-quit.service plymouth-quit.service && \
-		$(LN_S) ../plymouth-quit-wait.service plymouth-quit-wait.service )
-	( cd $(DESTDIR)$(systemunitdir)/reboot.target.wants && \
-		rm -f plymouth-reboot.service && \
-		$(LN_S) ../plymouth-reboot.service plymouth-reboot.service )
-	( cd $(DESTDIR)$(systemunitdir)/kexec.target.wants && \
-		rm -f plymouth-kexec.service && \
-		$(LN_S) ../plymouth-kexec.service plymouth-kexec.service )
-	( cd $(DESTDIR)$(systemunitdir)/poweroff.target.wants && \
-		rm -f plymouth-poweroff.service && \
-		$(LN_S) ../plymouth-poweroff.service plymouth-poweroff.service )
-	( cd $(DESTDIR)$(systemunitdir)/halt.target.wants && \
-		rm -f plymouth-halt.service && \
-		$(LN_S) ../plymouth-halt.service plymouth-halt.service )
-endif
 if TARGET_MEEGO
 	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
