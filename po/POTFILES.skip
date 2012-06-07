@@ -17,3 +17,4 @@ src/core/org.freedesktop.systemd1.policy.in.in
 src/timedate/timedated.c
 units/systemd-readahead-done.service.in
 units/user@.service.in
+units/systemd-debug-shell.service.in
