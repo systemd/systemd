@@ -542,8 +542,8 @@ case $with_distro in
                 M4_DEFINES=-DTARGET_UBUNTU=1
                 ;;
         arch)
-                SYSTEM_SYSVINIT_PATH=/etc/rc.d
-                SYSTEM_SYSVRCND_PATH=/etc
+                SYSTEM_SYSVINIT_PATH=
+                SYSTEM_SYSVRCND_PATH=
                 AC_DEFINE(TARGET_ARCH, [], [Target is ArchLinux])
                 M4_DEFINES=-DTARGET_ARCH=1
                 ;;
