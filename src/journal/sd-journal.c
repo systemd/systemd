@@ -943,7 +943,8 @@ static int add_file(sd_journal *j, const char *prefix, const char *dir, const ch
         assert(filename);
 
         if ((j->flags & SD_JOURNAL_SYSTEM_ONLY) &&
-            !startswith(filename, "system.journal"))
+            !(streq(filename, "system.journal") ||
+             (startswith(filename, "system@") && endswith(filename, ".journal"))))
                 return 0;
 
         if (dir)
