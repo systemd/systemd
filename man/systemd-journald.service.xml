@@ -98,6 +98,39 @@
         </refsect1>
 
         <refsect1>
+                <title>Signals</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term>SIGUSR1</term>
+
+                                <listitem><para>Request that journal
+                                data from <filename>/run/</filename>
+                                is flushed to
+                                <filename>/var/</filename> in order to
+                                make it persistent (if this is
+                                enabled). This may be used after
+                                <filename>/var/</filename> is mounted,
+                                but is generally not required since
+                                the first journal write when
+                                <filename>/var/</filename> becomes
+                                writable triggers the flushing
+                                anyway.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGUSR2</term>
+
+                                <listitem><para>Request immediate
+                                rotation of the journal
+                                files.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+
+
+        <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

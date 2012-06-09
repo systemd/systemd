@@ -163,8 +163,6 @@ Features:
 
 * figure out whether we should leave dbus around during shutdown
 
-* add interface to allow immediate rotation of the journal, and even flushing.
-
 * dbus: in fedora, make the machine a symlink to /etc/machine-id
 
 * journald: reuse XZ context
@@ -199,13 +197,9 @@ Features:
 
 * systemctl status: show coredumps
 
-* systemctl status: show whether journal was rotated since service started
-
 * save coredump in Windows/Mozilla minidump format
 
 * support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)
-
-* journal: allow per-entry control on /var vs. /run (think incognito browser mode)
 
 * clean up session cgroups that remain after logout (think sshd), but eventually run empty
 

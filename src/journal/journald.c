@@ -2143,6 +2143,7 @@ static int server_flush_proc_kmsg(Server *s) {
 
 static int process_event(Server *s, struct epoll_event *ev) {
         assert(s);
+        assert(ev);
 
         if (ev->data.fd == s->signal_fd) {
                 struct signalfd_siginfo sfsi;
@@ -2167,7 +2168,13 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
                 if (sfsi.ssi_signo == SIGUSR1) {
                         server_flush_to_var(s);
-                        return 0;
+                        return 1;
+                }
+
+                if (sfsi.ssi_signo == SIGUSR2) {
+                        server_rotate(s);
+                        server_vacuum(s);
+                        return 1;
                 }
 
                 log_debug("Received SIG%s", signal_to_string(sfsi.ssi_signo));
@@ -2558,7 +2565,7 @@ static int open_signalfd(Server *s) {
         assert(s);
 
         assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, SIGUSR1, -1);
+        sigset_add_many(&mask, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
         s->signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
