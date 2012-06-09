@@ -596,7 +596,7 @@ static int journal_file_link_data(JournalFile *f, Object *o, uint64_t offset, ui
         o->data.n_entries = 0;
 
         h = hash % (le64toh(f->header->data_hash_table_size) / sizeof(HashItem));
-        p = le64toh(f->data_hash_table[h].head_hash_offset);
+        p = le64toh(f->data_hash_table[h].tail_hash_offset);
         if (p == 0) {
                 /* Only entry in the hash table is easy */
                 f->data_hash_table[h].head_hash_offset = htole64(offset);
