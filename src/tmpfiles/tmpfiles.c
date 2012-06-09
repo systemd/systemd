@@ -100,6 +100,14 @@ static bool arg_remove = false;
 
 static const char *arg_prefix = NULL;
 
+static const char *conf_file_dirs[] = {
+        "/etc/tmpfiles.d",
+        "/run/tmpfiles.d",
+        "/usr/local/lib/tmpfiles.d",
+        "/usr/lib/tmpfiles.d",
+        NULL
+};
+
 #define MAX_DEPTH 256
 
 static bool needs_glob(ItemType t) {
@@ -1253,6 +1261,29 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         return r;
 }
 
+static char *resolve_fragment(const char *fragment, const char **search_paths) {
+        const char **p;
+        char *resolved_path;
+
+        if (is_path(fragment))
+                return strdup(fragment);
+
+        STRV_FOREACH(p, search_paths) {
+                resolved_path = join(*p, "/", fragment, NULL);
+                if (resolved_path == NULL) {
+                        log_error("Out of memory");
+                        return NULL;
+                }
+
+                if (access(resolved_path, F_OK) == 0)
+                        return resolved_path;
+
+                free(resolved_path);
+        }
+
+        return NULL;
+}
+
 int main(int argc, char *argv[]) {
         int r;
         Item *i;
@@ -1284,19 +1315,18 @@ int main(int argc, char *argv[]) {
         if (optind < argc) {
                 int j;
 
-                for (j = optind; j < argc; j++)
-                        if (read_config_file(argv[j], false) < 0)
+                for (j = optind; j < argc; j++) {
+                        char *fragment = resolve_fragment(argv[j], conf_file_dirs);
+                        if (read_config_file(fragment, false) < 0)
                                 r = EXIT_FAILURE;
+                        free(fragment);
+                }
 
         } else {
                 char **files, **f;
 
-                r = conf_files_list(&files, ".conf",
-                                    "/etc/tmpfiles.d",
-                                    "/run/tmpfiles.d",
-                                    "/usr/local/lib/tmpfiles.d",
-                                    "/usr/lib/tmpfiles.d",
-                                    NULL);
+                r = conf_files_list_strv(&files, ".conf",
+                                    (const char **)conf_file_dirs);
                 if (r < 0) {
                         log_error("Failed to enumerate tmpfiles.d files: %s", strerror(-r));
                         r = EXIT_FAILURE;
