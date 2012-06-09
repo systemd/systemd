@@ -1400,11 +1400,11 @@ int journal_file_move_to_entry_by_monotonic(
                 Object **ret,
                 uint64_t *offset) {
 
-        char t[8+32+1] = "_BOOT_ID=";
+        char t[9+32+1] = "_BOOT_ID=";
         Object *o;
         int r;
 
-        sd_id128_to_string(boot_id, t + 8);
+        sd_id128_to_string(boot_id, t + 9);
 
         r = journal_file_find_data_object(f, t, strlen(t), &o, NULL);
         if (r < 0)
