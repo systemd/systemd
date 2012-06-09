@@ -160,8 +160,8 @@ _packed_ struct Header {
         uint8_t state;
         uint8_t reserved[7];
         sd_id128_t file_id;
-        sd_id128_t machine_id;
-        sd_id128_t boot_id;
+        sd_id128_t machine_id; /* last writer */
+        sd_id128_t boot_id;    /* last writer */
         sd_id128_t seqnum_id;
         le64_t header_size;
         le64_t arena_size;

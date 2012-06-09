@@ -551,7 +551,8 @@ int show_journal_by_unit(
                 usec_t not_before,
                 unsigned how_many,
                 bool show_all,
-                bool follow) {
+                bool follow,
+                bool warn_cutoff) {
 
         char *m = NULL;
         sd_journal *j = NULL;
@@ -637,6 +638,26 @@ int show_journal_by_unit(
                         r = output_journal(j, mode, line, n_columns, show_all);
                         if (r < 0)
                                 goto finish;
+                }
+
+                if (warn_cutoff && line < how_many && not_before > 0) {
+                        sd_id128_t boot_id;
+                        usec_t cutoff;
+
+                        /* Check whether the cutoff line is too early */
+
+                        r = sd_id128_get_boot(&boot_id);
+                        if (r < 0)
+                                goto finish;
+
+                        r = sd_journal_get_cutoff_monotonic_usec(j, boot_id, &cutoff, NULL);
+                        if (r < 0)
+                                goto finish;
+
+                        if (not_before < cutoff)
+                                printf("Warning: Journal has been rotated since unit was started. Log output is incomplete or unavailable.\n");
+
+                        warn_cutoff = false;
                 }
 
                 if (!follow)

@@ -1620,6 +1620,81 @@ _public_ int sd_journal_process(sd_journal *j) {
         }
 }
 
+_public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, uint64_t *to) {
+        Iterator i;
+        JournalFile *f;
+        bool first = true;
+        int r;
+
+        if (!j)
+                return -EINVAL;
+        if (!from && !to)
+                return -EINVAL;
+
+        HASHMAP_FOREACH(f, j->files, i) {
+                usec_t fr, t;
+
+                r = journal_file_get_cutoff_realtime_usec(f, &fr, &t);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (first) {
+                        if (from)
+                                *from = fr;
+                        if (to)
+                                *to = t;
+                        first = false;
+                } else {
+                        if (from)
+                                *from = MIN(fr, *from);
+                        if (to)
+                                *to = MIN(t, *to);
+                }
+        }
+
+        return first ? 0 : 1;
+}
+
+_public_ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot_id, uint64_t *from, uint64_t *to) {
+        Iterator i;
+        JournalFile *f;
+        bool first = true;
+        int r;
+
+        if (!j)
+                return -EINVAL;
+        if (!from && !to)
+                return -EINVAL;
+
+        HASHMAP_FOREACH(f, j->files, i) {
+                usec_t fr, t;
+
+                r = journal_file_get_cutoff_monotonic_usec(f, boot_id, &fr, &t);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (first) {
+                        if (from)
+                                *from = fr;
+                        if (to)
+                                *to = t;
+                        first = false;
+                } else {
+                        if (from)
+                                *from = MIN(fr, *from);
+                        if (to)
+                                *to = MIN(t, *to);
+                }
+        }
+
+        return first ? 0 : 1;
+}
+
+
 /* _public_ int sd_journal_query_unique(sd_journal *j, const char *field) { */
 /*         if (!j) */
 /*                 return -EINVAL; */

@@ -48,7 +48,8 @@ int show_journal_by_unit(
                 usec_t not_before,
                 unsigned how_many,
                 bool show_all,
-                bool follow);
+                bool follow,
+                bool warn_cutoff);
 
 const char* output_mode_to_string(OutputMode m);
 OutputMode output_mode_from_string(const char *s);

@@ -281,6 +281,26 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (!arg_quiet) {
+                usec_t start, end;
+                char start_buf[FORMAT_TIMESTAMP_MAX], end_buf[FORMAT_TIMESTAMP_MAX];
+
+                r = sd_journal_get_cutoff_realtime_usec(j, &start, &end);
+                if (r < 0) {
+                        log_error("Failed to get cutoff: %s", strerror(-r));
+                        goto finish;
+                }
+
+                if (r > 0) {
+                        if (arg_follow)
+                                printf("Logs begin at %s.\n", format_timestamp(start_buf, sizeof(start_buf), start));
+                        else
+                                printf("Logs begin at %s, end at %s.\n",
+                                       format_timestamp(start_buf, sizeof(start_buf), start),
+                                       format_timestamp(end_buf, sizeof(end_buf), end));
+                }
+        }
+
         if (arg_lines >= 0) {
                 r = sd_journal_seek_tail(j);
                 if (r < 0) {

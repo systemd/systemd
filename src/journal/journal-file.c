@@ -183,6 +183,7 @@ static int journal_file_verify_header(JournalFile *f) {
 
                 if (state == STATE_ONLINE)
                         log_debug("Journal file %s is already online. Assuming unclean closing. Ignoring.", f->path);
+                        /* FIXME: immediately rotate */
                 else if (state == STATE_ARCHIVED)
                         return -ESHUTDOWN;
                 else if (state != STATE_OFFLINE)
@@ -2283,4 +2284,75 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
                  format_bytes(b, sizeof(b), m->max_size),
                  format_bytes(c, sizeof(c), m->min_size),
                  format_bytes(d, sizeof(d), m->keep_free));
+}
+
+int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *to) {
+        Object *o;
+        int r;
+
+        assert(f);
+        assert(from || to);
+
+        if (from) {
+                r = journal_file_next_entry(f, NULL, 0, DIRECTION_DOWN, &o, NULL);
+                if (r <= 0)
+                        return r;
+
+                *from = le64toh(o->entry.realtime);
+        }
+
+        if (to) {
+                r = journal_file_next_entry(f, NULL, 0, DIRECTION_UP, &o, NULL);
+                if (r <= 0)
+                        return r;
+
+                *to = le64toh(o->entry.realtime);
+        }
+
+        return 1;
+}
+
+int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, usec_t *from, usec_t *to) {
+        char t[9+32+1] = "_BOOT_ID=";
+        Object *o;
+        uint64_t p;
+        int r;
+
+        assert(f);
+        assert(from || to);
+
+        sd_id128_to_string(boot_id, t + 9);
+
+        r = journal_file_find_data_object(f, t, strlen(t), &o, &p);
+        if (r <= 0)
+                return r;
+
+        if (le64toh(o->data.n_entries) <= 0)
+                return 0;
+
+        if (from) {
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, le64toh(o->data.entry_offset), &o);
+                if (r < 0)
+                        return r;
+
+                *from = le64toh(o->entry.monotonic);
+        }
+
+        if (to) {
+                r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
+                if (r < 0)
+                        return r;
+
+                r = generic_array_get_plus_one(f,
+                                               le64toh(o->data.entry_offset),
+                                               le64toh(o->data.entry_array_offset),
+                                               le64toh(o->data.n_entries)-1,
+                                               &o, NULL);
+                if (r <= 0)
+                        return r;
+
+                *to = le64toh(o->entry.monotonic);
+        }
+
+        return 1;
 }

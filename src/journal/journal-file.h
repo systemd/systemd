@@ -125,4 +125,7 @@ void journal_file_post_change(JournalFile *f);
 
 void journal_default_metrics(JournalMetrics *m, int fd);
 
+int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *to);
+int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec_t *from, usec_t *to);
+
 #endif

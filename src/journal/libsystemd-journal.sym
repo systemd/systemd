@@ -51,3 +51,9 @@ global:
         sd_journal_send_with_location;
         sd_journal_sendv_with_location;
 } LIBSYSTEMD_JOURNAL_38;
+
+LIBSYSTEMD_JOURNAL_184 {
+global:
+        sd_journal_get_cutoff_realtime_usec;
+        sd_journal_get_cutoff_monotonic_usec;
+} LIBSYSTEMD_JOURNAL_183;

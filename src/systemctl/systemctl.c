@@ -2554,7 +2554,7 @@ static void print_status_info(UnitStatusInfo *i) {
 
         if (i->id && arg_transport != TRANSPORT_SSH) {
                 printf("\n");
-                show_journal_by_unit(i->id, arg_output, 0, i->inactive_exit_timestamp_monotonic, arg_lines, arg_all, arg_follow);
+                show_journal_by_unit(i->id, arg_output, 0, i->inactive_exit_timestamp_monotonic, arg_lines, arg_all, arg_follow, !arg_quiet);
         }
 
         if (i->need_daemon_reload)
