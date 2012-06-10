@@ -66,24 +66,30 @@
         <refsect1>
 		<title>Configuration Format</title>
 
-                <para>Each configuration file is named in the style of
-                <filename>&lt;program&gt;.conf</filename>.  Files in
-                <filename>/etc/</filename> override files with the
-                same name in <filename>/usr/lib/</filename>.  Files in
-                <filename>/run</filename> override files with the same
-                name in <filename>/etc/</filename> and
-                <filename>/usr/lib/</filename>. Packages should
-                install their configuration files in
-                <filename>/usr/lib/</filename>, files in
+                <para>Each configuration file shall be named in the
+                style of <filename>&lt;program&gt;.conf</filename>.
+                Files in <filename>/etc/</filename> override files
+                with the same name in <filename>/usr/lib/</filename>
+                and <filename>/run/</filename>.  Files in
+                <filename>/run/</filename> override files with the same
+                name in <filename>/usr/lib/</filename>. Packages
+                should install their configuration files in
+                <filename>/usr/lib/</filename>. Files in
                 <filename>/etc/</filename> are reserved for the local
-                administrator, who may choose to override the
-                configurations installed from packages. The list of
+                administrator, who may use this logic to override the
+                configuration files installed by vendor packages. All
                 configuration files are sorted by their filename in
                 alphabetical order, regardless in which of the
-                directories they reside, to guarantee that a
-                configuration file takes precedence over another
-                configuration file with an alphabetically later
-                name.</para>
+                directories they reside, to guarantee that a specific
+                configuration file takes precedence over another file
+                with an alphabetically later name</para>
+
+                <para>If the administrator wants to disable a
+                configuration file supplied by the vendor the
+                recommended way is to place a symlink to
+                <filename>/dev/null</filename> in
+                <filename>/etc/tmpfiles.d/</filename> bearing the
+                same file name.</para>
 
 		<para>The configuration format is one line per path
 		containing action, path, mode, ownership, age and argument

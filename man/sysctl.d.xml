@@ -81,7 +81,7 @@
                 Files in <filename>/etc/</filename> override files
                 with the same name in <filename>/usr/lib/</filename>
                 and <filename>/run/</filename>.  Files in
-                <filename>/run</filename> override files with the same
+                <filename>/run/</filename> override files with the same
                 name in <filename>/usr/lib/</filename>. Packages
                 should install their configuration files in
                 <filename>/usr/lib/</filename>. Files in
