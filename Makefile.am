@@ -63,15 +63,15 @@ pkgsysconfdir=$(sysconfdir)/systemd
 userunitdir=$(prefix)/lib/systemd/user
 tmpfilesdir=$(prefix)/lib/tmpfiles.d
 sysctldir=$(prefix)/lib/sysctl.d
-usergeneratordir=$(pkglibexecdir)/user-generators
+usergeneratordir=$(prefix)/lib/systemd/user-generators
 pkgincludedir=$(includedir)/systemd
 systemgeneratordir=$(rootlibexecdir)/system-generators
 systemshutdowndir=$(rootlibexecdir)/system-shutdown
 systemsleepdir=$(rootlibexecdir)/system-sleep
 systemunitdir=$(rootprefix)/lib/systemd/system
 udevlibexecdir=$(rootprefix)/lib/udev
-udevhomedir = $(libexecdir)/udev
-udevrulesdir = $(libexecdir)/udev/rules.d
+udevhomedir = $(udevlibexecdir)
+udevrulesdir = $(udevlibexecdir)/rules.d
 
 # And these are the special ones for /
 rootprefix=@rootprefix@
@@ -132,7 +132,7 @@ AM_CPPFLAGS = \
 	-DSYSTEM_SLEEP_PATH=\"$(systemsleepdir)\" \
 	-DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
 	-DX_SERVER=\"$(bindir)/X\" \
-	-DUDEVLIBEXECDIR=\""$(libexecdir)/udev"\" \
+	-DUDEVLIBEXECDIR=\"$(udevlibexecdir)\" \
 	-DPOLKIT_AGENT_BINARY_PATH=\"$(bindir)/pkttyagent\" \
 	-I $(top_srcdir)/src \
 	-I $(top_srcdir)/src/shared \
@@ -1422,7 +1422,6 @@ MANPAGES += \
 
 udev-confdirs:
 	-mkdir -p $(DESTDIR)$(sysconfdir)/udev/rules.d
-	-mkdir -p $(DESTDIR)$(libexecdir)/udev/devices
 
 INSTALL_DATA_HOOKS += udev-confdirs
 
@@ -1903,7 +1902,7 @@ CLEANFILES += \
 	src/udev/keymap/keys-from-name.gperf \
 	src/udev/keymap/keyboard-force-release.sh
 
-udevkeymapdir = $(libexecdir)/udev/keymaps
+udevkeymapdir = $(udevlibexecdir)/keymaps
 dist_udevkeymap_DATA = \
 	keymaps/acer \
 	keymaps/acer-aspire_5720 \
@@ -1964,7 +1963,7 @@ dist_udevkeymap_DATA = \
 	keymaps/toshiba-satellite_m30x \
 	keymaps/zepto-znote
 
-udevkeymapforcereldir = $(libexecdir)/udev/keymaps/force-release
+udevkeymapforcereldir = $(udevlibexecdir)/keymaps/force-release
 dist_udevkeymapforcerel_DATA = \
 	keymaps-force-release/dell-touchpad \
 	keymaps-force-release/dell-xps \
@@ -2988,7 +2987,6 @@ SED_PROCESS = \
 		-e 's,@SYSTEMD_NOTIFY\@,$(rootbindir)/systemd-notify,g' \
 		-e 's,@pkgsysconfdir\@,$(pkgsysconfdir),g' \
 		-e 's,@pkgdatadir\@,$(pkgdatadir),g' \
-		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
 		-e 's,@systemunitdir\@,$(systemunitdir),g' \
 		-e 's,@userunitdir\@,$(userunitdir),g' \
 		-e 's,@PACKAGE_VERSION\@,$(PACKAGE_VERSION),g' \
@@ -3001,7 +2999,7 @@ SED_PROCESS = \
 		-e 's,@includedir\@,$(includedir),g' \
 		-e 's,@VERSION\@,$(VERSION),g' \
 		-e 's,@rootprefix\@,$(rootprefix),g' \
-		-e 's,@udevlibexecdir\@,$(libexecdir)/udev,g' \
+		-e 's,@udevlibexecdir\@,$(udevlibexecdir),g' \
 		-e 's,@sushell\@,$(sushell),g' \
 		< $< > $@ || rm $@
 

@@ -747,7 +747,6 @@ AC_MSG_RESULT([
         datarootdir:             ${datarootdir}
         includedir:              ${includedir}
         include_prefix:          ${INCLUDE_PREFIX}
-        libexec dir:             ${libexecdir}
         lib dir:                 ${libdir}
         rootlib dir:             ${with_rootlibdir}
         PAM modules dir:         ${with_pamlibdir}

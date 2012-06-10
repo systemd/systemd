@@ -41,7 +41,6 @@ args="\
 --sysconfdir=/etc \
 --localstatedir=/var \
 --libdir=$(libdir /usr/lib) \
---libexecdir=/usr/lib \
 $gtkdocargs"
 
 if [ ! -L /bin ]; then
