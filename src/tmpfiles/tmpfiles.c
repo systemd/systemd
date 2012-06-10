@@ -1321,7 +1321,7 @@ int main(int argc, char *argv[]) {
 
                         fragment = resolve_fragment(argv[j], conf_file_dirs);
                         if (!fragment) {
-                                log_error("Failed to find any: %s file: %m", argv[j]);
+                                log_error("Failed to find a %s file: %m", argv[j]);
                                 r = EXIT_FAILURE;
                                 goto finish;
                         }
