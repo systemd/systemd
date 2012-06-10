@@ -54,26 +54,26 @@
         <refsect1>
                 <title>Description</title>
 
-		<para><citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-		reads files from the above directories which contain
-		kernel modules to load during boot in a static list.
-		Each configuration file is named in the style of
-		<filename>/etc/modules-load.d/&lt;program&gt;.conf</filename>. Note
-		that it is usually a better idea to rely on the
-		automatic module loading by PCI IDs, USB IDs, DMI IDs
-		or similar triggers encoded in the kernel modules
-		themselves instead of static configuration like
-		this. In fact, most modern kernel modules are prepared
-		for automatic loading already.</para>
+                <para><citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                reads files from the above directories which contain
+                kernel modules to load during boot in a static list.
+                Each configuration file is named in the style of
+                <filename>/etc/modules-load.d/&lt;program&gt;.conf</filename>. Note
+                that it is usually a better idea to rely on the
+                automatic module loading by PCI IDs, USB IDs, DMI IDs
+                or similar triggers encoded in the kernel modules
+                themselves instead of static configuration like
+                this. In fact, most modern kernel modules are prepared
+                for automatic loading already.</para>
         </refsect1>
 
         <refsect1>
-		<title>Configuration Format</title>
+                <title>Configuration Format</title>
 
-		<para>The configuration files should simply contain a
-		list of kernel module names to load, separated by
-		newlines. Empty lines and lines whose first
-		non-whitespace character is # or ; are ignored.</para>
+                <para>The configuration files should simply contain a
+                list of kernel module names to load, separated by
+                newlines. Empty lines and lines whose first
+                non-whitespace character is # or ; are ignored.</para>
 
                 <para>Each configuration file shall be named in the
                 style of <filename>&lt;program&gt;.conf</filename>.

@@ -54,21 +54,21 @@
         <refsect1>
                 <title>Description</title>
 
-		<para>At boot,
-		<citerefentry><refentrytitle>systemd-binfmt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-		reads configuration files from the above directories
-		to configure
-		<citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-		kernel parameters.</para>
+                <para>At boot,
+                <citerefentry><refentrytitle>systemd-binfmt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                reads configuration files from the above directories
+                to configure
+                <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                kernel parameters.</para>
         </refsect1>
 
         <refsect1>
-		<title>Configuration Format</title>
+                <title>Configuration Format</title>
 
-		<para>The configuration files contain a list of
-		variable assignments, separated by newlines. Empty
-		lines and lines whose first non-whitespace character
-		is # or ; are ignored.</para>
+                <para>The configuration files contain a list of
+                variable assignments, separated by newlines. Empty
+                lines and lines whose first non-whitespace character
+                is # or ; are ignored.</para>
 
                 <para>Note that both / and . are accepted as label
                 separators within sysctl variable

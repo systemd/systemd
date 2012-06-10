@@ -114,9 +114,9 @@
                         <varlistentry>
                                 <term><option>--no-pager</option></term>
 
-				<listitem><para>Do not pipe output into a
-				pager.</para></listitem>
-			</varlistentry>
+                                <listitem><para>Do not pipe output into a
+                                pager.</para></listitem>
+                        </varlistentry>
 
                         <varlistentry>
                                 <term><option>--no-ask-password</option></term>

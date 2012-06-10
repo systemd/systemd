@@ -54,10 +54,10 @@
         <refsect1>
                 <title>Description</title>
 
-		<para><filename>systemd-sysctl.service</filename> is
-		an early-boot service that configures
-		<citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-		kernel parameters.</para>
+                <para><filename>systemd-sysctl.service</filename> is
+                an early-boot service that configures
+                <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                kernel parameters.</para>
 
                 <para>See
                 <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -70,7 +70,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-		        <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>wine</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>

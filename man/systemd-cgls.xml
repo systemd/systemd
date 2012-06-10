@@ -98,17 +98,17 @@
                         <varlistentry>
                                 <term><option>--no-pager</option></term>
 
-				<listitem><para>Do not pipe output into a
-				pager.</para></listitem>
-			</varlistentry>
+                                <listitem><para>Do not pipe output into a
+                                pager.</para></listitem>
+                        </varlistentry>
 
                         <varlistentry>
                                 <term><option>--all</option></term>
 
-				<listitem><para>Don't hide empty
-				control groups in the
-				outpout.</para></listitem>
-			</varlistentry>
+                                <listitem><para>Don't hide empty
+                                control groups in the
+                                outpout.</para></listitem>
+                        </varlistentry>
 
                         <varlistentry>
                                 <term><option>-k</option></term>

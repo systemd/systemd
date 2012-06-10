@@ -54,9 +54,9 @@
         <refsect1>
                 <title>Description</title>
 
-		<para><filename>systemd-binfmt.service</filename> is
-		an early-boot service that registers additional binary
-		formats for executables in the kernel.</para>
+                <para><filename>systemd-binfmt.service</filename> is
+                an early-boot service that registers additional binary
+                formats for executables in the kernel.</para>
 
                 <para>See
                 <citerefentry><refentrytitle>binfmt.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>

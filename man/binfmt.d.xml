@@ -55,15 +55,15 @@
         <refsect1>
                 <title>Description</title>
 
-		<para>At boot,
-		<citerefentry><refentrytitle>systemd-binfmt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-		reads configuration files from the above directories
-		to register in the kernel additional binary
-		formats for executables.</para>
+                <para>At boot,
+                <citerefentry><refentrytitle>systemd-binfmt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                reads configuration files from the above directories
+                to register in the kernel additional binary
+                formats for executables.</para>
         </refsect1>
 
         <refsect1>
-		<title>Configuration Format</title>
+                <title>Configuration Format</title>
 
                 <para>Each file contains a list of binfmt_misc kernel
                 binary format rules. Consult <ulink

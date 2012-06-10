@@ -55,16 +55,16 @@
         <refsect1>
                 <title>Description</title>
 
-		<para><command>systemd-tmpfiles</command> uses the
-		configuration files from the above directories to describe the
-		creation, cleaning and removal of volatile and
-		temporary files and directories which usually reside
-		in directories such as <filename>/run</filename>
-		or <filename>/tmp</filename>.</para>
+                <para><command>systemd-tmpfiles</command> uses the
+                configuration files from the above directories to describe the
+                creation, cleaning and removal of volatile and
+                temporary files and directories which usually reside
+                in directories such as <filename>/run</filename>
+                or <filename>/tmp</filename>.</para>
         </refsect1>
 
         <refsect1>
-		<title>Configuration Format</title>
+                <title>Configuration Format</title>
 
                 <para>Each configuration file shall be named in the
                 style of <filename>&lt;program&gt;.conf</filename>.
@@ -91,9 +91,9 @@
                 <filename>/etc/tmpfiles.d/</filename> bearing the
                 same file name.</para>
 
-		<para>The configuration format is one line per path
-		containing action, path, mode, ownership, age and argument
-		fields:</para>
+                <para>The configuration format is one line per path
+                containing action, path, mode, ownership, age and argument
+                fields:</para>
 
                 <programlisting>Type Path        Mode UID  GID  Age Argument
 d    /run/user   0755 root root 10d -

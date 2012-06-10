@@ -200,17 +200,17 @@
                         <varlistentry>
                                 <term><option>--no-legend</option></term>
 
-				<listitem><para>Do not print a legend, i.e.
+                                <listitem><para>Do not print a legend, i.e.
                                 the column headers and the footer with hints.
-				</para></listitem>
-			</varlistentry>
+                                </para></listitem>
+                        </varlistentry>
 
                         <varlistentry>
                                 <term><option>--no-pager</option></term>
 
-				<listitem><para>Do not pipe output into a
-				pager.</para></listitem>
-			</varlistentry>
+                                <listitem><para>Do not pipe output into a
+                                pager.</para></listitem>
+                        </varlistentry>
 
                         <varlistentry>
                                 <term><option>--system</option></term>
