@@ -123,3 +123,4 @@ stamp-*
 /v4l_id
 /test-libudev
 /test-udev
+/systemd-readahead-analyze
