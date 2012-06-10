@@ -80,6 +80,25 @@ static int disable_utf8(int fd) {
         return r;
 }
 
+static int enable_utf8(int fd) {
+        int r = 0, k;
+
+        if (ioctl(fd, KDSKBMODE, K_UNICODE) < 0)
+                r = -errno;
+
+        if (loop_write(fd, "\033%G", 3, false) < 0)
+                r = -errno;
+
+        k = write_one_line_file("/sys/module/vt/parameters/default_utf8", "1");
+        if (k < 0)
+                r = k;
+
+        if (r < 0)
+                log_warning("Failed to enable UTF-8: %s", strerror(-r));
+
+        return r;
+}
+
 static int load_keymap(const char *vc, const char *map, const char *map_toggle, bool utf8, pid_t *_pid) {
         const char *args[8];
         int i = 0;
@@ -418,8 +437,11 @@ int main(int argc, char **argv) {
 
         r = EXIT_FAILURE;
 
-        if (!utf8)
+        if (utf8)
+                enable_utf8(fd);
+        else
                 disable_utf8(fd);
+
 
         if (load_keymap(vc, vc_keymap, vc_keymap_toggle, utf8, &keymap_pid) >= 0 &&
             load_font(vc, vc_font, vc_font_map, vc_font_unimap, &font_pid) >= 0)
