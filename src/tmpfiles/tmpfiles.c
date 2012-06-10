@@ -1281,6 +1281,7 @@ static char *resolve_fragment(const char *fragment, const char **search_paths) {
                 free(resolved_path);
         }
 
+        errno = ENOENT;
         return NULL;
 }
 
@@ -1316,7 +1317,14 @@ int main(int argc, char *argv[]) {
                 int j;
 
                 for (j = optind; j < argc; j++) {
-                        char *fragment = resolve_fragment(argv[j], conf_file_dirs);
+                        char *fragment;
+
+                        fragment = resolve_fragment(argv[j], conf_file_dirs);
+                        if (!fragment) {
+                                log_error("Failed to find any: %s file: %m", argv[j]);
+                                r = EXIT_FAILURE;
+                                goto finish;
+                        }
                         if (read_config_file(fragment, false) < 0)
                                 r = EXIT_FAILURE;
                         free(fragment);
