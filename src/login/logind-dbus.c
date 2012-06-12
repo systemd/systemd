@@ -930,27 +930,20 @@ static int have_multiple_sessions(
                 DBusMessage *message,
                 DBusError *error) {
 
-        Session *s;
+        Session *session;
+        Iterator i;
+        unsigned long ul;
 
         assert(m);
 
-        if (hashmap_size(m->sessions) > 1)
-                return true;
+        ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), error);
+        if (ul == (unsigned long) -1)
+                return -EIO;
 
-        /* Hmm, there's only one session, but let's make sure it
-         * actually belongs to the user who is asking. If not, better
-         * be safe than sorry. */
-
-        s = hashmap_first(m->sessions);
-        if (s) {
-                unsigned long ul;
-
-                ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), error);
-                if (ul == (unsigned long) -1)
-                        return -EIO;
-
-                return s->user->uid != ul;
-        }
+        /* Check for other users' sessions. Greeter sessions do not count. */
+        HASHMAP_FOREACH(session, m->sessions, i)
+                if (session->class == SESSION_USER && session->user->uid != ul)
+                        return true;
 
         return false;
 }
