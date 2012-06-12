@@ -47,7 +47,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>sysytemd-modules-load.service</filename></para>
+                <para><filename>systemd-modules-load.service</filename></para>
                 <para><filename>/usr/lib/systemd/systemd-modules-load</filename></para>
         </refsynopsisdiv>
 

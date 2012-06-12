@@ -47,7 +47,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>sysytemd-sysctl.service</filename></para>
+                <para><filename>systemd-sysctl.service</filename></para>
                 <para><filename>/usr/lib/systemd/systemd-sysctl</filename></para>
         </refsynopsisdiv>
 

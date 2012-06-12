@@ -49,7 +49,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>sysytemd-logind.service</filename></para>
+                <para><filename>systemd-logind.service</filename></para>
                 <para><filename>/usr/lib/systemd/systemd-logind</filename></para>
         </refsynopsisdiv>
 

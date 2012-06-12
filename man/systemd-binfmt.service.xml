@@ -47,7 +47,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>sysytemd-binfmt.service</filename></para>
+                <para><filename>systemd-binfmt.service</filename></para>
                 <para><filename>/usr/lib/systemd/systemd-binfmt</filename></para>
         </refsynopsisdiv>
 
