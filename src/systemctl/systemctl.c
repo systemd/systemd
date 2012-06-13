@@ -1569,32 +1569,64 @@ finish:
         return r;
 }
 
-static int is_socket_listening(
-                DBusConnection *bus,
-                const char *socket_name) {
-
-        DBusError error;
+static int check_one_unit(DBusConnection *bus, char *name, bool quiet) {
         DBusMessage *m = NULL, *reply = NULL;
+        DBusError error;
         DBusMessageIter iter, sub;
-        char *socket_object_path = NULL;
-        const char *sub_state = NULL,
-                   *interface = "org.freedesktop.systemd1.Unit",
-                   *property = "SubState";
-        int r = 0;
+        const char
+                *interface = "org.freedesktop.systemd1.Unit",
+                *property = "ActiveState";
+        const char *path = NULL;
+        const char *state;
+        int r = 3; /* According to LSB: "program is not running" */
 
         assert(bus);
-        assert(socket_name);
+        assert(name);
 
         dbus_error_init(&error);
 
-        r = get_unit_path(bus, socket_name, &socket_object_path);
-        if (r < 0)
+        m = dbus_message_new_method_call(
+                              "org.freedesktop.systemd1",
+                              "/org/freedesktop/systemd1",
+                              "org.freedesktop.systemd1.Manager",
+                              "GetUnit");
+        if (!m) {
+                log_error("Could not allocate message.");
+                r = -ENOMEM;
                 goto finish;
+        }
 
-        m = dbus_message_new_method_call("org.freedesktop.systemd1",
-                                         socket_object_path,
-                                         "org.freedesktop.DBus.Properties",
-                                         "Get");
+        if (!dbus_message_append_args(m,
+                                      DBUS_TYPE_STRING, &name,
+                                      DBUS_TYPE_INVALID)) {
+                log_error("Could not append arguments to message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+        if (!reply) {
+                /* Hmm, cannot figure out anything about this unit... */
+                if (!quiet)
+                        puts("unknown");
+
+                goto finish;
+        }
+
+        if (!dbus_message_get_args(reply, &error,
+                                   DBUS_TYPE_OBJECT_PATH, &path,
+                                   DBUS_TYPE_INVALID)) {
+                log_error("Failed to parse reply: %s", bus_error_message(&error));
+                r = -EIO;
+                goto finish;
+        }
+
+        dbus_message_unref(m);
+        m = dbus_message_new_method_call(
+                              "org.freedesktop.systemd1",
+                              path,
+                              "org.freedesktop.DBus.Properties",
+                              "Get");
         if (!m) {
                 log_error("Could not allocate message.");
                 r = -ENOMEM;
@@ -1610,6 +1642,7 @@ static int is_socket_listening(
                 goto finish;
         }
 
+        dbus_message_unref(reply);
         reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
         if (!reply) {
                 log_error("Failed to issue method call: %s", bus_error_message(&error));
@@ -1617,16 +1650,29 @@ static int is_socket_listening(
                 goto finish;
         }
 
-        dbus_message_iter_init(reply, &iter);
-        dbus_message_iter_recurse(&iter, &sub);
-
-        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
-                log_error("Failed to parse reply: %s", bus_error_message(&error));
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
+                log_error("Failed to parse reply.");
                 r = -EIO;
                 goto finish;
         }
-        dbus_message_iter_get_basic(&sub, &sub_state);
-        r = streq(sub_state, "listening");
+
+        dbus_message_iter_recurse(&iter, &sub);
+
+        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING)  {
+                log_error("Failed to parse reply.");
+                r = -EIO;
+                goto finish;
+        }
+
+        dbus_message_iter_get_basic(&sub, &state);
+
+        if (!quiet)
+                puts(state);
+
+        if (streq(state, "active") || streq(state, "reloading"))
+                r = 0;
+
 finish:
         if (m)
                 dbus_message_unref(m);
@@ -1636,7 +1682,6 @@ finish:
 
         dbus_error_free(&error);
 
-        free(socket_object_path);
         return r;
 }
 
@@ -1647,8 +1692,8 @@ static void check_listening_sockets(
         DBusError error;
         DBusMessage *m = NULL, *reply = NULL;
         DBusMessageIter iter, sub;
-        const char *service_trigger = NULL,
-                   *interface = "org.freedesktop.systemd1.Unit",
+        char *service_trigger = NULL;
+        const char *interface = "org.freedesktop.systemd1.Unit",
                    *triggered_by_property = "TriggeredBy";
 
         char *unit_path = NULL;
@@ -1706,10 +1751,10 @@ static void check_listening_sockets(
                 if (!endswith(service_trigger, ".socket"))
                         goto next;
 
-                r = is_socket_listening(bus, service_trigger);
+                r = check_one_unit(bus, service_trigger, true);
                 if (r < 0)
                         goto finish;
-                if (r == 1) {
+                if (r == 0) {
                         if (print_warning_label) {
                                 log_warning("There are listening sockets associated with %s :", unit_name);
                                 print_warning_label = false;
@@ -2101,125 +2146,19 @@ static int start_special(DBusConnection *bus, char **args) {
 }
 
 static int check_unit(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
-        const char
-                *interface = "org.freedesktop.systemd1.Unit",
-                *property = "ActiveState";
-        int r = 3; /* According to LSB: "program is not running" */
-        DBusError error;
         char **name;
+        int r = 3; /* According to LSB: "program is not running" */
 
         assert(bus);
         assert(args);
 
-        dbus_error_init(&error);
-
         STRV_FOREACH(name, args+1) {
-                const char *path = NULL;
-                const char *state;
-                DBusMessageIter iter, sub;
-
-                if (!(m = dbus_message_new_method_call(
-                                      "org.freedesktop.systemd1",
-                                      "/org/freedesktop/systemd1",
-                                      "org.freedesktop.systemd1.Manager",
-                                      "GetUnit"))) {
-                        log_error("Could not allocate message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, name,
-                                              DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-
-                        /* Hmm, cannot figure out anything about this unit... */
-                        if (!arg_quiet)
-                                puts("unknown");
-
-                        dbus_error_free(&error);
-                        dbus_message_unref(m);
-                        m = NULL;
-                        continue;
-                }
-
-                if (!dbus_message_get_args(reply, &error,
-                                           DBUS_TYPE_OBJECT_PATH, &path,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", bus_error_message(&error));
-                        r = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_unref(m);
-                if (!(m = dbus_message_new_method_call(
-                                      "org.freedesktop.systemd1",
-                                      path,
-                                      "org.freedesktop.DBus.Properties",
-                                      "Get"))) {
-                        log_error("Could not allocate message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &interface,
-                                              DBUS_TYPE_STRING, &property,
-                                              DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                dbus_message_unref(reply);
-                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        r = -EIO;
-                        goto finish;
-                }
-
-                if (!dbus_message_iter_init(reply, &iter) ||
-                    dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
-                        log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_iter_recurse(&iter, &sub);
-
-                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING)  {
-                        log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_iter_get_basic(&sub, &state);
-
-                if (!arg_quiet)
-                        puts(state);
-
-                if (streq(state, "active") || streq(state, "reloading"))
+                int state = check_one_unit(bus, *name, arg_quiet);
+                if (state < 0)
+                        return state;
+                if (state == 0)
                         r = 0;
-
-                dbus_message_unref(m);
-                dbus_message_unref(reply);
-                m = reply = NULL;
         }
-
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         return r;
 }
