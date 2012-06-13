@@ -1500,75 +1500,6 @@ finish:
         return r;
 }
 
-static int get_unit_path(
-                DBusConnection *bus,
-                const char *name,
-                char **unit_path) {
-
-        DBusError error;
-        DBusMessage *m = NULL, *reply = NULL;
-        char *path;
-        int r = 0;
-
-        assert(bus);
-        assert(name);
-        assert(unit_path);
-
-        dbus_error_init(&error);
-
-        m = dbus_message_new_method_call("org.freedesktop.systemd1",
-                                         "/org/freedesktop/systemd1",
-                                         "org.freedesktop.systemd1.Manager",
-                                         "GetUnit");
-        if (!m) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &name,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                if (streq(error.name, BUS_ERROR_NO_SUCH_UNIT))
-                        r = -EINVAL;
-                else {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        r = -EIO;
-                }
-                goto finish;
-        }
-
-        if (!dbus_message_get_args(reply, &error,
-                                   DBUS_TYPE_OBJECT_PATH, &path,
-                                   DBUS_TYPE_INVALID)) {
-                log_error("Failed to parse reply: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
-
-        *unit_path = strdup(path);
-        if (!(*unit_path)) {
-               log_error("Failed to duplicate unit path");
-               r = -ENOMEM;
-        }
-finish:
-        if (m)
-                dbus_message_unref(m);
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
-
-        return r;
-}
-
 static int check_one_unit(DBusConnection *bus, char *name, bool quiet) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
@@ -1701,8 +1632,11 @@ static void check_triggering_units(
 
         dbus_error_init(&error);
 
-        if (get_unit_path(bus, unit_name, &unit_path) < 0)
+        unit_path = unit_dbus_path_from_name(unit_name);
+        if (!unit_path) {
+                log_error("Could not allocate dbus path.");
                 goto finish;
+        }
 
         m = dbus_message_new_method_call("org.freedesktop.systemd1",
                                          unit_path,
@@ -3306,12 +3240,7 @@ static int show(DBusConnection *bus, char **args) {
 
                         /* Interpret as unit name */
 
-                        char *e, *p;
-                        e = bus_path_escape(*name);
-                        if (!e)
-                                return -ENOMEM;
-                        p = strappend("/org/freedesktop/systemd1/unit/", e);
-                        free(e);
+                        char *p = unit_dbus_path_from_name(*name);
                         if (!p)
                                 return -ENOMEM;
 

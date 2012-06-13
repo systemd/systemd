@@ -458,3 +458,16 @@ char *unit_name_path_unescape(const char *f) {
 
         return e;
 }
+
+char *unit_dbus_path_from_name(const char *name) {
+        char *e, *p;
+
+        e = bus_path_escape(name);
+        if (!e)
+                return NULL;
+
+        p = strappend("/org/freedesktop/systemd1/unit/", e);
+        free(e);
+
+        return p;
+}

@@ -54,4 +54,6 @@ char *unit_name_from_path(const char *path, const char *suffix);
 char *unit_name_from_path_instance(const char *prefix, const char *path, const char *suffix);
 char *unit_name_to_path(const char *name);
 
+char *unit_dbus_path_from_name(const char *name);
+
 #endif

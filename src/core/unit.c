@@ -1835,20 +1835,12 @@ int set_unit_path(const char *p) {
 }
 
 char *unit_dbus_path(Unit *u) {
-        char *p, *e;
-
         assert(u);
 
         if (!u->id)
                 return NULL;
 
-        if (!(e = bus_path_escape(u->id)))
-                return NULL;
-
-        p = strappend("/org/freedesktop/systemd1/unit/", e);
-        free(e);
-
-        return p;
+        return unit_dbus_path_from_name(u->id);
 }
 
 int unit_add_cgroup(Unit *u, CGroupBonding *b) {
