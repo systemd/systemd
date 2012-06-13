@@ -1500,6 +1500,234 @@ finish:
         return r;
 }
 
+static int get_unit_path(
+                DBusConnection *bus,
+                DBusError *error,
+                const char *name,
+                char **unit_path) {
+
+        DBusMessage *m = NULL, *reply = NULL;
+        int r = 0;
+
+        assert(bus);
+        assert(error);
+        assert(name);
+        assert(unit_path);
+
+        *unit_path = NULL;
+
+
+        m = dbus_message_new_method_call("org.freedesktop.systemd1",
+                                         "/org/freedesktop/systemd1",
+                                         "org.freedesktop.systemd1.Manager",
+                                         "GetUnit");
+        if (!m) {
+                log_error("Could not allocate message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (!dbus_message_append_args(m,
+                                DBUS_TYPE_STRING, &name,
+                                DBUS_TYPE_INVALID)) {
+                log_error("Could not append arguments to message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
+        if (!reply) {
+                if (streq(error->name, BUS_ERROR_NO_SUCH_UNIT)) {
+                        dbus_error_free(error);
+                        r = -EINVAL;
+                } else {
+                        log_error("Failed to issue method call: %s", bus_error_message(error));
+                        r = -EIO;
+                }
+                goto finish;
+        }
+
+        if (!dbus_message_get_args(reply, error,
+                                DBUS_TYPE_OBJECT_PATH, unit_path,
+                                DBUS_TYPE_INVALID)) {
+                log_error("Failed to parse reply: %s", bus_error_message(error));
+                r = -EIO;
+                goto finish;
+        }
+
+        *unit_path = strdup(*unit_path);
+        if (!(*unit_path)) {
+               log_error("Failed to duplicate unit path");
+               r = -ENOMEM;
+        }
+finish:
+        if (m)
+                dbus_message_unref(m);
+        if (reply)
+                dbus_message_unref(reply);
+        return r;
+}
+
+static int is_socket_listening(
+                DBusConnection *bus,
+                DBusError *error,
+                const char *socket_name) {
+
+        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessageIter iter, sub;
+        char *socket_object_path = NULL;
+        const char *sub_state = NULL,
+                   *interface = "org.freedesktop.systemd1.Unit",
+                   *property = "SubState";
+        int r = 0;
+
+        assert(bus);
+        assert(error);
+        assert(socket_name);
+
+        if ((r = get_unit_path(bus, error, socket_name, &socket_object_path)) < 0) {
+                goto finish;
+        }
+        m = dbus_message_new_method_call("org.freedesktop.systemd1",
+                                         socket_object_path,
+                                         "org.freedesktop.DBus.Properties",
+                                         "Get");
+        if (!m) {
+                log_error("Could not allocate message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (!dbus_message_append_args(m,
+                                DBUS_TYPE_STRING, &interface,
+                                DBUS_TYPE_STRING, &property,
+                                DBUS_TYPE_INVALID)) {
+                log_error("Could not append arguments to message.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(error));
+                r = -EIO;
+                goto finish;
+        }
+
+        dbus_message_iter_init(reply, &iter);
+        dbus_message_iter_recurse(&iter, &sub);
+
+        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
+                log_error("Failed to parse reply: %s", bus_error_message(error));
+                r = -EIO;
+                goto finish;
+        }
+        dbus_message_iter_get_basic(&sub, &sub_state);
+        r = streq(sub_state, "listening");
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        free(socket_object_path);
+        return r;
+}
+
+static void check_listening_sockets(
+                DBusConnection *bus,
+                DBusError *error,
+                const char *unit_name) {
+
+        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessageIter iter, sub;
+        const char *service_trigger = NULL,
+                   *interface = "org.freedesktop.systemd1.Unit",
+                   *triggered_by_property = "TriggeredBy";
+
+        char *unit_path = NULL;
+        int print_warning_label = 1;
+
+        if ((get_unit_path(bus, error, unit_name, &unit_path) < 0)) {
+                goto finish;
+        }
+
+        m = dbus_message_new_method_call("org.freedesktop.systemd1",
+                                         unit_path,
+                                         "org.freedesktop.DBus.Properties",
+                                         "Get");
+        if (!m) {
+                log_error("Could not allocate message.");
+                goto finish;
+        }
+
+        if (!dbus_message_append_args(m,
+                                DBUS_TYPE_STRING, &interface,
+                                DBUS_TYPE_STRING, &triggered_by_property,
+                                DBUS_TYPE_INVALID)) {
+                log_error("Could not append arguments to message.");
+                goto finish;
+        }
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(error));
+                goto finish;
+        }
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+                        dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
+                log_error("Failed to parse reply: %s", bus_error_message(error));
+                goto finish;
+
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+        dbus_message_iter_recurse(&sub, &iter);
+        sub = iter;
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                int r = 0;
+
+                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
+                        log_error("Failed to parse reply: %s", bus_error_message(error));
+                        goto finish;
+                }
+
+                dbus_message_iter_get_basic(&sub, &service_trigger);
+
+                if (endswith(service_trigger, ".socket")) {
+                        r = is_socket_listening(bus, error, service_trigger);
+                } else {
+                        dbus_message_iter_recurse(&iter, &sub);
+                        iter = sub;
+                        continue;
+                }
+
+                if (r == 1) {
+                        if (print_warning_label) {
+                                log_warning("There are listening sockets associated with %s :", unit_name);
+                                print_warning_label = 0;
+                        }
+                        log_warning("%s",service_trigger);
+                } else if (r < 0) {
+                        log_error("Failed to issue function call: %s", bus_error_message(error));
+                        goto finish;
+                }
+                dbus_message_iter_recurse(&iter, &sub);
+                iter = sub;
+        }
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        free(unit_path);
+}
+
 static int start_unit_one(
                 DBusConnection *bus,
                 const char *method,
@@ -1578,6 +1806,11 @@ static int start_unit_one(
                         log_error("Failed to add path to set.");
                         goto finish;
                 }
+        }
+
+        /* When stopping unit check if we have some listening sockets active */
+        if (streq(method, "StopUnit") && !arg_quiet) {
+               check_listening_sockets(bus, error, name);
         }
 
         r = 0;
