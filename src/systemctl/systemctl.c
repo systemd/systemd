@@ -1685,7 +1685,7 @@ finish:
         return r;
 }
 
-static void check_listening_sockets(
+static void check_triggering_units(
                 DBusConnection *bus,
                 const char *unit_name) {
 
@@ -1748,20 +1748,17 @@ static void check_listening_sockets(
 
                 dbus_message_iter_get_basic(&sub, &service_trigger);
 
-                if (!endswith(service_trigger, ".socket"))
-                        goto next;
-
                 r = check_one_unit(bus, service_trigger, true);
                 if (r < 0)
                         goto finish;
                 if (r == 0) {
                         if (print_warning_label) {
-                                log_warning("There are listening sockets associated with %s :", unit_name);
+                                log_warning("Warning: Stopping %s, but it can still be activated by:", unit_name);
                                 print_warning_label = false;
                         }
-                        log_warning("%s", service_trigger);
+                        log_warning("  %s", service_trigger);
                 }
-next:
+
                 dbus_message_iter_next(&sub);
         }
 finish:
@@ -1856,9 +1853,10 @@ static int start_unit_one(
                 }
         }
 
-        /* When stopping unit check if we have some listening sockets active */
-        if (streq(method, "StopUnit") && !arg_quiet)
-                check_listening_sockets(bus, name);
+        /* When stopping a unit warn if it can still be triggered by
+         * another active unit (socket, path, timer) */
+        if (!arg_quiet && streq(method, "StopUnit"))
+                check_triggering_units(bus, name);
 
         r = 0;
 
