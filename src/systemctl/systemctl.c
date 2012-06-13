@@ -1762,8 +1762,7 @@ static void check_listening_sockets(
                         log_warning("%s", service_trigger);
                 }
 next:
-                dbus_message_iter_recurse(&iter, &sub);
-                iter = sub;
+                dbus_message_iter_next(&sub);
         }
 finish:
         if (m)
