@@ -4209,7 +4209,7 @@ static int enable_unit(DBusConnection *bus, char **args) {
         }
 
         if (carries_install_info == 0)
-                log_warning("Warning: unit files do not carry install information. No operation executed.");
+                log_warning("The unit files have no [Install] section. They are not meant to be enabled using systemctl.");
 
 finish:
         if (m)
