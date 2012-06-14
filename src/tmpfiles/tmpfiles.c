@@ -744,10 +744,11 @@ static int create_item(Item *i) {
 
         case CREATE_BLOCK_DEVICE:
         case CREATE_CHAR_DEVICE: {
+                mode_t file_type = (i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR);
 
                 u = umask(0);
-                label_context_set(i->path, CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR);
-                r = mknod(i->path, i->mode | (i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR), i->major_minor);
+                label_context_set(i->path, file_type);
+                r = mknod(i->path, i->mode | file_type, i->major_minor);
                 e = errno;
                 label_context_clear();
                 umask(u);
@@ -763,7 +764,7 @@ static int create_item(Item *i) {
                         return -errno;
                 }
 
-                if (i->type == CREATE_BLOCK_DEVICE ? !S_ISBLK(st.st_mode) : !S_ISCHR(st.st_mode)) {
+                if ((st.st_mode & S_IFMT) != file_type) {
                         log_error("%s is not a device node.", i->path);
                         return -EEXIST;
                 }
