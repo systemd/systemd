@@ -470,7 +470,9 @@
                                 time span value such as "5min
                                 20s". Pass 0 to disable the timeout
                                 logic. Defaults to
-                                90s.</para></listitem>
+                                90s, except when <varname>Type=oneshot</varname> is
+                                used in which case the timeout
+                                is disabled by default.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

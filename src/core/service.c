@@ -1249,6 +1249,10 @@ static int service_load(Unit *u) {
                 if (s->type == _SERVICE_TYPE_INVALID)
                         s->type = s->bus_name ? SERVICE_DBUS : SERVICE_SIMPLE;
 
+                /* Oneshot services have disabled timeout by default */
+                if (s->type == SERVICE_ONESHOT && !s->timeout_defined)
+                        s->timeout_usec = 0;
+
                 service_fix_output(s);
 
                 if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
@@ -2157,7 +2161,7 @@ static void service_enter_start(Service *s) {
 
         r = service_spawn(s,
                           c,
-                          s->type == SERVICE_FORKING || s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY,
+                          s->type == SERVICE_FORKING || s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY || s->type == SERVICE_ONESHOT,
                           true,
                           true,
                           true,
@@ -2372,7 +2376,7 @@ static void service_run_next_main(Service *s) {
 
         r = service_spawn(s,
                           s->main_command,
-                          false,
+                          true,
                           true,
                           true,
                           true,

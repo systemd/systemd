@@ -164,6 +164,7 @@ struct Service {
         bool bus_name_good:1;
         bool forbid_restart:1;
         bool got_socket_fd:1;
+        bool timeout_defined:1;
 #ifdef HAVE_SYSV_COMPAT
         bool is_sysv:1;
         bool sysv_has_lsb:1;

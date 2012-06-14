@@ -1398,6 +1398,32 @@ int config_parse_service_sockets(
         return 0;
 }
 
+int config_parse_service_timeout(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Service *s = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(s);
+
+        r = config_parse_usec(filename, line, section, lvalue, ltype, rvalue, data, userdata);
+
+        if (!r)
+                s->timeout_defined = true;
+
+        return r;
+}
+
 int config_parse_unit_env_file(
                 const char *filename,
                 unsigned line,
