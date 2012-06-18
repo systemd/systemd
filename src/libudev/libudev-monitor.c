@@ -494,6 +494,11 @@ tag:
  *
  * Only socket connections with uid=0 are accepted.
  *
+ * The monitor socket is by default set to NONBLOCK. A variant of poll() on
+ * the file descriptor returned by udev_monitor_get_fd() should to be used to
+ * wake up when new devices arrive, or alternatively the file descriptor
+ * switched into blocking mode.
+ *
  * The initial refcount is 1, and needs to be decremented to
  * release the resources of the udev device.
  *
