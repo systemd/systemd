@@ -1587,6 +1587,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                 job_type = JOB_RELOAD;
                 }
 
+                if (job_type == JOB_STOP && u->load_state == UNIT_ERROR && unit_active_state(u) == UNIT_INACTIVE) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", name);
+                        return bus_send_error_reply(connection, message, &error, -EPERM);
+                }
+
                 if ((job_type == JOB_START && u->refuse_manual_start) ||
                     (job_type == JOB_STOP && u->refuse_manual_stop) ||
                     ((job_type == JOB_RESTART || job_type == JOB_TRY_RESTART) &&
