@@ -259,9 +259,7 @@ static int user_mkdir_runtime_path(User *u) {
         }
 
         if (!u->runtime_path) {
-                p = strappend("/run/user/", u->name);
-
-                if (!p) {
+                if (asprintf(&p, "/run/user/%lu", (unsigned long) u->uid) < 0) {
                         log_error("Out of memory");
                         return -ENOMEM;
                 }
