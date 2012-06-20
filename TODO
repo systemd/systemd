@@ -27,6 +27,8 @@ Bugfixes:
 
 Features:
 
+* introduce CanGraphics and CanText properties on seat objects, to combat races where gdm is started before the graphics driver is loaded and finished probing.
+
 * change $NOTIFY_SOCKET to use an abstract namespace socket, so that chroot() is compatible with this
   https://bugzilla.redhat.com/show_bug.cgi?id=833105
 
@@ -34,7 +36,7 @@ Features:
 
 * systemctl: when stopping a service which has triggres and warning about it actually check the TriggeredBy= deps fields
 
-* send SIGPWR to upower on resume so that it can send out its dbus signal for compat
+* send bus signal to upower on resume so that it can send out its dbus signal for compat
 
 * vtconsole: don't override kernel cmdline utf8 override setting
 
