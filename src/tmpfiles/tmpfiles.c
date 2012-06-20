@@ -89,6 +89,8 @@ typedef struct Item {
         bool gid_set:1;
         bool mode_set:1;
         bool age_set:1;
+
+        bool keep_first_level:1;
 } Item;
 
 static Hashmap *items = NULL, *globs = NULL;
@@ -100,7 +102,7 @@ static bool arg_remove = false;
 
 static const char *arg_prefix = NULL;
 
-static const char *conf_file_dirs[] = {
+static const char * const conf_file_dirs[] = {
         "/etc/tmpfiles.d",
         "/run/tmpfiles.d",
         "/usr/local/lib/tmpfiles.d",
@@ -216,7 +218,8 @@ static int dir_cleanup(
                 usec_t cutoff,
                 dev_t rootdev,
                 bool mountpoint,
-                int maxdepth)
+                int maxdepth,
+                bool keep_this_level)
 {
         struct dirent *dent;
         struct timespec times[2];
@@ -289,12 +292,22 @@ static int dir_cleanup(
                                         continue;
                                 }
 
-                                q = dir_cleanup(sub_path, sub_dir, &s, cutoff, rootdev, false, maxdepth-1);
+                                q = dir_cleanup(sub_path, sub_dir, &s, cutoff, rootdev, false, maxdepth-1, false);
                                 closedir(sub_dir);
 
                                 if (q < 0)
                                         r = q;
                         }
+
+                        /* Note: if you are wondering why we don't
+                         * support the sticky bit for excluding
+                         * directories from cleaning like we do it for
+                         * other file system objects: well, the sticky
+                         * bit already has a meaning for directories,
+                         * so we don't want to overload that. */
+
+                        if (keep_this_level)
+                                continue;
 
                         /* Ignore ctime, we change it when deleting */
                         age = MAX(timespec_load(&s.st_mtim),
@@ -335,6 +348,11 @@ static int dir_cleanup(
 
                         /* Ignore device nodes */
                         if (S_ISCHR(s.st_mode) || S_ISBLK(s.st_mode))
+                                continue;
+
+                        /* Keep files on this level around if this is
+                         * requested */
+                        if (keep_this_level)
                                 continue;
 
                         age = MAX3(timespec_load(&s.st_mtim),
@@ -425,7 +443,7 @@ static int clean_item(Item *i) {
         mountpoint = s.st_dev != ps.st_dev ||
                      (s.st_dev == ps.st_dev && s.st_ino == ps.st_ino);
 
-        r = dir_cleanup(i->path, d, &s, cutoff, s.st_dev, mountpoint, MAX_DEPTH);
+        r = dir_cleanup(i->path, d, &s, cutoff, s.st_dev, mountpoint, MAX_DEPTH, i->keep_first_level);
 
 finish:
         if (d)
@@ -1094,7 +1112,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         i->type == TRUNCATE_DIRECTORY ? 0755 : 0644;
 
         if (age && !streq(age, "-")) {
-                if (parse_usec(age, &i->age) < 0) {
+                const char *a = age;
+
+                if (*a == '~') {
+                        i->keep_first_level = true;
+                        a++;
+                }
+
+                if (parse_usec(a, &i->age) < 0) {
                         log_error("[%s:%u] Invalid age '%s'.", fname, line, age);
                         r = -EBADMSG;
                         goto finish;
@@ -1320,7 +1345,7 @@ int main(int argc, char *argv[]) {
                 for (j = optind; j < argc; j++) {
                         char *fragment;
 
-                        fragment = resolve_fragment(argv[j], conf_file_dirs);
+                        fragment = resolve_fragment(argv[j], (const char**) conf_file_dirs);
                         if (!fragment) {
                                 log_error("Failed to find a %s file: %m", argv[j]);
                                 r = EXIT_FAILURE;
@@ -1335,7 +1360,7 @@ int main(int argc, char *argv[]) {
                 char **files, **f;
 
                 r = conf_files_list_strv(&files, ".conf",
-                                    (const char **)conf_file_dirs);
+                                    (const char **) conf_file_dirs);
                 if (r < 0) {
                         log_error("Failed to enumerate tmpfiles.d files: %s", strerror(-r));
                         r = EXIT_FAILURE;

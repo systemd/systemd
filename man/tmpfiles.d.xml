@@ -267,6 +267,12 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         <para>The age field only applies to lines starting with
                         d, D and x. If omitted or set to - no automatic clean-up
                         is done.</para>
+
+                        <para>If the age field starts with a tilde
+                        character (~) the clean-up is only applied to
+                        files and directories one level inside the
+                        directory specified, but not the files and
+                        directories immediately inside it.</para>
                 </refsect2>
 
                 <refsect2>

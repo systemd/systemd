@@ -26,6 +26,17 @@ Bugfixes:
    rename enum "ManagerRunningAs" to "SystemdRunningAs" and move it to shared/
 
 Features:
+
+* readahead: merge the three tools into one binary
+
+* systemctl: when stopping a service which has triggres and warning about it actually check the TriggeredBy= deps fields
+
+* send SIGPWR to upower on resume so that it can send out its dbus signal for compat
+
+* vtconsole: don't override kernel cmdline utf8 override setting
+
+* journal: hook up with EFI firmware log, new kmsg logic
+
 * falconindy: allow unescaped pathes for mount units, like "systmectl status /.mount"?
 
 * handle C-A-Del in logind, like the power/suspend buttons?
