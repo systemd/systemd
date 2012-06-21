@@ -77,6 +77,7 @@
 
 typedef enum StdoutStreamState {
         STDOUT_STREAM_IDENTIFIER,
+        STDOUT_STREAM_UNIT_ID,
         STDOUT_STREAM_PRIORITY,
         STDOUT_STREAM_LEVEL_PREFIX,
         STDOUT_STREAM_FORWARD_TO_SYSLOG,
@@ -97,6 +98,7 @@ struct StdoutStream {
 #endif
 
         char *identifier;
+        char *unit_id;
         int priority;
         bool level_prefix:1;
         bool forward_to_syslog:1;
@@ -458,7 +460,7 @@ static void dispatch_message_real(
                 struct iovec *iovec, unsigned n, unsigned m,
                 struct ucred *ucred,
                 struct timeval *tv,
-                const char *label, size_t label_len) {
+                const char *label, size_t label_len, const char *unit_id) {
 
         char *pid = NULL, *uid = NULL, *gid = NULL,
                 *source_time = NULL, *boot_id = NULL, *machine_id = NULL,
@@ -560,10 +562,11 @@ static void dispatch_message_real(
                 if (cg_pid_get_unit(ucred->pid, &t) >= 0) {
                         unit = strappend("_SYSTEMD_UNIT=", t);
                         free(t);
+                } else if (unit_id)
+                        unit = strappend("_SYSTEMD_UNIT=", unit_id);
 
-                        if (unit)
-                                IOVEC_SET_STRING(iovec[n++], unit);
-                }
+                if (unit)
+                        IOVEC_SET_STRING(iovec[n++], unit);
 
 #ifdef HAVE_SELINUX
                 if (label) {
@@ -702,7 +705,7 @@ static void driver_message(Server *s, sd_id128_t message_id, const char *format,
         ucred.uid = getuid();
         ucred.gid = getgid();
 
-        dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0);
+        dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL);
 }
 
 static void dispatch_message(Server *s,
@@ -710,6 +713,7 @@ static void dispatch_message(Server *s,
                              struct ucred *ucred,
                              struct timeval *tv,
                              const char *label, size_t label_len,
+                             const char *unit_id,
                              int priority) {
         int rl;
         char *path = NULL, *c;
@@ -760,7 +764,7 @@ static void dispatch_message(Server *s,
         free(path);
 
 finish:
-        dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len);
+        dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len, unit_id);
 }
 
 static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, struct ucred *ucred, struct timeval *tv) {
@@ -1126,7 +1130,7 @@ static void process_syslog_message(Server *s, const char *buf, struct ucred *ucr
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, label, label_len, priority);
+        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, label, label_len, NULL, priority);
 
         free(message);
         free(identifier);
@@ -1204,7 +1208,7 @@ static void process_native_message(
 
                 if (e == p) {
                         /* Entry separator */
-                        dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, priority);
+                        dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority);
                         n = 0;
                         priority = LOG_INFO;
 
@@ -1354,7 +1358,7 @@ static void process_native_message(
                         forward_console(s, priority, identifier, message, ucred);
         }
 
-        dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, priority);
+        dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority);
 
 finish:
         for (j = 0; j < n; j++)  {
@@ -1477,7 +1481,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         }
 #endif
 
-        dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, label, label_len, priority);
+        dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, label, label_len, s->unit_id, priority);
 
         free(message);
         free(syslog_priority);
@@ -1505,6 +1509,22 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
                         if (!s->identifier) {
                                 log_error("Out of memory");
                                 return -ENOMEM;
+                        }
+                }
+
+                s->state = STDOUT_STREAM_UNIT_ID;
+                return 0;
+
+        case STDOUT_STREAM_UNIT_ID:
+                if (s->ucred.uid == 0) {
+                        if (isempty(p))
+                                s->unit_id = NULL;
+                        else  {
+                                s->unit_id = strdup(p);
+                                if (!s->unit_id) {
+                                        log_error("Out of memory");
+                                        return -ENOMEM;
+                                }
                         }
                 }
 
@@ -1874,7 +1894,7 @@ static void proc_kmsg_line(Server *s, const char *p) {
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, NULL, 0, priority);
+        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, NULL, 0, NULL, priority);
 
 finish:
         free(message);

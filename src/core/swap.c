@@ -590,6 +590,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                             UNIT(s)->cgroup_bondings,
                             UNIT(s)->cgroup_attributes,
                             NULL,
+                            UNIT(s)->id,
                             NULL,
                             &pid)) < 0)
                 goto fail;

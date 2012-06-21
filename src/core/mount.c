@@ -770,6 +770,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                             UNIT(m)->cgroup_bondings,
                             UNIT(m)->cgroup_attributes,
                             NULL,
+                            UNIT(m)->id,
                             NULL,
                             &pid)) < 0)
                 goto fail;

@@ -1810,6 +1810,7 @@ static int service_spawn(
                        UNIT(s)->cgroup_bondings,
                        UNIT(s)->cgroup_attributes,
                        is_control ? "control" : NULL,
+                       UNIT(s)->id,
                        s->type == SERVICE_IDLE ? UNIT(s)->manager->idle_pipe : NULL,
                        &pid);
 

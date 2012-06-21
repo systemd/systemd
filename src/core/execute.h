@@ -192,6 +192,7 @@ int exec_spawn(ExecCommand *command,
                struct CGroupBonding *cgroup_bondings,
                struct CGroupAttribute *cgroup_attributes,
                const char *cgroup_suffix,
+               const char *unit_id,
                int pipe_fd[2],
                pid_t *ret);
 

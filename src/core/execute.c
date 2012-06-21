@@ -176,7 +176,7 @@ static int open_null_as(int flags, int nfd) {
         return r;
 }
 
-static int connect_logger_as(const ExecContext *context, ExecOutput output, const char *ident, int nfd) {
+static int connect_logger_as(const ExecContext *context, ExecOutput output, const char *ident, const char *unit_id, int nfd) {
         int fd, r;
         union sockaddr_union sa;
 
@@ -206,12 +206,14 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
 
         dprintf(fd,
                 "%s\n"
+                "%s\n"
                 "%i\n"
                 "%i\n"
                 "%i\n"
                 "%i\n"
                 "%i\n",
                 context->syslog_identifier ? context->syslog_identifier : ident,
+                unit_id,
                 context->syslog_priority,
                 !!context->syslog_level_prefix,
                 output == EXEC_OUTPUT_SYSLOG || output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
@@ -311,7 +313,7 @@ static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty
         }
 }
 
-static int setup_output(const ExecContext *context, int socket_fd, const char *ident, bool apply_tty_stdin) {
+static int setup_output(const ExecContext *context, int socket_fd, const char *ident, const char *unit_id, bool apply_tty_stdin) {
         ExecOutput o;
         ExecInput i;
 
@@ -358,7 +360,7 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
         case EXEC_OUTPUT_KMSG_AND_CONSOLE:
         case EXEC_OUTPUT_JOURNAL:
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
-                return connect_logger_as(context, o, ident, STDOUT_FILENO);
+                return connect_logger_as(context, o, ident, unit_id, STDOUT_FILENO);
 
         case EXEC_OUTPUT_SOCKET:
                 assert(socket_fd >= 0);
@@ -369,7 +371,7 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
         }
 }
 
-static int setup_error(const ExecContext *context, int socket_fd, const char *ident, bool apply_tty_stdin) {
+static int setup_error(const ExecContext *context, int socket_fd, const char *ident, const char *unit_id, bool apply_tty_stdin) {
         ExecOutput o, e;
         ExecInput i;
 
@@ -413,7 +415,7 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
         case EXEC_OUTPUT_KMSG_AND_CONSOLE:
         case EXEC_OUTPUT_JOURNAL:
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
-                return connect_logger_as(context, e, ident, STDERR_FILENO);
+                return connect_logger_as(context, e, ident, unit_id, STDERR_FILENO);
 
         case EXEC_OUTPUT_SOCKET:
                 assert(socket_fd >= 0);
@@ -913,6 +915,7 @@ int exec_spawn(ExecCommand *command,
                CGroupBonding *cgroup_bondings,
                CGroupAttribute *cgroup_attributes,
                const char *cgroup_suffix,
+               const char *unit_id,
                int idle_pipe[2],
                pid_t *ret) {
 
@@ -1101,14 +1104,14 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 if (!keep_stdout) {
-                        err = setup_output(context, socket_fd, path_get_file_name(command->path), apply_tty_stdin);
+                        err = setup_output(context, socket_fd, path_get_file_name(command->path), unit_id, apply_tty_stdin);
                         if (err < 0) {
                                 r = EXIT_STDOUT;
                                 goto fail_child;
                         }
                 }
 
-                err = setup_error(context, socket_fd, path_get_file_name(command->path), apply_tty_stdin);
+                err = setup_error(context, socket_fd, path_get_file_name(command->path), unit_id, apply_tty_stdin);
                 if (err < 0) {
                         r = EXIT_STDERR;
                         goto fail_child;
