@@ -32,19 +32,12 @@
 
 #include "readahead-common.h"
 
-int main_analyze(const char *pack_path)
-{
+int main_analyze(const char *pack_path) {
         char line[LINE_MAX];
-        char path[PATH_MAX];
         FILE *pack;
         int a;
         int missing = 0;
-        off_t size;
         off_t tsize = 0;
-        uint64_t inode;
-        uint32_t b;
-        uint32_t c;
-        struct stat st;
 
         if (!pack_path)
                 pack_path = "/.readahead";
@@ -72,10 +65,13 @@ int main_analyze(const char *pack_path)
                 goto fail;
         }
 
-        fprintf(stdout, "   pct  sections     size: path\n");
-        fprintf(stdout, "   ===  ========     ====: ====\n");
+        fputs("   pct  sections     size: path\n"
+              "   ===  ========     ====: ====\n", stdout);
 
-        while(true) {
+        for (;;) {
+                char path[PATH_MAX];
+                struct stat st;
+                uint64_t inode;
                 int pages = 0;
                 int sections = 0;
 
@@ -89,7 +85,9 @@ int main_analyze(const char *pack_path)
                         goto fail;
                 }
 
-                while (true) {
+                for (;;) {
+                        uint32_t b, c;
+
                         if (fread(&b, sizeof(b), 1, pack) != 1  ||
                             fread(&c, sizeof(c), 1, pack) != 1) {
                                 log_error("Pack file corrupt.");
@@ -99,7 +97,7 @@ int main_analyze(const char *pack_path)
                                 break;
 
                         /* Uncomment this to get all the chunks separately
-                        fprintf(stdout, " %d: %d %d\n", sections, b, c);
+                           printf(" %d: %d %d\n", sections, b, c);
                          */
 
                         pages += (c - b);
@@ -107,6 +105,8 @@ int main_analyze(const char *pack_path)
                 }
 
                 if (stat(path, &st) == 0) {
+                        off_t size;
+
                         if (sections == 0)
                                 size = st.st_size;
                         else
@@ -114,13 +114,13 @@ int main_analyze(const char *pack_path)
 
                         tsize += size;
 
-                        fprintf(stdout, "  %4d%% (%2d) %12ld: %s\n",
+                        printf("  %4d%% (%2d) %12ld: %s\n",
                                 sections ? (int)(size / st.st_size * 100.0) : 100,
                                 sections ? sections : 1,
                                 (unsigned long)size,
                                 path);
                 } else {
-                        fprintf(stdout, "  %4dp (%2d) %12s: %s (MISSING)\n",
+                        printf("  %4dp (%2d) %12s: %s (MISSING)\n",
                                 sections ? pages : -1,
                                 sections ? sections : 1,
                                 "???",
@@ -132,10 +132,14 @@ int main_analyze(const char *pack_path)
 
         fclose(pack);
 
-        fprintf(stdout, "\nHOST:    %s", line);
-        fprintf(stdout, "TYPE:    %c\n", a);
-        fprintf(stdout, "MISSING: %d\n", missing);
-        fprintf(stdout, "TOTAL:   %ld\n", tsize);
+        printf("\nHOST:    %s"
+               "TYPE:    %c\n"
+               "MISSING: %d\n"
+               "TOTAL:   %ld\n",
+               line,
+               a,
+               missing,
+               tsize);
 
         return EXIT_SUCCESS;
 
