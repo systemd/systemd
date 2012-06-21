@@ -397,14 +397,15 @@ static int parse_proc_cmdline_word(const char *word) {
                          "systemd.default_standard_output=null|tty|syslog|syslog+console|kmsg|kmsg+console|journal|journal+console\n"
                          "                                         Set default log output for services\n"
                          "systemd.default_standard_error=null|tty|syslog|syslog+console|kmsg|kmsg+console|journal|journal+console\n"
-                         "                                         Set default log error output for services\n");
+                         "                                         Set default log error output for services\n"
+                         "systemd.setenv=ASSIGNMENT                Set an environment variable for all spawned processes\n");
 
         } else if (streq(word, "quiet")) {
                 arg_show_status = false;
 #ifdef HAVE_SYSV_COMPAT
                 arg_sysv_console = false;
 #endif
-        } else {
+        } else if (!in_initrd()) {
                 unsigned i;
 
                 /* SysV compatibility */

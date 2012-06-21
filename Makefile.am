@@ -460,6 +460,7 @@ MANPAGES = \
 	man/systemd.exec.5 \
 	man/systemd.special.7 \
 	man/systemd.journal-fields.7 \
+	man/kernel-command-line.7 \
 	man/daemon.7 \
 	man/runlevel.8 \
 	man/telinit.8 \

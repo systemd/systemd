@@ -25,6 +25,9 @@ Bugfixes:
 
 Features:
 
+* turn $NOTIFY_SOCKET back into an abstract namespace socket for
+  compatibility with services which chroot()
+
 * exclude processes marked with argv[0][0]=@ from the normal service killing too
 
 * support rd.luks= kernel cmdline params in cryptsetup generator
@@ -32,8 +35,6 @@ Features:
 * support rd.fstab= kernel cmdline params in fstab generator
 
 * support rd.driver= kernel cmdline params in modules load
-
-* supprto rd.xxx wherever else makes sense
 
 * systemctl: when stopping a service which has triggres and warning about it actually check the TriggeredBy= deps fields
 
@@ -140,8 +141,6 @@ Features:
 * dbus upstream still refers to dbus.target and shouldn't
 
 * when a service has the same env var set twice we actually store it twice and return that in systemctl show -p... We should only show the last setting
-
-* add man page documenting all kernel cmdline options, including stuff like fsck.mode=
 
 * support container_ttys=
 

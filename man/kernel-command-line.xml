@@ -1,0 +1,237 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2012 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="kernel-command-line">
+
+        <refentryinfo>
+                <title>kernel-command-line</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>kernel-command-line</refentrytitle>
+                <manvolnum>7</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>kernel-command-line</refname>
+                <refpurpose>Kernel Command Line Paramaters</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>/proc/cmdline</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>The kernel, the initial RAM disk (initrd) and
+                basic userspace functionality may be configured at boot via
+                kernel command line arguments.</para>
+
+                <para>For command line parameters understood by the
+                kernel please see <ulink
+                url="https://www.kernel.org/doc/Documentation/kernel-parameters.txt"><filename>kernel-parameters.txt</filename></ulink>.</para>
+
+                <para>For command line paramaters understood by the
+                initial RAM disk, please see
+                <citerefentry><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Core OS Command Line Arguments</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>systemd.unit=</varname></term>
+                                <term><varname>rd.systemd.unit=</varname></term>
+                                <term><varname>systemd.dump_core=</varname></term>
+                                <term><varname>systemd.crash_shell=</varname></term>
+                                <term><varname>systemd.crash_chvt=</varname></term>
+                                <term><varname>systemd.confirm_spawn=</varname></term>
+                                <term><varname>systemd.show_status=</varname></term>
+                                <term><varname>systemd.sysv_console=</varname></term>
+                                <term><varname>systemd.log_target=</varname></term>
+                                <term><varname>systemd.log_level=</varname></term>
+                                <term><varname>systemd.log_color=</varname></term>
+                                <term><varname>systemd.log_location=</varname></term>
+                                <term><varname>systemd.default_standard_output=</varname></term>
+                                <term><varname>systemd.default_standard_error=</varname></term>
+                                <term><varname>systemd.setenv=</varname></term>
+                                <listitem>
+                                        <para>Parameters understood by
+                                        the system and service manager
+                                        to control system behaviour. For details see
+                                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>quiet</varname></term>
+                                <listitem>
+                                        <para>Parameters understood by
+                                        both the kernel and the system
+                                        and service manager to control
+                                        console log verbosity. For
+                                        details see
+                                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>emergency</varname></term>
+                                <term><varname>single</varname></term>
+                                <term><varname>s</varname></term>
+                                <term><varname>S</varname></term>
+                                <term><varname>1</varname></term>
+                                <term><varname>2</varname></term>
+                                <term><varname>3</varname></term>
+                                <term><varname>4</varname></term>
+                                <term><varname>5</varname></term>
+                                <listitem>
+                                        <para>Parameters understood by
+                                        the system and service
+                                        manager, as compatibility
+                                        options. For details see
+                                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>locale.LANG=</varname></term>
+                                <term><varname>locale.LANGUAGE=</varname></term>
+                                <term><varname>locale.LC_CTYPE=</varname></term>
+                                <term><varname>locale.LC_NUMERIC=</varname></term>
+                                <term><varname>locale.LC_TIME=</varname></term>
+                                <term><varname>locale.LC_COLLATE=</varname></term>
+                                <term><varname>locale.LC_MONETARY=</varname></term>
+                                <term><varname>locale.LC_MESSAGES=</varname></term>
+                                <term><varname>locale.LC_PAPER=</varname></term>
+                                <term><varname>locale.LC_NAME=</varname></term>
+                                <term><varname>locale.LC_ADDRESS=</varname></term>
+                                <term><varname>locale.LC_TELEPHONE=</varname></term>
+                                <term><varname>locale.LC_MEASUREMENT=</varname></term>
+                                <term><varname>locale.LC_IDENTIFICATION=</varname></term>
+                                <listitem>
+                                        <para>Parameters understood by
+                                        the system and service manager
+                                        to control locale and language
+                                        settings. For details see
+                                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>fsck.mode=</varname></term>
+
+                                <listitem>
+                                        <para>Parameters understood by
+                                        the file system checker
+                                        services. For details see
+                                        <citerefentry><refentrytitle>fsck-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>quotacheck.mode=</varname></term>
+
+                                <listitem>
+                                        <para>Parameters understood by
+                                        the file quota checker
+                                        service. For details see
+                                        <citerefentry><refentrytitle>quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>systemd.journald.forward_to_syslog=</varname></term>
+                                <term><varname>systemd.journald.forward_to_kmsg=</varname></term>
+                                <term><varname>systemd.journald.forward_to_console=</varname></term>
+
+                                <listitem>
+                                        <para>Parameters understood by
+                                        the journal service. For
+                                        details see
+                                        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>vconsole.keymap=</varname></term>
+                                <term><varname>vconsole.keymap.toggle=</varname></term>
+                                <term><varname>vconsole.font=</varname></term>
+                                <term><varname>vconsole.font.map=</varname></term>
+                                <term><varname>vconsole.font.unimap=</varname></term>
+
+                                <listitem>
+                                        <para>Parameters understood by
+                                        the virtual console setup logic. For
+                                        details see
+                                        <citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>udev.log-priority=</varname></term>
+                                <term><varname>udev.children-max=</varname></term>
+                                <term><varname>udev.udev.exec-delay=</varname></term>
+                                <term><varname>rd.udev.log-priority=</varname></term>
+                                <term><varname>rd.udev.children-max=</varname></term>
+                                <term><varname>rd.udev.udev.exec-delay=</varname></term>
+
+                                <listitem>
+                                        <para>Parameters understood by
+                                        the device event managing daemon. For
+                                        details see
+                                        <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
+
+
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>fsck-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>

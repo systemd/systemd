@@ -212,10 +212,10 @@
                                 to syslog is enabled. These settings
                                 may be overridden at boot time with the
                                 kernel command line options
-                                <literal>systemd_journald.forward_to_syslog=</literal>,
-                                <literal>systemd_journald.forward_to_kmsg=</literal>
+                                <literal>systemd.journald.forward_to_syslog=</literal>,
+                                <literal>systemd.journald.forward_to_kmsg=</literal>
                                 and
-                                <literal>systemd_journald.forward_to_console=</literal>. If
+                                <literal>systemd.journald.forward_to_console=</literal>. If
                                 forwarding to the kernel log buffer and
                                 <varname>ImportKernel=</varname> is
                                 enabled at the same time care is taken

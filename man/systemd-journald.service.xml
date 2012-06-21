@@ -128,6 +128,34 @@
                 </variablelist>
         </refsect1>
 
+        <refsect1>
+                <title>Kernel Command Line</title>
+
+                <para>A few configuration parameters from
+                <filename>journald.conf</filename> may be overriden on
+                the kernel command line:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>systemd.journald.forward_to_syslog=</varname></term>
+                                <term><varname>systemd.journald.forward_to_kmsg=</varname></term>
+                                <term><varname>systemd.journald.forward_to_console=</varname></term>
+
+                                <listitem><para>Enables/disables
+                                forwarding of collected log messages
+                                to syslog, the kernel log buffer or
+                                the system console.
+                                </para>
+
+                                <para>See
+                                <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for information about these settings.</para>
+                                </listitem>
+
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
 
 
         <refsect1>
