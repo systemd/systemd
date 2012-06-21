@@ -583,7 +583,7 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
         return r;
 }
 
-_public_ int sd_seat_can_multi_session(const char *seat) {
+static int seat_get_can(const char *seat, const char *variable) {
         char *p, *s = NULL;
         int r;
 
@@ -592,7 +592,7 @@ _public_ int sd_seat_can_multi_session(const char *seat) {
                 return r;
 
         r = parse_env_file(p, NEWLINE,
-                           "CAN_MULTI_SESSION", &s,
+                           variable, &s,
                            NULL);
         free(p);
 
@@ -608,6 +608,18 @@ _public_ int sd_seat_can_multi_session(const char *seat) {
                 r = 0;
 
         return r;
+}
+
+_public_ int sd_seat_can_multi_session(const char *seat) {
+        return seat_get_can(seat, "CAN_MULTI_SESSION");
+}
+
+_public_ int sd_seat_can_tty(const char *seat) {
+        return seat_get_can(seat, "CAN_TTY");
+}
+
+_public_ int sd_seat_can_graphical(const char *seat) {
+        return seat_get_can(seat, "CAN_GRAPHICAL");
 }
 
 _public_ int sd_get_seats(char ***seats) {

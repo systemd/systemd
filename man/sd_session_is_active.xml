@@ -198,9 +198,13 @@
                 <para>If the test succeeds
                 <function>sd_session_is_active()</function> returns a
                 positive integer, if it fails 0.  On success
+                <function>sd_session_get_state()</function>,
                 <function>sd_session_get_uid()</function>,
-                <function>sd_session_get_service()</function> and
-                <function>sd_session_get_seat()</function> return 0 or
+                <function>sd_session_get_seat()</function>,
+                <function>sd_session_get_service()</function>,
+                <function>sd_session_get_type()</function>,
+                <function>sd_session_get_class()</function> and
+                <function>sd_session_get_display()</function> return 0 or
                 a positive integer. On failure, these calls return a
                 negative errno-style error code.</para>
         </refsect1>
@@ -209,9 +213,13 @@
                 <title>Notes</title>
 
                 <para>The <function>sd_session_is_active()</function>,
+                <function>sd_session_get_state()</function>,
                 <function>sd_session_get_uid()</function>,
-                <function>sd_session_get_service()</function> and
-                <function>sd_session_get_seat()</function> interfaces
+                <function>sd_session_get_seat()</function>,
+                <function>sd_session_get_service()</function>,
+                <function>sd_session_get_type()</function>,
+                <function>sd_session_get_class()</function> and
+                <function>sd_session_get_display()</function> interfaces
                 are available as shared library, which can be compiled
                 and linked to with the
                 <literal>libsystemd-login</literal>

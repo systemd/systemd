@@ -117,6 +117,12 @@ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **uid, unsign
 /* Return whether the seat is multi-session capable */
 int sd_seat_can_multi_session(const char *seat);
 
+/* Return whether the seat is TTY capable, i.e. suitable for showing console UIs */
+int sd_seat_can_tty(const char *seat);
+
+/* Return whether the seat is graphics capable, i.e. suitable for showing graphical UIs */
+int sd_seat_can_graphical(const char *seat);
+
 /* Get all seats, store in *seats. Returns the number of seats. If
  * seats is NULL only returns number of seats. */
 int sd_get_seats(char ***seats);

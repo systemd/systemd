@@ -72,6 +72,16 @@
                                 <funcdef>int <function>sd_seat_can_multi_session</function></funcdef>
                                 <paramdef>const char* <parameter>seat</parameter></paramdef>
                         </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_seat_can_tty</function></funcdef>
+                                <paramdef>const char* <parameter>seat</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_seat_can_graphical</function></funcdef>
+                                <paramdef>const char* <parameter>seat</parameter></paramdef>
+                        </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
 
@@ -111,6 +121,15 @@
                 sessions in parallel (whith only one being active at a
                 time).</para>
 
+                <para><function>sd_seat_can_tty()</function> may be
+                used to determine whether a specific seat provides TTY
+                functionality, i.e. is useful as a text console.</para>
+
+                <para><function>sd_seat_can_graphical()</function> may
+                be used to determine whether a specific seat provides
+                graphics functionality, i.e. is useful as a graphics
+                display.</para>
+
                 <para>If the <literal>seat</literal> parameter of any
                 of these functions is passed as NULL the operation is
                 executed for the seat of the session of the calling
@@ -126,8 +145,10 @@
                 <function>sd_seat_get_sessions()</function> returns
                 the number of entries in the session identifier
                 array. If the test succeeds
-                <function>sd_seat_can_multi_session</function> returns
-                a positive integer, if it fails 0. On failure, these
+                <function>sd_seat_can_multi_session</function>,
+                <function>sd_seat_can_tty</function> and
+                <function>sd_seat_can_graphical</function> return a
+                positive integer, if it fails 0. On failure, these
                 calls return a negative errno-style error code.</para>
         </refsect1>
 
@@ -135,8 +156,10 @@
                 <title>Notes</title>
 
                 <para>The <function>sd_seat_get_active()</function>,
-                <function>sd_seat_get_sessions()</function>, and
-                <function>sd_seat_can_multi_session()</function> interfaces
+                <function>sd_seat_get_sessions()</function>,
+                <function>sd_seat_can_multi_session()</function>,
+                <function>sd_seat_can_tty()</function> and
+                <function>sd_seat_can_grapical()</function> interfaces
                 are available as shared library, which can be compiled
                 and linked to with the
                 <literal>libsystemd-login</literal>

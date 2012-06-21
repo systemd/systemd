@@ -99,6 +99,14 @@ int main(int argc, char* argv[]) {
         assert_se(r >= 0);
         printf("can do multi session = %s\n", yes_no(r));
 
+        r = sd_seat_can_tty(seat);
+        assert_se(r >= 0);
+        printf("can do tty = %s\n", yes_no(r));
+
+        r = sd_seat_can_graphical(seat);
+        assert_se(r >= 0);
+        printf("can do graphical = %s\n", yes_no(r));
+
         assert_se(sd_uid_get_state(u, &state) >= 0);
         printf("state = %s\n", state);
 

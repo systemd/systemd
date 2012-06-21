@@ -50,4 +50,6 @@ global:
 LIBSYSTEMD_LOGIN_186 {
 global:
         sd_session_get_state;
+        sd_seat_can_tty;
+        sd_seat_can_graphical;
 } LIBSYSTEMD_LOGIN_43;
