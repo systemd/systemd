@@ -104,9 +104,13 @@ int seat_save(Seat *s) {
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "IS_VTCONSOLE=%i\n"
-                "CAN_MULTI_SESSION=%i\n",
+                "CAN_MULTI_SESSION=%i\n"
+                "CAN_TTY=%i\n"
+                "CAN_GRAPHICAL=%i\n",
                 seat_is_vtconsole(s),
-                seat_can_multi_session(s));
+                seat_can_multi_session(s),
+                seat_can_tty(s),
+                seat_can_graphical(s));
 
         if (s->active) {
                 assert(s->active->user);
@@ -425,6 +429,18 @@ bool seat_can_multi_session(Seat *s) {
          * support VT switching */
 
         return s->manager->console_active_fd >= 0;
+}
+
+bool seat_can_tty(Seat *s) {
+        assert(s);
+
+        return seat_is_vtconsole(s);
+}
+
+bool seat_can_graphical(Seat *s) {
+        assert(s);
+
+        return !!s->devices;
 }
 
 int seat_get_idle_hint(Seat *s, dual_timestamp *t) {

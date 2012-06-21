@@ -65,22 +65,32 @@ void device_free(Device *d) {
 }
 
 void device_detach(Device *d) {
+        Seat *s;
         assert(d);
 
-        if (d->seat)
-                LIST_REMOVE(Device, devices, d->seat->devices, d);
+        if (!d->seat)
+                return;
 
-        seat_add_to_gc_queue(d->seat);
+        s = d->seat;
+        LIST_REMOVE(Device, devices, d->seat->devices, d);
         d->seat = NULL;
+
+        seat_add_to_gc_queue(s);
+        seat_send_changed(s, "CanGraphical\0");
 }
 
 void device_attach(Device *d, Seat *s) {
         assert(d);
         assert(s);
 
+        if (d->seat == s)
+                return;
+
         if (d->seat)
                 device_detach(d);
 
         d->seat = s;
         LIST_PREPEND(Device, devices, s->devices, d);
+
+        seat_send_changed(s, "CanGraphical\0");
 }

@@ -63,6 +63,9 @@ int seat_attach_session(Seat *s, Session *session);
 
 bool seat_is_vtconsole(Seat *s);
 bool seat_can_multi_session(Seat *s);
+bool seat_can_tty(Seat *s);
+bool seat_can_graphical(Seat *s);
+
 int seat_get_idle_hint(Seat *s, dual_timestamp *t);
 
 int seat_start(Seat *s);

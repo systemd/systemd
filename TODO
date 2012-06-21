@@ -12,8 +12,6 @@ Bugfixes:
 
 * make anaconda write timeout=0 for encrypted devices
 
-* make sure timeouts are applied to Type=oneshot services.
-
 * Dangling symlinks of .automount unit files in .wants/ directories, set up
   automount points even when the original .automount file did not exist
   anymore. Only the .mount unit was still around.
@@ -27,16 +25,19 @@ Bugfixes:
 
 Features:
 
-* introduce CanGraphics and CanText properties on seat objects, to combat races where gdm is started before the graphics driver is loaded and finished probing.
+* support rd.luks= kernel cmdline params in cryptsetup generator
 
-* change $NOTIFY_SOCKET to use an abstract namespace socket, so that chroot() is compatible with this
-  https://bugzilla.redhat.com/show_bug.cgi?id=833105
+* support rd.fstab= kernel cmdline params in fstab generator
+
+* support rd.driver= kernel cmdline params in modules load
+
+* supprto rd.xxx wherever else makes sense
 
 * readahead: merge the three tools into one binary
 
 * systemctl: when stopping a service which has triggres and warning about it actually check the TriggeredBy= deps fields
 
-* send bus signal to upower on resume so that it can send out its dbus signal for compat
+* send SIGPWR to upower on resume so that it can send out its dbus signal for compat
 
 * vtconsole: don't override kernel cmdline utf8 override setting
 

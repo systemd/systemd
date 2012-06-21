@@ -36,6 +36,8 @@
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
         "  <property name=\"ActiveSession\" type=\"so\" access=\"read\"/>\n" \
         "  <property name=\"CanMultiSession\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"CanTTY\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"CanGraphical\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Sessions\" type=\"a(so)\" access=\"read\"/>\n" \
         "  <property name=\"IdleHint\" type=\"b\" access=\"read\"/>\n"  \
         "  <property name=\"IdleSinceHint\" type=\"t\" access=\"read\"/>\n" \
@@ -133,7 +135,7 @@ static int bus_seat_append_sessions(DBusMessageIter *i, const char *property, vo
         return 0;
 }
 
-static int bus_seat_append_multi_session(DBusMessageIter *i, const char *property, void *data) {
+static int bus_seat_append_can_multi_session(DBusMessageIter *i, const char *property, void *data) {
         Seat *s = data;
         dbus_bool_t b;
 
@@ -142,6 +144,38 @@ static int bus_seat_append_multi_session(DBusMessageIter *i, const char *propert
         assert(s);
 
         b = seat_can_multi_session(s);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_seat_append_can_tty(DBusMessageIter *i, const char *property, void *data) {
+        Seat *s = data;
+        dbus_bool_t b;
+
+        assert(i);
+        assert(property);
+        assert(s);
+
+        b = seat_can_tty(s);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_seat_append_can_graphical(DBusMessageIter *i, const char *property, void *data) {
+        Seat *s = data;
+        dbus_bool_t b;
+
+        assert(i);
+        assert(property);
+        assert(s);
+
+        b = seat_can_graphical(s);
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
                 return -ENOMEM;
@@ -210,7 +244,9 @@ static int get_seat_for_path(Manager *m, const char *path, Seat **_s) {
 static const BusProperty bus_login_seat_properties[] = {
         { "Id",                     bus_property_append_string,      "s", offsetof(Seat, id), true },
         { "ActiveSession",          bus_seat_append_active,       "(so)", 0 },
-        { "CanMultiSession",        bus_seat_append_multi_session,   "b", 0 },
+        { "CanMultiSession",        bus_seat_append_can_multi_session, "b", 0 },
+        { "CanTTY",                 bus_seat_append_can_tty,         "b", 0 },
+        { "CanGraphical",           bus_seat_append_can_graphical,   "b", 0 },
         { "Sessions",               bus_seat_append_sessions,    "a(so)", 0 },
         { "IdleHint",               bus_seat_append_idle_hint,       "b", 0 },
         { "IdleSinceHint",          bus_seat_append_idle_hint_since, "t", 0 },
