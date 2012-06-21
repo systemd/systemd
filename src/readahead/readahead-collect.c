@@ -62,10 +62,6 @@
  * - does ioprio_set work with fadvise()?
  */
 
-static unsigned arg_files_max = 16*1024;
-static off_t arg_file_size_max = READAHEAD_FILE_SIZE_MAX;
-static usec_t arg_timeout = 2*USEC_PER_MINUTE;
-
 static ReadaheadShared *shared = NULL;
 
 /* Avoid collisions with the NULL pointer */
@@ -592,108 +588,10 @@ finish:
         return r;
 }
 
-static int help(void) {
+int main_collect(const char *root) {
 
-        printf("%s [OPTIONS...] [DIRECTORY]\n\n"
-               "Collect read-ahead data on early boot.\n\n"
-               "  -h --help                 Show this help\n"
-               "     --max-files=INT        Maximum number of files to read ahead\n"
-               "     --max-file-size=BYTES  Maximum size of files to read ahead\n"
-               "     --timeout=USEC         Maximum time to spend collecting data\n",
-               program_invocation_short_name);
-
-        return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_FILES_MAX = 0x100,
-                ARG_FILE_SIZE_MAX,
-                ARG_TIMEOUT
-        };
-
-        static const struct option options[] = {
-                { "help",          no_argument,       NULL, 'h'                },
-                { "files-max",     required_argument, NULL, ARG_FILES_MAX      },
-                { "file-size-max", required_argument, NULL, ARG_FILE_SIZE_MAX  },
-                { "timeout",       required_argument, NULL, ARG_TIMEOUT        },
-                { NULL,            0,                 NULL, 0                  }
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
-
-                switch (c) {
-
-                case 'h':
-                        help();
-                        return 0;
-
-                case ARG_FILES_MAX:
-                        if (safe_atou(optarg, &arg_files_max) < 0 || arg_files_max <= 0) {
-                                log_error("Failed to parse maximum number of files %s.", optarg);
-                                return -EINVAL;
-                        }
-                        break;
-
-                case ARG_FILE_SIZE_MAX: {
-                        unsigned long long ull;
-
-                        if (safe_atollu(optarg, &ull) < 0 || ull <= 0) {
-                                log_error("Failed to parse maximum file size %s.", optarg);
-                                return -EINVAL;
-                        }
-
-                        arg_file_size_max = (off_t) ull;
-                        break;
-                }
-
-                case ARG_TIMEOUT:
-                        if (parse_usec(optarg, &arg_timeout) < 0 || arg_timeout <= 0) {
-                                log_error("Failed to parse timeout %s.", optarg);
-                                return -EINVAL;
-                        }
-
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
-                }
-        }
-
-        if (optind != argc &&
-            optind != argc-1) {
-                help();
-                return -EINVAL;
-        }
-
-        return 1;
-}
-
-int main(int argc, char *argv[]) {
-        int r;
-        const char *root;
-
-        log_set_target(LOG_TARGET_SAFE);
-        log_parse_environment();
-        log_open();
-
-        umask(0022);
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-
-        root = optind < argc ? argv[optind] : "/";
+        if (!root)
+                root = "/";
 
         /* Skip this step on read-only media. Note that we check the
          * underlying block device here, not he read-only flag of the
@@ -702,23 +600,23 @@ int main(int argc, char *argv[]) {
          * device is theoretically writable. */
         if (fs_on_read_only(root) > 0) {
                 log_info("Disabling readahead collector due to read-only media.");
-                return 0;
+                return EXIT_SUCCESS;
         }
 
         if (!enough_ram()) {
                 log_info("Disabling readahead collector due to low memory.");
-                return 0;
+                return EXIT_SUCCESS;
         }
 
         shared = shared_get();
         if (!shared)
-                return 1;
+                return EXIT_FAILURE;
 
         shared->collect = getpid();
         __sync_synchronize();
 
         if (collect(root) < 0)
-                return 1;
+                return EXIT_FAILURE;
 
-        return 0;
+        return EXIT_SUCCESS;
 }

@@ -46,8 +46,7 @@
 /systemd-user-sessions
 /systemd-shutdown
 /systemd-tmpfiles
-/systemd-readahead-collect
-/systemd-readahead-replay
+/systemd-readahead
 /systemd-reply-password
 /systemd-gnome-ask-password-agent
 /systemd-ask-password
@@ -123,4 +122,3 @@ stamp-*
 /v4l_id
 /test-libudev
 /test-udev
-/systemd-readahead-analyze

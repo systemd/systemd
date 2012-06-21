@@ -35,8 +35,6 @@ Features:
 
 * supprto rd.xxx wherever else makes sense
 
-* readahead: merge the three tools into one binary
-
 * systemctl: when stopping a service which has triggres and warning about it actually check the TriggeredBy= deps fields
 
 * journal: hook up with EFI firmware log, new kmsg logic

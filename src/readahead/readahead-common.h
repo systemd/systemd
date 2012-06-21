@@ -26,10 +26,15 @@
 #include <sys/types.h>
 
 #include "macro.h"
+#include "util.h"
 
 #define READAHEAD_FILE_SIZE_MAX (10*1024*1024)
 
 #define READAHEAD_PACK_FILE_VERSION ";VERSION=2\n"
+
+extern unsigned arg_files_max;
+extern off_t arg_file_size_max;
+extern usec_t arg_timeout;
 
 int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st);
 
@@ -51,5 +56,9 @@ int block_bump_request_nr(const char *p);
 
 int block_get_readahead(const char *p, uint64_t *bytes);
 int block_set_readahead(const char *p, uint64_t bytes);
+
+int main_collect(const char *root);
+int main_replay(const char *root);
+int main_analyze(const char *pack_path);
 
 #endif

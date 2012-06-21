@@ -2377,39 +2377,24 @@ endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_READAHEAD
-systemd_readahead_collect_SOURCES = \
+systemd_readahead_SOURCES = \
+	src/readahead/readahead.c \
 	src/readahead/readahead-collect.c \
-	src/readahead/readahead-common.c \
-	src/readahead/readahead-common.h
-
-systemd_readahead_collect_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-daemon.la \
-	libudev.la
-
-systemd_readahead_replay_SOURCES = \
 	src/readahead/readahead-replay.c \
+	src/readahead/readahead-analyze.c \
 	src/readahead/readahead-common.c \
 	src/readahead/readahead-common.h
 
-systemd_readahead_replay_LDADD = \
+systemd_readahead_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
 	libudev.la
-
-systemd_readahead_analyze_SOURCES = \
-	src/readahead/readahead-analyze.c \
-	src/readahead/readahead-common.h
 
 pkginclude_HEADERS += \
 	src/systemd/sd-readahead.h
 
 rootlibexec_PROGRAMS += \
-	systemd-readahead-collect \
-	systemd-readahead-replay
-
-bin_PROGRAMS += \
-	systemd-readahead-analyze
+	systemd-readahead
 
 dist_systemunit_DATA += \
 	units/systemd-readahead-drop.service \

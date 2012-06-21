@@ -16,7 +16,7 @@ ConditionVirtualization=no
 
 [Service]
 Type=notify
-ExecStart=@rootlibexecdir@/systemd-readahead-replay
+ExecStart=@rootlibexecdir@/systemd-readahead replay
 RemainAfterExit=yes
 StandardOutput=null
 OOMScoreAdjust=1000

@@ -32,8 +32,7 @@
 
 #include "readahead-common.h"
 
-
-int main(int argc, char *argv[])
+int main_analyze(const char *pack_path)
 {
         char line[1024];
         char path[PATH_MAX];
@@ -48,30 +47,28 @@ int main(int argc, char *argv[])
         struct stat st;
         int pagesize = getpagesize();
 
-        if (argc != 2)
-                snprintf(path, PATH_MAX, "/.readahead");
-        else
-                snprintf(path, PATH_MAX, "%s", argv[1]);
+        if (!pack_path)
+                pack_path = "/.readahead";
 
-        pack = fopen(path, "r");
+        pack = fopen(pack_path, "r");
         if (!pack) {
                 fprintf(stderr, "Pack file missing\n");
-                exit(EXIT_FAILURE);
+                return EXIT_FAILURE;
         }
 
         if (!(fgets(line, sizeof(line), pack))) {
                 fprintf(stderr, "Pack file corrupt\n");
-                exit(EXIT_FAILURE);
+                return EXIT_FAILURE;
         }
 
         if (!strstr(line, READAHEAD_PACK_FILE_VERSION)) {
                 fprintf(stderr, "Pack file version incompatible with this parser\n");
-                exit(EXIT_FAILURE);
+                return EXIT_FAILURE;
         }
 
         if ((a = getc(pack)) == EOF) {
                 fprintf(stderr, "Pack file corrupt\n");
-                exit(EXIT_FAILURE);
+                return EXIT_FAILURE;
         }
 
         fprintf(stdout, "   pct  sections     size: path\n");
@@ -88,14 +85,14 @@ int main(int argc, char *argv[])
 
                 if (fread(&inode, sizeof(inode), 1, pack) != 1) {
                         fprintf(stderr, "Pack file corrupt\n");
-                        exit(EXIT_FAILURE);
+                        return EXIT_FAILURE;
                 }
 
                 while (true) {
                         if (fread(&b, sizeof(b), 1, pack) != 1  ||
                             fread(&c, sizeof(c), 1, pack) != 1) {
                                 fprintf(stderr, "Pack file corrupt\n");
-                                exit(EXIT_FAILURE);
+                                return EXIT_FAILURE;
                         }
                         if ((b == 0) && (c == 0))
                                 break;
@@ -137,5 +134,5 @@ int main(int argc, char *argv[])
         fprintf(stdout, "MISSING: %d\n", missing);
         fprintf(stdout, "TOTAL:   %ld\n", tsize);
 
-        exit(EXIT_SUCCESS);
+        return EXIT_SUCCESS;
 }
