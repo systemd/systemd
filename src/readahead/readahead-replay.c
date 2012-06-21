@@ -155,7 +155,8 @@ static int replay(const char *root) {
                 goto finish;
         }
 
-        if ((!(pack = fopen(pack_fn, "re")))) {
+        pack = fopen(pack_fn, "re");
+        if (!pack) {
                 if (errno == ENOENT)
                         log_debug("No pack file found.");
                 else {

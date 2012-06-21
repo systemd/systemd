@@ -34,13 +34,13 @@
 
 int main_analyze(const char *pack_path)
 {
-        char line[1024];
+        char line[LINE_MAX];
         char path[PATH_MAX];
         FILE *pack;
         int a;
         int missing = 0;
         off_t size;
-        long tsize = 0;
+        off_t tsize = 0;
         uint64_t inode;
         uint32_t b;
         uint32_t c;
@@ -52,22 +52,24 @@ int main_analyze(const char *pack_path)
         pack = fopen(pack_path, "re");
         if (!pack) {
                 log_error("Pack file missing.");
-                return EXIT_FAILURE;
+                goto fail;
         }
 
         if (!fgets(line, sizeof(line), pack)) {
                 log_error("Pack file corrupt.");
-                return EXIT_FAILURE;
+                goto fail;
         }
 
-        if (!strstr(line, READAHEAD_PACK_FILE_VERSION)) {
+        char_array_0(line);
+
+        if (!endswith(line, READAHEAD_PACK_FILE_VERSION)) {
                 log_error("Pack file version incompatible with this parser.");
-                return EXIT_FAILURE;
+                goto fail;
         }
 
         if ((a = getc(pack)) == EOF) {
                 log_error("Pack file corrupt.");
-                return EXIT_FAILURE;
+                goto fail;
         }
 
         fprintf(stdout, "   pct  sections     size: path\n");
@@ -84,14 +86,14 @@ int main_analyze(const char *pack_path)
 
                 if (fread(&inode, sizeof(inode), 1, pack) != 1) {
                         log_error("Pack file corrupt.");
-                        return EXIT_FAILURE;
+                        goto fail;
                 }
 
                 while (true) {
                         if (fread(&b, sizeof(b), 1, pack) != 1  ||
                             fread(&c, sizeof(c), 1, pack) != 1) {
                                 log_error("Pack file corrupt.");
-                                return EXIT_FAILURE;
+                                goto fail;
                         }
                         if ((b == 0) && (c == 0))
                                 break;
@@ -128,10 +130,17 @@ int main_analyze(const char *pack_path)
 
         }
 
+        fclose(pack);
+
         fprintf(stdout, "\nHOST:    %s", line);
         fprintf(stdout, "TYPE:    %c\n", a);
         fprintf(stdout, "MISSING: %d\n", missing);
         fprintf(stdout, "TOTAL:   %ld\n", tsize);
 
         return EXIT_SUCCESS;
+
+
+fail:
+        fclose(pack);
+        return EXIT_FAILURE;
 }
