@@ -1686,7 +1686,9 @@ int unit_file_query_preset(UnitFileScope scope, const char *name) {
                                     "/etc/systemd/system.preset",
                                     "/usr/local/lib/systemd/system.preset",
                                     "/usr/lib/systemd/system.preset",
+#ifdef HAVE_SPLIT_USR
                                     "/lib/systemd/system.preset",
+#endif
                                     NULL);
         else if (scope == UNIT_FILE_GLOBAL)
                 r = conf_files_list(&files, ".preset",
