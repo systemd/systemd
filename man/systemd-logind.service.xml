@@ -58,17 +58,40 @@
 
                 <para><filename>systemd-logind</filename> is a system
                 service that manages user logins. It is responsible
-                for: keeping track of users and sessions, their
-                processes and their idle state; creating control
-                groups for user processes; provide PolicyKit-based
-                access for users to operations such as system shutdown
-                or sleep; implementing a shutdown/sleep inhibition
-                logic for applications; handling of power/sleep
-                hardware keys; multi-seat management; session switch
-                management; device access management for users;
-                automatic spawning of text logins (gettys) and user
-                runtime directory management.
-                </para>
+                for:</para>
+
+                <itemizedlist>
+                        <listitem><para>Keeping track of users and sessions, their
+                        processes and their idle state</para></listitem>
+
+                        <listitem><para>Creating control groups for
+                        user processes</para></listitem>
+
+                        <listitem><para>Providing PolicyKit-based access
+                        for users to operations such as system
+                        shutdown or sleep</para></listitem>
+
+                        <listitem><para>Implementing a shutdown/sleep
+                        inhibition logic for
+                        applications</para></listitem>
+
+                        <listitem><para>Handling of power/sleep
+                        hardware keys</para></listitem>
+
+                        <listitem><para>Multi-seat
+                        management</para></listitem>
+
+                        <listitem><para>Session
+                        switch management</para></listitem>
+
+                        <listitem><para>Device access management for
+                        users</para></listitem>
+
+                        <listitem><para>Automatic spawning of text
+                        logins (gettys) on virtual console activation
+                        and user runtime directory
+                        management</para></listitem>
+                </itemizedlist>
 
                 <para>User sessions are registered in logind via the
                 <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
