@@ -57,6 +57,7 @@ pkgconfigdatadir=$(datadir)/pkgconfig
 pkgconfiglibdir=$(libdir)/pkgconfig
 polkitpolicydir=$(datadir)/polkit-1/actions
 bashcompletiondir=$(sysconfdir)/bash_completion.d
+rpmmacrosdir=$(sysconfdir)/rpm
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
@@ -885,8 +886,12 @@ org.freedesktop.systemd1.%.xml: systemd
 pkgconfigdata_DATA = \
 	src/core/systemd.pc
 
+nodist_rpmmacros_DATA = \
+	src/core/macros.systemd
+
 EXTRA_DIST += \
-	src/core/systemd.pc.in
+	src/core/systemd.pc.in \
+	src/core/macros.systemd.in
 
 # ------------------------------------------------------------------------------
 noinst_PROGRAMS += \
@@ -3013,6 +3018,9 @@ sysctl.d/%: sysctl.d/%.in Makefile
 	$(SED_PROCESS)
 
 %.pc: %.pc.in Makefile
+	$(SED_PROCESS)
+
+src/core/macros.%: src/core/macros.%.in Makefile
 	$(SED_PROCESS)
 
 src/%.policy.in: src/%.policy.in.in Makefile
