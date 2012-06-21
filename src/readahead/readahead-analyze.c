@@ -45,7 +45,6 @@ int main_analyze(const char *pack_path)
         uint32_t b;
         uint32_t c;
         struct stat st;
-        int pagesize = getpagesize();
 
         if (!pack_path)
                 pack_path = "/.readahead";
@@ -109,7 +108,7 @@ int main_analyze(const char *pack_path)
                         if (sections == 0)
                                 size = st.st_size;
                         else
-                                size = pages * pagesize;
+                                size = pages * page_size();
 
                         tsize += size;
 
