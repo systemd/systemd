@@ -143,7 +143,6 @@ int main_analyze(const char *pack_path) {
 
         return EXIT_SUCCESS;
 
-
 fail:
         fclose(pack);
         return EXIT_FAILURE;

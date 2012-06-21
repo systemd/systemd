@@ -375,9 +375,10 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
                 identifier = "";
 
         l = strlen(identifier);
-        header = alloca(l + 1 + 2 + 2 + 2 + 2 + 2);
+        header = alloca(l + 1 + 1 + 2 + 2 + 2 + 2 + 2);
 
         memcpy(header, identifier, l);
+        header[l++] = '\n';
         header[l++] = '\n';
         header[l++] = '0' + priority;
         header[l++] = '\n';

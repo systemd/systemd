@@ -460,7 +460,8 @@ static void dispatch_message_real(
                 struct iovec *iovec, unsigned n, unsigned m,
                 struct ucred *ucred,
                 struct timeval *tv,
-                const char *label, size_t label_len, const char *unit_id) {
+                const char *label, size_t label_len,
+                const char *unit_id) {
 
         char *pid = NULL, *uid = NULL, *gid = NULL,
                 *source_time = NULL, *boot_id = NULL, *machine_id = NULL,
