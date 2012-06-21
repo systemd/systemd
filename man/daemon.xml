@@ -801,48 +801,49 @@ endif</programlisting>
 
                         <para>In the
                         <citerefentry><refentrytitle>rpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                        <filename>.spec</filename> file use a snippet like
-                        the following to enable/disable the service
-                        during installation/deinstallation. Consult
+                        <filename>.spec</filename> file use snippets
+                        like the following to enable/disable the
+                        service during
+                        installation/deinstallation. This makes use of
+                        the RPM macros shipped along systemd. Consult
                         the packaging guidelines of your distribution
                         for details and the equivalent for other
-                        package managers:</para>
+                        package managers.</para>
+
+                        <para>At the top of the file:</para>
+
+                        <programlisting>BuildRequires: systemd
+%{?systemd_requires}</programlisting>
+
+                        <para>And as scriptlets, further down:</para>
 
                         <programlisting>%post
-if [ $1 -eq 1 ]; then
-        # On install (not upgrade), enable (but don't start) the
-        # units by default
-        /bin/systemctl enable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
-
-        # Alternatively, just call
-        # /bin/systemctl daemon-reload >/dev/null 2>&amp;1 || :
-        # here, if the daemon should not be enabled by default on
-        # installation
-fi
+%systemd_post foobar.service foobar.socket
 
 %preun
-if [ $1 -eq 0 ]; then
-        # On uninstall (not upgrade), disable and stop the units
-        /bin/systemctl --no-reload disable foobar.service foobar.socket >/dev/null 2>&amp;1 || :
-        /bin/systemctl stop foobar.service foobar.socket >/dev/null 2>&amp;1 || :
-fi
+%systemd_preun foobar.service foobar.socket
 
 %postun
-# Reload init system configuration, to make systemd honour changed
-# or deleted unit files
-/bin/systemctl daemon-reload >/dev/null 2>&amp;1 || :
-if [ $1 -ge 1 ] ; then
-        # On upgrade (not uninstall), optionally, restart the daemon
-        /bin/systemctl try-restart foobar.service >/dev/null 2>&amp;1 || :
-fi</programlisting>
+%systemd_postun</programlisting>
 
-                        <para>Depending on whether your service should
-                        or should not be started/stopped/restarted
-                        during package installation, deinstallation or
-                        upgrade, a different set of commands may be
-                        specified. See
-                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                        for details.</para>
+                        <para>If the service shall be restarted during
+                        upgrades replace the
+                        <literal>%postun</literal> scriptlet above
+                        with the following:</para>
+
+                        <programlisting>%postun
+%systemd_postun_with_restart foobar.service</programlisting>
+
+                        <para>Note that
+                        <literal>%systemd_post</literal> and
+                        <literal>%systemd_preun</literal> expect the
+                        names of all units that are installed/removed
+                        as arguments, separated by
+                        spaces. <literal>%systemd_postun</literal>
+                        expects no
+                        arguments. <literal>%systemd_postun_with_restart</literal>
+                        expects the units to restart as
+                        arguments.</para>
 
                         <para>To facilitate upgrades from a package
                         version that shipped only SysV init scripts to
