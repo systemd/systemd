@@ -30,11 +30,11 @@ typedef struct User User;
 #include "logind-session.h"
 
 typedef enum UserState {
-        USER_OFFLINE,
-        USER_LINGERING,
-        USER_ONLINE,
-        USER_ACTIVE,
-        USER_CLOSING,
+        USER_OFFLINE,    /* Not logged in at all */
+        USER_LINGERING,  /* Lingering has been enabled by the admin for this user */
+        USER_ONLINE,     /* User logged in */
+        USER_ACTIVE,     /* User logged in and has a session in the fg */
+        USER_CLOSING,    /* User logged out, but processes still remain and lingering is not enabled */
         _USER_STATE_MAX,
         _USER_STATE_INVALID = -1
 } UserState;

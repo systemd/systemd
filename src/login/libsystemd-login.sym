@@ -46,3 +46,8 @@ global:
         sd_session_get_class;
         sd_session_get_display;
 } LIBSYSTEMD_LOGIN_38;
+
+LIBSYSTEMD_LOGIN_186 {
+global:
+        sd_session_get_state;
+} LIBSYSTEMD_LOGIN_43;

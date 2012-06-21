@@ -71,6 +71,11 @@ int main(int argc, char* argv[]) {
         assert_se(r >= 0);
         printf("active = %s\n", yes_no(r));
 
+        r = sd_session_get_state(session, &state);
+        assert_se(r >= 0);
+        printf("state = %s\n", state);
+        free(state);
+
         assert_se(sd_session_get_uid(session, &u) >= 0);
         printf("uid = %lu\n", (unsigned long) u);
         assert_se(u == u2);

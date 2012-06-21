@@ -30,6 +30,14 @@ typedef struct Session Session;
 #include "logind-seat.h"
 #include "logind-user.h"
 
+typedef enum SessionState {
+        SESSION_ONLINE,   /* Logged in */
+        SESSION_ACTIVE,   /* Logged in and in the fg */
+        SESSION_CLOSING,  /* Logged out, but processes still remain */
+        _SESSION_STATE_MAX,
+        _SESSION_STATE_INVALID = -1
+} SessionState;
+
 typedef enum SessionType {
         SESSION_UNSPECIFIED,
         SESSION_TTY,
@@ -118,11 +126,16 @@ int session_kill(Session *s, KillWho who, int signo);
 
 char *session_bus_path(Session *s);
 
+SessionState session_get_state(Session *u);
+
 extern const DBusObjectPathVTable bus_session_vtable;
 
 int session_send_signal(Session *s, bool new_session);
 int session_send_changed(Session *s, const char *properties);
 int session_send_lock(Session *s, bool lock);
+
+const char* session_state_to_string(SessionState t);
+SessionState session_state_from_string(const char *s);
 
 const char* session_type_to_string(SessionType t);
 SessionType session_type_from_string(const char *s);

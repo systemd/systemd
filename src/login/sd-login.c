@@ -317,6 +317,30 @@ _public_ int sd_session_is_active(const char *session) {
         return r;
 }
 
+_public_ int sd_session_get_state(const char *session, char **state) {
+        char *p, *s = NULL;
+        int r;
+
+        if (!state)
+                return -EINVAL;
+
+        r = file_of_session(session, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_env_file(p, NEWLINE, "STATE", &s, NULL);
+        free(p);
+
+        if (r < 0) {
+                free(s);
+                return r;
+        } else if (!s)
+                return -EIO;
+
+        *state = s;
+        return 0;
+}
+
 _public_ int sd_session_get_uid(const char *session, uid_t *uid) {
         int r;
         char *p, *s = NULL;

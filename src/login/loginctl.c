@@ -364,7 +364,7 @@ typedef struct SessionStatusInfo {
         pid_t leader;
         const char *type;
         const char *class;
-        bool active;
+        const char *state;
 } SessionStatusInfo;
 
 typedef struct UserStatusInfo {
@@ -458,8 +458,8 @@ static void print_session_status_info(SessionStatusInfo *i) {
         } else if (i->class)
                 printf("\t   Class: %s\n", i->class);
 
-
-        printf("\t  Active: %s\n", yes_no(i->active));
+        if (i->state)
+                printf("\t   State: %s\n", i->state);
 
         if (i->default_control_group) {
                 unsigned c;
@@ -597,6 +597,8 @@ static int status_property_session(const char *name, DBusMessageIter *iter, Sess
                                 i->type = s;
                         else if (streq(name, "Class"))
                                 i->class = s;
+                        else if (streq(name, "State"))
+                                i->state = s;
                 }
                 break;
         }
@@ -621,8 +623,6 @@ static int status_property_session(const char *name, DBusMessageIter *iter, Sess
 
                 if (streq(name, "Remote"))
                         i->remote = b;
-                else if (streq(name, "Active"))
-                        i->active = b;
 
                 break;
         }

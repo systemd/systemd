@@ -63,7 +63,7 @@ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid);
  * error for non-service processes. */
 int sd_pid_get_unit(pid_t, char **unit);
 
-/* Get state from uid. Possible states: offline, lingering, online, active */
+/* Get state from uid. Possible states: offline, lingering, online, active, closing */
 int sd_uid_get_state(uid_t uid, char**state);
 
 /* Return 1 if uid has session on seat. If require_active is true will
@@ -80,8 +80,13 @@ int sd_uid_get_sessions(uid_t uid, int require_active, char ***sessions);
  * just return number of seats.*/
 int sd_uid_get_seats(uid_t uid, int require_active, char ***seats);
 
-/* Return 1 if the session is a active */
+/* Return 1 if the session is a active. */
 int sd_session_is_active(const char *session);
+
+/* Get state from session. Possible states: online, active, closing
+ * (This function is a more generic version of
+ * sd_session_is_active().) */
+int sd_session_get_state(const char *sessio, char **state);
 
 /* Determine user id of session */
 int sd_session_get_uid(const char *session, uid_t *uid);

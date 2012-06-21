@@ -133,11 +133,13 @@ int session_save(Session *s) {
                 "UID=%lu\n"
                 "USER=%s\n"
                 "ACTIVE=%i\n"
+                "STATE=%s\n"
                 "REMOTE=%i\n"
                 "KILL_PROCESSES=%i\n",
                 (unsigned long) s->user->uid,
                 s->user->name,
                 session_is_active(s),
+                session_state_to_string(session_get_state(s)),
                 s->remote,
                 s->kill_processes);
 
@@ -913,6 +915,18 @@ void session_add_to_gc_queue(Session *s) {
         s->in_gc_queue = true;
 }
 
+SessionState session_get_state(Session *s) {
+        assert(s);
+
+        if (s->fifo_fd < 0)
+                return SESSION_CLOSING;
+
+        if (session_is_active(s))
+                return SESSION_ACTIVE;
+
+        return SESSION_ONLINE;
+}
+
 int session_kill(Session *s, KillWho who, int signo) {
         int r = 0;
         Set *pid_set = NULL;
@@ -953,6 +967,14 @@ int session_kill(Session *s, KillWho who, int signo) {
 
         return r;
 }
+
+static const char* const session_state_table[_SESSION_TYPE_MAX] = {
+        [SESSION_ONLINE] = "online",
+        [SESSION_ACTIVE] = "active",
+        [SESSION_CLOSING] = "closing"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(session_state, SessionState);
 
 static const char* const session_type_table[_SESSION_TYPE_MAX] = {
         [SESSION_TTY] = "tty",

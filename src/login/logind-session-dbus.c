@@ -53,12 +53,13 @@
         "  <property name=\"Remote\" type=\"b\" access=\"read\"/>\n"    \
         "  <property name=\"RemoteHost\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RemoteUser\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"Service\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"Service\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"Leader\" type=\"u\" access=\"read\"/>\n"    \
         "  <property name=\"Audit\" type=\"u\" access=\"read\"/>\n"     \
         "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
-        "  <property name=\"Class\" type=\"s\" access=\"read\"/>\n"      \
+        "  <property name=\"Class\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"Active\" type=\"b\" access=\"read\"/>\n"    \
+        "  <property name=\"State\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"Controllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ResetControllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"KillProcesses\" type=\"b\" access=\"read\"/>\n" \
@@ -219,6 +220,22 @@ static int bus_session_append_default_cgroup(DBusMessageIter *i, const char *pro
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_session_append_type, session_type, SessionType);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_session_append_class, session_class, SessionClass);
 
+static int bus_session_append_state(DBusMessageIter *i, const char *property, void *data) {
+        Session *s = data;
+        const char *state;
+
+        assert(i);
+        assert(property);
+        assert(s);
+
+        state = session_state_to_string(session_get_state(s));
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &state))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int get_session_for_path(Manager *m, const char *path, Session **_s) {
         Session *s;
         char *id;
@@ -262,6 +279,7 @@ static const BusProperty bus_login_session_properties[] = {
         { "Type",                   bus_session_append_type,            "s", offsetof(Session, type)                },
         { "Class",                  bus_session_append_class,           "s", offsetof(Session, class)               },
         { "Active",                 bus_session_append_active,          "b", 0 },
+        { "State",                  bus_session_append_state,           "s", 0 },
         { "Controllers",            bus_property_append_strv,          "as", offsetof(Session, controllers),        true },
         { "ResetControllers",       bus_property_append_strv,          "as", offsetof(Session, reset_controllers),  true },
         { "KillProcesses",          bus_property_append_bool,           "b", offsetof(Session, kill_processes)      },
