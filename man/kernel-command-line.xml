@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>kernel-command-line</refname>
-                <refpurpose>Kernel Command Line Paramaters</refpurpose>
+                <refpurpose>Kernel Command Line Parameters</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -99,7 +99,7 @@
                         <varlistentry>
                                 <term><varname>quiet</varname></term>
                                 <listitem>
-                                        <para>Parameters understood by
+                                        <para>Parameter understood by
                                         both the kernel and the system
                                         and service manager to control
                                         console log verbosity. For
@@ -155,7 +155,7 @@
                                 <term><varname>fsck.mode=</varname></term>
 
                                 <listitem>
-                                        <para>Parameters understood by
+                                        <para>Parameter understood by
                                         the file system checker
                                         services. For details see
                                         <citerefentry><refentrytitle>fsck-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
@@ -166,7 +166,7 @@
                                 <term><varname>quotacheck.mode=</varname></term>
 
                                 <listitem>
-                                        <para>Parameters understood by
+                                        <para>Parameter understood by
                                         the file quota checker
                                         service. For details see
                                         <citerefentry><refentrytitle>quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
