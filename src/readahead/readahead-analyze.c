@@ -49,24 +49,24 @@ int main_analyze(const char *pack_path)
         if (!pack_path)
                 pack_path = "/.readahead";
 
-        pack = fopen(pack_path, "r");
+        pack = fopen(pack_path, "re");
         if (!pack) {
-                fprintf(stderr, "Pack file missing\n");
+                log_error("Pack file missing.");
                 return EXIT_FAILURE;
         }
 
-        if (!(fgets(line, sizeof(line), pack))) {
-                fprintf(stderr, "Pack file corrupt\n");
+        if (!fgets(line, sizeof(line), pack)) {
+                log_error("Pack file corrupt.");
                 return EXIT_FAILURE;
         }
 
         if (!strstr(line, READAHEAD_PACK_FILE_VERSION)) {
-                fprintf(stderr, "Pack file version incompatible with this parser\n");
+                log_error("Pack file version incompatible with this parser.");
                 return EXIT_FAILURE;
         }
 
         if ((a = getc(pack)) == EOF) {
-                fprintf(stderr, "Pack file corrupt\n");
+                log_error("Pack file corrupt.");
                 return EXIT_FAILURE;
         }
 
@@ -83,14 +83,14 @@ int main_analyze(const char *pack_path)
                 path[strlen(path)-1] = 0;
 
                 if (fread(&inode, sizeof(inode), 1, pack) != 1) {
-                        fprintf(stderr, "Pack file corrupt\n");
+                        log_error("Pack file corrupt.");
                         return EXIT_FAILURE;
                 }
 
                 while (true) {
                         if (fread(&b, sizeof(b), 1, pack) != 1  ||
                             fread(&c, sizeof(c), 1, pack) != 1) {
-                                fprintf(stderr, "Pack file corrupt\n");
+                                log_error("Pack file corrupt.");
                                 return EXIT_FAILURE;
                         }
                         if ((b == 0) && (c == 0))
