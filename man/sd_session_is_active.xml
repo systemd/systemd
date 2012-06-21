@@ -44,6 +44,7 @@
 
         <refnamediv>
                 <refname>sd_session_is_active</refname>
+                <refname>sd_session_get_state</refname>
                 <refname>sd_session_get_uid</refname>
                 <refname>sd_session_get_seat</refname>
                 <refname>sd_session_get_service</refname>
@@ -60,6 +61,12 @@
                         <funcprototype>
                                 <funcdef>int <function>sd_session_is_active</function></funcdef>
                                 <paramdef>const char* <parameter>session</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_session_get_state</function></funcdef>
+                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                                <paramdef>char** <parameter>state</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
@@ -108,6 +115,25 @@
                 the specified session identifier is currently active
                 (i.e. currently in the foreground and available for
                 user input) or not.</para>
+
+                <para><function>sd_session_get_state()</function> may
+                be used to determine the state of the session
+                identified by the specified session identifier. The
+                following states are currently known:
+                <literal>online</literal> (session logged in, but
+                session not active, i.e. not in the foreground),
+                <literal>active</literal> (session logged in and
+                active, i.e. in the foreground),
+                <literal>closing</literal> (session nominally logged
+                out, but some processes belonging to it are still
+                around). In the future additional states might be
+                defined, client code should be written to be robust in
+                regards to additional state strings being
+                returned. This function is a more generic version of
+                <function>sd_session_is_active()</function>. The returned
+                string needs to be freed with the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use.</para>
 
                 <para><function>sd_session_get_uid()</function> may be
                 used to determine the user identifier of the Unix user the session

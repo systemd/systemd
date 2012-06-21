@@ -93,8 +93,12 @@
                 at all), <literal>lingering</literal> (user not logged
                 in, but some user services running),
                 <literal>online</literal> (user logged in, but not
-                active), <literal>active</literal> (user logged in on
-                an active seat). In the future additional states might
+                active, i.e. has no session in the foreground),
+                <literal>active</literal> (user logged in, and has at
+                least one active session, i.e. one session in the
+                foreground), <literal>closing</literal> (user not
+                logged in, and not lingering, but some processes are
+                still around). In the future additional states might
                 be defined, client code should be written to be robust
                 in regards to additional state strings being
                 returned. The returned string needs to be freed with
