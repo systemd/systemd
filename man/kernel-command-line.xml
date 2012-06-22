@@ -60,14 +60,15 @@
 
                 <para>For command line parameters understood by the
                 kernel please see <ulink
-                url="https://www.kernel.org/doc/Documentation/kernel-parameters.txt"><filename>kernel-parameters.txt</filename></ulink>.</para>
+                url="https://www.kernel.org/doc/Documentation/kernel-parameters.txt"><filename>kernel-parameters.txt</filename></ulink>
+                and
+                <citerefentry><refentrytitle>bootparam</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
                 <para>For command line paramaters understood by the
                 initial RAM disk, please see
                 <citerefentry><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                 or the documentation of the specific initrd
                 implementation of your installation.</para>
-
         </refsect1>
 
         <refsect1>
