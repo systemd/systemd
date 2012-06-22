@@ -215,7 +215,7 @@
                                         <para>Parameters understood by
                                         the device event managing daemon. For
                                         details see
-                                        <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                        <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -283,7 +283,7 @@
                           <citerefentry><refentrytitle>quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>plymouth</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>
