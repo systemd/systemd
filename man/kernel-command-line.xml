@@ -64,7 +64,9 @@
 
                 <para>For command line paramaters understood by the
                 initial RAM disk, please see
-                <citerefentry><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+                <citerefentry><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                or the documentation of the specific initrd
+                implementation of your installation.</para>
 
         </refsect1>
 
