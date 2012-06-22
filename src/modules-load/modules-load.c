@@ -32,6 +32,9 @@
 #include "util.h"
 #include "strv.h"
 #include "conf-files.h"
+#include "virt.h"
+
+static char **arg_proc_cmdline_modules = NULL;
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
@@ -42,11 +45,120 @@ static void systemd_kmod_log(void *data, int priority, const char *file, int lin
 }
 #pragma GCC diagnostic pop
 
-int main(int argc, char *argv[]) {
-        int r = EXIT_FAILURE;
-        char **files, **fn;
-        struct kmod_ctx *ctx;
+static int add_modules(const char *p) {
+        char **t, **k;
+
+        k = strv_split(p, ",");
+        if (!k) {
+                log_error("Out of memory");
+                return -ENOMEM;
+        }
+
+        t = strv_merge(arg_proc_cmdline_modules, k);
+        strv_free(k);
+        if (!t) {
+                log_error("Out of memory");
+                return -ENOMEM;
+        }
+
+        strv_free(arg_proc_cmdline_modules);
+        arg_proc_cmdline_modules = t;
+
+        return 0;
+}
+
+static int parse_proc_cmdline(void) {
+        char *line, *w, *state;
+        int r;
+        size_t l;
+
+        if (detect_container(NULL) > 0)
+                return 0;
+
+        r = read_one_line_file("/proc/cmdline", &line);
+        if (r < 0) {
+                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+                return 0;
+        }
+
+        FOREACH_WORD_QUOTED(w, l, line, state) {
+                char *word;
+
+                word = strndup(w, l);
+                if (!word) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (startswith(word, "driver=")) {
+
+                        r = add_modules(word + 7);
+                        if (r < 0)
+                                goto finish;
+
+                } else if (startswith(word, "rd.driver=")) {
+
+                        if (in_initrd()) {
+                                r = add_modules(word + 10);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                }
+
+                free(word);
+        }
+
+        r = 0;
+
+finish:
+        free(line);
+        return r;
+}
+
+static int load_module(struct kmod_ctx *ctx, const char *m) {
         const int probe_flags = KMOD_PROBE_APPLY_BLACKLIST|KMOD_PROBE_IGNORE_LOADED;
+        struct kmod_list *itr, *modlist = NULL;
+        int r = 0;
+
+        log_debug("load: %s\n", m);
+
+        r = kmod_module_new_from_lookup(ctx, m, &modlist);
+        if (r < 0) {
+                log_error("Failed to lookup alias '%s': %s", m, strerror(-r));
+                return r;
+        }
+
+        kmod_list_foreach(itr, modlist) {
+                struct kmod_module *mod;
+                int err;
+
+                mod = kmod_module_get_module(itr);
+                err = kmod_module_probe_insert_module(mod, probe_flags,
+                                                      NULL, NULL, NULL, NULL);
+
+                if (err == 0)
+                        log_info("Inserted module '%s'", kmod_module_get_name(mod));
+                else if (err == KMOD_PROBE_APPLY_BLACKLIST)
+                        log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
+                else {
+                        log_error("Failed to insert '%s': %s", kmod_module_get_name(mod),
+                                  strerror(-err));
+                        r = err;
+                }
+
+                kmod_module_unref(mod);
+        }
+
+        kmod_module_unref_list(modlist);
+
+        return r;
+}
+
+int main(int argc, char *argv[]) {
+        int r = EXIT_FAILURE, k;
+        char **files, **fn, **i;
+        struct kmod_ctx *ctx;
 
         if (argc > 1) {
                 log_error("This program takes no argument.");
@@ -59,6 +171,9 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
+        if (parse_proc_cmdline() < 0)
+                return EXIT_FAILURE;
+
         ctx = kmod_new(NULL, NULL);
         if (!ctx) {
                 log_error("Failed to allocate memory for kmod.");
@@ -66,10 +181,17 @@ int main(int argc, char *argv[]) {
         }
 
         kmod_load_resources(ctx);
-
         kmod_set_log_fn(ctx, systemd_kmod_log, NULL);
 
-        if (conf_files_list(&files, ".conf",
+        r = EXIT_SUCCESS;
+
+        STRV_FOREACH(i, arg_proc_cmdline_modules) {
+                k = load_module(ctx, *i);
+                if (k < 0)
+                        r = EXIT_FAILURE;
+        }
+
+        k = conf_files_list(&files, ".conf",
                             "/etc/modules-load.d",
                             "/run/modules-load.d",
                             "/usr/local/lib/modules-load.d",
@@ -77,12 +199,12 @@ int main(int argc, char *argv[]) {
 #ifdef HAVE_SPLIT_USR
                             "/lib/modules-load.d",
 #endif
-                            NULL) < 0) {
-                log_error("Failed to enumerate modules-load.d files: %s", strerror(-r));
+                            NULL);
+        if (k < 0) {
+                log_error("Failed to enumerate modules-load.d files: %s", strerror(-k));
+                r = EXIT_FAILURE;
                 goto finish;
         }
-
-        r = EXIT_SUCCESS;
 
         STRV_FOREACH(fn, files) {
                 FILE *f;
@@ -100,8 +222,6 @@ int main(int argc, char *argv[]) {
                 log_debug("apply: %s\n", *fn);
                 for (;;) {
                         char line[LINE_MAX], *l;
-                        struct kmod_list *itr, *modlist = NULL;
-                        int err;
 
                         if (!fgets(line, sizeof(line), f))
                                 break;
@@ -110,34 +230,9 @@ int main(int argc, char *argv[]) {
                         if (*l == '#' || *l == 0)
                                 continue;
 
-                        err = kmod_module_new_from_lookup(ctx, l, &modlist);
-                        if (err < 0) {
-                                log_error("Failed to lookup alias '%s'", l);
+                        k = load_module(ctx, l);
+                        if (k < 0)
                                 r = EXIT_FAILURE;
-                                continue;
-                        }
-
-                        kmod_list_foreach(itr, modlist) {
-                                struct kmod_module *mod;
-
-                                mod = kmod_module_get_module(itr);
-                                err = kmod_module_probe_insert_module(mod, probe_flags,
-                                                                      NULL, NULL, NULL, NULL);
-
-                                if (err == 0)
-                                        log_info("Inserted module '%s'", kmod_module_get_name(mod));
-                                else if (err == KMOD_PROBE_APPLY_BLACKLIST)
-                                        log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
-                                else {
-                                        log_error("Failed to insert '%s': %s", kmod_module_get_name(mod),
-                                                        strerror(-err));
-                                        r = EXIT_FAILURE;
-                                }
-
-                                kmod_module_unref(mod);
-                        }
-
-                        kmod_module_unref_list(modlist);
                 }
 
                 if (ferror(f)) {
@@ -151,6 +246,7 @@ int main(int argc, char *argv[]) {
 finish:
         strv_free(files);
         kmod_unref(ctx);
+        strv_free(arg_proc_cmdline_modules);
 
         return r;
 }

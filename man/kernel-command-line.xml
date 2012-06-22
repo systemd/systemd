@@ -206,8 +206,8 @@
                                 <term><varname>rd.udev.log-priority=</varname></term>
                                 <term><varname>udev.children-max=</varname></term>
                                 <term><varname>rd.udev.children-max=</varname></term>
-                                <term><varname>udev.udev.exec-delay=</varname></term>
-                                <term><varname>rd.udev.udev.exec-delay=</varname></term>
+                                <term><varname>udev.exec-delay=</varname></term>
+                                <term><varname>rd.udev.exec-delay=</varname></term>
 
                                 <listitem>
                                         <para>Parameters understood by
@@ -253,6 +253,18 @@
                                         <filename>/etc/fstab</filename>
                                         logic at boot. For details see
                                         <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>driver=</varname></term>
+                                <term><varname>rd.driver=</varname></term>
+
+                                <listitem>
+                                        <para>Load a specific kernel
+                                        boot early at boot. For
+                                        details see
+                                        <citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
                                 </listitem>
                         </varlistentry>
 
