@@ -7,8 +7,7 @@
 
 [Unit]
 Description=udev Kernel Device Manager
-Documentation=man:udev(7)
-Documentation=man:systemd-udevd(8)
+Documentation=man:udev(7) man:systemd-udevd.service(8)
 Wants=systemd-udev-control.socket systemd-udev-kernel.socket
 After=systemd-udev-control.socket systemd-udev-kernel.socket
 Before=basic.target

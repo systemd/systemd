@@ -24,12 +24,16 @@
   </refmeta>
 
   <refnamediv>
-    <refname>systemd-udevd</refname><refpurpose>event managing daemon</refpurpose>
+    <refname>systemd-udevd.service</refname>
+    <refname>systemd-udevd</refname>
+    <refpurpose>Device event managing daemon</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
+    <para><filename>systemd-logind.service</filename></para>
+
     <cmdsynopsis>
-      <command>systemd-udevd</command>
+      <command>/usr/lib/systemd/systemd-udevd</command>
       <arg><option>--daemon</option></arg>
       <arg><option>--debug</option></arg>
       <arg><option>--children-max=</option></arg>
@@ -38,6 +42,7 @@
       <arg><option>--version</option></arg>
       <arg><option>--help</option></arg>
     </cmdsynopsis>
+
   </refsynopsisdiv>
 
   <refsect1><title>Description</title>

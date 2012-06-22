@@ -41,7 +41,7 @@
     names provide a way to reliably identify devices based on their properties or
     current configuration.</para>
 
-    <para>The udev daemon, <citerefentry><refentrytitle>systemd-udevd</refentrytitle>
+    <para>The udev daemon, <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle>
     <manvolnum>8</manvolnum></citerefentry>, receives device uevents directly from
     the kernel whenever a device is added or removed from the system, or it changes its
     state. When udev receives a device event, it matches its configured set of rules
@@ -691,7 +691,7 @@
   <refsect1>
     <title>See Also</title>
     <para><citerefentry>
-        <refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum>
+        <refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum>
       </citerefentry>,
       <citerefentry>
         <refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum>

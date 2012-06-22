@@ -7,8 +7,7 @@
 
 [Unit]
 Description=udev Kernel Socket
-Documentation=man:udev(7)
-Documentation=man:systemd-udevd(8)
+Documentation=man:udev(7) man:systemd-udevd.service(8)
 DefaultDependencies=no
 ConditionCapability=CAP_MKNOD
 

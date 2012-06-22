@@ -463,7 +463,7 @@
         <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
     </citerefentry>
     <citerefentry>
-        <refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum>
+        <refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum>
     </citerefentry></para>
   </refsect1>
 </refentry>

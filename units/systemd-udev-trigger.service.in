@@ -7,8 +7,7 @@
 
 [Unit]
 Description=udev Coldplug all Devices
-Documentation=man:udev(7)
-Documentation=man:systemd-udevd(8)
+Documentation=man:udev(7) man:systemd-udevd.service(8)
 Wants=systemd-udev.service
 After=systemd-udev-kernel.socket systemd-udev-control.socket
 DefaultDependencies=no
