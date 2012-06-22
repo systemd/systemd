@@ -240,7 +240,19 @@
                                         <para>Configures the LUKS
                                         full-disk encryption logic at
                                         boot. For details see
-                                        <citerefentry><refentrytitle>cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                        <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>fstab=</varname></term>
+                                <term><varname>rd.fstab=</varname></term>
+
+                                <listitem>
+                                        <para>Configures the
+                                        <filename>/etc/fstab</filename>
+                                        logic at boot. For details see
+                                        <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
                                 </listitem>
                         </varlistentry>
 

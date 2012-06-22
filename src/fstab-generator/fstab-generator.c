@@ -32,8 +32,10 @@
 #include "mount-setup.h"
 #include "special.h"
 #include "mkdir.h"
+#include "virt.h"
 
 static const char *arg_dest = "/tmp";
+static bool arg_enabled = true;
 
 static int device_name(const char *path, char **unit) {
         char *p;
@@ -492,6 +494,62 @@ finish:
         return r;
 }
 
+static int parse_proc_cmdline(void) {
+        char *line, *w, *state;
+        int r;
+        size_t l;
+
+        if (detect_container(NULL) > 0)
+                return 0;
+
+        r = read_one_line_file("/proc/cmdline", &line);
+        if (r < 0) {
+                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+                return 0;
+        }
+
+        FOREACH_WORD_QUOTED(w, l, line, state) {
+                char *word;
+
+                word = strndup(w, l);
+                if (!word) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (startswith(word, "fstab=")) {
+                        r = parse_boolean(word + 6);
+                        if (r < 0)
+                                log_warning("Failed to parse fstab switch %s. Ignoring.", word + 6);
+                        else
+                                arg_enabled = r;
+
+                } else if (startswith(word, "rd.fstab=")) {
+
+                        if (in_initrd()) {
+                                r = parse_boolean(word + 6);
+                                if (r < 0)
+                                        log_warning("Failed to parse fstab switch %s. Ignoring.", word + 6);
+                                else
+                                        arg_enabled = r;
+                        }
+
+                } else if (startswith(word, "fstab.") ||
+                           (in_initrd() && startswith(word, "rd.fstab."))) {
+
+                        log_warning("Unknown kernel switch %s. Ignoring.", word);
+                }
+
+                free(word);
+        }
+
+        r = 0;
+
+finish:
+        free(line);
+        return r;
+}
+
 int main(int argc, char *argv[]) {
         int r;
 
@@ -508,6 +566,12 @@ int main(int argc, char *argv[]) {
         log_open();
 
         umask(0022);
+
+        if (parse_proc_cmdline() < 0)
+                return EXIT_FAILURE;
+
+        if (!arg_enabled)
+                return EXIT_SUCCESS;
 
         r = parse_fstab();
 

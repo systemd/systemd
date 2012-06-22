@@ -30,9 +30,7 @@ Features:
 
 * exclude processes marked with argv[0][0]=@ from the normal service killing too
 
-* support rd.luks= kernel cmdline params in cryptsetup generator
-
-* support rd.fstab= kernel cmdline params in fstab generator
+* support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
 
 * support rd.driver= kernel cmdline params in modules load
 
