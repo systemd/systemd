@@ -462,6 +462,7 @@ MANPAGES = \
 	man/systemd.journal-fields.7 \
 	man/kernel-command-line.7 \
 	man/daemon.7 \
+	man/bootup.7 \
 	man/runlevel.8 \
 	man/telinit.8 \
 	man/halt.8 \
