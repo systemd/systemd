@@ -90,7 +90,6 @@ $1.UtmpIdentifier,               config_parse_unit_string_printf,    0,         
 $1.ControlGroupModify,           config_parse_bool,                  0,                             offsetof($1, exec_context.control_group_modify)
 $1.ControlGroupPersistent,       config_parse_tristate,              0,                             offsetof($1, exec_context.control_group_persistent)'
 )m4_dnl
-Unit.Names,                      config_parse_unit_names,            0,                             0
 Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Unit, description)
 Unit.Documentation,              config_parse_documentation,         0,                             offsetof(Unit, documentation)
 Unit.SourcePath,                 config_parse_path,                  0,                             offsetof(Unit, source_path)

@@ -870,35 +870,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>Names=</varname></term>
-
-                                <listitem><para>Additional names for
-                                this unit. The names listed here must
-                                have the same suffix (i.e. type) as
-                                the unit file name. This option may be
-                                specified more than once, in which
-                                case all listed names are used. Note
-                                that this option is different from the
-                                <varname>Alias=</varname> option from
-                                the [Install] section mentioned
-                                below. See below for details. Note
-                                that in almost all cases this option
-                                is not what you want. A symlink alias
-                                in the file system is generally
-                                preferable since it can be used as
-                                lookup key. If a unit with a symlinked
-                                alias name is not loaded and needs to
-                                be it is easily found via the
-                                symlink. However, if a unit with an
-                                alias name configured with this
-                                setting is not loaded it will not be
-                                discovered. This settings' only use is
-                                in conjunction with service
-                                instances.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>SourcePath=</varname></term>
                                 <listitem><para>A path to a
                                 configuration file this unit has been
@@ -936,30 +907,7 @@
                                 time,
                                 <command>systemctl enable</command>
                                 will create symlinks from these names
-                                to the unit file name. Note that this
-                                is different from the
-                                <varname>Names=</varname> option from
-                                the [Unit] section mentioned above:
-                                The names from
-                                <varname>Names=</varname> apply
-                                unconditionally if the unit is
-                                loaded. The names from
-                                <varname>Alias=</varname> apply only
-                                if the unit has actually been
-                                installed with the
-                                <command>systemctl enable</command>
-                                command.  Also, if systemd searches for a
-                                unit, it will discover symlinked alias
-                                names as configured with
-                                <varname>Alias=</varname>, but not
-                                names configured with
-                                <varname>Names=</varname> only. It is
-                                a common pattern to list a name in
-                                both options. In this case, a unit
-                                will be active under all names if
-                                installed, but also if not installed
-                                but requested explicitly under its
-                                main name.</para></listitem>
+                                to the unit file name.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

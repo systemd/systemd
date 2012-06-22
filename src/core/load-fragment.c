@@ -105,49 +105,6 @@ int config_parse_unit_deps(
         return 0;
 }
 
-int config_parse_unit_names(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Unit *u = userdata;
-        char *w;
-        size_t l;
-        char *state;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char *t, *k;
-                int r;
-
-                t = strndup(w, l);
-                if (!t)
-                        return -ENOMEM;
-
-                k = unit_name_printf(u, t);
-                free(t);
-                if (!k)
-                        return -ENOMEM;
-
-                r = unit_merge_by_name(u, k);
-                if (r < 0)
-                        log_error("Failed to add name %s, ignoring: %s", k, strerror(-r));
-
-                free(k);
-        }
-
-        return 0;
-}
-
 int config_parse_unit_string_printf(
                 const char *filename,
                 unsigned line,
@@ -2395,7 +2352,6 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_limit,                 "LIMIT" },
                 { config_parse_unit_cgroup,           "CGROUP [...]" },
                 { config_parse_unit_deps,             "UNIT [...]" },
-                { config_parse_unit_names,            "UNIT [...]" },
                 { config_parse_exec,                  "PATH [ARGUMENT [...]]" },
                 { config_parse_service_type,          "SERVICETYPE" },
                 { config_parse_service_restart,       "SERVICERESTART" },
