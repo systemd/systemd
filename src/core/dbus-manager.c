@@ -250,14 +250,6 @@
         "  <property name=\"ShutdownWatchdogUSec\" type=\"s\" access=\"readwrite\"/>\n" \
         "  <property name=\"HaveWatchdog\" type=\"b\" access=\"read\"/>\n"
 
-#ifdef HAVE_SYSV_COMPAT
-#define BUS_MANAGER_INTERFACE_PROPERTIES_SYSV                           \
-        "  <property name=\"SysVInitPath\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"SysVRcndPath\" type=\"as\" access=\"read\"/>\n"
-#else
-#define BUS_MANAGER_INTERFACE_PROPERTIES_SYSV
-#endif
-
 #define BUS_MANAGER_INTERFACE_END                                       \
         " </interface>\n"
 
@@ -266,7 +258,6 @@
         BUS_MANAGER_INTERFACE_METHODS                                   \
         BUS_MANAGER_INTERFACE_SIGNALS                                   \
         BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
-        BUS_MANAGER_INTERFACE_PROPERTIES_SYSV                           \
         BUS_MANAGER_INTERFACE_END
 
 #define INTROSPECTION_BEGIN                                             \
@@ -567,10 +558,6 @@ static const BusProperty bus_manager_properties[] = {
         { "RuntimeWatchdogUSec", bus_property_append_usec,         "t", offsetof(Manager, runtime_watchdog),           false, bus_manager_set_runtime_watchdog_usec },
         { "ShutdownWatchdogUSec", bus_property_append_usec,        "t", offsetof(Manager, shutdown_watchdog),          false, bus_property_set_usec },
         { "HaveWatchdog",  bus_manager_append_have_watchdog,       "b", 0                                              },
-#ifdef HAVE_SYSV_COMPAT
-        { "SysVInitPath",  bus_property_append_strv,              "as", offsetof(Manager, lookup_paths.sysvinit_path), true },
-        { "SysVRcndPath",  bus_property_append_strv,              "as", offsetof(Manager, lookup_paths.sysvrcnd_path), true },
-#endif
         { NULL, }
 };
 

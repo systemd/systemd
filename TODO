@@ -395,3 +395,9 @@ Regularly:
 * pahole
 
 * set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
+
+Scheduled for removal (or fixing):
+
+* xxxOverridable dependencies
+
+* Names= unit option
