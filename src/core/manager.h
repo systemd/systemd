@@ -222,9 +222,6 @@ struct Manager {
 
         bool show_status;
         bool confirm_spawn;
-#ifdef HAVE_SYSV_COMPAT
-        bool sysv_console;
-#endif
 
         ExecOutput default_std_output, default_std_error;
 

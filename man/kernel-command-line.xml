@@ -80,7 +80,6 @@
                                 <term><varname>systemd.crash_chvt=</varname></term>
                                 <term><varname>systemd.confirm_spawn=</varname></term>
                                 <term><varname>systemd.show_status=</varname></term>
-                                <term><varname>systemd.sysv_console=</varname></term>
                                 <term><varname>systemd.log_target=</varname></term>
                                 <term><varname>systemd.log_level=</varname></term>
                                 <term><varname>systemd.log_color=</varname></term>

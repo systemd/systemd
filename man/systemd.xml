@@ -192,18 +192,6 @@
                                 <option>true</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><option>--sysv-console=</option></term>
-
-                                <listitem><para>Controls whether
-                                output of SysV init scripts will be
-                                directed to the console. This switch
-                                has no effect when run as user
-                                instance. Takes a boolean argument
-                                which may be omitted which is
-                                interpreted as
-                                <option>true</option>.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><option>--log-target=</option></term>
 
                                 <listitem><para>Set log
@@ -1049,20 +1037,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>systemd.sysv_console=</varname></term>
-
-                                <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
-                                output of SysV init scripts will be
-                                directed to the console. Defaults to
-                                <option>true</option>, unless
-                                <option>quiet</option> is passed as
-                                kernel command line option in which
-                                case it defaults to
-                                <option>false</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>systemd.log_target=</varname></term>
                                 <term><varname>systemd.log_level=</varname></term>
                                 <term><varname>systemd.log_color=</varname></term>
@@ -1106,12 +1080,8 @@
                                 <term><varname>quiet</varname></term>
 
                                 <listitem><para>If passed turns off
-                                status output at boot, and disconnects
-                                SysV scripts from the console, much
-                                like
+                                status output at boot, much like
                                 <varname>systemd.show_status=false</varname>
-                                and
-                                <varname>systemd.sysv_console=false</varname>
                                 would. Note that this option is also
                                 read by the kernel itself and disables
                                 kernel log output to the

@@ -252,7 +252,6 @@
 
 #ifdef HAVE_SYSV_COMPAT
 #define BUS_MANAGER_INTERFACE_PROPERTIES_SYSV                           \
-        "  <property name=\"SysVConsole\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"SysVInitPath\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"SysVRcndPath\" type=\"as\" access=\"read\"/>\n"
 #else
@@ -569,7 +568,6 @@ static const BusProperty bus_manager_properties[] = {
         { "ShutdownWatchdogUSec", bus_property_append_usec,        "t", offsetof(Manager, shutdown_watchdog),          false, bus_property_set_usec },
         { "HaveWatchdog",  bus_manager_append_have_watchdog,       "b", 0                                              },
 #ifdef HAVE_SYSV_COMPAT
-        { "SysVConsole",   bus_property_append_bool,               "b", offsetof(Manager, sysv_console)                },
         { "SysVInitPath",  bus_property_append_strv,              "as", offsetof(Manager, lookup_paths.sysvinit_path), true },
         { "SysVRcndPath",  bus_property_append_strv,              "as", offsetof(Manager, lookup_paths.sysvrcnd_path), true },
 #endif

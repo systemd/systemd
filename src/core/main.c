@@ -79,9 +79,6 @@ static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
 static bool arg_show_status = true;
 static bool arg_switched_root = false;
-#ifdef HAVE_SYSV_COMPAT
-static bool arg_sysv_console = true;
-#endif
 static char **arg_default_controllers = NULL;
 static char ***arg_join_controllers = NULL;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
@@ -364,15 +361,6 @@ static int parse_proc_cmdline_word(const char *word) {
                                 log_warning("setenv failed %s. Ignoring.", strerror(errno));
                 }
                 free(cenv);
-#ifdef HAVE_SYSV_COMPAT
-        } else if (startswith(word, "systemd.sysv_console=")) {
-                int r;
-
-                if ((r = parse_boolean(word + 21)) < 0)
-                        log_warning("Failed to parse SysV console switch %s. Ignoring.", word + 20);
-                else
-                        arg_sysv_console = r;
-#endif
 
         } else if (startswith(word, "systemd.") ||
                    (in_initrd() && startswith(word, "rd.systemd."))) {
@@ -387,9 +375,6 @@ static int parse_proc_cmdline_word(const char *word) {
                          "systemd.crash_chvt=N                     Change to VT #N on crash\n"
                          "systemd.confirm_spawn=0|1                Confirm every process spawn\n"
                          "systemd.show_status=0|1                  Show status updates on the console during bootup\n"
-#ifdef HAVE_SYSV_COMPAT
-                         "systemd.sysv_console=0|1                 Connect output of SysV scripts to console\n"
-#endif
                          "systemd.log_target=console|kmsg|journal|journal-or-kmsg|syslog|syslog-or-kmsg|null\n"
                          "                                         Log target\n"
                          "systemd.log_level=LEVEL                  Log level\n"
@@ -401,12 +386,9 @@ static int parse_proc_cmdline_word(const char *word) {
                          "                                         Set default log error output for services\n"
                          "systemd.setenv=ASSIGNMENT                Set an environment variable for all spawned processes\n");
 
-        } else if (streq(word, "quiet")) {
+        } else if (streq(word, "quiet"))
                 arg_show_status = false;
-#ifdef HAVE_SYSV_COMPAT
-                arg_sysv_console = false;
-#endif
-        } else if (!in_initrd()) {
+        else if (!in_initrd()) {
                 unsigned i;
 
                 /* SysV compatibility */
@@ -672,9 +654,6 @@ static int parse_config_file(void) {
                 { "Manager", "DumpCore",              config_parse_bool,         0, &arg_dump_core           },
                 { "Manager", "CrashShell",            config_parse_bool,         0, &arg_crash_shell         },
                 { "Manager", "ShowStatus",            config_parse_bool,         0, &arg_show_status         },
-#ifdef HAVE_SYSV_COMPAT
-                { "Manager", "SysVConsole",           config_parse_bool,         0, &arg_sysv_console        },
-#endif
                 { "Manager", "CrashChVT",             config_parse_int,          0, &arg_crash_chvt          },
                 { "Manager", "CPUAffinity",           config_parse_cpu_affinity2, 0, NULL                    },
                 { "Manager", "DefaultControllers",    config_parse_strv,         0, &arg_default_controllers },
@@ -780,7 +759,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CRASH_SHELL,
                 ARG_CONFIRM_SPAWN,
                 ARG_SHOW_STATUS,
-                ARG_SYSV_CONSOLE,
                 ARG_DESERIALIZE,
                 ARG_SWITCHED_ROOT,
                 ARG_INTROSPECT,
@@ -803,9 +781,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "crash-shell",              optional_argument, NULL, ARG_CRASH_SHELL              },
                 { "confirm-spawn",            optional_argument, NULL, ARG_CONFIRM_SPAWN            },
                 { "show-status",              optional_argument, NULL, ARG_SHOW_STATUS              },
-#ifdef HAVE_SYSV_COMPAT
-                { "sysv-console",             optional_argument, NULL, ARG_SYSV_CONSOLE             },
-#endif
                 { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
                 { "switched-root",            no_argument,       NULL, ARG_SWITCHED_ROOT            },
                 { "introspect",               optional_argument, NULL, ARG_INTROSPECT               },
@@ -946,17 +921,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_show_status = r;
                         break;
 
-#ifdef HAVE_SYSV_COMPAT
-                case ARG_SYSV_CONSOLE:
-                        r = optarg ? parse_boolean(optarg) : 1;
-                        if (r < 0) {
-                                log_error("Failed to parse SysV console boolean %s.", optarg);
-                                return r;
-                        }
-                        arg_sysv_console = r;
-                        break;
-#endif
-
                 case ARG_DESERIALIZE: {
                         int fd;
                         FILE *f;
@@ -1072,9 +1036,6 @@ static int help(void) {
                "     --crash-shell[=0|1]         Run shell on crash\n"
                "     --confirm-spawn[=0|1]       Ask for confirmation when spawning processes\n"
                "     --show-status[=0|1]         Show status updates on the console during bootup\n"
-#ifdef HAVE_SYSV_COMPAT
-               "     --sysv-console[=0|1]        Connect output of SysV scripts to console\n"
-#endif
                "     --log-target=TARGET         Set log target (console, journal, syslog, kmsg, journal-or-kmsg, syslog-or-kmsg, null)\n"
                "     --log-level=LEVEL           Set log level (debug, info, notice, warning, err, crit, alert, emerg)\n"
                "     --log-color[=0|1]           Highlight important log messages\n"
@@ -1515,9 +1476,6 @@ int main(int argc, char *argv[]) {
         }
 
         m->confirm_spawn = arg_confirm_spawn;
-#ifdef HAVE_SYSV_COMPAT
-        m->sysv_console = arg_sysv_console;
-#endif
         m->default_std_output = arg_default_std_output;
         m->default_std_error = arg_default_std_error;
         m->runtime_watchdog = arg_runtime_watchdog;
