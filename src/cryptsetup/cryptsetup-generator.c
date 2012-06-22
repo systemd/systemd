@@ -27,8 +27,13 @@
 #include "util.h"
 #include "unit-name.h"
 #include "mkdir.h"
+#include "virt.h"
+#include "strv.h"
 
-const char *arg_dest = "/tmp";
+static const char *arg_dest = "/tmp";
+static bool arg_enabled = true;
+static bool arg_read_crypttab = true;
+static char **arg_proc_cmdline_disks = NULL;
 
 static bool has_option(const char *haystack, const char *needle) {
         const char *f = haystack;
@@ -235,10 +240,111 @@ fail:
         return r;
 }
 
+static int parse_proc_cmdline(void) {
+        char *line, *w, *state;
+        int r;
+        size_t l;
+
+        if (detect_container(NULL) > 0)
+                return 0;
+
+        r = read_one_line_file("/proc/cmdline", &line);
+        if (r < 0) {
+                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+                return 0;
+        }
+
+        FOREACH_WORD_QUOTED(w, l, line, state) {
+                char *word;
+
+                word = strndup(w, l);
+                if (!word) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (startswith(word, "luks=")) {
+                        r = parse_boolean(word + 5);
+                        if (r < 0)
+                                log_warning("Failed to parse luks switch %s. Ignoring.", word + 5);
+                        else
+                                arg_enabled = r;
+
+                } else if (startswith(word, "rd.luks=")) {
+
+                        if (in_initrd()) {
+                                r = parse_boolean(word + 8);
+                                if (r < 0)
+                                        log_warning("Failed to parse luks switch %s. Ignoring.", word + 8);
+                                else
+                                        arg_enabled = r;
+                        }
+
+                } else if (startswith(word, "luks.crypttab=")) {
+                        r = parse_boolean(word + 14);
+                        if (r < 0)
+                                log_warning("Failed to parse luks crypttab switch %s. Ignoring.", word + 14);
+                        else
+                                arg_read_crypttab = r;
+
+                } else if (startswith(word, "rd.luks.crypttab=")) {
+
+                        if (in_initrd()) {
+                                r = parse_boolean(word + 17);
+                                if (r < 0)
+                                        log_warning("Failed to parse luks crypttab switch %s. Ignoring.", word + 17);
+                                else
+                                        arg_read_crypttab = r;
+                        }
+
+                } else if (startswith(word, "luks.uuid=")) {
+                        char **t;
+
+                        t = strv_append(arg_proc_cmdline_disks, word + 10);
+                        if (!t) {
+                                log_error("Out of memory");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+                        strv_free(arg_proc_cmdline_disks);
+                        arg_proc_cmdline_disks = t;
+
+                } else if (startswith(word, "rd.luks.uuid=")) {
+
+                        if (in_initrd()) {
+                                char **t;
+
+                                t = strv_append(arg_proc_cmdline_disks, word + 13);
+                                if (!t) {
+                                        log_error("Out of memory");
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+                                strv_free(arg_proc_cmdline_disks);
+                                arg_proc_cmdline_disks = t;
+                        }
+
+                } else if (startswith(word, "luks.") ||
+                           (in_initrd() && startswith(word, "rd.luks."))) {
+
+                        log_warning("Unknown kernel switch %s. Ignoring.", word);
+                }
+
+                free(word);
+        }
+
+        r = 0;
+
+finish:
+        free(line);
+        return r;
+}
+
 int main(int argc, char *argv[]) {
-        FILE *f;
+        FILE *f = NULL;
         int r = EXIT_SUCCESS;
         unsigned n = 0;
+        char **i;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -253,6 +359,42 @@ int main(int argc, char *argv[]) {
         log_open();
 
         umask(0022);
+
+        if (parse_proc_cmdline() < 0)
+                return EXIT_FAILURE;
+
+        if (!arg_enabled) {
+                r = EXIT_SUCCESS;
+                goto finish;
+        }
+
+        STRV_FOREACH(i, arg_proc_cmdline_disks) {
+                char *name, *device;
+                const char *p = *i;
+
+                if (startswith(p, "luks-"))
+                        p += 5;
+
+                name = strappend("luks-", *i);
+                device = strappend("UUID=", *i);
+
+                if (!name || !device) {
+                        log_error("Out of memory");
+                        r = EXIT_FAILURE;
+                        free(name);
+                        free(device);
+                        goto finish;
+                }
+
+                if (create_disk(name, device, NULL, NULL) < 0)
+                        r = EXIT_FAILURE;
+
+                free(name);
+                free(device);
+        }
+
+        if (!arg_read_crypttab)
+                return r;
 
         f = fopen("/etc/crypttab", "re");
         if (!f) {
@@ -299,5 +441,10 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
+        if (f)
+                fclose(f);
+
+        strv_free(arg_proc_cmdline_disks);
+
         return r;
 }

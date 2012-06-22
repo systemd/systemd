@@ -52,8 +52,8 @@ static int parse_proc_cmdline(void) {
                         arg_force = true;
                 else if (strneq(w, "quotacheck.mode=skip", l))
                         arg_skip = true;
-                else if (startswith(w, "quotacheck.mode"))
-                        log_warning("Invalid quotacheck.mode= parameter. Ignoring.");
+                else if (startswith(w, "quotacheck"))
+                        log_warning("Invalid quotacheck parameter. Ignoring.");
 #if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
                 else if (strneq(w, "forcequotacheck", l))
                         arg_force = true;

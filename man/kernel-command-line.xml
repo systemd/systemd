@@ -203,10 +203,10 @@
 
                         <varlistentry>
                                 <term><varname>udev.log-priority=</varname></term>
-                                <term><varname>udev.children-max=</varname></term>
-                                <term><varname>udev.udev.exec-delay=</varname></term>
                                 <term><varname>rd.udev.log-priority=</varname></term>
+                                <term><varname>udev.children-max=</varname></term>
                                 <term><varname>rd.udev.children-max=</varname></term>
+                                <term><varname>udev.udev.exec-delay=</varname></term>
                                 <term><varname>rd.udev.udev.exec-delay=</varname></term>
 
                                 <listitem>
@@ -216,8 +216,35 @@
                                         <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
                                 </listitem>
                         </varlistentry>
-                </variablelist>
 
+                        <varlistentry>
+                                <term><varname>plymouth.enable=</varname></term>
+
+                                <listitem>
+                                        <para>May be used to disable
+                                        the Plymouth boot splash. For
+                                        details see
+                                        <citerefentry><refentrytitle>plymouth</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>luks=</varname></term>
+                                <term><varname>rd.luks=</varname></term>
+                                <term><varname>luks.crypttab=</varname></term>
+                                <term><varname>rd.luks.crypttab=</varname></term>
+                                <term><varname>luks.uuid=</varname></term>
+                                <term><varname>rd.luks.uuid=</varname></term>
+
+                                <listitem>
+                                        <para>Configures the LUKS
+                                        full-disk encryption logic at
+                                        boot. For details see
+                                        <citerefentry><refentrytitle>cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                </variablelist>
 
         </refsect1>
 

@@ -112,7 +112,8 @@ static int parse_proc_cmdline(void) {
         if (detect_container(NULL) > 0)
                 return 0;
 
-        if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
+        r = read_one_line_file("/proc/cmdline", &line);
+        if (r < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
                 return 0;
         }
@@ -125,8 +126,8 @@ static int parse_proc_cmdline(void) {
                         arg_force = true;
                 else if (strneq(w, "fsck.mode=skip", l))
                         arg_skip = true;
-                else if (startswith(w, "fsck.mode"))
-                        log_warning("Invalid fsck.mode= parameter. Ignoring.");
+                else if (startswith(w, "fsck"))
+                        log_warning("Invalid fsck parameter. Ignoring.");
 #if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
                 else if (strneq(w, "fastboot", l))
                         arg_skip = true;

@@ -374,7 +374,8 @@ static int parse_proc_cmdline_word(const char *word) {
                         arg_sysv_console = r;
 #endif
 
-        } else if (startswith(word, "systemd.")) {
+        } else if (startswith(word, "systemd.") ||
+                   (in_initrd() && startswith(word, "rd.systemd."))) {
 
                 log_warning("Unknown kernel switch %s. Ignoring.", word);
 

@@ -2648,7 +2648,8 @@ static int server_parse_proc_cmdline(Server *s) {
                                 log_warning("Failed to parse forward to console switch %s. Ignoring.", word + 36);
                         else
                                 s->forward_to_console = r;
-                }
+                } else if (startswith(word, "systemd.journald"))
+                        log_warning("Invalid systemd.journald parameter. Ignoring.");
 
                 free(word);
         }
