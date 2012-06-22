@@ -30,7 +30,8 @@
 int main(int argc, char* argv[]) {
         int r;
 
-        if ((r = hostname_setup()) < 0)
+        r = hostname_setup();
+        if (r < 0)
                 fprintf(stderr, "hostname: %s\n", strerror(-r));
 
         return 0;

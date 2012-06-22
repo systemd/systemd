@@ -906,7 +906,8 @@ noinst_PROGRAMS += \
 	test-env-replace \
 	test-strv \
 	test-install \
-	test-watchdog
+	test-watchdog \
+	test-unit-name
 
 TESTS += \
 	test-job-type \
@@ -953,6 +954,12 @@ test_hostname_SOURCES = \
 	src/test/test-hostname.c
 
 test_hostname_LDADD = \
+	libsystemd-core.la
+
+test_unit_name_SOURCES = \
+	src/test/test-unit-name.c
+
+test_unit_name_LDADD = \
 	libsystemd-core.la
 
 test_daemon_SOURCES = \

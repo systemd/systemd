@@ -140,7 +140,8 @@ char *unit_name_to_prefix_and_instance(const char *n) {
 char *unit_name_to_prefix(const char *n) {
         const char *p;
 
-        if ((p = strchr(n, '@')))
+        p = strchr(n, '@');
+        if (p)
                 return strndup(n, p - n);
 
         return unit_name_to_prefix_and_instance(n);
@@ -158,7 +159,8 @@ char *unit_name_change_suffix(const char *n, const char *suffix) {
         a = e - n;
         b = strlen(suffix);
 
-        if (!(r = new(char, a + b + 1)))
+        r = new(char, a + b + 1);
+        if (!r)
                 return NULL;
 
         memcpy(r, n, a);
@@ -234,7 +236,8 @@ char *unit_name_build_escape(const char *prefix, const char *instance, const cha
         if (instance) {
                 b = strlen(instance);
 
-                if (!(r = new(char, a*4 + 1 + b*4 + c + 1)))
+                r = new(char, a*4 + 1 + b*4 + c + 1);
+                if (!r)
                         return NULL;
 
                 t = do_escape(prefix, r);
@@ -255,14 +258,14 @@ char *unit_name_build_escape(const char *prefix, const char *instance, const cha
 char *unit_name_escape(const char *f) {
         char *r, *t;
 
-        if (!(r = new(char, strlen(f)*4+1)))
+        r = new(char, strlen(f)*4+1);
+        if (!r)
                 return NULL;
 
         t = do_escape(f, r);
         *t = 0;
 
         return r;
-
 }
 
 char *unit_name_unescape(const char *f) {
@@ -270,7 +273,8 @@ char *unit_name_unescape(const char *f) {
 
         assert(f);
 
-        if (!(r = strdup(f)))
+        r = strdup(f);
+        if (!r)
                 return NULL;
 
         for (t = r; *f; f++) {
@@ -347,13 +351,15 @@ char *unit_name_template(const char *f) {
         char *r;
         size_t a;
 
-        if (!(p = strchr(f, '@')))
+        p = strchr(f, '@');
+        if (!p)
                 return strdup(f);
 
         assert_se(e = strrchr(f, '.'));
         a = p - f + 1;
 
-        if (!(r = new(char, a + strlen(e) + 1)))
+        r = new(char, a + strlen(e) + 1);
+        if (!r)
                 return NULL;
 
         strcpy(mempcpy(r, f, a), e);
@@ -367,7 +373,8 @@ char *unit_name_from_path(const char *path, const char *suffix) {
         assert(path);
         assert(suffix);
 
-        if (!(p = strdup(path)))
+        p = strdup(path);
+        if (!p)
                 return NULL;
 
         path_kill_slashes(p);
@@ -414,7 +421,8 @@ char *unit_name_to_path(const char *name) {
 
         assert(name);
 
-        if (!(w = unit_name_to_prefix(name)))
+        w = unit_name_to_prefix(name);
+        if (!w)
                 return NULL;
 
         e = unit_name_unescape(w);
@@ -430,7 +438,7 @@ char *unit_name_to_path(const char *name) {
                 if (!w)
                         return NULL;
 
-                e = w;
+                return w;
         }
 
         return e;
@@ -441,7 +449,8 @@ char *unit_name_path_unescape(const char *f) {
 
         assert(f);
 
-        if (!(e = unit_name_unescape(f)))
+        e = unit_name_unescape(f);
+        if (!e)
                 return NULL;
 
         if (e[0] != '/') {
@@ -453,7 +462,7 @@ char *unit_name_path_unescape(const char *f) {
                 if (!w)
                         return NULL;
 
-                e = w;
+                return w;
         }
 
         return e;
@@ -470,4 +479,42 @@ char *unit_dbus_path_from_name(const char *name) {
         free(e);
 
         return p;
+}
+
+char *unit_name_mangle(const char *name) {
+        char *r, *t;
+        const char *f;
+
+        assert(name);
+
+        /* Try to turn a string that might not be a unit name into a
+         * sensible unit name. */
+
+        if (path_startswith(name, "/dev/") ||
+            path_startswith(name, "/sys/"))
+                return unit_name_from_path(name, ".device");
+
+        if (path_is_absolute(name))
+                return unit_name_from_path(name, ".mount");
+
+        /* We'll only escape the obvious characters here, to play
+         * safe. */
+
+        r = new(char, strlen(name) * 4 + 1);
+        if (!r)
+                return NULL;
+
+        for (f = name, t = r; *f; f++) {
+
+                if (*f == '/')
+                        *(t++) = '-';
+                else if (!strchr("@" VALID_CHARS, *f))
+                        t = do_escape_char(*f, t);
+                else
+                        *(t++) = *f;
+        }
+
+        *t = 0;
+
+        return r;
 }

@@ -32,13 +32,9 @@ Features:
 
 * support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
 
-* support rd.driver= kernel cmdline params in modules load
-
 * systemctl: when stopping a service which has triggres and warning about it actually check the TriggeredBy= deps fields
 
 * journal: hook up with EFI firmware log, new kmsg logic
-
-* falconindy: allow unescaped pathes for mount units, like "systmectl status /.mount"?
 
 * handle C-A-Del in logind, like the power/suspend buttons?
 

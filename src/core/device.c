@@ -144,7 +144,8 @@ static int device_add_escaped_name(Unit *u, const char *dn) {
         assert(dn);
         assert(dn[0] == '/');
 
-        if (!(e = unit_name_from_path(dn, ".device")))
+        e = unit_name_from_path(dn, ".device");
+        if (!e)
                 return -ENOMEM;
 
         r = unit_add_name(u, e);
@@ -165,7 +166,8 @@ static int device_find_escape_name(Manager *m, const char *dn, Unit **_u) {
         assert(dn[0] == '/');
         assert(_u);
 
-        if (!(e = unit_name_from_path(dn, ".device")))
+        e = unit_name_from_path(dn, ".device");
+        if (!e)
                 return -ENOMEM;
 
         u = manager_get_unit(m, e);
