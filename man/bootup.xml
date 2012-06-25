@@ -73,7 +73,7 @@
                 storage technologies backing them), and then
                 (optionally) jumps back into the initrd code which
                 unmounts/detaches the root file system and the storage
-                it resides on. As last step the system powered down.</para>
+                it resides on. As last step the system is powered down.</para>
 
                 <para>Additional information about the system boot
                 process may be found in
