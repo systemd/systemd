@@ -366,7 +366,7 @@ static int mount_add_device_links(Mount *m) {
                 /* Let's add in the fsck service */
 
                 /* aka SPECIAL_FSCK_SERVICE */
-                name = unit_name_from_path_instance("fsck", p->what, ".service");
+                name = unit_name_from_path_instance("systemd-fsck", p->what, ".service");
                 if (!name)
                         return -ENOMEM;
 

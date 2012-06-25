@@ -334,8 +334,8 @@ nodist_systemunit_DATA = \
 	units/poweroff.service \
 	units/reboot.service \
 	units/kexec.service \
-	units/fsck@.service \
-	units/fsck-root.service \
+	units/systemd-fsck@.service \
+	units/systemd-fsck-root.service \
 	units/rescue.service \
 	units/suspend.service \
 	units/user@.service \
@@ -374,8 +374,8 @@ EXTRA_DIST += \
 	units/reboot.service.in \
 	units/kexec.service.in \
 	units/user/exit.service.in \
-	units/fsck@.service.in \
-	units/fsck-root.service.in \
+	units/systemd-fsck@.service.in \
+	units/systemd-fsck-root.service.in \
 	units/user@.service.in \
 	units/systemd-udev.service \
 	units/systemd-udev-trigger.service \
@@ -2442,10 +2442,10 @@ rootlibexec_PROGRAMS += \
 	systemd-quotacheck
 
 nodist_systemunit_DATA += \
-	units/quotacheck.service
+	units/systemd-quotacheck.service
 
 EXTRA_DIST += \
-	units/quotacheck.service.in
+	units/systemd-quotacheck.service.in
 
 systemd_quotacheck_SOURCES = \
 	src/quotacheck/quotacheck.c
@@ -3192,10 +3192,10 @@ systemd-install-data-hook:
 		$(LN_S) ../systemd-update-utmp-shutdown.service systemd-update-utmp-shutdown.service )
 	( cd $(DESTDIR)$(systemunitdir)/local-fs.target.wants && \
 		rm -f systemd-remount-fs.service \
-			fsck-root.service \
+			systemd-fsck-root.service \
 			tmp.mount && \
 		$(LN_S) ../systemd-remount-fs.service systemd-remount-fs.service && \
-		$(LN_S) ../fsck-root.service fsck-root.service && \
+		$(LN_S) ../systemd-fsck-root.service systemd-fsck-root.service && \
 		$(LN_S) ../tmp.mount tmp.mount )
 	( cd $(DESTDIR)$(userunitdir) && \
 		rm -f shutdown.target sockets.target bluetooth.target printer.target sound.target && \

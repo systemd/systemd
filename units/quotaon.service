@@ -8,7 +8,7 @@
 [Unit]
 Description=Enable File System Quotas
 DefaultDependencies=no
-After=systemd-readahead-collect.service systemd-readahead-replay.service quotacheck.service
+After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-quotacheck.service
 Before=local-fs.target shutdown.target
 ConditionPathExists=/sbin/quotaon
 

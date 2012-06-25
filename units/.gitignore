@@ -12,9 +12,9 @@ systemd-sysctl.service
 systemd-ask-password-console.service
 rescue.service
 systemd-ask-password-wall.service
-quotacheck.service
-fsck@.service
-fsck-root.service
+/systemd-quotacheck.service
+/systemd-fsck@.service
+/systemd-fsck-root.service
 systemd-tmpfiles-clean.service
 systemd-tmpfiles-setup.service
 halt.service
