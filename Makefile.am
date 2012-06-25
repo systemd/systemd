@@ -2381,7 +2381,13 @@ INSTALL_DATA_HOOKS += \
 	vconsole-install-data-hook
 
 MANPAGES += \
-	man/vconsole.conf.5
+	man/vconsole.conf.5 \
+	man/systemd-vconsole-setup.service.8
+
+MANPAGES_ALIAS += \
+	man/systemd-vconsole-setup.8
+
+man/systemd-vconsole-setup.8: man/systemd-vconsole-setup.service.8
 
 EXTRA_DIST += \
 	units/systemd-vconsole-setup.service.in

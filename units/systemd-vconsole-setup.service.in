@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Setup Virtual Console
-Documentation=man:vconsole.conf(5)
+Documentation=man:systemd-vconsole-setup.service(8) man:vconsole.conf(5)
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-readahead-collect.service systemd-readahead-replay.service

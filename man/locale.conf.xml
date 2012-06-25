@@ -55,7 +55,9 @@
                 <title>Description</title>
 
                 <para>The <filename>/etc/locale.conf</filename> file
-                configures system-wide locale settings.</para>
+                configures system-wide locale settings. It is read at
+                early-boot by
+                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
                 <para>The basic file format of
                 <filename>locale.conf</filename> is a
@@ -139,7 +141,8 @@ LC_MESSAGES=C</programlisting>
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

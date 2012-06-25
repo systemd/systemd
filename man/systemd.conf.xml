@@ -48,8 +48,8 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>system.conf</filename></para>
-                <para><filename>user.conf</filename></para>
+                <para><filename>/etc/systemd/system.conf</filename></para>
+                <para><filename>/etc/systemd/user.conf</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

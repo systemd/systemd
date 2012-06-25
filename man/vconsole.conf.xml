@@ -56,7 +56,8 @@
 
                 <para>The <filename>/etc/vconsole.conf</filename> file
                 configures the virtual console, i.e. keyboard mapping
-                and console font.</para>
+                and console font. It is applied at boot by
+                <citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
                 <para>The basic file format of the
                 <filename>vconsole.conf</filename> is a
@@ -94,7 +95,7 @@
                                 <term><varname>KEYMAP_TOGGLE=</varname></term>
 
                                 <listitem><para>Configures the key
-                                mapping table of for they
+                                mapping table for the
                                 keyboard. <varname>KEYMAP=</varname>
                                 defaults to <literal>us</literal> if
                                 not set. The
@@ -137,9 +138,11 @@ FONT=latarcyrheb-sun16</programlisting>
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>
         </refsect1>
 
