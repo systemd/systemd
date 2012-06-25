@@ -2595,6 +2595,14 @@ hostnamed-install-data-hook:
 INSTALL_DATA_HOOKS += \
 	hostnamed-install-data-hook
 
+MANPAGES += \
+	man/systemd-hostnamed.service.8
+
+MANPAGES_ALIAS += \
+	man/systemd-hostnamed.8
+
+man/systemd-hostnamed.8: man/systemd-hostnamed.service.8
+
 EXTRA_DIST += \
 	units/systemd-hostnamed.service.in
 endif
