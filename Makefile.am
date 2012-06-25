@@ -2704,6 +2704,14 @@ timedated-install-data-hook:
 INSTALL_DATA_HOOKS += \
 	timedated-install-data-hook
 
+MANPAGES += \
+	man/systemd-timedated.service.8
+
+MANPAGES_ALIAS += \
+	man/systemd-timedated.8
+
+man/systemd-timedated.8: man/systemd-timedated.service.8
+
 EXTRA_DIST += \
 	units/systemd-timedated.service.in
 endif

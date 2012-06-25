@@ -7,8 +7,8 @@
 
 [Unit]
 Description=Time & Date Service
+Documentation=man:systemd-timedated.service(8) man:timezone(5)
 Documentation=http://www.freedesktop.org/wiki/Software/systemd/timedated
-Documentation=man:timezone(5)
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-timedated
