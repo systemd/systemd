@@ -2484,6 +2484,17 @@ randomseed-install-data-hook:
 
 INSTALL_DATA_HOOKS += \
 	randomseed-install-data-hook
+
+MANPAGES += \
+	man/systemd-random-seed-load.service.8
+
+MANPAGES_ALIAS +=  \
+	man/systemd-random-seed-save.service.8 \
+	man/systemd-random-seed.8
+
+man/systemd-random-seed-save.service.8: man/systemd-random-seed-load.service.8
+man/systemd-random-seed.8: man/systemd-random-seed-load.service.8
+
 endif
 
 # ------------------------------------------------------------------------------

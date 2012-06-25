@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Save Random Seed
+Documentation=man:systemd-random-seed-load.service(8) man:random(4)
 DefaultDependencies=no
 After=systemd-random-seed-load.service
 Before=shutdown.target
