@@ -898,6 +898,9 @@ EXTRA_DIST += \
 	src/core/systemd.pc.in \
 	src/core/macros.systemd.in
 
+CLEANFILES += \
+	src/core/macros.systemd
+
 # ------------------------------------------------------------------------------
 noinst_PROGRAMS += \
 	test-engine \
