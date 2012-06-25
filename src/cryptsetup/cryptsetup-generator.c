@@ -81,7 +81,7 @@ static int create_disk(
         noauto = has_option(options, "noauto");
         nofail = has_option(options, "nofail");
 
-        n = unit_name_build_escape("cryptsetup", name, ".service");
+        n = unit_name_build_escape("systemd-cryptsetup", name, ".service");
         if (!n) {
                 r = -ENOMEM;
                 log_error("Failed to allocate unit name.");
