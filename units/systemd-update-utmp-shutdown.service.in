@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Update UTMP about System Shutdown
-Documentation=man:utmp(5)
+Documentation=man:systemd-update-utmp-runlevel.service(8) man:utmp(5)
 DefaultDependencies=no
 RequiresMountsFor=/var/log/wtmp
 After=systemd-remount-fs.service systemd-tmpfiles-setup.service auditd.service
