@@ -24,7 +24,7 @@
 <refentry id="systemd-timedated.service">
 
         <refentryinfo>
-                <title>systemd-timedated</title>
+                <title>systemd-timedated.service</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -38,7 +38,7 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-timedated</refentrytitle>
+                <refentrytitle>systemd-timedated.service</refentrytitle>
                 <manvolnum>8</manvolnum>
         </refmeta>
 

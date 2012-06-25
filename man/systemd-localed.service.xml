@@ -24,7 +24,7 @@
 <refentry id="systemd-localed.service">
 
         <refentryinfo>
-                <title>systemd-localed</title>
+                <title>systemd-localed.service</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -38,7 +38,7 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-localed</refentrytitle>
+                <refentrytitle>systemd-localed.service</refentrytitle>
                 <manvolnum>8</manvolnum>
         </refmeta>
 

@@ -3,9 +3,9 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
-<refentry id="systemd-udevd">
+<refentry id="systemd-udevd.service">
   <refentryinfo>
-    <title>udevd</title>
+    <title>systemd-udevd.service</title>
     <productname>systemd</productname>
     <authorgroup>
       <author>
@@ -18,7 +18,7 @@
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>systemd-udevd</refentrytitle>
+    <refentrytitle>systemd-udevd.service</refentrytitle>
     <manvolnum>8</manvolnum>
     <refmiscinfo class="version"></refmiscinfo>
   </refmeta>
@@ -30,7 +30,7 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>systemd-logind.service</filename></para>
+    <para><filename>systemd-udevd.service</filename></para>
 
     <cmdsynopsis>
       <command>/usr/lib/systemd/systemd-udevd</command>

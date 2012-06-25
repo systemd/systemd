@@ -24,7 +24,7 @@
 <refentry id="systemd-logind.service">
 
         <refentryinfo>
-                <title>systemd-logind</title>
+                <title>systemd-logind.service</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -38,7 +38,7 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-logind</refentrytitle>
+                <refentrytitle>systemd-logind.service</refentrytitle>
                 <manvolnum>8</manvolnum>
         </refmeta>
 

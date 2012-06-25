@@ -24,7 +24,7 @@
 <refentry id="systemd-hostnamed.service">
 
         <refentryinfo>
-                <title>systemd-hostnamed</title>
+                <title>systemd-hostnamed.service</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -38,7 +38,7 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-hostnamed</refentrytitle>
+                <refentrytitle>systemd-hostnamed.service</refentrytitle>
                 <manvolnum>8</manvolnum>
         </refmeta>
 

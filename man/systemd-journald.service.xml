@@ -24,7 +24,7 @@
 <refentry id="systemd-journald.service">
 
         <refentryinfo>
-                <title>systemd-journald</title>
+                <title>systemd-journald.service</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -38,7 +38,7 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-journald</refentrytitle>
+                <refentrytitle>systemd-journald.service</refentrytitle>
                 <manvolnum>8</manvolnum>
         </refmeta>
 
