@@ -9,8 +9,8 @@
 Description=Reboot
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
-Requires=reboot.service
-After=reboot.service
+Requires=systemd-reboot.service
+After=systemd-reboot.service
 AllowIsolate=yes
 
 [Install]

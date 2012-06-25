@@ -9,10 +9,9 @@
 Description=Load Random Seed
 Documentation=man:systemd-random-seed-load.service(8) man:random(4)
 DefaultDependencies=no
-Conflicts=shutdown.target
-After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service
-Before=sysinit.target shutdown.target
 RequiresMountsFor=@RANDOM_SEED@
+After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service
+Before=sysinit.target final.target
 
 [Service]
 Type=oneshot

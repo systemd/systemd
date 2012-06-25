@@ -328,17 +328,17 @@ nodist_systemunit_DATA = \
 	units/systemd-ask-password-wall.service \
 	units/systemd-ask-password-console.service \
 	units/systemd-sysctl.service \
-	units/halt.service \
 	units/emergency.service \
-	units/hibernate.service \
-	units/poweroff.service \
-	units/reboot.service \
-	units/kexec.service \
+	units/rescue.service \
+	units/user@.service \
+	units/systemd-hibernate.service \
+	units/systemd-suspend.service \
+	units/systemd-halt.service \
+	units/systemd-poweroff.service \
+	units/systemd-reboot.service \
+	units/systemd-kexec.service \
 	units/systemd-fsck@.service \
 	units/systemd-fsck-root.service \
-	units/rescue.service \
-	units/suspend.service \
-	units/user@.service \
 	units/systemd-udev.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
@@ -349,7 +349,7 @@ dist_userunit_DATA = \
 	units/user/exit.target
 
 nodist_userunit_DATA = \
-	units/user/exit.service
+	units/user/systemd-exit.service
 
 EXTRA_DIST += \
 	units/getty@.service.m4 \
@@ -369,11 +369,11 @@ EXTRA_DIST += \
 	units/systemd-ask-password-console.service.in \
 	units/systemd-sysctl.service.in \
 	units/emergency.service.in \
-	units/halt.service.in \
-	units/poweroff.service.in \
-	units/reboot.service.in \
-	units/kexec.service.in \
-	units/user/exit.service.in \
+	units/systemd-halt.service.in \
+	units/systemd-poweroff.service.in \
+	units/systemd-reboot.service.in \
+	units/systemd-kexec.service.in \
+	units/user/systemd-exit.service.in \
 	units/systemd-fsck@.service.in \
 	units/systemd-fsck-root.service.in \
 	units/user@.service.in \
@@ -381,8 +381,8 @@ EXTRA_DIST += \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
 	units/systemd-debug-shell.service.in \
-	units/hibernate.service.in \
-	units/suspend.service.in \
+	units/systemd-hibernate.service.in \
+	units/systemd-suspend.service.in \
 	introspect.awk \
 	man/custom-html.xsl
 

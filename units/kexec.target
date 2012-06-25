@@ -9,8 +9,8 @@
 Description=Reboot via kexec
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
-Requires=kexec.service
-After=kexec.service
+Requires=systemd-kexec.service
+After=systemd-kexec.service
 AllowIsolate=yes
 
 [Install]

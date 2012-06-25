@@ -9,8 +9,8 @@
 Description=Halt
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
-Requires=halt.service
-After=halt.service
+Requires=systemd-halt.service
+After=systemd-halt.service
 AllowIsolate=yes
 
 [Install]

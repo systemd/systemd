@@ -9,8 +9,10 @@
 Description=Update UTMP about System Shutdown
 Documentation=man:utmp(5)
 DefaultDependencies=no
-After=local-fs.target sysinit.target auditd.service systemd-update-utmp-runlevel.service
-Before=poweroff.service reboot.service halt.service
+RequiresMountsFor=/var/log/wtmp
+After=systemd-remount-fs.service systemd-tmpfiles-setup.service auditd.service
+After=systemd-update-utmp-runlevel.service
+Before=final.target
 
 [Service]
 Type=oneshot

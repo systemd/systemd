@@ -183,32 +183,32 @@
 
 
 
-<programlisting>                   (conflicts with  (conflicts with
-                     all system     all file system
-                      services)     mounts, swaps,
-                          |           cryptsetup
-                          |          devices, ...)
-                          |                |
-                          v                v
-                   shutdown.target    umount.target
-                          |                |
-                          \_______   ______/
-                                  \ /
-                                   v
-                          (various low-level
-                               services)
-                                   |
-                                   v
-                             final.target
-                                   |
-        __________________________/ \_____________________
-       /                  |                |              \
-       |                  |                |              |
-       v                  v                v              v
-reboot.service    poweroff.service   halt.service   kexec.service
-       |                  |                |              |
-       v                  v                v              v
-<emphasis>reboot.target</emphasis>     <emphasis>poweroff.target</emphasis>    <emphasis>halt.target</emphasis>    <emphasis>kexec.target</emphasis></programlisting>
+<programlisting>                                  (conflicts with  (conflicts with
+                                    all system     all file system
+                                     services)     mounts, swaps,
+                                         |           cryptsetup
+                                         |          devices, ...)
+                                         |                |
+                                         v                v
+                                  shutdown.target    umount.target
+                                         |                |
+                                         \_______   ______/
+                                                 \ /
+                                                  v
+                                         (various low-level
+                                              services)
+                                                  |
+                                                  v
+                                            final.target
+                                                  |
+            _____________________________________/ \_________________________________
+           /                         |                        |                      \
+           |                         |                        |                      |
+           v                         v                        v                      v
+systemd-reboot.service   systemd-poweroff.service   systemd-halt.service   systemd-kexec.service
+           |                         |                        |                      |
+           v                         v                        v                      v
+    <emphasis>reboot.target</emphasis>             <emphasis>poweroff.target</emphasis>            <emphasis>halt.target</emphasis>           <emphasis>kexec.target</emphasis></programlisting>
 
                 <para>Commonly used system shutdown targets are <emphasis>emphasized</emphasis>.</para>
         </refsect1>

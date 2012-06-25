@@ -9,10 +9,9 @@
 Description=Save Random Seed
 Documentation=man:systemd-random-seed-load.service(8) man:random(4)
 DefaultDependencies=no
-After=systemd-random-seed-load.service
-Before=shutdown.target
-Conflicts=systemd-random-seed-load.service
 RequiresMountsFor=@RANDOM_SEED@
+After=systemd-remount-fs.service systemd-random-seed-load.service
+Before=final.target
 
 [Service]
 Type=oneshot

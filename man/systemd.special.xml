@@ -57,8 +57,8 @@
                 <filename>default.target</filename>,
                 <filename>display-manager.service</filename>,
                 <filename>emergency.target</filename>,
-                <filename>exit.service</filename>,
-                <filename>final.service</filename>,
+                <filename>exit.target</filename>,
+                <filename>final.target</filename>,
                 <filename>getty.target</filename>,
                 <filename>graphical.target</filename>,
                 <filename>hibernate.target</filename>,
@@ -813,7 +813,7 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><filename>exit.service</filename></term>
+                                <term><filename>exit.target</filename></term>
                                 <listitem>
                                         <para>A special service unit
                                         for shutting down the

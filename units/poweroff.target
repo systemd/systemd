@@ -9,8 +9,8 @@
 Description=Power-Off
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
-Requires=poweroff.service
-After=poweroff.service
+Requires=systemd-poweroff.service
+After=systemd-poweroff.service
 AllowIsolate=yes
 
 [Install]
