@@ -112,7 +112,8 @@ int unit_name_to_instance(const char *n, char **instance) {
         assert(instance);
 
         /* Everything past the first @ and before the last . is the instance */
-        if (!(p = strchr(n, '@'))) {
+        p = strchr(n, '@');
+        if (!p) {
                 *instance = NULL;
                 return 0;
         }
@@ -120,7 +121,8 @@ int unit_name_to_instance(const char *n, char **instance) {
         assert_se(d = strrchr(n, '.'));
         assert(p < d);
 
-        if (!(i = strndup(p+1, d-p-1)))
+        i = strndup(p+1, d-p-1);
+        if (!i)
                 return -ENOMEM;
 
         *instance = i;
@@ -211,50 +213,6 @@ static char *do_escape(const char *f, char *t) {
         return t;
 }
 
-char *unit_name_build_escape(const char *prefix, const char *instance, const char *suffix) {
-        char *r, *t;
-        size_t a, b, c;
-
-        assert(prefix);
-        assert(suffix);
-
-        /* Takes a arbitrary string for prefix and instance plus a
-         * suffix and makes a nice string suitable as unit name of it,
-         * escaping all weird chars on the way.
-         *
-         * / becomes -, and all chars not allowed in a unit name get
-         * escaped as \xFF, including \ and -, of course. This
-         * escaping is hence reversible.
-         *
-         * This is primarily useful to make nice unit names from
-         * strings, but is actually useful for any kind of string.
-         */
-
-        a = strlen(prefix);
-        c = strlen(suffix);
-
-        if (instance) {
-                b = strlen(instance);
-
-                r = new(char, a*4 + 1 + b*4 + c + 1);
-                if (!r)
-                        return NULL;
-
-                t = do_escape(prefix, r);
-                *(t++) = '@';
-                t = do_escape(instance, t);
-        } else {
-
-                if (!(r = new(char, a*4 + c + 1)))
-                        return NULL;
-
-                t = do_escape(prefix, r);
-        }
-
-        strcpy(t, suffix);
-        return r;
-}
-
 char *unit_name_escape(const char *f) {
         char *r, *t;
 
@@ -301,6 +259,49 @@ char *unit_name_unescape(const char *f) {
         return r;
 }
 
+char *unit_name_path_escape(const char *f) {
+        char *p, *e;
+
+        assert(f);
+
+        p = strdup(f);
+        if (!p)
+                return NULL;
+
+        path_kill_slashes(p);
+
+        if (streq(p, "/")) {
+                free(p);
+                return strdup("-");
+        }
+
+        e = unit_name_escape(p[0] == '/' ? p + 1 : p);
+        free(p);
+
+        return e;
+}
+
+char *unit_name_path_unescape(const char *f) {
+        char *e;
+
+        assert(f);
+
+        e = unit_name_unescape(f);
+        if (!e)
+                return NULL;
+
+        if (e[0] != '/') {
+                char *w;
+
+                w = strappend("/", e);
+                free(e);
+
+                return w;
+        }
+
+        return e;
+}
+
 bool unit_name_is_template(const char *n) {
         const char *p;
 
@@ -329,14 +330,16 @@ char *unit_name_replace_instance(const char *f, const char *i) {
 
                 b = strlen(i);
 
-                if (!(r = new(char, a + 1 + b + strlen(e) + 1)))
+                r = new(char, a + 1 + b + strlen(e) + 1);
+                if (!r)
                         return NULL;
 
                 k = mempcpy(r, f, a + 1);
                 k = mempcpy(k, i, b);
         } else {
 
-                if (!(r = new(char, a + strlen(e) + 1)))
+                r = new(char, a + strlen(e) + 1);
+                if (!r)
                         return NULL;
 
                 k = mempcpy(r, f, a);
@@ -373,20 +376,11 @@ char *unit_name_from_path(const char *path, const char *suffix) {
         assert(path);
         assert(suffix);
 
-        p = strdup(path);
+        p = unit_name_path_escape(path);
         if (!p)
                 return NULL;
 
-        path_kill_slashes(p);
-
-        path = p[0] == '/' ? p + 1 : p;
-
-        if (path[0] == 0) {
-                free(p);
-                return strappend("-", suffix);
-        }
-
-        r = unit_name_build_escape(path, NULL, suffix);
+        r = strappend(p, suffix);
         free(p);
 
         return r;
@@ -395,22 +389,15 @@ char *unit_name_from_path(const char *path, const char *suffix) {
 char *unit_name_from_path_instance(const char *prefix, const char *path, const char *suffix) {
         char *p, *r;
 
+        assert(prefix);
         assert(path);
         assert(suffix);
 
-        if (!(p = strdup(path)))
+        p = unit_name_path_escape(path);
+        if (!p)
                 return NULL;
 
-        path_kill_slashes(p);
-
-        path = p[0] == '/' ? p + 1 : p;
-
-        if (path[0] == 0) {
-                free(p);
-                return unit_name_build_escape(prefix, "-", suffix);
-        }
-
-        r = unit_name_build_escape(prefix, path, suffix);
+        r = join(prefix, "@", p, suffix, NULL);
         free(p);
 
         return r;
@@ -425,51 +412,16 @@ char *unit_name_to_path(const char *name) {
         if (!w)
                 return NULL;
 
-        e = unit_name_unescape(w);
+        e = unit_name_path_unescape(w);
         free(w);
-
-        if (!e)
-                return NULL;
-
-        if (e[0] != '/') {
-                w = strappend("/", e);
-                free(e);
-
-                if (!w)
-                        return NULL;
-
-                return w;
-        }
-
-        return e;
-}
-
-char *unit_name_path_unescape(const char *f) {
-        char *e;
-
-        assert(f);
-
-        e = unit_name_unescape(f);
-        if (!e)
-                return NULL;
-
-        if (e[0] != '/') {
-                char *w;
-
-                w = strappend("/", e);
-                free(e);
-
-                if (!w)
-                        return NULL;
-
-                return w;
-        }
 
         return e;
 }
 
 char *unit_dbus_path_from_name(const char *name) {
         char *e, *p;
+
+        assert(name);
 
         e = bus_path_escape(name);
         if (!e)

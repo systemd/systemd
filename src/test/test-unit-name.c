@@ -29,6 +29,57 @@
 int main(int argc, char* argv[]) {
         char *t, *k;
 
+        t = unit_name_from_path("/waldo", ".mount");
+        puts(t);
+        k = unit_name_to_path(t);
+        puts(k);
+        free(k);
+        free(t);
+
+        t = unit_name_from_path("/waldo/quuix", ".mount");
+        puts(t);
+        k = unit_name_to_path(t);
+        puts(k);
+        free(k);
+        free(t);
+
+        t = unit_name_from_path("/waldo/quuix/", ".mount");
+        puts(t);
+        k = unit_name_to_path(t);
+        puts(k);
+        free(k);
+        free(t);
+
+        t = unit_name_from_path("/", ".mount");
+        puts(t);
+        k = unit_name_to_path(t);
+        puts(k);
+        free(k);
+        free(t);
+
+        t = unit_name_from_path("///", ".mount");
+        puts(t);
+        k = unit_name_to_path(t);
+        puts(k);
+        free(k);
+        free(t);
+
+        t = unit_name_from_path_instance("waldo", "/waldo", ".mount");
+        puts(t);
+        free(t);
+
+        t = unit_name_from_path_instance("waldo", "/waldo////quuix////", ".mount");
+        puts(t);
+        free(t);
+
+        t = unit_name_from_path_instance("waldo", "/", ".mount");
+        puts(t);
+        free(t);
+
+        t = unit_name_from_path_instance("wa--ldo", "/--", ".mount");
+        puts(t);
+        free(t);
+
         assert_se(t = unit_name_mangle("/home"));
         assert_se(k = unit_name_mangle(t));
         puts(t);

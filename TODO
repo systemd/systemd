@@ -25,6 +25,10 @@ Bugfixes:
 
 Features:
 
+* add switch to journalctl to only show data from current boot
+
+* change REquires=basic.target to RequisiteOverride=basic.target
+
 * turn $NOTIFY_SOCKET back into an abstract namespace socket for
   compatibility with services which chroot()
 

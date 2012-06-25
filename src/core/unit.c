@@ -2509,7 +2509,8 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (!is_device_path(what))
                 return 0;
 
-        if (!(e = unit_name_build_escape(what+1, NULL, ".device")))
+        e = unit_name_from_path(what, ".device");
+        if (!e)
                 return -ENOMEM;
 
         r = manager_load_unit(u->manager, e, NULL, NULL, &device);

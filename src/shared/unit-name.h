@@ -37,11 +37,10 @@ bool unit_instance_is_valid(const char *i);
 char *unit_name_change_suffix(const char *n, const char *suffix);
 
 char *unit_name_build(const char *prefix, const char *instance, const char *suffix);
-char *unit_name_build_escape(const char *prefix, const char *instance, const char *suffix);
 
 char *unit_name_escape(const char *f);
 char *unit_name_unescape(const char *f);
-
+char *unit_name_path_escape(const char *f);
 char *unit_name_path_unescape(const char *f);
 
 bool unit_name_is_template(const char *n);
