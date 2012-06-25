@@ -2645,6 +2645,14 @@ localed-install-data-hook:
 INSTALL_DATA_HOOKS += \
 	localed-install-data-hook
 
+MANPAGES += \
+	man/systemd-localed.service.8
+
+MANPAGES_ALIAS += \
+	man/systemd-localed.8
+
+man/systemd-localed.8: man/systemd-localed.service.8
+
 EXTRA_DIST += \
 	units/systemd-localed.service.in
 

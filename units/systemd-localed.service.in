@@ -7,9 +7,8 @@
 
 [Unit]
 Description=Locale Service
+Documentation=man:systemd-localed.service(8) man:locale.conf(5) man:vconsole.conf(5)
 Documentation=http://www.freedesktop.org/wiki/Software/systemd/localed
-Documentation=man:locale.conf(5)
-Documentation=man:vconsole.conf(5)
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-localed

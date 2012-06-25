@@ -5,7 +5,7 @@
 <!--
   This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
+  Copyright 2012 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,10 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-timedated.service">
+<refentry id="systemd-localed.service">
 
         <refentryinfo>
-                <title>systemd-timedated</title>
+                <title>systemd-localed</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -38,36 +38,36 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-timedated</refentrytitle>
+                <refentrytitle>systemd-localed</refentrytitle>
                 <manvolnum>8</manvolnum>
         </refmeta>
 
         <refnamediv>
-                <refname>systemd-timedated.service</refname>
-                <refname>systemd-timedated</refname>
+                <refname>systemd-localed.service</refname>
+                <refname>systemd-localed</refname>
                 <refpurpose>systemd Time and Date Bus Mechanism</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd-timedated.service</filename></para>
-                <para><filename>/usr/lib/systemd/systemd-timedated</filename></para>
+                <para><filename>systemd-localed.service</filename></para>
+                <para><filename>/usr/lib/systemd/systemd-localed</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para><filename>systemd-timedated</filename> is a
-                system service that may be used as mechanism to change
-                the system clock and timezone, as well as to
-                enable/disable NTP time
-                synchronization. <filename>systemd-timedated</filename>
-                is automatically activated on request and terminates
+                <para><filename>systemd-localed</filename> is a system
+                service that may be used as mechanism to change the
+                system locale settings, as well as the console key
+                mapping and default X11 key
+                mapping. <filename>systemd-timedated</filename> is
+                automatically activated on request and terminates
                 itself when it is unused.</para>
 
                 <para>See the <ulink
-                url="http://www.freedesktop.org/wiki/Software/systemd/timedated">
+                url="http://www.freedesktop.org/wiki/Software/systemd/localed">
                 developer documentation</ulink> for information about
-                the APIs <filename>systemd-timedated</filename>
+                the APIs <filename>systemd-localed</filename>
                 provides.</para>
         </refsect1>
 
@@ -75,8 +75,8 @@
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>timezone</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>hwclock</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
