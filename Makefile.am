@@ -2944,7 +2944,8 @@ MANPAGES += \
 	man/sd_uid_get_state.3 \
 	man/sd_session_is_active.3 \
 	man/sd_seat_get_active.3 \
-	man/sd_get_seats.3
+	man/sd_get_seats.3 \
+	man/systemd-user-sessions.service.8
 
 MANPAGES_ALIAS += \
 	man/systemd-logind.8 \
@@ -2965,7 +2966,8 @@ MANPAGES_ALIAS += \
 	man/sd_seat_get_sessions.3 \
 	man/sd_seat_can_multi_session.3 \
 	man/sd_get_sessions.3 \
-	man/sd_get_uids.3
+	man/sd_get_uids.3 \
+	man/systemd-user-sessions.8
 
 man/systemd-logind.8: man/systemd-logind.service.8
 man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
@@ -2986,6 +2988,7 @@ man/sd_seat_get_sessions.3: man/sd_seat_get_active.3
 man/sd_seat_can_multi_session.3: man/sd_seat_get_active.3
 man/sd_get_sessions.3: man/sd_get_seats.3
 man/sd_get_uids.3: man/sd_get_seats.3
+man/systemd-user-sessions.8: man/systemd-user-sessions.service.8
 
 EXTRA_DIST += \
 	src/login/logind-gperf.gperf \
