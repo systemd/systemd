@@ -2663,7 +2663,7 @@ static void show_unit_help(UnitStatusInfo *i) {
 
                         wait_for_terminate(pid, NULL);
                 } else
-                        log_info("Can't show %s.", *p);
+                        log_info("Can't show: %s", *p);
         }
 }
 
