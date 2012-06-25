@@ -247,8 +247,7 @@
         "  <property name=\"DefaultStandardOutput\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardError\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RuntimeWatchdogUSec\" type=\"s\" access=\"readwrite\"/>\n" \
-        "  <property name=\"ShutdownWatchdogUSec\" type=\"s\" access=\"readwrite\"/>\n" \
-        "  <property name=\"HaveWatchdog\" type=\"b\" access=\"read\"/>\n"
+        "  <property name=\"ShutdownWatchdogUSec\" type=\"s\" access=\"readwrite\"/>\n"
 
 #define BUS_MANAGER_INTERFACE_END                                       \
         " </interface>\n"
@@ -495,20 +494,6 @@ static int bus_manager_send_unit_files_changed(Manager *m) {
         return r;
 }
 
-static int bus_manager_append_have_watchdog(DBusMessageIter *i, const char *property, void *data) {
-        dbus_bool_t b;
-
-        assert(i);
-        assert(property);
-
-        b = access("/dev/watchdog", F_OK) >= 0;
-
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
-                return -ENOMEM;
-
-        return 0;
-}
-
 static int bus_manager_set_runtime_watchdog_usec(DBusMessageIter *i, const char *property, void *data) {
         uint64_t *t = data;
 
@@ -557,7 +542,6 @@ static const BusProperty bus_manager_properties[] = {
         { "DefaultStandardError",  bus_manager_append_exec_output, "s", offsetof(Manager, default_std_error)           },
         { "RuntimeWatchdogUSec", bus_property_append_usec,         "t", offsetof(Manager, runtime_watchdog),           false, bus_manager_set_runtime_watchdog_usec },
         { "ShutdownWatchdogUSec", bus_property_append_usec,        "t", offsetof(Manager, shutdown_watchdog),          false, bus_property_set_usec },
-        { "HaveWatchdog",  bus_manager_append_have_watchdog,       "b", 0                                              },
         { NULL, }
 };
 
