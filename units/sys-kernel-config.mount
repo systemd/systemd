@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Configuration File System
+Documentation=https://www.kernel.org/doc/Documentation/filesystems/configfs/configfs.txt
 DefaultDependencies=no
 ConditionPathExists=/sys/kernel/config
 After=systemd-modules-load.service

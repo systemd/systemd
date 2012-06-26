@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Console Shell
+Documentation=man:sulogin(8)
 After=systemd-user-sessions.service plymouth-quit-wait.service
 m4_ifdef(`TARGET_FEDORA',
 After=rc-local.service

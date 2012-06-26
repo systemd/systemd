@@ -7,6 +7,7 @@
 
 [Unit]
 Description=FUSE Control File System
+Documentation=https://www.kernel.org/doc/Documentation/filesystems/fuse.txt
 DefaultDependencies=no
 ConditionPathExists=/sys/fs/fuse/connections
 After=systemd-modules-load.service

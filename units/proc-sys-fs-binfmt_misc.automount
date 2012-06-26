@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Arbitrary Executable File Formats File System Automount Point
+Documentation=https://www.kernel.org/doc/Documentation/binfmt_misc.txt
 DefaultDependencies=no
 Before=sysinit.target
 ConditionPathExists=/proc/sys/fs/binfmt_misc/
