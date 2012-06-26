@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Temporary Directory
+Documentation=man:hier(7)
 Before=local-fs.target
 
 [Mount]
