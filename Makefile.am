@@ -492,7 +492,8 @@ MANPAGES = \
 	man/systemd-update-utmp-runlevel.service.8 \
 	man/systemd-initctl.service.8 \
 	man/systemd-shutdownd.service.8 \
-	man/systemd-suspend.service.8
+	man/systemd-suspend.service.8 \
+	man/systemd-halt.service.8
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -507,7 +508,11 @@ MANPAGES_ALIAS = \
 	man/systemd-initctl.8 \
 	man/systemd-shutdownd.8 \
 	man/systemd-hibernate.service.8 \
-	man/systemd-sleep.8
+	man/systemd-sleep.8 \
+	man/systemd-shutdown.8 \
+	man/systemd-poweroff.service.8 \
+	man/systemd-reboot.service.8 \
+	man/systemd-kexec.service.8
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
@@ -522,6 +527,10 @@ man/systemd-initctl.8: man/systemd-initctl.service.8
 man/systemd-shutdownd.8: man/systemd-shutdownd.service.8
 man/systemd-hibernate.service.8: man/systemd-suspend.service.8
 man/systemd-sleep.8: man/systemd-suspend.service.8
+man/systemd-shutdown.8: man/systemd-halt.service.8
+man/systemd-poweroff.service.8: man/systemd-halt.service.8
+man/systemd-reboot.service.8: man/systemd-halt.service.8
+man/systemd-kexec.service.8: man/systemd-halt.service.8
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}

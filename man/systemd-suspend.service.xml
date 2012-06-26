@@ -46,7 +46,7 @@
                 <refname>systemd-suspend.service</refname>
                 <refname>systemd-hibernate.service</refname>
                 <refname>systemd-sleep</refname>
-                <refpurpose>systemd System Suspend/Hibernate Logic</refpurpose>
+                <refpurpose>systemd System Sleep State Logic</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -74,13 +74,14 @@
                 and pass two arguments to them. The first argument
                 will be "<literal>pre</literal>", the second either
                 "<literal>suspend</literal>" or
-                "<literal>hibernate</literal>", depending on the chosen
-                action. Immediately after leaving system suspend and
-                hibernation the same executables are run, but the
-                first argument is now "<literal>post</literal>". All
-                executables in this directory are executed in
-                parallel, and execution of the action is not continued
-                before all executables finished.</para>
+                "<literal>hibernate</literal>", depending on the
+                chosen action. Immediately after leaving system
+                suspend and hibernation the same executables are run,
+                but the first argument is now
+                "<literal>post</literal>". All executables in this
+                directory are executed in parallel, and execution of
+                the action is not continued before all executables
+                finished.</para>
 
                 <para>Note that scripts or binaries dropped in
                 <filename>/usr/lib/systemd/system-sleep/</filename>
@@ -89,13 +90,20 @@
                 of system suspend and resume there are much nicer
                 interfaces available.</para>
 
+                <para>Note that
+                <filename>systemd-suspend.service</filename> and
+                <filename>systemd-hibernate.service</filename> should
+                never be executed directly. Instead, trigger system
+                sleep states with a command such as "<literal>systemctl
+                suspend</literal>" or suchlike.</para>
         </refsect1>
 
         <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-halt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
