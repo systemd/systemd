@@ -24,13 +24,17 @@
   </refmeta>
 
   <refnamediv>
-    <refname>systemd-udevd.service</refname>
+    <refname>systemd-udev.service</refname>
+    <refname>systemd-udev-control.socket</refname>
+    <refname>systemd-udev-kernel.socket</refname>
     <refname>systemd-udevd</refname>
     <refpurpose>Device event managing daemon</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>systemd-udevd.service</filename></para>
+    <para><filename>systemd-udev.service</filename></para>
+    <para><filename>systemd-udev-control.socket</filename></para>
+    <para><filename>systemd-udev-kernel.socket</filename></para>
 
     <cmdsynopsis>
       <command>/usr/lib/systemd/systemd-udevd</command>

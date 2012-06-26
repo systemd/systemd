@@ -44,12 +44,14 @@
 
         <refnamediv>
                 <refname>systemd-journald.service</refname>
+                <refname>systemd-journald.socket</refname>
                 <refname>systemd-journald</refname>
                 <refpurpose>systemd Journal Service</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <para><filename>systemd-journald.service</filename></para>
+                <para><filename>systemd-journald.socket</filename></para>
                 <para><filename>/usr/lib/systemd/systemd-journald</filename></para>
         </refsynopsisdiv>
 

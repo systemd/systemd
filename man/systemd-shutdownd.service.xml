@@ -44,12 +44,14 @@
 
         <refnamediv>
                 <refname>systemd-shutdownd.service</refname>
+                <refname>systemd-shutdownd.socket</refname>
                 <refname>systemd-shutdownd</refname>
                 <refpurpose>systemd scheduled shutdown daemon</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <para><filename>systemd-shutdownd.service</filename></para>
+                <para><filename>systemd-shutdownd.socket</filename></para>
                 <para><filename>/usr/lib/systemd/systemd-shutdownd</filename></para>
         </refsynopsisdiv>
 

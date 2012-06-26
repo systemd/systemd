@@ -502,11 +502,14 @@ MANPAGES_ALIAS = \
 	man/init.1 \
 	man/systemd-modules-load.8 \
 	man/systemd-sysctl.8 \
+	man/systemd-journald.socket.8 \
 	man/systemd-journald.8 \
 	man/systemd-remount-fs.8 \
 	man/systemd-update-utmp-shutdown.service.8 \
 	man/systemd-update-utmp.8 \
+	man/systemd-initctl.socket.8 \
 	man/systemd-initctl.8 \
+	man/systemd-shutdownd.socket.8 \
 	man/systemd-shutdownd.8 \
 	man/systemd-hibernate.service.8 \
 	man/systemd-sleep.8 \
@@ -521,11 +524,14 @@ man/poweroff.8: man/halt.8
 man/init.1: man/systemd.1
 man/systemd-modules-load.8: man/systemd-modules-load.service.8
 man/systemd-sysctl.8: man/systemd-sysctl.service.8
+man/systemd-journald.socket.8: man/systemd-journald.service.8
 man/systemd-journald.8: man/systemd-journald.service.8
 man/systemd-remount-fs.8: man/systemd-remount-fs.service.8
 man/systemd-update-utmp-shutdown.service.8: man/systemd-update-utmp-runlevel.service.8
 man/systemd-update-utmp.8: man/systemd-update-utmp-runlevel.service.8
+man/systemd-initctl.socket.8: man/systemd-initctl.service.8
 man/systemd-initctl.8: man/systemd-initctl.service.8
+man/systemd-shutdownd.socket.8: man/systemd-shutdownd.service.8
 man/systemd-shutdownd.8: man/systemd-shutdownd.service.8
 man/systemd-hibernate.service.8: man/systemd-suspend.service.8
 man/systemd-sleep.8: man/systemd-suspend.service.8

@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Delayed Shutdown Service
-Documentation=man:systemd-shutdown.service(8)
+Documentation=man:systemd-shutdownd.service(8)
 DefaultDependencies=no
 
 [Service]

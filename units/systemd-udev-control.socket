@@ -7,7 +7,7 @@
 
 [Unit]
 Description=udev Control Socket
-Documentation=man:udev(7) man:systemd-udevd.service(8)
+Documentation=man:systemd-udevd.service(8) man:udev(7)
 DefaultDependencies=no
 ConditionCapability=CAP_MKNOD
 

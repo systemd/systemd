@@ -44,12 +44,14 @@
 
         <refnamediv>
                 <refname>systemd-initctl.service</refname>
+                <refname>systemd-initctl.socket</refname>
                 <refname>systemd-initctl</refname>
                 <refpurpose>systemd <filename>/dev/initctl</filename> Compatibility</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
                 <para><filename>systemd-initctl.service</filename></para>
+                <para><filename>systemd-initctl.socket</filename></para>
                 <para><filename>/usr/lib/systemd/systemd-initctl</filename></para>
         </refsynopsisdiv>
 
