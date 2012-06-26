@@ -2005,6 +2005,9 @@ void manager_check_finished(Manager *m) {
         /* Notify Type=idle units that we are done now */
         close_pipe(m->idle_pipe);
 
+        /* Turn off confirm spawn now */
+        m->confirm_spawn = false;
+
         if (dual_timestamp_is_set(&m->finish_timestamp))
                 return;
 

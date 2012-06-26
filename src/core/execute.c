@@ -293,7 +293,8 @@ static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty
                                      tty_path(context),
                                      i == EXEC_INPUT_TTY_FAIL,
                                      i == EXEC_INPUT_TTY_FORCE,
-                                     false)) < 0)
+                                     false,
+                                     (usec_t) -1)) < 0)
                         return fd;
 
                 if (fd != STDIN_FILENO) {
@@ -444,47 +445,45 @@ static int chown_terminal(int fd, uid_t uid) {
         return 0;
 }
 
-static int setup_confirm_stdio(const ExecContext *context,
-                               int *_saved_stdin,
+static int setup_confirm_stdio(int *_saved_stdin,
                                int *_saved_stdout) {
         int fd = -1, saved_stdin, saved_stdout = -1, r;
 
-        assert(context);
         assert(_saved_stdin);
         assert(_saved_stdout);
 
-        /* This returns positive EXIT_xxx return values instead of
-         * negative errno style values! */
+        saved_stdin = fcntl(STDIN_FILENO, F_DUPFD, 3);
+        if (saved_stdin < 0)
+                return -errno;
 
-        if ((saved_stdin = fcntl(STDIN_FILENO, F_DUPFD, 3)) < 0)
-                return EXIT_STDIN;
-
-        if ((saved_stdout = fcntl(STDOUT_FILENO, F_DUPFD, 3)) < 0) {
-                r = EXIT_STDOUT;
+        saved_stdout = fcntl(STDOUT_FILENO, F_DUPFD, 3);
+        if (saved_stdout < 0) {
+                r = errno;
                 goto fail;
         }
 
-        if ((fd = acquire_terminal(
-                             tty_path(context),
-                             context->std_input == EXEC_INPUT_TTY_FAIL,
-                             context->std_input == EXEC_INPUT_TTY_FORCE,
-                             false)) < 0) {
-                r = EXIT_STDIN;
+        fd = acquire_terminal(
+                        "/dev/console",
+                        false,
+                        false,
+                        false,
+                        DEFAULT_CONFIRM_USEC);
+        if (fd < 0) {
+                r = fd;
                 goto fail;
         }
 
-        if (chown_terminal(fd, getuid()) < 0) {
-                r = EXIT_STDIN;
+        r = chown_terminal(fd, getuid());
+        if (r < 0)
                 goto fail;
-        }
 
         if (dup2(fd, STDIN_FILENO) < 0) {
-                r = EXIT_STDIN;
+                r = -errno;
                 goto fail;
         }
 
         if (dup2(fd, STDOUT_FILENO) < 0) {
-                r = EXIT_STDOUT;
+                r = -errno;
                 goto fail;
         }
 
@@ -509,48 +508,70 @@ fail:
         return r;
 }
 
-static int restore_confirm_stdio(const ExecContext *context,
-                                 int *saved_stdin,
-                                 int *saved_stdout,
-                                 bool *keep_stdin,
-                                 bool *keep_stdout) {
+static int write_confirm_message(const char *format, ...) {
+        int fd;
+        va_list ap;
 
-        assert(context);
-        assert(saved_stdin);
-        assert(*saved_stdin >= 0);
-        assert(saved_stdout);
-        assert(*saved_stdout >= 0);
+        assert(format);
 
-        /* This returns positive EXIT_xxx return values instead of
-         * negative errno style values! */
+        fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
 
-        if (is_terminal_input(context->std_input)) {
+        va_start(ap, format);
+        vdprintf(fd, format, ap);
+        va_end(ap);
 
-                /* The service wants terminal input. */
-
-                *keep_stdin = true;
-                *keep_stdout =
-                        context->std_output == EXEC_OUTPUT_INHERIT ||
-                        context->std_output == EXEC_OUTPUT_TTY;
-
-        } else {
-                /* If the service doesn't want a controlling terminal,
-                 * then we need to get rid entirely of what we have
-                 * already. */
-
-                if (release_terminal() < 0)
-                        return EXIT_STDIN;
-
-                if (dup2(*saved_stdin, STDIN_FILENO) < 0)
-                        return EXIT_STDIN;
-
-                if (dup2(*saved_stdout, STDOUT_FILENO) < 0)
-                        return EXIT_STDOUT;
-
-                *keep_stdout = *keep_stdin = false;
-        }
+        close_nointr_nofail(fd);
 
         return 0;
+}
+
+static int restore_confirm_stdio(int *saved_stdin,
+                                 int *saved_stdout) {
+
+        int r = 0;
+
+        assert(saved_stdin);
+        assert(saved_stdout);
+
+        release_terminal();
+
+        if (*saved_stdin >= 0)
+                if (dup2(*saved_stdin, STDIN_FILENO) < 0)
+                        r = -errno;
+
+        if (*saved_stdout >= 0)
+                if (dup2(*saved_stdout, STDOUT_FILENO) < 0)
+                        r = -errno;
+
+        if (*saved_stdin >= 0)
+                close_nointr_nofail(*saved_stdin);
+
+        if (*saved_stdout >= 0)
+                close_nointr_nofail(*saved_stdout);
+
+        return r;
+}
+
+static int ask_for_confirmation(char *response, char **argv) {
+        int saved_stdout = -1, saved_stdin = -1, r;
+        char *line;
+
+        r = setup_confirm_stdio(&saved_stdin, &saved_stdout);
+        if (r < 0)
+                return r;
+
+        line = exec_command_line(argv);
+        if (!line)
+                return -ENOMEM;
+
+        r = ask(response, "yns", "Execute %s? [Yes, No, Skip] ", line);
+        free(line);
+
+        restore_confirm_stdio(&saved_stdin, &saved_stdout);
+
+        return r;
 }
 
 static int enforce_groups(const ExecContext *context, const char *username, gid_t gid) {
@@ -952,7 +973,8 @@ int exec_spawn(ExecCommand *command,
         if (!argv)
                 argv = command->argv;
 
-        if (!(line = exec_command_line(argv))) {
+        line = exec_command_line(argv);
+        if (!line) {
                 r = -ENOMEM;
                 goto fail_parent;
         }
@@ -979,8 +1001,7 @@ int exec_spawn(ExecCommand *command,
                 gid_t gid = (gid_t) -1;
                 char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
                 unsigned n_env = 0;
-                int saved_stdout = -1, saved_stdin = -1;
-                bool keep_stdout = false, keep_stdin = false, set_access = false;
+                bool set_access = false;
 
                 /* child */
 
@@ -1050,42 +1071,22 @@ int exec_spawn(ExecCommand *command,
 
                 exec_context_tty_reset(context);
 
-                /* We skip the confirmation step if we shall not apply the TTY */
-                if (confirm_spawn &&
-                    (!is_terminal_input(context->std_input) || apply_tty_stdin)) {
+                if (confirm_spawn) {
                         char response;
 
-                        /* Set up terminal for the question */
-                        if ((r = setup_confirm_stdio(context,
-                                                     &saved_stdin, &saved_stdout))) {
-                                err = -errno;
-                                goto fail_child;
-                        }
-
-                        /* Now ask the question. */
-                        if (!(line = exec_command_line(argv))) {
-                                err = -ENOMEM;
-                                r = EXIT_MEMORY;
-                                goto fail_child;
-                        }
-
-                        r = ask(&response, "yns", "Execute %s? [Yes, No, Skip] ", line);
-                        free(line);
-
-                        if (r < 0 || response == 'n') {
+                        err = ask_for_confirmation(&response, argv);
+                        if (err == -ETIMEDOUT)
+                                write_confirm_message("Confirmation question timed out, assuming positive response.\n");
+                        else if (err < 0)
+                                write_confirm_message("Couldn't ask confirmation question, assuming positive response: %s\n", strerror(-err));
+                        else if (response == 's') {
+                                write_confirm_message("Skipping execution.\n");
                                 err = -ECANCELED;
                                 r = EXIT_CONFIRM;
                                 goto fail_child;
-                        } else if (response == 's') {
+                        } else if (response == 'n') {
+                                write_confirm_message("Failing execution.\n");
                                 err = r = 0;
-                                goto fail_child;
-                        }
-
-                        /* Release terminal for the question */
-                        if ((r = restore_confirm_stdio(context,
-                                                       &saved_stdin, &saved_stdout,
-                                                       &keep_stdin, &keep_stdout))) {
-                                err = -errno;
                                 goto fail_child;
                         }
                 }
@@ -1095,20 +1096,16 @@ int exec_spawn(ExecCommand *command,
                 if (socket_fd >= 0)
                         fd_nonblock(socket_fd, false);
 
-                if (!keep_stdin) {
-                        err = setup_input(context, socket_fd, apply_tty_stdin);
-                        if (err < 0) {
-                                r = EXIT_STDIN;
-                                goto fail_child;
-                        }
+                err = setup_input(context, socket_fd, apply_tty_stdin);
+                if (err < 0) {
+                        r = EXIT_STDIN;
+                        goto fail_child;
                 }
 
-                if (!keep_stdout) {
-                        err = setup_output(context, socket_fd, path_get_file_name(command->path), unit_id, apply_tty_stdin);
-                        if (err < 0) {
-                                r = EXIT_STDOUT;
-                                goto fail_child;
-                        }
+                err = setup_output(context, socket_fd, path_get_file_name(command->path), unit_id, apply_tty_stdin);
+                if (err < 0) {
+                        r = EXIT_STDOUT;
+                        goto fail_child;
                 }
 
                 err = setup_error(context, socket_fd, path_get_file_name(command->path), unit_id, apply_tty_stdin);
@@ -1438,12 +1435,6 @@ int exec_spawn(ExecCommand *command,
                 strv_free(pam_env);
                 strv_free(files_env);
                 strv_free(final_argv);
-
-                if (saved_stdin >= 0)
-                        close_nointr_nofail(saved_stdin);
-
-                if (saved_stdout >= 0)
-                        close_nointr_nofail(saved_stdout);
 
                 _exit(r);
         }

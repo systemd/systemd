@@ -2305,12 +2305,14 @@ int open_terminal(const char *name, int mode) {
          */
 
         for (;;) {
-                if ((fd = open(name, mode)) >= 0)
+                fd = open(name, mode);
+                if (fd >= 0)
                         break;
 
                 if (errno != EIO)
                         return -errno;
 
+                /* Max 1s in total */
                 if (c >= 20)
                         return -errno;
 
@@ -2321,7 +2323,8 @@ int open_terminal(const char *name, int mode) {
         if (fd < 0)
                 return -errno;
 
-        if ((r = isatty(fd)) < 0) {
+        r = isatty(fd);
+        if (r < 0) {
                 close_nointr_nofail(fd);
                 return -errno;
         }
@@ -2373,8 +2376,15 @@ int flush_fd(int fd) {
         }
 }
 
-int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocstty_eperm) {
+int acquire_terminal(
+                const char *name,
+                bool fail,
+                bool force,
+                bool ignore_tiocstty_eperm,
+                usec_t timeout) {
+
         int fd = -1, notify = -1, r, wd = -1;
+        usec_t ts = 0;
 
         assert(name);
 
@@ -2391,27 +2401,35 @@ int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocst
          * on the same tty as an untrusted user this should not be a
          * problem. (Which he probably should not do anyway.) */
 
+        if (timeout != (usec_t) -1)
+                ts = now(CLOCK_MONOTONIC);
+
         if (!fail && !force) {
-                if ((notify = inotify_init1(IN_CLOEXEC)) < 0) {
+                notify = inotify_init1(IN_CLOEXEC | (timeout != (usec_t) -1 ? IN_NONBLOCK : 0));
+                if (notify < 0) {
                         r = -errno;
                         goto fail;
                 }
 
-                if ((wd = inotify_add_watch(notify, name, IN_CLOSE)) < 0) {
+                wd = inotify_add_watch(notify, name, IN_CLOSE);
+                if (wd < 0) {
                         r = -errno;
                         goto fail;
                 }
         }
 
         for (;;) {
-                if (notify >= 0)
-                        if ((r = flush_fd(notify)) < 0)
+                if (notify >= 0) {
+                        r = flush_fd(notify);
+                        if (r < 0)
                                 goto fail;
+                }
 
                 /* We pass here O_NOCTTY only so that we can check the return
                  * value TIOCSCTTY and have a reliable way to figure out if we
                  * successfully became the controlling process of the tty */
-                if ((fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC)) < 0)
+                fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                if (fd < 0)
                         return fd;
 
                 /* First, try to get the tty */
@@ -2440,9 +2458,29 @@ int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocst
                         ssize_t l;
                         struct inotify_event *e;
 
-                        if ((l = read(notify, inotify_buffer, sizeof(inotify_buffer))) < 0) {
+                        if (timeout != (usec_t) -1) {
+                                usec_t n;
 
-                                if (errno == EINTR)
+                                n = now(CLOCK_MONOTONIC);
+                                if (ts + timeout < n) {
+                                        r = -ETIMEDOUT;
+                                        goto fail;
+                                }
+
+                                r = fd_wait_for_event(fd, POLLIN, ts + timeout - n);
+                                if (r < 0)
+                                        goto fail;
+
+                                if (r == 0) {
+                                        r = -ETIMEDOUT;
+                                        goto fail;
+                                }
+                        }
+
+                        l = read(notify, inotify_buffer, sizeof(inotify_buffer));
+                        if (l < 0) {
+
+                                if (errno == EINTR || errno == EAGAIN)
                                         continue;
 
                                 r = -errno;

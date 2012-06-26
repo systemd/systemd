@@ -25,6 +25,8 @@ Bugfixes:
 
 Features:
 
+* new dependency type to "group" services in a target
+
 * add switch to journalctl to only show data from current boot
 
 * change REquires=basic.target to RequisiteOverride=basic.target
