@@ -2461,7 +2461,20 @@ EXTRA_DIST += \
 
 MANPAGES += \
 	man/sd_readahead.3 \
-	man/sd-readahead.7
+	man/sd-readahead.7 \
+	man/systemd-readahead-replay.service.8
+
+MANPAGES_ALIAS += \
+	man/systemd-readahead-collect.service.8 \
+	man/systemd-readahead-done.service.8 \
+	man/systemd-readahead-done.timer.8 \
+	man/systemd-readahead.8
+
+man/systemd-readahead-collect.service.8: man/systemd-readahead-replay.service.8
+man/systemd-readahead-done.service.8: man/systemd-readahead-replay.service.8
+man/systemd-readahead-done.timer.8: man/systemd-readahead-replay.service.8
+man/systemd-readahead.8: man/systemd-readahead-replay.service.8
+
 endif
 
 # ------------------------------------------------------------------------------
