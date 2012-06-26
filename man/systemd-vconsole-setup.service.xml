@@ -82,7 +82,7 @@
                                 <term><varname>vconsole.keymap.toggle=</varname></term>
 
                                 <listitem><para>Overrides the key
-                                mapping table for the keybaord and the
+                                mapping table for the keyboard and the
                                 second toggle keymap.</para></listitem>
                         </varlistentry>
                         <varlistentry>

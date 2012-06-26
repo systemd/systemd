@@ -25,6 +25,12 @@ Bugfixes:
 
 Features:
 
+* efi: implement /forcefsck as uefi variables thus not requiring file system altering to trigger a file system check
+
+* efi: honour language efi variables for default language selection
+
+* efi: honour timezone efi variables for default timezone selection
+
 * new dependency type to "group" services in a target
 
 * add switch to journalctl to only show data from current boot
