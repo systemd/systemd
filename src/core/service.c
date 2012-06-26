@@ -1888,6 +1888,8 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (f != SERVICE_SUCCESS)
                 s->result = f;
 
+        service_set_state(s, s->result != SERVICE_SUCCESS ? SERVICE_FAILED : SERVICE_DEAD);
+
         if (allow_restart &&
             !s->forbid_restart &&
             (s->restart == SERVICE_RESTART_ALWAYS ||
@@ -1901,8 +1903,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                         goto fail;
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
-        } else
-                service_set_state(s, s->result != SERVICE_SUCCESS ? SERVICE_FAILED : SERVICE_DEAD);
+        }
 
         s->forbid_restart = false;
 
@@ -2509,7 +2510,7 @@ static int service_stop(Unit *u) {
 
         /* A restart will be scheduled or is in progress. */
         if (s->state == SERVICE_AUTO_RESTART) {
-                service_enter_dead(s, SERVICE_SUCCESS, false);
+                service_set_state(s, SERVICE_DEAD);
                 return 0;
         }
 
