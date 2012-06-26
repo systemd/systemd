@@ -1,0 +1,138 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2012 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-analyze">
+
+        <refentryinfo>
+                <title>systemd-analyze</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-analyze</refentrytitle>
+                <manvolnum>1</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-analyze</refname>
+                <refpurpose>Analyze system boot-up performance</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> time</command>
+                </cmdsynopsis>
+                <cmdsynopsis>
+                        <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> blame </command>
+                </cmdsynopsis>
+                <cmdsynopsis>
+                        <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> plot <arg choice="opt">&gt; file.svg</arg></command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>systemd-analyze</command> may be used
+                to determine system boot-up performance of the current
+                boot.</para>
+
+                <para><command>systemd-analyze time</command>
+                prints the time spent in the kernel before
+                userspace has been reached, the time spent in the
+                initial RAM disk (initrd) before normal system
+                userspace has been reached and the time normal system
+                userspace took to initialize. Note that these
+                measurements simply measure the time passed up to the
+                point where all system services have been spawned, but
+                not necessarily until they fully finished
+                initialization or the disk is idle.</para>
+
+                <para><command>systemd-analyze blame</command> prints
+                a list of all running units, ordered by the time they
+                took to initialize. This information may be used to
+                optimize boot-up times. Note that the output might be
+                misleading as the initialization of one service might
+                be slow simply because it waits for the initialization
+                of another service to complete.</para>
+
+                <para><command>systemd-analyze plot</command> prints
+                an SVG graphic detailing which system services have
+                been started at what time, highlighting the time they
+                spent on initialization.</para>
+
+                <para>If no command is passed <command>systemd-analyze
+                time</command> is implied.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following options are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>--h</option></term>
+                                <term><option>--help</option></term>
+
+                                <listitem><para>Prints a short help
+                                text and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--user</option></term>
+
+                                <listitem><para>Shows performance data
+                                of user sessions instead of the system
+                                manager.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Exit status</title>
+
+                <para>On success 0 is returned, a non-zero failure
+                code otherwise.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

@@ -495,7 +495,8 @@ MANPAGES = \
 	man/systemd-suspend.service.8 \
 	man/systemd-halt.service.8 \
 	man/systemd-fsck@.service.8 \
-	man/systemd-ask-password-console.service.8
+	man/systemd-ask-password-console.service.8 \
+	man/systemd-analyze.1
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
