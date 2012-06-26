@@ -2502,6 +2502,15 @@ systemd_quotacheck_SOURCES = \
 
 systemd_quotacheck_LDADD = \
 	libsystemd-shared.la
+
+MANPAGES += \
+	man/systemd-quotacheck.service.8
+
+MANPAGES_ALIAS += \
+	man/systemd-quotacheck.8
+
+man/systemd-quotacheck.8: man/systemd-quotacheck.service.8
+
 endif
 
 # ------------------------------------------------------------------------------
