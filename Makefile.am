@@ -494,7 +494,8 @@ MANPAGES = \
 	man/systemd-shutdownd.service.8 \
 	man/systemd-suspend.service.8 \
 	man/systemd-halt.service.8 \
-	man/systemd-fsck@.service.8
+	man/systemd-fsck@.service.8 \
+	man/systemd-ask-password-console.service.8
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -517,7 +518,10 @@ MANPAGES_ALIAS = \
 	man/systemd-poweroff.service.8 \
 	man/systemd-reboot.service.8 \
 	man/systemd-kexec.service.8 \
-	man/systemd-fsck-root.service.8
+	man/systemd-fsck-root.service.8 \
+	man/systemd-ask-password-console.path.8 \
+	man/systemd-ask-password-wall.service.8 \
+	man/systemd-ask-password-wall.path.8
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
@@ -540,6 +544,9 @@ man/systemd-poweroff.service.8: man/systemd-halt.service.8
 man/systemd-reboot.service.8: man/systemd-halt.service.8
 man/systemd-kexec.service.8: man/systemd-halt.service.8
 man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
+man/systemd-ask-password-console.path.8: man/systemd-ask-password-console.service.8
+man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.service.8
+man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
