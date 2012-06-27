@@ -131,7 +131,7 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
 
         if (!modlist) {
                 log_error("Failed to find module '%s'", m);
-                return r;
+                return -ENOENT;
         }
 
         kmod_list_foreach(itr, modlist) {
