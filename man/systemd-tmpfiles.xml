@@ -44,6 +44,9 @@
 
         <refnamediv>
                 <refname>systemd-tmpfiles</refname>
+                <refname>systemd-tmpfiles-setup.service</refname>
+                <refname>systemd-tmpfiles-clean.service</refname>
+                <refname>systemd-tmpfiles-clean.timer</refname>
                 <refpurpose>Creates, deletes and cleans up volatile
                 and temporary files and directories.</refpurpose>
         </refnamediv>
@@ -52,6 +55,10 @@
                 <cmdsynopsis>
                         <command>systemd-tmpfiles <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">CONFIGURATION FILE</arg></command>
                 </cmdsynopsis>
+
+                <para><filename>systemd-tmpfiles-setup.service</filename></para>
+                <para><filename>systemd-tmpfiles-clean.service</filename></para>
+                <para><filename>systemd-tmpfiles-clean.timer</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

@@ -526,7 +526,10 @@ MANPAGES_ALIAS = \
 	man/systemd-fsck-root.service.8 \
 	man/systemd-ask-password-console.path.8 \
 	man/systemd-ask-password-wall.service.8 \
-	man/systemd-ask-password-wall.path.8
+	man/systemd-ask-password-wall.path.8 \
+	man/systemd-tmpfiles-setup.service.8 \
+	man/systemd-tmpfiles-clean.service.8 \
+	man/systemd-tmpfiles-clean.timer.8
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
@@ -552,6 +555,9 @@ man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
 man/systemd-ask-password-console.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
+man/systemd-tmpfiles-setup.service.8: man/systemd-tmpfiles.8
+man/systemd-tmpfiles-clean.service.8: man/systemd-tmpfiles.8
+man/systemd-tmpfiles-clean.timer.8: man/systemd-tmpfiles.8
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
