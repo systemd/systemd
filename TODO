@@ -25,6 +25,8 @@ Bugfixes:
 
 Features:
 
+* maybe allow services with ExecStop= set, but no ExecStart=?
+
 * efi: implement /forcefsck as uefi variables thus not requiring file system altering to trigger a file system check
 
 * efi: honour language efi variables for default language selection
