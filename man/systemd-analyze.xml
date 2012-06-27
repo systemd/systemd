@@ -102,7 +102,7 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>--h</option></term>
+                                <term><option>-h</option></term>
                                 <term><option>--help</option></term>
 
                                 <listitem><para>Prints a short help
