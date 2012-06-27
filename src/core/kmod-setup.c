@@ -41,7 +41,7 @@ static const char * const kmod_table[] = {
 static void systemd_kmod_log(void *data, int priority, const char *file, int line,
                              const char *fn, const char *format, va_list args)
 {
-        log_meta(priority, file, line, fn, format, args);
+        log_metav(priority, file, line, fn, format, args);
 }
 #pragma GCC diagnostic pop
 
