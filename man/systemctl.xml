@@ -814,12 +814,15 @@
 
                                 <listitem><para>Reset one or more unit
                                 files, as specified on the command
-                                line, to the defaults configured in a
-                                preset file. This has the same effect
-                                as <command>disable</command> or
+                                line, to the defaults configured in
+                                the preset policy files. This has the
+                                same effect as
+                                <command>disable</command> or
                                 <command>enable</command>, depending
                                 how the unit is listed in the preset
-                                files.</para>
+                                files. For more information on preset
+                                policy see
+                                <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -1230,7 +1233,8 @@
                         <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
