@@ -25,6 +25,8 @@ Bugfixes:
 
 Features:
 
+* introduce Type=pid-file
+
 * systemctl list-unit-files appears to be broken for symlinked units in /usr/lib
 
 * maybe allow services with ExecStop= set, but no ExecStart=?
