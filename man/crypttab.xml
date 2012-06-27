@@ -1,0 +1,284 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!--
+  This file is part of systemd.
+
+  Copyright 2012 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+  This is based on crypttab(5) from Fedora's initscripts package, which in
+  turn is based on Debian's version.
+
+  The Red Hat version has been written by Miloslav Trmac <mitr@redhat.com>.
+
+-->
+<refentry id="crypttab">
+
+        <refentryinfo>
+                <title>crypttab</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Documentation</contrib>
+                                <firstname>Miloslav</firstname>
+                                <surname>Trmac</surname>
+                                <email>mitr@redhat.com</email>
+                        </author>
+                        <author>
+                                <contrib>Documentation</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>crypttab</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>crypttab</refname>
+                <refpurpose>Configuration for encrypted block devices</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>/etc/crypttab</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>The <filename>/etc/crypttab</filename> file
+                describes encrypted block devices that are set up
+                during system boot.</para>
+
+                <para>Empty lines and lines starting with the #
+                character are ignored.  Each of the remaining lines
+                describes one encrypted block device, fields on the
+                line are delimited by white space.  The first two
+                fields are mandatory, the remaining two are
+                optional.</para>
+
+                <para>The first field contains the name of the
+                resulting encrypted block device; the device is set up
+                within <filename>/dev/mapper/</filename>.</para>
+
+                <para>The second field contains a path to the
+                underlying block device, or a specification of a block
+                device via <literal>UUID=</literal> followed by the
+                UUID.  If the block device contains a LUKS signature,
+                it is opened as a LUKS encrypted partition; otherwise
+                it is assumed to be a raw dm-crypt partition.</para>
+
+                <para>The third field specifies the encryption
+                password.  If the field is not present or the password
+                is set to none, the password has to be manually
+                entered during system boot.  Otherwise the field is
+                interpreted as a path to a file containing the
+                encryption password.  For swap encryption
+                <filename>/dev/urandom</filename> or the hardware
+                device <filename>/dev/hw_random</filename> can be used
+                as the password file; using
+                <filename>/dev/random</filename> may prevent boot
+                completion if the system does not have enough entropy
+                to generate a truly random encryption key.</para>
+
+                <para>The fourth field, if present, is a
+                comma-delimited list of options.  The following
+                options are recognized:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>cipher=</varname></term>
+
+                                <listitem><para>Specifies the cipher
+                                to use; see
+                                <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                for possible values and the default
+                                value of this option.  A cipher with
+                                unpredictable IV values, such as
+                                <literal>aes-cbc-essiv:sha256</literal>,
+                                is recommended. </para></listitem>
+                        </varlistentry>
+
+
+                        <varlistentry>
+                                <term><varname>size=</varname></term>
+
+                                <listitem><para>Specifies the key size
+                                in bits; see
+                                <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                for possible values and the default
+                                value of this
+                                option. </para></listitem>
+                        </varlistentry>
+
+
+                        <varlistentry>
+                                <term><varname>hash=</varname></term>
+
+                                <listitem><para>Specifies the hash to
+                                use for password hashing; see
+                                <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> for possible values and
+                                the default value of this
+                                option. </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>tries=</varname></term>
+
+                                <listitem><para>Specifies the maximum
+                                number of times the user is queried
+                                for a password.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>verify</varname></term>
+
+                                <listitem><para> If the the encryption
+                                password is read from console, it has
+                                to be entered twice (to prevent
+                                typos). </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>read-only</varname></term>
+
+                                <listitem><para>Set up the encrypted
+                                block device in read-only
+                                mode.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>allow-discards</varname></term>
+
+                                <listitem><para>Allow discard requests
+                                to be passed through the encrypted
+                                block device. This improves
+                                performance on SSD storage but has
+                                security
+                                implications.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>luks</varname></term>
+
+                                <listitem><para>Force LUKS mode.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>plain</varname></term>
+
+                                <listitem><para>Force plain encryption
+                                mode.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>timeout=</varname></term>
+
+                                <listitem><para>Specify the timeout
+                                for querying for a password. If not
+                                unit is specified in
+                                seconds. Supported units are s, ms,
+                                us, min, h, d.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>noauto</varname></term>
+
+                                <listitem><para> This device will not
+                                be automatically unlocked on
+                                boot. </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>nofail</varname></term>
+
+                                <listitem><para>The system will not
+                                wait for the device to show up and be
+                                unlocked at boot, and not fail the
+                                boot if it doesn't show
+                                up.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>swap</varname></term>
+
+                                <listitem><para> The encrypted block
+                                device will be used as a swap
+                                partition, and will be formatted as a
+                                swap partition after setting up the
+                                encrypted block device, with
+                                <citerefentry><refentrytitle>mkswap</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+                                <para>WARNING: Using the
+                                <varname>swap</varname> option will
+                                destroy the contents of the named
+                                partition during every boot, so make
+                                sure the underlying block device is
+                                specified
+                                correctly. </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>tmp</varname></term>
+
+                                <listitem><para>The encrypted block
+                                device will be prepared for using it
+                                as <filename>/tmp</filename>
+                                partition: it will be formatted using
+                                <citerefentry><refentrytitle>mke2fs</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+                                <para>WARNING: Using the
+                                <varname>tmp</varname> option will
+                                destroy the contents of the named
+                                partition during every boot, so make
+                                sure the underlying block device is
+                                specified
+                                correctly. </para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Example</title>
+                <example>
+                        <title>/etc/crypttab example</title>
+                        <para>Set up two encrypted block devices with
+                        LUKS: one normal one for storage, and another
+                        one for usage as swap device.</para>
+
+                        <programlisting>luks-2505567a-9e27-4efe-a4d5-15ad146c258b UUID=2505567a-9e27-4efe-a4d5-15ad146c258b - timeout=0
+swap /dev/sda7 /dev/urandom swap</programlisting>
+                </example>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>mkswap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>mke2fs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

@@ -2610,7 +2610,8 @@ INSTALL_DATA_HOOKS += \
 	cryptsetup-install-data-hook
 
 MANPAGES += \
-	man/systemd-cryptsetup@.service.8
+	man/systemd-cryptsetup@.service.8 \
+	man/crypttab.5
 
 MANPAGES_ALIAS += \
 	man/systemd-cryptsetup.8
