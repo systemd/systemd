@@ -3,7 +3,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
-<refentry id="systemd-udevd.service">
+<refentry id="systemd-udev.service">
   <refentryinfo>
     <title>systemd-udevd.service</title>
     <productname>systemd</productname>
@@ -18,7 +18,7 @@
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>systemd-udevd.service</refentrytitle>
+    <refentrytitle>systemd-udev.service</refentrytitle>
     <manvolnum>8</manvolnum>
     <refmiscinfo class="version"></refmiscinfo>
   </refmeta>

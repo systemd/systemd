@@ -1491,7 +1491,7 @@ libudev_private_la_LIBADD = \
 MANPAGES += \
 	man/udev.7 \
 	man/udevadm.8 \
-	man/systemd-udevd.service.8
+	man/systemd-udev.service.8
 
 MANPAGES_ALIAS += \
 	man/systemd-udevd.8
