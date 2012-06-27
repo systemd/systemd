@@ -117,7 +117,7 @@ finish:
 }
 
 static int load_module(struct kmod_ctx *ctx, const char *m) {
-        const int probe_flags = KMOD_PROBE_APPLY_BLACKLIST|KMOD_PROBE_IGNORE_LOADED;
+        const int probe_flags = KMOD_PROBE_APPLY_BLACKLIST;
         struct kmod_list *itr, *modlist = NULL;
         int r = 0;
 
@@ -129,22 +129,40 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
                 return r;
         }
 
+        if (!modlist) {
+                log_error("Failed to find module '%s'", m);
+                return r;
+        }
+
         kmod_list_foreach(itr, modlist) {
                 struct kmod_module *mod;
-                int err;
+                int state, err;
 
                 mod = kmod_module_get_module(itr);
-                err = kmod_module_probe_insert_module(mod, probe_flags,
-                                                      NULL, NULL, NULL, NULL);
+                state = kmod_module_get_initstate(mod);
 
-                if (err == 0)
-                        log_info("Inserted module '%s'", kmod_module_get_name(mod));
-                else if (err == KMOD_PROBE_APPLY_BLACKLIST)
-                        log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
-                else {
-                        log_error("Failed to insert '%s': %s", kmod_module_get_name(mod),
-                                  strerror(-err));
-                        r = err;
+                switch (state) {
+                case KMOD_MODULE_BUILTIN:
+                        log_info("Module '%s' is builtin", kmod_module_get_name(mod));
+                        break;
+
+                case KMOD_MODULE_LIVE:
+                        log_info("Module '%s' is already loaded", kmod_module_get_name(mod));
+                        break;
+
+                default:
+                        err = kmod_module_probe_insert_module(mod, probe_flags,
+                                                              NULL, NULL, NULL, NULL);
+
+                        if (err == 0)
+                                log_info("Inserted module '%s'", kmod_module_get_name(mod));
+                        else if (err == KMOD_PROBE_APPLY_BLACKLIST)
+                                log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
+                        else {
+                                log_error("Failed to insert '%s': %s", kmod_module_get_name(mod),
+                                          strerror(-err));
+                                r = err;
+                        }
                 }
 
                 kmod_module_unref(mod);
