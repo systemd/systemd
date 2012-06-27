@@ -453,8 +453,8 @@ int main(int argc, char *argv[]) {
                 "binfmt.d\0"
                 "systemd/system\0"
                 "systemd/user\0"
-                "systemd/system.preset\0"
-                "systemd/user.preset\0"
+                "systemd/system-preset\0"
+                "systemd/user-preset\0"
                 "udev/rules.d\0"
                 "modprobe.d\0";
 
