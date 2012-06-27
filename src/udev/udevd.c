@@ -909,7 +909,7 @@ static int convert_db(struct udev *udev)
 
         f = fopen("/dev/kmsg", "w");
         if (f != NULL) {
-                fprintf(f, "<30>udevd[%u]: converting old udev database\n", getpid());
+                fprintf(f, "<30>systemd-udevd[%u]: converting old udev database\n", getpid());
                 fclose(f);
         }
 
@@ -1266,7 +1266,7 @@ int main(int argc, char *argv[])
 
         f = fopen("/dev/kmsg", "w");
         if (f != NULL) {
-                fprintf(f, "<30>udevd[%u]: starting version " VERSION "\n", getpid());
+                fprintf(f, "<30>systemd-udevd[%u]: starting version " VERSION "\n", getpid());
                 fclose(f);
         }
 
