@@ -2611,6 +2611,7 @@ INSTALL_DATA_HOOKS += \
 
 MANPAGES += \
 	man/systemd-cryptsetup@.service.8 \
+	man/systemd-cryptsetup-generator.8 \
 	man/crypttab.5
 
 MANPAGES_ALIAS += \

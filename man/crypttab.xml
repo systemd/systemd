@@ -255,6 +255,10 @@
                         </varlistentry>
                 </variablelist>
 
+                <para>At early boot and when the system manager
+                configuration is reloaded this file is translated into
+                native systemd units
+                by <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </refsect1>
 
         <refsect1>
@@ -275,6 +279,7 @@ swap /dev/sda7 /dev/urandom swap</programlisting>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>mkswap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>mke2fs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
