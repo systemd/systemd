@@ -104,7 +104,12 @@
                 <para>Mount units may either be configured via unit
                 files, or via <filename>/etc/fstab</filename> (see
                 <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for details).</para>
+                for details). Mounts listed in
+                <filename>/etc/fstab</filename> will be converted into
+                native units dynamically at boot and when the
+                configuration of the system manager is reloaded. See
+                <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                for details about the conversion.</para>
 
                 <para>When reading <filename>/etc/fstab</filename> a
                 few special mount options are understood by systemd
@@ -292,7 +297,8 @@
                           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

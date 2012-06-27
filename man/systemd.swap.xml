@@ -93,7 +93,13 @@
                 <para>Swap units may either be configured via unit
                 files, or via <filename>/etc/fstab</filename> (see
                 <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for details).</para>
+                for details). Swaps listed in
+                <filename>/etc/fstab</filename> will be converted into
+                native units dynamically at boot and when the
+                configuration of the system manager is
+                reloaded. See
+                <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                for details about the conversion.</para>
 
                 <para>If a swap device or file is configured in both
                 <filename>/etc/fstab</filename> and a unit file the
@@ -215,7 +221,8 @@
                           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

@@ -480,6 +480,13 @@
                 by systemd are covered by the <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
                 Stability Promise</ulink>.</para>
+
+                <para>Units may be generated dynamically at boot and
+                system manager reload time, for example based on other
+                configuration files or parameters passed on the kernel
+                command line. For details see the <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/Generators">Generators
+                Specification</ulink>.</para>
         </refsect1>
 
         <refsect1>

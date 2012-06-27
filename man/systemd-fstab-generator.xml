@@ -1,0 +1,118 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!--
+  This file is part of systemd.
+
+  Copyright 2012 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+<refentry id="systemd-fstab-generator">
+
+        <refentryinfo>
+                <title>systemd-fstab-generator</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-fstab-generator</refentrytitle>
+                <manvolnum>8</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-fstab-generator</refname>
+                <refpurpose>Unit generator for <filename>/etc/fstab</filename></refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>/usr/lib/systemd/system-generators/systemd-fstab-generator</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><filename>systemd-fstab-generator</filename> is
+                a generator that translates
+                <filename>/etc/fstab</filename> (see
+                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details) into native systemd units early at boot
+                and when configuration of the system manager is
+                reloaded. This will instantiate mount and swap units
+                units as necessary.</para>
+
+                <para>See
+                <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                and
+                <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for more information about special
+                <filename>/etc/fstab</filename> mount options this
+                generator understands.</para>
+
+                <para><filename>systemd-fstab-generator</filename>
+                implements the <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/Generator">generator
+                specification</ulink>.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Kernel Command Line</title>
+
+                <para><filename>systemd-fstab-generator</filename> understands
+                the following kernel command line parameters:</para>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><varname>fstab=</varname></term>
+                                <term><varname>rd.fstab=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. Defaults to
+                                <literal>yes</literal>. If
+                                <literal>no</literal> causes the
+                                generator to ignore any mounts or swaps
+                                configured in
+                                <filename>/etc/fstab</filename>. <varname>rd.fstab=</varname>
+                                is honoured only be initial RAM disk
+                                (initrd) while
+                                <varname>luks.fstab=</varname> is
+                                honoured by both the main system and
+                                the initrd.  </para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>
