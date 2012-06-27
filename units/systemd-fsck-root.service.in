@@ -7,7 +7,7 @@
 
 [Unit]
 Description=File System Check on Root Device
-Documentition=man:systemd-fsck@.service(8)
+Documentation=man:systemd-fsck@.service(8)
 DefaultDependencies=no
 After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=local-fs.target shutdown.target
