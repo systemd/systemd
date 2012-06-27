@@ -40,6 +40,7 @@
 #include "socket-util.h"
 #include "ask-password-api.h"
 #include "strv.h"
+#include "build.h"
 
 static enum {
         ACTION_LIST,
@@ -638,6 +639,7 @@ static int help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Process system password requests.\n\n"
                "  -h --help     Show this help\n"
+               "     --version  Show package version\n"
                "     --list     Show pending password requests\n"
                "     --query    Process pending password requests\n"
                "     --watch    Continuously process password requests\n"
@@ -657,11 +659,13 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WATCH,
                 ARG_WALL,
                 ARG_PLYMOUTH,
-                ARG_CONSOLE
+                ARG_CONSOLE,
+                ARG_VERSION
         };
 
         static const struct option options[] = {
                 { "help",     no_argument, NULL, 'h'          },
+                { "version",  no_argument, NULL, ARG_VERSION  },
                 { "list",     no_argument, NULL, ARG_LIST     },
                 { "query",    no_argument, NULL, ARG_QUERY    },
                 { "watch",    no_argument, NULL, ARG_WATCH    },
@@ -682,6 +686,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'h':
                         help();
+                        return 0;
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(DISTRIBUTION);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case ARG_LIST:
