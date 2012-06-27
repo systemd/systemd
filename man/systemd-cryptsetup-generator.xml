@@ -42,11 +42,11 @@
 
         <refnamediv>
                 <refname>systemd-cryptsetup-generator</refname>
-                <refpurpose>Unit generated for <filename>/etc/crypttab</filename></refpurpose>
+                <refpurpose>Unit generator for <filename>/etc/crypttab</filename></refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>/usr/lib/systemd/systemd-cryptsetup</filename></para>
+                <para><filename>/usr/lib/systemd/system-generators/systemd-cryptsetup-generator</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
