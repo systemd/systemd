@@ -25,6 +25,8 @@ Bugfixes:
 
 Features:
 
+* systemctl list-unit-files appears to be broken for symlinked units in /usr/lib
+
 * maybe allow services with ExecStop= set, but no ExecStart=?
 
 * efi: implement /forcefsck as uefi variables thus not requiring file system altering to trigger a file system check
@@ -65,8 +67,6 @@ Features:
 * when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
 
 * readahead: when bumping /sys readahead variable save mtime and compare later to detect changes
-
-* Document boot options such as forcefsck
 
 * (attempt to) make Debianites happy:
         - implement .d/ auto includes for unit files
@@ -164,8 +164,6 @@ Features:
 * journal: store euid in journal if it differs from uid
 
 * support chrony in addition to ntpd in timedated
-
-* document crypttab(5)
 
 * There's currently no way to cancel fsck (used to be possible via C-c or c on the console)
 
@@ -310,7 +308,6 @@ Features:
   - resource control in systemd
   - inhibiting
   - testing with Harald's awesome test kit
-  - the Documentation=
 
 * allow port=0 in .socket units
 

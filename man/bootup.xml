@@ -147,18 +147,18 @@
                                                v
                                          basic.target
                                                |
-                             _________________/|                                 emergency.service
-                            /                  |                                         |
-                            |                  |                                         v
-                            v                  v                                 <emphasis>emergency.target</emphasis>
-                     (various system    (various system
-                        services           services)
-                      required for             |
-                     graphical UIs)            v
-                            |           <emphasis>multi-user.target</emphasis>
-                            |                  |
-                            | _________________/
-                            |/
+            __________________________________/|                                 emergency.service
+           /                |                  |                                         |
+           |                |                  |                                         v
+           v                v                  v                                 <emphasis>emergency.target</emphasis>
+       display-      (various system    (various system
+   manager.service       services           services)
+           |           required for            |
+           |          graphical UIs)           v
+           |                |           <emphasis>multi-user.target</emphasis>
+           |                |                  |
+           \_______________ | _________________/
+                           \|/
                             v
                     <emphasis>graphical.target</emphasis></programlisting>
 

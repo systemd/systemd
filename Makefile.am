@@ -3389,9 +3389,6 @@ if TARGET_FEDORA
 		rm -f display-manager.service single.service && \
 		$(LN_S) prefdm.service display-manager.service && \
 		$(LN_S) rescue.service single.service )
-	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
-		rm -f display-manager.service && \
-		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
 endif
 
 if TARGET_MANDRIVA
@@ -3400,9 +3397,6 @@ if TARGET_MANDRIVA
 		$(LN_S) prefdm.service display-manager.service && \
 		$(LN_S) prefdm.service dm.service && \
 		$(LN_S) rescue.service single.service )
-	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
-		rm -f display-manager.service && \
-		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
 endif
 
 if TARGET_DEBIAN_OR_UBUNTU
@@ -3422,9 +3416,6 @@ if TARGET_MAGEIA
 		rm -f display-manager.service && \
 		$(LN_S) prefdm.service display-manager.service && \
 		$(LN_S) prefdm.service dm.service )
-	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
-		rm -f display-manager.service && \
-		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
 endif
 
 install-exec-hook: $(INSTALL_EXEC_HOOKS)

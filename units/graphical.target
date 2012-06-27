@@ -11,6 +11,7 @@ Documentation=man:systemd.special(7)
 Requires=multi-user.target
 After=multi-user.target
 Conflicts=rescue.target
+Wants=display-manager.service
 AllowIsolate=yes
 
 [Install]
