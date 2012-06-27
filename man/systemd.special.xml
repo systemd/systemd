@@ -96,6 +96,7 @@
                 <filename>syslog.service</filename>,
                 <filename>syslog.socket</filename>,
                 <filename>syslog.target</filename>,
+                <filename>system-update.target</filename>,
                 <filename>time-sync.target</filename>,
                 <filename>umount.target</filename></para>
         </refsynopsisdiv>
@@ -765,6 +766,23 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>system-update.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        that is used for off-line
+                                        system updates.
+                                        <citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                        will redirect the boot process
+                                        to this target if
+                                        <filename>/system-update</filename>
+                                        exists. For more information
+                                        see the <ulink
+                                        url="http://freedesktop.org/wiki/Software/systemd/SystemUpdates">System
+                                        Updates
+                                        Specification</ulink>.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>time-sync.target</filename></term>
                                 <listitem>
                                         <para>systemd automatically
@@ -795,6 +813,7 @@
                                         is set (the default).</para>
                                 </listitem>
                         </varlistentry>
+
                 </variablelist>
         </refsect1>
 

@@ -498,7 +498,8 @@ MANPAGES = \
 	man/systemd-ask-password-console.service.8 \
 	man/systemd-analyze.1 \
 	man/systemd-tty-ask-password-agent.1 \
-	man/systemd-getty-generator.8
+	man/systemd-getty-generator.8 \
+	man/systemd-system-update-generator.8
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
