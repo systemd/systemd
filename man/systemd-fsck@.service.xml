@@ -60,7 +60,7 @@
                 service responsible for file system checks. It is
                 instantiated for each device that requires a file
                 system
-                check. <filename>systemd-fsck@.service</filename> is
+                check. <filename>systemd-fsck-root.service</filename> is
                 responsible for file system checks on the root
                 file system.</para>
 
