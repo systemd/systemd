@@ -482,26 +482,29 @@
                                 is activated when the start-up is
                                 completed. The service must call
                                 <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                regularly with "WATCHDOG=1". If the
-                                time between two such calls is larger
-                                than the configured time then the
-                                service is placed in a failure
-                                state. By setting
-                                <varname>Restart=</varname>
-                                to <option>on-failure</option> or
+                                regularly with "WATCHDOG=1" (i.e. the
+                                "keep-alive ping"). If the time
+                                between two such calls is larger than
+                                the configured time then the service
+                                is placed in a failure state. By
+                                setting <varname>Restart=</varname> to
+                                <option>on-failure</option> or
                                 <option>always</option> the service
                                 will be automatically restarted. The
                                 time configured here will be passed to
                                 the executed service process in the
                                 <varname>WATCHDOG_USEC=</varname>
-                                environment variable. If
+                                environment variable. This allows
+                                daemons to automatically enable the
+                                keep-alive pinging logic if watchdog
+                                support is enabled for the service. If
                                 this option is used
                                 <varname>NotifyAccess=</varname> (see
                                 below) should be set to open access to
                                 the notification socket provided by
                                 systemd. If
-                                <varname>NotifyAccess=</varname> is not
-                                set, it will be implicitly set to
+                                <varname>NotifyAccess=</varname> is
+                                not set, it will be implicitly set to
                                 <option>main</option>. Defaults to 0,
                                 which disables this
                                 feature.</para></listitem>

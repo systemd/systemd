@@ -156,12 +156,19 @@
                                 <term>WATCHDOG=1</term>
 
                                 <listitem><para>Tells systemd to
-                                update the watchdog timestamp.
-                                Services using this feature should do
-                                this in regular intervals. A watchdog
-                                framework can use the timestamps to
-                                detect failed
-                                services.</para></listitem>
+                                update the watchdog timestamp. This is
+                                the keep-alive ping that services need
+                                to issue in regular intervals if
+                                <varname>WatchdogSec=</varname> is
+                                enabled for it. See
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details. It is recommended to send
+                                this message if the
+                                <varname>WATCHDOG_USEC=</varname>
+                                environment variable has been set for
+                                the service process, in every half the
+                                time interval that is specified in the
+                                variable.</para></listitem>
                         </varlistentry>
                 </variablelist>
 
