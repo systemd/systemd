@@ -487,6 +487,14 @@
                 command line. For details see the <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/Generators">Generators
                 Specification</ulink>.</para>
+
+                <para>Systems which invoke systemd in a container
+                resp. initrd environment should implement the
+                <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
+                Interface</ulink> resp. <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd
+                Interface</ulink> specifications.</para>
         </refsect1>
 
         <refsect1>

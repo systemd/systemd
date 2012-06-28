@@ -93,7 +93,6 @@
                 <filename>suspend.target</filename>,
                 <filename>swap.target</filename>,
                 <filename>sysinit.target</filename>,
-                <filename>syslog.service</filename>,
                 <filename>syslog.socket</filename>,
                 <filename>syslog.target</filename>,
                 <filename>system-update.target</filename>,
@@ -731,25 +730,19 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>syslog.service</filename></term>
-                                <listitem>
-                                        <para>The syslog service if
-                                        any. Implementations should
-                                        create a symlink from the
-                                        actual syslog implementation
-                                        to this generic name for
-                                        activating it.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>syslog.socket</filename></term>
                                 <listitem>
                                         <para>The socket unit where
                                         syslog implementations should
                                         listen on. All userspace log
                                         messages will be made
-                                        available on this
-                                        socket.</para>
+                                        available on this socket. For
+                                        more information about syslog
+                                        integration, please consult
+                                        the <ulink
+                                        url="http://www.freedesktop.org/wiki/Software/systemd/syslog">Syslog
+                                        Interface</ulink>
+                                        document.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

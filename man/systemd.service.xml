@@ -95,7 +95,12 @@
                 <filename>.service</filename> suffix removed) and
                 dynamically creates a service unit from that
                 script. This is useful for compatibility with
-                SysV.</para>
+                SysV. Note that this compatibility is quite
+                comprehensive but not 100%. For details about the
+                incomptibilities see the <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/Incompatibilities">Incompatibilities
+                with SysV</ulink> document.
+                </para>
         </refsect1>
 
         <refsect1>

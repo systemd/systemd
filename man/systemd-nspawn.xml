@@ -114,6 +114,11 @@
                 two containers is complete and the containers will
                 share very few runtime objects except for the
                 underlying file system.</para>
+
+                <para><command>systemd-nspawn</command> implements the
+                <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
+                Interface</ulink> specification.</para>
         </refsect1>
 
         <refsect1>

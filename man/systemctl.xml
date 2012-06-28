@@ -821,8 +821,12 @@
                                 <command>enable</command>, depending
                                 how the unit is listed in the preset
                                 files. For more information on preset
-                                policy see
-                                <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+                                policy format see
+                                <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
+                                more information on the concept of
+                                presets please consult the <ulink
+                                url="http://freedesktop.org/wiki/Software/systemd/Preset">Preset</ulink>
+                                document.</para>
                                 </listitem>
                         </varlistentry>
 
