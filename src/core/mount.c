@@ -618,7 +618,11 @@ static int mount_load(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        r = unit_load_fragment_and_dropin_optional(u);
+        if (m->from_proc_self_mountinfo)
+                r = unit_load_fragment_and_dropin_optional(u);
+        else
+                r = unit_load_fragment_and_dropin(u);
+
         if (r < 0)
                 return r;
 
@@ -1436,6 +1440,14 @@ static int mount_add_one(
         } else {
                 delete = false;
                 free(e);
+
+                if (u->load_state == UNIT_ERROR) {
+                        u->load_state = UNIT_LOADED;
+                        u->load_error = 0;
+                        r = mount_add_extras(MOUNT(u));
+                        if (r < 0)
+                                goto fail;
+                }
         }
 
         if (!(w = strdup(what)) ||
