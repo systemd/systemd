@@ -56,8 +56,7 @@ test_run() {
         dwarn "can't run qemu-kvm, skipping"
     fi
     if check_nspawn; then
-#run_nspawn || return 1
-    :
+        run_nspawn || return 1
     else
         dwarn "can't run systemd-nspawn, skipping"
     fi
