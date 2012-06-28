@@ -106,6 +106,12 @@
                 url="http://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat
                 on Linux</ulink> for an introduction into basic
                 concepts of logind such as users, sessions and seats.</para>
+
+                <para>See the <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/logind">
+                developer documentation</ulink> for information about
+                the APIs <filename>systemd-logind</filename>
+                provides.</para>
         </refsect1>
 
         <refsect1>
