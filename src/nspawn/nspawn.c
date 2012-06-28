@@ -60,6 +60,29 @@ static char *arg_uuid = NULL;
 static bool arg_private_network = false;
 static bool arg_read_only = false;
 static bool arg_boot = false;
+static uint64_t arg_retain =
+        (1ULL << CAP_CHOWN) |
+        (1ULL << CAP_DAC_OVERRIDE) |
+        (1ULL << CAP_DAC_READ_SEARCH) |
+        (1ULL << CAP_FOWNER) |
+        (1ULL << CAP_FSETID) |
+        (1ULL << CAP_IPC_OWNER) |
+        (1ULL << CAP_KILL) |
+        (1ULL << CAP_LEASE) |
+        (1ULL << CAP_LINUX_IMMUTABLE) |
+        (1ULL << CAP_NET_BIND_SERVICE) |
+        (1ULL << CAP_NET_BROADCAST) |
+        (1ULL << CAP_NET_RAW) |
+        (1ULL << CAP_SETGID) |
+        (1ULL << CAP_SETFCAP) |
+        (1ULL << CAP_SETPCAP) |
+        (1ULL << CAP_SETUID) |
+        (1ULL << CAP_SYS_ADMIN) |
+        (1ULL << CAP_SYS_CHROOT) |
+        (1ULL << CAP_SYS_NICE) |
+        (1ULL << CAP_SYS_PTRACE) |
+        (1ULL << CAP_SYS_TTY_CONFIG) |
+        (1ULL << CAP_SYS_RESOURCE);
 
 static int help(void) {
 
@@ -72,7 +95,8 @@ static int help(void) {
                "  -C --controllers=LIST Put the container in specified comma-separated cgroup hierarchies\n"
                "     --uuid=UUID        Set a specific machine UUID for the container\n"
                "     --private-network  Disable network in container\n"
-               "     --read-only        Mount the root directory read-only\n",
+               "     --read-only        Mount the root directory read-only\n"
+               "     --capability=CAP   In addition to the default, retain specified capability\n",
                program_invocation_short_name);
 
         return 0;
@@ -83,7 +107,8 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_PRIVATE_NETWORK = 0x100,
                 ARG_UUID,
-                ARG_READ_ONLY
+                ARG_READ_ONLY,
+                ARG_CAPABILITY
         };
 
         static const struct option options[] = {
@@ -95,6 +120,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "boot",            no_argument,       NULL, 'b'                 },
                 { "uuid",            required_argument, NULL, ARG_UUID            },
                 { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
+                { "capability",      required_argument, NULL, ARG_CAPABILITY      },
                 { NULL,              0,                 NULL, 0                   }
         };
 
@@ -156,6 +182,33 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_READ_ONLY:
                         arg_read_only = true;
                         break;
+
+                case ARG_CAPABILITY: {
+                        char *state, *word;
+                        size_t length;
+
+                        FOREACH_WORD_SEPARATOR(word, length, optarg, ",", state) {
+                                cap_value_t cap;
+                                char *t;
+
+                                t = strndup(word, length);
+                                if (!t) {
+                                        log_error("Out of memory.");
+                                        return -ENOMEM;
+                                }
+
+                                if (cap_from_name(t, &cap) < 0) {
+                                        log_error("Failed to parse capability %s.", t);
+                                        free(t);
+                                        return -EINVAL;
+                                }
+
+                                free(t);
+                                arg_retain |= 1ULL << (uint64_t) cap;
+                        }
+
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -544,31 +597,7 @@ static int setup_hostname(void) {
 }
 
 static int drop_capabilities(void) {
-
-        static const uint64_t retain =
-                (1ULL << CAP_CHOWN) |
-                (1ULL << CAP_DAC_OVERRIDE) |
-                (1ULL << CAP_DAC_READ_SEARCH) |
-                (1ULL << CAP_FOWNER) |
-                (1ULL << CAP_FSETID) |
-                (1ULL << CAP_IPC_OWNER) |
-                (1ULL << CAP_KILL) |
-                (1ULL << CAP_LEASE) |
-                (1ULL << CAP_LINUX_IMMUTABLE) |
-                (1ULL << CAP_NET_BIND_SERVICE) |
-                (1ULL << CAP_NET_BROADCAST) |
-                (1ULL << CAP_NET_RAW) |
-                (1ULL << CAP_SETGID) |
-                (1ULL << CAP_SETFCAP) |
-                (1ULL << CAP_SETPCAP) |
-                (1ULL << CAP_SETUID) |
-                (1ULL << CAP_SYS_ADMIN) |
-                (1ULL << CAP_SYS_CHROOT) |
-                (1ULL << CAP_SYS_NICE) |
-                (1ULL << CAP_SYS_PTRACE) |
-                (1ULL << CAP_SYS_TTY_CONFIG);
-
-        return capability_bounding_set_drop(~retain, false);
+        return capability_bounding_set_drop(~arg_retain, false);
 }
 
 static int is_os_tree(const char *path) {

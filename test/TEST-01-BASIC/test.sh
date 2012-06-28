@@ -37,7 +37,7 @@ run_qemu() {
 
 
 run_nspawn() {
-    systemd-nspawn -b -D $TESTDIR/nspawn-root /usr/lib/systemd/systemd
+    systemd-nspawn -b -D $TESTDIR/nspawn-root --capability=CAP_AUDIT_CONTROL,CAP_AUDIT_WRITE /usr/lib/systemd/systemd
     ret=1
     [[ -e $TESTDIR/nspawn-root/testok ]] && ret=0
     cp -a $TESTDIR/nspawn-root/var/log/journal $TESTDIR
