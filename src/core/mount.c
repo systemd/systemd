@@ -537,6 +537,80 @@ static int mount_verify(Mount *m) {
         return 0;
 }
 
+static int mount_add_extras(Mount *m) {
+        Unit *u = UNIT(m);
+        int r;
+
+        r = unit_add_exec_dependencies(u, &m->exec_context);
+        if (r < 0)
+                return r;
+
+        if (UNIT(m)->fragment_path)
+                m->from_fragment = true;
+
+        if (!m->where) {
+                m->where = unit_name_to_path(u->id);
+                if (!m->where)
+                        return -ENOMEM;
+        }
+
+        path_kill_slashes(m->where);
+
+        if (!UNIT(m)->description) {
+                r = unit_set_description(u, m->where);
+                if (r < 0)
+                        return r;
+        }
+
+        r = mount_add_device_links(m);
+        if (r < 0)
+                return r;
+
+        r = mount_add_mount_links(m);
+        if (r < 0)
+                return r;
+
+        r = mount_add_socket_links(m);
+        if (r < 0)
+                return r;
+
+        r = mount_add_swap_links(m);
+        if (r < 0)
+                return r;
+
+        r = mount_add_path_links(m);
+        if (r < 0)
+                return r;
+
+        r = mount_add_requires_mounts_links(m);
+        if (r < 0)
+                return r;
+
+        r = mount_add_automount_links(m);
+        if (r < 0)
+                return r;
+
+        r = mount_add_quota_links(m);
+        if (r < 0)
+                return r;
+
+        if (UNIT(m)->default_dependencies) {
+                r = mount_add_default_dependencies(m);
+                if (r < 0)
+                        return r;
+        }
+
+        r = unit_add_default_cgroups(u);
+        if (r < 0)
+                return r;
+
+        r = mount_fix_timeouts(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int mount_load(Unit *u) {
         Mount *m = MOUNT(u);
         int r;
@@ -544,61 +618,15 @@ static int mount_load(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        if ((r = unit_load_fragment_and_dropin_optional(u)) < 0)
+        r = unit_load_fragment_and_dropin_optional(u);
+        if (r < 0)
                 return r;
 
         /* This is a new unit? Then let's add in some extras */
         if (u->load_state == UNIT_LOADED) {
-                if ((r = unit_add_exec_dependencies(u, &m->exec_context)) < 0)
-                        return r;
-
-                if (UNIT(m)->fragment_path)
-                        m->from_fragment = true;
-
-                if (!m->where)
-                        if (!(m->where = unit_name_to_path(u->id)))
-                                return -ENOMEM;
-
-                path_kill_slashes(m->where);
-
-                if (!UNIT(m)->description)
-                        if ((r = unit_set_description(u, m->where)) < 0)
-                                return r;
-
-                if ((r = mount_add_device_links(m)) < 0)
-                        return r;
-
-                if ((r = mount_add_mount_links(m)) < 0)
-                        return r;
-
-                if ((r = mount_add_socket_links(m)) < 0)
-                        return r;
-
-                if ((r = mount_add_swap_links(m)) < 0)
-                        return r;
-
-                if ((r = mount_add_path_links(m)) < 0)
-                        return r;
-
-                r = mount_add_requires_mounts_links(m);
+                r = mount_add_extras(m);
                 if (r < 0)
                         return r;
-
-                if ((r = mount_add_automount_links(m)) < 0)
-                        return r;
-
-                r = mount_add_quota_links(m);
-                if (r < 0)
-                        return r;
-
-                if (UNIT(m)->default_dependencies)
-                        if ((r = mount_add_default_dependencies(m)) < 0)
-                                return r;
-
-                if ((r = unit_add_default_cgroups(u)) < 0)
-                        return r;
-
-                mount_fix_timeouts(m);
         }
 
         return mount_verify(m);
