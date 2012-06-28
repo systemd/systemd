@@ -58,7 +58,7 @@
                 <title>Description</title>
 
                 <para>Preset files may be used to encode policy which
-                services shall be enabled by default and which ones
+                units shall be enabled by default and which ones
                 shall be disabled. They are read by <command>systemctl
                 preset</command> (for more information see
                 <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
@@ -74,7 +74,7 @@
 
                 <para>It is not recommended to ship preset files
                 within the respective software packages implementing
-                the services, but rather centralize them in a
+                the units, but rather centralize them in a
                 distribution or spin default policy, which can be
                 amended by administrator policy.</para>
 
