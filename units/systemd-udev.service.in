@@ -18,5 +18,5 @@ ConditionCapability=CAP_MKNOD
 Type=notify
 OOMScoreAdjust=-1000
 Sockets=systemd-udev-control.socket systemd-udev-kernel.socket
-Restart=on-failure
+Restart=always
 ExecStart=@rootlibexecdir@/systemd-udevd
