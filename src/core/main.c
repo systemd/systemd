@@ -1430,8 +1430,17 @@ int main(int argc, char *argv[]) {
                         goto finish;
         }
 
-        log_full(arg_running_as == MANAGER_SYSTEM ? LOG_INFO : LOG_DEBUG,
-                 PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")", manager_running_as_to_string(arg_running_as));
+        if (arg_running_as == MANAGER_SYSTEM) {
+                const char *virtualization = NULL;
+
+                log_info(PACKAGE_STRING " running in system mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")");
+
+                detect_virtualization(&virtualization);
+                if (virtualization)
+                        log_info("Detected virtualization '%s'.", virtualization);
+
+        } else
+                log_debug(PACKAGE_STRING " running in user mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")");
 
         if (arg_running_as == MANAGER_SYSTEM && !skip_setup) {
                 locale_setup();
