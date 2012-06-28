@@ -25,6 +25,8 @@ Bugfixes:
 
 Features:
 
+* support debian's console-setup logic
+
 * introduce Type=pid-file
 
 * systemctl list-unit-files appears to be broken for symlinked units in /usr/lib
