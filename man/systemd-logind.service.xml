@@ -109,9 +109,14 @@
 
                 <para>See the <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/logind">
-                developer documentation</ulink> for information about
+                logind D-Bus API Documentation</ulink> for information about
                 the APIs <filename>systemd-logind</filename>
                 provides.</para>
+
+                <para>For more information on the inhibition logic see
+                the <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
+                Lock Developer Documentation</ulink>.</para>
         </refsect1>
 
         <refsect1>

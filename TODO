@@ -25,6 +25,10 @@ Bugfixes:
 
 Features:
 
+* logind: export a bool property that tells user whether a
+  suspend/shutdown is currently scheduled, i.e. where are between
+  PrepareForSuspend(true) and PrepareForSuspend(false)
+
 * support debian's console-setup logic
 
 * introduce Type=pid-file

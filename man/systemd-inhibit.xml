@@ -71,6 +71,10 @@
                 to avoid system suspends while an optical disc is
                 being recorded, or similar operations that should not
                 be interrupted.</para>
+
+                <para>For more information see the <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
+                Lock Developer Documentation</ulink>.</para>
         </refsect1>
 
         <refsect1>
@@ -103,10 +107,14 @@
                                 <literal>shutdown</literal>,
                                 <literal>sleep</literal>,
                                 <literal>idle</literal>, for
-                                inhibiting reboot/power-off/halt/kexec,
+                                inhibiting
+                                reboot/power-off/halt/kexec,
                                 suspending/hibernating, resp. the
-                                automatic idle
-                                detection.</para></listitem>
+                                automatic idle detection. If ommitted
+                                defaults to
+                                <literal>idle:sleep:shutdown</literal>,
+                                i.e. takes all possible
+                                locks.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -156,8 +164,6 @@
                                 inhibition locks instead of acquiring
                                 one.</para></listitem>
                         </varlistentry>
-
-
                 </variablelist>
 
         </refsect1>
@@ -166,6 +172,18 @@
                 <title>Exit status</title>
 
                 <para>Returns the exit status of the executed program.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Example</title>
+
+                <programlisting># systemd-inhibit wodim foobar.iso</programlisting>
+
+                <para>This burns the ISO image
+                <filename>foobar.iso</filename> on a CD using
+                <citerefentry><refentrytitle>wodim</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                and inhibits system sleeping, shutdown and idle while
+                doing so.</para>
         </refsect1>
 
         <refsect1>
