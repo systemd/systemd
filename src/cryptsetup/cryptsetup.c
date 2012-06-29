@@ -37,6 +37,7 @@
 static const char *opt_type = NULL; /* LUKS1 or PLAIN */
 static char *opt_cipher = NULL;
 static unsigned opt_key_size = 0;
+static unsigned opt_keyfile_offset = 0;
 static char *opt_hash = NULL;
 static unsigned opt_tries = 0;
 static bool opt_readonly = false;
@@ -76,6 +77,13 @@ static int parse_one_option(const char *option) {
 
                 if (safe_atou(option+5, &opt_key_size) < 0) {
                         log_error("size= parse failure, ignoring.");
+                        return 0;
+                }
+
+        } else if (startswith(option, "keyfile-offset=")) {
+
+                if (safe_atou(option+15, &opt_keyfile_offset) < 0) {
+                        log_error("keyfile-offset= parse failure, ignoring.");
                         return 0;
                 }
 
@@ -462,7 +470,8 @@ int main(int argc, char *argv[]) {
                                  argv[3]);
 
                         if (key_file)
-                                k = crypt_activate_by_keyfile(cd, argv[2], CRYPT_ANY_SLOT, key_file, keyfile_size, flags);
+                                k = crypt_activate_by_keyfile_offset(cd, argv[2], CRYPT_ANY_SLOT, key_file, keyfile_size,
+                                            opt_keyfile_offset, flags);
                         else {
                                 char **p;
 
