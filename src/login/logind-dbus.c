@@ -209,6 +209,8 @@
         "  <property name=\"HandlePowerKey\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"HandleSleepKey\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"HandleLidSwitch\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"PreparingForShutdown\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"PreparingForSleep\" type=\"b\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION_BEGIN                                             \
@@ -270,6 +272,22 @@ static int bus_manager_append_inhibited(DBusMessageIter *i, const char *property
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &p))
                 return -ENOMEM;
 
+        return 0;
+}
+
+static int bus_manager_append_preparing(DBusMessageIter *i, const char *property, void *data) {
+        Manager *m = data;
+        dbus_bool_t b;
+
+        assert(i);
+        assert(property);
+
+        if (streq(property, "PreparingForShutdown"))
+                b = !!(m->delayed_what & INHIBIT_SHUTDOWN);
+        else
+                b = !!(m->delayed_what & INHIBIT_SLEEP);
+
+        dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b);
         return 0;
 }
 
@@ -1266,6 +1284,8 @@ static const BusProperty bus_login_manager_properties[] = {
         { "HandlePowerKey",         bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_power_key)    },
         { "HandleSleepKey",         bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_sleep_key)    },
         { "HandleLidSwitch",        bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_lid_switch)   },
+        { "PreparingForShutdown",   bus_manager_append_preparing,       "b",  0 },
+        { "PreparingForSleep",      bus_manager_append_preparing,       "b",  0 },
         { NULL, }
 };
 
