@@ -79,9 +79,10 @@ int main(int argc, char *argv[]) {
                 int k;
                 char *s;
 
-                /* Remount the root fs and all API VFS */
+                /* Remount the root fs, /usr and all API VFS */
                 if (!mount_point_is_api(me->mnt_dir) &&
-                    !path_equal(me->mnt_dir, "/"))
+                    !path_equal(me->mnt_dir, "/") &&
+                    !path_equal(me->mnt_dir, "/usr"))
                         continue;
 
                 log_debug("Remounting %s", me->mnt_dir);

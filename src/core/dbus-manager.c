@@ -114,7 +114,9 @@
         "  </method>\n"                                                 \
         "  <method name=\"Subscribe\"/>\n"                              \
         "  <method name=\"Unsubscribe\"/>\n"                            \
-        "  <method name=\"Dump\"/>\n"                                   \
+        "  <method name=\"Dump\">\n"                                    \
+        "   <arg name=\"dump\" type=\"s\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
         "  <method name=\"CreateSnapshot\">\n"                          \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"cleanup\" type=\"b\" direction=\"in\"/>\n"      \

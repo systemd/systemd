@@ -25,6 +25,15 @@ Bugfixes:
 
 Features:
 
+* document that journal data is primarily ASCII, UTF-8 where necessary and binary only where nothing else makes sense.
+
+* on reload/reexec: serialize NInstalledJobs properly
+
+* Document:
+        - PID 1 D-Bus API
+        - Update Syslog Interface docs
+        - Journal C API manual pages
+
 * logind: export a bool property that tells user whether a
   suspend/shutdown is currently scheduled, i.e. where are between
   PrepareForSuspend(true) and PrepareForSuspend(false)

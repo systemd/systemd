@@ -58,20 +58,21 @@
                 is an early-boot service that applies mount options
                 listed in
                 <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                to the root file system and the kernel API virtual
-                file systems. This is required so that the mount
-                options of these file systems -- which are pre-mounted
-                by the kernel, the initial RAM disk or system manager
-                code -- are updated to those listed in
-                <filename>/etc/fstab</filename>. This service ignores
-                normal file systems and only changes the root file
-                system (i.e. <filename>/</filename>) and the virtual
-                kernel API file systems such as
-                <filename>/proc</filename>, <filename>/sys</filename>
-                or <filename>/dev/</filename>. This service executes
-                no operation if <filename>/etc/fstab</filename> does
-                not exist or lists no entries for the root file system
-                or the kernel API VFS.</para>
+                to the root file system, the <filename>/usr</filename>
+                file system and the kernel API virtual file
+                systems. This is required so that the mount options of
+                these file systems -- which are pre-mounted by the
+                kernel, the initial RAM disk, container environments
+                or system manager code -- are updated to those listed
+                in <filename>/etc/fstab</filename>. This service
+                ignores normal file systems and only changes the root
+                file system (i.e. <filename>/</filename>),
+                <filename>/usr</filename> and the virtual kernel API
+                file systems such as <filename>/proc</filename>,
+                <filename>/sys</filename> or
+                <filename>/dev/</filename>. This service executes no
+                operation if <filename>/etc/fstab</filename> does not
+                exist or lists no entries for the mentioned file systems.</para>
         </refsect1>
 
         <refsect1>
