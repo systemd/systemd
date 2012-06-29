@@ -29,8 +29,6 @@ Features:
 
 * document that journal data is primarily ASCII, UTF-8 where necessary and binary only where nothing else makes sense.
 
-* on reload/reexec: serialize NInstalledJobs properly
-
 * Document:
         - PID 1 D-Bus API
         - Update Syslog Interface docs

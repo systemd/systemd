@@ -1745,6 +1745,8 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
 
         fprintf(f, "current-job-id=%i\n", m->current_job_id);
         fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
+        fprintf(f, "n-installed-jobs=%u\n", m->n_installed_jobs);
+        fprintf(f, "n-failed-jobs=%u\n", m->n_failed_jobs);
 
         dual_timestamp_serialize(f, "initrd-timestamp", &m->initrd_timestamp);
 
@@ -1820,6 +1822,20 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_debug("Failed to parse current job id value %s", l+15);
                         else
                                 m->current_job_id = MAX(m->current_job_id, id);
+                } else if (startswith(l, "n-installed-jobs=")) {
+                        uint32_t n;
+
+                        if (safe_atou32(l+17, &n) < 0)
+                                log_debug("Failed to parse installed jobs counter %s", l+17);
+                        else
+                                m->n_installed_jobs += n;
+                } else if (startswith(l, "n-failed-jobs=")) {
+                        uint32_t n;
+
+                        if (safe_atou32(l+14, &n) < 0)
+                                log_debug("Failed to parse failed jobs counter %s", l+14);
+                        else
+                                m->n_failed_jobs += n;
                 } else if (startswith(l, "taint-usr=")) {
                         int b;
 
