@@ -806,7 +806,7 @@ static void static_dev_create_from_modules(struct udev *udev)
         FILE *f;
 
         uname(&kernel);
-        util_strscpyl(modules, sizeof(modules), "/lib/modules/", kernel.release, "/modules.devname", NULL);
+        util_strscpyl(modules, sizeof(modules), ROOTPREFIX "/lib/modules/", kernel.release, "/modules.devname", NULL);
         f = fopen(modules, "r");
         if (f == NULL)
                 return;
