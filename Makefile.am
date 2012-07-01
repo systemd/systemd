@@ -96,6 +96,7 @@ dist_udevrules_DATA =
 nodist_udevrules_DATA =
 dist_man_MANS =
 dist_pkgsysconf_DATA =
+dist_pkgdata_DATA =
 dist_dbuspolicy_DATA =
 dbusinterface_DATA =
 dist_dbussystemservice_DATA =
@@ -132,6 +133,7 @@ AM_CPPFLAGS = \
 	-DSYSTEM_SHUTDOWN_PATH=\"$(systemshutdowndir)\" \
 	-DSYSTEM_SLEEP_PATH=\"$(systemsleepdir)\" \
 	-DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
+	-DSYSTEMD_NTP_UNITS=\"$(pkgdatadir)/ntp-units\" \
 	-DX_SERVER=\"$(bindir)/X\" \
 	-DUDEVLIBEXECDIR=\"$(udevlibexecdir)\" \
 	-DPOLKIT_AGENT_BINARY_PATH=\"$(bindir)/pkttyagent\" \
@@ -309,7 +311,6 @@ dist_systemunit_DATA = \
 	units/syslog.target \
 	units/systemd-udev-control.socket \
 	units/systemd-udev-kernel.socket \
-	units/systemd-timedated-ntp.target  \
 	units/system-update.target
 
 nodist_systemunit_DATA = \
@@ -2745,7 +2746,7 @@ man/systemd-localed.8: man/systemd-localed.service.8
 EXTRA_DIST += \
 	units/systemd-localed.service.in
 
-dist_pkgdata_DATA = \
+dist_pkgdata_DATA += \
 	src/locale/kbd-model-map
 
 dist_noinst_SCRIPT = \
@@ -2800,6 +2801,9 @@ timedated-install-data-hook:
 
 INSTALL_DATA_HOOKS += \
 	timedated-install-data-hook
+
+dist_pkgdata_DATA += \
+	src/timedate/ntp-units
 
 MANPAGES += \
 	man/systemd-timedated.service.8
