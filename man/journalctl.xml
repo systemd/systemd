@@ -210,6 +210,14 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--this-boot</option></term>
+                                <term><option>-b</option></term>
+
+                                <listitem><para>Show data only from
+                                local boot.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--new-id128</option></term>
 
                                 <listitem><para>Instead of showing

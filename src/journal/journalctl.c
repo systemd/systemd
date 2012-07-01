@@ -49,6 +49,7 @@ static bool arg_no_tail = false;
 static bool arg_new_id128 = false;
 static bool arg_quiet = false;
 static bool arg_local = false;
+static bool arg_this_boot = false;
 
 static int help(void) {
 
@@ -64,8 +65,9 @@ static int help(void) {
                "  -o --output=STRING  Change journal output mode (short, short-monotonic,\n"
                "                      verbose, export, json, cat)\n"
                "  -q --quiet          Don't show privilege warning\n"
-               "     --new-id128      Generate a new 128 Bit id\n"
-               "  -l --local          Only local entries\n",
+               "  -l --local          Only local entries\n"
+               "  -b --this-boot      Show data only from current boot\n"
+               "     --new-id128      Generate a new 128 Bit id\n",
                program_invocation_short_name);
 
         return 0;
@@ -92,6 +94,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "new-id128", no_argument,       NULL, ARG_NEW_ID128 },
                 { "quiet",     no_argument,       NULL, 'q'           },
                 { "local",     no_argument,       NULL, 'l'           },
+                { "this-boot", no_argument,       NULL, 'b'           },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -100,7 +103,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hfo:an:ql", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hfo:an:qlb", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -157,6 +160,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'l':
                         arg_local = true;
+                        break;
+
+                case 'b':
+                        arg_this_boot = true;
                         break;
 
                 case '?':
@@ -230,6 +237,25 @@ int main(int argc, char *argv[]) {
         if (r < 0) {
                 log_error("Failed to open journal: %s", strerror(-r));
                 goto finish;
+        }
+
+        if (arg_this_boot) {
+                char match[9+32+1] = "_BOOT_ID=";
+                sd_id128_t boot_id;
+
+                r = sd_id128_get_boot(&boot_id);
+                if (r < 0) {
+                        log_error("Failed to get boot id: %s", strerror(-r));
+                        goto finish;
+                }
+
+                sd_id128_to_string(boot_id, match + 9);
+
+                r = sd_journal_add_match(j, match, strlen(match));
+                if (r < 0) {
+                        log_error("Failed to add match: %s", strerror(-r));
+                        goto finish;
+                }
         }
 
         for (i = optind; i < argc; i++) {
