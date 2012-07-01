@@ -74,8 +74,7 @@
 #define GC_QUEUE_USEC_MAX (10*USEC_PER_SEC)
 
 /* Where clients shall send notification messages to */
-#define NOTIFY_SOCKET_SYSTEM "/run/systemd/notify"
-#define NOTIFY_SOCKET_USER "@/org/freedesktop/systemd1/notify"
+#define NOTIFY_SOCKET "@/org/freedesktop/systemd1/notify"
 
 static int manager_setup_notify(Manager *m) {
         union {
@@ -83,13 +82,13 @@ static int manager_setup_notify(Manager *m) {
                 struct sockaddr_un un;
         } sa;
         struct epoll_event ev;
-        int one = 1, r;
-        mode_t u;
+        int one = 1;
 
         assert(m);
 
         m->notify_watch.type = WATCH_NOTIFY;
-        if ((m->notify_watch.fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0)) < 0) {
+        m->notify_watch.fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (m->notify_watch.fd < 0) {
                 log_error("Failed to allocate notification socket: %m");
                 return -errno;
         }
@@ -98,20 +97,13 @@ static int manager_setup_notify(Manager *m) {
         sa.sa.sa_family = AF_UNIX;
 
         if (getpid() != 1)
-                snprintf(sa.un.sun_path, sizeof(sa.un.sun_path), NOTIFY_SOCKET_USER "/%llu", random_ull());
-        else {
-                unlink(NOTIFY_SOCKET_SYSTEM);
-                strncpy(sa.un.sun_path, NOTIFY_SOCKET_SYSTEM, sizeof(sa.un.sun_path));
-        }
+                snprintf(sa.un.sun_path, sizeof(sa.un.sun_path), NOTIFY_SOCKET "/%llu", random_ull());
+        else
+                strncpy(sa.un.sun_path, NOTIFY_SOCKET, sizeof(sa.un.sun_path));
 
-        if (sa.un.sun_path[0] == '@')
-                sa.un.sun_path[0] = 0;
+        sa.un.sun_path[0] = 0;
 
-        u = umask(0111);
-        r = bind(m->notify_watch.fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1));
-        umask(u);
-
-        if (r < 0) {
+        if (bind(m->notify_watch.fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
                 log_error("bind() failed: %m");
                 return -errno;
         }
@@ -128,10 +120,9 @@ static int manager_setup_notify(Manager *m) {
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->notify_watch.fd, &ev) < 0)
                 return -errno;
 
-        if (sa.un.sun_path[0] == 0)
-                sa.un.sun_path[0] = '@';
-
-        if (!(m->notify_socket = strdup(sa.un.sun_path)))
+        sa.un.sun_path[0] = '@';
+        m->notify_socket = strdup(sa.un.sun_path);
+        if (!m->notify_socket)
                 return -ENOMEM;
 
         log_debug("Using notification socket %s", m->notify_socket);

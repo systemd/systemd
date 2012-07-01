@@ -51,9 +51,6 @@ Features:
 
 * change Requires=basic.target to RequisiteOverride=basic.target
 
-* turn $NOTIFY_SOCKET back into an abstract namespace socket for
-  compatibility with services which chroot()
-
 * exclude processes marked with argv[0][0]=@ from the normal service killing too
 
 * support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
