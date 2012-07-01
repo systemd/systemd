@@ -33,6 +33,15 @@
 #include "journal-rate-limit.h"
 #include "list.h"
 
+typedef enum Storage {
+        STORAGE_AUTO,
+        STORAGE_VOLATILE,
+        STORAGE_PERMANENT,
+        STORAGE_NONE,
+        _STORAGE_MAX,
+        _STORAGE_INVALID = -1
+} Storage;
+
 typedef struct StdoutStream StdoutStream;
 
 typedef struct Server {
@@ -86,9 +95,16 @@ typedef struct Server {
         int max_level_syslog;
         int max_level_kmsg;
         int max_level_console;
+
+        Storage storage;
 } Server;
 
 /* gperf lookup function */
 const struct ConfigPerfItem* journald_gperf_lookup(const char *key, unsigned length);
+
+int config_parse_storage(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+
+const char *storage_to_string(Storage s);
+Storage storage_from_string(const char *s);
 
 #endif

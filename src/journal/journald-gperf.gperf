@@ -34,3 +34,4 @@ Journal.MaxLevelStore,      config_parse_level,     0, offsetof(Server, max_leve
 Journal.MaxLevelSyslog,     config_parse_level,     0, offsetof(Server, max_level_syslog)
 Journal.MaxLevelKMsg,       config_parse_level,     0, offsetof(Server, max_level_kmsg)
 Journal.MaxLevelConsole,    config_parse_level,     0, offsetof(Server, max_level_console)
+Journal.Storage,            config_parse_storage,   0, offsetof(Server, storage)

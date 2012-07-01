@@ -286,6 +286,46 @@
                                 traditional syslog service.
                                 </para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Storage=</varname></term>
+
+                                <listitem><para>Controls where to
+                                store journal data. One of
+                                <literal>volatile</literal>,
+                                <literal>permanent</literal>,
+                                <literal>auto</literal> and
+                                <literal>none</literal>. If
+                                <literal>volatile</literal> journal
+                                log data will be stored only in
+                                memory, i.e. below the
+                                <filename>/run/log/journal</filename>
+                                hierarchy (which is created if
+                                needed). If
+                                <literal>permanent</literal> data will
+                                be stored preferably on disk,
+                                i.e. below the
+                                <filename>/var/log/journal</filename>
+                                hierarchy (which is created if
+                                needed), with a fallback to
+                                <filename>/run/log/journal</filename>
+                                (which is created if needed), during
+                                early boot and if the disk is not
+                                writable. <literal>auto</literal> is
+                                similar to
+                                <literal>permanent</literal> but the
+                                directory
+                                <filename>/var/log/journal</filename>
+                                is not created if needed, so that its
+                                existance controls where log data
+                                goes. <literal>none</literal> turns
+                                off all storage, all log data received
+                                will be dropped. Forwarding to other
+                                targets, such as the console, the
+                                kernel log buffer or a syslog daemon
+                                will still work however.  Defaults to
+                                <literal>auto</literal>.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
         </refsect1>

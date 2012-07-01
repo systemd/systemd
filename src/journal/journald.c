@@ -111,6 +111,16 @@ struct StdoutStream {
         LIST_FIELDS(StdoutStream, stdout_stream);
 };
 
+static const char* const storage_table[] = {
+        [STORAGE_AUTO] = "auto",
+        [STORAGE_VOLATILE] = "volatile",
+        [STORAGE_PERMANENT] = "permanent",
+        [STORAGE_NONE] = "none"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(storage, Storage);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_storage, storage, Storage, "Failed to parse storage setting");
+
 static int server_flush_to_var(Server *s);
 
 static uint64_t available_space(Server *s) {
@@ -397,7 +407,6 @@ static void server_vacuum(Server *s) {
                 free(p);
         }
 
-
         if (s->runtime_journal) {
                 if (asprintf(&p, "/run/log/journal/%s", ids) < 0) {
                         log_error("Out of memory.");
@@ -625,9 +634,7 @@ static void dispatch_message_real(
 
 retry:
         f = find_journal(s, realuid == 0 ? 0 : loginuid);
-        if (!f)
-                log_warning("Dropping message, as we can't find a place to store the data.");
-        else {
+        if (f) {
                 r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
 
                 if ((r == -E2BIG || /* hit limit */
@@ -1955,12 +1962,23 @@ static int system_journal_open(Server *s) {
 
         sd_id128_to_string(machine, ids);
 
-        if (!s->system_journal) {
+        if (!s->system_journal &&
+            (s->storage == STORAGE_PERMANENT ||
+             s->storage == STORAGE_AUTO)) {
 
-                /* First try to create the machine path, but not the prefix */
+                /* If in auto mode: first try to create the machine
+                 * path, but not the prefix.
+                 *
+                 * If in permanent mode: create /var/log/journal and
+                 * the machine path */
+
+                if (s->storage & STORAGE_PERMANENT)
+                        (void) mkdir("/var/log/journal/", 0755);
+
                 fn = strappend("/var/log/journal/", ids);
                 if (!fn)
                         return -ENOMEM;
+
                 (void) mkdir(fn, 0755);
                 free(fn);
 
@@ -1988,7 +2006,8 @@ static int system_journal_open(Server *s) {
                 }
         }
 
-        if (!s->runtime_journal) {
+        if (!s->runtime_journal &&
+            (s->storage != STORAGE_NONE)) {
 
                 fn = join("/run/log/journal/", ids, "/system.journal", NULL);
                 if (!fn)
@@ -2047,6 +2066,10 @@ static int server_flush_to_var(Server *s) {
         usec_t ts;
 
         assert(s);
+
+        if (s->storage != STORAGE_AUTO &&
+            s->storage != STORAGE_PERMANENT)
+                return 0;
 
         if (!s->runtime_journal)
                 return 0;
