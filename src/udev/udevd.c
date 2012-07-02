@@ -845,10 +845,11 @@ static void static_dev_create_from_modules(struct udev *udev)
                 if (sscanf(devno, "%c%u:%u", &type, &maj, &min) != 3)
                         continue;
 
+                mode  = 0600;
                 if (type == 'c')
-                        mode = S_IFCHR;
+                        mode |= S_IFCHR;
                 else if (type == 'b')
-                        mode = S_IFBLK;
+                        mode |= S_IFBLK;
                 else
                         continue;
 
