@@ -81,7 +81,7 @@ CHANGES WITH 186:
         * The fstab generator may now be disabled at boot by passing
           fstab=0 on the kernel command line.
 
-        * A new kernel command line option driver= is now understood
+        * A new kernel command line option modules-load= is now understood
           to load a specific kernel module statically, early at boot.
 
         * Unit names specified on the systemctl command line are now

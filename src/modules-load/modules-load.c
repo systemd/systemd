@@ -90,13 +90,13 @@ static int parse_proc_cmdline(void) {
                         goto finish;
                 }
 
-                if (startswith(word, "driver=")) {
+                if (startswith(word, "modules-load=")) {
 
                         r = add_modules(word + 7);
                         if (r < 0)
                                 goto finish;
 
-                } else if (startswith(word, "rd.driver=")) {
+                } else if (startswith(word, "rd.modules-load=")) {
 
                         if (in_initrd()) {
                                 r = add_modules(word + 10);
