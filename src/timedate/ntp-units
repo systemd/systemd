@@ -1,4 +1,4 @@
-# NTP ervice implementations, in order for preference
+# NTP service implementations, in order of preference
 
 chronyd.service
 ntpd.service
