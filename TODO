@@ -421,3 +421,5 @@ Scheduled for removal (or fixing):
 * xxxOverridable dependencies
 
 * journald.conf: ImportKernel=
+
+* prefdm.service

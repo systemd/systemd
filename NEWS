@@ -1,20 +1,168 @@
 systemd System and Service Manager
 
+CHANGES WITH 186:
+
+        * Several tools now understand kernel command line arguments,
+          which are only read when run in an initial RAM disk. They
+          usually follow closely their normal counterparts, but are
+          prefixed with rd.
+
+        * There's a new tool to analyze the readahead files that are
+          automatically generated at boot. Use:
+
+          /usr/lib/systemd/systemd-readahead analyze /.readahead
+
+        * We now provide an early debug shell on tty9 if this enabled. Use:
+
+          systemctl enable systemd-debug-shell.service
+
+        * All plymouth related units have been moved into the Plymouth
+          package. Please make sure to upgrade your Plymouth version
+          as well.
+
+        * systemd-tmpfiles now supports getting passed the basename of
+          a configuration file only, in which case it will look for it
+          in all appropriate directories automatically.
+
+        * udevadm info now takes a /dev or /sys path as argument, and
+          does the right thing. Example:
+
+          udevadm info /dev/sda
+          udevadm info /sys/class/block/sda
+
+        * systemctl now prints a warning if a unit is stopped but a
+          unit that might trigger it continues to run. Example: a
+          service is stopped but the socket that activates it is left
+          running.
+
+        * "systemctl status" will now mention if the log output was
+          shortened due to rotation since a service has been started.
+
+        * The journal API now exposes functions to determine the
+          "cutoff" times due to rotation.
+
+        * journald now understands SIGUSR1 and SIGUSR2 for triggering
+          immediately flushing of runtime logs to /var if possible,
+          resp. for triggering immediate rotation of the journal
+          files.
+
+        * It is now considered an error if a service is attempted to
+          be stopped that is not loaded.
+
+        * XDG_RUNTIME_DIR now uses numeric UIDs instead of usernames.
+
+        * systemd-analyze now supports Python 3
+
+        * tmpfiles now supports cleaning up directories via aging
+          where the first level dirs are always kept around but
+          directories beneath it automatically aged. This is enabled
+          by prefixing the age field with '~'.
+
+        * Seat objects now expose CanGraphical, CanTTY properties
+          which is required to deal with very fast bootups where the
+          display manager might be running before the graphics drivers
+          completed initialization.
+
+        * Seat objects now expose a State property.
+
+        * We now include RPM macros for service enabling/disabling
+          based on the preset logic. We recommend RPM based
+          distributions to make use of these macros if possible. This
+          makes it simpler to reuse RPM spec files across
+          distributions.
+
+        * We now make sure that the collected systemd unit name is
+          always valid when services log to the journal via
+          STDOUT/STDERR.
+
+        * There's a new man page kernel-command-line(7) detailing all
+          command line options we understand.
+
+        * The fstab generator may now be disabled at boot by passing
+          fstab=0 on the kernel command line.
+
+        * A new kernel command line option driver= is now understood
+          to load a specific kernel module statically, early at boot.
+
+        * Unit names specified on the systemctl command line are now
+          automatically escaped as needed. Also, if file system or
+          device paths are specified they are automatically turned
+          into the appropriate mount or device unit names. Example:
+
+          systemctl status /home
+          systemctl status /dev/sda
+
+        * The SysVConsole= configuration option has been removed from
+          system.conf parsing.
+
+        * The SysV search path is no longer exported on the D-Bus
+          Manager object.
+
+        * The Names= option is been removed from unit file parsing.
+
+        * There's a new man page bootup(7) detailing the boot process.
+
+        * Every unit and every generator we ship with systemd now
+          comes with full documentation. The self-explanatory boot is
+          complete.
+
+        * A couple of services gained "systemd-" prefixes in their
+          name if they wrap systemd code, rather than only external
+          code. Among them fsck@.service which is now
+          systemd-fsck@.service.
+
+        * The HaveWatchdog property has been removed from the D-Bus
+          Manager object.
+
+        * systemd.confirm_spawn= on the kernel command line should now
+          work sensibly.
+
+        * There's a new man page crypttab(5) which details all options
+          we actually understand.
+
+        * systemd-nspawn gained a new --capability= switch to pass
+          additional capabilities to the container.
+
+        * timedated will now read known NTP implementation unit names
+          from /usr/share/systemd/ntp-units,
+          systemd-timedated-ntp.target has been removed.
+
+        * journalctl gained a new switch "-b" that lists log data of
+          the current boot only.
+
+        * The notify socket is in the abstract namespace again, in
+          order to support daemons which chroot() at start-up.
+
+        * There is a new Storage= configuration option for journald
+          which allows configuration of where log data should go. This
+          also provides a way to disable journal logging entirely, so
+          that data collected is only forwarded to the console, the
+          kernel log buffer or another syslog implementation.
+
+        * Many bugfixes and optimizations.
+
+        Contributions from: Auke Kok, Dave Reisner, David Strauss,
+        Eelco Dolstra, Kay Sievers, Lennart Poettering, Lukas Nykryn,
+        Michal Schmidt, Michal Sekletar, Paul Menzel, Shawn Landden,
+        Tom Gundersen
+
 CHANGES WITH 185:
         * "systemctl help <unit>" now shows the man page if one is
           available.
 
         * Several new man pages have been added.
 
-        * MaxLevelStore=, MaxLevelSyslog=, MaxLevelKMsg=, MaxLevelConsole=
-          can now be specified in journald.conf.
+        * MaxLevelStore=, MaxLevelSyslog=, MaxLevelKMsg=,
+          MaxLevelConsole= can now be specified in
+          journald.conf. These options allow reducing the amount of
+          data stored on disk or forwarded by the log level.
 
-        * TimerSlackNSec= can now be specified in system.conf for PID1.
+        * TimerSlackNSec= can now be specified in system.conf for
+          PID1. This allows system-wide power savings.
 
         Contributions from: Dave Reisner, Kay Sievers, Lauri Kasanen,
         Lennart Poettering, Malte Starostik, Marc-Antoine Perennou,
         Matthias Clasen
-
 
 CHANGES WITH 184:
         * logind is now capable of (optionally) handling power and
