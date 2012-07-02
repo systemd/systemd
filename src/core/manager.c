@@ -1741,7 +1741,7 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
 
         dual_timestamp_serialize(f, "initrd-timestamp", &m->initrd_timestamp);
 
-        if (! in_initrd()) {
+        if (!in_initrd()) {
                 dual_timestamp_serialize(f, "startup-timestamp", &m->startup_timestamp);
                 dual_timestamp_serialize(f, "finish-timestamp", &m->finish_timestamp);
         }

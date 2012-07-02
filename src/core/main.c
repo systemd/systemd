@@ -1439,6 +1439,9 @@ int main(int argc, char *argv[]) {
                 if (virtualization)
                         log_info("Detected virtualization '%s'.", virtualization);
 
+                if (in_initrd())
+                        log_info("Running in initial RAM disk.");
+
         } else
                 log_debug(PACKAGE_STRING " running in user mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")");
 
