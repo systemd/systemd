@@ -82,7 +82,7 @@
                 alphabetical order, regardless in which of the
                 directories they reside, to guarantee that a specific
                 configuration file takes precedence over another file
-                with an alphabetically later name</para>
+                with an alphabetically later name.</para>
 
                 <para>If the administrator wants to disable a
                 configuration file supplied by the vendor the
