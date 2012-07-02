@@ -899,8 +899,7 @@ static int convert_db(struct udev *udev)
                 return 0;
 
         /* make sure we do not get here again */
-        mkdir_parents("/run/udev/data", 0755);
-        mkdir(filename, 0755);
+        mkdir_p("/run/udev/data", 0755);
 
         /* old database */
         util_strscpyl(filename, sizeof(filename), "/dev/.udev/db", NULL);
