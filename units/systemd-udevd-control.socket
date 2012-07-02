@@ -12,7 +12,7 @@ DefaultDependencies=no
 ConditionCapability=CAP_MKNOD
 
 [Socket]
-Service=systemd-udev.service
+Service=systemd-udevd.service
 ListenSequentialPacket=/run/udev/control
 SocketMode=0600
 PassCredentials=yes

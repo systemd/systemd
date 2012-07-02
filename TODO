@@ -30,8 +30,6 @@ Features:
   /var/log/journal via NFS since the mount point has to exist and we
   already take that as signal to store our stuff there.
 
-* rename systemd-udev.service to systemd-udevd.service
-
 * document that journal data is primarily ASCII, UTF-8 where necessary and binary only where nothing else makes sense.
 
 * Document:

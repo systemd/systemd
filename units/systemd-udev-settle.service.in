@@ -19,7 +19,7 @@
 Description=udev Wait for Complete Device Initialization
 Documentation=man:udev(7) man:systemd-udevd.service(8)
 DefaultDependencies=no
-Wants=systemd-udev.service
+Wants=systemd-udevd.service
 After=systemd-udev-trigger.service
 Before=basic.target
 ConditionCapability=CAP_MKNOD

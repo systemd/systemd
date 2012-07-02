@@ -41,5 +41,5 @@
 /emergency.service
 /systemd-udev-settle.service
 /systemd-udev-trigger.service
-/systemd-udev.service
+/systemd-udevd.service
 /debug-shell.service

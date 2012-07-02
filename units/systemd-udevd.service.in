@@ -6,13 +6,17 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=udev Kernel Socket
+Description=udev Kernel Device Manager
 Documentation=man:systemd-udevd.service(8) man:udev(7)
+Wants=systemd-udevd-control.socket systemd-udevd-kernel.socket
+After=systemd-udevd-control.socket systemd-udevd-kernel.socket
+Before=basic.target
 DefaultDependencies=no
 ConditionCapability=CAP_MKNOD
 
-[Socket]
-Service=systemd-udev.service
-ReceiveBuffer=134217728
-ListenNetlink=kobject-uevent 1
-PassCredentials=yes
+[Service]
+Type=notify
+OOMScoreAdjust=-1000
+Sockets=systemd-udevd-control.socket systemd-udevd-kernel.socket
+Restart=always
+ExecStart=@rootlibexecdir@/systemd-udevd

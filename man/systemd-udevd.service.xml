@@ -3,7 +3,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
-<refentry id="systemd-udev.service">
+<refentry id="systemd-udevd.service">
   <refentryinfo>
     <title>systemd-udevd.service</title>
     <productname>systemd</productname>
@@ -18,23 +18,23 @@
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>systemd-udev.service</refentrytitle>
+    <refentrytitle>systemd-udevd.service</refentrytitle>
     <manvolnum>8</manvolnum>
     <refmiscinfo class="version"></refmiscinfo>
   </refmeta>
 
   <refnamediv>
-    <refname>systemd-udev.service</refname>
-    <refname>systemd-udev-control.socket</refname>
-    <refname>systemd-udev-kernel.socket</refname>
+    <refname>systemd-udevd.service</refname>
+    <refname>systemd-udevd-control.socket</refname>
+    <refname>systemd-udevd-kernel.socket</refname>
     <refname>systemd-udevd</refname>
     <refpurpose>Device event managing daemon</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>systemd-udev.service</filename></para>
-    <para><filename>systemd-udev-control.socket</filename></para>
-    <para><filename>systemd-udev-kernel.socket</filename></para>
+    <para><filename>systemd-udevd.service</filename></para>
+    <para><filename>systemd-udevd-control.socket</filename></para>
+    <para><filename>systemd-udevd-kernel.socket</filename></para>
 
     <cmdsynopsis>
       <command>/usr/lib/systemd/systemd-udevd</command>

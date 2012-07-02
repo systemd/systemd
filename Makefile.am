@@ -309,8 +309,8 @@ dist_systemunit_DATA = \
 	units/systemd-ask-password-wall.path \
 	units/systemd-ask-password-console.path \
 	units/syslog.target \
-	units/systemd-udev-control.socket \
-	units/systemd-udev-kernel.socket \
+	units/systemd-udevd-control.socket \
+	units/systemd-udevd-kernel.socket \
 	units/system-update.target
 
 nodist_systemunit_DATA = \
@@ -340,7 +340,7 @@ nodist_systemunit_DATA = \
 	units/systemd-kexec.service \
 	units/systemd-fsck@.service \
 	units/systemd-fsck-root.service \
-	units/systemd-udev.service \
+	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
 	units/debug-shell.service
@@ -378,7 +378,7 @@ EXTRA_DIST += \
 	units/systemd-fsck@.service.in \
 	units/systemd-fsck-root.service.in \
 	units/user@.service.in \
-	units/systemd-udev.service \
+	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
 	units/debug-shell.service.in \
@@ -1492,7 +1492,7 @@ libudev_private_la_LIBADD = \
 MANPAGES += \
 	man/udev.7 \
 	man/udevadm.8 \
-	man/systemd-udev.service.8
+	man/systemd-udevd.service.8
 
 MANPAGES_ALIAS += \
 	man/systemd-udevd.8
@@ -1534,21 +1534,21 @@ CLEANFILES += \
 	src/udev/udev.pc
 
 EXTRA_DIST += \
-	units/systemd-udev.service.in \
+	units/systemd-udevd.service.in \
 	units/systemd-udev-trigger.service.in \
 	units/systemd-udev-settle.service.in
 
 CLEANFILES += \
-	units/systemd-udev.service \
+	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service
 
 systemd-install-hook:
 	mkdir -p $(DESTDIR)$(systemunitdir)/sockets.target.wants
-	ln -sf ../systemd-udev-control.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/systemd-udev-control.socket
-	ln -sf ../systemd-udev-kernel.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/systemd-udev-kernel.socket
+	ln -sf ../systemd-udevd-control.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/systemd-udevd-control.socket
+	ln -sf ../systemd-udevd-kernel.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/systemd-udevd-kernel.socket
 	mkdir -p $(DESTDIR)$(systemunitdir)/sysinit.target.wants
-	ln -sf ../systemd-udev.service $(DESTDIR)$(systemunitdir)/sysinit.target.wants/systemd-udev.service
+	ln -sf ../systemd-udevd.service $(DESTDIR)$(systemunitdir)/sysinit.target.wants/systemd-udevd.service
 	ln -sf ../systemd-udev-trigger.service $(DESTDIR)$(systemunitdir)/sysinit.target.wants/systemd-udev-trigger.service
 
 INSTALL_DATA_HOOKS += systemd-install-hook

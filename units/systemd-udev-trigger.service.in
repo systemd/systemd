@@ -8,8 +8,8 @@
 [Unit]
 Description=udev Coldplug all Devices
 Documentation=man:udev(7) man:systemd-udevd.service(8)
-Wants=systemd-udev.service
-After=systemd-udev-kernel.socket systemd-udev-control.socket
+Wants=systemd-udevd.service
+After=systemd-udevd-kernel.socket systemd-udevd-control.socket
 DefaultDependencies=no
 ConditionCapability=CAP_MKNOD
 
