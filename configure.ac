@@ -587,7 +587,7 @@ case $with_distro in
         mageia)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_MAGEIA, [], [Target is Mageia])
-                M4_DISTRO_FLAG=-DTARGET_MAGEIA=1
+                M4_DEFINES=-DTARGET_MAGEIA=1
                 ;;
         other)
                 ;;
