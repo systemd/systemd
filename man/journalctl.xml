@@ -214,7 +214,7 @@
                                 <term><option>-b</option></term>
 
                                 <listitem><para>Show data only from
-                                local boot.</para></listitem>
+                                current boot.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
