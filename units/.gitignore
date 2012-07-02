@@ -42,4 +42,4 @@
 /systemd-udev-settle.service
 /systemd-udev-trigger.service
 /systemd-udev.service
-/systemd-debug-shell.service
+/debug-shell.service

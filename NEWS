@@ -14,7 +14,7 @@ CHANGES WITH 186:
 
         * We now provide an early debug shell on tty9 if this enabled. Use:
 
-          systemctl enable systemd-debug-shell.service
+          systemctl enable debug-shell.service
 
         * All plymouth related units have been moved into the Plymouth
           package. Please make sure to upgrade your Plymouth version

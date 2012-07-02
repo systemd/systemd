@@ -343,7 +343,7 @@ nodist_systemunit_DATA = \
 	units/systemd-udev.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
-	units/systemd-debug-shell.service
+	units/debug-shell.service
 
 dist_userunit_DATA = \
 	units/user/default.target \
@@ -381,7 +381,7 @@ EXTRA_DIST += \
 	units/systemd-udev.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
-	units/systemd-debug-shell.service.in \
+	units/debug-shell.service.in \
 	units/systemd-hibernate.service.in \
 	units/systemd-suspend.service.in \
 	introspect.awk \
