@@ -2148,6 +2148,10 @@ static int server_read_proc_kmsg(Server *s) {
         assert(s->proc_kmsg_fd >= 0);
 
         l = read(s->proc_kmsg_fd, s->proc_kmsg_buffer + s->proc_kmsg_length, sizeof(s->proc_kmsg_buffer) - 1 - s->proc_kmsg_length);
+        if (l == 0) /* the kernel is stupid and in some race
+                     * conditions returns 0 in the middle of the
+                     * stream. */
+                return 0;
         if (l < 0) {
 
                 if (errno == EAGAIN || errno == EINTR)
