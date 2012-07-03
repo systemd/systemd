@@ -535,18 +535,20 @@
                                 <option>on-failure</option> it will be
                                 restarted only when it exited with an
                                 exit code not equalling 0, when
-                                terminated by a signal, when an
-                                operation times out or when the
+                                terminated by a signal (including on
+                                core dump), when an operation (such as
+                                service reload) times out or when the
                                 configured watchdog timeout is
                                 triggered. If set to
                                 <option>on-abort</option> it will be
                                 restarted only if it exits due to
-                                reception of an uncaught signal. If
-                                set to <option>always</option> the
-                                service will be restarted regardless
-                                whether it exited cleanly or not,
-                                got terminated abnormally by a
-                                signal or hit a timeout.</para></listitem>
+                                reception of an uncaught signal
+                                (including on core dump). If set to
+                                <option>always</option> the service
+                                will be restarted regardless whether
+                                it exited cleanly or not, got
+                                terminated abnormally by a signal or
+                                hit a timeout.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
