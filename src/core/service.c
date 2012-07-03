@@ -3655,6 +3655,8 @@ static void service_reset_failed(Unit *u) {
 
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
+
+        RATELIMIT_RESET(s->start_limit);
 }
 
 static int service_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *error) {

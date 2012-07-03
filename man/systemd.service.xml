@@ -768,7 +768,15 @@
                                 however they may still be restarted
                                 manually at a later point from which
                                 point on the restart logic is again
-                                activated.</para></listitem>
+                                activated. Note that
+                                <command>systemctl
+                                reset-failed</command> will cause the
+                                restart rate counter for a service to
+                                be flushed, which is useful if the
+                                administrator wants to manually start
+                                a service and the start limit
+                                interferes with
+                                that.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

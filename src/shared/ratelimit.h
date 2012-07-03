@@ -48,6 +48,13 @@ typedef struct RateLimit {
                 _r->begin = 0;                           \
         } while (false)
 
+#define RATELIMIT_RESET(v)                               \
+        do {                                             \
+                RateLimit *_r = &(v);                    \
+                _r->num = 0;                             \
+                _r->begin = 0;                           \
+        } while (false)
+
 bool ratelimit_test(RateLimit *r);
 
 #endif
