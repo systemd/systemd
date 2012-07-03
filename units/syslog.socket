@@ -10,9 +10,10 @@ Description=Syslog Socket
 Documentation=man:systemd.special(7)
 Documentation=http://www.freedesktop.org/wiki/Software/systemd/syslog
 DefaultDependencies=no
-Before=sockets.target syslog.target
+Before=sockets.target syslog.target shutdown.target
+
+# Don't allow logging until the very end
 Conflicts=shutdown.target
-Before=shutdown.target
 
 # Pull in syslog.target to tell people that /dev/log is now accessible
 Wants=syslog.target
@@ -38,3 +39,5 @@ ReceiveBuffer=8M
 #
 # [Install]
 # Alias=syslog.service
+#
+# See http://www.freedesktop.org/wiki/Software/systemd/syslog for details.
