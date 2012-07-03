@@ -141,10 +141,10 @@ CHANGES WITH 186:
 
         * Many bugfixes and optimizations.
 
-        Contributions from: Auke Kok, Dave Reisner, David Strauss,
-        Eelco Dolstra, Kay Sievers, Lennart Poettering, Lukas Nykryn,
-        Michal Schmidt, Michal Sekletar, Paul Menzel, Shawn Landden,
-        Tom Gundersen
+        Contributions from: Auke Kok, Colin Guthrie, Dave Reisner,
+        David Strauss, Eelco Dolstra, Kay Sievers, Lennart Poettering,
+        Lukas Nykryn, Michal Schmidt, Michal Sekletar, Paul Menzel,
+        Shawn Landden, Tom Gundersen
 
 CHANGES WITH 185:
         * "systemctl help <unit>" now shows the man page if one is
