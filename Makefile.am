@@ -133,7 +133,6 @@ AM_CPPFLAGS = \
 	-DSYSTEM_SHUTDOWN_PATH=\"$(systemshutdowndir)\" \
 	-DSYSTEM_SLEEP_PATH=\"$(systemsleepdir)\" \
 	-DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
-	-DSYSTEMD_NTP_UNITS=\"$(pkgdatadir)/ntp-units\" \
 	-DX_SERVER=\"$(bindir)/X\" \
 	-DUDEVLIBEXECDIR=\"$(udevlibexecdir)\" \
 	-DPOLKIT_AGENT_BINARY_PATH=\"$(bindir)/pkttyagent\" \
@@ -2801,9 +2800,6 @@ timedated-install-data-hook:
 
 INSTALL_DATA_HOOKS += \
 	timedated-install-data-hook
-
-dist_pkgdata_DATA += \
-	src/timedate/ntp-units
 
 MANPAGES += \
 	man/systemd-timedated.service.8

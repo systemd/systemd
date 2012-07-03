@@ -31,6 +31,7 @@
 #include "polkit.h"
 #include "def.h"
 #include "hwclock.h"
+#include "conf-files.h"
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
@@ -304,40 +305,54 @@ static int write_data_local_rtc(void) {
 }
 
 static char** get_ntp_services(void) {
-        char **r = NULL;
-        FILE *f;
+        char **r = NULL, **files, **i;
+        int k;
 
-        f = fopen(SYSTEMD_NTP_UNITS, "re");
-        if (!f)
+        k = conf_files_list(&files, ".list",
+                            "/etc/systemd/ntp-units.d",
+                            "/run/systemd/ntp-units.d",
+                            "/usr/local/lib/systemd/ntp-units.d",
+                            "/usr/lib/systemd/ntp-units.d",
+                            NULL);
+        if (k < 0)
                 return NULL;
 
-        for (;;) {
-                char line[PATH_MAX], *l, **q;
+        STRV_FOREACH(i, files) {
+                FILE *f;
 
-                if (!fgets(line, sizeof(line), f)) {
-
-                        if (ferror(f))
-                                log_error("Failed to read NTP units file: %m");
-
-                        break;
-                }
-
-                l = strstrip(line);
-                if (l[0] == 0 || l[0] == '#')
+                f = fopen(*i, "re");
+                if (!f)
                         continue;
 
+                for (;;) {
+                        char line[PATH_MAX], *l, **q;
 
-                q = strv_append(r, l);
-                if (!q) {
-                        log_error("Out of memory");
-                        break;
+                        if (!fgets(line, sizeof(line), f)) {
+
+                                if (ferror(f))
+                                        log_error("Failed to read NTP units file: %m");
+
+                                break;
+                        }
+
+                        l = strstrip(line);
+                        if (l[0] == 0 || l[0] == '#')
+                                continue;
+
+                        q = strv_append(r, l);
+                        if (!q) {
+                                log_error("Out of memory");
+                                break;
+                        }
+
+                        strv_free(r);
+                        r = q;
                 }
 
-                strv_free(r);
-                r = q;
+                fclose(f);
         }
 
-        fclose(f);
+        strv_free(files);
 
         return r;
 }
