@@ -115,7 +115,7 @@ int main_analyze(const char *pack_path) {
                         tsize += size;
 
                         printf("  %4d%% (%2d) %12ld: %s\n",
-                                sections ? (int)(size / st.st_size * 100.0) : 100,
+                                sections ? (int) (size * 100 / st.st_size) : 100,
                                 sections ? sections : 1,
                                 (unsigned long)size,
                                 path);
