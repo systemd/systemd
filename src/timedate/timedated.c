@@ -354,7 +354,7 @@ static char** get_ntp_services(void) {
 
         strv_free(files);
 
-        return r;
+        return strv_uniq(r);
 }
 
 static int read_ntp(DBusConnection *bus) {

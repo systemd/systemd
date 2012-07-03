@@ -124,7 +124,7 @@ CHANGES WITH 186:
           additional capabilities to the container.
 
         * timedated will now read known NTP implementation unit names
-          from /usr/share/systemd/ntp-units,
+          from /usr/share/systemd/ntp-units.d/*.list,
           systemd-timedated-ntp.target has been removed.
 
         * journalctl gained a new switch "-b" that lists log data of
