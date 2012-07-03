@@ -22,6 +22,8 @@ Bugfixes:
 
 Features:
 
+* journald: _BOOT_ID triggers too many collisions.
+
 * journald: we currently rotate only after MaxUse+MaxFilesize has been reached.
 
 * reexec journald across initrd transition

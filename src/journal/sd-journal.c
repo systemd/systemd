@@ -670,9 +670,10 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                 bool found;
 
                 r = next_beyond_location(j, f, direction, &o, &p);
-                if (r < 0)
-                        return r;
-                else if (r == 0)
+                if (r < 0) {
+                        log_debug("Can't iterate through %s, ignoring: %s", f->path, strerror(-r));
+                        continue;
+                } else if (r == 0)
                         continue;
 
                 if (!new_current)
