@@ -2047,21 +2047,24 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                 }
 
                 /* Try to open the file name, but don't if its a symlink */
-                if ((fd = open(*filename, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW)) >= 0)
+                fd = open(*filename, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+                if (fd >= 0)
                         break;
 
                 if (errno != ELOOP)
                         return -errno;
 
                 /* Hmm, so this is a symlink. Let's read the name, and follow it manually */
-                if ((r = readlink_and_make_absolute(*filename, &target)) < 0)
+                r = readlink_and_make_absolute(*filename, &target);
+                if (r < 0)
                         return r;
 
                 free(*filename);
                 *filename = target;
         }
 
-        if (!(f = fdopen(fd, "re"))) {
+        f = fdopen(fd, "re");
+        if (!f) {
                 r = -errno;
                 close_nointr_nofail(fd);
                 return r;
@@ -2085,7 +2088,8 @@ static int merge_by_names(Unit **u, Set *names, const char *id) {
 
                 /* First try to merge in the other name into our
                  * unit */
-                if ((r = unit_merge_by_name(*u, k)) < 0) {
+                r = unit_merge_by_name(*u, k);
+                if (r < 0) {
                         Unit *other;
 
                         /* Hmm, we couldn't merge the other unit into
@@ -2095,11 +2099,13 @@ static int merge_by_names(Unit **u, Set *names, const char *id) {
                         other = manager_get_unit((*u)->manager, k);
                         free(k);
 
-                        if (other)
-                                if ((r = unit_merge(other, *u)) >= 0) {
+                        if (other) {
+                                r = unit_merge(other, *u);
+                                if (r >= 0) {
                                         *u = other;
                                         return merge_by_names(u, names, NULL);
                                 }
+                        }
 
                         return r;
                 }
@@ -2130,12 +2136,14 @@ static int load_from_path(Unit *u, const char *path) {
 
         if (path_is_absolute(path)) {
 
-                if (!(filename = strdup(path))) {
+                filename = strdup(path);
+                if (!filename) {
                         r = -ENOMEM;
                         goto finish;
                 }
 
-                if ((r = open_follow(&filename, &f, symlink_names, &id)) < 0) {
+                r = open_follow(&filename, &f, symlink_names, &id);
+                if (r < 0) {
                         free(filename);
                         filename = NULL;
 
@@ -2151,7 +2159,8 @@ static int load_from_path(Unit *u, const char *path) {
                         /* Instead of opening the path right away, we manually
                          * follow all symlinks and add their name to our unit
                          * name set while doing so */
-                        if (!(filename = path_make_absolute(path, *p))) {
+                        filename = path_make_absolute(path, *p);
+                        if (!filename) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -2163,8 +2172,6 @@ static int load_from_path(Unit *u, const char *path) {
                                 r = open_follow(&filename, &f, symlink_names, &id);
 
                         if (r < 0) {
-                                char *sn;
-
                                 free(filename);
                                 filename = NULL;
 
@@ -2172,9 +2179,7 @@ static int load_from_path(Unit *u, const char *path) {
                                         goto finish;
 
                                 /* Empty the symlink names for the next run */
-                                while ((sn = set_steal_first(symlink_names)))
-                                        free(sn);
-
+                                set_clear_free(symlink_names);
                                 continue;
                         }
 
@@ -2189,7 +2194,8 @@ static int load_from_path(Unit *u, const char *path) {
         }
 
         merged = u;
-        if ((r = merge_by_names(&merged, symlink_names, id)) < 0)
+        r = merge_by_names(&merged, symlink_names, id);
+        if (r < 0)
                 goto finish;
 
         if (merged != u) {
@@ -2252,7 +2258,8 @@ int unit_load_fragment(Unit *u) {
         /* First, try to find the unit under its id. We always look
          * for unit files in the default directories, to make it easy
          * to override things by placing things in /etc/systemd/system */
-        if ((r = load_from_path(u, u->id)) < 0)
+        r = load_from_path(u, u->id);
+        if (r < 0)
                 return r;
 
         /* Try to find an alias we can load this with */
@@ -2262,7 +2269,8 @@ int unit_load_fragment(Unit *u) {
                         if (t == u->id)
                                 continue;
 
-                        if ((r = load_from_path(u, t)) < 0)
+                        r = load_from_path(u, t);
+                        if (r < 0)
                                 return r;
 
                         if (u->load_state != UNIT_STUB)
@@ -2272,7 +2280,8 @@ int unit_load_fragment(Unit *u) {
         /* And now, try looking for it under the suggested (originally linked) path */
         if (u->load_state == UNIT_STUB && u->fragment_path) {
 
-                if ((r = load_from_path(u, u->fragment_path)) < 0)
+                r = load_from_path(u, u->fragment_path);
+                if (r < 0)
                         return r;
 
                 if (u->load_state == UNIT_STUB) {
@@ -2288,7 +2297,8 @@ int unit_load_fragment(Unit *u) {
         if (u->load_state == UNIT_STUB && u->instance) {
                 char *k;
 
-                if (!(k = unit_name_template(u->id)))
+                k = unit_name_template(u->id);
+                if (!k)
                         return -ENOMEM;
 
                 r = load_from_path(u, k);
@@ -2303,7 +2313,8 @@ int unit_load_fragment(Unit *u) {
                                 if (t == u->id)
                                         continue;
 
-                                if (!(k = unit_name_template(t)))
+                                k = unit_name_template(t);
+                                if (!k)
                                         return -ENOMEM;
 
                                 r = load_from_path(u, k);

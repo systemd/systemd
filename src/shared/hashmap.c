@@ -277,11 +277,7 @@ void hashmap_free(Hashmap*h) {
 }
 
 void hashmap_free_free(Hashmap *h) {
-        void *p;
-
-        while ((p = hashmap_steal_first(h)))
-                free(p);
-
+        hashmap_clear_free(h);
         hashmap_free(h);
 }
 
@@ -291,6 +287,15 @@ void hashmap_clear(Hashmap *h) {
 
         while (h->iterate_list_head)
                 remove_entry(h, h->iterate_list_head);
+}
+
+void hashmap_clear_free(Hashmap *h) {
+        void *p;
+
+        assert(h);
+
+        while ((p = hashmap_steal_first(h)))
+                free(p);
 }
 
 static struct hashmap_entry *hash_scan(Hashmap *h, unsigned hash, const void *key) {

@@ -56,6 +56,8 @@ void *set_iterate_backwards(Set *s, Iterator *i);
 void *set_iterate_skip(Set *s, void *value, Iterator *i);
 
 void set_clear(Set *s);
+void set_clear_free(Set *s);
+
 void *set_steal_first(Set *s);
 void* set_first(Set *s);
 void* set_last(Set *s);

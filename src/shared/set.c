@@ -116,3 +116,7 @@ Set* set_copy(Set *s) {
 void set_clear(Set *s) {
         hashmap_clear(MAKE_HASHMAP(s));
 }
+
+void set_clear_free(Set *s) {
+        hashmap_clear_free(MAKE_HASHMAP(s));
+}
