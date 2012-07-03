@@ -22,6 +22,8 @@ Bugfixes:
 
 Features:
 
+* journald: we currently rotate only after MaxUse+MaxFilesize has been reached.
+
 * reexec journald across initrd transition
 
 * nspawn: bind mount /var/log/journal from the host
