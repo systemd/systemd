@@ -42,6 +42,7 @@ Features:
 * Document:
         - PID 1 D-Bus API
         - Journal C API manual pages
+        - scheduled shutdown API
 
 * wiki: document logind's PreparingForShutdown, PreparingForSleep
 

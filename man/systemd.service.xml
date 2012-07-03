@@ -756,7 +756,15 @@
                                 are allowed (defaults to 5). These
                                 configuration options are particularly
                                 useful in conjunction with
-                                <varname>Restart=</varname>.</para></listitem>
+                                <varname>Restart=</varname>. Note that
+                                units which are configured for
+                                <varname>Restart=</varname> and which
+                                reach the start limit are not
+                                attempted to be restarted anymore,
+                                however they may still be restarted
+                                manually at a later point from which
+                                point on the restart logic is again
+                                activated.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
