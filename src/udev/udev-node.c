@@ -91,7 +91,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
                                 buf[len] = '\0';
                                 if (strcmp(target, buf) == 0) {
                                         log_debug("preserve already existing symlink '%s' to '%s'\n", slink, target);
-                                        label_fix(slink, true);
+                                        label_fix(slink, true, false);
                                         utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
                                         goto exit;
                                 }
@@ -307,7 +307,7 @@ static int node_fixup(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid
          * something else has set a custom context in the meantime.
          */
         if (strcmp(udev_device_get_action(dev), "add") == 0)
-                label_fix(devnode, true);
+            label_fix(devnode, true, false);
 
         /* always update timestamp when we re-use the node, like on media change events */
         utimensat(AT_FDCWD, devnode, NULL, 0);

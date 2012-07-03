@@ -469,7 +469,7 @@ static int item_set_perms(Item *i, const char *path) {
                         return -errno;
                 }
 
-        return label_fix(path, false);
+        return label_fix(path, false, false);
 }
 
 static int recursive_relabel_children(Item *i, const char *path) {

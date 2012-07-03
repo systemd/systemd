@@ -99,7 +99,7 @@ int label_init(const char *prefix) {
         return r;
 }
 
-int label_fix(const char *path, bool ignore_enoent) {
+int label_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
@@ -130,6 +130,9 @@ int label_fix(const char *path, bool ignore_enoent) {
         if (r < 0) {
                 /* Ignore ENOENT in some cases */
                 if (ignore_enoent && errno == ENOENT)
+                        return 0;
+
+                if (ignore_erofs && errno == EROFS)
                         return 0;
 
                 log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,

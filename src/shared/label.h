@@ -29,7 +29,7 @@
 int label_init(const char *prefix);
 void label_finish(void);
 
-int label_fix(const char *path, bool ignore_enoent);
+int label_fix(const char *path, bool ignore_enoent, bool ignore_erofs);
 
 int label_socket_set(const char *label);
 void label_socket_clear(void);

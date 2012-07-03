@@ -121,7 +121,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
 
         /* Relabel first, just in case */
         if (relabel)
-                label_fix(p->where, true);
+                label_fix(p->where, true, true);
 
         if ((r = path_is_mount_point(p->where, true)) < 0)
                 return r;
@@ -150,7 +150,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
 
         /* Relabel again, since we now mounted something fresh here */
         if (relabel)
-                label_fix(p->where, false);
+                label_fix(p->where, false, false);
 
         return 1;
 }
@@ -347,7 +347,7 @@ static int nftw_cb(
         if (_unlikely_(ftwbuf->level == 0))
                 return FTW_CONTINUE;
 
-        label_fix(fpath, true);
+        label_fix(fpath, false, false);
 
         /* /run/initramfs is static data and big, no need to
          * dynamically relabel its contents at boot... */
@@ -391,7 +391,7 @@ int mount_setup(bool loaded_policy) {
 
                 /* Explicitly relabel these */
                 NULSTR_FOREACH(j, relabel)
-                        label_fix(j, true);
+                        label_fix(j, true, false);
 
                 after_relabel = now(CLOCK_MONOTONIC);
 
