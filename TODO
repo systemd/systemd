@@ -38,7 +38,6 @@ Features:
 
 * Document:
         - PID 1 D-Bus API
-        - Update Syslog Interface docs
         - Journal C API manual pages
 
 * wiki: document logind's PreparingForShutdown, PreparingForSleep

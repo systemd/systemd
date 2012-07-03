@@ -2727,7 +2727,6 @@ static int server_init(Server *s) {
         s->rate_limit_burst = DEFAULT_RATE_LIMIT_BURST;
 
         s->forward_to_syslog = true;
-        s->import_proc_kmsg = true;
 
         s->max_level_store = LOG_DEBUG;
         s->max_level_syslog = LOG_DEBUG;

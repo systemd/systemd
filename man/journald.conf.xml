@@ -276,7 +276,7 @@
                                 <listitem><para>Controls whether
                                 kernel log messages shall be stored in
                                 the journal. Takes a boolean argument
-                                and defaults to enabled. Note that
+                                and defaults to disabled. Note that
                                 currently only one userspace service
                                 can read kernel messages at a time,
                                 which means that kernel log message
