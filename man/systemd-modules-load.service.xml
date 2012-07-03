@@ -62,6 +62,31 @@
                 <citerefentry><refentrytitle>modules-load.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for information about the configuration of this
                 service.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Kernel Command Line</title>
+
+                <para><filename>systemd-modules-load.service</filename> understands
+                the following kernel command line parameters:</para>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><varname>modules-load=</varname></term>
+                                <term><varname>rd.modules-load=</varname></term>
+
+                                <listitem><para>Takes a comma
+                                separated list of kernel modules to
+                                statically load during early boot. The
+                                option prefixed with
+                                <literal>rd.</literal> is read by the
+                                initial RAM disk
+                                only.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
         </refsect1>
 
         <refsect1>

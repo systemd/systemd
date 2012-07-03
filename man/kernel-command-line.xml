@@ -259,8 +259,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>driver=</varname></term>
-                                <term><varname>rd.driver=</varname></term>
+                                <term><varname>modules-load=</varname></term>
+                                <term><varname>rd.modules-load=</varname></term>
 
                                 <listitem>
                                         <para>Load a specific kernel
