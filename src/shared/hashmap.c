@@ -277,6 +277,9 @@ void hashmap_free(Hashmap*h) {
 }
 
 void hashmap_free_free(Hashmap *h) {
+        if (!h)
+                return;
+
         hashmap_clear_free(h);
         hashmap_free(h);
 }
@@ -292,7 +295,8 @@ void hashmap_clear(Hashmap *h) {
 void hashmap_clear_free(Hashmap *h) {
         void *p;
 
-        assert(h);
+        if (!h)
+                return;
 
         while ((p = hashmap_steal_first(h)))
                 free(p);
