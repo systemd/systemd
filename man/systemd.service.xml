@@ -756,10 +756,14 @@
                                 are allowed (defaults to 5). These
                                 configuration options are particularly
                                 useful in conjunction with
-                                <varname>Restart=</varname>. Note that
-                                units which are configured for
-                                <varname>Restart=</varname> and which
-                                reach the start limit are not
+                                <varname>Restart=</varname>, however
+                                apply to all kinds of starts
+                                (including manual), not just those
+                                triggered by the
+                                <varname>Restart=</varname> logic.
+                                Note that units which are configured
+                                for <varname>Restart=</varname> and
+                                which reach the start limit are not
                                 attempted to be restarted anymore,
                                 however they may still be restarted
                                 manually at a later point from which
