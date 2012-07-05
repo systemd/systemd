@@ -745,7 +745,7 @@ static int import_file_into_properties(struct udev_device *dev, const char *file
         FILE *f;
         char line[UTIL_LINE_SIZE];
 
-        f = fopen(filename, "r");
+        f = fopen(filename, "re");
         if (f == NULL)
                 return -1;
         while (fgets(line, sizeof(line), f) != NULL)
@@ -1645,7 +1645,7 @@ static int parse_file(struct udev_rules *rules, const char *filename)
         }
         log_debug("read rules file: %s\n", filename);
 
-        f = fopen(filename, "r");
+        f = fopen(filename, "re");
         if (f == NULL)
                 return -1;
 
@@ -2322,7 +2322,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                         FILE *f;
                         bool imported = false;
 
-                        f = fopen("/proc/cmdline", "r");
+                        f = fopen("/proc/cmdline", "re");
                         if (f != NULL) {
                                 char cmdline[4096];
 
@@ -2607,7 +2607,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                         log_debug("ATTR '%s' writing '%s' %s:%u\n", attr, value,
                                   &rules->buf[rule->rule.filename_off],
                                   rule->rule.filename_line);
-                        f = fopen(attr, "w");
+                        f = fopen(attr, "we");
                         if (f != NULL) {
                                 if (fprintf(f, "%s", value) <= 0)
                                         log_error("error writing ATTR{%s}: %m\n", attr);

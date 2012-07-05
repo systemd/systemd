@@ -410,7 +410,7 @@ int main(int argc, char **argv)
                 const char *filearg = argv[optind+1];
                 if (strchr(filearg, '/')) {
                         /* Keymap file argument is a path */
-                        FILE *f = fopen(filearg, "r");
+                        FILE *f = fopen(filearg, "re");
                         if (f)
                                 merge_table(fd, f);
                         else
@@ -421,12 +421,12 @@ int main(int argc, char **argv)
                         char keymap_path[PATH_MAX];
                         FILE *f;
                         snprintf(keymap_path, sizeof(keymap_path), "%s%s", SYSCONFDIR "/udev/keymaps/", filearg);
-                        f = fopen(keymap_path, "r");
+                        f = fopen(keymap_path, "re");
                         if (f) {
                                 merge_table(fd, f);
                         } else {
                                 snprintf(keymap_path, sizeof(keymap_path), "%s%s", UDEVLIBEXECDIR "/keymaps/", filearg);
-                                f = fopen(keymap_path, "r");
+                                f = fopen(keymap_path, "re");
                                 if (f)
                                         merge_table(fd, f);
                                 else

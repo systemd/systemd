@@ -125,7 +125,7 @@ static bool is_mounted(const char *device)
         if (stat(device, &statbuf) < 0)
                 return -ENODEV;
 
-        fp = fopen("/proc/self/mountinfo", "r");
+        fp = fopen("/proc/self/mountinfo", "re");
         if (fp == NULL)
                 return -ENOSYS;
         while (fscanf(fp, "%*s %*s %i:%i %*[^\n]", &maj, &min) == 2) {

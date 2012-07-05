@@ -180,7 +180,7 @@ static int get_file_options(struct udev *udev,
         int c;
         int retval = 0;
 
-        fd = fopen(config_file, "r");
+        fd = fopen(config_file, "re");
         if (fd == NULL) {
                 if (errno == ENOENT) {
                         return 1;

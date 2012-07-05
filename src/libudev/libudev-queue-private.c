@@ -212,7 +212,7 @@ static int rebuild_queue_file(struct udev_queue_export *udev_queue_export)
         }
 
         /* create new queue file */
-        new_queue_file = fopen("/run/udev/queue.tmp", "w+");
+        new_queue_file = fopen("/run/udev/queue.tmp", "w+e");
         if (new_queue_file == NULL)
                 goto error;
         seqnum = udev_queue_export->seqnum_max;

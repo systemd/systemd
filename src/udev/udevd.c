@@ -807,7 +807,7 @@ static void static_dev_create_from_modules(struct udev *udev)
 
         uname(&kernel);
         util_strscpyl(modules, sizeof(modules), ROOTPREFIX "/lib/modules/", kernel.release, "/modules.devname", NULL);
-        f = fopen(modules, "r");
+        f = fopen(modules, "re");
         if (f == NULL)
                 return;
 
@@ -871,7 +871,7 @@ static int mem_size_mb(void)
         char buf[4096];
         long int memsize = -1;
 
-        f = fopen("/proc/meminfo", "r");
+        f = fopen("/proc/meminfo", "re");
         if (f == NULL)
                 return -1;
 
@@ -907,7 +907,7 @@ static int convert_db(struct udev *udev)
         if (access(filename, F_OK) < 0)
                 return 0;
 
-        f = fopen("/dev/kmsg", "w");
+        f = fopen("/dev/kmsg", "we");
         if (f != NULL) {
                 fprintf(f, "<30>systemd-udevd[%u]: converting old udev database\n", getpid());
                 fclose(f);
@@ -1264,7 +1264,7 @@ int main(int argc, char *argv[])
                 sd_notify(1, "READY=1");
         }
 
-        f = fopen("/dev/kmsg", "w");
+        f = fopen("/dev/kmsg", "we");
         if (f != NULL) {
                 fprintf(f, "<30>systemd-udevd[%u]: starting version " VERSION "\n", getpid());
                 fclose(f);

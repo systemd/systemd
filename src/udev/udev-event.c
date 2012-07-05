@@ -750,7 +750,7 @@ static void rename_netif_kernel_log(struct ifreq ifr)
         int klog;
         FILE *f;
 
-        klog = open("/dev/kmsg", O_WRONLY);
+        klog = open("/dev/kmsg", O_WRONLY|O_CLOEXEC);
         if (klog < 0)
                 return;
 
