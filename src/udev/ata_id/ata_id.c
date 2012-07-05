@@ -504,7 +504,7 @@ int main(int argc, char *argv[])
                  * use and copy it into the hd_driveid struct for convenience
                  */
                 disk_identify_fixup_string(identify,  10, 20); /* serial */
-                disk_identify_fixup_string(identify,  23,  6); /* fwrev */
+                disk_identify_fixup_string(identify,  23,  8); /* fwrev */
                 disk_identify_fixup_string(identify,  27, 40); /* model */
                 disk_identify_fixup_uint16(identify,  0);      /* configuration */
                 disk_identify_fixup_uint16(identify,  75);     /* queue depth */
