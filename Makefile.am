@@ -501,7 +501,10 @@ MANPAGES = \
 	man/systemd-getty-generator.8 \
 	man/systemd-system-update-generator.8 \
 	man/systemd-fstab-generator.8 \
-	man/systemd.preset.5
+	man/systemd.preset.5 \
+	man/sd-id128.7 \
+	man/sd_id128_to_string.3 \
+	man/sd_id128_randomize.3
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -530,7 +533,15 @@ MANPAGES_ALIAS = \
 	man/systemd-ask-password-wall.path.8 \
 	man/systemd-tmpfiles-setup.service.8 \
 	man/systemd-tmpfiles-clean.service.8 \
-	man/systemd-tmpfiles-clean.timer.8
+	man/systemd-tmpfiles-clean.timer.8 \
+	man/sd_id128_t.7 \
+	man/SD_ID128_MAKE.7 \
+	man/SD_ID128_FORMAT_STR.7 \
+	man/SD_ID128_FORMAT_VAL.7 \
+	man/sd_id128_equal.7 \
+	man/sd_id128_from_string.3 \
+	man/sd_id128_get_machine.3 \
+	man/sd_id128_get_boot.3
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
@@ -559,6 +570,14 @@ man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
 man/systemd-tmpfiles-setup.service.8: man/systemd-tmpfiles.8
 man/systemd-tmpfiles-clean.service.8: man/systemd-tmpfiles.8
 man/systemd-tmpfiles-clean.timer.8: man/systemd-tmpfiles.8
+man/sd_id128_t.7: man/sd-id128.7
+man/SD_ID128_MAKE.7: man/sd-id128.7
+man/SD_ID128_FORMAT_STR.7: man/sd-id128.7
+man/SD_ID128_FORMAT_VAL.7: man/sd-id128.7
+man/sd_id128_equal.7: man/sd-id128.7
+man/sd_id128_from_string.3: man/sd_id128_to_string.3
+man/sd_id128_get_machine.3: man/sd_id128_randomize.3
+man/sd_id128_get_boot.3: man/sd_id128_randomize.3
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}

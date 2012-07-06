@@ -22,6 +22,10 @@ Bugfixes:
 
 Features:
 
+* journalctl highlight reboots
+
+* Merge KillUnit()'s mode and who params into one
+
 * load-fragment: when loading a unit file via a chain of symlinks
   verify that it isn't masked via any of the names traversed.
 
