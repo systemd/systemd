@@ -253,7 +253,7 @@ int main(int argc, char **argv) {
         }
 
         if (r <= 0) {
-#if defined(TARGET_FEDORA) || defined(TARGET_MEEGO)
+#if defined(TARGET_FEDORA)
                 r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
                                    "SYSFONT", &vc_font,
                                    "SYSFONTACM", &vc_font_map,

@@ -173,12 +173,6 @@ AM_CPPFLAGS += \
 	-DKBD_SETFONT=\"/bin/setfont\" \
 	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
 else
-if TARGET_MEEGO
-AM_CPPFLAGS += \
-	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
-	-DKBD_SETFONT=\"/bin/setfont\" \
-	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
-else
 if TARGET_ANGSTROM
 AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/usr/bin/loadkeys\" \
@@ -195,7 +189,6 @@ AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
 	-DKBD_SETFONT=\"/bin/setfont\" \
 	-DDEFAULT_FONT=\"latarcyrheb-sun16\"
-endif
 endif
 endif
 endif
@@ -3396,20 +3389,6 @@ systemd-install-data-hook:
 	( cd $(DESTDIR)$(dbussessionservicedir) && \
 		rm -f org.freedesktop.systemd1.service && \
 		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )
-if TARGET_MEEGO
-	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f network.target && \
-		$(LN_S) $(systemunitdir)/network.target network.target )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/sysinit.target.wants && \
-		rm -f * )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/local-fs.target.wants && \
-		rm -f * )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
-		rm -f * )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
-		rm -f * )
-endif
 
 if TARGET_FEDORA
 	( cd $(DESTDIR)$(systemunitdir) && \

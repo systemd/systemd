@@ -27,10 +27,7 @@ ExecStart=-/bin/bash -c "exec ${SINGLE}"',
 m4_ifdef(`TARGET_MAGEIA',
 `EnvironmentFile=/etc/sysconfig/init
 ExecStart=-/bin/bash -c "exec ${SINGLE}"',
-m4_ifdef(`TARGET_MEEGO',
-`EnvironmentFile=/etc/sysconfig/init
-ExecStart=-/bin/bash -c "exec ${SINGLE}"',
-`ExecStart=-/sbin/sulogin'))))
+`ExecStart=-/sbin/sulogin')))
 ExecStopPost=-@SYSTEMCTL@ --fail --no-block default
 Type=idle
 StandardInput=tty-force

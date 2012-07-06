@@ -500,7 +500,7 @@ AM_CONDITIONAL(ENABLE_MANPAGES, [test "$have_manpages" = "yes"])
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware, altlinux, mandriva, meego, mageia, angstrom or other]))
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware, altlinux, mandriva, mageia, angstrom or other]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
@@ -573,12 +573,6 @@ case $with_distro in
                 AC_DEFINE(TARGET_MANDRIVA, [], [Target is Mandriva])
                 M4_DEFINES=-DTARGET_MANDRIVA=1
                 ;;
-        meego)
-                SYSTEM_SYSVINIT_PATH=
-                SYSTEM_SYSVRCND_PATH=
-                AC_DEFINE(TARGET_MEEGO, [], [Target is MeeGo])
-                M4_DEFINES=-DTARGET_MEEGO=1
-                ;;
         angstrom)
                 SYSTEM_SYSVRCND_PATH=/etc
                 AC_DEFINE(TARGET_ANGSTROM, [], [Target is Ångström])
@@ -639,7 +633,6 @@ AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
 AM_CONDITIONAL(TARGET_FRUGALWARE, test x"$with_distro" = xfrugalware)
 AM_CONDITIONAL(TARGET_ALTLINUX, test x"$with_distro" = xaltlinux)
 AM_CONDITIONAL(TARGET_MANDRIVA, test x"$with_distro" = xmandriva)
-AM_CONDITIONAL(TARGET_MEEGO, test x"$with_distro" = xmeego)
 AM_CONDITIONAL(TARGET_ANGSTROM, test x"$with_distro" = xangstrom)
 AM_CONDITIONAL(TARGET_MAGEIA, test x"$with_distro" = xmageia)
 
