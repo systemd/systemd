@@ -94,7 +94,7 @@
                 <para>This union type allows accessing the 128 bit ID
                 as 16 separate bytes or two 64 bit words. It is generally
                 safer to access the ID components by their 8 bit array
-                to avoid endianess issues. This union is intended to
+                to avoid endianness issues. This union is intended to
                 be passed call-by-value (as opposed to
                 call-by-reference) and may be directly manipulated by
                 clients.</para>
