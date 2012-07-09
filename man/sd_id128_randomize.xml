@@ -125,7 +125,7 @@
         <refsect1>
                 <title>Return Value</title>
 
-                <para>The three calls returns 0 on success (in which
+                <para>The three calls return 0 on success (in which
                 case <parameter>ret</parameter> is filled in), or a
                 negative errno-style error code.</para>
         </refsect1>
