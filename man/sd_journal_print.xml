@@ -168,6 +168,23 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
                 not desired it can be turned off by defining
                 SD_JOURNAL_SUPPRESS_LOCATION before including
                 <filename>sd-journal.h</filename>.</para>
+
+                <para><citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                and and <function>sd_journal_print()</function> may
+                mostly be used interchangably
+                functionality-wise. However, note that log messages
+                logged via the former take a different path to the
+                journal server than the later, and hence global
+                chronological ordering between the two streams cannot
+                be guaranteed. Using
+                <function>sd_journal_print()</function> has the
+                benefit of logging source code line, file names, and
+                functions as meta data along all entries, and
+                guaranteeing chronological ordering with structured
+                log entries that are generated via
+                <function>sd_journal_send()</function>. Using
+                <function>syslog()</function> has the benefit of being
+                more portable.</para>
         </refsect1>
 
         <refsect1>
