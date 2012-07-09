@@ -22,6 +22,10 @@ Bugfixes:
 
 Features:
 
+* refuse taking lower-case variable names in sd_journal_send() and friends.
+
+* when running as user instance: implicitly default to WorkingDirectory=$HOME for all services.
+
 * journalctl highlight reboots
 
 * Merge KillUnit()'s mode and who params into one

@@ -2058,7 +2058,6 @@ static int system_journal_open(Server *s) {
 }
 
 static int server_flush_to_var(Server *s) {
-        char path[] = "/run/log/journal/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
         Object *o = NULL;
         int r;
         sd_id128_t machine;
@@ -2135,6 +2134,7 @@ finish:
         s->runtime_journal = NULL;
 
         if (r >= 0) {
+                char path[] = "/run/log/journal/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
                 sd_id128_to_string(machine, path + 17);
                 rm_rf(path, false, true, false);
         }

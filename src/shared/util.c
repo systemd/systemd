@@ -3339,6 +3339,9 @@ int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky
 
         assert(path);
 
+        /* Be paranoid */
+        assert(!streq(path, "/"));
+
         fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
         if (fd < 0) {
 
