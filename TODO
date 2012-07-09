@@ -22,6 +22,8 @@ Bugfixes:
 
 Features:
 
+* add sd_journal_wait() to make things easier for sync programs that just want to wait for changes
+
 * refuse taking lower-case variable names in sd_journal_send() and friends.
 
 * when running as user instance: implicitly default to WorkingDirectory=$HOME for all services.
