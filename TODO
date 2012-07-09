@@ -22,6 +22,8 @@ Bugfixes:
 
 Features:
 
+* journalctl should complain if run with uid != 0 and no persistant logs exist
+
 * .device aliases need to be implemented with the "following" logic, probably.
 
 * add sd_journal_wait() to make things easier for sync programs that just want to wait for changes
