@@ -67,21 +67,8 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
         /* preserve link with correct target, do not replace node of other device */
         if (lstat(slink, &stats) == 0) {
                 if (S_ISBLK(stats.st_mode) || S_ISCHR(stats.st_mode)) {
-                        struct stat stats2;
-
-                        log_debug("found existing node instead of symlink '%s'\n", slink);
-                        if (lstat(node, &stats2) == 0) {
-                                if ((stats.st_mode & S_IFMT) == (stats2.st_mode & S_IFMT) &&
-                                    stats.st_rdev == stats2.st_rdev && stats.st_ino != stats2.st_ino) {
-                                        log_debug("replace device node '%s' with symlink to our node '%s'\n",
-                                             slink, node);
-                                } else {
-                                        log_error("device node '%s' already exists, "
-                                            "link to '%s' will not overwrite it\n",
-                                            slink, node);
-                                        goto exit;
-                                }
-                        }
+                        log_error("conflicting device node '%s' found, link to '%s' will not be created\n", slink, node);
+                        goto exit;
                 } else if (S_ISLNK(stats.st_mode)) {
                         char buf[UTIL_PATH_SIZE];
                         int len;
