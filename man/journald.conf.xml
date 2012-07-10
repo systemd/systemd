@@ -293,7 +293,7 @@
                                 <listitem><para>Controls where to
                                 store journal data. One of
                                 <literal>volatile</literal>,
-                                <literal>permanent</literal>,
+                                <literal>persistent</literal>,
                                 <literal>auto</literal> and
                                 <literal>none</literal>. If
                                 <literal>volatile</literal> journal
@@ -302,7 +302,7 @@
                                 <filename>/run/log/journal</filename>
                                 hierarchy (which is created if
                                 needed). If
-                                <literal>permanent</literal> data will
+                                <literal>persistent</literal> data will
                                 be stored preferably on disk,
                                 i.e. below the
                                 <filename>/var/log/journal</filename>
@@ -313,7 +313,7 @@
                                 early boot and if the disk is not
                                 writable. <literal>auto</literal> is
                                 similar to
-                                <literal>permanent</literal> but the
+                                <literal>persistent</literal> but the
                                 directory
                                 <filename>/var/log/journal</filename>
                                 is not created if needed, so that its

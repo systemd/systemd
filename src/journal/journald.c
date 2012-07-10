@@ -114,7 +114,7 @@ struct StdoutStream {
 static const char* const storage_table[] = {
         [STORAGE_AUTO] = "auto",
         [STORAGE_VOLATILE] = "volatile",
-        [STORAGE_PERMANENT] = "permanent",
+        [STORAGE_PERSISTENT] = "persistent",
         [STORAGE_NONE] = "none"
 };
 
@@ -1963,16 +1963,16 @@ static int system_journal_open(Server *s) {
         sd_id128_to_string(machine, ids);
 
         if (!s->system_journal &&
-            (s->storage == STORAGE_PERMANENT ||
+            (s->storage == STORAGE_PERSISTENT ||
              s->storage == STORAGE_AUTO)) {
 
                 /* If in auto mode: first try to create the machine
                  * path, but not the prefix.
                  *
-                 * If in permanent mode: create /var/log/journal and
+                 * If in persistent mode: create /var/log/journal and
                  * the machine path */
 
-                if (s->storage & STORAGE_PERMANENT)
+                if (s->storage & STORAGE_PERSISTENT)
                         (void) mkdir("/var/log/journal/", 0755);
 
                 fn = strappend("/var/log/journal/", ids);
@@ -2067,7 +2067,7 @@ static int server_flush_to_var(Server *s) {
         assert(s);
 
         if (s->storage != STORAGE_AUTO &&
-            s->storage != STORAGE_PERMANENT)
+            s->storage != STORAGE_PERSISTENT)
                 return 0;
 
         if (!s->runtime_journal)

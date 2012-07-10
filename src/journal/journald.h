@@ -36,7 +36,7 @@
 typedef enum Storage {
         STORAGE_AUTO,
         STORAGE_VOLATILE,
-        STORAGE_PERMANENT,
+        STORAGE_PERSISTENT,
         STORAGE_NONE,
         _STORAGE_MAX,
         _STORAGE_INVALID = -1

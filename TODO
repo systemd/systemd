@@ -34,6 +34,8 @@ Bugfixes:
 
 Features:
 
+* replace BindTo= by BindsTo=, but keep old name for compat
+
 * switch-root: sockets need relabelling
 
 * switch-root: handle journald restart
@@ -41,8 +43,6 @@ Features:
 * segfault in journalctl during /var migration
 
 * systemd-analyze post-boot is broken for initrd
-
-* journal: s/permanent/persistant
 
 * man: clarify that time-sync.target is not only sysv compat but also useful otherwise. Same for similar targets
 
