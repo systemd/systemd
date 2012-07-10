@@ -845,7 +845,7 @@ static int remove_item_instance(Item *i, const char *instance) {
         case RECURSIVE_REMOVE_PATH:
                 /* FIXME: we probably should use dir_cleanup() here
                  * instead of rm_rf() so that 'x' is honoured. */
-                r = rm_rf(instance, false, i->type == RECURSIVE_REMOVE_PATH, false);
+                r = rm_rf_dangerous(instance, false, i->type == RECURSIVE_REMOVE_PATH, false);
                 if (r < 0 && r != -ENOENT) {
                         log_error("rm_rf(%s): %s", instance, strerror(-r));
                         return r;

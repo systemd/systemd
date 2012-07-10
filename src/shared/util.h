@@ -358,7 +358,9 @@ int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid);
 
 int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev);
+int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev);
 int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky);
+int rm_rf_dangerous(const char *path, bool only_dirs, bool delete_root, bool honour_sticky);
 
 int pipe_eof(int fd);
 

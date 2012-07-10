@@ -3243,7 +3243,7 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
         return 0;
 }
 
-int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev) {
+int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev) {
         DIR *d;
         int ret = 0;
 
@@ -3335,20 +3335,60 @@ int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root
         return ret;
 }
 
-int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky) {
-        int fd;
-        int r;
+int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev) {
+        struct statfs s;
+
+        assert(fd >= 0);
+
+        if (fstatfs(fd, &s) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        /* We refuse to clean disk file systems with this call. This
+         * is extra paranoia just to be sure we never ever remove
+         * non-state data */
+
+        if (s.f_type != TMPFS_MAGIC &&
+            s.f_type != RAMFS_MAGIC) {
+                log_error("Attempted to remove disk file system, and we can't allow that.");
+                close_nointr_nofail(fd);
+                return -EPERM;
+        }
+
+        return rm_rf_children_dangerous(fd, only_dirs, honour_sticky, root_dev);
+}
+
+static int rm_rf_internal(const char *path, bool only_dirs, bool delete_root, bool honour_sticky, bool dangerous) {
+        int fd, r;
+        struct statfs s;
 
         assert(path);
 
-        /* Be paranoid */
-        assert(!streq(path, "/"));
+        /* We refuse to clean the root file system with this
+         * call. This is extra paranoia to never cause a really
+         * seriously broken system. */
+        if (path_equal(path, "/")) {
+                log_error("Attempted to remove entire root file system, and we can't allow that.");
+                return -EPERM;
+        }
 
         fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
         if (fd < 0) {
 
                 if (errno != ENOTDIR)
                         return -errno;
+
+                if (!dangerous) {
+                        if (statfs(path, &s) < 0)
+                                return -errno;
+
+                        if (s.f_type != TMPFS_MAGIC &&
+                            s.f_type != RAMFS_MAGIC) {
+                                log_error("Attempted to remove disk file system, and we can't allow that.");
+                                return -EPERM;
+                        }
+                }
 
                 if (delete_root && !only_dirs)
                         if (unlink(path) < 0 && errno != ENOENT)
@@ -3357,8 +3397,21 @@ int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky
                 return 0;
         }
 
-        r = rm_rf_children(fd, only_dirs, honour_sticky, NULL);
+        if (!dangerous) {
+                if (fstatfs(fd, &s) < 0) {
+                        close_nointr_nofail(fd);
+                        return -errno;
+                }
 
+                if (s.f_type != TMPFS_MAGIC &&
+                    s.f_type != RAMFS_MAGIC) {
+                        log_error("Attempted to remove disk file system, and we can't allow that.");
+                        close_nointr_nofail(fd);
+                        return -EPERM;
+                }
+        }
+
+        r = rm_rf_children_dangerous(fd, only_dirs, honour_sticky, NULL);
         if (delete_root) {
 
                 if (honour_sticky && file_is_priv_sticky(path) > 0)
@@ -3371,6 +3424,14 @@ int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky
         }
 
         return r;
+}
+
+int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky) {
+        return rm_rf_internal(path, only_dirs, delete_root, honour_sticky, false);
+}
+
+int rm_rf_dangerous(const char *path, bool only_dirs, bool delete_root, bool honour_sticky) {
+        return rm_rf_internal(path, only_dirs, delete_root, honour_sticky, true);
 }
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
