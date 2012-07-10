@@ -34,8 +34,6 @@ Bugfixes:
 
 Features:
 
-* switch-root: reopen /dev/console before switching root
-
 * switch-root: sockets need relabelling
 
 * switch-root: handle journald restart
