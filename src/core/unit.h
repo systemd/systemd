@@ -28,7 +28,6 @@
 typedef struct Unit Unit;
 typedef struct UnitVTable UnitVTable;
 typedef enum UnitType UnitType;
-typedef enum UnitLoadState UnitLoadState;
 typedef enum UnitActiveState UnitActiveState;
 typedef enum UnitDependency UnitDependency;
 typedef struct UnitRef UnitRef;
@@ -42,16 +41,6 @@ typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 #include "condition.h"
 #include "install.h"
 #include "unit-name.h"
-
-enum UnitLoadState {
-        UNIT_STUB,
-        UNIT_LOADED,
-        UNIT_ERROR,
-        UNIT_MERGED,
-        UNIT_MASKED,
-        _UNIT_LOAD_STATE_MAX,
-        _UNIT_LOAD_STATE_INVALID = -1
-};
 
 enum UnitActiveState {
         UNIT_ACTIVE,
@@ -548,9 +537,6 @@ void unit_ref_unset(UnitRef *ref);
 
 int unit_add_one_mount_link(Unit *u, Mount *m);
 int unit_add_mount_links(Unit *u);
-
-const char *unit_load_state_to_string(UnitLoadState i);
-UnitLoadState unit_load_state_from_string(const char *s);
 
 const char *unit_active_state_to_string(UnitActiveState i);
 UnitActiveState unit_active_state_from_string(const char *s);

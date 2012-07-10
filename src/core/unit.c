@@ -2746,16 +2746,6 @@ int unit_add_mount_links(Unit *u) {
         return 0;
 }
 
-static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
-        [UNIT_STUB] = "stub",
-        [UNIT_LOADED] = "loaded",
-        [UNIT_ERROR] = "error",
-        [UNIT_MERGED] = "merged",
-        [UNIT_MASKED] = "masked"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
-
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_ACTIVE] = "active",
         [UNIT_RELOADING] = "reloading",

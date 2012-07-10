@@ -48,6 +48,16 @@ static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);
 
+static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
+        [UNIT_STUB] = "stub",
+        [UNIT_LOADED] = "loaded",
+        [UNIT_ERROR] = "error",
+        [UNIT_MERGED] = "merged",
+        [UNIT_MASKED] = "masked"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
+
 bool unit_name_is_valid(const char *n, bool template_ok) {
         const char *e, *i, *at;
 

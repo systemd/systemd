@@ -27,6 +27,7 @@
 #define UNIT_NAME_MAX 256
 
 typedef enum UnitType UnitType;
+typedef enum UnitLoadState UnitLoadState;
 
 enum UnitType {
         UNIT_SERVICE = 0,
@@ -43,8 +44,21 @@ enum UnitType {
         _UNIT_TYPE_INVALID = -1
 };
 
+enum UnitLoadState {
+        UNIT_STUB,
+        UNIT_LOADED,
+        UNIT_ERROR,
+        UNIT_MERGED,
+        UNIT_MASKED,
+        _UNIT_LOAD_STATE_MAX,
+        _UNIT_LOAD_STATE_INVALID = -1
+};
+
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);
+
+const char *unit_load_state_to_string(UnitLoadState i);
+UnitLoadState unit_load_state_from_string(const char *s);
 
 int unit_name_to_instance(const char *n, char **instance);
 char* unit_name_to_prefix(const char *n);
