@@ -75,16 +75,12 @@ Features:
   /var/log/journal via NFS since the mount point has to exist and we
   already take that as signal to store our stuff there.
 
-* document that journal data is primarily ASCII, UTF-8 where necessary and binary only where nothing else makes sense.
-
 * Document:
         - PID 1 D-Bus API
         - Journal C API manual pages
         - scheduled shutdown API
 
 * wiki: document logind's PreparingForShutdown, PreparingForSleep
-
-* support debian's console-setup logic
 
 * introduce Type=pid-file
 
@@ -97,6 +93,8 @@ Features:
 * efi: honour language efi variables for default language selection
 
 * efi: honour timezone efi variables for default timezone selection
+
+* efi: automatically mount EFI partition to /boot if no such entry exists in /boot
 
 * new dependency type to "group" services in a target
 
