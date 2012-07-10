@@ -22,6 +22,20 @@ Bugfixes:
 
 Features:
 
+* switch-root: sockets need relabelling
+
+* switch-root: handle journald restart
+
+* policy loading in initrd generates warning
+
+* segfault in journalctl during /var migration
+
+* systemd-analyze post-boot is broken for initrd
+
+* journal: s/permanent/persistant
+
+* man: clarify that time-sync.target is not only sysv compat but also useful otherwise. Same for similar targets
+
 * journalctl should complain if run with uid != 0 and no persistant logs exist
 
 * .device aliases need to be implemented with the "following" logic, probably.
