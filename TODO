@@ -20,6 +20,18 @@ Bugfixes:
 * we pull src/core/manager.h into src/shared/src/shared/path-lookup.c which is the wrong direction
    rename enum "ManagerRunningAs" to "SystemdRunningAs" and move it to shared/
 
+* crash happens when running a service as forking and then changing it to simple and reloading.
+
+  Jul 09 18:20:57 mop systemd[1]: usbmuxd.service operation timed out. Terminating.
+  Jul 09 18:20:57 mop systemd[1]: Unit usbmuxd.service entered failed state.
+  Jul 09 18:22:24 mop systemd[1]: PID 21814 read from file /var/run/usbmuxd.pid does not exist.
+  Jul 09 18:22:24 mop systemd[1]: Unit usbmuxd.service entered failed state.
+  Jul 09 18:22:33 mop systemd[1]: Reloading.
+  Jul 09 18:22:37 mop systemd[1]: Assertion 's->type == SERVICE_FORKING' failed at src/core/service.c:3007, function service_sigchld_eve...Aborting.
+  Jul 09 18:22:37 mop systemd[1]: Caught <ABRT>, dumped core as pid 21865.
+  Jul 09 18:22:37 mop systemd[1]: Freezing execution.
+  Jul 09 18:22:37 mop [21866]: Process 21865 (systemd) dumped core.
+
 Features:
 
 * switch-root add extra safety check

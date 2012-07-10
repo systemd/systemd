@@ -54,6 +54,8 @@
 #include <glob.h>
 #include <grp.h>
 #include <sys/mman.h>
+#include <sys/vfs.h>
+#include <linux/magic.h>
 
 #include "macro.h"
 #include "util.h"
@@ -5738,9 +5740,24 @@ bool is_valid_documentation_url(const char *url) {
 
 bool in_initrd(void) {
         static int saved = -1;
+        struct statfs s;
 
-        if (saved < 0)
-                saved = access("/etc/initrd-release", F_OK) >= 0;
+        if (saved >= 0)
+                return saved;
+
+        /* We make two checks here:
+         *
+         * 1. the flag file /etc/initrd-release must exist
+         * 2. the root file system must be a memory file system
+         *
+         * The second check is extra paranoia, since misdetecting an
+         * initrd can have bad bad consequences due the initrd
+         * emptying when transititioning to the main systemd.
+         */
+
+        saved = access("/etc/initrd-release", F_OK) >= 0 &&
+                statfs("/", &s) >= 0 &&
+                (s.f_type == TMPFS_MAGIC || s.f_type == RAMFS_MAGIC);
 
         return saved;
 }
