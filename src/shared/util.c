@@ -2940,7 +2940,8 @@ int make_stdio(int fd) {
 int make_null_stdio(void) {
         int null_fd;
 
-        if ((null_fd = open("/dev/null", O_RDWR|O_NOCTTY)) < 0)
+        null_fd = open("/dev/null", O_RDWR|O_NOCTTY);
+        if (null_fd < 0)
                 return -errno;
 
         return make_stdio(null_fd);
@@ -5843,4 +5844,24 @@ void warn_melody(void) {
 
         ioctl(fd, KIOCSOUND, 0);
         close_nointr_nofail(fd);
+}
+
+int make_console_stdio(void) {
+        int fd, r;
+
+        /* Make /dev/console the controlling terminal and stdin/stdout/stderr */
+
+        fd = acquire_terminal("/dev/console", false, true, true, (usec_t) -1);
+        if (fd < 0) {
+                log_error("Failed to acquire terminal: %s", strerror(-fd));
+                return fd;
+        }
+
+        r = make_stdio(fd);
+        if (r < 0) {
+                log_error("Failed to duplicate terminal fd: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
 }

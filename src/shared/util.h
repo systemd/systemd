@@ -278,6 +278,7 @@ char *format_timespan(char *buf, size_t l, usec_t t);
 
 int make_stdio(int fd);
 int make_null_stdio(void);
+int make_console_stdio(void);
 
 unsigned long long random_ull(void);
 

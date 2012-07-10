@@ -164,16 +164,11 @@ _noreturn_ static void crash(int sig) {
                 sa.sa_flags = SA_NOCLDSTOP|SA_NOCLDWAIT|SA_RESTART;
                 assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
-                if ((pid = fork()) < 0)
+                pid = fork();
+                if (pid < 0)
                         log_error("Failed to fork off crash shell: %s", strerror(errno));
                 else if (pid == 0) {
-                        int fd, r;
-
-                        if ((fd = acquire_terminal("/dev/console", false, true, true, (usec_t) -1)) < 0)
-                                log_error("Failed to acquire terminal: %s", strerror(-fd));
-                        else if ((r = make_stdio(fd)) < 0)
-                                log_error("Failed to duplicate terminal fd: %s", strerror(-r));
-
+                        make_console_stdio();
                         execl("/bin/sh", "/bin/sh", NULL);
 
                         log_error("execl() failed: %s", strerror(errno));
@@ -1676,6 +1671,9 @@ finish:
                  * instance can reinitialize it, but doesn't get
                  * rebooted while we do that */
                 watchdog_close(true);
+
+                /* Reopen the console */
+                make_console_stdio();
 
                 if (switch_root_dir) {
                         r = switch_root(switch_root_dir);

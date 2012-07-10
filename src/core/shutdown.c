@@ -267,9 +267,10 @@ static int prepare_new_root(void) {
 }
 
 static int pivot_to_new_root(void) {
-        int fd;
-
-        chdir("/run/initramfs");
+        if (chdir("/run/initramfs") < 0) {
+                log_error("Failed to change directory to /run/initramfs: %m");
+                return -errno;
+        }
 
         /*
           In case some evil process made "/" MS_SHARED
@@ -288,18 +289,11 @@ static int pivot_to_new_root(void) {
         }
 
         chroot(".");
+
+        setsid();
+        make_console_stdio();
+
         log_info("Successfully changed into root pivot.");
-
-        fd = open("/dev/console", O_RDWR);
-        if (fd < 0)
-                log_error("Failed to open /dev/console: %m");
-        else {
-                make_stdio(fd);
-
-                /* Initialize the controlling terminal */
-                setsid();
-                ioctl(STDIN_FILENO, TIOCSCTTY, NULL);
-        }
 
         return 0;
 }
