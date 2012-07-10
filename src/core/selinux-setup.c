@@ -36,6 +36,10 @@
 #include "log.h"
 #include "label.h"
 
+static int null_log(int type, const char *fmt, ...) {
+        return 0;
+}
+
 int selinux_setup(bool *loaded_policy) {
 
 #ifdef HAVE_SELINUX
@@ -43,8 +47,13 @@ int selinux_setup(bool *loaded_policy) {
        usec_t before_load, after_load;
        security_context_t con;
        int r;
+       union selinux_callback cb;
 
        assert(loaded_policy);
+
+       /* Turn off all of SELinux' own logging, we want to do that */
+       cb.func_log = null_log;
+       selinux_set_callback(SELINUX_CB_LOG, cb);
 
        /* Make sure getcon() works, which needs /proc and /sys */
        mount_setup_early();
