@@ -50,9 +50,11 @@ int unit_name_to_instance(const char *n, char **instance);
 char* unit_name_to_prefix(const char *n);
 char* unit_name_to_prefix_and_instance(const char *n);
 
-bool unit_name_is_valid_no_type(const char *n, bool template_ok);
+bool unit_name_is_valid(const char *n, bool template_ok);
 bool unit_prefix_is_valid(const char *p);
 bool unit_instance_is_valid(const char *i);
+
+UnitType unit_name_to_type(const char *n);
 
 char *unit_name_change_suffix(const char *n, const char *suffix);
 

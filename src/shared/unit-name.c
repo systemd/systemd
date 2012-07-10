@@ -48,7 +48,7 @@ static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);
 
-bool unit_name_is_valid_no_type(const char *n, bool template_ok) {
+bool unit_name_is_valid(const char *n, bool template_ok) {
         const char *e, *i, *at;
 
         /* Valid formats:
@@ -64,6 +64,9 @@ bool unit_name_is_valid_no_type(const char *n, bool template_ok) {
 
         e = strrchr(n, '.');
         if (!e || e == n)
+                return false;
+
+        if (unit_type_from_string(e + 1) < 0)
                 return false;
 
         for (i = n, at = NULL; i < e; i++) {
@@ -169,7 +172,7 @@ char *unit_name_change_suffix(const char *n, const char *suffix) {
         size_t a, b;
 
         assert(n);
-        assert(unit_name_is_valid_no_type(n, true));
+        assert(unit_name_is_valid(n, true));
         assert(suffix);
 
         assert_se(e = strrchr(n, '.'));
@@ -484,4 +487,16 @@ char *unit_name_mangle(const char *name) {
         *t = 0;
 
         return r;
+}
+
+UnitType unit_name_to_type(const char *n) {
+        const char *e;
+
+        assert(n);
+
+        e = strrchr(n, '.');
+        if (!e)
+                return _UNIT_TYPE_INVALID;
+
+        return unit_type_from_string(e + 1);
 }

@@ -537,9 +537,6 @@ int unit_add_default_target_dependency(Unit *u, Unit *target);
 
 int unit_following_set(Unit *u, Set **s);
 
-UnitType unit_name_to_type(const char *n);
-bool unit_name_is_valid(const char *n, bool template_ok);
-
 void unit_trigger_on_failure(Unit *u);
 
 bool unit_condition_test(Unit *u);

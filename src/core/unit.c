@@ -2647,28 +2647,6 @@ bool unit_pending_active(Unit *u) {
         return false;
 }
 
-UnitType unit_name_to_type(const char *n) {
-        UnitType t;
-
-        assert(n);
-
-        for (t = 0; t < _UNIT_TYPE_MAX; t++)
-                if (endswith(n, unit_vtable[t]->suffix))
-                        return t;
-
-        return _UNIT_TYPE_INVALID;
-}
-
-bool unit_name_is_valid(const char *n, bool template_ok) {
-        UnitType t;
-
-        t = unit_name_to_type(n);
-        if (t < 0 || t >= _UNIT_TYPE_MAX)
-                return false;
-
-        return unit_name_is_valid_no_type(n, template_ok);
-}
-
 int unit_kill(Unit *u, KillWho w, KillMode m, int signo, DBusError *error) {
         assert(u);
         assert(w >= 0 && w < _KILL_WHO_MAX);

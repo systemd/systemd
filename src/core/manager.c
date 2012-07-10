@@ -796,7 +796,7 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DB
 
         t = unit_name_to_type(name);
 
-        if (t == _UNIT_TYPE_INVALID || !unit_name_is_valid_no_type(name, false)) {
+        if (t == _UNIT_TYPE_INVALID || !unit_name_is_valid(name, false)) {
                 dbus_set_error(e, BUS_ERROR_INVALID_NAME, "Unit name %s is not valid.", name);
                 return -EINVAL;
         }
