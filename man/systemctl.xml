@@ -87,14 +87,26 @@
                                 <term><option>--type=</option></term>
                                 <term><option>-t</option></term>
 
-                                <listitem><para>When listing units,
-                                limit display to certain unit
-                                types. If not specified units of all
-                                types will be shown. The argument
-                                should be a unit type name such as
-                                <option>service</option>,
-                                <option>socket</option> and
-                                similar.</para></listitem>
+                                <listitem><para>The argument should
+                                be a unit type name such as
+                                <option>service</option> and
+                                <option>socket</option>,
+                                or a unit load state such as
+                                <option>loaded</option> and
+                                <option>masked</option>.
+                                </para>
+
+                                <para>If the argument is a unit type,
+                                when listing units, limit display to
+                                certain unit types. If not specified
+                                units of all types will be shown.</para>
+
+                                <para>If the argument is a unit load state,
+                                when listing units, limit display to
+                                certain unit types. If not specified
+                                units of in all load states will be
+                                shown.</para>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>

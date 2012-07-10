@@ -65,6 +65,7 @@
 #include "path-util.h"
 
 static const char *arg_type = NULL;
+static const char *arg_load_state = NULL;
 static char **arg_property = NULL;
 static bool arg_all = false;
 static const char *arg_job_mode = "replace";
@@ -337,7 +338,9 @@ static bool output_show_unit(const struct unit_info *u) {
 
         return (!arg_type || ((dot = strrchr(u->id, '.')) &&
                               streq(dot+1, arg_type))) &&
-                (arg_all || !(streq(u->active_state, "inactive") || u->following[0]) || u->job_id > 0);
+                (!arg_load_state || streq(u->load_state, arg_load_state)) &&
+                (arg_all || !(streq(u->active_state, "inactive")
+                              || u->following[0]) || u->job_id > 0);
 }
 
 static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
@@ -4650,13 +4653,17 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case 't':
-                        if (unit_type_from_string(optarg) < 0) {
-                                log_error("Invalid unit type '%s'.", optarg);
-                                return -EINVAL;
+                        if (unit_type_from_string(optarg) >= 0) {
+                                arg_type = optarg;
+                                break;
                         }
-                        arg_type = optarg;
-                        break;
-
+                        if (unit_load_state_from_string(optarg) >= 0) {
+                                arg_load_state = optarg;
+                                break;
+                        }
+                        log_error("Unkown unit type or load state '%s'.",
+                                  optarg);
+                        return -EINVAL;
                 case 'p': {
                         char **l;
 
