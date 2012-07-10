@@ -3798,7 +3798,6 @@ static const char* const start_limit_action_table[_SERVICE_START_LIMIT_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(start_limit_action, StartLimitAction);
 
 const UnitVTable service_vtable = {
-        .suffix = ".service",
         .object_size = sizeof(Service),
         .sections =
                 "Unit\0"

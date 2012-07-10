@@ -846,7 +846,6 @@ static const char* const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(automount_result, AutomountResult);
 
 const UnitVTable automount_vtable = {
-        .suffix = ".automount",
         .object_size = sizeof(Automount),
         .sections =
                 "Unit\0"

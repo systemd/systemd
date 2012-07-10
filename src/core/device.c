@@ -587,7 +587,6 @@ static const char* const device_state_table[_DEVICE_STATE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(device_state, DeviceState);
 
 const UnitVTable device_vtable = {
-        .suffix = ".device",
         .object_size = sizeof(Device),
         .sections =
                 "Unit\0"

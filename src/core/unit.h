@@ -274,8 +274,6 @@ struct UnitStatusMessageFormats {
 #include "path.h"
 
 struct UnitVTable {
-        const char *suffix;
-
         /* How much memory does an object of this unit type need */
         size_t object_size;
 

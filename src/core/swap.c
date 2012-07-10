@@ -1335,7 +1335,6 @@ static const char* const swap_result_table[_SWAP_RESULT_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(swap_result, SwapResult);
 
 const UnitVTable swap_vtable = {
-        .suffix = ".swap",
         .object_size = sizeof(Swap),
         .sections =
                 "Unit\0"

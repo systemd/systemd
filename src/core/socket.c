@@ -2185,7 +2185,6 @@ static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult);
 
 const UnitVTable socket_vtable = {
-        .suffix = ".socket",
         .object_size = sizeof(Socket),
         .sections =
                 "Unit\0"

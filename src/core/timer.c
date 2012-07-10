@@ -486,7 +486,6 @@ static const char* const timer_result_table[_TIMER_RESULT_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(timer_result, TimerResult);
 
 const UnitVTable timer_vtable = {
-        .suffix = ".timer",
         .object_size = sizeof(Timer),
         .sections =
                 "Unit\0"

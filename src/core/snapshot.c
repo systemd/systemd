@@ -281,7 +281,6 @@ static const char* const snapshot_state_table[_SNAPSHOT_STATE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(snapshot_state, SnapshotState);
 
 const UnitVTable snapshot_vtable = {
-        .suffix = ".snapshot",
         .object_size = sizeof(Snapshot),
 
         .no_alias = true,

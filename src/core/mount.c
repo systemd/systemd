@@ -1785,7 +1785,6 @@ static const char* const mount_result_table[_MOUNT_RESULT_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(mount_result, MountResult);
 
 const UnitVTable mount_vtable = {
-        .suffix = ".mount",
         .object_size = sizeof(Mount),
         .sections =
                 "Unit\0"

@@ -738,7 +738,6 @@ static const char* const path_result_table[_PATH_RESULT_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(path_result, PathResult);
 
 const UnitVTable path_vtable = {
-        .suffix = ".path",
         .object_size = sizeof(Path),
         .sections =
                 "Unit\0"
