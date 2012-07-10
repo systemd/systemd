@@ -38,8 +38,6 @@ Features:
 
 * switch-root: handle journald restart
 
-* policy loading in initrd generates warning
-
 * segfault in journalctl during /var migration
 
 * systemd-analyze post-boot is broken for initrd
