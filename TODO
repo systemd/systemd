@@ -34,8 +34,6 @@ Bugfixes:
 
 Features:
 
-* switch-root add extra safety check
-
 * switch-root: reopen /dev/console before switching root
 
 * switch-root: sockets need relabelling
