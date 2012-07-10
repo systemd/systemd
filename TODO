@@ -56,8 +56,6 @@ Features:
 
 * when running as user instance: implicitly default to WorkingDirectory=$HOME for all services.
 
-* journalctl highlight reboots
-
 * Merge KillUnit()'s mode and who params into one
 
 * load-fragment: when loading a unit file via a chain of symlinks

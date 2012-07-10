@@ -299,6 +299,8 @@ int main(int argc, char *argv[]) {
         sd_journal *j = NULL;
         unsigned line = 0;
         bool need_seek = false;
+        sd_id128_t previous_boot_id;
+        bool previous_boot_id_valid = false;
 
         log_parse_environment();
         log_open();
@@ -390,6 +392,8 @@ int main(int argc, char *argv[]) {
 
         for (;;) {
                 for (;;) {
+                        sd_id128_t boot_id;
+
                         if (need_seek) {
                                 r = sd_journal_next(j);
                                 if (r < 0) {
@@ -400,6 +404,16 @@ int main(int argc, char *argv[]) {
 
                         if (r == 0)
                                 break;
+
+                        r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
+                        if (r >= 0) {
+                                if (previous_boot_id_valid &&
+                                    !sd_id128_equal(boot_id, previous_boot_id))
+                                        printf(ANSI_HIGHLIGHT_ON "----- Reboot -----" ANSI_HIGHLIGHT_OFF "\n");
+
+                                previous_boot_id = boot_id;
+                                previous_boot_id_valid = true;
+                        }
 
                         line ++;
 

@@ -1397,8 +1397,6 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
 
         if (!j)
                 return -EINVAL;
-        if (!ret)
-                return -EINVAL;
 
         f = j->current_file;
         if (!f)
@@ -1422,7 +1420,9 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
                         return -ESTALE;
         }
 
-        *ret = le64toh(o->entry.monotonic);
+        if (ret)
+                *ret = le64toh(o->entry.monotonic);
+
         return 0;
 }
 
