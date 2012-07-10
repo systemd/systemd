@@ -557,7 +557,6 @@ int show_journal_by_unit(
         char *m = NULL;
         sd_journal *j = NULL;
         int r;
-        int fd;
         unsigned line = 0;
         bool need_seek = false;
 
@@ -581,10 +580,6 @@ int show_journal_by_unit(
 
         r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM_ONLY);
         if (r < 0)
-                goto finish;
-
-        fd = sd_journal_get_fd(j);
-        if (fd < 0)
                 goto finish;
 
         r = sd_journal_add_match(j, m, strlen(m));
@@ -663,11 +658,7 @@ int show_journal_by_unit(
                 if (!follow)
                         break;
 
-                r = fd_wait_for_event(fd, POLLIN, (usec_t) -1);
-                if (r < 0)
-                        goto finish;
-
-                r = sd_journal_process(j);
+                r = sd_journal_wait(j, (usec_t) -1);
                 if (r < 0)
                         goto finish;
 

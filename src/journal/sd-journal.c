@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <sys/inotify.h>
+#include <sys/poll.h>
 
 #include "sd-journal.h"
 #include "journal-def.h"
@@ -1620,6 +1621,20 @@ _public_ int sd_journal_process(sd_journal *j) {
                         l -= step;
                 }
         }
+}
+
+_public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {
+        int r, k;
+
+        assert(j);
+
+        r = fd_wait_for_event(j->inotify_fd, POLLIN, timeout_usec);
+        k = sd_journal_process(j);
+
+        if (r < 0)
+                return r;
+
+        return k;
 }
 
 _public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, uint64_t *to) {

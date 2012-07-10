@@ -113,6 +113,7 @@ enum {
 
 int sd_journal_get_fd(sd_journal *j);
 int sd_journal_process(sd_journal *j);
+int sd_journal_wait(sd_journal *j, uint64_t timeout_usec);
 
 #define SD_JOURNAL_FOREACH(j)                                           \
         if (sd_journal_seek_head(j) >= 0)                               \

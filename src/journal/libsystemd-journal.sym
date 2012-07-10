@@ -57,3 +57,8 @@ global:
         sd_journal_get_cutoff_realtime_usec;
         sd_journal_get_cutoff_monotonic_usec;
 } LIBSYSTEMD_JOURNAL_183;
+
+LIBSYSTEMD_JOURNAL_187 {
+global:
+        sd_journal_wait;
+} LIBSYSTEMD_JOURNAL_184;

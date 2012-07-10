@@ -210,7 +210,7 @@ static int generate_new_id128(void) {
 }
 
 int main(int argc, char *argv[]) {
-        int r, i, fd;
+        int r, i;
         sd_journal *j = NULL;
         unsigned line = 0;
         bool need_seek = false;
@@ -301,12 +301,6 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        fd = sd_journal_get_fd(j);
-        if (fd < 0) {
-                log_error("Failed to get wakeup fd: %s", strerror(-fd));
-                goto finish;
-        }
-
         if (!arg_quiet) {
                 usec_t start, end;
                 char start_buf[FORMAT_TIMESTAMP_MAX], end_buf[FORMAT_TIMESTAMP_MAX];
@@ -385,15 +379,9 @@ int main(int argc, char *argv[]) {
                 if (!arg_follow)
                         break;
 
-                r = fd_wait_for_event(fd, POLLIN, (usec_t) -1);
+                r = sd_journal_wait(j, (uint64_t) -1);
                 if (r < 0) {
-                        log_error("Couldn't wait for event: %s", strerror(-r));
-                        goto finish;
-                }
-
-                r = sd_journal_process(j);
-                if (r < 0) {
-                        log_error("Failed to process: %s", strerror(-r));
+                        log_error("Couldn't wait for log event: %s", strerror(-r));
                         goto finish;
                 }
         }
