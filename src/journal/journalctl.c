@@ -39,6 +39,7 @@
 #include "build.h"
 #include "pager.h"
 #include "logs-show.h"
+#include "strv.h"
 
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_follow = false;
@@ -50,6 +51,7 @@ static bool arg_new_id128 = false;
 static bool arg_quiet = false;
 static bool arg_local = false;
 static bool arg_this_boot = false;
+static const char *arg_directory = NULL;
 
 static int help(void) {
 
@@ -67,6 +69,7 @@ static int help(void) {
                "  -q --quiet          Don't show privilege warning\n"
                "  -l --local          Only local entries\n"
                "  -b --this-boot      Show data only from current boot\n"
+               "  -D --directory=PATH Show journal files from directory\n"
                "     --new-id128      Generate a new 128 Bit id\n",
                program_invocation_short_name);
 
@@ -95,6 +98,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "quiet",     no_argument,       NULL, 'q'           },
                 { "local",     no_argument,       NULL, 'l'           },
                 { "this-boot", no_argument,       NULL, 'b'           },
+                { "directory", required_argument, NULL, 'D'           },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -103,7 +107,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hfo:an:qlb", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hfo:an:qlbD:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -166,6 +170,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_this_boot = true;
                         break;
 
+                case 'D':
+                        arg_directory = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -209,12 +217,88 @@ static int generate_new_id128(void) {
         return 0;
 }
 
+static int add_matches(sd_journal *j, char **args) {
+        char **i;
+        int r;
+
+        assert(j);
+
+        STRV_FOREACH(i, args) {
+
+                if (path_is_absolute(*i)) {
+                        char *p;
+                        const char *path;
+                        struct stat st;
+
+                        p = canonicalize_file_name(*i);
+                        path = p ? p : *i;
+
+                        if (stat(path, &st) < 0)  {
+                                free(p);
+                                log_error("Couldn't stat file: %m");
+                                return -errno;
+                        }
+
+                        if (S_ISREG(st.st_mode) && (0111 & st.st_mode)) {
+                                char *t;
+
+                                t = strappend("_EXE=", path);
+                                if (!t) {
+                                        free(p);
+                                        log_error("Out of memory");
+                                        return -ENOMEM;
+                                }
+
+                                r = sd_journal_add_match(j, t, strlen(t));
+                                free(t);
+                        } else {
+                                free(p);
+                                log_error("File is not a regular file or is not executable: %s", *i);
+                                return -EINVAL;
+                        }
+
+                        free(p);
+                } else
+                        r = sd_journal_add_match(j, *i, strlen(*i));
+
+                if (r < 0) {
+                        log_error("Failed to add match: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
+static int add_this_boot(sd_journal *j) {
+        char match[9+32+1] = "_BOOT_ID=";
+        sd_id128_t boot_id;
+        int r;
+
+        if (!arg_this_boot)
+                return 0;
+
+        r = sd_id128_get_boot(&boot_id);
+        if (r < 0) {
+                log_error("Failed to get boot id: %s", strerror(-r));
+                return r;
+        }
+
+        sd_id128_to_string(boot_id, match + 9);
+        r = sd_journal_add_match(j, match, strlen(match));
+        if (r < 0) {
+                log_error("Failed to add match: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
-        int r, i;
+        int r;
         sd_journal *j = NULL;
         unsigned line = 0;
         bool need_seek = false;
-        struct stat st;
 
         log_parse_environment();
         log_open();
@@ -233,73 +317,23 @@ int main(int argc, char *argv[]) {
                 log_warning("Showing user generated messages only. Users in the group 'adm' can see all messages. Pass -q to turn this message off.");
 #endif
 
-        r = sd_journal_open(&j, arg_local ? SD_JOURNAL_LOCAL_ONLY : 0);
+        if (arg_directory)
+                r = sd_journal_open_directory(&j, arg_directory, 0);
+        else
+                r = sd_journal_open(&j, arg_local ? SD_JOURNAL_LOCAL_ONLY : 0);
+
         if (r < 0) {
                 log_error("Failed to open journal: %s", strerror(-r));
                 goto finish;
         }
 
-        if (arg_this_boot) {
-                char match[9+32+1] = "_BOOT_ID=";
-                sd_id128_t boot_id;
+        r = add_this_boot(j);
+        if (r < 0)
+                goto finish;
 
-                r = sd_id128_get_boot(&boot_id);
-                if (r < 0) {
-                        log_error("Failed to get boot id: %s", strerror(-r));
-                        goto finish;
-                }
-
-                sd_id128_to_string(boot_id, match + 9);
-
-                r = sd_journal_add_match(j, match, strlen(match));
-                if (r < 0) {
-                        log_error("Failed to add match: %s", strerror(-r));
-                        goto finish;
-                }
-        }
-
-        for (i = optind; i < argc; i++) {
-                if (path_is_absolute(argv[i])) {
-                        char *p = NULL;
-                        const char *path;
-
-                        p = canonicalize_file_name(argv[i]);
-                        path = p ? p : argv[i];
-
-                        if (stat(path, &st) < 0)  {
-                                free(p);
-                                log_error("Couldn't stat file: %m");
-                                r = -errno;
-                                goto finish;
-                        }
-
-                        if (S_ISREG(st.st_mode) && (0111 & st.st_mode)) {
-                                char *t;
-
-                                t = strappend("_EXE=", path);
-                                if (!t) {
-                                        free(p);
-                                        log_error("Out of memory");
-                                        goto finish;
-                                }
-
-                                r = sd_journal_add_match(j, t, strlen(t));
-                                free(t);
-                        } else {
-                                free(p);
-                                log_error("File is not a regular file or is not executable: %s", argv[i]);
-                                goto finish;
-                        }
-
-                        free(p);
-                } else
-                        r = sd_journal_add_match(j, argv[i], strlen(argv[i]));
-
-                if (r < 0) {
-                        log_error("Failed to add match: %s", strerror(-r));
-                        goto finish;
-                }
-        }
+        r = add_matches(j, argv + optind);
+        if (r < 0)
+                goto finish;
 
         if (!arg_quiet) {
                 usec_t start, end;

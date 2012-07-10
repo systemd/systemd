@@ -61,4 +61,5 @@ global:
 LIBSYSTEMD_JOURNAL_187 {
 global:
         sd_journal_wait;
+        sd_journal_open_directory;
 } LIBSYSTEMD_JOURNAL_184;

@@ -72,6 +72,7 @@ enum {
 };
 
 int sd_journal_open(sd_journal **ret, int flags);
+int sd_journal_open_directory(sd_journal **ret, const char *path, int flags);
 void sd_journal_close(sd_journal *j);
 
 int sd_journal_previous(sd_journal *j);
@@ -107,8 +108,7 @@ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, const sd_id128_t boot_id
 enum {
         SD_JOURNAL_NOP,
         SD_JOURNAL_APPEND,
-        SD_JOURNAL_INVALIDATE_ADD,
-        SD_JOURNAL_INVALIDATE_REMOVE
+        SD_JOURNAL_INVALIDATE
 };
 
 int sd_journal_get_fd(sd_journal *j);

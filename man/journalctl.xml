@@ -218,6 +218,18 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--directory=</option></term>
+                                <term><option>-D</option></term>
+
+                                <listitem><para>Takes an absolute
+                                directory path as argument. If
+                                specified will opearte on the
+                                specified journal directory instead of
+                                the default runtime and system journal
+                                paths.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--new-id128</option></term>
 
                                 <listitem><para>Instead of showing

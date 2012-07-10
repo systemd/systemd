@@ -34,6 +34,8 @@ Bugfixes:
 
 Features:
 
+* compile libsystemd-journal statically into journalctl so that we can share util.c and suchlike
+
 * replace BindTo= by BindsTo=, but keep old name for compat
 
 * switch-root: sockets need relabelling
@@ -49,8 +51,6 @@ Features:
 * journalctl should complain if run with uid != 0 and no persistant logs exist
 
 * .device aliases need to be implemented with the "following" logic, probably.
-
-* add sd_journal_wait() to make things easier for sync programs that just want to wait for changes
 
 * refuse taking lower-case variable names in sd_journal_send() and friends.
 
@@ -205,9 +205,6 @@ Features:
 * when a service has the same env var set twice we actually store it twice and return that in systemctl show -p... We should only show the last setting
 
 * support container_ttys=
-
-* journald: make configurable "store-on-var", "store-on-run", "dont-store", "auto"
-  (store-persistent, store-volatile?)
 
 * introduce mix of BindTo and Requisite
 

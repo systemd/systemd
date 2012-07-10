@@ -31,6 +31,14 @@
 #include "list.h"
 
 typedef struct Match Match;
+typedef struct Location Location;
+typedef struct Directory Directory;
+
+typedef enum location_type {
+        LOCATION_HEAD,
+        LOCATION_TAIL,
+        LOCATION_DISCRETE
+} location_type_t;
 
 struct Match {
         char *data;
@@ -40,13 +48,7 @@ struct Match {
         LIST_FIELDS(Match, matches);
 };
 
-typedef enum location_type {
-        LOCATION_HEAD,
-        LOCATION_TAIL,
-        LOCATION_DISCRETE
-} location_type_t;
-
-typedef struct Location {
+struct Location {
         location_type_t type;
 
         uint64_t seqnum;
@@ -62,7 +64,13 @@ typedef struct Location {
 
         uint64_t xor_hash;
         bool xor_hash_set;
-} Location;
+};
+
+struct Directory {
+        char *path;
+        int wd;
+        bool is_root;
+};
 
 struct sd_journal {
         int flags;
@@ -73,12 +81,15 @@ struct sd_journal {
         JournalFile *current_file;
         uint64_t current_field;
 
+        Hashmap *directories_by_path;
+        Hashmap *directories_by_wd;
+
         int inotify_fd;
-        Hashmap *inotify_wd_dirs;
-        Hashmap *inotify_wd_roots;
 
         LIST_HEAD(Match, matches);
         unsigned n_matches;
+
+        unsigned current_invalidate_counter, last_invalidate_counter;
 };
 
 #endif
