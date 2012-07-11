@@ -69,16 +69,10 @@ Features:
 
 * nspawn: bind mount /var/log/journal from the host
 
-* The current Storage=auto logic is borked, since people cannot mount
-  /var/log/journal via NFS since the mount point has to exist and we
-  already take that as signal to store our stuff there.
-
 * Document:
         - PID 1 D-Bus API
         - Journal C API manual pages
         - scheduled shutdown API
-
-* wiki: document logind's PreparingForShutdown, PreparingForSleep
 
 * introduce Type=pid-file
 
