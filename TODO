@@ -86,7 +86,20 @@ Features:
 
 * efi: honour timezone efi variables for default timezone selection
 
-* efi: automatically mount EFI partition to /boot if no such entry exists in /boot
+* efi: automatically mount EFI partition to /boot if no such entry exists in /etc/fstab and /boot is empty
+  gummiboot exports the EFI system partion (ESP) device:
+  /sys/firmware/efi/vars/LoaderDeviceIdentifier-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f/data
+  Acpi(PNP0A03,0)/Pci(1F|2)/?/HD(Part1,Sig1FCBC57F-4BFC-4C2B-91A3-9C84FBCD9AF1)
+  '/' is the separator for the device path list
+  HD(Part1,Sig1FCBC57F-4BFC-4C2B-91A3-9C84FBCD9AF1) contains the GPT UUID of the ESP
+
+* read the bootloader performance data (raw TSC) in systemd-analyze
+  /sys/firmware/efi/vars/LoaderTicksExec-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f/data
+  19066159288
+  /sys/firmware/efi/vars/LoaderTicksInit-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f/data
+  17442940316
+  /sys/firmware/efi/vars/LoaderTicksStartMenu-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f/data
+  (only set if the menu was active)
 
 * new dependency type to "group" services in a target
 
