@@ -1,3 +1,4 @@
+/systemd-journal-flush.service
 /systemd-hibernate.service
 /systemd-suspend.service
 /console-getty.service

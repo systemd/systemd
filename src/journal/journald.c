@@ -69,8 +69,6 @@
 
 #define RECHECK_AVAILABLE_SPACE_USEC (30*USEC_PER_SEC)
 
-#define RECHECK_VAR_AVAILABLE_USEC (30*USEC_PER_SEC)
-
 #define N_IOVEC_META_FIELDS 17
 
 #define ENTRY_SIZE_MAX (1024*1024*32)
@@ -120,8 +118,6 @@ static const char* const storage_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP(storage, Storage);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_storage, storage, Storage, "Failed to parse storage setting");
-
-static int server_flush_to_var(Server *s);
 
 static uint64_t available_space(Server *s) {
         char ids[33], *p;
@@ -629,8 +625,6 @@ static void dispatch_message_real(
         }
 
         assert(n <= m);
-
-        server_flush_to_var(s);
 
 retry:
         f = find_journal(s, realuid == 0 ? 0 : loginuid);
@@ -1963,8 +1957,8 @@ static int system_journal_open(Server *s) {
         sd_id128_to_string(machine, ids);
 
         if (!s->system_journal &&
-            (s->storage == STORAGE_PERSISTENT ||
-             s->storage == STORAGE_AUTO)) {
+            (s->storage == STORAGE_PERSISTENT || s->storage == STORAGE_AUTO) &&
+            access("/run/systemd/journal/flushed", F_OK) >= 0) {
 
                 /* If in auto mode: first try to create the machine
                  * path, but not the prefix.
@@ -1972,7 +1966,7 @@ static int system_journal_open(Server *s) {
                  * If in persistent mode: create /var/log/journal and
                  * the machine path */
 
-                if (s->storage & STORAGE_PERSISTENT)
+                if (s->storage == STORAGE_PERSISTENT)
                         (void) mkdir("/var/log/journal/", 0755);
 
                 fn = strappend("/var/log/journal/", ids);
@@ -1982,7 +1976,6 @@ static int system_journal_open(Server *s) {
                 (void) mkdir(fn, 0755);
                 free(fn);
 
-                /* The create the system journal file */
                 fn = join("/var/log/journal/", ids, "/system.journal", NULL);
                 if (!fn)
                         return -ENOMEM;
@@ -2034,7 +2027,7 @@ static int system_journal_open(Server *s) {
                         /* OK, we really need the runtime journal, so create
                          * it if necessary. */
 
-                        (void) mkdir_parents_label(fn, 0755);
+                        (void) mkdir_parents(fn, 0755);
                         r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, NULL, &s->runtime_journal);
                         free(fn);
 
@@ -2062,7 +2055,6 @@ static int server_flush_to_var(Server *s) {
         int r;
         sd_id128_t machine;
         sd_journal *j;
-        usec_t ts;
 
         assert(s);
 
@@ -2072,12 +2064,6 @@ static int server_flush_to_var(Server *s) {
 
         if (!s->runtime_journal)
                 return 0;
-
-        ts = now(CLOCK_MONOTONIC);
-        if (s->var_available_timestamp + RECHECK_VAR_AVAILABLE_USEC > ts)
-                return 0;
-
-        s->var_available_timestamp = ts;
 
         system_journal_open(s);
 
@@ -2215,6 +2201,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
                 }
 
                 if (sfsi.ssi_signo == SIGUSR1) {
+                        touch("/run/systemd/journal/flushed");
                         server_flush_to_var(s);
                         return 1;
                 }
