@@ -725,8 +725,8 @@ libsystemd_logs_la_CFLAGS = \
 	$(AM_CFLAGS)
 
 libsystemd_logs_la_LIBADD = \
-	libsystemd-journal.la \
-	libsystemd-id128.la
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -925,7 +925,7 @@ systemd_CFLAGS = \
 systemd_LDADD = \
 	libsystemd-core.la \
 	libsystemd-daemon.la \
-	libsystemd-id128.la \
+	libsystemd-id128-internal.la \
 	libsystemd-dbus.la
 
 dist_pkgsysconf_DATA += \
@@ -1167,7 +1167,7 @@ systemd_machine_id_setup_SOURCES = \
 systemd_machine_id_setup_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
-	libsystemd-id128.la
+	libsystemd-id128-internal.la
 
 # ------------------------------------------------------------------------------
 systemd_sysctl_SOURCES = \
@@ -1292,8 +1292,8 @@ systemctl_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-journal.la \
-	libsystemd-id128.la \
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la \
 	libsystemd-dbus.la \
 	libsystemd-logs.la
 
@@ -2114,12 +2114,15 @@ libsystemd_id128_la_LDFLAGS = \
 libsystemd_id128_la_LIBADD = \
 	libsystemd-shared.la
 
+libsystemd_id128_internal_la_SOURCES = \
+	$(libsystemd_id128_la_SOURCES)
+
 test_id128_SOURCES = \
 	src/test/test-id128.c
 
 test_id128_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-id128.la
+	libsystemd-id128-internal.la
 
 noinst_PROGRAMS += \
 	test-id128
@@ -2132,6 +2135,9 @@ pkginclude_HEADERS += \
 
 lib_LTLIBRARIES += \
 	libsystemd-id128.la
+
+noinst_LTLIBRARIES += \
+	libsystemd-id128-internal.la
 
 pkgconfiglib_DATA += \
 	src/libsystemd-id128/libsystemd-id128.pc
@@ -2185,11 +2191,11 @@ systemd_journald_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-audit.la \
 	libsystemd-daemon.la \
-	libsystemd-id128.la
+	libsystemd-id128-internal.la
 
 if ENABLE_LOGIND
 systemd_journald_LDADD += \
-	libsystemd-login.la
+	libsystemd-login-internal.la
 endif
 
 if HAVE_ACL
@@ -2214,15 +2220,15 @@ systemd_cat_SOURCES = \
 
 systemd_cat_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-journal.la
+	libsystemd-journal-internal.la
 
 journalctl_SOURCES = \
 	src/journal/journalctl.c
 
 journalctl_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-journal.la \
-	libsystemd-id128.la \
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la \
 	libsystemd-logs.la
 
 test_journal_SOURCES = \
@@ -2235,7 +2241,7 @@ test_journal_SOURCES = \
 test_journal_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
-	libsystemd-id128.la
+	libsystemd-id128-internal.la
 
 if HAVE_XZ
 test_journal_SOURCES += \
@@ -2254,7 +2260,8 @@ test_journal_send_SOURCES = \
 
 test_journal_send_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-journal.la
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la
 
 libsystemd_journal_la_SOURCES = \
 	src/journal/sd-journal.c \
@@ -2274,7 +2281,10 @@ libsystemd_journal_la_LDFLAGS = \
 
 libsystemd_journal_la_LIBADD = \
 	libsystemd-shared.la \
-	libsystemd-id128.la
+	libsystemd-id128-internal.la
+
+libsystemd_journal_internal_la_SOURCES = \
+	$(libsystemd_journal_la_SOURCES)
 
 if HAVE_XZ
 libsystemd_journal_la_SOURCES += \
@@ -2286,6 +2296,14 @@ libsystemd_journal_la_CFLAGS += \
 
 libsystemd_journal_la_LIBADD += \
 	$(XZ_LIBS)
+
+libsystemd_journal_internal_la_CFLAGS = \
+	$(AM_CFLAGS)
+	$(XZ_CFLAGS)
+
+libsystemd_journal_internal_la_LIBADD = \
+	$(XZ_LIBS)
+
 endif
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
@@ -2317,6 +2335,9 @@ pkginclude_HEADERS += \
 
 lib_LTLIBRARIES += \
 	libsystemd-journal.la
+
+noinst_LTLIBRARIES += \
+	libsystemd-journal-internal.la
 
 rootlibexec_PROGRAMS += \
 	systemd-journald
@@ -2370,13 +2391,13 @@ systemd_coredump_SOURCES = \
 	src/journal/coredump.c
 
 systemd_coredump_LDADD = \
-	libsystemd-journal.la \
+	libsystemd-journal-internal.la \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
 if ENABLE_LOGIND
 systemd_coredump_LDADD += \
-	libsystemd-login.la
+	libsystemd-login-internal.la
 endif
 
 rootlibexec_PROGRAMS += \
@@ -2925,7 +2946,7 @@ test_login_SOURCES = \
 	src/login/test-login.c
 
 test_login_LDADD = \
-	libsystemd-login.la \
+	libsystemd-login-internal.la \
 	libsystemd-shared.la
 
 test_inhibit_SOURCES = \
@@ -2958,6 +2979,9 @@ libsystemd_login_la_LDFLAGS = \
 
 libsystemd_login_la_LIBADD = \
 	libsystemd-shared.la
+
+libsystemd_login_internal_la_SOURCES = \
+	$(libsystemd_login_la_SOURCES)
 
 if HAVE_PAM
 pam_systemd_la_SOURCES = \
@@ -3025,6 +3049,9 @@ pkginclude_HEADERS += \
 
 lib_LTLIBRARIES += \
 	libsystemd-login.la
+
+noinst_LTLIBRARIES += \
+	libsystemd-login-internal.la
 
 pkgconfiglib_DATA += \
 	src/login/libsystemd-login.pc
