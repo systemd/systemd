@@ -53,7 +53,7 @@ extern "C" {
   This should compile on non-Linux systems, too, but all functions
   will become NOPs.
 
-  See sd-readahead(7) for more information.
+  See sd-readahead(3) for more information.
 */
 
 /*

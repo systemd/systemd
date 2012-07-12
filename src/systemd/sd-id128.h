@@ -30,6 +30,8 @@
 extern "C" {
 #endif
 
+/* 128 Bit ID APIs. See sd-id128(3) for more information. */
+
 typedef union sd_id128 sd_id128_t;
 
 union sd_id128 {

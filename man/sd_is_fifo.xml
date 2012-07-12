@@ -196,7 +196,7 @@
                 may copy the implementation into their source
                 tree. For more details about the reference
                 implementation see
-                <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+                <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
                 <para>These functions continue to work as described,
                 even if -DDISABLE_SYSTEMD is set during
@@ -207,7 +207,7 @@
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>

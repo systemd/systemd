@@ -39,7 +39,7 @@
 
         <refmeta>
                 <refentrytitle>sd-daemon</refentrytitle>
-                <manvolnum>7</manvolnum>
+                <manvolnum>3</manvolnum>
         </refmeta>
 
         <refnamediv>
@@ -164,7 +164,7 @@
                         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>fprintf</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>

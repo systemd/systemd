@@ -39,7 +39,7 @@
 
         <refmeta>
                 <refentrytitle>sd-readahead</refentrytitle>
-                <manvolnum>7</manvolnum>
+                <manvolnum>3</manvolnum>
         </refmeta>
 
         <refnamediv>
@@ -110,7 +110,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_readahead</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

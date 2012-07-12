@@ -39,7 +39,7 @@
 
         <refmeta>
                 <refentrytitle>sd-login</refentrytitle>
-                <manvolnum>7</manvolnum>
+                <manvolnum>3</manvolnum>
         </refmeta>
 
         <refnamediv>
@@ -137,8 +137,8 @@
                         <citerefentry><refentrytitle>sd_seat_get_active</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_get_seats</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_login_monitor_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>

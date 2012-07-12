@@ -34,6 +34,8 @@
 extern "C" {
 #endif
 
+/* Journal APIs. See sd-journal(3) for more information. */
+
 /* Write to daemon */
 int sd_journal_print(int priority, const char *format, ...) __attribute__ ((format (printf, 2, 3)));
 int sd_journal_printv(int priority, const char *format, va_list ap);

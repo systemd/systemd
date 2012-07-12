@@ -39,7 +39,7 @@
 
         <refmeta>
                 <refentrytitle>sd-journal</refentrytitle>
-                <manvolnum>7</manvolnum>
+                <manvolnum>3</manvolnum>
         </refmeta>
 
         <refnamediv>
@@ -117,7 +117,7 @@
                         <citerefentry><refentrytitle>sd_journal_get_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_cutoff_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>

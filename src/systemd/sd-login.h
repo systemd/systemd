@@ -44,6 +44,8 @@ extern "C" {
  * These functions access data in /proc, /sys/fs/cgroup and /run. All
  * of these are virtual file systems, hence the accesses are
  * relatively cheap.
+ *
+ * See sd-login(3) for more information.
  */
 
 /* Get session from PID. Note that 'shared' processes of a user are

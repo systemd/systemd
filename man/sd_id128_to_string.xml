@@ -84,7 +84,7 @@
 
                 <para>For more information about the
                 <literal>sd_id128_t</literal> type see
-                <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+                <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
                 <para>When formatting a 128 bit ID into a string it is
                 often easier to use a format string for
@@ -93,7 +93,7 @@
                 <function>SD_ID128_FORMAT_STR</function> and
                 <function>SD_ID128_FORMAT_VAL()</function> macros. For
                 more information see
-                <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+                <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
         </refsect1>
 
         <refsect1>
@@ -123,7 +123,7 @@
 
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
