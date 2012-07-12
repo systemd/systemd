@@ -1275,7 +1275,11 @@ static int generic_array_bisect_plus_one(JournalFile *f,
         r = test_object(f, extra, needle);
         if (r < 0)
                 return r;
-        else if (r == TEST_FOUND) {
+
+        if (r == TEST_FOUND)
+                r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
+
+        if (r == TEST_RIGHT) {
                 Object *o;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, &o);
@@ -1292,8 +1296,7 @@ static int generic_array_bisect_plus_one(JournalFile *f,
                         *idx = 0;
 
                 return 1;
-        } else if (r == TEST_RIGHT)
-                return 0;
+        }
 
         r = generic_array_bisect(f, first, n-1, needle, test_object, direction, ret, offset, idx);
 
