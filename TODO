@@ -34,8 +34,6 @@ Bugfixes:
 
 Features:
 
-* compile libsystemd-journal statically into journalctl so that we can share util.c and suchlike
-
 * replace BindTo= by BindsTo=, but keep old name for compat
 
 * switch-root: sockets need relabelling
@@ -244,8 +242,6 @@ Features:
 * write RPM spec macros for presets
 
 * journal: write man pages for API
-
-* journal: OR matches are borked
 
 * journal: extend hash tables as we go
 
