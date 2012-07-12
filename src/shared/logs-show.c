@@ -28,18 +28,9 @@
 #include "logs-show.h"
 #include "log.h"
 #include "util.h"
+#include "utf8.h"
 
 #define PRINT_THRESHOLD 128
-
-static bool contains_unprintable(const void *p, size_t l) {
-        const char *j;
-
-        for (j = p; j < (const char *) p + l; j++)
-                if (*j < ' ' || *j >= 127)
-                        return true;
-
-        return false;
-}
 
 static int parse_field(const void *data, size_t length, const char *field, char **target, size_t *target_size) {
         size_t fl, nl;
@@ -80,7 +71,7 @@ static bool shall_print(bool show_all, char *p, size_t l) {
         if (l > PRINT_THRESHOLD)
                 return false;
 
-        if (contains_unprintable(p, l))
+        if (!utf8_is_printable_n(p, l))
                 return false;
 
         return true;
@@ -226,7 +217,7 @@ static int output_short(sd_journal *j, unsigned line, unsigned n_columns, bool s
 
         if (show_all)
                 printf(": %.*s\n", (int) message_len, message);
-        else if (contains_unprintable(message, message_len)) {
+        else if (!utf8_is_printable_n(message, message_len)) {
                 char bytes[FORMAT_BYTES_MAX];
                 printf(": [%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
         } else if (message_len + n < n_columns)
@@ -298,7 +289,7 @@ static int output_verbose(sd_journal *j, unsigned line, unsigned n_columns, bool
 
         SD_JOURNAL_FOREACH_DATA(j, data, length) {
                 if (!show_all && (length > PRINT_THRESHOLD ||
-                                  contains_unprintable(data, length))) {
+                                  !utf8_is_printable_n(data, length))) {
                         const char *c;
                         char bytes[FORMAT_BYTES_MAX];
 
@@ -367,7 +358,7 @@ static int output_export(sd_journal *j, unsigned line, unsigned n_columns, bool 
                     memcmp(data, "_BOOT_ID=", 9) == 0)
                         continue;
 
-                if (contains_unprintable(data, length)) {
+                if (!utf8_is_printable_n(data, length)) {
                         const char *c;
                         uint64_t le64;
 
@@ -394,8 +385,7 @@ static int output_export(sd_journal *j, unsigned line, unsigned n_columns, bool 
 }
 
 static void json_escape(const char* p, size_t l) {
-
-        if (contains_unprintable(p, l)) {
+        if (!utf8_is_printable_n(p, l)) {
                 bool not_first = false;
 
                 fputs("[ ", stdout);

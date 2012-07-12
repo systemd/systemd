@@ -726,7 +726,8 @@ libsystemd_logs_la_CFLAGS = \
 
 libsystemd_logs_la_LIBADD = \
 	libsystemd-journal-internal.la \
-	libsystemd-id128-internal.la
+	libsystemd-id128-internal.la \
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \

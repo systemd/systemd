@@ -121,8 +121,6 @@ Features:
 
 * drop accountsservice's StandardOutput=syslog and Type=dbus fields
 
-* make sure show-logs checks for utf8 validity, not ascii validity
-
 * when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
 
 * readahead: when bumping /sys readahead variable save mtime and compare later to detect changes

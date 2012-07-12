@@ -27,6 +27,8 @@
 char *utf8_is_valid(const char *s) _pure_;
 char *ascii_is_valid(const char *s) _pure_;
 
+char *utf8_is_printable_n(const char* str, size_t length) _pure_;
+
 char *utf8_filter(const char *s);
 char *ascii_filter(const char *s);
 
