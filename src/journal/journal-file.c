@@ -1611,8 +1611,10 @@ int journal_file_move_to_entry_by_seqnum_for_data(
         Object *d;
         int r;
 
+        assert(f);
+
         r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-        if (r <= 0)
+        if (r < 0)
                 return r;
 
         return generic_array_bisect_plus_one(f,
@@ -1635,8 +1637,10 @@ int journal_file_move_to_entry_by_realtime_for_data(
         Object *d;
         int r;
 
+        assert(f);
+
         r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-        if (r <= 0)
+        if (r < 0)
                 return r;
 
         return generic_array_bisect_plus_one(f,
