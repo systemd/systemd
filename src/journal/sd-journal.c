@@ -1426,6 +1426,34 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
         return 0;
 }
 
+static bool field_is_valid(const char *field) {
+        const char *p;
+
+        assert(field);
+
+        if (isempty(field))
+                return false;
+
+        if (startswith(field, "__"))
+                return false;
+
+        for (p = field; *p; p++) {
+
+                if (*p == '_')
+                        continue;
+
+                if (*p >= 'A' && *p <= 'Z')
+                        continue;
+
+                if (*p >= '0' && *p <= '9')
+                        continue;
+
+                return false;
+        }
+
+        return true;
+}
+
 _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **data, size_t *size) {
         JournalFile *f;
         uint64_t i, n;
@@ -1442,7 +1470,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         if (!size)
                 return -EINVAL;
 
-        if (isempty(field) || strchr(field, '='))
+        if (!field_is_valid(field))
                 return -EINVAL;
 
         f = j->current_file;
