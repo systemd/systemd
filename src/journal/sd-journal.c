@@ -87,102 +87,272 @@ static void set_location(sd_journal *j, JournalFile *f, Object *o, uint64_t offs
         f->current_offset = offset;
 }
 
-static int same_field(const void *_a, size_t s, const void *_b, size_t t) {
+static int match_is_valid(const void *data, size_t size) {
+        const char *b, *p;
+
+        assert(data);
+
+        if (size < 2)
+                return false;
+
+        if (startswith(data, "__"))
+                return false;
+
+        b = data;
+        for (p = b; p < b + size; p++) {
+
+                if (*p == '=')
+                        return p > b;
+
+                if (*p == '_')
+                        continue;
+
+                if (*p >= 'A' && *p <= 'Z')
+                        continue;
+
+                if (*p >= '0' && *p <= '9')
+                        continue;
+
+                return false;
+        }
+
+        return false;
+}
+
+static bool same_field(const void *_a, size_t s, const void *_b, size_t t) {
         const uint8_t *a = _a, *b = _b;
         size_t j;
-        bool a_good = false, b_good = false, different = false;
 
         for (j = 0; j < s && j < t; j++) {
 
-                if (a[j] == '=')
-                        a_good = true;
-                if (b[j] == '=')
-                        b_good = true;
                 if (a[j] != b[j])
-                        different = true;
+                        return false;
 
-                if (a_good && b_good)
-                        return different ? 0 : 1;
+                if (a[j] == '=')
+                        return true;
         }
 
-        return -EINVAL;
+        return true;
+}
+
+static Match *match_new(Match *p, MatchType t) {
+        Match *m;
+
+        m = new0(Match, 1);
+        if (!m)
+                return NULL;
+
+        m->type = t;
+
+        if (p) {
+                m->parent = p;
+                LIST_PREPEND(Match, matches, p->matches, m);
+        }
+
+        return m;
+}
+
+static void match_free(Match *m) {
+        assert(m);
+
+        while (m->matches)
+                match_free(m->matches);
+
+        if (m->parent)
+                LIST_REMOVE(Match, matches, m->parent->matches, m);
+
+        free(m->data);
+        free(m);
+}
+
+static void match_free_if_empty(Match *m) {
+        assert(m);
+
+        if (m->matches)
+                return;
+
+        match_free(m);
 }
 
 _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) {
-        Match *m, *after = NULL;
+        Match *l2, *l3, *add_here = NULL, *m;
         le64_t le_hash;
 
         if (!j)
                 return -EINVAL;
+
         if (!data)
                 return -EINVAL;
-        if (size <= 1)
-                return -EINVAL;
-        if (!memchr(data, '=', size))
-                return -EINVAL;
-        if (*(char*) data == '=')
+
+        if (size == 0)
+                size = strlen(data);
+
+        if (!match_is_valid(data, size))
                 return -EINVAL;
 
-        /* FIXME: iterating with multiple matches is currently
-         * broken */
-        if (j->matches)
-                return -ENOTSUP;
+        /* level 0: OR term
+         * level 1: AND terms
+         * level 2: OR terms
+         * level 3: concrete matches */
+
+        if (!j->level0) {
+                j->level0 = match_new(NULL, MATCH_OR_TERM);
+                if (!j->level0)
+                        return -ENOMEM;
+        }
+
+        if (!j->level1) {
+                j->level1 = match_new(j->level0, MATCH_AND_TERM);
+                if (!j->level1)
+                        return -ENOMEM;
+        }
+
+        assert(j->level0->type == MATCH_OR_TERM);
+        assert(j->level1->type == MATCH_AND_TERM);
 
         le_hash = htole64(hash64(data, size));
 
-        LIST_FOREACH(matches, m, j->matches) {
-                int r;
+        LIST_FOREACH(matches, l2, j->level1->matches) {
+                assert(l2->type == MATCH_OR_TERM);
 
-                if (m->le_hash == le_hash &&
-                    m->size == size &&
-                    memcmp(m->data, data, size) == 0)
-                        return 0;
+                LIST_FOREACH(matches, l3, l2->matches) {
+                        assert(l3->type == MATCH_DISCRETE);
 
-                r = same_field(data, size, m->data, m->size);
-                if (r < 0)
-                        return r;
-                else if (r > 0)
-                        after = m;
+                        /* Exactly the same match already? Then ignore
+                         * this addition */
+                        if (l3->le_hash == le_hash &&
+                            l3->size == size &&
+                            memcmp(l3->data, data, size) == 0)
+                                return 0;
+
+                        /* Same field? Then let's add this to this OR term */
+                        if (same_field(data, size, l3->data, l3->size)) {
+                                add_here = l2;
+                                break;
+                        }
+                }
+
+                if (add_here)
+                        break;
         }
 
-        m = new0(Match, 1);
+        if (!add_here) {
+                add_here = match_new(j->level1, MATCH_OR_TERM);
+                if (!add_here)
+                        goto fail;
+        }
+
+        m = match_new(add_here, MATCH_DISCRETE);
         if (!m)
-                return -ENOMEM;
+                goto fail;
 
-        m->size = size;
-
-        m->data = malloc(m->size);
-        if (!m->data) {
-                free(m);
-                return -ENOMEM;
-        }
-
-        memcpy(m->data, data, size);
         m->le_hash = le_hash;
-
-        /* Matches for the same fields we order adjacent to each
-         * other */
-        LIST_INSERT_AFTER(Match, matches, j->matches, after, m);
-        j->n_matches ++;
+        m->size = size;
+        m->data = memdup(data, size);
+        if (!m->data)
+                goto fail;
 
         detach_location(j);
 
         return 0;
+
+fail:
+        if (add_here)
+                match_free_if_empty(add_here);
+
+        if (j->level1)
+                match_free_if_empty(j->level1);
+
+        if (j->level0)
+                match_free_if_empty(j->level0);
+
+        return -ENOMEM;
+}
+
+_public_ int sd_journal_add_disjunction(sd_journal *j) {
+        Match *m;
+
+        assert(j);
+
+        if (!j->level0)
+                return 0;
+
+        if (!j->level1)
+                return 0;
+
+        if (!j->level1->matches)
+                return 0;
+
+        m = match_new(j->level0, MATCH_AND_TERM);
+        if (!m)
+                return -ENOMEM;
+
+        j->level1 = m;
+        return 0;
+}
+
+static char *match_make_string(Match *m) {
+        char *p, *r;
+        Match *i;
+        bool enclose = false;
+
+        if (!m)
+                return strdup("");
+
+        if (m->type == MATCH_DISCRETE)
+                return strndup(m->data, m->size);
+
+        p = NULL;
+        LIST_FOREACH(matches, i, m->matches) {
+                char *t, *k;
+
+                t = match_make_string(i);
+                if (!t) {
+                        free(p);
+                        return NULL;
+                }
+
+                if (p) {
+                        k = join(p, m->type == MATCH_OR_TERM ? " OR " : " AND ", t, NULL);
+                        free(p);
+                        free(t);
+
+                        if (!k)
+                                return NULL;
+
+                        p = k;
+
+                        enclose = true;
+                } else {
+                        free(p);
+                        p = t;
+                }
+        }
+
+        if (enclose) {
+                r = join("(", p, ")", NULL);
+                free(p);
+                return r;
+        }
+
+        return p;
+}
+
+char *journal_make_match_string(sd_journal *j) {
+        assert(j);
+
+        return match_make_string(j->level0);
 }
 
 _public_ void sd_journal_flush_matches(sd_journal *j) {
+
         if (!j)
                 return;
 
-        while (j->matches) {
-                Match *m = j->matches;
+        if (j->level0)
+                match_free(j->level0);
 
-                LIST_REMOVE(Match, matches, j->matches, m);
-                free(m->data);
-                free(m);
-        }
-
-        j->n_matches = 0;
+        j->level0 = j->level1 = NULL;
 
         detach_location(j);
 }
@@ -319,158 +489,247 @@ static int compare_with_location(JournalFile *af, Object *ao, Location *l) {
         return 0;
 }
 
-static int find_location(sd_journal *j, JournalFile *f, direction_t direction, Object **ret, uint64_t *offset) {
-        Object *o = NULL;
-        uint64_t p = 0;
+static int next_for_match(
+                sd_journal *j,
+                Match *m,
+                JournalFile *f,
+                uint64_t after_offset,
+                direction_t direction,
+                Object **ret,
+                uint64_t *offset) {
+
         int r;
+        uint64_t np = 0;
+        Object *n;
 
         assert(j);
+        assert(m);
+        assert(f);
 
-        if (!j->matches) {
-                /* No matches is simple */
+        if (m->type == MATCH_DISCRETE) {
+                uint64_t dp;
 
-                if (j->current_location.type == LOCATION_HEAD)
-                        r = journal_file_next_entry(f, NULL, 0, DIRECTION_DOWN, &o, &p);
-                else if (j->current_location.type == LOCATION_TAIL)
-                        r = journal_file_next_entry(f, NULL, 0, DIRECTION_UP, &o, &p);
-                else if (j->current_location.seqnum_set &&
-                         sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
-                        r = journal_file_move_to_entry_by_seqnum(f, j->current_location.seqnum, direction, &o, &p);
-                else if (j->current_location.monotonic_set) {
-                        r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id, j->current_location.monotonic, direction, &o, &p);
-
-                        if (r == -ENOENT) {
-                                /* boot id unknown in this file */
-                                if (j->current_location.realtime_set)
-                                        r = journal_file_move_to_entry_by_realtime(f, j->current_location.realtime, direction, &o, &p);
-                                else
-                                        r = journal_file_next_entry(f, NULL, 0, direction, &o, &p);
-                        }
-                } else if (j->current_location.realtime_set)
-                        r = journal_file_move_to_entry_by_realtime(f, j->current_location.realtime, direction, &o, &p);
-                else
-                        r = journal_file_next_entry(f, NULL, 0, direction, &o, &p);
-
+                r = journal_file_find_data_object_with_hash(f, m->data, m->size, le64toh(m->le_hash), NULL, &dp);
                 if (r <= 0)
                         return r;
 
-        } else  {
-                Match *m, *term_match = NULL;
-                Object *to = NULL;
-                uint64_t tp = 0;
+                return journal_file_move_to_entry_by_offset_for_data(f, dp, after_offset, direction, ret, offset);
 
-                /* We have matches, first, let's jump to the monotonic
-                 * position if we have any, since it implies a
-                 * match. */
+        } else if (m->type == MATCH_OR_TERM) {
+                Match *i;
 
-                if (j->current_location.type == LOCATION_DISCRETE &&
-                    j->current_location.monotonic_set) {
+                /* Find the earliest match beyond after_offset */
 
-                        r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id, j->current_location.monotonic, direction, &o, &p);
-                        if (r <= 0)
-                                return r == -ENOENT ? 0 : r;
-                }
+                LIST_FOREACH(matches, i, m->matches) {
+                        uint64_t cp;
 
-                LIST_FOREACH(matches, m, j->matches) {
-                        Object *c, *d;
-                        uint64_t cp, dp;
-
-                        r = journal_file_find_data_object_with_hash(f, m->data, m->size, le64toh(m->le_hash), &d, &dp);
-                        if (r <= 0)
-                                return r;
-
-                        if (j->current_location.type == LOCATION_HEAD)
-                                r = journal_file_next_entry_for_data(f, NULL, 0, dp, DIRECTION_DOWN, &c, &cp);
-                        else if (j->current_location.type == LOCATION_TAIL)
-                                r = journal_file_next_entry_for_data(f, NULL, 0, dp, DIRECTION_UP, &c, &cp);
-                        else if (j->current_location.seqnum_set &&
-                                 sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
-                                r = journal_file_move_to_entry_by_seqnum_for_data(f, dp, j->current_location.seqnum, direction, &c, &cp);
-                        else if (j->current_location.realtime_set)
-                                r = journal_file_move_to_entry_by_realtime_for_data(f, dp, j->current_location.realtime, direction, &c, &cp);
-                        else
-                                r = journal_file_next_entry_for_data(f, NULL, 0, dp, direction, &c, &cp);
-
+                        r = next_for_match(j, i, f, after_offset, direction, NULL, &cp);
                         if (r < 0)
                                 return r;
-
-                        if (!term_match) {
-                                term_match = m;
-
-                                if (r > 0) {
-                                        to = c;
-                                        tp = cp;
-                                }
-                        } else if (same_field(term_match->data, term_match->size, m->data, m->size)) {
-
-                                /* Same field as previous match... */
-                                if (r > 0) {
-
-                                        /* Find the earliest of the OR matches */
-
-                                        if (!to ||
-                                            (direction == DIRECTION_DOWN && cp < tp) ||
-                                            (direction == DIRECTION_UP && cp > tp)) {
-                                                to = c;
-                                                tp = cp;
-                                        }
-
-                                }
-
-                        } else {
-
-                                /* Previous term is finished, did anything match? */
-                                if (!to)
-                                        return 0;
-
-                                /* Find the last of the AND matches */
-                                if (!o ||
-                                    (direction == DIRECTION_DOWN && tp > p) ||
-                                    (direction == DIRECTION_UP && tp < p)) {
-                                        o = to;
-                                        p = tp;
-                                }
-
-                                term_match = m;
-
-                                if (r > 0) {
-                                        to = c;
-                                        tp = cp;
-                                } else {
-                                        to = NULL;
-                                        tp = 0;
-                                }
+                        else if (r > 0) {
+                                if (np == 0 || (direction == DIRECTION_DOWN ? np > cp : np < cp))
+                                        np = cp;
                         }
                 }
 
-                /* Last term is finished, did anything match? */
-                if (!to)
+        } else if (m->type == MATCH_AND_TERM) {
+                Match *i;
+                bool continue_looking;
+
+                /* Always jump to the next matching entry and repeat
+                 * this until we fine and offset that matches for all
+                 * matches. */
+
+                if (!m->matches)
                         return 0;
 
-                if (!o ||
-                    (direction == DIRECTION_DOWN && tp > p) ||
-                    (direction == DIRECTION_UP && tp < p)) {
-                        o = to;
-                        p = tp;
-                }
+                np = 0;
+                do {
+                        continue_looking = false;
 
-                if (!o)
-                        return 0;
+                        LIST_FOREACH(matches, i, m->matches) {
+                                uint64_t cp, limit;
+
+                                if (np == 0)
+                                        limit = after_offset;
+                                else if (direction == DIRECTION_DOWN)
+                                        limit = MAX(np, after_offset);
+                                else
+                                        limit = MIN(np, after_offset);
+
+                                r = next_for_match(j, i, f, limit, direction, NULL, &cp);
+                                if (r <= 0)
+                                        return r;
+
+                                if ((direction == DIRECTION_DOWN ? cp >= after_offset : cp <= after_offset) &&
+                                    (np == 0 || (direction == DIRECTION_DOWN ? cp > np : np < cp))) {
+                                        np = cp;
+                                        continue_looking = true;
+                                }
+                        }
+
+                } while (continue_looking);
         }
 
-        if (ret)
-                *ret = o;
+        if (np == 0)
+                return 0;
 
+        r = journal_file_move_to_object(f, OBJECT_ENTRY, np, &n);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = n;
         if (offset)
-                *offset = p;
+                *offset = np;
 
         return 1;
 }
 
-static int next_with_matches(sd_journal *j, JournalFile *f, direction_t direction, Object **ret, uint64_t *offset) {
+static int find_location_for_match(
+                sd_journal *j,
+                Match *m,
+                JournalFile *f,
+                direction_t direction,
+                Object **ret,
+                uint64_t *offset) {
+
         int r;
-        uint64_t cp;
+
+        assert(j);
+        assert(m);
+        assert(f);
+
+        if (m->type == MATCH_DISCRETE) {
+                uint64_t dp;
+
+                r = journal_file_find_data_object_with_hash(f, m->data, m->size, le64toh(m->le_hash), NULL, &dp);
+                if (r <= 0)
+                        return r;
+
+                /* FIXME: missing: find by monotonic */
+
+                if (j->current_location.type == LOCATION_HEAD)
+                        return journal_file_next_entry_for_data(f, NULL, 0, dp, DIRECTION_DOWN, ret, offset);
+                if (j->current_location.type == LOCATION_TAIL)
+                        return journal_file_next_entry_for_data(f, NULL, 0, dp, DIRECTION_UP, ret, offset);
+                if (j->current_location.seqnum_set && sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
+                        return journal_file_move_to_entry_by_seqnum_for_data(f, dp, j->current_location.seqnum, direction, ret, offset);
+                if (j->current_location.monotonic_set) {
+                        r = journal_file_move_to_entry_by_monotonic_for_data(f, dp, j->current_location.boot_id, j->current_location.monotonic, direction, ret, offset);
+                        if (r != -ENOENT)
+                                return r;
+                }
+                if (j->current_location.realtime_set)
+                        return journal_file_move_to_entry_by_realtime_for_data(f, dp, j->current_location.realtime, direction, ret, offset);
+
+                return journal_file_next_entry_for_data(f, NULL, 0, dp, direction, ret, offset);
+
+        } else if (m->type == MATCH_OR_TERM) {
+                uint64_t np = 0;
+                Object *n;
+                Match *i;
+
+                /* Find the earliest match */
+
+                LIST_FOREACH(matches, i, m->matches) {
+                        uint64_t cp;
+
+                        r = find_location_for_match(j, i, f, direction, NULL, &cp);
+                        if (r < 0)
+                                return r;
+                        else if (r > 0) {
+                                if (np == 0 || (direction == DIRECTION_DOWN ? np > cp : np < cp))
+                                        np = cp;
+                        }
+                }
+
+                if (np == 0)
+                        return 0;
+
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, np, &n);
+                if (r < 0)
+                        return r;
+
+                if (ret)
+                        *ret = n;
+                if (offset)
+                        *offset = np;
+
+                return 1;
+
+        } else {
+                Match *i;
+                uint64_t np = 0;
+
+                assert(m->type == MATCH_AND_TERM);
+
+                /* First jump to the last match, and then find the
+                 * next one where all matches match */
+
+                if (!m->matches)
+                        return 0;
+
+                LIST_FOREACH(matches, i, m->matches) {
+                        uint64_t cp;
+
+                        r = find_location_for_match(j, i, f, direction, NULL, &cp);
+                        if (r <= 0)
+                                return r;
+
+                        if (np == 0 || (direction == DIRECTION_DOWN ? np < cp : np > cp))
+                                np = cp;
+                }
+
+                return next_for_match(j, m, f, np, direction, ret, offset);
+        }
+}
+
+static int find_location_with_matches(
+                sd_journal *j,
+                JournalFile *f,
+                direction_t direction,
+                Object **ret,
+                uint64_t *offset) {
+
+        int r;
+
+        assert(j);
+        assert(f);
+        assert(ret);
+        assert(offset);
+
+        if (!j->level0) {
+                /* No matches is simple */
+
+                if (j->current_location.type == LOCATION_HEAD)
+                        return journal_file_next_entry(f, NULL, 0, DIRECTION_DOWN, ret, offset);
+                if (j->current_location.type == LOCATION_TAIL)
+                        return journal_file_next_entry(f, NULL, 0, DIRECTION_UP, ret, offset);
+                if (j->current_location.seqnum_set && sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
+                        return journal_file_move_to_entry_by_seqnum(f, j->current_location.seqnum, direction, ret, offset);
+                if (j->current_location.monotonic_set) {
+                        r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id, j->current_location.monotonic, direction, ret, offset);
+                        if (r != -ENOENT)
+                                return r;
+                }
+                if (j->current_location.realtime_set)
+                        return journal_file_move_to_entry_by_realtime(f, j->current_location.realtime, direction, ret, offset);
+
+                return journal_file_next_entry(f, NULL, 0, direction, ret, offset);
+        } else
+                return find_location_for_match(j, j->level0, f, direction, ret, offset);
+}
+
+static int next_with_matches(
+                sd_journal *j,
+                JournalFile *f,
+                direction_t direction,
+                Object **ret,
+                uint64_t *offset) {
+
         Object *c;
+        uint64_t cp;
 
         assert(j);
         assert(f);
@@ -480,129 +739,20 @@ static int next_with_matches(sd_journal *j, JournalFile *f, direction_t directio
         c = *ret;
         cp = *offset;
 
-        if (!j->matches) {
-                /* No matches is easy */
+        /* No matches is easy. We simple advance the file
+         * pointer by one. */
+        if (!j->level0)
+                return journal_file_next_entry(f, c, cp, direction, ret, offset);
 
-                r = journal_file_next_entry(f, c, cp, direction, &c, &cp);
-                if (r <= 0)
-                        return r;
-
-                if (ret)
-                        *ret = c;
-                if (offset)
-                        *offset = cp;
-                return 1;
-        }
-
-        /* So there are matches we have to adhere to, let's find the
-         * first entry that matches all of them */
-
-        for (;;) {
-                uint64_t np, n;
-                bool found, term_result = false;
-                Match *m, *term_match = NULL;
-                Object *npo = NULL;
-
-                n = journal_file_entry_n_items(c);
-
-                /* Make sure we don't match the entry we are starting
-                 * from. */
-                found = cp != *offset;
-
-                np = 0;
-                LIST_FOREACH(matches, m, j->matches) {
-                        uint64_t q, k;
-                        Object *qo = NULL;
-
-                        /* Let's check if this is the beginning of a
-                         * new term, i.e. has a different field prefix
-                         * as the preceeding match. */
-                        if (!term_match) {
-                                term_match = m;
-                                term_result = false;
-                        } else if (!same_field(term_match->data, term_match->size, m->data, m->size)) {
-                                if (!term_result)
-                                        found = false;
-
-                                term_match = m;
-                                term_result = false;
-                        }
-
-                        for (k = 0; k < n; k++)
-                                if (c->entry.items[k].hash == m->le_hash)
-                                        break;
-
-                        if (k >= n) {
-                                /* Hmm, didn't find any field that
-                                 * matched this rule, so ignore this
-                                 * match. Go on with next match */
-                                continue;
-                        }
-
-                        term_result = true;
-
-                        /* Hmm, so, this field matched, let's remember
-                         * where we'd have to try next, in case the other
-                         * matches are not OK */
-
-                        r = journal_file_next_entry_for_data(f, c, cp, le64toh(c->entry.items[k].object_offset), direction, &qo, &q);
-                        /* This pointer is invalidated if the window was
-                         * remapped. May need to re-fetch it later */
-                        c = NULL;
-                        if (r < 0)
-                                return r;
-
-                        if (r > 0) {
-
-                                if (direction == DIRECTION_DOWN) {
-                                        if (q > np) {
-                                                np = q;
-                                                npo = qo;
-                                        }
-                                } else {
-                                        if (np == 0 || q < np) {
-                                                np = q;
-                                                npo = qo;
-                                        }
-                                }
-                        }
-                }
-
-                /* Check the last term */
-                if (term_match && !term_result)
-                        found = false;
-
-                /* Did this entry match against all matches? */
-                if (found) {
-                        if (ret) {
-                                if (c == NULL) {
-                                        /* Re-fetch the entry */
-                                        r = journal_file_move_to_object(f, OBJECT_ENTRY, cp, &c);
-                                        if (r < 0)
-                                                return r;
-                                }
-                                *ret = c;
-                        }
-                        if (offset)
-                                *offset = cp;
-                        return 1;
-                }
-
-                /* Did we find a subsequent entry? */
-                if (np == 0)
-                        return 0;
-
-                /* Hmm, ok, this entry only matched partially, so
-                 * let's try another one */
-                cp = np;
-                c = npo;
-        }
+        /* If we have a match then we look for the next matching entry
+         * wiht an offset at least one step larger */
+        return next_for_match(j, j->level0, f, direction == DIRECTION_DOWN ? cp+1 : cp-1, direction, ret, offset);
 }
 
 static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direction, Object **ret, uint64_t *offset) {
         Object *c;
         uint64_t cp;
-        int compare_value, r;
+        int r;
 
         assert(j);
         assert(f);
@@ -617,15 +767,17 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                 r = next_with_matches(j, f, direction, &c, &cp);
                 if (r <= 0)
                         return r;
-
-                compare_value = 1;
         } else {
-                r = find_location(j, f, direction, &c, &cp);
+                r = find_location_with_matches(j, f, direction, &c, &cp);
                 if (r <= 0)
                         return r;
-
-                compare_value = 0;
         }
+
+        /* OK, we found the spot, now let's advance until to an entry
+         * that is actually different from what we were previously
+         * looking at. This is necessary to handle entries which exist
+         * in two (or more) journal files, and which shall all be
+         * suppressed but one. */
 
         for (;;) {
                 bool found;
@@ -635,9 +787,9 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
 
                         k = compare_with_location(f, c, &j->current_location);
                         if (direction == DIRECTION_DOWN)
-                                found = k >= compare_value;
+                                found = k > 0;
                         else
-                                found = k <= -compare_value;
+                                found = k < 0;
                 } else
                         found = true;
 

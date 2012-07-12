@@ -49,7 +49,7 @@
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>journalctl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt">MATCH</arg></command>
+                        <command>journalctl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">MATCHES</arg></command>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -66,12 +66,25 @@
                 contents of the journal, starting with the oldest
                 entry collected.</para>
 
-                <para>If a match argument is passed the output is
-                filtered accordingly. A match is in the format
-                <literal>FIELD=VALUE</literal>,
-                e.g. <literal>_SYSTEMD_UNIT=httpd.service</literal>. See
+                <para>If one or more match arguments are passed the
+                output is filtered accordingly. A match is in the
+                format <literal>FIELD=VALUE</literal>,
+                e.g. <literal>_SYSTEMD_UNIT=httpd.service</literal>,
+                referring to the components of a structured journal
+                entry. See
                 <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                for a list of well-known fields.</para>
+                for a list of well-known fields. If multiple matches
+                are specified matching different fields the log
+                entries are filtered by both, i.e. the resulting output
+                will show only entries matching all the specified
+                matches of this kind. If two matches apply to the same
+                field, then they are automatically matched as
+                alternatives, i.e. the resulting output will show
+                entries matching any of the specified matches for the
+                same field. Finally, if the character
+                "<literal>+</literal>" appears as separate word on the
+                command line all matches before and after are combined
+                in a disjunction (i.e. logical OR).</para>
 
                 <para>Output is interleaved from all accessible
                 journal files, whether they are rotated or currently
@@ -269,6 +282,37 @@
                                 <option>--no-pager</option>.</para></listitem>
                         </varlistentry>
                 </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Examples</title>
+
+                <para>Without arguments all collected logs are shown
+                unfiltered:</para>
+
+                <programlisting>journalctl</programlisting>
+
+                <para>With one match specified all entries with a field matching the expression are shown:</para>
+
+                <programlisting>journalctl _SYSTEMD_UNIT=avahi-daemon.service</programlisting>
+
+                <para>If two different fields are matched only entries matching both expressions at the same time are shown:</para>
+
+                <programlisting>journalctl _SYSTEMD_UNIT=avahi-daemon.service _PID=28097</programlisting>
+
+                <para>If two matches refer to the same field all entries matching either expression are shown:</para>
+
+                <programlisting>journalctl _SYSTEMD_UNIT=avahi-daemon.service _SYSTEMD_UNIT=dbus.service</programlisting>
+
+                <para>If the separator "<literal>+</literal>" is used
+                two expression may be combined in a logical OR. The
+                following will show all messages from the Avahi
+                service process with the PID 28097 plus all messages
+                from the D-Bus service (from any of its
+                processes):</para>
+
+                <programlisting>journalctl _SYSTEMD_UNIT=avahi-daemon.service _PID=28097 + _SYSTEMD_UNIT=dbus.service</programlisting>
+
         </refsect1>
 
         <refsect1>

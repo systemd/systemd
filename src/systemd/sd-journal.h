@@ -88,6 +88,7 @@ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *l);
 void sd_journal_restart_data(sd_journal *j);
 
 int sd_journal_add_match(sd_journal *j, const void *data, size_t size);
+int sd_journal_add_disjunction(sd_journal *j);
 void sd_journal_flush_matches(sd_journal *j);
 
 int sd_journal_seek_head(sd_journal *j);

@@ -1212,8 +1212,15 @@ static int generic_array_bisect(JournalFile *f,
                         }
                 }
 
-                if (k > n)
+                if (k > n) {
+                        if (direction == DIRECTION_UP) {
+                                i = n;
+                                subtract_one = true;
+                                goto found;
+                        }
+
                         return 0;
+                }
 
                 last_p = lp;
 
@@ -1246,7 +1253,7 @@ found:
                 *offset = p;
 
         if (idx)
-                *idx = t + i - (subtract_one ? 1 : 0);
+                *idx = t + i + (subtract_one ? -1 : 0);
 
         return 1;
 }
@@ -1263,6 +1270,8 @@ static int generic_array_bisect_plus_one(JournalFile *f,
                                          uint64_t *idx) {
 
         int r;
+        bool step_back = false;
+        Object *o;
 
         assert(f);
         assert(test_object);
@@ -1279,32 +1288,76 @@ static int generic_array_bisect_plus_one(JournalFile *f,
         if (r == TEST_FOUND)
                 r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
 
+        /* if we are looking with DIRECTION_UP then we need to first
+           see if in the actual array there is a matching entry, and
+           return the last one of that. But if there isn't any we need
+           to return this one. Hence remember this, and return it
+           below. */
+        if (r == TEST_LEFT)
+                step_back = direction == DIRECTION_UP;
+
         if (r == TEST_RIGHT) {
-                Object *o;
-
-                r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, &o);
-                if (r < 0)
-                        return r;
-
-                if (ret)
-                        *ret = o;
-
-                if (offset)
-                        *offset = extra;
-
-                if (idx)
-                        *idx = 0;
-
-                return 1;
+                if (direction == DIRECTION_DOWN)
+                        goto found;
+                else
+                        return 0;
         }
 
         r = generic_array_bisect(f, first, n-1, needle, test_object, direction, ret, offset, idx);
+
+        if (r == 0 && step_back)
+                goto found;
 
         if (r > 0 && idx)
                 (*idx) ++;
 
         return r;
+
+found:
+        r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, &o);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = o;
+
+        if (offset)
+                *offset = extra;
+
+        if (idx)
+                *idx = 0;
+
+        return 1;
 }
+
+static int test_object_offset(JournalFile *f, uint64_t p, uint64_t needle) {
+        assert(f);
+        assert(p > 0);
+
+        if (p == needle)
+                return TEST_FOUND;
+        else if (p < needle)
+                return TEST_LEFT;
+        else
+                return TEST_RIGHT;
+}
+
+int journal_file_move_to_entry_by_offset(
+                JournalFile *f,
+                uint64_t p,
+                direction_t direction,
+                Object **ret,
+                uint64_t *offset) {
+
+        return generic_array_bisect(f,
+                                    le64toh(f->header->entry_array_offset),
+                                    le64toh(f->header->n_entries),
+                                    p,
+                                    test_object_offset,
+                                    direction,
+                                    ret, offset, NULL);
+}
+
 
 static int test_object_seqnum(JournalFile *f, uint64_t p, uint64_t needle) {
         Object *o;
@@ -1407,12 +1460,13 @@ int journal_file_move_to_entry_by_monotonic(
         Object *o;
         int r;
 
-        sd_id128_to_string(boot_id, t + 9);
+        assert(f);
 
+        sd_id128_to_string(boot_id, t + 9);
         r = journal_file_find_data_object(f, t, strlen(t), &o, NULL);
         if (r < 0)
                 return r;
-        else if (r == 0)
+        if (r == 0)
                 return -ENOENT;
 
         return generic_array_bisect_plus_one(f,
@@ -1423,18 +1477,6 @@ int journal_file_move_to_entry_by_monotonic(
                                              test_object_monotonic,
                                              direction,
                                              ret, offset, NULL);
-}
-
-static int test_object_offset(JournalFile *f, uint64_t p, uint64_t needle) {
-        assert(f);
-        assert(p > 0);
-
-        if (p == needle)
-                return TEST_FOUND;
-        else if (p < needle)
-                return TEST_LEFT;
-        else
-                return TEST_RIGHT;
 }
 
 int journal_file_next_entry(
@@ -1599,6 +1641,119 @@ int journal_file_next_entry_for_data(
                                           le64toh(d->data.entry_array_offset),
                                           i,
                                           ret, offset);
+}
+
+int journal_file_move_to_entry_by_offset_for_data(
+                JournalFile *f,
+                uint64_t data_offset,
+                uint64_t p,
+                direction_t direction,
+                Object **ret, uint64_t *offset) {
+
+        int r;
+        Object *d;
+
+        assert(f);
+
+        r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
+        if (r < 0)
+                return r;
+
+        return generic_array_bisect_plus_one(f,
+                                             le64toh(d->data.entry_offset),
+                                             le64toh(d->data.entry_array_offset),
+                                             le64toh(d->data.n_entries),
+                                             p,
+                                             test_object_offset,
+                                             direction,
+                                             ret, offset, NULL);
+}
+
+int journal_file_move_to_entry_by_monotonic_for_data(
+                JournalFile *f,
+                uint64_t data_offset,
+                sd_id128_t boot_id,
+                uint64_t monotonic,
+                direction_t direction,
+                Object **ret, uint64_t *offset) {
+
+        char t[9+32+1] = "_BOOT_ID=";
+        Object *o, *d;
+        int r;
+        uint64_t b, z;
+
+        assert(f);
+
+        /* First, seek by time */
+        sd_id128_to_string(boot_id, t + 9);
+        r = journal_file_find_data_object(f, t, strlen(t), &o, &b);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOENT;
+
+        r = generic_array_bisect_plus_one(f,
+                                          le64toh(o->data.entry_offset),
+                                          le64toh(o->data.entry_array_offset),
+                                          le64toh(o->data.n_entries),
+                                          monotonic,
+                                          test_object_monotonic,
+                                          direction,
+                                          NULL, &z, NULL);
+        if (r <= 0)
+                return r;
+
+        /* And now, continue seeking until we find an entry that
+         * exists in both bisection arrays */
+
+        for (;;) {
+                Object *qo;
+                uint64_t p, q;
+
+                r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
+                if (r < 0)
+                        return r;
+
+                r = generic_array_bisect_plus_one(f,
+                                                  le64toh(d->data.entry_offset),
+                                                  le64toh(d->data.entry_array_offset),
+                                                  le64toh(d->data.n_entries),
+                                                  z,
+                                                  test_object_offset,
+                                                  direction,
+                                                  NULL, &p, NULL);
+                if (r <= 0)
+                        return r;
+
+                r = journal_file_move_to_object(f, OBJECT_DATA, b, &o);
+                if (r < 0)
+                        return r;
+
+                r = generic_array_bisect_plus_one(f,
+                                                  le64toh(o->data.entry_offset),
+                                                  le64toh(o->data.entry_array_offset),
+                                                  le64toh(o->data.n_entries),
+                                                  p,
+                                                  test_object_offset,
+                                                  direction,
+                                                  &qo, &q, NULL);
+
+                if (r <= 0)
+                        return r;
+
+                if (p == q) {
+                        if (ret)
+                                *ret = qo;
+                        if (offset)
+                                *offset = q;
+
+                        return 1;
+                }
+
+                z = q;
+        }
+
+        return 0;
 }
 
 int journal_file_move_to_entry_by_seqnum_for_data(

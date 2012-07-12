@@ -2232,33 +2232,33 @@ journalctl_LDADD = \
 	libsystemd-logs.la
 
 test_journal_SOURCES = \
-	src/journal/test-journal.c \
-	src/journal/sd-journal.c \
-	src/journal/journal-file.c \
-	src/journal/lookup3.c \
-	src/journal/journal-send.c
+	src/journal/test-journal.c
 
 test_journal_LDADD = \
-	libsystemd-label.la \
 	libsystemd-shared.la \
+	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la
-
-if HAVE_XZ
-test_journal_SOURCES += \
-	src/journal/compress.c
-
-test_journal_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(XZ_CFLAGS)
-
-test_journal_LDADD += \
-	$(XZ_LIBS)
-endif
 
 test_journal_send_SOURCES = \
 	src/journal/test-journal-send.c
 
 test_journal_send_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la
+
+test_journal_match_SOURCES = \
+	src/journal/test-journal-match.c
+
+test_journal_match_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la
+
+test_journal_stream_SOURCES = \
+	src/journal/test-journal-stream.c
+
+test_journal_stream_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la
@@ -2327,7 +2327,9 @@ UNINSTALL_EXEC_HOOKS += \
 
 noinst_PROGRAMS += \
 	test-journal \
-	test-journal-send
+	test-journal-send \
+	test-journal-match \
+	test-journal-stream
 
 pkginclude_HEADERS += \
 	src/systemd/sd-journal.h \

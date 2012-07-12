@@ -28,28 +28,46 @@
 
 #include <systemd/sd-id128.h>
 
+#include "journal-def.h"
 #include "list.h"
+#include "hashmap.h"
+#include "journal-file.h"
+
+typedef enum MatchType MatchType;
+typedef enum LocationType LocationType;
 
 typedef struct Match Match;
 typedef struct Location Location;
 typedef struct Directory Directory;
 
-typedef enum location_type {
-        LOCATION_HEAD,
-        LOCATION_TAIL,
-        LOCATION_DISCRETE
-} location_type_t;
+typedef enum MatchType {
+        MATCH_DISCRETE,
+        MATCH_OR_TERM,
+        MATCH_AND_TERM
+} MatchType;
 
 struct Match {
+        MatchType type;
+        Match *parent;
+        LIST_FIELDS(Match, matches);
+
+        /* For concrete matches */
         char *data;
         size_t size;
         le64_t le_hash;
 
-        LIST_FIELDS(Match, matches);
+        /* For terms */
+        LIST_HEAD(Match, matches);
 };
 
+typedef enum LocationType {
+        LOCATION_HEAD,
+        LOCATION_TAIL,
+        LOCATION_DISCRETE
+} LocationType;
+
 struct Location {
-        location_type_t type;
+        LocationType type;
 
         uint64_t seqnum;
         sd_id128_t seqnum_id;
@@ -78,6 +96,7 @@ struct sd_journal {
         Hashmap *files;
 
         Location current_location;
+
         JournalFile *current_file;
         uint64_t current_field;
 
@@ -86,10 +105,11 @@ struct sd_journal {
 
         int inotify_fd;
 
-        LIST_HEAD(Match, matches);
-        unsigned n_matches;
+        Match *level0, *level1;
 
         unsigned current_invalidate_counter, last_invalidate_counter;
 };
+
+char *journal_make_match_string(sd_journal *j);
 
 #endif

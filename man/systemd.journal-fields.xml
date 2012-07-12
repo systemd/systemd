@@ -299,7 +299,12 @@
                 addresses of journal entries are serialized into
                 fields prefixed with double underscores. Note that
                 these aren't proper fields when stored in the journal,
-                but addressing meta data of entries.</para>
+                but addressing meta data of entries. They cannot be
+                written as part of structured log entries via calls
+                such as
+                <citerefentry><refentrytitle>sd_journal_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>. They
+                may also not be used as matches for
+                <citerefentry><refentrytitle>sd_journal_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry></para>
 
                 <variablelist>
                         <varlistentry>

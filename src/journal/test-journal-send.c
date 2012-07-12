@@ -21,7 +21,11 @@
 
 #include <systemd/sd-journal.h>
 
+#include "log.h"
+
 int main(int argc, char *argv[]) {
+        log_set_max_level(LOG_DEBUG);
+
         sd_journal_print(LOG_INFO, "piepapo");
 
         sd_journal_send("MESSAGE=foobar",

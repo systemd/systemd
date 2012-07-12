@@ -225,7 +225,9 @@ static int add_matches(sd_journal *j, char **args) {
 
         STRV_FOREACH(i, args) {
 
-                if (path_is_absolute(*i)) {
+                if (streq(*i, "+"))
+                        r = sd_journal_add_disjunction(j);
+                else if (path_is_absolute(*i)) {
                         char *p;
                         const char *path;
                         struct stat st;
@@ -249,7 +251,7 @@ static int add_matches(sd_journal *j, char **args) {
                                         return -ENOMEM;
                                 }
 
-                                r = sd_journal_add_match(j, t, strlen(t));
+                                r = sd_journal_add_match(j, t, 0);
                                 free(t);
                         } else {
                                 free(p);
@@ -259,10 +261,10 @@ static int add_matches(sd_journal *j, char **args) {
 
                         free(p);
                 } else
-                        r = sd_journal_add_match(j, *i, strlen(*i));
+                        r = sd_journal_add_match(j, *i, 0);
 
                 if (r < 0) {
-                        log_error("Failed to add match: %s", strerror(-r));
+                        log_error("Failed to add match '%s': %s", *i, strerror(-r));
                         return r;
                 }
         }
