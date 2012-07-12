@@ -1300,7 +1300,7 @@ static int generic_array_bisect_plus_one(JournalFile *f,
 
         r = generic_array_bisect(f, first, n-1, needle, test_object, direction, ret, offset, idx);
 
-        if (r > 0)
+        if (r > 0 && idx)
                 (*idx) ++;
 
         return r;
