@@ -240,7 +240,7 @@ static int compare_order(JournalFile *af, Object *ao,
 
         /* Otherwise compare UTC time */
         a = le64toh(ao->entry.realtime);
-        b = le64toh(ao->entry.realtime);
+        b = le64toh(bo->entry.realtime);
 
         if (a < b)
                 return -1;
@@ -249,7 +249,7 @@ static int compare_order(JournalFile *af, Object *ao,
 
         /* Finally, compare by contents */
         a = le64toh(ao->entry.xor_hash);
-        b = le64toh(ao->entry.xor_hash);
+        b = le64toh(bo->entry.xor_hash);
 
         if (a < b)
                 return -1;
