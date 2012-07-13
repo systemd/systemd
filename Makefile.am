@@ -499,7 +499,8 @@ MANPAGES = \
 	man/sd_id128_to_string.3 \
 	man/sd_id128_randomize.3 \
 	man/sd-journal.3 \
-	man/sd_journal_print.3
+	man/sd_journal_print.3 \
+	man/sd_journal_stream_fd.3
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \

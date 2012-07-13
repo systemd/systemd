@@ -129,8 +129,8 @@ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec);
 #define SD_JOURNAL_FOREACH_DATA(j, data, l)                             \
         for (sd_journal_restart_data(j); sd_journal_enumerate_data((j), &(data), &(l)) > 0; )
 
-#define SD_JOURNAL_FOREACH_UNIQUE(j, data, l)                           \
-        for (sd_journal_restart_unique(j); sd_journal_enumerate_data((j), &(data), &(l)) > 0; )
+/* #define SD_JOURNAL_FOREACH_UNIQUE(j, data, l)                           \ */
+/*         for (sd_journal_restart_unique(j); sd_journal_enumerate_data((j), &(data), &(l)) > 0; ) */
 
 #ifdef __cplusplus
 }
