@@ -149,6 +149,7 @@ int main(int argc, char *argv[]) {
         fprintf(log, "Hello World!\n");
         fprintf(log, SD_WARNING "This is a warning!\n");
         fclose(log);
+        return 0;
 }</programlisting>
 
         </refsect1>

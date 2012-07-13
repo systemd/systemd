@@ -122,7 +122,7 @@
                 used to submit structured log entries to the system
                 journal. It takes a series of format strings, each
                 immediately followed by their associated parameters,
-                terminated by a NULL. The strings passed should be of
+                terminated by NULL. The strings passed should be of
                 the format <literal>VARIABLE=value</literal>. The
                 variable name must be in uppercase and consist only
                 of characters, numbers and underscores, and may not
@@ -150,7 +150,7 @@
                 journal where that is necessary.</para>
 
                 <para>Note that <function>sd_journal_send()</function>
-                is a wapper around
+                is a wrapper around
                 <function>sd_journal_sendv()</function> to make it
                 easier to use when only text strings shall be
                 submitted. Also, the following two calls are
@@ -171,7 +171,7 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
 
                 <para><citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 and and <function>sd_journal_print()</function> may
-                mostly be used interchangably
+                largely be used interchangably
                 functionality-wise. However, note that log messages
                 logged via the former take a different path to the
                 journal server than the later, and hence global

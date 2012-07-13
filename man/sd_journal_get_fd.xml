@@ -44,8 +44,8 @@
 
         <refnamediv>
                 <refname>sd_journal_get_fd</refname>
-                <refname>sd_journal_get_process</refname>
-                <refname>sd_journal_get_wait</refname>
+                <refname>sd_journal_process</refname>
+                <refname>sd_journal_wait</refname>
                 <refpurpose>Journal change notification
                 interface</refpurpose>
         </refnamediv>
