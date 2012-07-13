@@ -502,7 +502,8 @@ MANPAGES = \
 	man/sd_journal_print.3 \
 	man/sd_journal_stream_fd.3 \
 	man/sd_journal_open.3 \
-	man/sd_journal_next.3
+	man/sd_journal_next.3 \
+	man/sd_journal_get_data.3
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -547,7 +548,12 @@ MANPAGES_ALIAS = \
 	man/sd_journal_close.3 \
 	man/sd_journal_previous.3 \
 	man/sd_journal_next_skip.3 \
-	man/sd_journal_previous_skip.3
+	man/sd_journal_previous_skip.3 \
+	man/SD_JOURNAL_FOREACH.3 \
+	man/SD_JOURNAL_FOREACH_BACKWARDS.3 \
+	man/sd_journal_enumerate_data.3 \
+	man/sd_journal_restart_data.3 \
+	man/SD_JOURNAL_FOREACH_DATA.3
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
@@ -592,6 +598,11 @@ man/sd_journal_close.3: man/sd_journal_open.3
 man/sd_journal_previous.3: man/sd_journal_next.3
 man/sd_journal_next_skip.3: man/sd_journal_next.3
 man/sd_journal_previous_skip.3: man/sd_journal_next.3
+man/SD_JOURNAL_FOREACH.3: man/sd_journal_next.3
+man/SD_JOURNAL_FOREACH_BACKWARDS.3: man/sd_journal_next.3
+man/sd_journal_enumerate_data.3: man/sd_journal_get_data.3
+man/sd_journal_restart_data.3: man/sd_journal_get_data.3
+man/SD_JOURNAL_FOREACH_DATA.3: man/sd_journal_get_data.3
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}

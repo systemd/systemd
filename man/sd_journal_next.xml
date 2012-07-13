@@ -47,6 +47,8 @@
                 <refname>sd_journal_previous</refname>
                 <refname>sd_journal_next_skip</refname>
                 <refname>sd_journal_previous_skip</refname>
+                <refname>SD_JOURNAL_FOREACH</refname>
+                <refname>SD_JOURNAL_FOREACH_BACKWARDS</refname>
                 <refpurpose>Advance or set back the read pointer in the journal</refpurpose>
         </refnamediv>
 
@@ -76,6 +78,15 @@
                                 <paramdef>uint64_t <parameter>skip</parameter></paramdef>
                         </funcprototype>
 
+                        <funcprototype>
+                                <funcdef><function>SD_JOURNAL_FOREACH</function></funcdef>
+                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef><function>SD_JOURNAL_FOREACH_BACKWARDS</function></funcdef>
+                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                        </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
 
@@ -104,6 +115,13 @@
                 time, and hence advancing to the next entry guarantees
                 that the entry then pointing to is later in time than
                 then previous one, or has the same timestamp.</para>
+
+                <para>Note that
+                <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                and related calls will fail unless
+                <function>sd_journal_next()</function> has been
+                invoked at least once in order to position the read
+                pointer on a journal entry.</para>
 
                 <para>Note that the
                 <function>SD_JOURNAL_FOREACH()</function> macro may be used
