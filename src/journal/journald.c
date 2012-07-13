@@ -1976,7 +1976,7 @@ static int system_journal_open(Server *s) {
                 (void) mkdir(fn, 0755);
                 free(fn);
 
-                fn = join("/var/log/journal/", ids, "/system.journal", NULL);
+                fn = strjoin("/var/log/journal/", ids, "/system.journal", NULL);
                 if (!fn)
                         return -ENOMEM;
 
@@ -2002,7 +2002,7 @@ static int system_journal_open(Server *s) {
         if (!s->runtime_journal &&
             (s->storage != STORAGE_NONE)) {
 
-                fn = join("/run/log/journal/", ids, "/system.journal", NULL);
+                fn = strjoin("/run/log/journal/", ids, "/system.journal", NULL);
                 if (!fn)
                         return -ENOMEM;
 

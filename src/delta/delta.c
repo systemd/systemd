@@ -192,7 +192,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, const char *path) {
                 if (!dirent_is_file(de))
                         continue;
 
-                p = join(path, "/", de->d_name, NULL);
+                p = strjoin(path, "/", de->d_name, NULL);
                 if (!p) {
                         r = -ENOMEM;
                         goto finish;
@@ -254,7 +254,7 @@ static int process_suffix(const char *prefixes, const char *suffix) {
         NULSTR_FOREACH(p, prefixes) {
                 char *t;
 
-                t = join(p, "/", suffix, NULL);
+                t = strjoin(p, "/", suffix, NULL);
                 if (!t) {
                         r = -ENOMEM;
                         goto finish;

@@ -39,7 +39,7 @@ static int add_symlink(const char *fservice, const char *tservice) {
         assert(tservice);
 
         from = strappend(SYSTEM_DATA_UNIT_PATH "/", fservice);
-        to = join(arg_dest,"/getty.target.wants/", tservice, NULL);
+        to = strjoin(arg_dest,"/getty.target.wants/", tservice, NULL);
 
         if (!from || !to) {
                 log_error("Out of memory");

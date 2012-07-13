@@ -1891,10 +1891,10 @@ static char *default_cgroup_path(Unit *u) {
                 if (!t)
                         return NULL;
 
-                p = join(u->manager->cgroup_hierarchy, "/", t, "/", u->instance, NULL);
+                p = strjoin(u->manager->cgroup_hierarchy, "/", t, "/", u->instance, NULL);
                 free(t);
         } else
-                p = join(u->manager->cgroup_hierarchy, "/", u->id, NULL);
+                p = strjoin(u->manager->cgroup_hierarchy, "/", u->id, NULL);
 
         return p;
 }

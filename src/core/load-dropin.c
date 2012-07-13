@@ -51,7 +51,7 @@ static int iterate_dir(Unit *u, const char *path, UnitDependency dependency) {
                 if (ignore_file(de->d_name))
                         continue;
 
-                f = join(path, "/", de->d_name, NULL);
+                f = strjoin(path, "/", de->d_name, NULL);
                 if (!f) {
                         r = -ENOMEM;
                         goto finish;
@@ -80,7 +80,7 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
         assert(name);
         assert(suffix);
 
-        path = join(unit_path, "/", name, suffix, NULL);
+        path = strjoin(unit_path, "/", name, suffix, NULL);
         if (!path)
                 return -ENOMEM;
 
@@ -102,7 +102,7 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
                 if (!template)
                         return -ENOMEM;
 
-                path = join(unit_path, "/", template, suffix, NULL);
+                path = strjoin(unit_path, "/", template, suffix, NULL);
                 free(template);
 
                 if (!path)

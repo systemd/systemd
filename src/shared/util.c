@@ -1083,7 +1083,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                 if (h < 0)
                         return h;
 
-                r = join("[", t, "]", NULL);
+                r = strjoin("[", t, "]", NULL);
                 free(t);
 
                 if (!r)
@@ -5145,7 +5145,7 @@ finish:
         return r;
 }
 
-char *join(const char *x, ...) {
+char *strjoin(const char *x, ...) {
         va_list ap;
         size_t l;
         char *r, *p;

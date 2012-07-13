@@ -310,7 +310,7 @@ static int refresh_one(
                 if (r <= 0)
                         goto finish;
 
-                p = join(path, "/", fn, NULL);
+                p = strjoin(path, "/", fn, NULL);
                 free(fn);
 
                 if (!p) {

@@ -34,6 +34,10 @@ Bugfixes:
 
 Features:
 
+* logind: wakelock/opportunistic suspend support
+
+* seccomp filters for services
+
 * replace BindTo= by BindsTo=, but keep old name for compat
 
 * switch-root: sockets need relabelling

@@ -1179,7 +1179,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 else {
                         char *p;
 
-                        p = join(switch_root, "/", switch_root_init, NULL);
+                        p = strjoin(switch_root, "/", switch_root_init, NULL);
                         if (!p)
                                 goto oom;
 

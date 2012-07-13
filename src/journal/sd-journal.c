@@ -313,7 +313,7 @@ static char *match_make_string(Match *m) {
                 }
 
                 if (p) {
-                        k = join(p, m->type == MATCH_OR_TERM ? " OR " : " AND ", t, NULL);
+                        k = strjoin(p, m->type == MATCH_OR_TERM ? " OR " : " AND ", t, NULL);
                         free(p);
                         free(t);
 
@@ -330,7 +330,7 @@ static char *match_make_string(Match *m) {
         }
 
         if (enclose) {
-                r = join("(", p, ")", NULL);
+                r = strjoin("(", p, ")", NULL);
                 free(p);
                 return r;
         }
@@ -1101,7 +1101,7 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
              (startswith(filename, "system@") && endswith(filename, ".journal"))))
                 return 0;
 
-        path = join(prefix, "/", filename, NULL);
+        path = strjoin(prefix, "/", filename, NULL);
         if (!path)
                 return -ENOMEM;
 
@@ -1149,7 +1149,7 @@ static int remove_file(sd_journal *j, const char *prefix, const char *filename) 
         assert(prefix);
         assert(filename);
 
-        path = join(prefix, "/", filename, NULL);
+        path = strjoin(prefix, "/", filename, NULL);
         if (!path)
                 return -ENOMEM;
 
@@ -1184,7 +1184,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
              !sd_id128_equal(id, mid)))
             return 0;
 
-        path = join(prefix, "/", dirname, NULL);
+        path = strjoin(prefix, "/", dirname, NULL);
         if (!path)
                 return -ENOMEM;
 

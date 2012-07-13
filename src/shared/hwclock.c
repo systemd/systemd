@@ -74,7 +74,7 @@ static int rtc_open(int flags) {
                 if (ignore_file(de->d_name))
                         continue;
 
-                p = join("/sys/class/rtc/", de->d_name, "/hctosys", NULL);
+                p = strjoin("/sys/class/rtc/", de->d_name, "/hctosys", NULL);
                 if (!p) {
                         closedir(d);
                         return -ENOMEM;

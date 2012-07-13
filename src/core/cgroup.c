@@ -120,7 +120,7 @@ int cgroup_bonding_install(CGroupBonding *b, pid_t pid, const char *cgroup_suffi
         assert(pid >= 0);
 
         if (cgroup_suffix) {
-                p = join(b->path, "/", cgroup_suffix, NULL);
+                p = strjoin(b->path, "/", cgroup_suffix, NULL);
                 if (!p)
                         return -ENOMEM;
 
@@ -208,7 +208,7 @@ int cgroup_bonding_kill(CGroupBonding *b, int sig, bool sigcont, bool rem, Set *
                 return 0;
 
         if (cgroup_suffix) {
-                p = join(b->path, "/", cgroup_suffix, NULL);
+                p = strjoin(b->path, "/", cgroup_suffix, NULL);
                 if (!p)
                         return -ENOMEM;
 

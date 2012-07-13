@@ -451,7 +451,7 @@ int dirent_ensure_type(DIR *d, struct dirent *de);
 int in_search_path(const char *path, char **search);
 int get_files_in_directory(const char *path, char ***list);
 
-char *join(const char *x, ...) _sentinel_;
+char *strjoin(const char *x, ...) _sentinel_;
 
 bool is_main_thread(void);
 

@@ -722,7 +722,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                 char *d = NULL;
 
                                 if (chkconfig_description)
-                                        d = join(chkconfig_description, " ", j, NULL);
+                                        d = strjoin(chkconfig_description, " ", j, NULL);
                                 else
                                         d = strdup(j);
 
@@ -879,7 +879,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 char *d = NULL;
 
                                                 if (long_description)
-                                                        d = join(long_description, " ", t, NULL);
+                                                        d = strjoin(long_description, " ", t, NULL);
                                                 else
                                                         d = strdup(j);
 
@@ -1001,7 +1001,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 char *path;
                 int r;
 
-                path = join(*p, "/", name, NULL);
+                path = strjoin(*p, "/", name, NULL);
                 if (!path)
                         return -ENOMEM;
 
@@ -1023,7 +1023,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 if (r >= 0 && UNIT(s)->load_state == UNIT_STUB) {
                         /* Try SUSE style boot.* init scripts */
 
-                        path = join(*p, "/boot.", name, NULL);
+                        path = strjoin(*p, "/boot.", name, NULL);
                         if (!path)
                                 return -ENOMEM;
 
@@ -1038,7 +1038,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 if (r >= 0 && UNIT(s)->load_state == UNIT_STUB) {
                         /* Try Frugalware style rc.* init scripts */
 
-                        path = join(*p, "/rc.", name, NULL);
+                        path = strjoin(*p, "/rc.", name, NULL);
                         if (!path)
                                 return -ENOMEM;
 
@@ -3407,7 +3407,7 @@ static int service_enumerate(Manager *m) {
                         struct dirent *de;
 
                         free(path);
-                        path = join(*p, "/", rcnd_table[i].path, NULL);
+                        path = strjoin(*p, "/", rcnd_table[i].path, NULL);
                         if (!path) {
                                 r = -ENOMEM;
                                 goto finish;
@@ -3442,7 +3442,7 @@ static int service_enumerate(Manager *m) {
                                         continue;
 
                                 free(fpath);
-                                fpath = join(path, "/", de->d_name, NULL);
+                                fpath = strjoin(path, "/", de->d_name, NULL);
                                 if (!fpath) {
                                         r = -ENOMEM;
                                         goto finish;

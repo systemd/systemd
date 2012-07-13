@@ -208,7 +208,7 @@ char *unit_name_build(const char *prefix, const char *instance, const char *suff
         if (!instance)
                 return strappend(prefix, suffix);
 
-        return join(prefix, "@", instance, suffix, NULL);
+        return strjoin(prefix, "@", instance, suffix, NULL);
 }
 
 static char *do_escape_char(char c, char *t) {
@@ -425,7 +425,7 @@ char *unit_name_from_path_instance(const char *prefix, const char *path, const c
         if (!p)
                 return NULL;
 
-        r = join(prefix, "@", p, suffix, NULL);
+        r = strjoin(prefix, "@", p, suffix, NULL);
         free(p);
 
         return r;

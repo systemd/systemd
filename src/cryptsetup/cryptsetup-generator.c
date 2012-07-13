@@ -88,7 +88,7 @@ static int create_disk(
                 goto fail;
         }
 
-        p = join(arg_dest, "/", n, NULL);
+        p = strjoin(arg_dest, "/", n, NULL);
         if (!p) {
                 r = -ENOMEM;
                 log_error("Failed to allocate unit file name.");
@@ -175,7 +175,7 @@ static int create_disk(
 
         if (!noauto) {
 
-                to = join(arg_dest, "/", d, ".wants/", n, NULL);
+                to = strjoin(arg_dest, "/", d, ".wants/", n, NULL);
                 if (!to) {
                         r = -ENOMEM;
                         goto fail;
@@ -191,9 +191,9 @@ static int create_disk(
                 free(to);
 
                 if (!nofail)
-                        to = join(arg_dest, "/cryptsetup.target.requires/", n, NULL);
+                        to = strjoin(arg_dest, "/cryptsetup.target.requires/", n, NULL);
                 else
-                        to = join(arg_dest, "/cryptsetup.target.wants/", n, NULL);
+                        to = strjoin(arg_dest, "/cryptsetup.target.wants/", n, NULL);
                 if (!to) {
                         r = -ENOMEM;
                         goto fail;
@@ -211,7 +211,7 @@ static int create_disk(
         }
 
         e = unit_name_escape(name);
-        to = join(arg_dest, "/dev-mapper-", e, ".device.requires/", n, NULL);
+        to = strjoin(arg_dest, "/dev-mapper-", e, ".device.requires/", n, NULL);
         if (!to) {
                 r = -ENOMEM;
                 goto fail;

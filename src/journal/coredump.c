@@ -213,14 +213,14 @@ int main(int argc, char* argv[]) {
                         IOVEC_SET_STRING(iovec[j++], core_cmdline);
         }
 
-        core_timestamp = join("COREDUMP_TIMESTAMP=", argv[ARG_TIMESTAMP], "000000", NULL);
+        core_timestamp = strjoin("COREDUMP_TIMESTAMP=", argv[ARG_TIMESTAMP], "000000", NULL);
         if (core_timestamp)
                 IOVEC_SET_STRING(iovec[j++], core_timestamp);
 
         IOVEC_SET_STRING(iovec[j++], "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1");
         IOVEC_SET_STRING(iovec[j++], "PRIORITY=2");
 
-        core_message = join("MESSAGE=Process ", argv[ARG_PID], " (", argv[ARG_COMM], ") dumped core.", NULL);
+        core_message = strjoin("MESSAGE=Process ", argv[ARG_PID], " (", argv[ARG_COMM], ") dumped core.", NULL);
         if (core_message)
                 IOVEC_SET_STRING(iovec[j++], core_message);
 

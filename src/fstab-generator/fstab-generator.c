@@ -103,7 +103,7 @@ static int add_swap(const char *what, struct mntent *me) {
                 goto finish;
         }
 
-        unit = join(arg_dest, "/", name, NULL);
+        unit = strjoin(arg_dest, "/", name, NULL);
         if (!unit) {
                 log_error("Out of memory");
                 r = -ENOMEM;
@@ -146,7 +146,7 @@ static int add_swap(const char *what, struct mntent *me) {
         }
 
         if (!noauto) {
-                lnk = join(arg_dest, "/" SPECIAL_SWAP_TARGET ".wants/", name, NULL);
+                lnk = strjoin(arg_dest, "/" SPECIAL_SWAP_TARGET ".wants/", name, NULL);
                 if (!lnk) {
                         log_error("Out of memory");
                         r = -ENOMEM;
@@ -169,7 +169,7 @@ static int add_swap(const char *what, struct mntent *me) {
 
                 if (r > 0) {
                         free(lnk);
-                        lnk = join(arg_dest, "/", device, ".wants/", name, NULL);
+                        lnk = strjoin(arg_dest, "/", device, ".wants/", name, NULL);
                         if (!lnk) {
                                 log_error("Out of memory");
                                 r = -ENOMEM;
@@ -261,7 +261,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
                 goto finish;
         }
 
-        unit = join(arg_dest, "/", name, NULL);
+        unit = strjoin(arg_dest, "/", name, NULL);
         if (!unit) {
                 log_error("Out of memory");
                 r = -ENOMEM;
@@ -321,7 +321,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
         }
 
         if (!noauto) {
-                lnk = join(arg_dest, "/", post, nofail || automount ? ".wants/" : ".requires/", name, NULL);
+                lnk = strjoin(arg_dest, "/", post, nofail || automount ? ".wants/" : ".requires/", name, NULL);
                 if (!lnk) {
                         log_error("Out of memory");
                         r = -ENOMEM;
@@ -347,7 +347,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
 
                         if (r > 0) {
                                 free(lnk);
-                                lnk = join(arg_dest, "/", device, ".wants/", name, NULL);
+                                lnk = strjoin(arg_dest, "/", device, ".wants/", name, NULL);
                                 if (!lnk) {
                                         log_error("Out of memory");
                                         r = -ENOMEM;
@@ -372,7 +372,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
                         goto finish;
                 }
 
-                automount_unit = join(arg_dest, "/", automount_name, NULL);
+                automount_unit = strjoin(arg_dest, "/", automount_name, NULL);
                 if (!automount_unit) {
                         log_error("Out of memory");
                         r = -ENOMEM;
@@ -408,7 +408,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
                 }
 
                 free(lnk);
-                lnk = join(arg_dest, "/", post, nofail ? ".wants/" : ".requires/", automount_name, NULL);
+                lnk = strjoin(arg_dest, "/", post, nofail ? ".wants/" : ".requires/", automount_name, NULL);
                 if (!lnk) {
                         log_error("Out of memory");
                         r = -ENOMEM;

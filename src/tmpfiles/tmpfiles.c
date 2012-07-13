@@ -1297,7 +1297,7 @@ static char *resolve_fragment(const char *fragment, const char **search_paths) {
                 return strdup(fragment);
 
         STRV_FOREACH(p, search_paths) {
-                resolved_path = join(*p, "/", fragment, NULL);
+                resolved_path = strjoin(*p, "/", fragment, NULL);
                 if (resolved_path == NULL) {
                         log_error("Out of memory");
                         return NULL;

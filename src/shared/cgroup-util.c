@@ -522,16 +522,16 @@ static int join_path(const char *controller, const char *path, const char *suffi
 
         if (controller) {
                 if (path && suffix)
-                        t = join("/sys/fs/cgroup/", controller, "/", path, "/", suffix, NULL);
+                        t = strjoin("/sys/fs/cgroup/", controller, "/", path, "/", suffix, NULL);
                 else if (path)
-                        t = join("/sys/fs/cgroup/", controller, "/", path, NULL);
+                        t = strjoin("/sys/fs/cgroup/", controller, "/", path, NULL);
                 else if (suffix)
-                        t = join("/sys/fs/cgroup/", controller, "/", suffix, NULL);
+                        t = strjoin("/sys/fs/cgroup/", controller, "/", suffix, NULL);
                 else
-                        t = join("/sys/fs/cgroup/", controller, NULL);
+                        t = strjoin("/sys/fs/cgroup/", controller, NULL);
         } else {
                 if (path && suffix)
-                        t = join(path, "/", suffix, NULL);
+                        t = strjoin(path, "/", suffix, NULL);
                 else if (path)
                         t = strdup(path);
         }

@@ -120,7 +120,7 @@ char *path_make_absolute(const char *p, const char *prefix) {
         if (path_is_absolute(p) || !prefix)
                 return strdup(p);
 
-        return join(prefix, "/", p, NULL);
+        return strjoin(prefix, "/", p, NULL);
 }
 
 char *path_make_absolute_cwd(const char *p) {

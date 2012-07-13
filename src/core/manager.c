@@ -590,7 +590,7 @@ static void manager_build_unit_path_cache(Manager *m) {
                         if (ignore_file(de->d_name))
                                 continue;
 
-                        p = join(streq(*i, "/") ? "" : *i, "/", de->d_name, NULL);
+                        p = strjoin(streq(*i, "/") ? "" : *i, "/", de->d_name, NULL);
                         if (!p) {
                                 r = -ENOMEM;
                                 goto fail;
@@ -2085,7 +2085,7 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
                         return r;
                 }
         } else {
-                p = join("/tmp/systemd-", name, ".XXXXXX", NULL);
+                p = strjoin("/tmp/systemd-", name, ".XXXXXX", NULL);
                 if (!p) {
                         log_error("Out of memory");
                         return -ENOMEM;
