@@ -2577,7 +2577,8 @@ systemd_readahead_LDADD = \
 	libsystemd-daemon.la \
 	libudev.la
 
-pkginclude_HEADERS += \
+dist_doc_DATA += \
+	src/readahead/sd-readahead.c \
 	src/systemd/sd-readahead.h
 
 rootlibexec_PROGRAMS += \
