@@ -682,24 +682,29 @@
                         <varlistentry>
                                 <term><command>enable [NAME...]</command></term>
 
-                                <listitem><para>Enable one or more
-                                unit files, as specified on the
+                                <listitem><para>Enable one or
+                                more unit files or unit file
+                                instances, as specified on the
                                 command line. This will create a
-                                number of symlinks as encoded in the
-                                <literal>[Install]</literal> sections
-                                of the unit files. After the symlinks
-                                have been created the systemd
-                                configuration is reloaded (in a way
-                                that is equivalent to
-                                <command>daemon-reload</command>) to
-                                ensure the changes are taken into
+                                number of symlinks as encoded in
+                                the <literal>[Install]</literal>
+                                sections of the unit files. After
+                                the symlinks have been created the
+                                systemd configuration is reloaded
+                                (in a way that is equivalent to
+                                <command>daemon-reload</command>)
+                                to ensure the changes are taken into
                                 account immediately. Note that this
                                 does not have the effect that any of
                                 the units enabled are also started at
-                                the same time. If this is desired a
-                                separate <command>start</command>
-                                command must be invoked for the
-                                unit.</para>
+                                the same time.  If this is desired
+                                a separate <command>start</command>
+                                command must be invoked for the unit.
+                                Also note that in case of instance
+                                enablement, symlinks named same as
+                                instances are created in install
+                                location, however they all point to
+                                the same template unit file.</para>
 
                                 <para>This command will
                                 print the actions executed. This

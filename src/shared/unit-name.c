@@ -341,6 +341,18 @@ bool unit_name_is_template(const char *n) {
         return p[1] == '.';
 }
 
+bool unit_name_is_instance(const char *n) {
+        const char *p;
+
+        assert(n);
+
+        p = strchr(n, '@');
+        if (!p)
+                return false;
+
+        return p[1] != '.';
+}
+
 char *unit_name_replace_instance(const char *f, const char *i) {
         const char *p, *e;
         char *r, *k;

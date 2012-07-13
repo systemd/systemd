@@ -196,7 +196,8 @@ static int remove_marked_symlinks_fd(
                 const char *config_path,
                 bool *deleted,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                unsigned *n_changes,
+                char** files) {
 
         int r = 0;
         DIR *d;
@@ -255,7 +256,7 @@ static int remove_marked_symlinks_fd(
                         }
 
                         /* This will close nfd, regardless whether it succeeds or not */
-                        q = remove_marked_symlinks_fd(remove_symlinks_to, nfd, p, config_path, deleted, changes, n_changes);
+                        q = remove_marked_symlinks_fd(remove_symlinks_to, nfd, p, config_path, deleted, changes, n_changes, files);
                         free(p);
 
                         if (r == 0)
@@ -287,6 +288,9 @@ static int remove_marked_symlinks_fd(
                         found =
                                 set_get(remove_symlinks_to, dest) ||
                                 set_get(remove_symlinks_to, path_get_file_name(dest));
+
+                        if (unit_name_is_instance(p))
+                                found = found && strv_contains(files, path_get_file_name(p));
 
                         if (found) {
 
@@ -326,7 +330,8 @@ static int remove_marked_symlinks(
                 Set *remove_symlinks_to,
                 const char *config_path,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                unsigned *n_changes,
+                char** files) {
 
         int fd, r = 0;
         bool deleted;
@@ -351,7 +356,7 @@ static int remove_marked_symlinks(
                 }
 
                 /* This takes possession of cfd and closes it */
-                q = remove_marked_symlinks_fd(remove_symlinks_to, cfd, config_path, config_path, &deleted, changes, n_changes);
+                q = remove_marked_symlinks_fd(remove_symlinks_to, cfd, config_path, config_path, &deleted, changes, n_changes, files);
                 if (r == 0)
                         r = q;
         } while (deleted);
@@ -717,7 +722,7 @@ int unit_file_unmask(
 
 
 finish:
-        q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes);
+        q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
         if (r == 0)
                 r = q;
 
@@ -1094,8 +1099,48 @@ static int unit_file_search(
 
                 if (r >= 0)
                         info->path = path;
-                else
+                else {
+                        if (r == -ENOENT && unit_name_is_instance(info->name)) {
+                                /* unit file doesn't exist, however instance enablement was request */
+                                /* we will check if it is possible to load template unit file */
+                                char *template = NULL,
+                                     *template_path = NULL,
+                                     *template_dir = NULL;
+
+                                template = unit_name_template(info->name);
+                                if (!template) {
+                                        free(path);
+                                        return -ENOMEM;
+                                }
+
+                                /* we will reuse path variable since we don't need it anymore */
+                                template_dir = path;
+                                *(strrchr(path, '/') + 1) = '\0';
+
+                                template_path = strjoin(template_dir, template, NULL);
+                                if (!template_path) {
+                                        free(path);
+                                        free(template);
+                                        return -ENOMEM;
+                                }
+
+                                /* let's try to load template unit */
+                                r = unit_file_load(c, info, template_path, allow_symlink);
+                                if (r >= 0) {
+                                        info->path = strdup(template_path);
+                                        if (!info->path) {
+                                                free(path);
+                                                free(template);
+                                                free(template_path);
+                                                return -ENOMEM;
+                                        }
+                                }
+
+                                free(template);
+                                free(template_path);
+                        }
                         free(path);
+                }
 
                 if (r != -ENOENT && r != -ELOOP)
                         return r;
@@ -1419,7 +1464,20 @@ static int install_context_mark_for_removal(
                 } else if (r >= 0)
                         r += q;
 
-                q = mark_symlink_for_removal(remove_symlinks_to, i->name);
+                if (unit_name_is_instance(i->name)) {
+                        char *unit_file = NULL;
+
+                        unit_file = path_get_file_name(i->path);
+
+                        if (unit_name_is_instance(unit_file))
+                                /* unit file named as instance exists, thus all symlinks pointing to it, will be removed */
+                                q = mark_symlink_for_removal(remove_symlinks_to, i->name);
+                        else
+                                /* does not exist, thus we will mark for removal symlinks to template unit file */
+                                q = mark_symlink_for_removal(remove_symlinks_to, unit_file);
+                } else
+                        q = mark_symlink_for_removal(remove_symlinks_to, i->name);
+
                 if (r >= 0 && q < 0)
                         r = q;
         }
@@ -1511,7 +1569,7 @@ int unit_file_disable(
 
         r = install_context_mark_for_removal(&c, &paths, &remove_symlinks_to, config_path, root_dir);
 
-        q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes);
+        q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
         if (r == 0)
                 r = q;
 
@@ -1563,7 +1621,7 @@ int unit_file_reenable(
                         goto finish;
         }
 
-        r = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes);
+        r = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
 
         /* Returns number of symlinks that where supposed to be installed. */
         q = install_context_apply(&c, &paths, config_path, root_dir, force, changes, n_changes);
@@ -1813,7 +1871,7 @@ int unit_file_preset(
 
         r = install_context_mark_for_removal(&minus, &paths, &remove_symlinks_to, config_path, root_dir);
 
-        q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes);
+        q = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
         if (r == 0)
                 r = q;
 

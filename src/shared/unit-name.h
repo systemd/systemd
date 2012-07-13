@@ -79,6 +79,7 @@ char *unit_name_path_escape(const char *f);
 char *unit_name_path_unescape(const char *f);
 
 bool unit_name_is_template(const char *n);
+bool unit_name_is_instance(const char *n);
 
 char *unit_name_replace_instance(const char *f, const char *i);
 
