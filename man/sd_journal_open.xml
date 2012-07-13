@@ -1,0 +1,151 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2012 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_journal_open">
+
+        <refentryinfo>
+                <title>sd_journal_open</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>sd_journal_open</refentrytitle>
+                <manvolnum>3</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>sd_journal_open</refname>
+                <refname>sd_journal_open_directory</refname>
+                <refname>sd_journal_close</refname>
+                <refpurpose>Open the system journal for reading</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <funcsynopsis>
+                        <funcsynopsisinfo>#include &lt;systemd/sd-journal.h&gt;</funcsynopsisinfo>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_journal_open</function></funcdef>
+                                <paramdef>sd_journal** <parameter>ret</parameter></paramdef>
+                                <paramdef>int <parameter>flags</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_journal_open_directory</function></funcdef>
+                                <paramdef>sd_journal** <parameter>ret</parameter></paramdef>
+                                <paramdef>const char* <parameter>path</parameter></paramdef>
+                                <paramdef>int <parameter>flags</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_journal_close</function></funcdef>
+                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                        </funcprototype>
+                </funcsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><function>sd_journal_open()</function> opens the
+                the log journal for reading. It will find all journal
+                files automatically and interleave them automatically
+                when reading. As first argument it takes a pointer to
+                a <literal>sd_journal</literal> pointer, which on
+                success will contain journal context afterwards. The
+                second argument is a flags field, which may consist of
+                the following flags ORed together:
+                <literal>SD_JOURNAL_LOCAL_ONLY</literal> makes sure
+                only journal files generated on the local machine will
+                be opened. <literal>SD_JOURNAL_RUNTIME_ONLY</literal>
+                makes sure only volatile journal files will be opened,
+                excluding those which are stored on persistant
+                storage. <literal>SD_JOURNAL_RUNTIME_ONLY</literal>
+                will ensure that only journal files of system services
+                and the kernel (in opposition to user session processes) will
+                be opened.</para>
+
+                <para><function>sd_journal_open_directory()</function>
+                is similar to <function>sd_journal_open()</function>
+                but takes an absolute directory path as argument. All
+                journal files in this directory will be opened and
+                interleaved automatically. This call also takes a
+                flags argument, but it must be passed as 0 as no flags
+                are currently understood for this call.</para>
+
+                <para><function>sd_journal_close()</function> will
+                close the journal context allocated with
+                <function>sd_journal_open()</function> or
+                <function>sd_journal_open_directory()</function> and
+                free its resources.</para>
+
+                <para>When opening the journal only journal files
+                accessible to the calling user will be opened. If
+                journal files are not accessible to the caller this
+                will be silently ignored.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Return Value</title>
+
+                <para>The <function>sd_journal_open()</function> and
+                <function>sd_journal_open_directory()</function> calls
+                return 0 on success or a negative errno-style error
+                code. <function>sd_journal_close()</function> returns
+                nothing.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Notes</title>
+
+                <para>The <function>sd_journal_open()</function>,
+                <function>sd_journal_open_directory()</function> and
+                <function>sd_journal_close()</function> interfaces are
+                available as shared library, which can be compiled and
+                linked to with the
+                <literal>libsystemd-journal</literal>
+                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                file.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

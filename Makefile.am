@@ -500,7 +500,8 @@ MANPAGES = \
 	man/sd_id128_randomize.3 \
 	man/sd-journal.3 \
 	man/sd_journal_print.3 \
-	man/sd_journal_stream_fd.3
+	man/sd_journal_stream_fd.3 \
+	man/sd_journal_open.3
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -540,7 +541,9 @@ MANPAGES_ALIAS = \
 	man/sd_id128_get_boot.3 \
 	man/sd_journal_printv.3 \
 	man/sd_journal_send.3 \
-	man/sd_journal_sendv.3
+	man/sd_journal_sendv.3 \
+	man/sd_journal_open_directory.3 \
+	man/sd_journal_close.3
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
@@ -580,6 +583,8 @@ man/sd_id128_get_boot.3: man/sd_id128_randomize.3
 man/sd_journal_printv.3: man/sd_journal_print.3
 man/sd_journal_send.3: man/sd_journal_print.3
 man/sd_journal_sendv.3: man/sd_journal_print.3
+man/sd_journal_open_directory.3: man/sd_journal_open.3
+man/sd_journal_close.3: man/sd_journal_open.3
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
