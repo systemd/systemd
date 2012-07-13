@@ -877,7 +877,9 @@ libsystemd_core_la_SOURCES = \
 	src/core/build.h \
 	src/core/sysfs-show.h \
 	src/core/switch-root.h \
-	src/core/switch-root.c
+	src/core/switch-root.c \
+	src/core/killall.h \
+	src/core/killall.c
 
 nodist_libsystemd_core_la_SOURCES = \
 	src/core/load-fragment-gperf.c \
@@ -1134,7 +1136,9 @@ systemd_shutdown_SOURCES = \
 	src/core/umount.h \
 	src/core/shutdown.c \
 	src/core/mount-setup.c \
-	src/core/mount-setup.h
+	src/core/mount-setup.h \
+	src/core/killall.h \
+	src/core/killall.c
 
 systemd_shutdown_LDADD = \
 	libsystemd-label.la \

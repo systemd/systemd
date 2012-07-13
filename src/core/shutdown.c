@@ -45,177 +45,7 @@
 #include "virt.h"
 #include "watchdog.h"
 
-#define TIMEOUT_USEC (5 * USEC_PER_SEC)
 #define FINALIZE_ATTEMPTS 50
-
-static bool ignore_proc(pid_t pid) {
-        char buf[PATH_MAX];
-        FILE *f;
-        char c;
-        size_t count;
-        uid_t uid;
-        int r;
-
-        /* We are PID 1, let's not commit suicide */
-        if (pid == 1)
-                return true;
-
-        r = get_process_uid(pid, &uid);
-        if (r < 0)
-                return true; /* not really, but better safe than sorry */
-
-        /* Non-root processes otherwise are always subject to be killed */
-        if (uid != 0)
-                return false;
-
-        snprintf(buf, sizeof(buf), "/proc/%lu/cmdline", (unsigned long) pid);
-        char_array_0(buf);
-
-        f = fopen(buf, "re");
-        if (!f)
-                return true; /* not really, but has the desired effect */
-
-        count = fread(&c, 1, 1, f);
-        fclose(f);
-
-        /* Kernel threads have an empty cmdline */
-        if (count <= 0)
-                return true;
-
-        /* Processes with argv[0][0] = '@' we ignore from the killing
-         * spree.
-         *
-         * http://www.freedesktop.org/wiki/Software/systemd/RootStorageDaemons */
-        if (count == 1 && c == '@')
-                return true;
-
-        return false;
-}
-
-static int killall(int sign) {
-        DIR *dir;
-        struct dirent *d;
-        unsigned int n_processes = 0;
-
-        dir = opendir("/proc");
-        if (!dir)
-                return -errno;
-
-        while ((d = readdir(dir))) {
-                pid_t pid;
-
-                if (parse_pid(d->d_name, &pid) < 0)
-                        continue;
-
-                if (ignore_proc(pid))
-                        continue;
-
-                if (kill(pid, sign) == 0)
-                        n_processes++;
-                else
-                        log_warning("Could not kill %d: %m", pid);
-        }
-
-        closedir(dir);
-
-        return n_processes;
-}
-
-static void wait_for_children(int n_processes, sigset_t *mask) {
-        usec_t until;
-
-        assert(mask);
-
-        until = now(CLOCK_MONOTONIC) + TIMEOUT_USEC;
-        for (;;) {
-                struct timespec ts;
-                int k;
-                usec_t n;
-
-                for (;;) {
-                        pid_t pid = waitpid(-1, NULL, WNOHANG);
-
-                        if (pid == 0)
-                                break;
-
-                        if (pid < 0 && errno == ECHILD)
-                                return;
-
-                        if (n_processes > 0)
-                                if (--n_processes == 0)
-                                        return;
-                }
-
-                n = now(CLOCK_MONOTONIC);
-                if (n >= until)
-                        return;
-
-                timespec_store(&ts, until - n);
-
-                if ((k = sigtimedwait(mask, NULL, &ts)) != SIGCHLD) {
-
-                        if (k < 0 && errno != EAGAIN) {
-                                log_error("sigtimedwait() failed: %m");
-                                return;
-                        }
-
-                        if (k >= 0)
-                                log_warning("sigtimedwait() returned unexpected signal.");
-                }
-        }
-}
-
-static void send_signal(int sign) {
-        sigset_t mask, oldmask;
-        int n_processes;
-
-        assert_se(sigemptyset(&mask) == 0);
-        assert_se(sigaddset(&mask, SIGCHLD) == 0);
-        assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) == 0);
-
-        if (kill(-1, SIGSTOP) < 0 && errno != ESRCH)
-                log_warning("kill(-1, SIGSTOP) failed: %m");
-
-        n_processes = killall(sign);
-
-        if (kill(-1, SIGCONT) < 0 && errno != ESRCH)
-                log_warning("kill(-1, SIGCONT) failed: %m");
-
-        if (n_processes <= 0)
-                goto finish;
-
-        wait_for_children(n_processes, &mask);
-
-finish:
-        sigprocmask(SIG_SETMASK, &oldmask, NULL);
-}
-
-static void ultimate_send_signal(int sign) {
-        sigset_t mask, oldmask;
-        int r;
-
-        assert_se(sigemptyset(&mask) == 0);
-        assert_se(sigaddset(&mask, SIGCHLD) == 0);
-        assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) == 0);
-
-        if (kill(-1, SIGSTOP) < 0 && errno != ESRCH)
-                log_warning("kill(-1, SIGSTOP) failed: %m");
-
-        r = kill(-1, sign);
-        if (r < 0 && errno != ESRCH)
-                log_warning("kill(-1, %s) failed: %m", signal_to_string(sign));
-
-        if (kill(-1, SIGCONT) < 0 && errno != ESRCH)
-                log_warning("kill(-1, SIGCONT) failed: %m");
-
-        if (r < 0)
-                goto finish;
-
-        wait_for_children(0, &mask);
-
-finish:
-        sigprocmask(SIG_SETMASK, &oldmask, NULL);
-}
 
 static int prepare_new_root(void) {
         static const char dirs[] =
@@ -267,6 +97,7 @@ static int prepare_new_root(void) {
 }
 
 static int pivot_to_new_root(void) {
+
         if (chdir("/run/initramfs") < 0) {
                 log_error("Failed to change directory to /run/initramfs: %m");
                 return -errno;
@@ -302,7 +133,7 @@ int main(int argc, char *argv[]) {
         int cmd, r;
         unsigned retries;
         bool need_umount = true, need_swapoff = true, need_loop_detach = true, need_dm_detach = true;
-        bool killed_everbody = false, in_container, use_watchdog = false;
+        bool in_container, use_watchdog = false;
         char *arguments[3];
 
         log_parse_environment();
@@ -345,10 +176,10 @@ int main(int argc, char *argv[]) {
         mlockall(MCL_CURRENT|MCL_FUTURE);
 
         log_info("Sending SIGTERM to remaining processes...");
-        send_signal(SIGTERM);
+        broadcast_signal(SIGTERM);
 
         log_info("Sending SIGKILL to remaining processes...");
-        send_signal(SIGKILL);
+        broadcast_signal(SIGKILL);
 
         if (in_container) {
                 need_swapoff = false;
@@ -414,21 +245,10 @@ int main(int argc, char *argv[]) {
                 }
 
                 /* If in this iteration we didn't manage to
-                 * unmount/deactivate anything, we either kill more
-                 * processes, or simply give up */
+                 * unmount/deactivate anything, we simply give up */
                 if (!changed) {
-
-                        if (killed_everbody) {
-                                /* Hmm, we already killed everybody,
-                                 * let's just give up */
-                                log_error("Cannot finalize remaining file systems and devices, giving up.");
-                                break;
-                        }
-
-                        log_warning("Cannot finalize remaining file systems and devices, trying to kill remaining processes.");
-                        ultimate_send_signal(SIGTERM);
-                        ultimate_send_signal(SIGKILL);
-                        killed_everbody = true;
+                        log_error("Cannot finalize remaining file systems and devices, giving up.");
+                        break;
                 }
 
                 log_debug("Couldn't finalize remaining file systems and devices after %u retries, trying again.", retries+1);

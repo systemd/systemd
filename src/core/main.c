@@ -51,6 +51,7 @@
 #include "path-util.h"
 #include "switch-root.h"
 #include "capability.h"
+#include "killall.h"
 
 #include "mount-setup.h"
 #include "loopback-setup.h"
@@ -1676,6 +1677,11 @@ finish:
                 make_console_stdio();
 
                 if (switch_root_dir) {
+                        /* Kill all remaining processes from the initrd */
+                        broadcast_signal(SIGTERM);
+                        broadcast_signal(SIGKILL);
+
+                        /* And switch root */
                         r = switch_root(switch_root_dir);
                         if (r < 0)
                                 log_error("Failed to switch root, ignoring: %s", strerror(-r));
