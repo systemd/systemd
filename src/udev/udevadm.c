@@ -99,8 +99,8 @@ int main(int argc, char *argv[])
         if (udev == NULL)
                 goto out;
 
-        log_open();
         log_parse_environment();
+        log_open();
         udev_set_log_fn(udev, udev_main_log);
         label_init("/dev");
 

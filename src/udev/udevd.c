@@ -1083,8 +1083,9 @@ int main(int argc, char *argv[])
         if (udev == NULL)
                 goto exit;
 
-        log_open();
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
+        log_open();
         udev_set_log_fn(udev, udev_main_log);
         log_debug("version %s\n", VERSION);
         label_init("/dev");
