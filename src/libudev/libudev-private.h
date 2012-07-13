@@ -173,4 +173,5 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
                                       char *result, size_t maxsize, int read_value);
 unsigned long long ts_usec(const struct timespec *ts);
 unsigned long long now_usec(void);
+ssize_t print_kmsg(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 #endif

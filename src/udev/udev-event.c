@@ -767,14 +767,7 @@ static int rename_netif(struct udev_event *event)
         util_strscpy(ifr.ifr_newname, IFNAMSIZ, event->name);
         err = ioctl(sk, SIOCSIFNAME, &ifr);
         if (err >= 0) {
-                FILE *f;
-
-                f = fopen("/dev/kmsg", "we");
-                if (f != NULL) {
-                        fprintf(f, "<30>systemd-udevd[%u]: renamed network interface %s to %s\n",
-                                getpid(), ifr.ifr_name, ifr.ifr_newname);
-                        fclose(f);
-                }
+                print_kmsg("renamed network interface %s to %s", ifr.ifr_name, ifr.ifr_newname);
         } else {
                 err = -errno;
                 log_error("error changing net interface name %s to %s: %m\n", ifr.ifr_name, ifr.ifr_newname);

@@ -727,3 +727,28 @@ unsigned long long now_usec(void)
                 return 0;
         return ts_usec(&ts);
 }
+
+ssize_t print_kmsg(const char *fmt, ...)
+{
+        int fd;
+        va_list ap;
+        char text[1024];
+        ssize_t len;
+        ssize_t ret;
+
+        fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        len = snprintf(text, sizeof(text), "<30>systemd-udevd[%u]: ", getpid());
+
+        va_start(ap, fmt);
+        len += vsnprintf(text + len, sizeof(text) - len, fmt, ap);
+        va_end(ap);
+
+        ret = write(fd, text, len);
+        if (ret < 0)
+                ret = -errno;
+        close(fd);
+        return ret;
+}

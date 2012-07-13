@@ -891,7 +891,6 @@ static int mem_size_mb(void)
 static int convert_db(struct udev *udev)
 {
         char filename[UTIL_PATH_SIZE];
-        FILE *f;
         struct udev_enumerate *udev_enumerate;
         struct udev_list_entry *list_entry;
 
@@ -907,11 +906,7 @@ static int convert_db(struct udev *udev)
         if (access(filename, F_OK) < 0)
                 return 0;
 
-        f = fopen("/dev/kmsg", "we");
-        if (f != NULL) {
-                fprintf(f, "<30>systemd-udevd[%u]: converting old udev database\n", getpid());
-                fclose(f);
-        }
+        print_kmsg("converting old udev database\n");
 
         udev_enumerate = udev_enumerate_new(udev);
         if (udev_enumerate == NULL)
@@ -1058,7 +1053,6 @@ static void kernel_cmdline_options(struct udev *udev)
 int main(int argc, char *argv[])
 {
         struct udev *udev;
-        FILE *f;
         sigset_t mask;
         int daemonize = false;
         int resolve_names = 1;
@@ -1265,11 +1259,7 @@ int main(int argc, char *argv[])
                 sd_notify(1, "READY=1");
         }
 
-        f = fopen("/dev/kmsg", "we");
-        if (f != NULL) {
-                fprintf(f, "<30>systemd-udevd[%u]: starting version " VERSION "\n", getpid());
-                fclose(f);
-        }
+        print_kmsg("starting version " VERSION "\n");
 
         if (!debug) {
                 int fd;
