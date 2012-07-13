@@ -184,6 +184,7 @@ int main(int argc, char *argv[]) {
         if (in_container) {
                 need_swapoff = false;
                 need_dm_detach = false;
+                need_loop_detach = false;
         }
 
         /* Unmount all mountpoints, swaps, and loopback devices */
