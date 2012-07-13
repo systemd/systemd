@@ -2387,6 +2387,7 @@ int acquire_terminal(
 
         int fd = -1, notify = -1, r, wd = -1;
         usec_t ts = 0;
+        struct sigaction sa_old, sa_new;
 
         assert(name);
 
@@ -2434,17 +2435,26 @@ int acquire_terminal(
                 if (fd < 0)
                         return fd;
 
+                /* Temporarily ignore SIGHUP, so that we don't get SIGHUP'ed
+                 * if we already own the tty. */
+                zero(sa_new);
+                sa_new.sa_handler = SIG_IGN;
+                sa_new.sa_flags = SA_RESTART;
+                assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
+
                 /* First, try to get the tty */
-                r = ioctl(fd, TIOCSCTTY, force);
+                if (ioctl(fd, TIOCSCTTY, force) < 0)
+                        r = -errno;
+
+                assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
 
                 /* Sometimes it makes sense to ignore TIOCSCTTY
                  * returning EPERM, i.e. when very likely we already
                  * are have this controlling terminal. */
-                if (r < 0 && errno == EPERM && ignore_tiocstty_eperm)
+                if (r < 0 && r == -EPERM && ignore_tiocstty_eperm)
                         r = 0;
 
-                if (r < 0 && (force || fail || errno != EPERM)) {
-                        r = -errno;
+                if (r < 0 && (force || fail || r != -EPERM)) {
                         goto fail;
                 }
 
