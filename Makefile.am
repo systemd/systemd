@@ -530,11 +530,11 @@ MANPAGES_ALIAS = \
 	man/systemd-tmpfiles-setup.service.8 \
 	man/systemd-tmpfiles-clean.service.8 \
 	man/systemd-tmpfiles-clean.timer.8 \
-	man/sd_id128_t.7 \
-	man/SD_ID128_MAKE.7 \
-	man/SD_ID128_FORMAT_STR.7 \
-	man/SD_ID128_FORMAT_VAL.7 \
-	man/sd_id128_equal.7 \
+	man/sd_id128_t.3 \
+	man/SD_ID128_MAKE.3 \
+	man/SD_ID128_FORMAT_STR.3 \
+	man/SD_ID128_FORMAT_VAL.3 \
+	man/sd_id128_equal.3 \
 	man/sd_id128_from_string.3 \
 	man/sd_id128_get_machine.3 \
 	man/sd_id128_get_boot.3 \
