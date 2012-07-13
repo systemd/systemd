@@ -1,0 +1,160 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2012 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="sd_journal_get_fd">
+
+        <refentryinfo>
+                <title>sd_journal_get_fd</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>sd_journal_get_fd</refentrytitle>
+                <manvolnum>3</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>sd_journal_get_fd</refname>
+                <refname>sd_journal_get_process</refname>
+                <refname>sd_journal_get_wait</refname>
+                <refpurpose>Journal change notification
+                interface</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <funcsynopsis>
+                        <funcsynopsisinfo>#include &lt;systemd/sd-journal.h&gt;</funcsynopsisinfo>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_journal_get_fd</function></funcdef>
+                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_journal_process</function></funcdef>
+                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_journal_wait</function></funcdef>
+                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>uint64_t <parameter>timeout_usec</parameter></paramdef>
+                        </funcprototype>
+
+                </funcsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><function>sd_journal_get_fd()</function> returns
+                a file descriptor that may be asynchronously polled in
+                an external event loop and is signalled readable as
+                soon as the journal changes, for example because new
+                entries were added. The file descriptor is suitable
+                for usage in
+                <citerefentry><refentrytitle>poll</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                where it will yield POLLIN on all changes. The call
+                takes one argument: the journal context object.</para>
+
+                <para>After each POLLIN wake-up
+                <function>sd_journal_process()</function> needs to be
+                called to process events and reset the readable state
+                of the file descriptor. This call will also indicate
+                what kind of change has been detected (see below; note
+                that spurious wake-ups are possible).</para>
+
+                <para>A synchronous alternative for using
+                <function>sd_journal_get_fd()</function> and
+                <function>sd_journal_process()</function> is
+                <function>sd_journal_wait()</function>. It will
+                synchronously wait until the journal gets changed up
+                to a certain time-out as specified in its second
+                argument. Pass <literal>(uint64_t) -1</literal> to
+                wait indefinitely. Internally this call simply
+                combines <function>sd_journal_get_fd()</function>,
+                <function>poll()</function> and
+                <function>sd_journal_process()</function> into
+                one.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Return Value</title>
+
+                <para><function>sd_journal_get_fd()</function> returns a valid file descriptor on success or a negative errno-style error
+                code.</para>
+
+                <para><function>sd_journal_process()</function> and
+                <function>sd_journal_wait()</function> return one of
+                <literal>SD_JOURNAL_NOP</literal>,
+                <literal>SD_JOURNAL_APPEND</literal> or
+                <literal>SD_JOURNAL_INVALIDATE</literal> on success or
+                a negative errno-style error code. If
+                <literal>SD_JOURNAL_NOP</literal> is returned the
+                journal didn't change since the last invocation. If
+                <literal>SD_JOURNAL_APPEND</literal> is returned new
+                entries have been appended to the end of the
+                journal. If <literal>SD_JOURNAL_INVALIDATE</literal>
+                journal files were added or removed (possibly due to
+                rotation). In the latter event live-view UIs should
+                probably refresh their entire display while in the
+                case of <literal>SD_JOURNAL_APPEND</literal> it is
+                sufficient to simply continue reading at the previous
+                end of the journal.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Notes</title>
+
+                <para>The <function>sd_journal_get_fd()</function>,
+                <function>sd_journal_process()</function> and
+                <function>sd_journal_wait()</function> interfaces are
+                available as shared library, which can be compiled and
+                linked to with the
+                <literal>libsystemd-journal</literal>
+                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                file.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_journal_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>
