@@ -551,8 +551,13 @@ MANPAGES_ALIAS = \
 	man/sd_journal_printv.3 \
 	man/sd_journal_send.3 \
 	man/sd_journal_sendv.3 \
+	man/SD_JOURNAL_SUPPRESS_LOCATION.3 \
 	man/sd_journal_open_directory.3 \
 	man/sd_journal_close.3 \
+	man/sd_journal.3 \
+	man/SD_JOURNAL_RUNTIME_ONLY.3 \
+	man/SD_JOURNAL_SYSTEM_ONLY.3 \
+	man/SD_JOURNAL_LOCAL_ONLY.3 \
 	man/sd_journal_previous.3 \
 	man/sd_journal_next_skip.3 \
 	man/sd_journal_previous_skip.3 \
@@ -565,6 +570,9 @@ MANPAGES_ALIAS = \
 	man/sd_journal_get_cutoff_monotonic_usec.3 \
 	man/sd_journal_process.3 \
 	man/sd_journal_wait.3 \
+	man/SD_JOURNAL_NOP.3 \
+	man/SD_JOURNAL_APPEND.3 \
+	man/SD_JOURNAL_INVALIDATE.3 \
 	man/sd_journal_add_disjunction.3 \
 	man/sd_journal_flush_matches.3 \
 	man/sd_journal_seek_tail.3 \
@@ -609,8 +617,13 @@ man/sd_id128_get_boot.3: man/sd_id128_get_machine.3
 man/sd_journal_printv.3: man/sd_journal_print.3
 man/sd_journal_send.3: man/sd_journal_print.3
 man/sd_journal_sendv.3: man/sd_journal_print.3
+man/SD_JOURNAL_SUPPRESS_LOCATION.3: man/sd_journal_print.3
 man/sd_journal_open_directory.3: man/sd_journal_open.3
 man/sd_journal_close.3: man/sd_journal_open.3
+man/sd_journal.3: man/sd_journal_open.3
+man/SD_JOURNAL_RUNTIME_ONLY.3: man/sd_journal_open.3
+man/SD_JOURNAL_SYSTEM_ONLY.3: man/sd_journal_open.3
+man/SD_JOURNAL_LOCAL_ONLY.3: man/sd_journal_open.3
 man/sd_journal_previous.3: man/sd_journal_next.3
 man/sd_journal_next_skip.3: man/sd_journal_next.3
 man/sd_journal_previous_skip.3: man/sd_journal_next.3
@@ -623,6 +636,9 @@ man/sd_journal_get_monotonic_usec.3: man/sd_journal_get_realtime_usec.3
 man/sd_journal_get_cutoff_monotonic_usec.3: man/sd_journal_get_cutoff_realtime_usec.3
 man/sd_journal_process.3: man/sd_journal_get_fd.3
 man/sd_journal_wait.3: man/sd_journal_get_fd.3
+man/SD_JOURNAL_NOP.3: man/sd_journal_get_fd.3
+man/SD_JOURNAL_APPEND.3: man/sd_journal_get_fd.3
+man/SD_JOURNAL_INVALIDATE.3: man/sd_journal_get_fd.3
 man/sd_journal_add_disjunction.3: man/sd_journal_add_match.3
 man/sd_journal_flush_matches.3: man/sd_journal_add_match.3
 man/sd_journal_seek_tail.3: man/sd_journal_seek_head.3
@@ -1479,13 +1495,31 @@ MANPAGES_ALIAS += \
 	man/sd_is_socket_unix.3 \
 	man/sd_is_socket_inet.3 \
 	man/sd_is_mq.3 \
-	man/sd_notifyf.3
+	man/sd_notifyf.3 \
+	man/SD_LISTEN_FDS_START.3 \
+	man/SD_EMERG.3 \
+	man/SD_ALERT.3 \
+	man/SD_CRIT.3 \
+	man/SD_ERR.3 \
+	man/SD_WARNING.3 \
+	man/SD_NOTICE.3 \
+	man/SD_INFO.3 \
+	man/SD_DEBUG.3
 
 man/sd_is_socket.3: man/sd_is_fifo.3
 man/sd_is_socket_unix.3: man/sd_is_fifo.3
 man/sd_is_socket_inet.3: man/sd_is_fifo.3
 man/sd_is_mq.3: man/sd_is_fifo.3
 man/sd_notifyf.3: man/sd_notify.3
+man/SD_LISTEN_FDS_START.3: man/sd_listen_fds.3
+man/SD_EMERG.3: man/sd-daemon.3
+man/SD_ALERT.3: man/sd-daemon.3
+man/SD_CRIT.3: man/sd-daemon.3
+man/SD_ERR.3: man/sd-daemon.3
+man/SD_WARNING.3: man/sd-daemon.3
+man/SD_NOTICE.3: man/sd-daemon.3
+man/SD_INFO.3: man/sd-daemon.3
+man/SD_DEBUG.3: man/sd-daemon.3
 
 EXTRA_DIST += \
 	src/libsystemd-daemon/libsystemd-daemon.pc.in \
@@ -3179,6 +3213,7 @@ MANPAGES_ALIAS += \
 	man/sd_login_monitor_unref.3 \
 	man/sd_login_monitor_flush.3 \
 	man/sd_login_monitor_get_fd.3 \
+	man/sd_login_monitor.3 \
 	man/sd_session_get_uid.3 \
 	man/sd_session_get_seat.3 \
 	man/sd_session_get_service.3 \
@@ -3200,6 +3235,7 @@ man/systemd-logind.8: man/systemd-logind.service.8
 man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_flush.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
+man/sd_login_monitor.3: man/sd_login_monitor_new.3
 man/sd_session_get_uid.3: man/sd_session_is_active.3
 man/sd_session_get_seat.3: man/sd_session_is_active.3
 man/sd_session_get_service.3: man/sd_session_is_active.3

@@ -47,6 +47,7 @@
                 <refname>sd_journal_printv</refname>
                 <refname>sd_journal_send</refname>
                 <refname>sd_journal_sendv</refname>
+                <refname>SD_JOURNAL_SUPPRESS_LOCATION</refname>
                 <refpurpose>Submit log entries to the journal</refpurpose>
         </refnamediv>
 

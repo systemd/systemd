@@ -44,6 +44,14 @@
 
         <refnamediv>
                 <refname>sd-daemon</refname>
+                <refname>SD_EMERG</refname>
+                <refname>SD_ALERT</refname>
+                <refname>SD_CRIT</refname>
+                <refname>SD_ERR</refname>
+                <refname>SD_WARNING</refname>
+                <refname>SD_NOTICE</refname>
+                <refname>SD_INFO</refname>
+                <refname>SD_DEBUG</refname>
                 <refpurpose>Reference implementation of APIs for
                 new-style daemons</refpurpose>
         </refnamediv>

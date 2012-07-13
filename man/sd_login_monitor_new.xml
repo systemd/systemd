@@ -47,6 +47,7 @@
                 <refname>sd_login_monitor_unref</refname>
                 <refname>sd_login_monitor_flush</refname>
                 <refname>sd_login_monitor_get_fd</refname>
+                <refname>sd_login_monitor</refname>
                 <refpurpose>Monitor login sessions, seats and users</refpurpose>
         </refnamediv>
 

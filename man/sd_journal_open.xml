@@ -46,6 +46,10 @@
                 <refname>sd_journal_open</refname>
                 <refname>sd_journal_open_directory</refname>
                 <refname>sd_journal_close</refname>
+                <refname>sd_journal</refname>
+                <refname>SD_JOURNAL_LOCAL_ONLY</refname>
+                <refname>SD_JOURNAL_RUNTIME_ONLY</refname>
+                <refname>SD_JOURNAL_SYSTEM_ONLY</refname>
                 <refpurpose>Open the system journal for reading</refpurpose>
         </refnamediv>
 
@@ -81,7 +85,7 @@
                 files automatically and interleave them automatically
                 when reading. As first argument it takes a pointer to
                 a <literal>sd_journal</literal> pointer, which on
-                success will contain journal context afterwards. The
+                success will contain journal context object afterwards. The
                 second argument is a flags field, which may consist of
                 the following flags ORed together:
                 <literal>SD_JOURNAL_LOCAL_ONLY</literal> makes sure
