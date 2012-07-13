@@ -34,10 +34,12 @@ int main(int argc, char *argv[]) {
         static const char test[] = "test", test2[] = "test2";
         Object *o;
         uint64_t p;
+        char t[] = "/tmp/journal-XXXXXX";
 
         log_set_max_level(LOG_DEBUG);
 
-        unlink("test.journal");
+        assert_se(mkdtemp(t));
+        assert_se(chdir(t) >= 0);
 
         assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, NULL, &f) == 0);
 
@@ -115,6 +117,8 @@ int main(int argc, char *argv[]) {
         journal_directory_vacuum(".", 3000000, 0);
 
         log_error("Exiting...");
+
+        assert_se(rm_rf(t, false, true, false) >= 0);
 
         return 0;
 }

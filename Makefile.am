@@ -994,7 +994,8 @@ noinst_PROGRAMS += \
 TESTS += \
 	test-job-type \
 	test-env-replace \
-	test-strv
+	test-strv \
+	test-unit-name
 
 test_engine_SOURCES = \
 	src/test/test-engine.c
@@ -2330,6 +2331,11 @@ UNINSTALL_EXEC_HOOKS += \
 noinst_PROGRAMS += \
 	test-journal \
 	test-journal-send \
+	test-journal-match \
+	test-journal-stream
+
+TESTS += \
+	test-journal
 	test-journal-match \
 	test-journal-stream
 
