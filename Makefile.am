@@ -498,6 +498,7 @@ MANPAGES = \
 	man/sd-id128.3 \
 	man/sd_id128_to_string.3 \
 	man/sd_id128_randomize.3 \
+	man/sd_id128_get_machine.3 \
 	man/sd-journal.3 \
 	man/sd_journal_print.3 \
 	man/sd_journal_stream_fd.3 \
@@ -604,8 +605,7 @@ man/SD_ID128_FORMAT_STR.3: man/sd-id128.3
 man/SD_ID128_FORMAT_VAL.3: man/sd-id128.3
 man/sd_id128_equal.3: man/sd-id128.3
 man/sd_id128_from_string.3: man/sd_id128_to_string.3
-man/sd_id128_get_machine.3: man/sd_id128_randomize.3
-man/sd_id128_get_boot.3: man/sd_id128_randomize.3
+man/sd_id128_get_boot.3: man/sd_id128_get_machine.3
 man/sd_journal_printv.3: man/sd_journal_print.3
 man/sd_journal_send.3: man/sd_journal_print.3
 man/sd_journal_sendv.3: man/sd_journal_print.3

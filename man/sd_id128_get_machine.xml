@@ -21,10 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_id128_randomize">
+<refentry id="sd_id128_get_machine">
 
         <refentryinfo>
-                <title>sd_id128_randomize</title>
+                <title>sd_id128_get_machine</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -38,13 +38,14 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>sd_id128_randomize</refentrytitle>
+                <refentrytitle>sd_id128_get_machine</refentrytitle>
                 <manvolnum>3</manvolnum>
         </refmeta>
 
         <refnamediv>
-                <refname>sd_id128_randomize</refname>
-                <refpurpose>Generate 128 bit IDs</refpurpose>
+                <refname>sd_id128_get_machine</refname>
+                <refname>sd_id128_get_boot</refname>
+                <refpurpose>Retrieve 128 bit IDs</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -52,7 +53,12 @@
                         <funcsynopsisinfo>#include &lt;systemd/sd-id128.h&gt;</funcsynopsisinfo>
 
                         <funcprototype>
-                                <funcdef>int <function>sd_id128_randomize</function></funcdef>
+                                <funcdef>int <function>sd_id128_get_machine</function></funcdef>
+                                <paramdef>sd_id128_t* <parameter>ret</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_id128_get_boot</function></funcdef>
                                 <paramdef>sd_id128_t* <parameter>ret</parameter></paramdef>
                         </funcprototype>
 
@@ -62,32 +68,45 @@
         <refsect1>
                 <title>Description</title>
 
-                <para><function>sd_id128_randomize()</function>
-                generates a new randomized 128 bit ID and returns it
-                in <parameter>ret</parameter>. Every invocation
-                returns a new randomly generated ID. This uses the
-                <filename>/dev/urandom</filename> kernel random number
-                generator.</para>
+                <para><function>sd_id128_get_machine()</function>
+                returns the machine ID of the executing host. This
+                reads and parses the
+                <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                file. This function caches the machine ID internally
+                to make retrieving the machine ID a cheap
+                operation.</para>
+
+                <para><function>sd_id128_get_boot()</function> returns
+                the boot ID of the executing kernel. This reads and
+                parses the
+                <filename>/proc/sys/kernel/random/boot_id</filename>
+                file exposed by the kernel. It is randomly generated
+                early at boot and is unique for every running kernel
+                instance. See
+                <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>
+                for more information. This function also internally
+                caches the returned ID to make this call a cheap
+                operation.</para>
 
                 <para>Note that
-                <function>sd_id128_randomize()</function> always returns
+                <function>sd_id128_get_boot()</function> always returns
                 a UUID v4 compatible
-                ID.</para>
+                ID. <function>sd_id128_get_machine()</function> will
+                also return a UUID v4 compatible ID on new
+                installations, but might not on older. It is possible
+                to convert the machine ID into an UUID v4 compatible
+                one. For more information see
+                <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
                 <para>For more information about the
                 <literal>sd_id128_t</literal> type see
                 <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
-
-                <para><citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-                <literal>--new-id</literal> command may be used as
-                command line front-end for
-                <function>sd_id128_randomize()</function>.</para>
         </refsect1>
 
         <refsect1>
                 <title>Return Value</title>
 
-                <para>The call returns 0 on success (in which
+                <para>The two calls return 0 on success (in which
                 case <parameter>ret</parameter> is filled in), or a
                 negative errno-style error code.</para>
         </refsect1>
@@ -95,9 +114,10 @@
         <refsect1>
                 <title>Notes</title>
 
-                <para>The <function>sd_id128_randomize()</function> interface
-                is available as shared library, which can be compiled
-                and linked to with the
+                <para>The <function>sd_id128_get_machine()</function>
+                and <function>sd_id128_get_boot()</function>
+                interfaces are available as shared library, which can
+                be compiled and linked to with the
                 <literal>libsystemd-id128</literal>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
@@ -111,7 +131,7 @@
                         <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>sd_id128_randomize</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

@@ -78,8 +78,9 @@
                 </para>
 
                 <para>See
-                <citerefentry><refentrytitle>sd_id128_to_string</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
-                <citerefentry><refentrytitle>sd_id128_randomize</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                <citerefentry><refentrytitle>sd_id128_to_string</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>sd_id128_randomize</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+                <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for more information about the implemented
                 functions.</para>
 
@@ -157,6 +158,7 @@
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_id128_to_string</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_id128_randomize</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
