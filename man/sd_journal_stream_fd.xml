@@ -127,6 +127,8 @@
 
                 <programlisting>#include &lt;syslog.h&gt;
 #include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include &lt;unistd.h&gt;
 #include &lt;systemd/sd-journal.h&gt;
 #include &lt;systemd/sd-daemon.h&gt;
 

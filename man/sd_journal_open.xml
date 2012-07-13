@@ -89,7 +89,7 @@
                 be opened. <literal>SD_JOURNAL_RUNTIME_ONLY</literal>
                 makes sure only volatile journal files will be opened,
                 excluding those which are stored on persistant
-                storage. <literal>SD_JOURNAL_RUNTIME_ONLY</literal>
+                storage. <literal>SD_JOURNAL_SYSTEM_ONLY</literal>
                 will ensure that only journal files of system services
                 and the kernel (in opposition to user session processes) will
                 be opened.</para>
@@ -112,6 +112,12 @@
                 accessible to the calling user will be opened. If
                 journal files are not accessible to the caller this
                 will be silently ignored.</para>
+
+                <para>See
+                <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                for an example how to iterate through the journal
+                after opening it it with
+                <function>sd_journal_open()</function>.</para>
         </refsect1>
 
         <refsect1>
