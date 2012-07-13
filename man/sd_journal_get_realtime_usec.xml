@@ -99,7 +99,7 @@
                 <para>Note that these functions will not work before
                 <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 (or related call) has been called at least
-                once.</para>
+                once, in order to position the read pointer at a valid entry.</para>
         </refsect1>
 
         <refsect1>

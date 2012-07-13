@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>sd_journal_get_cutoff_realtime_usec</refname>
                 <refname>sd_journal_get_cutoff_monotonic_usec</refname>
-                <refpurpose>Read timestamps from the current journal entry</refpurpose>
+                <refpurpose>Read cut-off timestamps from the current journal entry</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

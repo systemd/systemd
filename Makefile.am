@@ -505,7 +505,8 @@ MANPAGES = \
 	man/sd_journal_next.3 \
 	man/sd_journal_get_data.3 \
 	man/sd_journal_get_realtime_usec.3 \
-	man/sd_journal_get_cutoff_realtime_usec.3
+	man/sd_journal_get_cutoff_realtime_usec.3 \
+	man/sd_journal_get_cursor.3
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \

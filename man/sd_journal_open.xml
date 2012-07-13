@@ -118,6 +118,25 @@
                 for an example how to iterate through the journal
                 after opening it it with
                 <function>sd_journal_open()</function>.</para>
+
+                <para>A journal context object returned by
+                <function>sd_journal_open()</function> references a
+                specific journal entry as <emphasis>current</emphasis> entry,
+                similar to a file seek index in a classic file system
+                file, but without absolute positions. It may be
+                altered with
+                <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                and
+                <citerefentry><refentrytitle>sd_journal_seek_head</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                and related calls. The current entry position may be
+                exported in <emphasis>cursor</emphasis> strings, as accessible
+                via
+                <citerefentry><refentrytitle>sd_journal_get_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>. Cursor
+                strings may be used to globally identify a specific
+                journal entry in a stable way and then later to seek
+                to it (or if the specific entry is not available
+                locally, to its closest entry in time)
+                <citerefentry><refentrytitle>sd_journal_seek_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
         </refsect1>
 
         <refsect1>
