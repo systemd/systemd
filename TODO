@@ -34,6 +34,8 @@ Bugfixes:
 
 Features:
 
+* change mount access mode ot 0700 or so for debugfs?
+
 * logind: wakelock/opportunistic suspend support
 
 * seccomp filters for services

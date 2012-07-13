@@ -639,7 +639,7 @@ int show_journal_by_unit(
                         if (r < 0)
                                 goto finish;
 
-                        if (not_before < cutoff)
+                        if (r > 0 && not_before < cutoff)
                                 printf("Warning: Journal has been rotated since unit was started. Log output is incomplete or unavailable.\n");
 
                         warn_cutoff = false;

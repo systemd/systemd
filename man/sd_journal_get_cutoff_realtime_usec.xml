@@ -21,10 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_journal_get_realtime_usec">
+<refentry id="sd_journal_get_cutoff_realtime_usec">
 
         <refentryinfo>
-                <title>sd_journal_get_realtime_usec</title>
+                <title>sd_journal_get_cutoff_realtime_usec</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -38,13 +38,13 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>sd_journal_get_realtime_usec</refentrytitle>
+                <refentrytitle>sd_journal_get_cutoff_realtime_usec</refentrytitle>
                 <manvolnum>3</manvolnum>
         </refmeta>
 
         <refnamediv>
-                <refname>sd_journal_get_realtime_usec</refname>
-                <refname>sd_journal_get_monotonic_usec</refname>
+                <refname>sd_journal_get_cutoff_realtime_usec</refname>
+                <refname>sd_journal_get_cutoff_monotonic_usec</refname>
                 <refpurpose>Read timestamps from the current journal entry</refpurpose>
         </refnamediv>
 
@@ -53,16 +53,18 @@
                         <funcsynopsisinfo>#include &lt;systemd/sd-journal.h&gt;</funcsynopsisinfo>
 
                         <funcprototype>
-                                <funcdef>int <function>sd_journal_get_realtime_usec</function></funcdef>
+                                <funcdef>int <function>sd_journal_get_cutoff_realtime_usec</function></funcdef>
                                 <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>uint64_t* <parameter>usec</parameter></paramdef>
+                                <paramdef>uint64_t* <parameter>from</parameter></paramdef>
+                                <paramdef>uint64_t* <parameter>to</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
-                                <funcdef>int <function>sd_journal_get_monotonic_usec</function></funcdef>
+                                <funcdef>int <function>sd_journal_get_cutoff_monotonic_usec</function></funcdef>
                                 <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>uint64_t* <parameter>usec</parameter></paramdef>
-                                <paramdef>sd_id128_t* <parameter>boot_id</parameter></paramdef>
+                                <paramdef>sd_id128_t <parameter>boot_id</parameter></paramdef>
+                                <paramdef>uint64_t* <parameter>from</parameter></paramdef>
+                                <paramdef>uint64_t* <parameter>to</parameter></paramdef>
                         </funcprototype>
 
                 </funcsynopsis>
@@ -71,56 +73,52 @@
         <refsect1>
                 <title>Description</title>
 
-                <para><function>sd_journal_get_realtime_usec()</function>
-                gets the realtime (wallclock) timestamp of the
-                current journal entry.  It takes two arguments: the
-                journal context object and a pointer to a 64 Bit
-                unsigned integer to store the timestamp in. The
-                timestamp is in microseconds since the epoch,
-                i.e. CLOCK_REALTIME.</para>
+                <para><function>sd_journal_get_cutoff_realtime_usec()</function>
+                gets the realtime (wallclock) timestamps of the first
+                and last entries accessible in the journal.  It takes
+                three arguments: the journal context object and two
+                pointers to 64 Bit unsigned integers to store the
+                timestamps in. The timestamps are in microseconds
+                since the epoch, i.e. CLOCK_REALTIME. Either one of
+                the two timestamp arguments may be passed as NULL in
+                case the timestamp is not needed, but not both.</para>
 
-                <para><function>sd_journal_get_monotonic_usec()</function>
-                gets the monotonic timestamp of the current
-                journal entry.  It takes three arguments: the journal
-                context object, a pointer to a 64 Bit unsigned integer
-                to store the timestamp in as well as a 128 Bit ID
-                buffer to store the boot ID of the monotonic timestamp
-                in. The timestamp is in microseconds since boot-up of
-                the specific boot, i.e. CLOCK_MONOTONIC. Since the
+                <para><function>sd_journal_get_cutoff_monotonic_usec()</function>
+                gets the monotonic timestamps of the first and last
+                entries accessible in the journal. It takes three
+                arguments: the journal context object, a 128 Bit
+                identifier for the boot, and two pointers to 64 Bit
+                unsigned integers to store the timestamps. The
+                timestamps are in microseconds since boot-up of the
+                specific boot, i.e. CLOCK_MONOTONIC. Since the
                 monotonic clock begins new with every reboot it only
                 defines a well-defined point in time when used
                 together with an identifier identifying the boot, see
                 <citerefentry><refentrytitle>sd_id128_get_boot</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                for more information. If the boot ID parameter is
-                passed NULL the function will fail if the monotonic
-                timestamp of the current entry is not of the current
-                system boot.</para>
-
-                <para>Note that these functions will not work before
-                <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                (or related call) has been called at least
-                once.</para>
+                for more information. The function will return the
+                timestamps for the boot identified by the passed boot
+                ID. Either one of the two timestamp arguments may be
+                passed as NULL in case the timestamp is not needed,
+                but not both.</para>
         </refsect1>
 
         <refsect1>
                 <title>Return Value</title>
 
-                <para><function>sd_journal_get_realtime_usec()</function>
+                <para><function>sd_journal_get_cutoff_realtime_usec()</function>
                 and
-                <function>sd_journal_get_monotonic_usec()</function>
-                returns 0 on success or a negative errno-style error
-                code. If the boot ID parameter was passed NULL and the
-                monotonic timestamp of the current journal entry is
-                not of the current system boot, -ESTALE is returned by <function>sd_journal_get_monotonic_usec()</function>.</para>
+                <function>sd_journal_get_cutoff_monotonic_usec()</function>
+                return 1 on success, 0 if not suitable entries are in
+                the journal or a negative errno-style error code.</para>
         </refsect1>
 
         <refsect1>
                 <title>Notes</title>
 
                 <para>The
-                <function>sd_journal_get_realtime_usec()</function>
+                <function>sd_journal_get_cutoff_realtime_usec()</function>
                 and
-                <function>sd_journal_get_monotonic_usec()</function>
+                <function>sd_journal_get_cutoff_monotonic_usec()</function>
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
                 <literal>libsystemd-journal</literal>
@@ -135,11 +133,9 @@
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_journal_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_id128_get_boot</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_journal_get_cutoff_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
