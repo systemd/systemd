@@ -3310,7 +3310,10 @@ if HAVE_XSLTPROC
 XSLTPROC_FLAGS = \
 	--nonet \
 	--stringparam man.output.quietly 1 \
-	--stringparam funcsynopsis.style ansi
+	--stringparam funcsynopsis.style ansi \
+	--stringparam man.th.extra1.suppress 1 \
+	--stringparam man.authors.section.enabled 0 \
+	--stringparam man.copyright.section.enabled 0
 
 XSLTPROC_PROCESS_MAN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
