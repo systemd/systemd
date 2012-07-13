@@ -626,6 +626,10 @@ man_MANS = \
 
 noinst_DATA = \
 	${XML_FILES:.xml=.html}
+
+CLEANFILES += \
+	$(MANPAGES) \
+	$(MANPAGES_ALIAS)
 endif
 
 EXTRA_DIST += \
