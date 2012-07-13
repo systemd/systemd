@@ -1144,7 +1144,7 @@ static void retroactively_start_dependencies(Unit *u) {
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
 
-        SET_FOREACH(other, u->dependencies[UNIT_BIND_TO], i)
+        SET_FOREACH(other, u->dependencies[UNIT_BINDS_TO], i)
                 if (!set_get(u->dependencies[UNIT_AFTER], other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
@@ -1209,7 +1209,7 @@ static void check_unneeded_dependencies(Unit *u) {
         SET_FOREACH(other, u->dependencies[UNIT_REQUISITE_OVERRIDABLE], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         unit_check_unneeded(other);
-        SET_FOREACH(other, u->dependencies[UNIT_BIND_TO], i)
+        SET_FOREACH(other, u->dependencies[UNIT_BINDS_TO], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         unit_check_unneeded(other);
 }
@@ -1595,11 +1595,11 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_WANTS] = UNIT_WANTED_BY,
                 [UNIT_REQUISITE] = UNIT_REQUIRED_BY,
                 [UNIT_REQUISITE_OVERRIDABLE] = UNIT_REQUIRED_BY_OVERRIDABLE,
-                [UNIT_BIND_TO] = UNIT_BOUND_BY,
+                [UNIT_BINDS_TO] = UNIT_BOUND_BY,
                 [UNIT_REQUIRED_BY] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_REQUIRED_BY_OVERRIDABLE] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_WANTED_BY] = _UNIT_DEPENDENCY_INVALID,
-                [UNIT_BOUND_BY] = UNIT_BIND_TO,
+                [UNIT_BOUND_BY] = UNIT_BINDS_TO,
                 [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
                 [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
                 [UNIT_BEFORE] = UNIT_AFTER,
@@ -1609,8 +1609,8 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_REFERENCED_BY] = UNIT_REFERENCES,
                 [UNIT_TRIGGERS] = UNIT_TRIGGERED_BY,
                 [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
-                [UNIT_PROPAGATE_RELOAD_TO] = UNIT_PROPAGATE_RELOAD_FROM,
-                [UNIT_PROPAGATE_RELOAD_FROM] = UNIT_PROPAGATE_RELOAD_TO
+                [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
+                [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO
         };
         int r, q = 0, v = 0, w = 0;
 
@@ -2519,7 +2519,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (r < 0)
                 return r;
 
-        if ((r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_BIND_TO, device, true)) < 0)
+        if ((r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_BINDS_TO, device, true)) < 0)
                 return r;
 
         if (wants)
@@ -2765,7 +2765,7 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_REQUISITE_OVERRIDABLE] = "RequisiteOverridable",
         [UNIT_REQUIRED_BY] = "RequiredBy",
         [UNIT_REQUIRED_BY_OVERRIDABLE] = "RequiredByOverridable",
-        [UNIT_BIND_TO] = "BindTo",
+        [UNIT_BINDS_TO] = "BindsTo",
         [UNIT_WANTED_BY] = "WantedBy",
         [UNIT_CONFLICTS] = "Conflicts",
         [UNIT_CONFLICTED_BY] = "ConflictedBy",
@@ -2777,8 +2777,8 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_ON_FAILURE] = "OnFailure",
         [UNIT_TRIGGERS] = "Triggers",
         [UNIT_TRIGGERED_BY] = "TriggeredBy",
-        [UNIT_PROPAGATE_RELOAD_TO] = "PropagateReloadTo",
-        [UNIT_PROPAGATE_RELOAD_FROM] = "PropagateReloadFrom"
+        [UNIT_PROPAGATES_RELOAD_TO] = "PropagatesReloadTo",
+        [UNIT_RELOAD_PROPAGATED_FROM] = "ReloadPropagatedFrom"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);

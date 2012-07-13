@@ -76,13 +76,13 @@ enum UnitDependency {
         UNIT_REQUISITE,
         UNIT_REQUISITE_OVERRIDABLE,
         UNIT_WANTS,
-        UNIT_BIND_TO,
+        UNIT_BINDS_TO,
 
         /* Inverse of the above */
         UNIT_REQUIRED_BY,             /* inverse of 'requires' and 'requisite' is 'required_by' */
         UNIT_REQUIRED_BY_OVERRIDABLE, /* inverse of 'requires_overridable' and 'requisite_overridable' is 'soft_required_by' */
         UNIT_WANTED_BY,               /* inverse of 'wants' */
-        UNIT_BOUND_BY,                /* inverse of 'bind_to' */
+        UNIT_BOUND_BY,                /* inverse of 'binds_to' */
 
         /* Negative dependencies */
         UNIT_CONFLICTS,               /* inverse of 'conflicts' is 'conflicted_by' */
@@ -100,8 +100,8 @@ enum UnitDependency {
         UNIT_TRIGGERED_BY,
 
         /* Propagate reloads */
-        UNIT_PROPAGATE_RELOAD_TO,
-        UNIT_PROPAGATE_RELOAD_FROM,
+        UNIT_PROPAGATES_RELOAD_TO,
+        UNIT_RELOAD_PROPAGATED_FROM,
 
         /* Reference information for GC logic */
         UNIT_REFERENCES,              /* Inverse of 'references' is 'referenced_by' */

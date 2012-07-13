@@ -410,7 +410,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>BindTo=</varname></term>
+                                <term><varname>BindsTo=</varname></term>
 
                                 <listitem><para>Configures requirement
                                 dependencies, very similar in style to
@@ -527,8 +527,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>PropagateReloadTo=</varname></term>
-                                <term><varname>PropagateReloadFrom=</varname></term>
+                                <term><varname>PropagatesReloadTo=</varname></term>
+                                <term><varname>ReloadPropagatedFrom=</varname></term>
 
                                 <listitem><para>Lists one or more
                                 units where reload requests on the

@@ -2464,7 +2464,7 @@ static int service_start(Unit *u) {
                 return 0;
 
         /* A service that will be restarted must be stopped first to
-         * trigger BindTo and/or OnFailure dependencies. If a user
+         * trigger BindsTo and/or OnFailure dependencies. If a user
          * does not want to wait for the holdoff time to elapse, the
          * service should be manually restarted, not started. */
         if (s->state == SERVICE_AUTO_RESTART) {

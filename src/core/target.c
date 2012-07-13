@@ -59,7 +59,7 @@ static int target_add_default_dependencies(Target *t) {
                 UNIT_REQUISITE,
                 UNIT_REQUISITE_OVERRIDABLE,
                 UNIT_WANTS,
-                UNIT_BIND_TO
+                UNIT_BINDS_TO
         };
 
         Iterator i;

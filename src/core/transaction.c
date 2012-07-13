@@ -893,7 +893,7 @@ int transaction_add_job_and_dependencies(
                                 }
                         }
 
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_BIND_TO], i) {
+                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_BINDS_TO], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, override, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR)
@@ -998,7 +998,7 @@ int transaction_add_job_and_dependencies(
 
                 if (type == JOB_RELOAD) {
 
-                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_PROPAGATE_RELOAD_TO], i) {
+                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_PROPAGATES_RELOAD_TO], i) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_RELOAD, dep, ret, false, override, false, false, ignore_order, e);
                                 if (r < 0) {
                                         log_warning("Cannot add dependency reload job for unit %s, ignoring: %s", dep->id, bus_error(e, r));

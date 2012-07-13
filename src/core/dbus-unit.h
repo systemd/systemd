@@ -71,7 +71,7 @@
         "  <property name=\"Requisite\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"RequisiteOverridable\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Wants\" type=\"as\" access=\"read\"/>\n"    \
-        "  <property name=\"BindTo\" type=\"as\" access=\"read\"/>\n"    \
+        "  <property name=\"BindsTo\" type=\"as\" access=\"read\"/>\n"    \
         "  <property name=\"RequiredBy\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"RequiredByOverridable\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"WantedBy\" type=\"as\" access=\"read\"/>\n" \
@@ -83,8 +83,8 @@
         "  <property name=\"OnFailure\" type=\"as\" access=\"read\"/>\n"    \
         "  <property name=\"Triggers\" type=\"as\" access=\"read\"/>\n"    \
         "  <property name=\"TriggeredBy\" type=\"as\" access=\"read\"/>\n"    \
-        "  <property name=\"PropagateReloadTo\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"PropagateReloadFrom\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"PropagatesReloadTo\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"ReloadPropagatedFrom\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"RequiresMountsFor\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Description\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SourcePath\" type=\"s\" access=\"read\"/>\n" \

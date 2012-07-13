@@ -98,13 +98,16 @@ Unit.RequiresOverridable,        config_parse_unit_deps,             UNIT_REQUIR
 Unit.Requisite,                  config_parse_unit_deps,             UNIT_REQUISITE,                0
 Unit.RequisiteOverridable,       config_parse_unit_deps,             UNIT_REQUISITE_OVERRIDABLE,    0
 Unit.Wants,                      config_parse_unit_deps,             UNIT_WANTS,                    0
-Unit.BindTo,                     config_parse_unit_deps,             UNIT_BIND_TO,                  0
+Unit.BindsTo,                    config_parse_unit_deps,             UNIT_BINDS_TO,                 0
+Unit.BindTo,                     config_parse_unit_deps,             UNIT_BINDS_TO,                 0
 Unit.Conflicts,                  config_parse_unit_deps,             UNIT_CONFLICTS,                0
 Unit.Before,                     config_parse_unit_deps,             UNIT_BEFORE,                   0
 Unit.After,                      config_parse_unit_deps,             UNIT_AFTER,                    0
 Unit.OnFailure,                  config_parse_unit_deps,             UNIT_ON_FAILURE,               0
-Unit.PropagateReloadTo,          config_parse_unit_deps,             UNIT_PROPAGATE_RELOAD_TO,      0
-Unit.PropagateReloadFrom,        config_parse_unit_deps,             UNIT_PROPAGATE_RELOAD_FROM,    0
+Unit.PropagatesReloadTo,         config_parse_unit_deps,             UNIT_PROPAGATES_RELOAD_TO,     0
+Unit.PropagateReloadTo,          config_parse_unit_deps,             UNIT_PROPAGATES_RELOAD_TO,     0
+Unit.ReloadPropagatedFrom,       config_parse_unit_deps,             UNIT_RELOAD_PROPAGATED_FROM,   0
+Unit.PropagateReloadFrom,        config_parse_unit_deps,             UNIT_RELOAD_PROPAGATED_FROM,   0
 Unit.RequiresMountsFor,          config_parse_unit_requires_mounts_for, 0,                          offsetof(Unit, requires_mounts_for)
 Unit.StopWhenUnneeded,           config_parse_bool,                  0,                             offsetof(Unit, stop_when_unneeded)
 Unit.RefuseManualStart,          config_parse_bool,                  0,                             offsetof(Unit, refuse_manual_start)
