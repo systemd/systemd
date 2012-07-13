@@ -44,6 +44,7 @@
 #include "mkdir.h"
 #include "virt.h"
 #include "watchdog.h"
+#include "killall.h"
 
 #define FINALIZE_ATTEMPTS 50
 
