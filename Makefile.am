@@ -546,7 +546,6 @@ MANPAGES_ALIAS = \
 	man/SD_ID128_FORMAT_VAL.3 \
 	man/sd_id128_equal.3 \
 	man/sd_id128_from_string.3 \
-	man/sd_id128_get_machine.3 \
 	man/sd_id128_get_boot.3 \
 	man/sd_journal_printv.3 \
 	man/sd_journal_send.3 \

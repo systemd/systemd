@@ -46,6 +46,9 @@
                 <refname>sd_journal_get_fd</refname>
                 <refname>sd_journal_process</refname>
                 <refname>sd_journal_wait</refname>
+                <refname>SD_JOURNAL_NOP</refname>
+                <refname>SD_JOURNAL_APPEND</refname>
+                <refname>SD_JOURNAL_INVALIDATE</refname>
                 <refpurpose>Journal change notification
                 interface</refpurpose>
         </refnamediv>
