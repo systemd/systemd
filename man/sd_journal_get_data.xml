@@ -126,7 +126,7 @@
 
                 <para>Note that these functions will not work before
                 <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                (or related call) has not been called at least
+                (or related call) has been called at least
                 once.</para>
         </refsect1>
 
@@ -192,7 +192,8 @@ int print_fields(sd_journal *j) {
                         <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_journal_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
