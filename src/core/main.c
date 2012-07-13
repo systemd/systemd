@@ -1673,9 +1673,6 @@ finish:
                  * rebooted while we do that */
                 watchdog_close(true);
 
-                /* Reopen the console */
-                make_console_stdio();
-
                 if (switch_root_dir) {
                         /* Kill all remaining processes from the initrd */
                         broadcast_signal(SIGTERM);
@@ -1732,6 +1729,9 @@ finish:
                         fdset_free(fds);
                         fds = NULL;
                 }
+
+                /* Reopen the console */
+                make_console_stdio();
 
                 for (j = 1, i = 1; j < argc; j++)
                         args[i++] = argv[j];
