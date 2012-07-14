@@ -2221,6 +2221,48 @@ static char *specifier_runtime(char specifier, void *data, void *userdata) {
         return strdup("/run");
 }
 
+static char *specifier_user_name(char specifier, void *data, void *userdata) {
+        Service *s = userdata;
+        int r;
+        const char *username;
+
+        /* get USER env from our own env if set */
+        if (!s->exec_context.user)
+                return getusername_malloc();
+
+        /* fish username from passwd */
+        username = s->exec_context.user;
+        r = get_user_creds(&username, NULL, NULL, NULL);
+        if (r < 0)
+                return NULL;
+
+        return strdup(username);
+}
+
+static char *specifier_user_home(char specifier, void *data, void *userdata) {
+        Service *s = userdata;
+        int r;
+        const char *username, *home;
+
+        /* return HOME if set, otherwise from passwd */
+        if (!s->exec_context.user) {
+                char *h;
+
+                r = get_home_dir(&h);
+                if (r < 0)
+                        return NULL;
+
+                return h;
+        }
+
+        username = s->exec_context.user;
+        r = get_user_creds(&username, NULL, NULL, &home);
+        if (r < 0)
+               return NULL;
+
+        return strdup(home);
+}
+
 char *unit_name_printf(Unit *u, const char* format) {
 
         /*
@@ -2256,6 +2298,8 @@ char *unit_full_printf(Unit *u, const char *format) {
          * %r root cgroup path of this systemd instance (e.g. "/user/lennart/shared/systemd-4711")
          * %R parent of root cgroup path (e.g. "/usr/lennart/shared")
          * %t the runtime directory to place sockets in (e.g. "/run" or $XDG_RUNTIME_DIR)
+         * %u the username of the configured User or running user
+         * %h the homedir of the configured User or running user
          */
 
         const Specifier table[] = {
@@ -2270,6 +2314,8 @@ char *unit_full_printf(Unit *u, const char *format) {
                 { 'r', specifier_cgroup_root,         NULL },
                 { 'R', specifier_cgroup_root,         NULL },
                 { 't', specifier_runtime,             NULL },
+                { 'u', specifier_user_name,           NULL },
+                { 'h', specifier_user_home,           NULL },
                 { 0, NULL, NULL }
         };
 
