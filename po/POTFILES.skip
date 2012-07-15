@@ -13,7 +13,7 @@ src/core/dbus-timer.c
 src/core/dbus-unit.c
 src/hostname/hostnamed.c
 src/locale/localed.c
-src/core/org.freedesktop.systemd1.policy.in.in
+src/core/org.freedesktop.systemd1.policy.in
 src/timedate/timedated.c
 units/systemd-readahead-done.service.in
 units/user@.service.in
