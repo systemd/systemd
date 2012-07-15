@@ -2425,7 +2425,7 @@ noinst_PROGRAMS += \
 	test-journal-stream
 
 TESTS += \
-	test-journal
+	test-journal \
 	test-journal-match \
 	test-journal-stream
 
