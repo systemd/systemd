@@ -27,7 +27,6 @@
 
 typedef struct Unit Unit;
 typedef struct UnitVTable UnitVTable;
-typedef enum UnitType UnitType;
 typedef enum UnitActiveState UnitActiveState;
 typedef enum UnitDependency UnitDependency;
 typedef struct UnitRef UnitRef;
