@@ -53,7 +53,7 @@
                 <para>A number of different components are involved in the
                 system boot. Immediately after power-up, the system
                 BIOS will do minimal hardware initialization, and hand
-                control over to a boot loader stored on a persistant
+                control over to a boot loader stored on a persistent
                 storage device. This boot loader will then invoke an
                 OS kernel from disk (or the network). In the Linux
                 case this kernel now (optionally) extracts and

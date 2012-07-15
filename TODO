@@ -47,7 +47,7 @@ Features:
 
 * man: clarify that time-sync.target is not only sysv compat but also useful otherwise. Same for similar targets
 
-* journalctl should complain if run with uid != 0 and no persistant logs exist
+* journalctl should complain if run with uid != 0 and no persistent logs exist
 
 * .device aliases need to be implemented with the "following" logic, probably.
 

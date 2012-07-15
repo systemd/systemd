@@ -85,7 +85,7 @@
                 and
                 <filename>systemd-readahead-replay.service</filename>
                 are activated at boot so that access patterns from the
-                preceeding boot are replayed and new data collected
+                preceding boot are replayed and new data collected
                 for the subsequent boot. However, on read-only media
                 where the collected data cannot be stored it might
                 be a good idea to disable

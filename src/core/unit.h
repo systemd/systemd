@@ -220,7 +220,7 @@ struct Unit {
         /* Ignore this unit when snapshotting */
         bool ignore_on_snapshot;
 
-        /* Did the last condition check suceed? */
+        /* Did the last condition check succeed? */
         bool condition_result;
 
         bool in_load_queue:1;

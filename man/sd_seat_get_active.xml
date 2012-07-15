@@ -118,7 +118,7 @@
                 <para><function>sd_seat_can_multi_session()</function>
                 may be used to determine whether a specific seat is
                 capable of multi-session, i.e. allows multiple login
-                sessions in parallel (whith only one being active at a
+                sessions in parallel (with only one being active at a
                 time).</para>
 
                 <para><function>sd_seat_can_tty()</function> may be

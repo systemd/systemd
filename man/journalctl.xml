@@ -141,7 +141,7 @@
                                 <term><option>-f</option></term>
 
                                 <listitem><para>Show only most recent
-                                journal entries, and continously print
+                                journal entries, and continuously print
                                 new entries as they are appended to
                                 the journal.</para></listitem>
                         </varlistentry>
@@ -189,9 +189,9 @@
                                 is very similar but shows monotonic
                                 timestamps instead of wallclock
                                 timestamps. <literal>verbose</literal>
-                                shows the full structered entry items
+                                shows the full structured entry items
                                 with all
-                                fiels. <literal>export</literal>
+                                fields. <literal>export</literal>
                                 serializes the journal into a binary
                                 (but mostly text-based) stream
                                 suitable for backups and network
@@ -209,7 +209,7 @@
                                 <term><option>-q</option></term>
 
                                 <listitem><para>Suppresses any warning
-                                message regarding inaccessable system
+                                message regarding inaccessible system
                                 journals when run as normal
                                 user.</para></listitem>
                         </varlistentry>

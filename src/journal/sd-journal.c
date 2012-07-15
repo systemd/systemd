@@ -745,7 +745,7 @@ static int next_with_matches(
                 return journal_file_next_entry(f, c, cp, direction, ret, offset);
 
         /* If we have a match then we look for the next matching entry
-         * wiht an offset at least one step larger */
+         * with an offset at least one step larger */
         return next_for_match(j, j->level0, f, direction == DIRECTION_DOWN ? cp+1 : cp-1, direction, ret, offset);
 }
 

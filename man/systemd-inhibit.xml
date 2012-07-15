@@ -110,7 +110,7 @@
                                 inhibiting
                                 reboot/power-off/halt/kexec,
                                 suspending/hibernating, resp. the
-                                automatic idle detection. If ommitted
+                                automatic idle detection. If omitted
                                 defaults to
                                 <literal>idle:sleep:shutdown</literal>,
                                 i.e. takes all possible

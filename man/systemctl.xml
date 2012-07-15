@@ -447,7 +447,7 @@
                                 <term><option>-f</option></term>
 
                                 <listitem><para>When used with
-                                <command>status</command> continously
+                                <command>status</command> continuously
                                 prints new journal entries as they are
                                 appended to the
                                 journal.</para></listitem>
@@ -1202,10 +1202,10 @@
                                 directory, and the path to the new
                                 system manager binary below it to
                                 execute as PID 1. If the latter is
-                                ommitted or the empty string, a
+                                omitted or the empty string, a
                                 systemd binary will automatically be
                                 searched for and used as init. If the
-                                system manager path is ommitted or
+                                system manager path is omitted or
                                 equal the empty string the state of
                                 the initrd's system manager process is
                                 passed to the main system manager,

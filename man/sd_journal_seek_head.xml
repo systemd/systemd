@@ -92,7 +92,7 @@
 
                 <para><function>sd_journal_seek_head()</function>
                 seeks to the beginning of the journal, i.e. the oldest
-                avilable entry.</para>
+                available entry.</para>
 
                 <para>Similar,
                 <function>sd_journal_seek_tail()</function> may be
@@ -110,7 +110,7 @@
                 (wallclock) timestamp, i.e. CLOCK_REALTIME. Note that
                 the realtime clock is not necessary monotonic. If a
                 realtime timestamp is ambiguous it is not defined
-                which position is seeked to.</para>
+                which position is sought to.</para>
 
                 <para><function>sd_journal_seek_cursor()</function>
                 seeks to the entry located at the specified cursor
@@ -125,12 +125,12 @@
                 may be retrieved via
                 <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
                 no entry exists that matches exactly the specified
-                seek address the next closest is seeked to. If
+                seek address the next closest is sought to. If
                 <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                is used the closest following entry will be seeked to,
+                is used the closest following entry will be sought to,
                 if
                 <citerefentry><refentrytitle>sd_journal_previous</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                is used the closest preceeding entry is seeked
+                is used the closest preceding entry is sought
                 to.</para>
         </refsect1>
 

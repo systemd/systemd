@@ -116,7 +116,7 @@ static int pivot_to_new_root(void) {
 
         if (pivot_root(".", "oldroot") < 0) {
                 log_error("pivot failed: %m");
-                /* only chroot if pivot root succeded */
+                /* only chroot if pivot root succeeded */
                 return -errno;
         }
 

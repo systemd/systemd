@@ -172,7 +172,7 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
 
                 <para><citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 and and <function>sd_journal_print()</function> may
-                largely be used interchangably
+                largely be used interchangeably
                 functionality-wise. However, note that log messages
                 logged via the former take a different path to the
                 journal server than the later, and hence global

@@ -233,7 +233,7 @@ CHANGES WITH 183:
           to be used as drop-in files.
 
         * systemd and logind now handle system sleep states, in
-          particulary suspending and hibernating.
+          particular suspending and hibernating.
 
         * logind now implements a sleep/shutdown/idle inhibiting logic
           suitable for a variety of uses. Soonishly Lennart will blog

@@ -92,7 +92,7 @@
                 only journal files generated on the local machine will
                 be opened. <literal>SD_JOURNAL_RUNTIME_ONLY</literal>
                 makes sure only volatile journal files will be opened,
-                excluding those which are stored on persistant
+                excluding those which are stored on persistent
                 storage. <literal>SD_JOURNAL_SYSTEM_ONLY</literal>
                 will ensure that only journal files of system services
                 and the kernel (in opposition to user session processes) will

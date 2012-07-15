@@ -1910,7 +1910,7 @@ int config_parse_unit_blkio_bandwidth(const char *filename, unsigned line, const
         }
 
         if (parse_bytes(l[1], &bytes) < 0 || bytes <= 0) {
-                log_error("[%s:%u] Failed to parse block IO bandwith value, ignoring: %s", filename, line, rvalue);
+                log_error("[%s:%u] Failed to parse block IO bandwidth value, ignoring: %s", filename, line, rvalue);
                 strv_free(l);
                 return 0;
         }

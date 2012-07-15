@@ -71,7 +71,7 @@ REQUIREMENTS:
         includes systemd-hostnamed.
 
         Note that D-Bus can link against libsystemd-login.so, which
-        results in a cyclic build dependency. To accomodate for this
+        results in a cyclic build dependency. To accommodate for this
         please build D-Bus without systemd first, then build systemd,
         then rebuild D-Bus with systemd support.
 

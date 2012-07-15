@@ -155,7 +155,7 @@
 
                                 <listitem><para>When showing modified
                                 files, when a file is overridden show a
-                                diff aswell. This option takes a
+                                diff as well. This option takes a
                                 boolean argument.</para></listitem>
                         </varlistentry>
 

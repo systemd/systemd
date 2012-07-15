@@ -174,7 +174,7 @@
                                 influences the granularity in which
                                 disk space is made available through
                                 rotation, i.e. deletion of historic
-                                data. Defaults to one eigth of the
+                                data. Defaults to one eighth of the
                                 values configured with
                                 <varname>SystemMaxUse=</varname> and
                                 <varname>RuntimeMaxUse=</varname>, so
@@ -317,7 +317,7 @@
                                 directory
                                 <filename>/var/log/journal</filename>
                                 is not created if needed, so that its
-                                existance controls where log data
+                                existence controls where log data
                                 goes. <literal>none</literal> turns
                                 off all storage, all log data received
                                 will be dropped. Forwarding to other

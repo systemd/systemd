@@ -1156,7 +1156,7 @@ DBusHandlerResult bus_exit_idle_filter(DBusConnection *bus, DBusMessage *m, void
         assert(m);
         assert(remain_until);
 
-        /* Everytime we get a new message we reset out timeout */
+        /* Every time we get a new message we reset out timeout */
         *remain_until = now(CLOCK_MONOTONIC) + DEFAULT_EXIT_USEC;
 
         if (dbus_message_is_signal(m, DBUS_INTERFACE_LOCAL, "Disconnected"))
