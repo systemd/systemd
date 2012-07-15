@@ -33,8 +33,6 @@ Bugfixes:
   Jul 09 18:22:37 mop [21866]: Process 21865 (systemd) dumped core.
 
 Features:
-* udev: use 'unshare' to test udev with fake sysfs tree, and kill TEST_PREFIX entirely
-
 * change mount access mode of 0700 or so for debugfs?
 
 * logind: wakelock/opportunistic suspend support

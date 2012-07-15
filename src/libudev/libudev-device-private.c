@@ -30,7 +30,7 @@ static void udev_device_tag(struct udev_device *dev, const char *tag, bool add)
         id = udev_device_get_id_filename(dev);
         if (id == NULL)
                 return;
-        util_strscpyl(filename, sizeof(filename), TEST_PREFIX "/run/udev/tags/", tag, "/", id, NULL);
+        util_strscpyl(filename, sizeof(filename), "/run/udev/tags/", tag, "/", id, NULL);
 
         if (add) {
                 int fd;
@@ -107,7 +107,7 @@ int udev_device_update_db(struct udev_device *udev_device)
                 return -1;
 
         has_info = device_has_info(udev_device);
-        util_strscpyl(filename, sizeof(filename), TEST_PREFIX "/run/udev/data/", id, NULL);
+        util_strscpyl(filename, sizeof(filename), "/run/udev/data/", id, NULL);
 
         /* do not store anything for otherwise empty devices */
         if (!has_info &&
@@ -138,7 +138,7 @@ int udev_device_update_db(struct udev_device *udev_device)
 
                 if (major(udev_device_get_devnum(udev_device)) > 0) {
                         udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(udev_device))
-                                fprintf(f, "S:%s\n", udev_list_entry_get_name(list_entry) + strlen(TEST_PREFIX "/dev/"));
+                                fprintf(f, "S:%s\n", udev_list_entry_get_name(list_entry) + strlen("/dev/"));
                         if (udev_device_get_devlink_priority(udev_device) != 0)
                                 fprintf(f, "L:%i\n", udev_device_get_devlink_priority(udev_device));
                         if (udev_device_get_watch_handle(udev_device) >= 0)
@@ -175,7 +175,7 @@ int udev_device_delete_db(struct udev_device *udev_device)
         id = udev_device_get_id_filename(udev_device);
         if (id == NULL)
                 return -1;
-        util_strscpyl(filename, sizeof(filename), TEST_PREFIX "/run/udev/data/", id, NULL);
+        util_strscpyl(filename, sizeof(filename), "/run/udev/data/", id, NULL);
         unlink(filename);
         return 0;
 }

@@ -25,10 +25,6 @@
 #define READ_END  0
 #define WRITE_END 1
 
-#ifndef TEST_PREFIX
-#define TEST_PREFIX ""
-#endif
-
 /* avoid (sometimes expensive) calculations of parameters for debug output */
 #define udev_log_cond(udev, prio, arg...) \
   do { \

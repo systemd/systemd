@@ -26,6 +26,8 @@
 #include <unistd.h>
 #include <syslog.h>
 #include <grp.h>
+#include <sched.h>
+#include <sys/mount.h>
 #include <sys/signalfd.h>
 
 #include "udev.h"
@@ -33,6 +35,40 @@
 void udev_main_log(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
                    const char *format, va_list args) {}
+
+static int fake_filesystems(void) {
+        static const struct fakefs {
+                const char *src;
+                const char *target;
+                const char *error;
+        } fakefss[] = {
+                { "test/sys", "/sys",                   "failed to mount test /sys" },
+                { "test/dev", "/dev",                   "failed to mount test /dev" },
+                { "test/run", "/run",                   "failed to mount test /run" },
+                { "test/run", "/etc/udev/rules.d",      "failed to mount empty /etc/udev/rules.d" },
+                { "test/run", "/usr/lib/udev/rules.d",  "failed to mount empty /usr/lib/udev/rules.d" },
+        };
+        unsigned int i;
+        int err;
+
+        err = unshare(CLONE_NEWNS);
+        if (err < 0) {
+                err = -errno;
+                fprintf(stderr, "failed to call unshare() %m\n");
+                return err;
+        }
+
+        for (i = 0; i < ELEMENTSOF(fakefss); i++) {
+                err = mount(fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL);
+                if (err < 0) {
+                        err = -errno;
+                        fprintf(stderr, "%s %m", fakefss[i].error);
+                        return err;
+                }
+        }
+        return err;
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -44,7 +80,11 @@ int main(int argc, char *argv[])
         const char *devpath;
         const char *action;
         sigset_t mask, sigmask_orig;
-        int err = -EINVAL;
+        int err;
+
+        err = fake_filesystems();
+        if (err < 0)
+                return EXIT_FAILURE;
 
         udev = udev_new();
         if (udev == NULL)
@@ -68,7 +108,7 @@ int main(int argc, char *argv[])
 
         rules = udev_rules_new(udev, 1);
 
-        util_strscpyl(syspath, sizeof(syspath), TEST_PREFIX "/sys", devpath, NULL);
+        util_strscpyl(syspath, sizeof(syspath), "/sys", devpath, NULL);
         dev = udev_device_new_from_syspath(udev, syspath);
         if (dev == NULL) {
                 log_debug("unknown device '%s'\n", devpath);

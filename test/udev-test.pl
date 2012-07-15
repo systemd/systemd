@@ -891,7 +891,7 @@ EOF
         {
                 desc            => "udev_root substitution",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                exp_name        => "start-test/dev-end",
+                exp_name        => "start-/dev-end",
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", SYMLINK+="start-%r-end"
 EOF

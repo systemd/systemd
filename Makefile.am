@@ -1756,22 +1756,10 @@ test_libudev_LDADD = \
 	libudev.la
 
 test_udev_SOURCES = \
-	src/test/test-udev.c \
-	$(libudev_core_la_SOURCES) \
-	$(libudev_private_la_SOURCES)
-
-# The test-udev program needs everything compiled with relative path
-# names for /sys, /dev, /run prefixed, pointing to our test/ directory.
-test_udev_CFLAGS = \
-	-DTEST_PREFIX=\"test\" \
-	$(libudev_core_la_CFLAGS) \
-	$(libudev_private_la_CFLAGS)
-
-test_udev_CPPFLAGS =\
-	$(libudev_core_la_CPPFLAGS)
+	src/test/test-udev.c
 
 test_udev_LDADD = \
-	libsystemd-label.la \
+	libudev-core.la \
 	libsystemd-shared.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS) \

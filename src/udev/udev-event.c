@@ -319,7 +319,7 @@ subst:
                                 break;
                         devnode = udev_device_get_devnode(dev_parent);
                         if (devnode != NULL)
-                                l = util_strpcpy(&s, l, devnode + strlen(TEST_PREFIX "/dev/"));
+                                l = util_strpcpy(&s, l, devnode + strlen("/dev/"));
                         break;
                 }
                 case SUBST_DEVNODE:
@@ -330,7 +330,7 @@ subst:
                         if (event->name != NULL)
                                 l = util_strpcpy(&s, l, event->name);
                         else if (udev_device_get_devnode(dev) != NULL)
-                                l = util_strpcpy(&s, l, udev_device_get_devnode(dev) + strlen(TEST_PREFIX "/dev/"));
+                                l = util_strpcpy(&s, l, udev_device_get_devnode(dev) + strlen("/dev/"));
                         else
                                 l = util_strpcpy(&s, l, udev_device_get_sysname(dev));
                         break;
@@ -340,16 +340,16 @@ subst:
                         list_entry = udev_device_get_devlinks_list_entry(dev);
                         if (list_entry == NULL)
                                 break;
-                        l = util_strpcpy(&s, l, udev_list_entry_get_name(list_entry) + strlen(TEST_PREFIX "/dev/"));
+                        l = util_strpcpy(&s, l, udev_list_entry_get_name(list_entry) + strlen("/dev/"));
                         udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry))
-                                l = util_strpcpyl(&s, l, " ", udev_list_entry_get_name(list_entry) + strlen(TEST_PREFIX "/dev/"), NULL);
+                                l = util_strpcpyl(&s, l, " ", udev_list_entry_get_name(list_entry) + strlen("/dev/"), NULL);
                         break;
                 }
                 case SUBST_ROOT:
-                        l = util_strpcpy(&s, l, TEST_PREFIX "/dev");
+                        l = util_strpcpy(&s, l, "/dev");
                         break;
                 case SUBST_SYS:
-                        l = util_strpcpy(&s, l, TEST_PREFIX "/sys");
+                        l = util_strpcpy(&s, l, "/sys");
                         break;
                 case SUBST_ENV:
                         if (attr == NULL) {

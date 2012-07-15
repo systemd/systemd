@@ -1757,9 +1757,9 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
         memset(rules->trie_nodes, 0x00, sizeof(struct trie_node));
         rules->trie_nodes_cur = 1;
 
-        rules->dirs = strv_new(TEST_PREFIX SYSCONFDIR "/udev/rules.d",
-                               TEST_PREFIX "/run/udev/rules.d",
-                               TEST_PREFIX UDEVLIBEXECDIR "/rules.d",
+        rules->dirs = strv_new(SYSCONFDIR "/udev/rules.d",
+                               "/run/udev/rules.d",
+                               UDEVLIBEXECDIR "/rules.d",
                                NULL);
         if (!rules->dirs) {
                 log_error("failed to build config directory array");
@@ -2059,7 +2059,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                         udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(event->dev)) {
                                 const char *devlink;
 
-                                devlink =  udev_list_entry_get_name(list_entry) + strlen(TEST_PREFIX "/dev/");
+                                devlink =  udev_list_entry_get_name(list_entry) + strlen("/dev/");
                                 if (match_key(rules, cur, devlink) == 0) {
                                         match = true;
                                         break;
@@ -2533,7 +2533,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                         log_debug("%i character(s) replaced\n", count);
                         }
                         if (major(udev_device_get_devnum(event->dev)) &&
-                            (!streq(name_str, udev_device_get_devnode(event->dev) + strlen(TEST_PREFIX "/dev/")))) {
+                            (!streq(name_str, udev_device_get_devnode(event->dev) + strlen("/dev/")))) {
                                 log_error("NAME=\"%s\" ignored, kernel device nodes "
                                     "can not be renamed; please fix it in %s:%u\n", name,
                                     &rules->buf[rule->rule.filename_off], rule->rule.filename_line);
@@ -2578,7 +2578,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                 next[0] = '\0';
                                 log_debug("LINK '%s' %s:%u\n", pos,
                                           &rules->buf[rule->rule.filename_off], rule->rule.filename_line);
-                                util_strscpyl(filename, sizeof(filename), TEST_PREFIX "/dev/", pos, NULL);
+                                util_strscpyl(filename, sizeof(filename), "/dev/", pos, NULL);
                                 udev_device_add_devlink(event->dev, filename, cur->key.devlink_unique);
                                 while (isspace(next[1]))
                                         next++;
@@ -2588,7 +2588,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                         if (pos[0] != '\0') {
                                 log_debug("LINK '%s' %s:%u\n", pos,
                                           &rules->buf[rule->rule.filename_off], rule->rule.filename_line);
-                                util_strscpyl(filename, sizeof(filename), TEST_PREFIX "/dev/", pos, NULL);
+                                util_strscpyl(filename, sizeof(filename), "/dev/", pos, NULL);
                                 udev_device_add_devlink(event->dev, filename, cur->key.devlink_unique);
                         }
                         break;
@@ -2698,7 +2698,7 @@ void udev_rules_apply_static_dev_perms(struct udev_rules *rules)
                         /* we assure, that the permissions tokens are sorted before the static token */
                         if (mode == 0 && uid == 0 && gid == 0)
                                 goto next;
-                        util_strscpyl(filename, sizeof(filename), TEST_PREFIX "/dev/",
+                        util_strscpyl(filename, sizeof(filename), "/dev/",
                                       &rules->buf[cur->key.value_off], NULL);
                         if (stat(filename, &stats) != 0)
                                 goto next;
