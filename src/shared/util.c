@@ -2385,7 +2385,7 @@ int acquire_terminal(
                 bool ignore_tiocstty_eperm,
                 usec_t timeout) {
 
-        int fd = -1, notify = -1, r, wd = -1;
+        int fd = -1, notify = -1, r = 0, wd = -1;
         usec_t ts = 0;
         struct sigaction sa_old, sa_new;
 
