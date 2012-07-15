@@ -1868,7 +1868,7 @@ static int determine_change(sd_journal *j) {
 }
 
 _public_ int sd_journal_process(sd_journal *j) {
-        uint8_t buffer[sizeof(struct inotify_event) + FILENAME_MAX];
+        uint8_t buffer[sizeof(struct inotify_event) + FILENAME_MAX] _alignas_(struct inotify_event);
         bool got_something = false;
 
         if (!j)
