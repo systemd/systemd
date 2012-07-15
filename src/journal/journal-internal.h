@@ -33,9 +33,6 @@
 #include "hashmap.h"
 #include "journal-file.h"
 
-typedef enum MatchType MatchType;
-typedef enum LocationType LocationType;
-
 typedef struct Match Match;
 typedef struct Location Location;
 typedef struct Directory Directory;
