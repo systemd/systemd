@@ -40,6 +40,7 @@
 #include "pager.h"
 #include "logs-show.h"
 #include "strv.h"
+#include "journal-internal.h"
 
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_follow = false;
@@ -48,6 +49,7 @@ static bool arg_no_pager = false;
 static int arg_lines = -1;
 static bool arg_no_tail = false;
 static bool arg_new_id128 = false;
+static bool arg_print_header = false;
 static bool arg_quiet = false;
 static bool arg_local = false;
 static bool arg_this_boot = false;
@@ -70,6 +72,7 @@ static int help(void) {
                "  -l --local          Only local entries\n"
                "  -b --this-boot      Show data only from current boot\n"
                "  -D --directory=PATH Show journal files from directory\n"
+               "     --header         Show journal header information\n"
                "     --new-id128      Generate a new 128 Bit id\n",
                program_invocation_short_name);
 
@@ -82,7 +85,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_TAIL,
-                ARG_NEW_ID128
+                ARG_NEW_ID128,
+                ARG_HEADER
         };
 
         static const struct option options[] = {
@@ -99,6 +103,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "local",     no_argument,       NULL, 'l'           },
                 { "this-boot", no_argument,       NULL, 'b'           },
                 { "directory", required_argument, NULL, 'D'           },
+                { "header",    no_argument,       NULL, ARG_HEADER    },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -172,6 +177,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'D':
                         arg_directory = optarg;
+                        break;
+
+                case ARG_HEADER:
+                        arg_print_header = true;
                         break;
 
                 case '?':
@@ -328,6 +337,12 @@ int main(int argc, char *argv[]) {
 
         if (r < 0) {
                 log_error("Failed to open journal: %s", strerror(-r));
+                goto finish;
+        }
+
+        if (arg_print_header) {
+                journal_print_header(j);
+                r = 0;
                 goto finish;
         }
 

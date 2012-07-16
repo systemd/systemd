@@ -2009,6 +2009,22 @@ _public_ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot
         return first ? 0 : 1;
 }
 
+void journal_print_header(sd_journal *j) {
+        Iterator i;
+        JournalFile *f;
+        bool newline = false;
+
+        assert(j);
+
+        HASHMAP_FOREACH(f, j->files, i) {
+                if (newline)
+                        putchar('\n');
+                else
+                        newline = true;
+
+                journal_file_print_header(f);
+        }
+}
 
 /* _public_ int sd_journal_query_unique(sd_journal *j, const char *field) { */
 /*         if (!j) */

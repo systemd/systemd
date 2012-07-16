@@ -258,6 +258,15 @@
                                 similar.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>--header</option></term>
+
+                                <listitem><para>Instead of showing
+                                journal contents show internal header
+                                information of the journal fiels
+                                accessed.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 

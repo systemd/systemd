@@ -58,9 +58,15 @@
  * size */
 #define DEFAULT_KEEP_FREE (1024ULL*1024ULL)                    /* 1 MB */
 
-static const char signature[] = { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' };
+/* n_data was the first entry we added after the initial file format design */
+#define HEADER_SIZE_MIN ALIGN64(offsetof(Header, n_data))
 
 #define ALIGN64(x) (((x) + 7ULL) & ~7ULL)
+
+#define JOURNAL_HEADER_CONTAINS(h, field) \
+        (le64toh((h)->header_size) >= offsetof(Header, field) + sizeof((h)->field))
+
+static const char signature[] = { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' };
 
 void journal_file_close(JournalFile *f) {
         int t;
@@ -107,7 +113,7 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
 
         if (template) {
                 h.seqnum_id = template->header->seqnum_id;
-                h.seqnum = template->header->seqnum;
+                h.tail_seqnum = template->header->tail_seqnum;
         } else
                 h.seqnum_id = h.file_id;
 
@@ -161,7 +167,8 @@ static int journal_file_verify_header(JournalFile *f) {
                 return -EPROTONOSUPPORT;
 #endif
 
-        if (f->header->header_size != htole64(ALIGN64(sizeof(*(f->header)))))
+        /* The first addition was n_data, so check that we are at least this large */
+        if (le64toh(f->header->header_size) < HEADER_SIZE_MIN)
                 return -EBADMSG;
 
         if ((uint64_t) f->last_stat.st_size < (le64toh(f->header->header_size) + le64toh(f->header->arena_size)))
@@ -427,7 +434,7 @@ static uint64_t journal_file_seqnum(JournalFile *f, uint64_t *seqnum) {
 
         assert(f);
 
-        r = le64toh(f->header->seqnum) + 1;
+        r = le64toh(f->header->tail_seqnum) + 1;
 
         if (seqnum) {
                 /* If an external seqnum counter was passed, we update
@@ -440,10 +447,10 @@ static uint64_t journal_file_seqnum(JournalFile *f, uint64_t *seqnum) {
                 *seqnum = r;
         }
 
-        f->header->seqnum = htole64(r);
+        f->header->tail_seqnum = htole64(r);
 
-        if (f->header->first_seqnum == 0)
-                f->header->first_seqnum = htole64(r);
+        if (f->header->head_seqnum == 0)
+                f->header->head_seqnum = htole64(r);
 
         return r;
 }
@@ -613,6 +620,9 @@ static int journal_file_link_data(JournalFile *f, Object *o, uint64_t offset, ui
         }
 
         f->data_hash_table[h].tail_hash_offset = htole64(offset);
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
+                f->header->n_data = htole64(le64toh(f->header->n_data) + 1);
 
         return 0;
 }
@@ -1809,27 +1819,13 @@ int journal_file_move_to_entry_by_realtime_for_data(
 }
 
 void journal_file_dump(JournalFile *f) {
-        char a[33], b[33], c[33];
         Object *o;
         int r;
         uint64_t p;
 
         assert(f);
 
-        printf("File Path: %s\n"
-               "File ID: %s\n"
-               "Machine ID: %s\n"
-               "Boot ID: %s\n"
-               "Arena size: %llu\n"
-               "Objects: %lu\n"
-               "Entries: %lu\n",
-               f->path,
-               sd_id128_to_string(f->header->file_id, a),
-               sd_id128_to_string(f->header->machine_id, b),
-               sd_id128_to_string(f->header->boot_id, c),
-               (unsigned long long) le64toh(f->header->arena_size),
-               (unsigned long) le64toh(f->header->n_objects),
-               (unsigned long) le64toh(f->header->n_entries));
+        journal_file_print_header(f);
 
         p = le64toh(f->header->header_size);
         while (p != 0) {
@@ -1883,6 +1879,58 @@ void journal_file_dump(JournalFile *f) {
         return;
 fail:
         log_error("File corrupt");
+}
+
+void journal_file_print_header(JournalFile *f) {
+        char a[33], b[33], c[33];
+        char x[FORMAT_TIMESTAMP_MAX], y[FORMAT_TIMESTAMP_MAX];
+
+        assert(f);
+
+        printf("File Path: %s\n"
+               "File ID: %s\n"
+               "Machine ID: %s\n"
+               "Boot ID: %s\n"
+               "Sequential Number ID: %s\n"
+               "Header size: %llu\n"
+               "Arena size: %llu\n"
+               "Data Hash Table Size: %llu\n"
+               "Field Hash Table Size: %llu\n"
+               "Objects: %llu\n"
+               "Entry Objects: %llu\n"
+               "Rotate Suggested: %s\n"
+               "Head Sequential Number: %llu\n"
+               "Tail Sequential Number: %llu\n"
+               "Head Realtime Timestamp: %s\n"
+               "Tail Realtime Timestamp: %s\n",
+               f->path,
+               sd_id128_to_string(f->header->file_id, a),
+               sd_id128_to_string(f->header->machine_id, b),
+               sd_id128_to_string(f->header->boot_id, c),
+               sd_id128_to_string(f->header->seqnum_id, c),
+               (unsigned long long) le64toh(f->header->header_size),
+               (unsigned long long) le64toh(f->header->arena_size),
+               (unsigned long long) le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
+               (unsigned long long) le64toh(f->header->field_hash_table_size) / sizeof(HashItem),
+               (unsigned long long) le64toh(f->header->n_objects),
+               (unsigned long long) le64toh(f->header->n_entries),
+               yes_no(journal_file_rotate_suggested(f)),
+               (unsigned long long) le64toh(f->header->head_seqnum),
+               (unsigned long long) le64toh(f->header->tail_seqnum),
+               format_timestamp(x, sizeof(x), le64toh(f->header->head_entry_realtime)),
+               format_timestamp(y, sizeof(y), le64toh(f->header->tail_entry_realtime)));
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
+                printf("Data Objects: %llu\n"
+                       "Data Hash Table Fill: %.1f%%\n",
+                       (unsigned long long) le64toh(f->header->n_data),
+                       100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))));
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
+                printf("Field Objects: %llu\n"
+                       "Field Hash Table Fill: %.1f%%\n",
+                       (unsigned long long) le64toh(f->header->n_fields),
+                       100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))));
 }
 
 int journal_file_open(
@@ -1950,7 +1998,7 @@ int journal_file_open(
                 }
         }
 
-        if (f->last_stat.st_size < (off_t) sizeof(Header)) {
+        if (f->last_stat.st_size < (off_t) HEADER_SIZE_MIN) {
                 r = -EIO;
                 goto fail;
         }
@@ -2032,7 +2080,7 @@ int journal_file_rotate(JournalFile **f) {
         sd_id128_to_string(old_file->header->seqnum_id, p + l - 8 + 1);
         snprintf(p + l - 8 + 1 + 32, 1 + 16 + 1 + 16 + 8 + 1,
                  "-%016llx-%016llx.journal",
-                 (unsigned long long) le64toh((*f)->header->seqnum),
+                 (unsigned long long) le64toh((*f)->header->tail_seqnum),
                  (unsigned long long) le64toh((*f)->header->tail_entry_realtime));
 
         r = rename(old_file->path, p);
@@ -2509,4 +2557,29 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, u
         }
 
         return 1;
+}
+
+bool journal_file_rotate_suggested(JournalFile *f) {
+        assert(f);
+
+        /* If we gained new header fields we gained new features,
+         * hence suggest a rotation */
+        if (le64toh(f->header->header_size) < sizeof(Header))
+                return true;
+
+        /* Let's check if the hash tables grew over a certain fill
+         * level (75%, borrowing this value from Java's hash table
+         * implementation), and if so suggest a rotation. To calculate
+         * the fill level we need the n_data field, which only exists
+         * in newer versions. */
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
+                if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL)
+                        return true;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
+                if (le64toh(f->header->n_fields) * 4ULL > (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)) * 3ULL)
+                        return true;
+
+        return false;
 }

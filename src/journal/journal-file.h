@@ -120,6 +120,7 @@ int journal_file_move_to_entry_by_monotonic_for_data(JournalFile *f, uint64_t da
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset);
 
 void journal_file_dump(JournalFile *f);
+void journal_file_print_header(JournalFile *f);
 
 int journal_file_rotate(JournalFile **f);
 
@@ -131,5 +132,7 @@ void journal_default_metrics(JournalMetrics *m, int fd);
 
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *to);
 int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec_t *from, usec_t *to);
+
+bool journal_file_rotate_suggested(JournalFile *f);
 
 #endif
