@@ -188,13 +188,15 @@ static int journal_file_verify_header(JournalFile *f) {
 
                 state = f->header->state;
 
-                if (state == STATE_ONLINE)
-                        log_debug("Journal file %s is already online. Assuming unclean closing. Ignoring.", f->path);
-                        /* FIXME: immediately rotate */
-                else if (state == STATE_ARCHIVED)
+                if (state == STATE_ONLINE) {
+                        log_debug("Journal file %s is already online. Assuming unclean closing.", f->path);
+                        return -EBUSY;
+                } else if (state == STATE_ARCHIVED)
                         return -ESHUTDOWN;
-                else if (state != STATE_OFFLINE)
-                        log_debug("Journal file %s has unknown state %u. Ignoring.", f->path, state);
+                else if (state != STATE_OFFLINE) {
+                        log_debug("Journal file %s has unknown state %u.", f->path, state);
+                        return -EBUSY;
+                }
         }
 
         return 0;

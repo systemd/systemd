@@ -493,7 +493,9 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                      r != -EBADMSG && /* corrupted */
                      r != -ENODATA && /* truncated */
                      r != -EHOSTDOWN && /* other machine */
-                     r != -EPROTONOSUPPORT /* unsupported feature */)) {
+                     r != -EPROTONOSUPPORT && /* unsupported feature */
+                     r != -EBUSY && /* unclean shutdown */
+                     r != -ESHUTDOWN /* already archived */)) {
                         log_error("Failed to write entry, ignoring: %s", strerror(-r));
                         return;
                 }
@@ -502,6 +504,8 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                         log_info("Allocation limit reached, rotating.");
                 else if (r == -EHOSTDOWN)
                         log_info("Journal file from other machine, rotating.");
+                else if (r == -EBUSY)
+                        log_info("Unlcean shutdown, rotating.");
                 else
                         log_warning("Journal file corrupted, rotating.");
 
