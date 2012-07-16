@@ -52,4 +52,9 @@ for n in sorted(index.keys(), key = str.lower):
         i = SubElement(li, 'i')
         i.text = purpose
 
+hr = SubElement(body, 'hr')
+
+p = SubElement(body, 'p')
+p.text = "This index contains %s entries, referring to %i individual manual pages." % (len(index), len(argv)-1)
+
 stdout.write(tostring(html))
