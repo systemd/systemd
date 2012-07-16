@@ -42,11 +42,14 @@ for n in sorted(index.keys(), key = str.lower):
                 ul = SubElement(body, 'ul')
                 ul.set('style', 'list-style-type:none')
 
-        li = SubElement(ul, 'li');
+        li = SubElement(ul, 'li')
 
-        a = SubElement(li, 'a');
+        a = SubElement(li, 'a')
         a.set('href', path)
         a.text = n + '(' + section + ')'
-        a.tail = ' -- ' + purpose
+        a.tail = ' -- '
+
+        i = SubElement(li, 'i')
+        i.text = purpose
 
 stdout.write(tostring(html))
