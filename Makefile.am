@@ -668,8 +668,8 @@ noinst_DATA += \
 CLEANFILES += \
 	man/index.html
 
-man/index.html: $(XML_FILES)
-	$(AM_V_GEN)$(PYTHON) $(top_srcdir)/make-man-index.py $(XML_FILES) > $@
+man/index.html: $(XML_FILES) $(top_srcdir)/make-man-index.py
+	$(AM_V_GEN)$(PYTHON) $(top_srcdir)/make-man-index.py $(XML_FILES) > $@ || rm $@
 endif
 
 endif
