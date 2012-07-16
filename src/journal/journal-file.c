@@ -2446,26 +2446,21 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
 }
 
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *to) {
-        Object *o;
-        int r;
-
         assert(f);
         assert(from || to);
 
         if (from) {
-                r = journal_file_next_entry(f, NULL, 0, DIRECTION_DOWN, &o, NULL);
-                if (r <= 0)
-                        return r;
+                if (f->header->head_entry_realtime == 0)
+                        return -ENOENT;
 
-                *from = le64toh(o->entry.realtime);
+                *from = le64toh(f->header->head_entry_realtime);
         }
 
         if (to) {
-                r = journal_file_next_entry(f, NULL, 0, DIRECTION_UP, &o, NULL);
-                if (r <= 0)
-                        return r;
+                if (f->header->tail_entry_realtime == 0)
+                        return -ENOENT;
 
-                *to = le64toh(o->entry.realtime);
+                *to = le64toh(f->header->tail_entry_realtime);
         }
 
         return 1;
