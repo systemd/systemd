@@ -144,7 +144,7 @@
         "   <arg name=\"set\" type=\"as\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
         "  <method name=\"ListUnitFiles\">\n"                            \
-        "   <arg name=\"changes\" type=\"a(ss)\" direction=\"out\"/>\n" \
+        "   <arg name=\"files\" type=\"a(ss)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"GetUnitFileState\">\n"                        \
         "   <arg name=\"file\" type=\"s\" direction=\"in\"/>\n"         \
