@@ -658,14 +658,28 @@ noinst_DATA = \
 
 CLEANFILES += \
 	$(MANPAGES) \
-	$(MANPAGES_ALIAS)
+	$(MANPAGES_ALIAS) \
+	${XML_FILES:.xml=.html}
+
+if HAVE_PYTHON
+noinst_DATA += \
+	man/index.html
+
+CLEANFILES += \
+	man/index.html
+
+man/index.html: $(XML_FILES)
+	$(AM_V_GEN)$(PYTHON) $(top_srcdir)/make-man-index.py $(XML_FILES) > $@
+endif
+
 endif
 
 EXTRA_DIST += \
 	$(XML_FILES) \
 	${XML_FILES:.xml=.html} \
 	$(MANPAGES) \
-	$(MANPAGES_ALIAS)
+	$(MANPAGES_ALIAS) \
+	make-man-index.py
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
