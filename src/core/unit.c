@@ -2817,6 +2817,19 @@ int unit_add_mount_links(Unit *u) {
         return 0;
 }
 
+int unit_patch_working_directory(Unit *u, ExecContext *c) {
+        assert(u);
+        assert(c);
+
+        if (u->manager->running_as != MANAGER_USER)
+                return 0;
+
+        if (c->working_directory)
+                return 0;
+
+        return get_home_dir(&c->working_directory);
+}
+
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_ACTIVE] = "active",
         [UNIT_RELOADING] = "reloading",

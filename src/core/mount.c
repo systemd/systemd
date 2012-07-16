@@ -631,6 +631,10 @@ static int mount_load(Unit *u) {
                 r = mount_add_extras(m);
                 if (r < 0)
                         return r;
+
+                r = unit_patch_working_directory(UNIT(m), &m->exec_context);
+                if (r < 0)
+                        return r;
         }
 
         return mount_verify(m);
