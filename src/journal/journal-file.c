@@ -2312,9 +2312,6 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
             ts.monotonic < le64toh(to->header->tail_entry_monotonic))
                 return -EINVAL;
 
-        if (ts.realtime < le64toh(to->header->tail_entry_realtime))
-                return -EINVAL;
-
         n = journal_file_entry_n_items(o);
         items = alloca(sizeof(EntryItem) * n);
 
