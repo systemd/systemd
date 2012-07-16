@@ -36,7 +36,7 @@ for n in sorted(index.keys(), key = str.lower):
         if letter is None or n[0].upper() != letter:
                 letter = n[0].upper()
 
-                h2 = SubElement(body, 'h1')
+                h2 = SubElement(body, 'h2')
                 h2.text = letter
 
                 ul = SubElement(body, 'ul')
