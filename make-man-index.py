@@ -1,19 +1,16 @@
 #!/usr/bin/env python
 
 from xml.etree.ElementTree import parse, Element, SubElement, tostring
-import sys
+from sys import argv, stdout
 
 index = {}
 
-for p in sys.argv[1:]:
+for p in argv[1:]:
         t = parse(p)
-        section = t.find('./refmeta/manvolnum').text;
+        section = t.find('./refmeta/manvolnum').text
+        purpose = t.find('./refnamediv/refpurpose').text
         for f in t.findall('./refnamediv/refname'):
-                index[f.text] = (p, section)
-
-k = index.keys()
-k.sort(key = str.lower)
-
+                index[f.text] = (p, section, purpose)
 
 html = Element('html')
 
@@ -26,9 +23,8 @@ h1 = SubElement(body, 'h1')
 h1.text = 'Manual Page Index'
 
 letter = None
-
-for n in k:
-        path, section = index[n]
+for n in sorted(index.keys(), key = str.lower):
+        path, section, purpose = index[n]
 
         if path.endswith('.xml'):
                 path = path[:-4] + ".html"
@@ -51,5 +47,6 @@ for n in k:
         a = SubElement(li, 'a');
         a.set('href', path)
         a.text = n + '(' + section + ')'
+        a.tail = ' -- ' + purpose
 
-print tostring(html)
+stdout.write(tostring(html))
