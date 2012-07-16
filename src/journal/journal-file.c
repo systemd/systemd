@@ -1904,6 +1904,9 @@ void journal_file_print_header(JournalFile *f) {
                "Machine ID: %s\n"
                "Boot ID: %s\n"
                "Sequential Number ID: %s\n"
+               "State: %s\n"
+               "Compatible Flags:%s%s\n"
+               "Incompatible Flags:%s%s\n"
                "Header size: %llu\n"
                "Arena size: %llu\n"
                "Data Hash Table Size: %llu\n"
@@ -1920,6 +1923,13 @@ void journal_file_print_header(JournalFile *f) {
                sd_id128_to_string(f->header->machine_id, b),
                sd_id128_to_string(f->header->boot_id, c),
                sd_id128_to_string(f->header->seqnum_id, c),
+               f->header->state == STATE_OFFLINE ? "offline" :
+               f->header->state == STATE_ONLINE ? "online" :
+               f->header->state == STATE_ARCHIVED ? "archived" : "unknown",
+               (f->header->compatible_flags & HEADER_COMPATIBLE_SIGNED) ? " SIGNED" : "",
+               (f->header->compatible_flags & ~HEADER_COMPATIBLE_SIGNED) ? " ???" : "",
+               (f->header->incompatible_flags & HEADER_INCOMPATIBLE_COMPRESSED) ? " COMPRESSED" : "",
+               (f->header->incompatible_flags & ~HEADER_INCOMPATIBLE_COMPRESSED) ? " ???" : "",
                (unsigned long long) le64toh(f->header->header_size),
                (unsigned long long) le64toh(f->header->arena_size),
                (unsigned long long) le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
