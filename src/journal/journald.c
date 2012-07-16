@@ -313,7 +313,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 journal_file_close(f);
         }
 
-        r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, s->system_journal, &f);
+        r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, &s->system_metrics, s->system_journal, &f);
         free(p);
 
         if (r < 0)
@@ -2005,13 +2005,10 @@ static int system_journal_open(Server *s) {
                 if (!fn)
                         return -ENOMEM;
 
-                r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, NULL, &s->system_journal);
+                r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, &s->system_metrics, NULL, &s->system_journal);
                 free(fn);
 
                 if (r >= 0) {
-                        journal_default_metrics(&s->system_metrics, s->system_journal->fd);
-
-                        s->system_journal->metrics = s->system_metrics;
                         s->system_journal->compress = s->compress;
 
                         server_fix_perms(s, s->system_journal, 0);
@@ -2037,7 +2034,7 @@ static int system_journal_open(Server *s) {
                          * if it already exists, so that we can flush
                          * it into the system journal */
 
-                        r = journal_file_open(fn, O_RDWR, 0640, NULL, &s->runtime_journal);
+                        r = journal_file_open(fn, O_RDWR, 0640, &s->runtime_metrics, NULL, &s->runtime_journal);
                         free(fn);
 
                         if (r < 0) {
@@ -2053,7 +2050,7 @@ static int system_journal_open(Server *s) {
                          * it if necessary. */
 
                         (void) mkdir_parents(fn, 0755);
-                        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, NULL, &s->runtime_journal);
+                        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, &s->runtime_metrics, NULL, &s->runtime_journal);
                         free(fn);
 
                         if (r < 0) {
@@ -2063,9 +2060,6 @@ static int system_journal_open(Server *s) {
                 }
 
                 if (s->runtime_journal) {
-                        journal_default_metrics(&s->runtime_metrics, s->runtime_journal->fd);
-
-                        s->runtime_journal->metrics = s->runtime_metrics;
                         s->runtime_journal->compress = s->compress;
 
                         server_fix_perms(s, s->runtime_journal, 0);

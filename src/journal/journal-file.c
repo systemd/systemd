@@ -32,8 +32,8 @@
 #include "lookup3.h"
 #include "compress.h"
 
-#define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*16ULL)
-#define DEFAULT_FIELD_HASH_TABLE_SIZE (2047ULL*16ULL)
+#define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
+#define DEFAULT_FIELD_HASH_TABLE_SIZE (333ULL*sizeof(HashItem))
 
 #define DEFAULT_WINDOW_SIZE (8ULL*1024ULL*1024ULL)
 
@@ -509,7 +509,17 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
 
         assert(f);
 
-        s = DEFAULT_DATA_HASH_TABLE_SIZE;
+        /* We estimate that we need 1 hash table entry per 2K of
+           journal file and we want to make sure we never get beyond
+           75% fill level. Calculate the hash table size for the
+           maximum file size based on these metrics. */
+
+        s = (f->metrics.max_size * 4 / 2048 / 3) * sizeof(HashItem);
+        if (s < DEFAULT_DATA_HASH_TABLE_SIZE)
+                s = DEFAULT_DATA_HASH_TABLE_SIZE;
+
+        log_info("Reserving %llu entries in hash table.", (unsigned long long) s);
+
         r = journal_file_append_object(f,
                                        OBJECT_DATA_HASH_TABLE,
                                        offsetof(Object, hash_table.items) + s,
@@ -1939,6 +1949,7 @@ int journal_file_open(
                 const char *fname,
                 int flags,
                 mode_t mode,
+                JournalMetrics *metrics,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -1965,10 +1976,8 @@ int journal_file_open(
         f->writable = (flags & O_ACCMODE) != O_RDONLY;
         f->prot = prot_from_flags(flags);
 
-        if (template) {
-                f->metrics = template->metrics;
+        if (template)
                 f->compress = template->compress;
-        }
 
         f->path = strdup(fname);
         if (!f->path) {
@@ -2019,6 +2028,12 @@ int journal_file_open(
         }
 
         if (f->writable) {
+                if (metrics) {
+                        journal_default_metrics(metrics, f->fd);
+                        f->metrics = *metrics;
+                } else if (template)
+                        f->metrics = template->metrics;
+
                 r = journal_file_refresh_header(f);
                 if (r < 0)
                         goto fail;
@@ -2093,7 +2108,7 @@ int journal_file_rotate(JournalFile **f) {
 
         old_file->header->state = STATE_ARCHIVED;
 
-        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, old_file, &new_file);
+        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, NULL, old_file, &new_file);
         journal_file_close(old_file);
 
         *f = new_file;
@@ -2104,6 +2119,7 @@ int journal_file_open_reliably(
                 const char *fname,
                 int flags,
                 mode_t mode,
+                JournalMetrics *metrics,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -2111,7 +2127,7 @@ int journal_file_open_reliably(
         size_t l;
         char *p;
 
-        r = journal_file_open(fname, flags, mode, template, ret);
+        r = journal_file_open(fname, flags, mode, metrics, template, ret);
         if (r != -EBADMSG && /* corrupted */
             r != -ENODATA && /* truncated */
             r != -EHOSTDOWN && /* other machine */
@@ -2140,7 +2156,7 @@ int journal_file_open_reliably(
 
         log_warning("File %s corrupted, renaming and replacing.", fname);
 
-        return journal_file_open(fname, flags, mode, template, ret);
+        return journal_file_open(fname, flags, mode, metrics, template, ret);
 }
 
 struct vacuum_info {

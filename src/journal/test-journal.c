@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, NULL, &f) == 0);
+        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, NULL, NULL, &f) == 0);
 
         dual_timestamp_get(&ts);
 
