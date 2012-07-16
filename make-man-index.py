@@ -5,10 +5,25 @@ from sys import argv, stdout
 
 index = {}
 
+def prettify(elem, indent = 0):
+        s = "\n" + indent * "  "
+        if len(elem):
+                if not elem.text or not elem.text.strip():
+                        elem.text = s + "  "
+                for e in elem:
+                        prettify(e, indent + 1)
+                        if not e.tail or not e.tail.strip():
+                                e.tail = s + "  "
+                if not e.tail or not e.tail.strip():
+                        e.tail = s
+        else:
+                if indent and (not elem.tail or not elem.tail.strip()):
+                        elem.tail = s
+
 for p in argv[1:]:
         t = parse(p)
         section = t.find('./refmeta/manvolnum').text
-        purpose = t.find('./refnamediv/refpurpose').text
+        purpose = ' '.join(t.find('./refnamediv/refpurpose').text.split())
         for f in t.findall('./refnamediv/refname'):
                 index[f.text] = (p, section, purpose)
 
@@ -57,4 +72,5 @@ hr = SubElement(body, 'hr')
 p = SubElement(body, 'p')
 p.text = "This index contains %s entries, referring to %i individual manual pages." % (len(index), len(argv)-1)
 
+prettify(html)
 stdout.write(tostring(html))
