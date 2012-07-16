@@ -74,7 +74,8 @@ void journal_file_close(JournalFile *f) {
         assert(f);
 
         if (f->header) {
-                if (f->writable)
+                /* Mark the file offline. Don't override the archived state if it already is set */
+                if (f->writable && f->header->state == STATE_ONLINE)
                         f->header->state = STATE_OFFLINE;
 
                 munmap(f->header, PAGE_ALIGN(sizeof(Header)));
