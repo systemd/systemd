@@ -1089,7 +1089,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                         uid_t uid;
                         uint32_t u;
 
-                        ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL);
+                        ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
                         if (ret < 0) {
                                 log_error("User %s unknown.", args[i]);
                                 goto finish;
@@ -1320,7 +1320,7 @@ static int enable_linger(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL);
+                ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
                 if (ret < 0) {
                         log_error("Failed to resolve user %s: %s", args[i], strerror(-ret));
                         goto finish;
@@ -1387,7 +1387,7 @@ static int terminate_user(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL);
+                ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
                 if (ret < 0) {
                         log_error("Failed to look up user %s: %s", args[i], strerror(-ret));
                         goto finish;
@@ -1455,7 +1455,7 @@ static int kill_user(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL);
+                ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
                 if (ret < 0) {
                         log_error("Failed to look up user %s: %s", args[i], strerror(-ret));
                         goto finish;

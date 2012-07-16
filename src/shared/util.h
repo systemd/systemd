@@ -441,7 +441,7 @@ int fchmod_umask(int fd, mode_t mode);
 bool display_is_local(const char *display);
 int socket_from_display(const char *display, char **path);
 
-int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home);
+int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell);
 int get_group_creds(const char **groupname, gid_t *gid);
 
 int in_group(const char *name);

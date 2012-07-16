@@ -279,7 +279,7 @@ int manager_add_user_by_name(Manager *m, const char *name, User **_user) {
         assert(m);
         assert(name);
 
-        r = get_user_creds(&name, &uid, &gid, NULL);
+        r = get_user_creds(&name, &uid, &gid, NULL, NULL);
         if (r < 0)
                 return r;
 

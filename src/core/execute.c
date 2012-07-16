@@ -1182,7 +1182,7 @@ int exec_spawn(ExecCommand *command,
 
                 if (context->user) {
                         username = context->user;
-                        err = get_user_creds(&username, &uid, &gid, &home);
+                        err = get_user_creds(&username, &uid, &gid, &home, NULL);
                         if (err < 0) {
                                 r = EXIT_USER;
                                 goto fail_child;

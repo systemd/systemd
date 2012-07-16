@@ -1059,7 +1059,7 @@ int main(int argc, char *argv[]) {
 
                 if (arg_user) {
 
-                        if (get_user_creds((const char**)&arg_user, &uid, &gid, &home) < 0) {
+                        if (get_user_creds((const char**)&arg_user, &uid, &gid, &home, NULL) < 0) {
                                 log_error("get_user_creds() failed: %m");
                                 goto child_fail;
                         }

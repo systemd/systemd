@@ -268,6 +268,11 @@
                         <entry>User home directory</entry>
                         <entry>This is the home directory of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
                       </row>
+                      <row>
+                        <entry><literal>%s</literal></entry>
+                        <entry>User shell</entry>
+                        <entry>This is the shell of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
+                      </row>
                     </tbody>
                   </tgroup>
                 </table>

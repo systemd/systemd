@@ -2232,7 +2232,7 @@ static char *specifier_user_name(char specifier, void *data, void *userdata) {
 
         /* fish username from passwd */
         username = s->exec_context.user;
-        r = get_user_creds(&username, NULL, NULL, NULL);
+        r = get_user_creds(&username, NULL, NULL, NULL, NULL);
         if (r < 0)
                 return NULL;
 
@@ -2256,11 +2256,35 @@ static char *specifier_user_home(char specifier, void *data, void *userdata) {
         }
 
         username = s->exec_context.user;
-        r = get_user_creds(&username, NULL, NULL, &home);
+        r = get_user_creds(&username, NULL, NULL, &home, NULL);
         if (r < 0)
                return NULL;
 
         return strdup(home);
+}
+
+static char *specifier_user_shell(char specifier, void *data, void *userdata) {
+        Service *s = userdata;
+        int r;
+        const char *username, *shell;
+
+        /* return HOME if set, otherwise from passwd */
+        if (!s->exec_context.user) {
+                char *sh;
+
+                r = get_shell(&sh);
+                if (r < 0)
+                        return strdup("/bin/sh");
+
+                return sh;
+        }
+
+        username = s->exec_context.user;
+        r = get_user_creds(&username, NULL, NULL, NULL, &shell);
+        if (r < 0)
+                return strdup("/bin/sh");
+
+        return strdup(shell);
 }
 
 char *unit_name_printf(Unit *u, const char* format) {
@@ -2316,6 +2340,7 @@ char *unit_full_printf(Unit *u, const char *format) {
                 { 't', specifier_runtime,             NULL },
                 { 'u', specifier_user_name,           NULL },
                 { 'h', specifier_user_home,           NULL },
+                { 's', specifier_user_shell,          NULL },
                 { 0, NULL, NULL }
         };
 

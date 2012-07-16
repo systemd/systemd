@@ -1076,7 +1076,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (user && !streq(user, "-")) {
                 const char *u = user;
 
-                r = get_user_creds(&u, &i->uid, NULL, NULL);
+                r = get_user_creds(&u, &i->uid, NULL, NULL, NULL);
                 if (r < 0) {
                         log_error("[%s:%u] Unknown user '%s'.", fname, line, user);
                         goto finish;

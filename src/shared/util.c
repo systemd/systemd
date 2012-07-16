@@ -4905,7 +4905,12 @@ int socket_from_display(const char *display, char **path) {
         return 0;
 }
 
-int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home) {
+int get_user_creds(
+                const char **username,
+                uid_t *uid, gid_t *gid,
+                const char **home,
+                const char **shell) {
+
         struct passwd *p;
         uid_t u;
 
@@ -4926,6 +4931,10 @@ int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **h
 
                 if (home)
                         *home = "/root";
+
+                if (shell)
+                        *shell = "/bin/sh";
+
                 return 0;
         }
 
@@ -4956,6 +4965,9 @@ int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **h
 
         if (home)
                 *home = p->pw_dir;
+
+        if (shell)
+                *shell = p->pw_shell;
 
         return 0;
 }
