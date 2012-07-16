@@ -345,9 +345,11 @@ void rename_process(const char name[8]);
 
 void sigset_add_many(sigset_t *ss, ...);
 
-char* gethostname_malloc(void);
 bool hostname_is_set(void);
+
+char* gethostname_malloc(void);
 char* getlogname_malloc(void);
+char* getusername_malloc(void);
 
 int getttyname_malloc(int fd, char **r);
 int getttyname_harder(int fd, char **r);
@@ -526,5 +528,8 @@ bool is_valid_documentation_url(const char *url);
 bool in_initrd(void);
 
 void warn_melody(void);
+
+int get_shell(char **ret);
+int get_home_dir(char **ret);
 
 #endif

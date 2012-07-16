@@ -3078,26 +3078,22 @@ bool hostname_is_set(void) {
         return !isempty(u.nodename) && !streq(u.nodename, "(none)");
 }
 
-char* getlogname_malloc(void) {
-        uid_t uid;
+
+static char *lookup_uid(uid_t uid) {
         long bufsize;
         char *buf, *name;
         struct passwd pwbuf, *pw = NULL;
-        struct stat st;
-
-        if (isatty(STDIN_FILENO) && fstat(STDIN_FILENO, &st) >= 0)
-                uid = st.st_uid;
-        else
-                uid = getuid();
 
         /* Shortcut things to avoid NSS lookups */
         if (uid == 0)
                 return strdup("root");
 
-        if ((bufsize = sysconf(_SC_GETPW_R_SIZE_MAX)) <= 0)
+        bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+        if (bufsize <= 0)
                 bufsize = 4096;
 
-        if (!(buf = malloc(bufsize)))
+        buf = malloc(bufsize);
+        if (!buf)
                 return NULL;
 
         if (getpwuid_r(uid, &pwbuf, buf, bufsize, &pw) == 0 && pw) {
@@ -3112,6 +3108,28 @@ char* getlogname_malloc(void) {
                 return NULL;
 
         return name;
+}
+
+char* getlogname_malloc(void) {
+        uid_t uid;
+        struct stat st;
+
+        if (isatty(STDIN_FILENO) && fstat(STDIN_FILENO, &st) >= 0)
+                uid = st.st_uid;
+        else
+                uid = getuid();
+
+        return lookup_uid(uid);
+}
+
+char *getusername_malloc(void) {
+        const char *e;
+
+        e = getenv("USER");
+        if (e)
+                return strdup(e);
+
+        return lookup_uid(getuid());
 }
 
 int getttyname_malloc(int fd, char **r) {
@@ -5873,5 +5891,99 @@ int make_console_stdio(void) {
                 return r;
         }
 
+        return 0;
+}
+
+int get_home_dir(char **_h) {
+        char *h;
+        const char *e;
+        uid_t u;
+        struct passwd *p;
+
+        assert(_h);
+
+        /* Take the user specified one */
+        e = getenv("HOME");
+        if (e) {
+                h = strdup(e);
+                if (!h)
+                        return -ENOMEM;
+
+                *_h = h;
+                return 0;
+        }
+
+        /* Hardcode home directory for root to avoid NSS */
+        u = getuid();
+        if (u == 0) {
+                h = strdup("/root");
+                if (!h)
+                        return -ENOMEM;
+
+                *_h = h;
+                return 0;
+        }
+
+        /* Check the database... */
+        errno = 0;
+        p = getpwuid(u);
+        if (!p)
+                return errno ? -errno : -ENOENT;
+
+        if (!path_is_absolute(p->pw_dir))
+                return -EINVAL;
+
+        h = strdup(p->pw_dir);
+        if (!h)
+                return -ENOMEM;
+
+        *_h = h;
+        return 0;
+}
+
+int get_shell(char **_sh) {
+        char *sh;
+        const char *e;
+        uid_t u;
+        struct passwd *p;
+
+        assert(_sh);
+
+        /* Take the user specified one */
+        e = getenv("SHELL");
+        if (e) {
+                sh = strdup(e);
+                if (!sh)
+                        return -ENOMEM;
+
+                *_sh = sh;
+                return 0;
+        }
+
+        /* Hardcode home directory for root to avoid NSS */
+        u = getuid();
+        if (u == 0) {
+                sh = strdup("/bin/sh");
+                if (!sh)
+                        return -ENOMEM;
+
+                *_sh = sh;
+                return 0;
+        }
+
+        /* Check the database... */
+        errno = 0;
+        p = getpwuid(u);
+        if (!p)
+                return errno ? -errno : -ESRCH;
+
+        if (!path_is_absolute(p->pw_shell))
+                return -EINVAL;
+
+        sh = strdup(p->pw_shell);
+        if (!sh)
+                return -ENOMEM;
+
+        *_sh = sh;
         return 0;
 }
