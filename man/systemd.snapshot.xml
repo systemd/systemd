@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd.snapshot</refname>
-                <refpurpose>systemd snapshot units</refpurpose>
+                <refpurpose>Snapshot unit configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

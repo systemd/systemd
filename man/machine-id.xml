@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>machine-id</refname>
-                <refpurpose>local machine ID configuration file</refpurpose>
+                <refpurpose>Local machine ID configuration file</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

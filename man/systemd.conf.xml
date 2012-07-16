@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd.conf</refname>
-                <refpurpose>systemd manager configuration file</refpurpose>
+                <refpurpose>System and service manager configuration file</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

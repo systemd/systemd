@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd-notify</refname>
-                <refpurpose>Notify init system about start-up completion and other daemon status changes</refpurpose>
+                <refpurpose>Notify service manager about start-up completion and other daemon status changes</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

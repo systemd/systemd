@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd-machine-id-setup</refname>
-                <refpurpose>Initialize the machine ID in <filename>/etc/machine-id</filename></refpurpose>
+                <refpurpose>Initialize the machine ID in /etc/machine-id</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd.exec</refname>
-                <refpurpose>systemd execution environment configuration</refpurpose>
+                <refpurpose>Execution environment configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

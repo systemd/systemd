@@ -46,7 +46,7 @@
                 <refname>systemd-shutdownd.service</refname>
                 <refname>systemd-shutdownd.socket</refname>
                 <refname>systemd-shutdownd</refname>
-                <refpurpose>systemd scheduled shutdown daemon</refpurpose>
+                <refpurpose>Scheduled shutdown service</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

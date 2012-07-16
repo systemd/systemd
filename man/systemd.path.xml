@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd.path</refname>
-                <refpurpose>systemd path configuration files</refpurpose>
+                <refpurpose>Path unit configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

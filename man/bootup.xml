@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>bootup</refname>
-                <refpurpose>The System Bootup Process</refpurpose>
+                <refpurpose>System bootup process</refpurpose>
         </refnamediv>
 
         <refsect1>

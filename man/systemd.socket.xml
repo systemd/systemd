@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd.socket</refname>
-                <refpurpose>systemd socket configuration files</refpurpose>
+                <refpurpose>Socket unit configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

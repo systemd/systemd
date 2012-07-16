@@ -44,8 +44,8 @@
                 <refname>systemd-update-utmp-runlevel.service</refname>
                 <refname>systemd-update-utmp-shutdown.service</refname>
                 <refname>systemd-update-utmp</refname>
-                <refpurpose>Write audit an utmp updates at runlevel
-                changes and shutdown.</refpurpose>
+                <refpurpose>Write audit and utmp updates at runlevel
+                changes and shutdown</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

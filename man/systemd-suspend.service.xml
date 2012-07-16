@@ -46,7 +46,7 @@
                 <refname>systemd-suspend.service</refname>
                 <refname>systemd-hibernate.service</refname>
                 <refname>systemd-sleep</refname>
-                <refpurpose>systemd System Sleep State Logic</refpurpose>
+                <refpurpose>System sleep state logic</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

@@ -48,7 +48,7 @@
                 <refname>systemd-readahead-done.service</refname>
                 <refname>systemd-readahead-done.timer</refname>
                 <refname>systemd-readahead</refname>
-                <refpurpose>systemd Disk Read Ahead Logic</refpurpose>
+                <refpurpose>Disk read ahead logic</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

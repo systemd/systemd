@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>sd_booted</refname>
-                <refpurpose>Test whether the system is running the systemd init system.</refpurpose>
+                <refpurpose>Test whether the system is running the systemd init system</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

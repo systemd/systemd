@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd.device</refname>
-                <refpurpose>systemd device configuration files</refpurpose>
+                <refpurpose>Device unit configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

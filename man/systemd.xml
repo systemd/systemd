@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>systemd</refname>
                 <refname>init</refname>
-                <refpurpose>systemd System and Service Manager</refpurpose>
+                <refpurpose>systemd system and service manager</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

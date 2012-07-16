@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>sd-journal</refname>
-                <refpurpose>APIs for submitting and querying log entries to and from the Journal</refpurpose>
+                <refpurpose>APIs for submitting and querying log entries to and from the journal</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

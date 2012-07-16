@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>systemd-localed.service</refname>
                 <refname>systemd-localed</refname>
-                <refpurpose>systemd Locale Bus Mechanism</refpurpose>
+                <refpurpose>Locale bus mechanism</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

@@ -46,7 +46,7 @@
                 <refname>systemd-journald.service</refname>
                 <refname>systemd-journald.socket</refname>
                 <refname>systemd-journald</refname>
-                <refpurpose>systemd Journal Service</refpurpose>
+                <refpurpose>Journal service</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

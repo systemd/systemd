@@ -48,7 +48,7 @@
                 <refname>systemd-reboot.service</refname>
                 <refname>systemd-kexec.service</refname>
                 <refname>systemd-shutdown</refname>
-                <refpurpose>systemd System Shutdown Logic</refpurpose>
+                <refpurpose>System shutdown logic</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

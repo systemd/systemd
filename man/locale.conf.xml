@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>locale.conf</refname>
-                <refpurpose>configuration file for locale settings</refpurpose>
+                <refpurpose>Configuration file for locale settings</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd.mount</refname>
-                <refpurpose>systemd mount configuration files</refpurpose>
+                <refpurpose>Mount unit configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

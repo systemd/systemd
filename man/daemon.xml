@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>daemon</refname>
-                <refpurpose>Writing and Packaging System Daemons</refpurpose>
+                <refpurpose>Writing and packaging system daemons</refpurpose>
         </refnamediv>
 
         <refsect1>

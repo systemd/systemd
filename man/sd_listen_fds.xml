@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>sd_listen_fds</refname>
                 <refname>SD_LISTEN_FDS_START</refname>
-                <refpurpose>Check for file descriptors passed by the init system.</refpurpose>
+                <refpurpose>Check for file descriptors passed by the system manager</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

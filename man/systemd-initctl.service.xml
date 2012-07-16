@@ -46,7 +46,7 @@
                 <refname>systemd-initctl.service</refname>
                 <refname>systemd-initctl.socket</refname>
                 <refname>systemd-initctl</refname>
-                <refpurpose>systemd <filename>/dev/initctl</filename> Compatibility</refpurpose>
+                <refpurpose>/dev/initctl compatibility</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

@@ -42,7 +42,7 @@
 
         <refnamediv>
                 <refname>systemd-fstab-generator</refname>
-                <refpurpose>Unit generator for <filename>/etc/fstab</filename></refpurpose>
+                <refpurpose>Unit generator for /etc/fstab</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

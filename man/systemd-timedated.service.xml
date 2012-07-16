@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>systemd-timedated.service</refname>
                 <refname>systemd-timedated</refname>
-                <refpurpose>systemd Time and Date Bus Mechanism</refpurpose>
+                <refpurpose>Time and date bus mechanism</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

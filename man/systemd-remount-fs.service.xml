@@ -43,7 +43,7 @@
         <refnamediv>
                 <refname>systemd-remount-fs.service</refname>
                 <refname>systemd-remount-fs</refname>
-                <refpurpose>Remount Root and Kernel File Systems</refpurpose>
+                <refpurpose>Remount root and kernel file systems</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

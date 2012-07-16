@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd.unit</refname>
-                <refpurpose>systemd unit configuration files</refpurpose>
+                <refpurpose>Unit configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

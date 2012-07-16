@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>systemd-logind.service</refname>
                 <refname>systemd-logind</refname>
-                <refpurpose>systemd Login Manager</refpurpose>
+                <refpurpose>Login manager</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

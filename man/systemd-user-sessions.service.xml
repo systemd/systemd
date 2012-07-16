@@ -43,7 +43,7 @@
         <refnamediv>
                 <refname>systemd-user-sessions.service</refname>
                 <refname>systemd-user-sessions</refname>
-                <refpurpose>Permit user logins after boot, prohibit user logins at shutdown.</refpurpose>
+                <refpurpose>Permit user logins after boot, prohibit user logins at shutdown</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

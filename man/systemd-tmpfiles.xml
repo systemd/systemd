@@ -48,7 +48,7 @@
                 <refname>systemd-tmpfiles-clean.service</refname>
                 <refname>systemd-tmpfiles-clean.timer</refname>
                 <refpurpose>Creates, deletes and cleans up volatile
-                and temporary files and directories.</refpurpose>
+                and temporary files and directories</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

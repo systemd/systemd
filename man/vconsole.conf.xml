@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>vconsole.conf</refname>
-                <refpurpose>configuration file for the virtual console</refpurpose>
+                <refpurpose>Configuration file for the virtual console</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

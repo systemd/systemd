@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd.timer</refname>
-                <refpurpose>systemd timer configuration files</refpurpose>
+                <refpurpose>Timer unit configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

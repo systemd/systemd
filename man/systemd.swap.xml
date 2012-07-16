@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd.swap</refname>
-                <refpurpose>systemd swap configuration files</refpurpose>
+                <refpurpose>Swap unit configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

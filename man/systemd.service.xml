@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd.service</refname>
-                <refpurpose>systemd service configuration files</refpurpose>
+                <refpurpose>Service unit configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

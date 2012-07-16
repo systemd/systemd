@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemd.automount</refname>
-                <refpurpose>systemd automount configuration files</refpurpose>
+                <refpurpose>Automount unit configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

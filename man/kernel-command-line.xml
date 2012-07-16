@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>kernel-command-line</refname>
-                <refpurpose>Kernel Command Line Parameters</refpurpose>
+                <refpurpose>Kernel command line parameters</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

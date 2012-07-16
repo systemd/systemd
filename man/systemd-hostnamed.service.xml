@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>systemd-hostnamed.service</refname>
                 <refname>systemd-hostnamed</refname>
-                <refpurpose>systemd Hostname Bus Mechanism</refpurpose>
+                <refpurpose>Hostname bus mechanism</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
