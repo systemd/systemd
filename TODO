@@ -33,11 +33,12 @@ Bugfixes:
   Jul 09 18:22:37 mop [21866]: Process 21865 (systemd) dumped core.
 
 Features:
+
+* use cpp -dM for key mapping too?
+
 * change mount access mode of 0700 or so for debugfs?
 
 * logind: wakelock/opportunistic suspend support
-
-* seccomp filters for services
 
 * switch-root: sockets need relabelling
 
@@ -59,8 +60,6 @@ Features:
 
 * load-fragment: when loading a unit file via a chain of symlinks
   verify that it isn't masked via any of the names traversed.
-
-* journald: _BOOT_ID triggers too many collisions.
 
 * journald: we currently rotate only after MaxUse+MaxFilesize has been reached.
 
@@ -235,8 +234,6 @@ Features:
 * logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
 
 * write RPM spec macros for presets
-
-* journal: extend hash tables as we go
 
 * journal: API for looking for retrieving "all values of this field"
 

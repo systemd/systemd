@@ -48,6 +48,8 @@ $1.Capabilities,                 config_parse_exec_capabilities,     0,         
 $1.SecureBits,                   config_parse_exec_secure_bits,      0,                             offsetof($1, exec_context)
 $1.CapabilityBoundingSet,        config_parse_bounding_set,          0,                             offsetof($1, exec_context.capability_bounding_set_drop)
 $1.TimerSlackNSec,               config_parse_nsec,                  0,                             offsetof($1, exec_context.timer_slack_nsec)
+$1.NoNewPrivileges               config_parse_bool,                  0,                             offsetof($1, exec_context.no_new_privileges)
+$1.SystemCallFilter,             config_parse_syscall_filter,        0,                             offsetof($1, exec_context)
 $1.LimitCPU,                     config_parse_limit,                 RLIMIT_CPU,                    offsetof($1, exec_context.rlimit)
 $1.LimitFSIZE,                   config_parse_limit,                 RLIMIT_FSIZE,                  offsetof($1, exec_context.rlimit)
 $1.LimitDATA,                    config_parse_limit,                 RLIMIT_DATA,                   offsetof($1, exec_context.rlimit)

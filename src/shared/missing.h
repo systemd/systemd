@@ -188,4 +188,8 @@ static inline pid_t gettid(void) {
 #define MS_STRICTATIME (1<<24)
 #endif
 
+#ifndef PR_SET_NO_NEW_PRIVS
+#define PR_SET_NO_NEW_PRIVS 38
+#endif
+
 #endif

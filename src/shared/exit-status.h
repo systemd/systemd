@@ -66,8 +66,9 @@ typedef enum ExitStatus {
         EXIT_TCPWRAP,
         EXIT_PAM,
         EXIT_NETWORK,
-        EXIT_NAMESPACE
-
+        EXIT_NAMESPACE,
+        EXIT_NO_NEW_PRIVILEGES,
+        EXIT_SECCOMP
 } ExitStatus;
 
 typedef enum ExitStatusLevel {

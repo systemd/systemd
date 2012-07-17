@@ -45,6 +45,7 @@
 #include "bus-errors.h"
 #include "utf8.h"
 #include "path-util.h"
+#include "syscall-list.h"
 
 #ifndef HAVE_SYSV_COMPAT
 int config_parse_warn_compat(
@@ -879,7 +880,7 @@ int config_parse_bounding_set(
 
                 if (r < 0) {
                         log_error("[%s:%u] Failed to parse capability bounding set, ignoring: %s", filename, line, rvalue);
-                        return 0;
+                        continue;
                 }
 
                 sum |= ((uint64_t) 1ULL) << (uint64_t) cap;
@@ -1999,6 +2000,88 @@ int config_parse_documentation(
         *b = NULL;
 
         return r;
+}
+
+static void syscall_set(uint32_t *p, int nr) {
+        p[nr >> 4] |= 1 << (nr & 31);
+}
+
+static void syscall_unset(uint32_t *p, int nr) {
+        p[nr >> 4] &= ~(1 << (nr & 31));
+}
+
+int config_parse_syscall_filter(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        Unit *u = userdata;
+        bool invert;
+        char *w;
+        size_t l;
+        char *state;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(u);
+
+        if (rvalue[0] == '~') {
+                invert = true;
+                rvalue++;
+        }
+
+        if (!c->syscall_filter) {
+                size_t n;
+
+                n = (syscall_max() + 31) >> 4;
+                c->syscall_filter = new(uint32_t, n);
+                if (!c->syscall_filter)
+                        return -ENOMEM;
+
+                memset(c->syscall_filter, invert ? 0xFF : 0, n * sizeof(uint32_t));
+
+                /* Add these by default */
+                syscall_set(c->syscall_filter, __NR_execve);
+                syscall_set(c->syscall_filter, __NR_rt_sigreturn);
+#ifdef __NR_sigreturn
+                syscall_set(c->syscall_filter, __NR_sigreturn);
+#endif
+                syscall_set(c->syscall_filter, __NR_exit_group);
+                syscall_set(c->syscall_filter, __NR_exit);
+        }
+
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                int id;
+                char *t;
+
+                t = strndup(w, l);
+                if (!t)
+                        return -ENOMEM;
+
+                id = syscall_from_name(t);
+                free(t);
+
+                if (id < 0)  {
+                        log_error("[%s:%u] Failed to parse syscall, ignoring: %s", filename, line, rvalue);
+                        continue;
+                }
+
+                if (invert)
+                        syscall_unset(c->syscall_filter, id);
+                else
+                        syscall_set(c->syscall_filter, id);
+        }
+
+        c->no_new_privileges = true;
+
+        return 0;
 }
 
 #define FOLLOW_MAX 8

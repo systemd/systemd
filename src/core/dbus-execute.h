@@ -96,7 +96,9 @@
         "  <property name=\"ControlGroupModify\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupPersistent\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"PrivateNetwork\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"IgnoreSIGPIPE\" type=\"b\" access=\"read\"/>\n"
+        "  <property name=\"IgnoreSIGPIPE\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"NoNewPrivileges\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"SystemCallFilter\" type=\"au\" access=\"read\"/>\n"
 
 #define BUS_EXEC_COMMAND_INTERFACE(name)                             \
         "  <property name=\"" name "\" type=\"a(sasbttuii)\" access=\"read\"/>\n"
@@ -121,5 +123,6 @@ int bus_execute_append_rlimits(DBusMessageIter *i, const char *property, void *d
 int bus_execute_append_command(DBusMessageIter *u, const char *property, void *data);
 int bus_execute_append_kill_mode(DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_env_files(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_syscall_filter(DBusMessageIter *i, const char *property, void *data);
 
 #endif

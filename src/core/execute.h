@@ -164,6 +164,8 @@ struct ExecContext {
         bool private_tmp;
         bool private_network;
 
+        bool no_new_privileges;
+
         bool control_group_modify;
         int control_group_persistent;
 
@@ -173,6 +175,8 @@ struct ExecContext {
          * that the autofs logic detects that it belongs to us and we
          * don't enter a trigger loop. */
         bool same_pgrp;
+
+        uint32_t *syscall_filter;
 
         bool oom_score_adjust_set:1;
         bool nice_set:1;

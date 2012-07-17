@@ -122,6 +122,12 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
 
                 case EXIT_NAMESPACE:
                         return "NAMESPACE";
+
+                case EXIT_NO_NEW_PRIVILEGES:
+                        return "NO_NEW_PRIVILEGES";
+
+                case EXIT_SECCOMP:
+                        return "SECCOMP";
                 }
         }
 

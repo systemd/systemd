@@ -1083,6 +1083,29 @@ int generic_print_property(const char *name, DBusMessageIter *iter, bool all) {
                         }
 
                         return 1;
+
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_UINT32) {
+                        DBusMessageIter sub;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        if (all ||
+                            dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                                printf("%s=", name);
+
+                                while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                                        uint32_t u;
+
+                                        assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_UINT32);
+                                        dbus_message_iter_get_basic(&sub, &u);
+                                        printf("%08x", u);
+
+                                        dbus_message_iter_next(&sub);
+                                }
+
+                                puts("");
+                        }
+
+                        return 1;
                 }
 
                 break;

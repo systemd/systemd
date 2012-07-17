@@ -1,2 +1,6 @@
+/syscall-from-name.gperf
+/syscall-from-name.h
+/syscall-list.txt
+/syscall-to-name.h
 /macros.systemd
 /systemd.pc

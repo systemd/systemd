@@ -28,6 +28,7 @@
 #include "ioprio.h"
 #include "strv.h"
 #include "dbus-common.h"
+#include "syscall-list.h"
 
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_kill_mode, kill_mode, KillMode);
 
@@ -348,6 +349,32 @@ int bus_execute_append_command(DBusMessageIter *i, const char *property, void *d
         return 0;
 }
 
+int bus_execute_append_syscall_filter(DBusMessageIter *i, const char *property, void *data) {
+        ExecContext *c = data;
+        dbus_bool_t b;
+        DBusMessageIter sub;
+
+        assert(i);
+        assert(property);
+        assert(c);
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "u", &sub))
+                return -ENOMEM;
+
+        if (c->syscall_filter)
+                b = dbus_message_iter_append_fixed_array(&sub, DBUS_TYPE_UINT32, &c->syscall_filter, (syscall_max() + 31) >> 4);
+        else
+                b = dbus_message_iter_append_fixed_array(&sub, DBUS_TYPE_UINT32, &c->syscall_filter, 0);
+
+        if (!b)
+                return -ENOMEM;
+
+        if (!dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
 const BusProperty bus_exec_context_properties[] = {
         { "Environment",              bus_property_append_strv,             "as", offsetof(ExecContext, environment),            true },
         { "EnvironmentFiles",         bus_execute_append_env_files,      "a(sb)", offsetof(ExecContext, environment_files),      true },
@@ -409,6 +436,8 @@ const BusProperty bus_exec_context_properties[] = {
         { "UtmpIdentifier",           bus_property_append_string,            "s", offsetof(ExecContext, utmp_id),                true },
         { "ControlGroupModify",       bus_property_append_bool,              "b", offsetof(ExecContext, control_group_modify)         },
         { "ControlGroupPersistent",   bus_property_append_tristate_false,    "b", offsetof(ExecContext, control_group_persistent)     },
-        { "IgnoreSIGPIPE",            bus_property_append_bool,              "b", offsetof(ExecContext, ignore_sigpipe          )     },
+        { "IgnoreSIGPIPE",            bus_property_append_bool,              "b", offsetof(ExecContext, ignore_sigpipe)               },
+        { "NoNewPrivileges",          bus_property_append_bool,              "b", offsetof(ExecContext, no_new_privileges)            },
+        { "SystemCallFilter",         bus_execute_append_syscall_filter,    "au", 0                                                   },
         { NULL, }
 };

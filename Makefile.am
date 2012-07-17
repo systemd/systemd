@@ -961,11 +961,15 @@ libsystemd_core_la_SOURCES = \
 	src/core/switch-root.h \
 	src/core/switch-root.c \
 	src/core/killall.h \
-	src/core/killall.c
+	src/core/killall.c \
+	src/core/syscall-list.c \
+	src/core/syscall-list.h
 
 nodist_libsystemd_core_la_SOURCES = \
 	src/core/load-fragment-gperf.c \
-	src/core/load-fragment-gperf-nulstr.c
+	src/core/load-fragment-gperf-nulstr.c \
+	src/core/syscall-from-name.h \
+	src/core/syscall-to-name.h
 
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -998,7 +1002,23 @@ EXTRA_DIST += \
 CLEANFILES += \
 	src/core/load-fragment-gperf.gperf \
 	src/core/load-fragment-gperf.c \
-	src/core/load-fragment-gperf-nulstr.c
+	src/core/load-fragment-gperf-nulstr.c \
+	src/core/syscall-list.txt \
+	src/core/syscall-from-name.gperf \
+	src/core/syscall-from-name.h \
+	src/core/syscall-to-name.h
+
+src/core/syscall-list.txt: Makefile
+	$(AM_V_GEN)cpp -dM -include sys/syscall.h < /dev/null | $(AWK) '/^#define[ \t]+__NR_[^ ]+[ \t]+[0-9]/ { sub(/__NR_/, "", $$2); print $$2; }' > $@ || rm $@
+
+src/core/syscall-from-name.gperf: src/core/syscall-list.txt Makefile
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct syscall_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, __NR_%s\n", $$1, $$1 }' < $< > $@
+
+src/core/syscall-from-name.h: src/core/syscall-from-name.gperf Makefile
+	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_syscall -H hash_syscall_name -p -C < $< > $@
+
+src/core/syscall-to-name.h: src/core/syscall-list.txt Makefile
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const syscall_names[] = { "} { printf "[__NR_%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
 
 # ------------------------------------------------------------------------------
 systemd_SOURCES = \

@@ -1091,6 +1091,54 @@
                                 shell pipelines.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>NoNewPrivileges=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true ensures that the
+                                service process and all its children
+                                can never gain new privileges. This
+                                option is more powerful than the respective
+                                secure bits flags (see above), as it
+                                also prohibits UID changes of any
+                                kind. This is the simplest, most
+                                effective way to ensure that a process
+                                and its children can never elevate
+                                privileges again.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>SystemCallFilter=</varname></term>
+
+                                <listitem><para>Takes a space
+                                separated list of system call
+                                names. If this setting is used all
+                                system calls executed by the unit
+                                process except for the listed ones
+                                will result in immediate process
+                                termination with the SIGSYS signal
+                                (whitelisting). If the first character
+                                of the list is <literal>~</literal>
+                                the effect is inverted: only the
+                                listed system calls will result in
+                                immediate process termination
+                                (blacklisting). If this option is used
+                                <varname>NoNewPrivileges=yes</varname>
+                                is implied. This feature makes use of
+                                the Secure Computing Mode 2 interfaces
+                                of the kernel ('seccomp filtering')
+                                and is useful for enforcing a minimal
+                                sandboxing environment. Note that the
+                                <function>execve</function>,
+                                <function>rt_sigreturn</function>,
+                                <function>sigreturn</function>,
+                                <function>exit_group</function>,
+                                <function>exit</function> system calls
+                                are implicitly whitelisted and don't
+                                need to be listed
+                                explicitly.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 

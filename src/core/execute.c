@@ -38,6 +38,7 @@
 #include <linux/fs.h>
 #include <linux/oom.h>
 #include <sys/poll.h>
+#include <linux/seccomp-bpf.h>
 
 #ifdef HAVE_PAM
 #include <security/pam_appl.h>
@@ -60,6 +61,7 @@
 #include "def.h"
 #include "loopback-setup.h"
 #include "path-util.h"
+#include "syscall-list.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 
@@ -924,6 +926,59 @@ static void rename_process_from_path(const char *path) {
         rename_process(process_name);
 }
 
+static int apply_seccomp(uint32_t *syscall_filter) {
+        static const struct sock_filter header[] = {
+                VALIDATE_ARCHITECTURE,
+                EXAMINE_SYSCALL
+        };
+        static const struct sock_filter footer[] = {
+                _KILL_PROCESS
+        };
+
+        int i;
+        unsigned n;
+        struct sock_filter *f;
+        struct sock_fprog prog;
+
+        assert(syscall_filter);
+
+        /* First: count the syscalls to check for */
+        for (i = 0, n = 0; i < syscall_max(); i++)
+                if (syscall_filter[i >> 4] & (1 << (i & 31)))
+                        n++;
+
+        /* Second: build the filter program from a header the syscall
+         * matches and the footer */
+        f = alloca(sizeof(struct sock_filter) * (ELEMENTSOF(header) + 2*n + ELEMENTSOF(footer)));
+        memcpy(f, header, sizeof(header));
+
+        for (i = 0, n = 0; i < syscall_max(); i++)
+                if (syscall_filter[i >> 4] & (1 << (i & 31))) {
+                        struct sock_filter item[] = {
+                                BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, i, 0, 1),
+                                BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW)
+                        };
+
+                        assert_cc(ELEMENTSOF(item) == 2);
+
+                        f[ELEMENTSOF(header) + 2*n]  = item[0];
+                        f[ELEMENTSOF(header) + 2*n+1] = item[1];
+
+                        n++;
+                }
+
+        memcpy(f + (ELEMENTSOF(header) + 2*n), footer, sizeof(footer));
+
+        /* Third: install the filter */
+        zero(prog);
+        prog.len = ELEMENTSOF(header) + ELEMENTSOF(footer) + 2*n;
+        prog.filter = f;
+        if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog) < 0)
+                return -errno;
+
+        return 0;
+}
+
 int exec_spawn(ExecCommand *command,
                char **argv,
                const ExecContext *context,
@@ -1355,6 +1410,21 @@ int exec_spawn(ExecCommand *command,
                                         r = EXIT_CAPABILITIES;
                                         goto fail_child;
                                 }
+
+                        if (context->no_new_privileges)
+                                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
+                                        err = -errno;
+                                        r = EXIT_NO_NEW_PRIVILEGES;
+                                        goto fail_child;
+                                }
+
+                        if (context->syscall_filter) {
+                                err = apply_seccomp(context->syscall_filter);
+                                if (err < 0) {
+                                        r = EXIT_SECCOMP;
+                                        goto fail_child;
+                                }
+                        }
                 }
 
                 if (!(our_env = new0(char*, 7))) {
