@@ -669,9 +669,11 @@ noinst_DATA += \
 CLEANFILES += \
 	man/index.html
 
-man/index.html: $(XML_FILES) $(top_srcdir)/make-man-index.py
+$(builddir)/man/index.html: $(XML_FILES:.xml=.html) $(top_srcdir)/make-man-index.py
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(AM_V_GEN)$(PYTHON) $(top_srcdir)/make-man-index.py $(XML_FILES) > $@ || rm $@
+	$(PYTHON) $(top_srcdir)/make-man-index.py $(XML_FILES) > $@ || rm $@
+
+EXTRA_DIST += man/index.html
 endif
 
 endif
