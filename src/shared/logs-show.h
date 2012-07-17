@@ -39,7 +39,13 @@ typedef enum OutputMode {
         _OUTPUT_MODE_INVALID = -1
 } OutputMode;
 
-int output_journal(sd_journal *j, OutputMode mode, unsigned line, unsigned n_columns, bool show_all);
+typedef enum OutputFlags {
+        OUTPUT_SHOW_ALL = 1 << 0,
+        OUTPUT_MONOTONIC_MODE = 1 << 1,
+} OutputFlags;
+
+int output_journal(sd_journal *j, OutputMode mode, unsigned line,
+                   unsigned n_columns, OutputFlags flags);
 
 int show_journal_by_unit(
                 const char *unit,
