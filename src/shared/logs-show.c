@@ -553,15 +553,14 @@ int show_journal_by_unit(
                 unsigned n_columns,
                 usec_t not_before,
                 unsigned how_many,
-                bool show_all,
-                bool follow,
-                bool warn_cutoff) {
+                OutputFlags flags) {
 
         char *m = NULL;
         sd_journal *j = NULL;
         int r;
         unsigned line = 0;
         bool need_seek = false;
+        int warn_cutoff = flags & OUTPUT_WARN_CUTOFF;
 
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
@@ -633,8 +632,7 @@ int show_journal_by_unit(
 
                         line ++;
 
-                        r = output_journal(j, mode, line, n_columns,
-                                           show_all ? OUTPUT_SHOW_ALL : 0);
+                        r = output_journal(j, mode, line, n_columns, flags);
                         if (r < 0)
                                 goto finish;
                 }
@@ -659,7 +657,7 @@ int show_journal_by_unit(
                         warn_cutoff = false;
                 }
 
-                if (!follow)
+                if (!(flags & OUTPUT_FOLLOW))
                         break;
 
                 r = sd_journal_wait(j, (usec_t) -1);

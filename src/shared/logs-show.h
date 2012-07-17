@@ -42,6 +42,8 @@ typedef enum OutputMode {
 typedef enum OutputFlags {
         OUTPUT_SHOW_ALL = 1 << 0,
         OUTPUT_MONOTONIC_MODE = 1 << 1,
+        OUTPUT_FOLLOW = 1 << 2,
+        OUTPUT_WARN_CUTOFF = 1 << 3,
 } OutputFlags;
 
 int output_journal(sd_journal *j, OutputMode mode, unsigned line,
@@ -53,9 +55,7 @@ int show_journal_by_unit(
                 unsigned n_columns,
                 usec_t not_before,
                 unsigned how_many,
-                bool show_all,
-                bool follow,
-                bool warn_cutoff);
+                OutputFlags flags);
 
 const char* output_mode_to_string(OutputMode m);
 OutputMode output_mode_from_string(const char *s);
