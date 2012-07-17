@@ -1008,6 +1008,10 @@ CLEANFILES += \
 	src/core/syscall-from-name.h \
 	src/core/syscall-to-name.h
 
+BUILT_SOURCES += \
+	src/core/syscall-from-name.h \
+	src/core/syscall-to-name.h
+
 src/core/syscall-list.txt: Makefile
 	$(AM_V_GEN)cpp -dM -include sys/syscall.h < /dev/null | $(AWK) '/^#define[ \t]+__NR_[^ ]+[ \t]+[0-9]/ { sub(/__NR_/, "", $$2); print $$2; }' > $@ || rm $@
 
