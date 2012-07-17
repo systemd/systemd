@@ -34,9 +34,11 @@ Bugfixes:
 
 Features:
 
-* use cpp -dM for key mapping too?
+* switch-root killing spree: don't waitpid, and think about signalfd() serialization
 
-* change mount access mode of 0700 or so for debugfs?
+* flush jobs when switching root
+
+* autorestart of journald after switch-root is broken
 
 * logind: wakelock/opportunistic suspend support
 
