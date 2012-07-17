@@ -1609,6 +1609,9 @@ void exec_context_done(ExecContext *c) {
 
         free(c->utmp_id);
         c->utmp_id = NULL;
+
+        free(c->syscall_filter);
+        c->syscall_filter = NULL;
 }
 
 void exec_command_done(ExecCommand *c) {
