@@ -312,6 +312,7 @@ int main(int argc, char *argv[]) {
         bool need_seek = false;
         sd_id128_t previous_boot_id;
         bool previous_boot_id_valid = false;
+        bool have_pager;
 
         log_parse_environment();
         log_open();
@@ -397,7 +398,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (!arg_no_pager && !arg_follow) {
+        have_pager = !arg_no_pager && !arg_follow;
+        if (have_pager) {
                 columns();
                 pager_open();
         }
@@ -410,6 +412,8 @@ int main(int argc, char *argv[]) {
         for (;;) {
                 for (;;) {
                         sd_id128_t boot_id;
+                        int flags = (arg_show_all*OUTPUT_SHOW_ALL |
+                                     have_pager*OUTPUT_FULL_WIDTH);
 
                         if (need_seek) {
                                 r = sd_journal_next(j);
@@ -434,8 +438,7 @@ int main(int argc, char *argv[]) {
 
                         line ++;
 
-                        r = output_journal(j, arg_output, line, 0,
-                                           arg_show_all ? OUTPUT_SHOW_ALL : 0);
+                        r = output_journal(j, arg_output, line, 0, flags);
                         if (r < 0)
                                 goto finish;
 

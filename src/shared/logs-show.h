@@ -44,6 +44,7 @@ typedef enum OutputFlags {
         OUTPUT_MONOTONIC_MODE = 1 << 1,
         OUTPUT_FOLLOW = 1 << 2,
         OUTPUT_WARN_CUTOFF = 1 << 3,
+        OUTPUT_FULL_WIDTH = 1 << 4,
 } OutputFlags;
 
 int output_journal(sd_journal *j, OutputMode mode, unsigned line,
