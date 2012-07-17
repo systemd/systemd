@@ -66,6 +66,7 @@
 static enum {
         ACTION_RUN,
         ACTION_HELP,
+        ACTION_VERSION,
         ACTION_TEST,
         ACTION_DUMP_CONFIGURATION_ITEMS,
         ACTION_DONE
@@ -750,6 +751,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_USER,
                 ARG_TEST,
+                ARG_VERSION,
                 ARG_DUMP_CONFIGURATION_ITEMS,
                 ARG_DUMP_CORE,
                 ARG_CRASH_SHELL,
@@ -772,6 +774,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "user",                     no_argument,       NULL, ARG_USER                     },
                 { "test",                     no_argument,       NULL, ARG_TEST                     },
                 { "help",                     no_argument,       NULL, 'h'                          },
+                { "version",                  no_argument,       NULL, ARG_VERSION                  },
                 { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
                 { "dump-core",                optional_argument, NULL, ARG_DUMP_CORE                },
                 { "crash-shell",              optional_argument, NULL, ARG_CRASH_SHELL              },
@@ -875,6 +878,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TEST:
                         arg_action = ACTION_TEST;
+                        break;
+
+                case ARG_VERSION:
+                        arg_action = ACTION_VERSION;
                         break;
 
                 case ARG_DUMP_CONFIGURATION_ITEMS:
@@ -1039,6 +1046,14 @@ static int help(void) {
                "     --default-standard-output=  Set default standard output for services\n"
                "     --default-standard-error=   Set default standard error output for services\n",
                program_invocation_short_name);
+
+        return 0;
+}
+
+static int version(void) {
+        puts(PACKAGE_STRING);
+        puts(DISTRIBUTION);
+        puts(SYSTEMD_FEATURES);
 
         return 0;
 }
@@ -1327,6 +1342,9 @@ int main(int argc, char *argv[]) {
 
         if (arg_action == ACTION_HELP) {
                 retval = help();
+                goto finish;
+        } else if (arg_action == ACTION_VERSION) {
+                retval = version();
                 goto finish;
         } else if (arg_action == ACTION_DUMP_CONFIGURATION_ITEMS) {
                 unit_dump_config_items(stdout);

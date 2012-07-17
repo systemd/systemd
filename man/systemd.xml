@@ -96,6 +96,12 @@
                                 text and exits.</para></listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Prints a systemd version
+                                identifier and exits.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><option>--test</option></term>
 
                                 <listitem><para>Determine startup
