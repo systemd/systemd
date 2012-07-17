@@ -141,6 +141,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/login \
 	-I $(top_srcdir)/src/journal \
 	-I $(top_srcdir)/src/systemd \
+	-I $(top_builddir)/src/core \
 	-I $(top_srcdir)/src/core \
 	-I $(top_srcdir)/src/libudev \
 	-I $(top_srcdir)/src/udev
@@ -688,6 +689,8 @@ noinst_LTLIBRARIES += \
 libsystemd_shared_la_SOURCES = \
 	src/shared/linux/auto_dev-ioctl.h \
 	src/shared/linux/fanotify.h \
+	src/shared/linux/seccomp.h \
+	src/shared/linux/seccomp-bpf.h \
 	src/shared/missing.h \
 	src/shared/list.h \
 	src/shared/macro.h \
