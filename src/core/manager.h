@@ -278,7 +278,7 @@ void manager_dispatch_bus_query_pid_done(Manager *m, const char *name, pid_t pid
 
 int manager_open_serialization(Manager *m, FILE **_f);
 
-int manager_serialize(Manager *m, FILE *f, FDSet *fds);
+int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool serialize_jobs);
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds);
 
 int manager_reload(Manager *m);

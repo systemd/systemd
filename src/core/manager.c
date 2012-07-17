@@ -1722,7 +1722,7 @@ int manager_open_serialization(Manager *m, FILE **_f) {
         return 0;
 }
 
-int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
+int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool serialize_jobs) {
         Iterator i;
         Unit *u;
         const char *t;
@@ -1759,7 +1759,7 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
                 fputs(u->id, f);
                 fputc('\n', f);
 
-                if ((r = unit_serialize(u, f, fds)) < 0) {
+                if ((r = unit_serialize(u, f, fds, serialize_jobs)) < 0) {
                         m->n_reloading --;
                         return r;
                 }
@@ -1899,7 +1899,7 @@ int manager_reload(Manager *m) {
                 goto finish;
         }
 
-        r = manager_serialize(m, f, fds);
+        r = manager_serialize(m, f, fds, true);
         if (r < 0) {
                 m->n_reloading --;
                 goto finish;

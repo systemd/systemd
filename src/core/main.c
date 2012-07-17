@@ -1058,7 +1058,7 @@ static int version(void) {
         return 0;
 }
 
-static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds) {
+static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool serialize_jobs) {
         FILE *f = NULL;
         FDSet *fds = NULL;
         int r;
@@ -1070,18 +1070,21 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds) {
         /* Make sure nothing is really destructed when we shut down */
         m->n_reloading ++;
 
-        if ((r = manager_open_serialization(m, &f)) < 0) {
+        r = manager_open_serialization(m, &f);
+        if (r < 0) {
                 log_error("Failed to create serialization file: %s", strerror(-r));
                 goto fail;
         }
 
-        if (!(fds = fdset_new())) {
+        fds = fdset_new();
+        if (!fds) {
                 r = -ENOMEM;
                 log_error("Failed to allocate fd set: %s", strerror(-r));
                 goto fail;
         }
 
-        if ((r = manager_serialize(m, f, fds)) < 0) {
+        r = manager_serialize(m, f, fds, serialize_jobs);
+        if (r < 0) {
                 log_error("Failed to serialize state: %s", strerror(-r));
                 goto fail;
         }
@@ -1091,12 +1094,14 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds) {
                 goto fail;
         }
 
-        if ((r = fd_cloexec(fileno(f), false)) < 0) {
+        r = fd_cloexec(fileno(f), false);
+        if (r < 0) {
                 log_error("Failed to disable O_CLOEXEC for serialization: %s", strerror(-r));
                 goto fail;
         }
 
-        if ((r = fdset_cloexec(fds, false)) < 0) {
+        r = fdset_cloexec(fds, false);
+        if (r < 0) {
                 log_error("Failed to disable O_CLOEXEC for serialization fds: %s", strerror(-r));
                 goto fail;
         }
@@ -1624,7 +1629,7 @@ int main(int argc, char *argv[]) {
 
                 case MANAGER_REEXECUTE:
 
-                        if (prepare_reexecute(m, &serialization, &fds) < 0)
+                        if (prepare_reexecute(m, &serialization, &fds, true) < 0)
                                 goto finish;
 
                         reexecute = true;
@@ -1638,7 +1643,7 @@ int main(int argc, char *argv[]) {
                         m->switch_root = m->switch_root_init = NULL;
 
                         if (!switch_root_init)
-                                if (prepare_reexecute(m, &serialization, &fds) < 0)
+                                if (prepare_reexecute(m, &serialization, &fds, false) < 0)
                                         goto finish;
 
                         reexecute = true;

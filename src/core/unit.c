@@ -2401,7 +2401,7 @@ bool unit_can_serialize(Unit *u) {
         return UNIT_VTABLE(u)->serialize && UNIT_VTABLE(u)->deserialize_item;
 }
 
-int unit_serialize(Unit *u, FILE *f, FDSet *fds) {
+int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         int r;
 
         assert(u);
@@ -2414,14 +2414,17 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds) {
         if ((r = UNIT_VTABLE(u)->serialize(u, f, fds)) < 0)
                 return r;
 
-        if (u->job) {
-                fprintf(f, "job\n");
-                job_serialize(u->job, f, fds);
-        }
 
-        if (u->nop_job) {
-                fprintf(f, "job\n");
-                job_serialize(u->nop_job, f, fds);
+        if (serialize_jobs) {
+                if (u->job) {
+                        fprintf(f, "job\n");
+                        job_serialize(u->job, f, fds);
+                }
+
+                if (u->nop_job) {
+                        fprintf(f, "job\n");
+                        job_serialize(u->nop_job, f, fds);
+                }
         }
 
         dual_timestamp_serialize(f, "inactive-exit-timestamp", &u->inactive_exit_timestamp);

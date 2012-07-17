@@ -499,7 +499,7 @@ char *unit_full_printf(Unit *u, const char *text);
 char **unit_full_printf_strv(Unit *u, char **l);
 
 bool unit_can_serialize(Unit *u);
-int unit_serialize(Unit *u, FILE *f, FDSet *fds);
+int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs);
 void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *value, ...) _printf_attr_(4,5);
 void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value);
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds);

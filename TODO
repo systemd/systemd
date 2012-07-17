@@ -34,6 +34,8 @@ Bugfixes:
 
 Features:
 
+* syscall filter: add knowledge about compat syscalls
+
 * flush jobs when switching root
 
 * autorestart of journald after switch-root is broken
