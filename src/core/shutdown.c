@@ -177,10 +177,10 @@ int main(int argc, char *argv[]) {
         mlockall(MCL_CURRENT|MCL_FUTURE);
 
         log_info("Sending SIGTERM to remaining processes...");
-        broadcast_signal(SIGTERM);
+        broadcast_signal(SIGTERM, true);
 
         log_info("Sending SIGKILL to remaining processes...");
-        broadcast_signal(SIGKILL);
+        broadcast_signal(SIGKILL, true);
 
         if (in_container) {
                 need_swapoff = false;

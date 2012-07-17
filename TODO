@@ -34,8 +34,6 @@ Bugfixes:
 
 Features:
 
-* switch-root killing spree: don't waitpid, and think about signalfd() serialization
-
 * flush jobs when switching root
 
 * autorestart of journald after switch-root is broken

@@ -1692,9 +1692,11 @@ finish:
                 watchdog_close(true);
 
                 if (switch_root_dir) {
-                        /* Kill all remaining processes from the initrd */
-                        broadcast_signal(SIGTERM);
-                        broadcast_signal(SIGKILL);
+                        /* Kill all remaining processes from the
+                         * initrd, but don't wait for them, so that we
+                         * can handle the SIGCHLD for them after
+                         * deserializing. */
+                        broadcast_signal(SIGTERM, false);
 
                         /* And switch root */
                         r = switch_root(switch_root_dir);
