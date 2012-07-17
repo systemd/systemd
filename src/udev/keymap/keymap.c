@@ -362,8 +362,13 @@ static void help(int error)
 
 int main(int argc, char **argv)
 {
+        enum {
+                ARG_VERSION = 0x100,
+        };
+
         static const struct option options[] = {
                 { "help", no_argument, NULL, 'h' },
+                { "version", no_argument, NULL, ARG_VERSION },
                 { "interactive", no_argument, NULL, 'i' },
                 {}
         };
@@ -381,6 +386,10 @@ int main(int argc, char **argv)
                 switch (option) {
                 case 'h':
                         help(0);
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        exit(0);
 
                 case 'i':
                         opt_interactive = 1;
