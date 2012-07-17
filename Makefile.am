@@ -3420,7 +3420,7 @@ man/%.7: man/%.xml
 man/%.8: man/%.xml
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.html: man/%.xml
+man/%.html: man/%.xml man/custom-html.xsl
 	$(XSLTPROC_PROCESS_HTML)
 
 CLEANFILES += \
