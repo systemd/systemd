@@ -23,6 +23,9 @@ AM_MAKEFLAGS = --no-print-directory
 
 SUBDIRS = . po
 
+# remove targets if the command fails
+.DELETE_ON_ERROR:
+
 LIBUDEV_CURRENT=1
 LIBUDEV_REVISION=2
 LIBUDEV_AGE=0
@@ -671,9 +674,10 @@ CLEANFILES += \
 
 $(builddir)/man/index.html: $(XML_FILES:.xml=.html) $(top_srcdir)/make-man-index.py
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(PYTHON) $(top_srcdir)/make-man-index.py $(XML_FILES) > $@ || rm $@
+	$(PYTHON) $(top_srcdir)/make-man-index.py $(XML_FILES) > $@
 
-EXTRA_DIST += man/index.html
+EXTRA_DIST += \
+	man/index.html
 endif
 
 endif
@@ -1000,7 +1004,7 @@ libsystemd_core_la_LIBADD = \
 
 src/core/load-fragment-gperf-nulstr.c: src/core/load-fragment-gperf.gperf
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(AWK) 'BEGIN{ keywords=0 ; FS="," ; print "extern const char load_fragment_gperf_nulstr[];" ; print "const char load_fragment_gperf_nulstr[] ="} ; keyword==1 { print "\"" $$1 "\\0\"" } ; /%%/ { keyword=1} ; END { print ";" }' < $< > $@ || rm $@
+	$(AWK) 'BEGIN{ keywords=0 ; FS="," ; print "extern const char load_fragment_gperf_nulstr[];" ; print "const char load_fragment_gperf_nulstr[] ="} ; keyword==1 { print "\"" $$1 "\\0\"" } ; /%%/ { keyword=1} ; END { print ";" }' < $< > $@
 
 EXTRA_DIST += \
 	src/core/load-fragment-gperf.gperf.m4
@@ -1019,16 +1023,16 @@ BUILT_SOURCES += \
 	src/core/syscall-to-name.h
 
 src/core/syscall-list.txt: Makefile
-	$(AM_V_GEN)cpp $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include sys/syscall.h < /dev/null | $(AWK) '/^#define[ \t]+__NR_[^ ]+[ \t]+[0-9]/ { sub(/__NR_/, "", $$2); print $$2; }' > $@ || rm $@
+	$(AM_V_GEN)cpp $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include sys/syscall.h < /dev/null | $(AWK) '/^#define[ \t]+__NR_[^ ]+[ \t]+[0-9]/ { sub(/__NR_/, "", $$2); print $$2; }' > $@
 
 src/core/syscall-from-name.gperf: src/core/syscall-list.txt Makefile
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct syscall_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, __NR_%s\n", $$1, $$1 }' < $< > $@ || rm $@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct syscall_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, __NR_%s\n", $$1, $$1 }' < $< > $@
 
 src/core/syscall-from-name.h: src/core/syscall-from-name.gperf Makefile
-	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_syscall -H hash_syscall_name -p -C < $< > $@ || rm $@
+	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_syscall -H hash_syscall_name -p -C < $< > $@
 
 src/core/syscall-to-name.h: src/core/syscall-list.txt Makefile
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const syscall_names[] = { "} { printf "[__NR_%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@ || rm $@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const syscall_names[] = { "} { printf "[__NR_%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
 
 # ------------------------------------------------------------------------------
 systemd_SOURCES = \
@@ -2195,16 +2199,16 @@ dist_udevkeymapforcerel_DATA = \
 
 src/udev/keymap/keys.txt: Makefile
 	$(AM_V_at)mkdir -p src/udev/keymap
-	$(AM_V_GEN)cpp $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/input.h < /dev/null | $(AWK) '/^#define[ \t]+KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@ || rm $@
+	$(AM_V_GEN)cpp $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/input.h < /dev/null | $(AWK) '/^#define[ \t]+KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
 
 src/udev/keymap/keys-from-name.gperf: src/udev/keymap/keys.txt Makefile
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print $$1 ", " $$1 }' < $< > $@ || rm $@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print $$1 ", " $$1 }' < $< > $@
 
 src/udev/keymap/keys-from-name.h: src/udev/keymap/keys-from-name.gperf Makefile
-	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@ || rm $@
+	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@
 
 src/udev/keymap/keys-to-name.h: src/udev/keymap/keys.txt Makefile
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@ || rm $@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
 endif
 
 # ------------------------------------------------------------------------------
@@ -3323,7 +3327,7 @@ SED_PROCESS = \
 		-e 's,@rootprefix\@,$(rootprefix),g' \
 		-e 's,@udevlibexecdir\@,$(udevlibexecdir),g' \
 		-e 's,@sushell\@,$(sushell),g' \
-		< $< > $@ || rm $@
+		< $< > $@
 
 units/%: units/%.in Makefile
 	$(SED_PROCESS)
@@ -3356,15 +3360,15 @@ src/%.c: src/%.gperf
 
 src/%: src/%.m4
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DEFINES) < $< > $@ || rm $@
+	$(M4) -P $(M4_DEFINES) < $< > $@
 
 M4_PROCESS_SYSTEM = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DEFINES) -DFOR_SYSTEM=1 < $< > $@ || rm $@
+	$(M4) -P $(M4_DEFINES) -DFOR_SYSTEM=1 < $< > $@
 
 M4_PROCESS_USER = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@ || rm $@
+	$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@
 
 units/%: units/%.m4 Makefile
 	$(M4_PROCESS_SYSTEM)
