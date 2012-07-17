@@ -1013,16 +1013,16 @@ BUILT_SOURCES += \
 	src/core/syscall-to-name.h
 
 src/core/syscall-list.txt: Makefile
-	$(AM_V_GEN)cpp -dM -include sys/syscall.h < /dev/null | $(AWK) '/^#define[ \t]+__NR_[^ ]+[ \t]+[0-9]/ { sub(/__NR_/, "", $$2); print $$2; }' > $@ || rm $@
+	$(AM_V_GEN)cpp $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include sys/syscall.h < /dev/null | $(AWK) '/^#define[ \t]+__NR_[^ ]+[ \t]+[0-9]/ { sub(/__NR_/, "", $$2); print $$2; }' > $@ || rm $@
 
 src/core/syscall-from-name.gperf: src/core/syscall-list.txt Makefile
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct syscall_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, __NR_%s\n", $$1, $$1 }' < $< > $@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct syscall_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, __NR_%s\n", $$1, $$1 }' < $< > $@ || rm $@
 
 src/core/syscall-from-name.h: src/core/syscall-from-name.gperf Makefile
-	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_syscall -H hash_syscall_name -p -C < $< > $@
+	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_syscall -H hash_syscall_name -p -C < $< > $@ || rm $@
 
 src/core/syscall-to-name.h: src/core/syscall-list.txt Makefile
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const syscall_names[] = { "} { printf "[__NR_%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const syscall_names[] = { "} { printf "[__NR_%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@ || rm $@
 
 # ------------------------------------------------------------------------------
 systemd_SOURCES = \
@@ -2187,18 +2187,18 @@ dist_udevkeymapforcerel_DATA = \
 	keymaps-force-release/samsung-90x3a \
 	keymaps-force-release/common-volume-keys
 
-src/udev/keymap/keys.txt: $(INCLUDE_PREFIX)/linux/input.h
+src/udev/keymap/keys.txt: Makefile
 	$(AM_V_at)mkdir -p src/udev/keymap
-	$(AM_V_GEN)$(AWK) '/^#define.*KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' < $< | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
+	$(AM_V_GEN)cpp $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/input.h < /dev/null | $(AWK) '/^#define[ \t]+KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@ || rm $@
 
-src/udev/keymap/keys-from-name.gperf: src/udev/keymap/keys.txt
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print $$1 ", " $$1 }' < $< > $@
+src/udev/keymap/keys-from-name.gperf: src/udev/keymap/keys.txt Makefile
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print $$1 ", " $$1 }' < $< > $@ || rm $@
 
 src/udev/keymap/keys-from-name.h: src/udev/keymap/keys-from-name.gperf Makefile
-	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@
+	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@ || rm $@
 
 src/udev/keymap/keys-to-name.h: src/udev/keymap/keys.txt Makefile
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@ || rm $@
 endif
 
 # ------------------------------------------------------------------------------
