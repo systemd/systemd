@@ -670,6 +670,7 @@ CLEANFILES += \
 	man/index.html
 
 man/index.html: $(XML_FILES) $(top_srcdir)/make-man-index.py
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(AM_V_GEN)$(PYTHON) $(top_srcdir)/make-man-index.py $(XML_FILES) > $@ || rm $@
 endif
 
