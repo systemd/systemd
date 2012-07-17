@@ -125,3 +125,5 @@ stamp-*
 /v4l_id
 /test-libudev
 /test-udev
+/TAGS
+/tags
