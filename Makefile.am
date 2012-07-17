@@ -82,7 +82,7 @@ rootprefix=@rootprefix@
 rootbindir=$(rootprefix)/bin
 rootlibexecdir=$(rootprefix)/lib/systemd
 
-CLEANFILES =
+CLEANFILES = BUILT_SOURCES
 EXTRA_DIST =
 BUILT_SOURCES =
 INSTALL_EXEC_HOOKS =
@@ -1014,9 +1014,7 @@ CLEANFILES += \
 	src/core/load-fragment-gperf.c \
 	src/core/load-fragment-gperf-nulstr.c \
 	src/core/syscall-list.txt \
-	src/core/syscall-from-name.gperf \
-	src/core/syscall-from-name.h \
-	src/core/syscall-to-name.h
+	src/core/syscall-from-name.gperf
 
 BUILT_SOURCES += \
 	src/core/syscall-from-name.h \
@@ -1999,9 +1997,6 @@ EXTRA_DIST += \
 	src/gudev/seed-example-enum.js \
 	src/gudev/seed-example.js
 
-CLEANFILES += \
-	$(nodist_libgudev_1_0_la_SOURCES)
-
 src/gudev/gudevmarshal.h: src/gudev/gudevmarshal.list
 	$(AM_V_GEN)glib-genmarshal $< --prefix=g_udev_marshal --header > $@
 
@@ -2122,7 +2117,6 @@ EXTRA_DIST += \
 	src/udev/keymap/keyboard-force-release.sh.in
 
 CLEANFILES += \
-	$(nodist_keymap_SOURCES) \
 	src/udev/keymap/keys.txt \
 	src/udev/keymap/keys-from-name.gperf \
 	src/udev/keymap/keyboard-force-release.sh
