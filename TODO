@@ -34,6 +34,10 @@ Bugfixes:
 
 Features:
 
+* nspawn: if /var/log/journal/<container machine id> exists in both
+  the container and the host mount one to the other so that the
+  containers logs are stored and visible on the host.
+
 * syscall filter: add knowledge about compat syscalls
 
 * logind: wakelock/opportunistic suspend support
