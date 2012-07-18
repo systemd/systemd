@@ -513,6 +513,10 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 server_vacuum(s);
                 vacuumed = true;
 
+                f = find_journal(s, uid);
+                if (!f)
+                        return;
+
                 log_info("Retrying write.");
         }
 }
