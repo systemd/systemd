@@ -868,7 +868,8 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
                         return;
         }
 
-        log_debug("Failed to forward syslog message: %m");
+        if (errno != ENOENT)
+                log_debug("Failed to forward syslog message: %m");
 }
 
 static void forward_syslog_raw(Server *s, int priority, const char *buffer, struct ucred *ucred, struct timeval *tv) {
