@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologindseathfoo
-#define foologindseathfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -82,5 +81,3 @@ extern const DBusObjectPathVTable bus_seat_vtable;
 
 int seat_send_signal(Seat *s, bool new_seat);
 int seat_send_changed(Seat *s, const char *properties);
-
-#endif

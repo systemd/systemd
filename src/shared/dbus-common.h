@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbuscommonhfoo
-#define foodbuscommonhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -204,5 +203,3 @@ void bus_async_unregister_and_exit(DBusConnection *bus, const char *name);
 DBusHandlerResult bus_exit_idle_filter(DBusConnection *bus, DBusMessage *m, void *userdata);
 
 pid_t bus_get_unix_process_id(DBusConnection *connection, const char *name, DBusError *error);
-
-#endif

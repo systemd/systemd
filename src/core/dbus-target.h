@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbustargethfoo
-#define foodbustargethfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -29,5 +28,3 @@
 DBusHandlerResult bus_target_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
 
 extern const char bus_target_interface[];
-
-#endif

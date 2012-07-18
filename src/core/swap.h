@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooswaphfoo
-#define fooswaphfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -119,5 +118,3 @@ SwapExecCommand swap_exec_command_from_string(const char *s);
 
 const char* swap_result_to_string(SwapResult i);
 SwapResult swap_result_from_string(const char *s);
-
-#endif

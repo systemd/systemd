@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foomissinghfoo
-#define foomissinghfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -190,6 +189,4 @@ static inline pid_t gettid(void) {
 
 #ifndef PR_SET_NO_NEW_PRIVS
 #define PR_SET_NO_NEW_PRIVS 38
-#endif
-
 #endif

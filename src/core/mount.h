@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foomounthfoo
-#define foomounthfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -118,5 +117,3 @@ MountExecCommand mount_exec_command_from_string(const char *s);
 
 const char* mount_result_to_string(MountResult i);
 MountResult mount_result_from_string(const char *s);
-
-#endif

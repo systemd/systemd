@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foosnapshothfoo
-#define foosnapshothfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -49,5 +48,3 @@ void snapshot_remove(Snapshot *s);
 
 const char* snapshot_state_to_string(SnapshotState i);
 SnapshotState snapshot_state_from_string(const char *s);
-
-#endif

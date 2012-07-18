@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologindsessionhfoo
-#define foologindsessionhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -145,5 +144,3 @@ SessionClass session_class_from_string(const char *s);
 
 const char *kill_who_to_string(KillWho k);
 KillWho kill_who_from_string(const char *s);
-
-#endif

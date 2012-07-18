@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foolookup3hfoo
-#define foolookup3hfoo
+#pragma once
 
 #include <inttypes.h>
 #include <sys/types.h>
@@ -21,5 +20,3 @@ static inline uint64_t hash64(const void *data, size_t length) {
 
         return ((uint64_t) a << 32ULL) | (uint64_t) b;
 }
-
-#endif

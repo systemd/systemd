@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foostrvhfoo
-#define foostrvhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -80,5 +79,3 @@ bool strv_overlap(char **a, char **b);
 
 #define STRV_FOREACH_BACKWARDS(s, l)            \
         for (; (l) && ((s) >= (l)); (s)--)
-
-#endif

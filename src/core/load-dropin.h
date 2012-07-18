@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooloaddropinhfoo
-#define fooloaddropinhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -27,5 +26,3 @@
 /* Read service data supplementary drop-in directories */
 
 int unit_load_dropin(Unit *u);
-
-#endif

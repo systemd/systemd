@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foojournaldhfoo
-#define foojournaldhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -106,5 +105,3 @@ int config_parse_storage(const char *filename, unsigned line, const char *sectio
 
 const char *storage_to_string(Storage s);
 Storage storage_from_string(const char *s);
-
-#endif

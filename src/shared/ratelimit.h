@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooratelimithfoo
-#define fooratelimithfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -56,5 +55,3 @@ typedef struct RateLimit {
         } while (false)
 
 bool ratelimit_test(RateLimit *r);
-
-#endif

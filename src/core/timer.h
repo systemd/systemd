@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef footimerhfoo
-#define footimerhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -89,5 +88,3 @@ TimerBase timer_base_from_string(const char *s);
 
 const char* timer_result_to_string(TimerResult i);
 TimerResult timer_result_from_string(const char *s);
-
-#endif

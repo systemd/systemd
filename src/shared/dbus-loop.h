@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbusloophfoo
-#define foodbusloophfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -26,5 +25,3 @@
 
 int bus_loop_open(DBusConnection *c);
 int bus_loop_dispatch(int fd);
-
-#endif

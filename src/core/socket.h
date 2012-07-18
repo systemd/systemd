@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foosockethfoo
-#define foosockethfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -169,5 +168,3 @@ SocketExecCommand socket_exec_command_from_string(const char *s);
 
 const char* socket_result_to_string(SocketResult i);
 SocketResult socket_result_from_string(const char *s);
-
-#endif

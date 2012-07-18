@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooreadaheadcommonhfoo
-#define fooreadaheadcommonhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -60,5 +59,3 @@ int block_set_readahead(const char *p, uint64_t bytes);
 int main_collect(const char *root);
 int main_replay(const char *root);
 int main_analyze(const char *pack_path);
-
-#endif

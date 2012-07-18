@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foosocketutilhfoo
-#define foosocketutilhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -98,5 +97,3 @@ const char* netlink_family_to_string(int b);
 int netlink_family_from_string(const char *s);
 
 bool socket_ipv6_is_supported(void);
-
-#endif

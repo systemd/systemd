@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foojobhfoo
-#define foojobhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -229,5 +228,3 @@ JobMode job_mode_from_string(const char *s);
 
 const char* job_result_to_string(JobResult t);
 JobResult job_result_from_string(const char *s);
-
-#endif

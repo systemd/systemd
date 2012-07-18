@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foocompresshfoo
-#define foocompresshfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -34,5 +33,3 @@ bool uncompress_startswith(const void *src, uint64_t src_size,
                            void **buffer, uint64_t *buffer_size,
                            const void *prefix, uint64_t prefix_len,
                            uint8_t extra);
-
-#endif

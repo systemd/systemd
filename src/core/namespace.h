@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foonamespacehfoo
-#define foonamespacehfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -30,5 +29,3 @@ int setup_namespace(
                 char **inaccessible,
                 bool private_tmp,
                 unsigned long flags);
-
-#endif

@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foobuserrorshfoo
-#define foobuserrorshfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -54,5 +53,3 @@ static inline const char *bus_error(const DBusError *e, int r) {
 
         return strerror(-r);
 }
-
-#endif

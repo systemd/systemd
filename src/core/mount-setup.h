@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foomountsetuphfoo
-#define foomountsetuphfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -32,5 +31,3 @@ int mount_cgroup_controllers(char ***join_controllers);
 
 bool mount_point_is_api(const char *path);
 bool mount_point_ignore(const char *path);
-
-#endif

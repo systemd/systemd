@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodevicehfoo
-#define foodevicehfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -55,5 +54,3 @@ void device_fd_event(Manager *m, int events);
 
 const char* device_state_to_string(DeviceState i);
 DeviceState device_state_from_string(const char *s);
-
-#endif

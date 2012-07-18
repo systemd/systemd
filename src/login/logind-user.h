@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologinduserhfoo
-#define foologinduserhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -83,5 +82,3 @@ int user_send_changed(User *u, const char *properties);
 
 const char* user_state_to_string(UserState s);
 UserState user_state_from_string(const char *s);
-
-#endif

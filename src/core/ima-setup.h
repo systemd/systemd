@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooimasetuphfoo
-#define fooimasetuphfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -25,5 +24,3 @@
 ***/
 
 int ima_setup(void);
-
-#endif

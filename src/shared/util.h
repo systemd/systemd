@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooutilhfoo
-#define fooutilhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -531,5 +530,3 @@ void warn_melody(void);
 
 int get_shell(char **ret);
 int get_home_dir(char **ret);
-
-#endif

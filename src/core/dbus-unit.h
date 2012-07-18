@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbusunithfoo
-#define foodbusunithfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -138,5 +137,3 @@ void bus_unit_send_removed_signal(Unit *u);
 extern const DBusObjectPathVTable bus_unit_vtable;
 
 extern const char bus_unit_interface[];
-
-#endif

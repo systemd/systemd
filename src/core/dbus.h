@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbushfoo
-#define foodbushfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -49,5 +48,3 @@ void bus_broadcast_finished(Manager *m, usec_t kernel_usec, usec_t initrd_usec, 
 #define BUS_PENDING_CALL_NAME(m, p) dbus_pending_call_get_data((p), (m)->name_data_slot)
 
 extern const char * const bus_interface_table[];
-
-#endif

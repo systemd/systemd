@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foohashmaphfoo
-#define foohashmaphfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -89,5 +88,3 @@ char **hashmap_get_strv(Hashmap *h);
 
 #define HASHMAP_FOREACH_BACKWARDS(e, h, i) \
         for ((i) = ITERATOR_LAST, (e) = hashmap_iterate_backwards((h), &(i), NULL); (e); (e) = hashmap_iterate_backwards((h), &(i), NULL))
-
-#endif

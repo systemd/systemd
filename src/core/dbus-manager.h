@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbusmanagerhfoo
-#define foodbusmanagerhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -27,5 +26,3 @@
 extern const DBusObjectPathVTable bus_manager_vtable;
 
 extern const char bus_manager_interface[];
-
-#endif

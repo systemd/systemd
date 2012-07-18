@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooautomounthfoo
-#define fooautomounthfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -72,5 +71,3 @@ AutomountState automount_state_from_string(const char *s);
 
 const char* automount_result_to_string(AutomountResult i);
 AutomountResult automount_result_from_string(const char *s);
-
-#endif

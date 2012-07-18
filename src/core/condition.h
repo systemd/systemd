@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooconditionhfoo
-#define fooconditionhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -66,5 +65,3 @@ void condition_dump_list(Condition *c, FILE *f, const char *prefix);
 
 const char* condition_type_to_string(ConditionType t);
 int condition_type_from_string(const char *s);
-
-#endif

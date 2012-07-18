@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooinstallhfoo
-#define fooinstallhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -85,5 +84,3 @@ UnitFileState unit_file_state_from_string(const char *s);
 
 const char *unit_file_change_type_to_string(UnitFileChangeType s);
 UnitFileChangeType unit_file_change_type_from_string(const char *s);
-
-#endif

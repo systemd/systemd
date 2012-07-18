@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foomacrohfoo
-#define foomacrohfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -189,5 +188,3 @@ static inline size_t IOVEC_INCREMENT(struct iovec *i, unsigned n, size_t k) {
 }
 
 #include "log.h"
-
-#endif

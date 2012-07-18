@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooconfparserhfoo
-#define fooconfparserhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -134,5 +133,3 @@ int config_parse_level(const char *filename, unsigned line, const char *section,
                                                                         \
                 return 0;                                               \
         }
-
-#endif

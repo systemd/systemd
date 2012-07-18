@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foocgroupattrhfoo
-#define foocgroupattrhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -45,5 +44,3 @@ int cgroup_attribute_apply_list(CGroupAttribute *first, CGroupBonding *b);
 CGroupAttribute *cgroup_attribute_find_list(CGroupAttribute *first, const char *controller, const char *name);
 
 void cgroup_attribute_free_list(CGroupAttribute *first);
-
-#endif

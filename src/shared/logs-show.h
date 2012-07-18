@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologsshowhfoo
-#define foologsshowhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -60,5 +59,3 @@ int show_journal_by_unit(
 
 const char* output_mode_to_string(OutputMode m);
 OutputMode output_mode_from_string(const char *s);
-
-#endif

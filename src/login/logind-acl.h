@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologindaclhfoo
-#define foologindaclhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -54,7 +53,5 @@ static inline int devnode_acl_all(struct udev *udev,
                                   bool add, uid_t new_uid) {
         return 0;
 }
-
-#endif
 
 #endif

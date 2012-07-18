@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbustimerhfoo
-#define foodbustimerhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -30,5 +29,3 @@ DBusHandlerResult bus_timer_message_handler(Unit *u, DBusConnection *c, DBusMess
 
 extern const char bus_timer_interface[];
 extern const char bus_timer_invalidating_properties[];
-
-#endif

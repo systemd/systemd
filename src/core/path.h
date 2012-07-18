@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foopathhfoo
-#define foopathhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -109,5 +108,3 @@ PathType path_type_from_string(const char *s);
 
 const char* path_result_to_string(PathResult i);
 PathResult path_result_from_string(const char *s);
-
-#endif

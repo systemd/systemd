@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foolabelhfoo
-#define foolabelhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -46,5 +45,3 @@ int label_mkdir(const char *path, mode_t mode, bool apply);
 void label_retest_selinux(void);
 
 int label_bind(int fd, const struct sockaddr *addr, socklen_t addrlen);
-
-#endif

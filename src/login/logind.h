@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologindhfoo
-#define foologindhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -164,5 +163,3 @@ int manager_dispatch_delayed(Manager *manager);
 
 /* gperf lookup function */
 const struct ConfigPerfItem* logind_gperf_lookup(const char *key, unsigned length);
-
-#endif

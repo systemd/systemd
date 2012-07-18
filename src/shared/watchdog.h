@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foowatchdoghfoo
-#define foowatchdoghfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -27,5 +26,3 @@
 int watchdog_set_timeout(usec_t *usec);
 int watchdog_ping(void);
 void watchdog_close(bool disarm);
-
-#endif

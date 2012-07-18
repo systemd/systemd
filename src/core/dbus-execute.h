@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbusexecutehfoo
-#define foodbusexecutehfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -124,5 +123,3 @@ int bus_execute_append_command(DBusMessageIter *u, const char *property, void *d
 int bus_execute_append_kill_mode(DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_env_files(DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_syscall_filter(DBusMessageIter *i, const char *property, void *data);
-
-#endif

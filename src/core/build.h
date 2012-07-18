@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foobuildhfoo
-#define foobuildhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -65,5 +64,3 @@
 #endif
 
 #define SYSTEMD_FEATURES _PAM_FEATURE_ " " _LIBWRAP_FEATURE_ " " _AUDIT_FEATURE_ " " _SELINUX_FEATURE_ " " _IMA_FEATURE_ " " _SYSVINIT_FEATURE_ " " _LIBCRYPTSETUP_FEATURE_
-
-#endif

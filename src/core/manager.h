@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foomanagerhfoo
-#define foomanagerhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -304,5 +303,3 @@ bool manager_get_show_status(Manager *m);
 
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);
-
-#endif

@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologinddevicehfoo
-#define foologinddevicehfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -44,5 +43,3 @@ Device* device_new(Manager *m, const char *sysfs);
 void device_free(Device *d);
 void device_attach(Device *d, Seat *s);
 void device_detach(Device *d);
-
-#endif

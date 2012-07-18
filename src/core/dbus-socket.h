@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbussockethfoo
-#define foodbussockethfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -30,5 +29,3 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMes
 
 extern const char bus_socket_interface[];
 extern const char bus_socket_invalidating_properties[];
-
-#endif

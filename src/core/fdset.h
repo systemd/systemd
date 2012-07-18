@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foofdsethfoo
-#define foofdsethfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -36,5 +35,3 @@ int fdset_remove(FDSet *s, int fd);
 int fdset_new_fill(FDSet **_s);
 
 int fdset_cloexec(FDSet *fds, bool b);
-
-#endif

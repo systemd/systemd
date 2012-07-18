@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foocgrouputilhfoo
-#define foocgrouputilhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -73,5 +72,3 @@ int cg_pid_get_cgroup(pid_t pid, char **root, char **cgroup);
 int cg_pid_get_unit(pid_t pid, char **unit);
 
 char **cg_shorten_controllers(char **controllers);
-
-#endif

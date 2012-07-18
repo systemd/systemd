@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foolisthfoo
-#define foolisthfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -124,5 +123,3 @@
 
 #define LIST_FOREACH_AFTER(name,i,p)                                    \
         for ((i) = (p)->name##_next; (i); (i) = (i)->name##_next)
-
-#endif

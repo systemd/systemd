@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooexitstatushfoo
-#define fooexitstatushfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -82,5 +81,3 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level);
 
 bool is_clean_exit(int code, int status);
 bool is_clean_exit_lsb(int code, int status);
-
-#endif

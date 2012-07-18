@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologhfoo
-#define foologhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -108,5 +107,3 @@ int log_dump_internal(
 
 const char *log_target_to_string(LogTarget target);
 LogTarget log_target_from_string(const char *s);
-
-#endif

@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foojournaldefhfoo
-#define foojournaldefhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -182,5 +181,3 @@ _packed_ struct Header {
         le64_t n_data;
         le64_t n_fields;
 };
-
-#endif

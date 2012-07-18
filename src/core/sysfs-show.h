@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foosysfsshowhfoo
-#define foosysfsshowhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -23,5 +22,3 @@
 ***/
 
 int show_sysfs(const char *seat, const char *prefix, unsigned columns);
-
-#endif

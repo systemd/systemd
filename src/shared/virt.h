@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foovirthfoo
-#define foovirthfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -34,5 +33,3 @@ typedef enum Virtualization {
 } Virtualization;
 
 Virtualization detect_virtualization(const char **id);
-
-#endif

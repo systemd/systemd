@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foopolkithfoo
-#define foopolkithfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -32,5 +31,3 @@ int verify_polkit(
                 bool interactive,
                 bool *challenge,
                 DBusError *error);
-
-#endif

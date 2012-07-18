@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foolocalesetuphfoo
-#define foolocalesetuphfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -23,5 +22,3 @@
 ***/
 
 int locale_setup(void);
-
-#endif

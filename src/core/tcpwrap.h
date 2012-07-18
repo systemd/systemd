@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foolibwraphfoo
-#define foolibwraphfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -25,5 +24,3 @@
 #include <stdbool.h>
 
 bool socket_tcpwrap(int fd, const char *name);
-
-#endif

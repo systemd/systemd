@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbusjobhfoo
-#define foodbusjobhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -32,5 +31,3 @@ void bus_job_send_removed_signal(Job *j);
 extern const DBusObjectPathVTable bus_job_vtable;
 
 extern const char bus_job_interface[];
-
-#endif

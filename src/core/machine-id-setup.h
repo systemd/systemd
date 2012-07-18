@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foomachineidsetuphfoo
-#define foomachineidsetuphfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -23,5 +22,3 @@
 ***/
 
 int machine_id_setup(void);
-
-#endif

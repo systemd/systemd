@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooaclutilhfoo
-#define fooaclutilhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -23,5 +22,3 @@
 ***/
 
 int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry);
-
-#endif

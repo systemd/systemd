@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foopagerhfoo
-#define foopagerhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -24,5 +23,3 @@
 
 void pager_open(void);
 void pager_close(void);
-
-#endif

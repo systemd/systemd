@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooservicehfoo
-#define fooservicehfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -216,5 +215,3 @@ ServiceResult service_result_from_string(const char *s);
 
 const char* start_limit_action_to_string(StartLimitAction i);
 StartLimitAction start_limit_action_from_string(const char *s);
-
-#endif

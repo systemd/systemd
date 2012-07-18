@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foojournalinternalhfoo
-#define foojournalinternalhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -112,4 +111,3 @@ struct sd_journal {
 char *journal_make_match_string(sd_journal *j);
 void journal_print_header(sd_journal *j);
 
-#endif

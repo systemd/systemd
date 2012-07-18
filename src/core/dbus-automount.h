@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbusautomounthfoo
-#define foodbusautomounthfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -30,5 +29,3 @@ DBusHandlerResult bus_automount_message_handler(Unit *u, DBusConnection *c, DBus
 
 extern const char bus_automount_interface[];
 extern const char bus_automount_invalidating_properties[];
-
-#endif

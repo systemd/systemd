@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooumounthfoo
-#define fooumounthfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -29,5 +28,3 @@ int swapoff_all(bool *changed);
 int loopback_detach_all(bool *changed);
 
 int dm_detach_all(bool *changed);
-
-#endif

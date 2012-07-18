@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooaskpasswordapihfoo
-#define fooaskpasswordapihfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -29,5 +28,3 @@ int ask_password_tty(const char *message, usec_t until, const char *flag_file, c
 int ask_password_agent(const char *message, const char *icon, usec_t until, bool accept_cached, char ***_passphrases);
 
 int ask_password_auto(const char *message, const char *icon, usec_t until, bool accept_cached, char ***_passphrases);
-
-#endif

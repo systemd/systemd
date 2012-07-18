@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foosethfoo
-#define foosethfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -67,5 +66,3 @@ void* set_last(Set *s);
 
 #define SET_FOREACH_BACKWARDS(e, s, i) \
         for ((i) = ITERATOR_LAST, (e) = set_iterate_backwards((s), &(i)); (e); (e) = set_iterate_backwards((s), &(i)))
-
-#endif

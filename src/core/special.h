@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foospecialhfoo
-#define foospecialhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -86,5 +85,3 @@
 #define SPECIAL_RUNLEVEL3_TARGET "runlevel3.target"
 #define SPECIAL_RUNLEVEL4_TARGET "runlevel4.target"
 #define SPECIAL_RUNLEVEL5_TARGET "runlevel5.target"
-
-#endif

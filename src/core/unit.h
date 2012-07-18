@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foounithfoo
-#define foounithfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -544,5 +543,3 @@ UnitActiveState unit_active_state_from_string(const char *s);
 
 const char *unit_dependency_to_string(UnitDependency i);
 UnitDependency unit_dependency_from_string(const char *s);
-
-#endif

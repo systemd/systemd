@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooselinuxsetuphfoo
-#define fooselinuxsetuphfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -25,5 +24,3 @@
 #include <stdbool.h>
 
 int selinux_setup(bool *loaded_policy);
-
-#endif

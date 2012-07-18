@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foojournalratelimithfoo
-#define foojournalratelimithfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -30,5 +29,3 @@ typedef struct JournalRateLimit JournalRateLimit;
 JournalRateLimit *journal_rate_limit_new(usec_t interval, unsigned burst);
 void journal_rate_limit_free(JournalRateLimit *r);
 int journal_rate_limit_test(JournalRateLimit *r, const char *id, int priority, uint64_t available);
-
-#endif

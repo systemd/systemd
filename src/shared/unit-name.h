@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foounitnamehfoo
-#define foounitnamehfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -92,5 +91,3 @@ char *unit_name_to_path(const char *name);
 char *unit_dbus_path_from_name(const char *name);
 
 char *unit_name_mangle(const char *name);
-
-#endif

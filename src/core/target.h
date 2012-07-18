@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef footargethfoo
-#define footargethfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -43,5 +42,3 @@ extern const UnitVTable target_vtable;
 
 const char* target_state_to_string(TargetState i);
 TargetState target_state_from_string(const char *s);
-
-#endif

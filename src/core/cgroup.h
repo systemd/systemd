@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foocgrouphfoo
-#define foocgrouphfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -90,5 +89,3 @@ int cgroup_bonding_get(Manager *m, const char *cgroup, CGroupBonding **bonding);
 int cgroup_notify_empty(Manager *m, const char *group);
 
 Unit* cgroup_unit_by_pid(Manager *m, pid_t pid);
-
-#endif

@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbusdevicehfoo
-#define foodbusdevicehfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -30,5 +29,3 @@ DBusHandlerResult bus_device_message_handler(Unit *u, DBusConnection *c, DBusMes
 
 extern const char bus_device_interface[];
 extern const char bus_device_invalidating_properties[];
-
-#endif

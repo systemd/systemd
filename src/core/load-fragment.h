@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooloadfragmenthfoo
-#define fooloadfragmenthfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -87,5 +86,3 @@ int config_parse_syscall_filter(const char *filename, unsigned line, const char 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, unsigned length);
 extern const char load_fragment_gperf_nulstr[];
-
-#endif

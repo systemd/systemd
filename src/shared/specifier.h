@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foospecifierhfoo
-#define foospecifierhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -33,5 +32,3 @@ typedef struct Specifier {
 char *specifier_printf(const char *text, const Specifier table[], void *userdata);
 
 char* specifier_string(char specifier, void *data, void *userdata);
-
-#endif

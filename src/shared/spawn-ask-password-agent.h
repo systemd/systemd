@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foospawnaskpasswordagenthfoo
-#define foospawnaskpasswordagenthfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -24,5 +23,3 @@
 
 int ask_password_agent_open(void);
 void ask_password_agent_close(void);
-
-#endif

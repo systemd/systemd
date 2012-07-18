@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooutf8hfoo
-#define fooutf8hfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -31,5 +30,3 @@ char *utf8_is_printable_n(const char* str, size_t length) _pure_;
 
 char *utf8_filter(const char *s);
 char *ascii_filter(const char *s);
-
-#endif

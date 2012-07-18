@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbusswaphfoo
-#define foodbusswaphfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -31,5 +30,3 @@ DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessa
 
 extern const char bus_swap_interface[];
 extern const char bus_swap_invalidating_properties[];
-
-#endif
