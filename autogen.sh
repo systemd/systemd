@@ -15,6 +15,8 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
+set -e
+
 if [ -f .git/hooks/pre-commit.sample -a ! -f .git/hooks/pre-commit ] ; then
         cp -p .git/hooks/pre-commit.sample .git/hooks/pre-commit && \
         chmod +x .git/hooks/pre-commit && \
