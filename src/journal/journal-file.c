@@ -510,16 +510,16 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
 
         assert(f);
 
-        /* We estimate that we need 1 hash table entry per 2K of
+        /* We estimate that we need 1 hash table entry per 768 of
            journal file and we want to make sure we never get beyond
            75% fill level. Calculate the hash table size for the
            maximum file size based on these metrics. */
 
-        s = (f->metrics.max_size * 4 / 2048 / 3) * sizeof(HashItem);
+        s = (f->metrics.max_size * 4 / 768 / 3) * sizeof(HashItem);
         if (s < DEFAULT_DATA_HASH_TABLE_SIZE)
                 s = DEFAULT_DATA_HASH_TABLE_SIZE;
 
-        log_info("Reserving %llu entries in hash table.", (unsigned long long) s);
+        log_info("Reserving %llu entries in hash table.", (unsigned long long) (s / sizeof(HashItem)));
 
         r = journal_file_append_object(f,
                                        OBJECT_DATA_HASH_TABLE,
