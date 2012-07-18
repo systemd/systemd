@@ -2258,10 +2258,12 @@ static void service_enter_restart(Service *s) {
         assert(s);
         dbus_error_init(&error);
 
-        if (UNIT(s)->job) {
-                log_info("Job pending for unit, delaying automatic restart.");
+        if (UNIT(s)->job && UNIT(s)->job->type == JOB_STOP) {
+                /* Don't restart things if we are going down anyway */
+                log_info("Stop job pending for unit, delaying automatic restart.");
 
-                if ((r = unit_watch_timer(UNIT(s), s->restart_usec, &s->timer_watch)) < 0)
+                r = unit_watch_timer(UNIT(s), s->restart_usec, &s->timer_watch);
+                if (r < 0)
                         goto fail;
 
                 return;
@@ -2274,6 +2276,10 @@ static void service_enter_restart(Service *s) {
         r = manager_add_job(UNIT(s)->manager, JOB_RESTART, UNIT(s), JOB_FAIL, false, &error, NULL);
         if (r < 0)
                 goto fail;
+
+        /* Note that we stay in the SERVICE_AUTO_RESTART state here,
+         * it will be canceled as part of the service_stop() call that
+         * is executed as part of JOB_RESTART. */
 
         log_debug("%s scheduled restart job.", UNIT(s)->id);
         return;
@@ -2473,7 +2479,7 @@ static int service_start(Unit *u) {
          * service should be manually restarted, not started. */
         if (s->state == SERVICE_AUTO_RESTART) {
                 log_warning("%s automatic restart is pending, must be stopped before issuing start request.", UNIT(s)->id);
-                return -ECANCELED;
+                return -EAGAIN;
         }
 
         assert(s->state == SERVICE_DEAD || s->state == SERVICE_FAILED);

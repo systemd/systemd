@@ -36,10 +36,6 @@ Features:
 
 * syscall filter: add knowledge about compat syscalls
 
-* flush jobs when switching root
-
-* autorestart of journald after switch-root is broken
-
 * logind: wakelock/opportunistic suspend support
 
 * switch-root: sockets need relabelling
@@ -55,8 +51,6 @@ Features:
 * .device aliases need to be implemented with the "following" logic, probably.
 
 * refuse taking lower-case variable names in sd_journal_send() and friends.
-
-* when running as user instance: implicitly default to WorkingDirectory=$HOME for all services.
 
 * Merge KillUnit()'s mode and who params into one
 
@@ -100,8 +94,6 @@ Features:
 * new dependency type to "group" services in a target
 
 * change Requires=basic.target to RequisiteOverride=basic.target
-
-* exclude processes marked with argv[0][0]=@ from the normal service killing too
 
 * support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
 
