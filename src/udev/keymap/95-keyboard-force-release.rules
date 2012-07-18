@@ -22,7 +22,7 @@ ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", RUN+="keyboard-force-release.s
 ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*90X3A*", RUN+="keyboard-force-release.sh $devpath samsung-90x3a"
 
 ENV{DMI_VENDOR}=="Dell Inc.", ATTR{[dmi/id]product_name}=="Studio 1557|Studio 1558", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
-ENV{DMI_VENDOR}=="Dell Inc.", ATTR{[dmi/id]product_name}=="Latitude E*|Precision M*", RUN+="keyboard-force-release.sh $devpath dell-touchpad"
+ENV{DMI_VENDOR}=="Dell Inc.", ATTR{[dmi/id]product_name}=="Latitude E*|Latitude *U|Precision M*", RUN+="keyboard-force-release.sh $devpath dell-touchpad"
 ENV{DMI_VENDOR}=="Dell Inc.", ATTR{[dmi/id]product_name}=="XPS*", RUN+="keyboard-force-release.sh $devpath dell-xps"
 
 ENV{DMI_VENDOR}=="FUJITSU SIEMENS", ATTR{[dmi/id]product_name}=="AMILO Si 1848+u|AMILO Xi 2428", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
