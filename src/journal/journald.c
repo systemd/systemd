@@ -2147,11 +2147,8 @@ finish:
         journal_file_close(s->runtime_journal);
         s->runtime_journal = NULL;
 
-        if (r >= 0) {
-                char path[] = "/run/log/journal/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
-                sd_id128_to_string(machine, path + 17);
-                rm_rf(path, false, true, false);
-        }
+        if (r >= 0)
+                rm_rf("/run/log/journal", false, true, false);
 
         return r;
 }
