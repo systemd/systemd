@@ -2593,8 +2593,10 @@ bool journal_file_rotate_suggested(JournalFile *f) {
 
         /* If we gained new header fields we gained new features,
          * hence suggest a rotation */
-        if (le64toh(f->header->header_size) < sizeof(Header))
+        if (le64toh(f->header->header_size) < sizeof(Header)) {
+                log_debug("%s uses an outdated header, suggesting rotation.", f->path);
                 return true;
+        }
 
         /* Let's check if the hash tables grew over a certain fill
          * level (75%, borrowing this value from Java's hash table
@@ -2603,12 +2605,26 @@ bool journal_file_rotate_suggested(JournalFile *f) {
          * in newer versions. */
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
-                if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL)
+                if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL) {
+                        log_debug("Data hash table of %s has a fill level at %.1f (%llu of %llu items, %llu file size, %llu bytes per hash table item), suggesting rotation.",
+                                  f->path,
+                                  100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))),
+                                  (unsigned long long) le64toh(f->header->n_data),
+                                  (unsigned long long) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)),
+                                  (unsigned long long) (f->last_stat.st_size),
+                                  (unsigned long long) (f->last_stat.st_size / le64toh(f->header->n_data)));
                         return true;
+                }
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
-                if (le64toh(f->header->n_fields) * 4ULL > (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)) * 3ULL)
+                if (le64toh(f->header->n_fields) * 4ULL > (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)) * 3ULL) {
+                        log_debug("Field hash table of %s has a fill level at %.1f (%llu of %llu items), suggesting rotation.",
+                                  f->path,
+                                  100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))),
+                                  (unsigned long long) le64toh(f->header->n_fields),
+                                  (unsigned long long) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)));
                         return true;
+                }
 
         return false;
 }
