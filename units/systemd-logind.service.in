@@ -14,6 +14,7 @@ After=nss-user-lookup.target
 [Service]
 ExecStart=@rootlibexecdir@/systemd-logind
 Restart=always
+RestartSec=0
 BusName=org.freedesktop.login1
 CapabilityBoundingSet=CAP_AUDIT_CONTROL CAP_CHOWN CAP_KILL CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_SYS_TTY_CONFIG
 
