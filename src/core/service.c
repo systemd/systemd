@@ -2476,11 +2476,12 @@ static int service_start(Unit *u) {
         /* A service that will be restarted must be stopped first to
          * trigger BindsTo and/or OnFailure dependencies. If a user
          * does not want to wait for the holdoff time to elapse, the
-         * service should be manually restarted, not started. */
-        if (s->state == SERVICE_AUTO_RESTART) {
-                log_warning("%s automatic restart is pending, must be stopped before issuing start request.", UNIT(s)->id);
+         * service should be manually restarted, not started. We
+         * simply return EAGAIN here, so that any start jobs stay
+         * queued, and assume that the auto restart timer will
+         * eventually trigger the restart. */
+        if (s->state == SERVICE_AUTO_RESTART)
                 return -EAGAIN;
-        }
 
         assert(s->state == SERVICE_DEAD || s->state == SERVICE_FAILED);
 
