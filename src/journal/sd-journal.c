@@ -1233,7 +1233,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                 m->wd = inotify_add_watch(j->inotify_fd, m->path,
                                           IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB|IN_DELETE|
                                           IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT|
-                                          IN_DONT_FOLLOW|IN_ONLYDIR);
+                                          IN_ONLYDIR);
 
                 if (m->wd > 0 && hashmap_put(j->directories_by_wd, INT_TO_PTR(m->wd), m) < 0)
                         inotify_rm_watch(j->inotify_fd, m->wd);
@@ -1310,7 +1310,7 @@ static int add_root_directory(sd_journal *j, const char *p) {
 
                 m->wd = inotify_add_watch(j->inotify_fd, m->path,
                                           IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB|IN_DELETE|
-                                          IN_DONT_FOLLOW|IN_ONLYDIR);
+                                          IN_ONLYDIR);
 
                 if (m->wd > 0 && hashmap_put(j->directories_by_wd, INT_TO_PTR(m->wd), m) < 0)
                         inotify_rm_watch(j->inotify_fd, m->wd);
