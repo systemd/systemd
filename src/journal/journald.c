@@ -2225,6 +2225,8 @@ static int process_event(Server *s, struct epoll_event *ev) {
                         return -errno;
                 }
 
+                log_info("Received SIG%s", signal_to_string(sfsi.ssi_signo));
+
                 if (sfsi.ssi_signo == SIGUSR1) {
                         touch("/run/systemd/journal/flushed");
                         server_flush_to_var(s);
@@ -2237,7 +2239,6 @@ static int process_event(Server *s, struct epoll_event *ev) {
                         return 1;
                 }
 
-                log_debug("Received SIG%s", signal_to_string(sfsi.ssi_signo));
                 return 0;
 
         } else if (ev->data.fd == s->proc_kmsg_fd) {
