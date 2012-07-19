@@ -173,8 +173,8 @@
                                 <term><option>-o</option></term>
 
                                 <listitem><para>Controls the
-                                formatting of the journal entries that are
-                                shown. Takes one of
+                                formatting of the journal entries that
+                                are shown. Takes one of
                                 <literal>short</literal>,
                                 <literal>short-monotonic</literal>,
                                 <literal>verbose</literal>,
@@ -195,7 +195,10 @@
                                 serializes the journal into a binary
                                 (but mostly text-based) stream
                                 suitable for backups and network
-                                transfer. <literal>json</literal>
+                                transfer (see <ulink
+                                url="http://www.freedesktop.org/wiki/Software/systemd/export">Journal
+                                Export Format</ulink> for more
+                                information). <literal>json</literal>
                                 formats entries as JSON data
                                 structures. <literal>cat</literal>
                                 generates a very terse output only
