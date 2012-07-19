@@ -120,6 +120,5 @@ int bus_execute_append_capabilities(DBusMessageIter *i, const char *property, vo
 int bus_execute_append_capability_bs(DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_rlimits(DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_command(DBusMessageIter *u, const char *property, void *data);
-int bus_execute_append_kill_mode(DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_env_files(DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_syscall_filter(DBusMessageIter *i, const char *property, void *data);

@@ -153,6 +153,7 @@ static void service_init(Unit *u) {
         for (i = 0; i < RLIMIT_NLIMITS; i++)
                 if (UNIT(s)->manager->rlimit[i])
                         s->exec_context.rlimit[i] = newdup(struct rlimit, UNIT(s)->manager->rlimit[i], 1);
+        kill_context_init(&s->kill_context);
 
         RATELIMIT_INIT(s->start_limit, 10*USEC_PER_SEC, 5);
 
@@ -928,7 +929,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->guess_main_pid = false;
         s->restart = SERVICE_RESTART_NO;
         s->exec_context.ignore_sigpipe = false;
-        s->exec_context.kill_mode = KILL_PROCESS;
+        s->kill_context.kill_mode = KILL_PROCESS;
 
         /* We use the long description only if
          * no short description is set. */
@@ -1164,7 +1165,7 @@ static int service_verify(Service *s) {
         if (s->bus_name && s->type != SERVICE_DBUS)
                 log_warning("%s has a D-Bus service name specified, but is not of type dbus. Ignoring.", UNIT(s)->id);
 
-        if (s->exec_context.pam_name && s->exec_context.kill_mode != KILL_CONTROL_GROUP) {
+        if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
@@ -1351,6 +1352,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, s->bus_name,
                         prefix, yes_no(s->bus_name_good));
 
+        kill_context_dump(&s->kill_context, f, prefix);
         exec_context_dump(&s->exec_context, f, prefix);
 
         for (c = 0; c < _SERVICE_EXEC_COMMAND_MAX; c++) {
@@ -1967,8 +1969,8 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
         if (f != SERVICE_SUCCESS)
                 s->result = f;
 
-        if (s->exec_context.kill_mode != KILL_NONE) {
-                int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
+        if (s->kill_context.kill_mode != KILL_NONE) {
+                int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? s->kill_context.kill_signal : SIGKILL;
 
                 if (s->main_pid > 0) {
                         if (kill_and_sigcont(s->main_pid, sig) < 0 && errno != ESRCH)
@@ -1984,9 +1986,10 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
                                 wait_for_exit = true;
                 }
 
-                if (s->exec_context.kill_mode == KILL_CONTROL_GROUP) {
+                if (s->kill_context.kill_mode == KILL_CONTROL_GROUP) {
 
-                        if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func))) {
+                        pid_set = set_new(trivial_hash_func, trivial_compare_func);
+                        if (!pid_set) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
@@ -3144,7 +3147,7 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 break;
 
         case SERVICE_STOP_SIGTERM:
-                if (s->exec_context.send_sigkill) {
+                if (s->kill_context.send_sigkill) {
                         log_warning("%s stopping timed out. Killing.", u->id);
                         service_enter_signal(s, SERVICE_STOP_SIGKILL, SERVICE_FAILURE_TIMEOUT);
                 } else {
@@ -3169,7 +3172,7 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 break;
 
         case SERVICE_FINAL_SIGTERM:
-                if (s->exec_context.send_sigkill) {
+                if (s->kill_context.send_sigkill) {
                         log_warning("%s stopping timed out (2). Killing.", u->id);
                         service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_FAILURE_TIMEOUT);
                 } else {

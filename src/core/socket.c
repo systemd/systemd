@@ -83,6 +83,7 @@ static void socket_init(Unit *u) {
         exec_context_init(&s->exec_context);
         s->exec_context.std_output = u->manager->default_std_output;
         s->exec_context.std_error = u->manager->default_std_error;
+        kill_context_init(&s->kill_context);
 
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 }
@@ -223,7 +224,7 @@ static int socket_verify(Socket *s) {
                 return -EINVAL;
         }
 
-        if (s->exec_context.pam_name && s->exec_context.kill_mode != KILL_CONTROL_GROUP) {
+        if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
@@ -526,6 +527,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         }
 
         exec_context_dump(&s->exec_context, f, prefix);
+        kill_context_dump(&s->kill_context, f, prefix);
 
         for (c = 0; c < _SOCKET_EXEC_COMMAND_MAX; c++) {
                 if (!s->exec_command[c])
@@ -1226,8 +1228,8 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         if (f != SOCKET_SUCCESS)
                 s->result = f;
 
-        if (s->exec_context.kill_mode != KILL_NONE) {
-                int sig = (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
+        if (s->kill_context.kill_mode != KILL_NONE) {
+                int sig = (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_FINAL_SIGTERM) ? s->kill_context.kill_signal : SIGKILL;
 
                 if (s->control_pid > 0) {
                         if (kill_and_sigcont(s->control_pid, sig) < 0 && errno != ESRCH)
@@ -1237,7 +1239,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
                                 wait_for_exit = true;
                 }
 
-                if (s->exec_context.kill_mode == KILL_CONTROL_GROUP) {
+                if (s->kill_context.kill_mode == KILL_CONTROL_GROUP) {
 
                         if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func))) {
                                 r = -ENOMEM;
@@ -1983,7 +1985,7 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case SOCKET_STOP_PRE_SIGTERM:
-                if (s->exec_context.send_sigkill) {
+                if (s->kill_context.send_sigkill) {
                         log_warning("%s stopping timed out. Killing.", u->id);
                         socket_enter_signal(s, SOCKET_STOP_PRE_SIGKILL, SOCKET_FAILURE_TIMEOUT);
                 } else {
@@ -2003,7 +2005,7 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case SOCKET_FINAL_SIGTERM:
-                if (s->exec_context.send_sigkill) {
+                if (s->kill_context.send_sigkill) {
                         log_warning("%s stopping timed out (2). Killing.", u->id);
                         socket_enter_signal(s, SOCKET_FINAL_SIGKILL, SOCKET_FAILURE_TIMEOUT);
                 } else {

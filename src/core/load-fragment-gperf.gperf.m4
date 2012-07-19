@@ -84,13 +84,15 @@ $1.PrivateNetwork,               config_parse_bool,                  0,         
 $1.MountFlags,                   config_parse_exec_mount_flags,      0,                             offsetof($1, exec_context)
 $1.TCPWrapName,                  config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.tcpwrap_name)
 $1.PAMName,                      config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.pam_name)
-$1.KillMode,                     config_parse_kill_mode,             0,                             offsetof($1, exec_context.kill_mode)
-$1.KillSignal,                   config_parse_kill_signal,           0,                             offsetof($1, exec_context.kill_signal)
-$1.SendSIGKILL,                  config_parse_bool,                  0,                             offsetof($1, exec_context.send_sigkill)
 $1.IgnoreSIGPIPE,                config_parse_bool,                  0,                             offsetof($1, exec_context.ignore_sigpipe)
 $1.UtmpIdentifier,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.utmp_id)
 $1.ControlGroupModify,           config_parse_bool,                  0,                             offsetof($1, exec_context.control_group_modify)
 $1.ControlGroupPersistent,       config_parse_tristate,              0,                             offsetof($1, exec_context.control_group_persistent)'
+)m4_dnl
+m4_define(`KILL_CONTEXT_CONFIG_ITEMS',
+`$1.SendSIGKILL,                  config_parse_bool,                  0,                             offsetof($1, kill_context.send_sigkill)
+$1.KillMode,                     config_parse_kill_mode,             0,                             offsetof($1, kill_context.kill_mode)
+$1.KillSignal,                   config_parse_kill_signal,           0,                             offsetof($1, kill_context.kill_signal)'
 )m4_dnl
 Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Unit, description)
 Unit.Documentation,              config_parse_documentation,         0,                             offsetof(Unit, documentation)
@@ -162,6 +164,7 @@ Service.NotifyAccess,            config_parse_notify_access,         0,         
 Service.Sockets,                 config_parse_service_sockets,       0,                             0
 Service.FsckPassNo,              config_parse_fsck_passno,           0,                             offsetof(Service, fsck_passno)
 EXEC_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
+KILL_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 m4_dnl
 Socket.ListenStream,             config_parse_socket_listen,         0,                             0
 Socket.ListenDatagram,           config_parse_socket_listen,         0,                             0
@@ -200,6 +203,7 @@ Socket.MessageQueueMaxMessages,  config_parse_long,                  0,         
 Socket.MessageQueueMessageSize,  config_parse_long,                  0,                             offsetof(Socket, mq_msgsize)
 Socket.Service,                  config_parse_socket_service,        0,                             0
 EXEC_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
+KILL_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 m4_dnl
 Mount.What,                      config_parse_string,                0,                             offsetof(Mount, parameters_fragment.what)
 Mount.Where,                     config_parse_path,                  0,                             offsetof(Mount, where)
@@ -209,6 +213,7 @@ Mount.FsckPassNo,                config_parse_fsck_passno,           0,         
 Mount.TimeoutSec,                config_parse_usec,                  0,                             offsetof(Mount, timeout_usec)
 Mount.DirectoryMode,             config_parse_mode,                  0,                             offsetof(Mount, directory_mode)
 EXEC_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
+KILL_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
 m4_dnl
 Automount.Where,                 config_parse_path,                  0,                             offsetof(Automount, where)
 Automount.DirectoryMode,         config_parse_mode,                  0,                             offsetof(Automount, directory_mode)
@@ -217,6 +222,7 @@ Swap.What,                       config_parse_path,                  0,         
 Swap.Priority,                   config_parse_int,                   0,                             offsetof(Swap, parameters_fragment.priority)
 Swap.TimeoutSec,                 config_parse_usec,                  0,                             offsetof(Swap, timeout_usec)
 EXEC_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
+KILL_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
 m4_dnl
 Timer.OnActiveSec,               config_parse_timer,                 0,                             0
 Timer.OnBootSec,                 config_parse_timer,                 0,                             0

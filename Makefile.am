@@ -455,6 +455,7 @@ MANPAGES = \
 	man/systemd.device.5 \
 	man/systemd.snapshot.5 \
 	man/systemd.exec.5 \
+	man/systemd.kill.5 \
 	man/systemd.special.7 \
 	man/systemd.journal-fields.7 \
 	man/kernel-command-line.7 \
@@ -904,6 +905,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/load-dropin.h \
 	src/core/execute.c \
 	src/core/execute.h \
+	src/core/kill.c \
+	src/core/kill.h \
 	src/core/dbus.c \
 	src/core/dbus.h \
 	src/core/dbus-manager.c \
@@ -932,6 +935,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/dbus-device.h \
 	src/core/dbus-execute.c \
 	src/core/dbus-execute.h \
+	src/core/dbus-kill.c \
+	src/core/dbus-kill.h \
 	src/core/dbus-path.c \
 	src/core/dbus-path.h \
 	src/core/cgroup.c \

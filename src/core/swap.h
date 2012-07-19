@@ -87,6 +87,7 @@ struct Swap {
 
         ExecCommand exec_command[_SWAP_EXEC_COMMAND_MAX];
         ExecContext exec_context;
+        KillContext kill_context;
 
         SwapState state, deserialized_state;
 

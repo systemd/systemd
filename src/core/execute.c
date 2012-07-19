@@ -1541,8 +1541,6 @@ void exec_context_init(ExecContext *c) {
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
         c->syslog_level_prefix = true;
         c->mount_flags = MS_SHARED;
-        c->kill_signal = SIGTERM;
-        c->send_sigkill = true;
         c->control_group_persistent = -1;
         c->ignore_sigpipe = true;
         c->timer_slack_nsec = (nsec_t) -1;
@@ -1735,7 +1733,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sPrivateTmp: %s\n"
                 "%sControlGroupModify: %s\n"
                 "%sControlGroupPersistent: %s\n"
-                "%sPrivateNetwork: %s\n",
+                "%sPrivateNetwork: %s\n"
+                "%sIgnoreSIGPIPE: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
@@ -1743,7 +1742,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->private_tmp),
                 prefix, yes_no(c->control_group_modify),
                 prefix, yes_no(c->control_group_persistent),
-                prefix, yes_no(c->private_network));
+                prefix, yes_no(c->private_network),
+                prefix, yes_no(c->ignore_sigpipe));
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);
@@ -1893,16 +1893,6 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 strv_fprintf(f, c->inaccessible_dirs);
                 fputs("\n", f);
         }
-
-        fprintf(f,
-                "%sKillMode: %s\n"
-                "%sKillSignal: SIG%s\n"
-                "%sSendSIGKILL: %s\n"
-                "%sIgnoreSIGPIPE: %s\n",
-                prefix, kill_mode_to_string(c->kill_mode),
-                prefix, signal_to_string(c->kill_signal),
-                prefix, yes_no(c->send_sigkill),
-                prefix, yes_no(c->ignore_sigpipe));
 
         if (c->utmp_id)
                 fprintf(f,
@@ -2111,19 +2101,3 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
-
-static const char* const kill_mode_table[_KILL_MODE_MAX] = {
-        [KILL_CONTROL_GROUP] = "control-group",
-        [KILL_PROCESS] = "process",
-        [KILL_NONE] = "none"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(kill_mode, KillMode);
-
-static const char* const kill_who_table[_KILL_WHO_MAX] = {
-        [KILL_MAIN] = "main",
-        [KILL_CONTROL] = "control",
-        [KILL_ALL] = "all"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(kill_who, KillWho);

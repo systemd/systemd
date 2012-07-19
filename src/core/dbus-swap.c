@@ -25,6 +25,7 @@
 #include "dbus-unit.h"
 #include "dbus-swap.h"
 #include "dbus-execute.h"
+#include "dbus-kill.h"
 #include "dbus-common.h"
 
 #define BUS_SWAP_INTERFACE                                              \
@@ -35,6 +36,7 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecActivate")                      \
         BUS_EXEC_COMMAND_INTERFACE("ExecDeactivate")                    \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
+        BUS_KILL_CONTEXT_INTERFACE                                      \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
         " </interface>\n"
@@ -102,6 +104,7 @@ DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessa
                 { "org.freedesktop.systemd1.Unit", bus_unit_properties,         u },
                 { "org.freedesktop.systemd1.Swap", bus_swap_properties,         s },
                 { "org.freedesktop.systemd1.Swap", bus_exec_context_properties, &s->exec_context },
+                { "org.freedesktop.systemd1.Swap", bus_kill_context_properties, &s->kill_context },
                 { NULL, }
         };
 

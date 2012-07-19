@@ -86,6 +86,7 @@ static void swap_init(Unit *u) {
         exec_context_init(&s->exec_context);
         s->exec_context.std_output = u->manager->default_std_output;
         s->exec_context.std_error = u->manager->default_std_error;
+        kill_context_init(&s->kill_context);
 
         s->parameters_proc_swaps.priority = s->parameters_fragment.priority = -1;
 
@@ -235,7 +236,7 @@ static int swap_verify(Swap *s) {
                 return -EINVAL;
         }
 
-        if (s->exec_context.pam_name && s->exec_context.kill_mode != KILL_CONTROL_GROUP) {
+        if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
@@ -569,6 +570,7 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, (unsigned long) s->control_pid);
 
         exec_context_dump(&s->exec_context, f, prefix);
+        kill_context_dump(&s->kill_context, f, prefix);
 }
 
 static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
@@ -641,9 +643,9 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
         if (f != SWAP_SUCCESS)
                 s->result = f;
 
-        if (s->exec_context.kill_mode != KILL_NONE) {
+        if (s->kill_context.kill_mode != KILL_NONE) {
                 int sig = (state == SWAP_ACTIVATING_SIGTERM ||
-                           state == SWAP_DEACTIVATING_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
+                           state == SWAP_DEACTIVATING_SIGTERM) ? s->kill_context.kill_signal : SIGKILL;
 
                 if (s->control_pid > 0) {
                         if (kill_and_sigcont(s->control_pid, sig) < 0 && errno != ESRCH)
@@ -653,7 +655,7 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
                                 wait_for_exit = true;
                 }
 
-                if (s->exec_context.kill_mode == KILL_CONTROL_GROUP) {
+                if (s->kill_context.kill_mode == KILL_CONTROL_GROUP) {
 
                         if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func))) {
                                 r = -ENOMEM;
@@ -993,7 +995,7 @@ static void swap_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case SWAP_ACTIVATING_SIGTERM:
-                if (s->exec_context.send_sigkill) {
+                if (s->kill_context.send_sigkill) {
                         log_warning("%s activation timed out. Killing.", u->id);
                         swap_enter_signal(s, SWAP_ACTIVATING_SIGKILL, SWAP_FAILURE_TIMEOUT);
                 } else {
@@ -1003,7 +1005,7 @@ static void swap_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case SWAP_DEACTIVATING_SIGTERM:
-                if (s->exec_context.send_sigkill) {
+                if (s->kill_context.send_sigkill) {
                         log_warning("%s deactivation timed out. Killing.", u->id);
                         swap_enter_signal(s, SWAP_DEACTIVATING_SIGKILL, SWAP_FAILURE_TIMEOUT);
                 } else {

@@ -72,7 +72,10 @@
                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 which define the execution environment the
                 <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                binary is executed in.</para>
+                binary is executed in, and in
+                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                which define the way the processes are
+                terminated.</para>
 
                 <para>Mount units must be named after the mount point
                 directories they control. Example: the mount point
@@ -147,7 +150,9 @@
                 supervises. A number of options that may be used in
                 this section are shared with other unit types. These
                 options are documented in
-                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                and
+                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
                 options specific to the [Mount] section of mount
                 units are the following:</para>
 
@@ -220,50 +225,21 @@
                                 will be terminated forcibly via
                                 SIGTERM, and after another delay of
                                 this time with SIGKILL. (See
-                                <option>KillMode=</option> below.)
+                                <option>KillMode=</option> in
+                                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.)
                                 Takes a unit-less value in seconds, or
                                 a time span value such as "5min
                                 20s". Pass 0 to disable the timeout
                                 logic. Defaults to
                                 90s.</para></listitem>
                         </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>KillMode=</varname></term>
-                                <listitem><para>Specifies how
-                                processes of this mount shall be
-                                killed. One of
-                                <option>control-group</option>,
-                                <option>process</option>,
-                                <option>none</option>.</para>
-
-                                <para>This option is mostly equivalent
-                                to the <option>KillMode=</option>
-                                option of service files. See
-                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                for details.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>KillSignal=</varname></term>
-                                <listitem><para>Specifies which signal
-                                to use when killing a process of this
-                                mount. Defaults to SIGTERM.
-                                </para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>SendSIGKILL=</varname></term>
-                                <listitem><para>Specifies whether to
-                                send SIGKILL to remaining processes
-                                after a timeout, if the normal
-                                shutdown procedure left processes of
-                                the mount around. Takes a boolean
-                                value. Defaults to "yes".
-                                </para></listitem>
-                        </varlistentry>
-
                 </variablelist>
+
+                <para>Check
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                and
+                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for more settings.</para>
         </refsect1>
 
         <refsect1>
@@ -295,6 +271,7 @@
                           <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,

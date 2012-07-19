@@ -79,6 +79,8 @@ static void mount_init(Unit *u) {
                 m->exec_context.std_error = u->manager->default_std_error;
         }
 
+        kill_context_init(&m->kill_context);
+
         /* We need to make sure that /bin/mount is always called in
          * the same process group as us, so that the autofs kernel
          * side doesn't send us another mount request while we are
@@ -529,7 +531,7 @@ static int mount_verify(Mount *m) {
                 return -EBADMSG;
         }
 
-        if (m->exec_context.pam_name && m->exec_context.kill_mode != KILL_CONTROL_GROUP) {
+        if (m->exec_context.pam_name && m->kill_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", UNIT(m)->id);
                 return -EINVAL;
         }
@@ -783,6 +785,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, (unsigned long) m->control_pid);
 
         exec_context_dump(&m->exec_context, f, prefix);
+        kill_context_dump(&m->kill_context, f, prefix);
 }
 
 static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
@@ -855,10 +858,10 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
         if (f != MOUNT_SUCCESS)
                 m->result = f;
 
-        if (m->exec_context.kill_mode != KILL_NONE) {
+        if (m->kill_context.kill_mode != KILL_NONE) {
                 int sig = (state == MOUNT_MOUNTING_SIGTERM ||
                            state == MOUNT_UNMOUNTING_SIGTERM ||
-                           state == MOUNT_REMOUNTING_SIGTERM) ? m->exec_context.kill_signal : SIGKILL;
+                           state == MOUNT_REMOUNTING_SIGTERM) ? m->kill_context.kill_signal : SIGKILL;
 
                 if (m->control_pid > 0) {
                         if (kill_and_sigcont(m->control_pid, sig) < 0 && errno != ESRCH)
@@ -868,7 +871,7 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
                                 wait_for_exit = true;
                 }
 
-                if (m->exec_context.kill_mode == KILL_CONTROL_GROUP) {
+                if (m->kill_context.kill_mode == KILL_CONTROL_GROUP) {
 
                         if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func))) {
                                 r = -ENOMEM;
@@ -1327,7 +1330,7 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case MOUNT_MOUNTING_SIGTERM:
-                if (m->exec_context.send_sigkill) {
+                if (m->kill_context.send_sigkill) {
                         log_warning("%s mounting timed out. Killing.", u->id);
                         mount_enter_signal(m, MOUNT_MOUNTING_SIGKILL, MOUNT_FAILURE_TIMEOUT);
                 } else {
@@ -1341,7 +1344,7 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case MOUNT_REMOUNTING_SIGTERM:
-                if (m->exec_context.send_sigkill) {
+                if (m->kill_context.send_sigkill) {
                         log_warning("%s remounting timed out. Killing.", u->id);
                         mount_enter_signal(m, MOUNT_REMOUNTING_SIGKILL, MOUNT_FAILURE_TIMEOUT);
                 } else {
@@ -1355,7 +1358,7 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case MOUNT_UNMOUNTING_SIGTERM:
-                if (m->exec_context.send_sigkill) {
+                if (m->kill_context.send_sigkill) {
                         log_warning("%s unmounting timed out. Killing.", u->id);
                         mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, MOUNT_FAILURE_TIMEOUT);
                 } else {

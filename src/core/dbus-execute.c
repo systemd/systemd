@@ -30,8 +30,6 @@
 #include "dbus-common.h"
 #include "syscall-list.h"
 
-DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_kill_mode, kill_mode, KillMode);
-
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_input, exec_input, ExecInput);
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_output, exec_output, ExecOutput);
 
@@ -431,8 +429,6 @@ const BusProperty bus_exec_context_properties[] = {
         { "PrivateTmp",               bus_property_append_bool,              "b", offsetof(ExecContext, private_tmp)                  },
         { "PrivateNetwork",           bus_property_append_bool,              "b", offsetof(ExecContext, private_network)              },
         { "SameProcessGroup",         bus_property_append_bool,              "b", offsetof(ExecContext, same_pgrp)                    },
-        { "KillMode",                 bus_execute_append_kill_mode,          "s", offsetof(ExecContext, kill_mode)                    },
-        { "KillSignal",               bus_property_append_int,               "i", offsetof(ExecContext, kill_signal)                  },
         { "UtmpIdentifier",           bus_property_append_string,            "s", offsetof(ExecContext, utmp_id),                true },
         { "ControlGroupModify",       bus_property_append_bool,              "b", offsetof(ExecContext, control_group_modify)         },
         { "ControlGroupPersistent",   bus_property_append_tristate_false,    "b", offsetof(ExecContext, control_group_persistent)     },

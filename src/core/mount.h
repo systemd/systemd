@@ -24,6 +24,7 @@
 typedef struct Mount Mount;
 
 #include "unit.h"
+#include "kill.h"
 
 typedef enum MountState {
         MOUNT_DEAD,
@@ -95,6 +96,7 @@ struct Mount {
 
         ExecCommand exec_command[_MOUNT_EXEC_COMMAND_MAX];
         ExecContext exec_context;
+        KillContext kill_context;
 
         MountState state, deserialized_state;
 

@@ -1,0 +1,170 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2012 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.kill">
+        <refentryinfo>
+                <title>systemd.kill</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd.kill</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd.kill</refname>
+                <refpurpose>Kill environment configuration</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd.service</filename>,
+                <filename>systemd.socket</filename>,
+                <filename>systemd.mount</filename>,
+                <filename>systemd.swap</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>Unit configuration files for services, sockets,
+                mount points and swap devices share a subset of
+                configuration options which define the process killing
+                parameters of spawned processes.</para>
+
+                <para>This man page lists the configuration options
+                shared by these four unit types. See
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for the common options of all unit configuration
+                files, and
+                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                and
+                <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for more information on the specific unit
+                configuration files. The execution specific
+                configuration options are configured in the [Service],
+                [Socket], [Mount] resp. [Swap] section, depending on the unit
+                type.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><varname>KillMode=</varname></term>
+                                <listitem><para>Specifies how
+                                processes of this service shall be
+                                killed. One of
+                                <option>control-group</option>,
+                                <option>process</option>,
+                                <option>none</option>.</para>
+
+                                <para>If set to
+                                <option>control-group</option> all
+                                remaining processes in the control
+                                group of this unit will be terminated
+                                on unit stop (for services: after the
+                                stop command is executed, as
+                                configured with
+                                <varname>ExecStop=</varname>). If set
+                                to <option>process</option> only the
+                                main process itself is killed. If set
+                                to <option>none</option> no process is
+                                killed. In this case only the stop
+                                command will be executed on unit
+                                stop, but no process be killed
+                                otherwise. Processes remaining alive
+                                after stop are left in their control
+                                group and the control group continues
+                                to exist after stop unless it is
+                                empty. Defaults to
+                                <option>control-group</option>.</para>
+
+                                <para>Processes will first be
+                                terminated via SIGTERM (unless the
+                                signal to send is changed via
+                                <varname>KillSignal=</varname>). If
+                                then after a delay (configured via the
+                                <varname>TimeoutSec=</varname> option)
+                                processes still remain, the
+                                termination request is repeated with
+                                the SIGKILL signal (unless this is
+                                disabled via the
+                                <varname>SendSIGKILL=</varname>
+                                option). See
+                                <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for more
+                                information.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KillSignal=</varname></term>
+                                <listitem><para>Specifies which signal
+                                to use when killing a
+                                service. Defaults to SIGTERM.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>SendSIGKILL=</varname></term>
+                                <listitem><para>Specifies whether to
+                                send SIGKILL to remaining processes
+                                after a timeout, if the normal
+                                shutdown procedure left processes of
+                                the service around. Takes a boolean
+                                value. Defaults to "yes".
+                                </para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>

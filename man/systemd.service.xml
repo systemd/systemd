@@ -72,7 +72,10 @@
                 <para>Additional options are listed in
                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 which define the execution environment the commands
-                are executed in.</para>
+                are executed in, and in
+                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                which define the way the processes of the service are
+                terminated.</para>
 
                 <para>Unless <varname>DefaultDependencies=</varname>
                 is set to <option>false</option>, service units will
@@ -112,7 +115,9 @@
                 supervises. A number of options that may be used in
                 this section are shared with other unit types. These
                 options are documented in
-                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                and
+                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
                 options specific to the <literal>[Service]</literal>
                 section of service units are the following:</para>
 
@@ -417,12 +422,13 @@
                                 configured in this option are run are
                                 terminated according to the
                                 <varname>KillMode=</varname> setting
-                                (see below). If this option is not
-                                specified the process is terminated
-                                right-away when service stop is
-                                requested. Specifier and environment
-                                variable substitution is supported
-                                (including
+                                (see
+                                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>). If
+                                this option is not specified the
+                                process is terminated right-away when
+                                service stop is requested. Specifier
+                                and environment variable substitution
+                                is supported (including
                                 <literal>$MAINPID</literal>, see
                                 above).</para></listitem>
                         </varlistentry>
@@ -471,7 +477,7 @@
                                 another delay of this time with
                                 SIGKILL. (See
                                 <varname>KillMode=</varname>
-                                below.) Takes a unit-less value in seconds, or a
+                                in <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>) Takes a unit-less value in seconds, or a
                                 time span value such as "5min
                                 20s". Pass 0 to disable the timeout
                                 logic. Defaults to
@@ -596,72 +602,6 @@
                                 applied to all configured commands the
                                 same way. Defaults to
                                 false.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>KillMode=</varname></term>
-                                <listitem><para>Specifies how
-                                processes of this service shall be
-                                killed. One of
-                                <option>control-group</option>,
-                                <option>process</option>,
-                                <option>none</option>.</para>
-
-                                <para>If set to
-                                <option>control-group</option> all
-                                remaining processes in the control
-                                group of this service will be
-                                terminated on service stop, after the
-                                stop command (as configured with
-                                <varname>ExecStop=</varname>) is
-                                executed. If set to
-                                <option>process</option> only the main
-                                process itself is killed. If set to
-                                <option>none</option> no process is
-                                killed. In this case only the stop
-                                command will be executed on service
-                                stop, but no process be killed
-                                otherwise. Processes remaining alive
-                                after stop are left in their control
-                                group and the control group continues
-                                to exist after stop unless it is
-                                empty. Defaults to
-                                <option>control-group</option>.</para>
-
-                                <para>Processes will first be
-                                terminated via SIGTERM (unless the
-                                signal to send is changed via
-                                <varname>KillSignal=</varname>). If
-                                then after a delay (configured via the
-                                <varname>TimeoutSec=</varname> option)
-                                processes still remain, the
-                                termination request is repeated with
-                                the SIGKILL signal (unless this is
-                                disabled via the
-                                <varname>SendSIGKILL=</varname>
-                                option). See
-                                <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                                for more
-                                information.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>KillSignal=</varname></term>
-                                <listitem><para>Specifies which signal
-                                to use when killing a
-                                service. Defaults to SIGTERM.
-                                </para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>SendSIGKILL=</varname></term>
-                                <listitem><para>Specifies whether to
-                                send SIGKILL to remaining processes
-                                after a timeout, if the normal
-                                shutdown procedure left processes of
-                                the service around. Takes a boolean
-                                value. Defaults to "yes".
-                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -818,6 +758,13 @@
                         </varlistentry>
 
                 </variablelist>
+
+                <para>Check
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                and
+                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for more settings.</para>
+
         </refsect1>
 
         <refsect1>
@@ -888,7 +835,8 @@
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

@@ -23,6 +23,7 @@
 
 #include "dbus-unit.h"
 #include "dbus-execute.h"
+#include "dbus-kill.h"
 #include "dbus-service.h"
 #include "dbus-common.h"
 
@@ -47,6 +48,7 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecStop")                          \
         BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
+        BUS_KILL_CONTEXT_INTERFACE                                      \
         "  <property name=\"PermissionsStartOnly\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RootDirectoryStartOnly\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RemainAfterExit\" type=\"b\" access=\"read\"/>\n" \
@@ -140,10 +142,12 @@ static const BusProperty bus_service_properties[] = {
 
 DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connection, DBusMessage *message) {
         Service *s = SERVICE(u);
+
         const BusBoundProperties bps[] = {
                 { "org.freedesktop.systemd1.Unit",    bus_unit_properties,             u },
                 { "org.freedesktop.systemd1.Service", bus_service_properties,          s },
                 { "org.freedesktop.systemd1.Service", bus_exec_context_properties,     &s->exec_context },
+                { "org.freedesktop.systemd1.Service", bus_kill_context_properties,     &s->kill_context },
                 { "org.freedesktop.systemd1.Service", bus_exec_main_status_properties, &s->main_exec_status },
                 { NULL, }
         };

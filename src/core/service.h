@@ -27,6 +27,7 @@ typedef struct Service Service;
 #include "path.h"
 #include "ratelimit.h"
 #include "service.h"
+#include "kill.h"
 
 typedef enum ServiceState {
         SERVICE_DEAD,
@@ -126,7 +127,9 @@ struct Service {
         Watch watchdog_watch;
 
         ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
+
         ExecContext exec_context;
+        KillContext kill_context;
 
         ServiceState state, deserialized_state;
 
