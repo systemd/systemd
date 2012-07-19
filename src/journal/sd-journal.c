@@ -1329,7 +1329,7 @@ static int add_root_directory(sd_journal *j, const char *p) {
                         if (r < 0)
                                 log_debug("Failed to add file %s/%s: %s", m->path, de->d_name, strerror(-r));
 
-                } else if ((de->d_type == DT_DIR || de->d_type == DT_UNKNOWN) &&
+                } else if ((de->d_type == DT_DIR || de->d_type == DT_LNK || de->d_type == DT_UNKNOWN) &&
                            sd_id128_from_string(de->d_name, &id) >= 0) {
 
                         r = add_directory(j, m->path, de->d_name);
