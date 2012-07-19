@@ -1950,6 +1950,8 @@ _public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, 
                 usec_t fr, t;
 
                 r = journal_file_get_cutoff_realtime_usec(f, &fr, &t);
+                if (r == -ENOENT)
+                        continue;
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1987,6 +1989,8 @@ _public_ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot
                 usec_t fr, t;
 
                 r = journal_file_get_cutoff_monotonic_usec(f, boot_id, &fr, &t);
+                if (r == -ENOENT)
+                        continue;
                 if (r < 0)
                         return r;
                 if (r == 0)

@@ -40,6 +40,10 @@ Features:
 
 * syscall filter: add knowledge about compat syscalls
 
+* syscall filter: don't enforce no new privs?
+
+* syscall filter: option to return EPERM rather than SIGSYS?
+
 * logind: wakelock/opportunistic suspend support
 
 * switch-root: sockets need relabelling
