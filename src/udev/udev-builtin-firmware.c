@@ -129,7 +129,13 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
                                 err = -errno;
                 } while (err == -ENOENT);
                 rc = EXIT_FAILURE;
-                set_loading(udev, loadpath, "-1");
+                /*
+                 * Do not cancel the request in the initrd, the real root might have
+                 * the firmware file and the 'coldplug' run in the real root will find
+                 * this pending request and fulfill or cancel it.
+                 * */
+                if (!in_initrd())
+                        set_loading(udev, loadpath, "-1");
                 goto exit;
         }
 
