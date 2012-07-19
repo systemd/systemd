@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Login Service
-Documentation=man:systemd-logind.service(7) man:logind.conf(5)
+Documentation=man:systemd-logind.service(8) man:logind.conf(5)
 Documentation=http://www.freedesktop.org/wiki/Software/systemd/multiseat
 After=nss-user-lookup.target
 
