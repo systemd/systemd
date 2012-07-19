@@ -228,7 +228,7 @@ static int output_short(sd_journal *j, unsigned line, unsigned n_columns,
         } else if ((flags & OUTPUT_FULL_WIDTH) ||
                    (message_len + n < n_columns))
                 printf(": %.*s\n", (int) message_len, message);
-        else if (n < n_columns) {
+        else if (n < n_columns && n_columns - n - 2 >= 3) {
                 char *e;
 
                 e = ellipsize_mem(message, message_len, n_columns - n - 2, 90);
