@@ -2816,17 +2816,31 @@ int unit_add_mount_links(Unit *u) {
         return 0;
 }
 
-int unit_patch_working_directory(Unit *u, ExecContext *c) {
+int unit_exec_context_defaults(Unit *u, ExecContext *c) {
+        unsigned i;
+        int r;
+
         assert(u);
         assert(c);
 
-        if (u->manager->running_as != MANAGER_USER)
-                return 0;
+        /* This only copies in the ones that need memory */
 
-        if (c->working_directory)
-                return 0;
+        for (i = 0; i < RLIMIT_NLIMITS; i++)
+                if (u->manager->rlimit[i] && !c->rlimit[i]) {
+                        c->rlimit[i] = newdup(struct rlimit, u->manager->rlimit[i], 1);
+                        if (!c->rlimit[i])
+                                return -ENOMEM;
+                }
 
-        return get_home_dir(&c->working_directory);
+        if (u->manager->running_as == MANAGER_USER &&
+            !c->working_directory) {
+
+                r = get_home_dir(&c->working_directory);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {

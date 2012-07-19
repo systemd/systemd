@@ -536,7 +536,7 @@ void unit_ref_unset(UnitRef *ref);
 int unit_add_one_mount_link(Unit *u, Mount *m);
 int unit_add_mount_links(Unit *u);
 
-int unit_patch_working_directory(Unit *u, ExecContext *c);
+int unit_exec_context_defaults(Unit *u, ExecContext *c);
 
 const char *unit_active_state_to_string(UnitActiveState i);
 UnitActiveState unit_active_state_from_string(const char *s);

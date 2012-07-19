@@ -296,7 +296,7 @@ static int swap_load(Unit *u) {
                         if ((r = swap_add_default_dependencies(s)) < 0)
                                 return r;
 
-                r = unit_patch_working_directory(UNIT(s), &s->exec_context);
+                r = unit_exec_context_defaults(u, &s->exec_context);
                 if (r < 0)
                         return r;
         }

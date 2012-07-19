@@ -130,7 +130,6 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
 
 static void service_init(Unit *u) {
         Service *s = SERVICE(u);
-        int i;
 
         assert(u);
         assert(u->load_state == UNIT_STUB);
@@ -150,9 +149,6 @@ static void service_init(Unit *u) {
         s->guess_main_pid = true;
 
         exec_context_init(&s->exec_context);
-        for (i = 0; i < RLIMIT_NLIMITS; i++)
-                if (UNIT(s)->manager->rlimit[i])
-                        s->exec_context.rlimit[i] = newdup(struct rlimit, UNIT(s)->manager->rlimit[i], 1);
         kill_context_init(&s->kill_context);
 
         RATELIMIT_INIT(s->start_limit, 10*USEC_PER_SEC, 5);
@@ -1284,7 +1280,7 @@ static int service_load(Unit *u) {
                         if ((r = service_add_default_dependencies(s)) < 0)
                                 return r;
 
-                r = unit_patch_working_directory(UNIT(s), &s->exec_context);
+                r = unit_exec_context_defaults(u, &s->exec_context);
                 if (r < 0)
                         return r;
         }

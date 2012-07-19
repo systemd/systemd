@@ -634,7 +634,7 @@ static int mount_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                r = unit_patch_working_directory(UNIT(m), &m->exec_context);
+                r = unit_exec_context_defaults(u, &m->exec_context);
                 if (r < 0)
                         return r;
         }
