@@ -431,9 +431,8 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 reload_if_possible = true;
                 job_type = JOB_TRY_RESTART;
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "Kill")) {
-                const char *swho, *smode;
+                const char *swho;
                 int32_t signo;
-                KillMode mode;
                 KillWho who;
                 int r;
 
@@ -441,7 +440,6 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                                     message,
                                     &error,
                                     DBUS_TYPE_STRING, &swho,
-                                    DBUS_TYPE_STRING, &smode,
                                     DBUS_TYPE_INT32, &signo,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
@@ -454,21 +452,15 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                                 return bus_send_error_reply(connection, message, &error, -EINVAL);
                 }
 
-                if (isempty(smode))
-                        mode = KILL_CONTROL_GROUP;
-                else {
-                        mode = kill_mode_from_string(smode);
-                        if (mode < 0)
-                                return bus_send_error_reply(connection, message, &error, -EINVAL);
-                }
-
                 if (signo <= 0 || signo >= _NSIG)
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if ((r = unit_kill(u, who, mode, signo, &error)) < 0)
+                r = unit_kill(u, who, signo, &error);
+                if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ResetFailed")) {

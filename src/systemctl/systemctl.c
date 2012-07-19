@@ -86,7 +86,6 @@ static bool arg_failed = false;
 static bool arg_runtime = false;
 static char **arg_wall = NULL;
 static const char *arg_kill_who = NULL;
-static const char *arg_kill_mode = NULL;
 static int arg_signal = SIGTERM;
 static const char *arg_root = NULL;
 static usec_t arg_when = 0;
@@ -2140,9 +2139,6 @@ static int kill_unit(DBusConnection *bus, char **args) {
         if (!arg_kill_who)
                 arg_kill_who = "all";
 
-        if (!arg_kill_mode)
-                arg_kill_mode = streq(arg_kill_who, "all") ? "control-group" : "process";
-
         STRV_FOREACH(name, args+1) {
                 DBusMessage *reply;
                 char *n;
@@ -2163,7 +2159,6 @@ static int kill_unit(DBusConnection *bus, char **args) {
                 b = dbus_message_append_args(m,
                                              DBUS_TYPE_STRING, n ? &n : name,
                                              DBUS_TYPE_STRING, &arg_kill_who,
-                                             DBUS_TYPE_STRING, &arg_kill_mode,
                                              DBUS_TYPE_INT32, &arg_signal,
                                              DBUS_TYPE_INVALID);
                 free(n);
@@ -4593,7 +4588,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_ROOT,
                 ARG_FULL,
                 ARG_NO_RELOAD,
-                ARG_KILL_MODE,
                 ARG_KILL_WHO,
                 ARG_NO_ASK_PASSWORD,
                 ARG_FAILED,
@@ -4625,7 +4619,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "root",      required_argument, NULL, ARG_ROOT      },
                 { "force",     no_argument,       NULL, ARG_FORCE     },
                 { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
-                { "kill-mode", required_argument, NULL, ARG_KILL_MODE }, /* undocumented on purpose */
                 { "kill-who",  required_argument, NULL, ARG_KILL_WHO  },
                 { "signal",    required_argument, NULL, 's'           },
                 { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
@@ -4769,10 +4762,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_KILL_WHO:
                         arg_kill_who = optarg;
-                        break;
-
-                case ARG_KILL_MODE:
-                        arg_kill_mode = optarg;
                         break;
 
                 case 's':

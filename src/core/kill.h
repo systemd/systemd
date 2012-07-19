@@ -27,6 +27,7 @@ typedef struct KillContext KillContext;
 #include <stdio.h>
 
 typedef enum KillMode {
+        /* The kill mode is a property of a unit. */
         KILL_CONTROL_GROUP = 0,
         KILL_PROCESS,
         KILL_NONE,
@@ -41,6 +42,7 @@ struct KillContext {
 };
 
 typedef enum KillWho {
+        /* Kill who is a property of an operation */
         KILL_MAIN,
         KILL_CONTROL,
         KILL_ALL,

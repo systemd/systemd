@@ -58,7 +58,6 @@
         "  </method>\n"                                                 \
         "  <method name=\"Kill\">\n"                                    \
         "   <arg name=\"who\" type=\"s\" direction=\"in\"/>\n"          \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"signal\" type=\"i\" direction=\"in\"/>\n"       \
         "  </method>\n"                                                 \
         "  <method name=\"ResetFailed\"/>\n"                            \

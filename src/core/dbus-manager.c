@@ -94,7 +94,6 @@
         "  <method name=\"KillUnit\">\n"                                \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"who\" type=\"s\" direction=\"in\"/>\n"          \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"signal\" type=\"i\" direction=\"in\"/>\n"       \
         "  </method>\n"                                                 \
         "  <method name=\"ResetFailedUnit\">\n"                         \
@@ -665,10 +664,9 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 reload_if_possible = true;
                 job_type = JOB_TRY_RESTART;
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "KillUnit")) {
-                const char *name, *swho, *smode;
+                const char *name, *swho;
                 int32_t signo;
                 Unit *u;
-                KillMode mode;
                 KillWho who;
 
                 if (!dbus_message_get_args(
@@ -676,7 +674,6 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     &error,
                                     DBUS_TYPE_STRING, &name,
                                     DBUS_TYPE_STRING, &swho,
-                                    DBUS_TYPE_STRING, &smode,
                                     DBUS_TYPE_INT32, &signo,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
@@ -689,23 +686,17 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                 return bus_send_error_reply(connection, message, &error, -EINVAL);
                 }
 
-                if (isempty(smode))
-                        mode = KILL_CONTROL_GROUP;
-                else {
-                        mode = kill_mode_from_string(smode);
-                        if (mode < 0)
-                                return bus_send_error_reply(connection, message, &error, -EINVAL);
-                }
-
                 if (signo <= 0 || signo >= _NSIG)
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if (!(u = manager_get_unit(m, name))) {
+                u = manager_get_unit(m, name);
+                if (!u) {
                         dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
                         return bus_send_error_reply(connection, message, &error, -ENOENT);
                 }
 
-                if ((r = unit_kill(u, who, mode, signo, &error)) < 0)
+                r = unit_kill(u, who, signo, &error);
+                if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))

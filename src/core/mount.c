@@ -1708,7 +1708,7 @@ static void mount_reset_failed(Unit *u) {
         m->reload_result = MOUNT_SUCCESS;
 }
 
-static int mount_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *error) {
+static int mount_kill(Unit *u, KillWho who, int signo, DBusError *error) {
         Mount *m = MOUNT(u);
         int r = 0;
         Set *pid_set = NULL;
@@ -1730,23 +1730,25 @@ static int mount_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError 
                         if (kill(m->control_pid, signo) < 0)
                                 r = -errno;
 
-        if (who == KILL_ALL && mode == KILL_CONTROL_GROUP) {
+        if (who == KILL_ALL) {
                 int q;
 
-                if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func)))
+                pid_set = set_new(trivial_hash_func, trivial_compare_func);
+                if (!pid_set)
                         return -ENOMEM;
 
                 /* Exclude the control pid from being killed via the cgroup */
-                if (m->control_pid > 0)
-                        if ((q = set_put(pid_set, LONG_TO_PTR(m->control_pid))) < 0) {
+                if (m->control_pid > 0) {
+                        q = set_put(pid_set, LONG_TO_PTR(m->control_pid));
+                        if (q < 0) {
                                 r = q;
                                 goto finish;
                         }
+                }
 
                 q = cgroup_bonding_kill_list(UNIT(m)->cgroup_bondings, signo, false, false, pid_set, NULL);
-                if (q < 0)
-                        if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
-                                r = q;
+                if (q < 0 && q != -EAGAIN && q != -ESRCH && q != -ENOENT)
+                        r = q;
         }
 
 finish:

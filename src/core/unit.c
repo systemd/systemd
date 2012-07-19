@@ -2721,20 +2721,16 @@ bool unit_pending_active(Unit *u) {
         return false;
 }
 
-int unit_kill(Unit *u, KillWho w, KillMode m, int signo, DBusError *error) {
+int unit_kill(Unit *u, KillWho w, int signo, DBusError *error) {
         assert(u);
         assert(w >= 0 && w < _KILL_WHO_MAX);
-        assert(m >= 0 && m < _KILL_MODE_MAX);
         assert(signo > 0);
         assert(signo < _NSIG);
-
-        if (m == KILL_NONE)
-                return 0;
 
         if (!UNIT_VTABLE(u)->kill)
                 return -ENOTSUP;
 
-        return UNIT_VTABLE(u)->kill(u, w, m, signo, error);
+        return UNIT_VTABLE(u)->kill(u, w, signo, error);
 }
 
 int unit_following_set(Unit *u, Set **s) {
