@@ -1468,7 +1468,8 @@ systemd_nspawn_LDADD = \
 	libsystemd-label.la \
 	libsystemd-capability.la \
 	libsystemd-shared.la \
-	libsystemd-daemon.la
+	libsystemd-daemon.la \
+	libsystemd-id128-internal.la
 
 # ------------------------------------------------------------------------------
 systemd_stdio_bridge_SOURCES = \

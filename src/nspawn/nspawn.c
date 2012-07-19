@@ -52,6 +52,14 @@
 #include "strv.h"
 #include "path-util.h"
 #include "loopback-setup.h"
+#include "sd-id128.h"
+
+typedef enum LinkJournal {
+        LINK_NO,
+        LINK_AUTO,
+        LINK_HOST,
+        LINK_GUEST
+} LinkJournal;
 
 static char *arg_directory = NULL;
 static char *arg_user = NULL;
@@ -60,6 +68,7 @@ static char *arg_uuid = NULL;
 static bool arg_private_network = false;
 static bool arg_read_only = false;
 static bool arg_boot = false;
+static LinkJournal arg_link_journal = LINK_AUTO;
 static uint64_t arg_retain =
         (1ULL << CAP_CHOWN) |
         (1ULL << CAP_DAC_OVERRIDE) |
@@ -88,15 +97,17 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
-               "  -h --help             Show this help\n"
-               "  -D --directory=NAME   Root directory for the container\n"
-               "  -b --boot             Boot up full system (i.e. invoke init)\n"
-               "  -u --user=USER        Run the command under specified user or uid\n"
-               "  -C --controllers=LIST Put the container in specified comma-separated cgroup hierarchies\n"
-               "     --uuid=UUID        Set a specific machine UUID for the container\n"
-               "     --private-network  Disable network in container\n"
-               "     --read-only        Mount the root directory read-only\n"
-               "     --capability=CAP   In addition to the default, retain specified capability\n",
+               "  -h --help               Show this help\n"
+               "  -D --directory=NAME     Root directory for the container\n"
+               "  -b --boot               Boot up full system (i.e. invoke init)\n"
+               "  -u --user=USER          Run the command under specified user or uid\n"
+               "  -C --controllers=LIST   Put the container in specified comma-separated cgroup hierarchies\n"
+               "     --uuid=UUID          Set a specific machine UUID for the container\n"
+               "     --private-network    Disable network in container\n"
+               "     --read-only          Mount the root directory read-only\n"
+               "     --capability=CAP     In addition to the default, retain specified capability\n"
+               "     --link-journal=MODE  Link up guest journal, one of no, auto, guest, host\n"
+               "  -j                      Equivalent to --link-journal=host\n",
                program_invocation_short_name);
 
         return 0;
@@ -108,7 +119,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PRIVATE_NETWORK = 0x100,
                 ARG_UUID,
                 ARG_READ_ONLY,
-                ARG_CAPABILITY
+                ARG_CAPABILITY,
+                ARG_LINK_JOURNAL
         };
 
         static const struct option options[] = {
@@ -121,6 +133,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "uuid",            required_argument, NULL, ARG_UUID            },
                 { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
                 { "capability",      required_argument, NULL, ARG_CAPABILITY      },
+                { "link-journal",    required_argument, NULL, ARG_LINK_JOURNAL    },
                 { NULL,              0,                 NULL, 0                   }
         };
 
@@ -129,7 +142,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:u:C:b", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hD:u:C:bj", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -209,6 +222,26 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case 'j':
+                        arg_link_journal = LINK_GUEST;
+                        break;
+
+                case ARG_LINK_JOURNAL:
+                        if (streq(optarg, "auto"))
+                                arg_link_journal = LINK_AUTO;
+                        else if (streq(optarg, "no"))
+                                arg_link_journal = LINK_NO;
+                        else if (streq(optarg, "guest"))
+                                arg_link_journal = LINK_GUEST;
+                        else if (streq(optarg, "host"))
+                                arg_link_journal = LINK_HOST;
+                        else {
+                                log_error("Failed to parse link journal mode %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -594,6 +627,155 @@ static int setup_hostname(void) {
         }
 
         return r;
+}
+
+static int setup_journal(const char *directory) {
+        sd_id128_t machine_id;
+        char *p = NULL, *b = NULL, *l, *q = NULL, *d = NULL;
+        int r;
+
+        if (arg_link_journal == LINK_NO)
+                return 0;
+
+        p = strappend(directory, "/etc/machine-id");
+        if (!p) {
+                log_error("Out of memory");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        r = read_one_line_file(p, &b);
+        if (r == -ENOENT && arg_link_journal == LINK_AUTO) {
+                r = 0;
+                goto finish;
+        } else if (r < 0) {
+                log_error("Failed to read machine ID: %s", strerror(-r));
+                return r;
+        }
+
+        l = strstrip(b);
+        if (isempty(l) && arg_link_journal == LINK_AUTO) {
+                r = 0;
+                goto finish;
+        }
+
+        /* Verify validaty */
+        r = sd_id128_from_string(l, &machine_id);
+        if (r < 0) {
+                log_error("Failed to parse machine ID: %s", strerror(-r));
+                goto finish;
+        }
+
+        free(p);
+        p = strappend("/var/log/journal/", l);
+        q = strjoin(directory, "/var/log/journal/", l, NULL);
+        if (!p || !q) {
+                log_error("Out of memory");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (path_is_mount_point(p, false) > 0 ||
+            path_is_mount_point(q, false) > 0) {
+                if (arg_link_journal != LINK_AUTO) {
+                        log_error("Journal already a mount point, refusing.");
+                        r = -EEXIST;
+                        goto finish;
+                }
+
+                r = 0;
+                goto finish;
+        }
+
+        r = readlink_and_make_absolute(p, &d);
+        if (r >= 0) {
+                if ((arg_link_journal == LINK_GUEST ||
+                     arg_link_journal == LINK_AUTO) &&
+                    path_equal(d, q)) {
+
+                        mkdir_p(q, 0755);
+
+                        r = 0;
+                        goto finish;
+                }
+
+                if (unlink(p) < 0) {
+                        log_error("Failed to remove symlink %s: %m", p);
+                        r = -errno;
+                        goto finish;
+                }
+        } else if (r == -EINVAL) {
+
+                if (arg_link_journal == LINK_GUEST &&
+                    rmdir(p) < 0) {
+
+                        if (errno == ENOTDIR)
+                                log_error("%s already exists and is neither symlink nor directory.", p);
+                        else {
+                                log_error("Failed to remove %s: %m", p);
+                                r = -errno;
+                        }
+
+                        goto finish;
+                }
+        } else if (r != -ENOENT) {
+                log_error("readlink(%s) failed: %m", p);
+                goto finish;
+        }
+
+        if (arg_link_journal == LINK_GUEST) {
+
+                if (symlink(q, p) < 0) {
+                        log_error("Failed to symlink %s to %s: %m", q, p);
+                        r = -errno;
+                        goto finish;
+                }
+
+                mkdir_p(q, 0755);
+
+                r = 0;
+                goto finish;
+        }
+
+        if (arg_link_journal == LINK_HOST) {
+                r = mkdir_p(p, 0755);
+                if (r < 0) {
+                        log_error("Failed to create %s: %m", p);
+                        goto finish;
+                }
+
+        } else if (access(p, F_OK) < 0) {
+                r = 0;
+                goto finish;
+        }
+
+        if (dir_is_empty(q) == 0) {
+                log_error("%s not empty.", q);
+                r = -ENOTEMPTY;
+                goto finish;
+        }
+
+        r = mkdir_p(q, 0755);
+        if (r < 0) {
+                log_error("Failed to create %s: %m", q);
+                goto finish;
+        }
+
+        if (mount(p, q, "bind", MS_BIND, NULL) < 0) {
+                log_error("Failed to bind mount journal from host into guest: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        free(p);
+        free(q);
+        free(d);
+        free(b);
+        return r;
+
 }
 
 static int drop_capabilities(void) {
@@ -1021,6 +1203,9 @@ int main(int argc, char *argv[]) {
                         goto child_fail;
 
                 if (setup_resolv_conf(arg_directory) < 0)
+                        goto child_fail;
+
+                if (setup_journal(arg_directory) < 0)
                         goto child_fail;
 
                 if (chdir(arg_directory) < 0) {

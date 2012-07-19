@@ -235,6 +235,54 @@
                                 CAP_SYS_RESOURCE.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>--link-journal=</option></term>
+
+                                <listitem><para>Control whether the
+                                container's journal shall be made
+                                visible to the host system. If enabled
+                                allows viewing the container's journal
+                                files from the host (but not vice
+                                versa). Takes one of
+                                <literal>no</literal>,
+                                <literal>host</literal>,
+                                <literal>guest</literal>,
+                                <literal>auto</literal>. If
+                                <literal>no</literal> the journal is
+                                not linked. If <literal>host</literal>
+                                the journal files are stored on the
+                                host file system (beneath the host's
+                                <filename>/var/log/journal</filename>)
+                                and a per-machine subdirectory of this
+                                directory is created and bind mounted
+                                into the container at the same
+                                location. If <literal>guest</literal>
+                                the journal files are stored on the
+                                guest file system (beneath the guest's
+                                <filename>/var/log/journal</filename>)
+                                and a per-machine subdirectory of this
+                                directory is symlinked into the host
+                                at the same location. If
+                                <literal>auto</literal> (the default)
+                                and the subdirectory of
+                                <filename>/var/log/journal</filename>
+                                exists as directory it is bind mounted
+                                into the container, but nothing is
+                                done otherwise. Effectively, booting a
+                                container once with
+                                <literal>guest</literal> or
+                                <literal>host</literal> will link the
+                                journal persistantly if further one
+                                the default of <literal>auto</literal>
+                                is used.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-j</option></term>
+
+                                <listitem><para>Equivalent to
+                                <option>--link-journal=guest</option>.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
         </refsect1>
