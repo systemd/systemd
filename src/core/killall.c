@@ -150,7 +150,7 @@ static int killall(int sig) {
         return n_processes;
 }
 
-void broadcast_signal(int sig, bool wait) {
+void broadcast_signal(int sig, bool wait_for_exit) {
         sigset_t mask, oldmask;
         int n_processes;
 
@@ -169,7 +169,7 @@ void broadcast_signal(int sig, bool wait) {
         if (n_processes <= 0)
                 goto finish;
 
-        if (wait)
+        if (wait_for_exit)
                 wait_for_children(n_processes, &mask);
 
 finish:
