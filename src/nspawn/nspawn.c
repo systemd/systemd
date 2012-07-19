@@ -808,13 +808,15 @@ static int process_pty(int master, sigset_t *mask) {
         fd_nonblock(STDOUT_FILENO, 1);
         fd_nonblock(master, 1);
 
-        if ((signal_fd = signalfd(-1, mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0) {
+        signal_fd = signalfd(-1, mask, SFD_NONBLOCK|SFD_CLOEXEC);
+        if (signal_fd < 0) {
                 log_error("signalfd(): %m");
                 r = -errno;
                 goto finish;
         }
 
-        if ((ep = epoll_create1(EPOLL_CLOEXEC)) < 0) {
+        ep = epoll_create1(EPOLL_CLOEXEC);
+        if (ep < 0) {
                 log_error("Failed to create epoll: %m");
                 r = -errno;
                 goto finish;
@@ -850,7 +852,8 @@ static int process_pty(int master, sigset_t *mask) {
                 ssize_t k;
                 int i, nfds;
 
-                if ((nfds = epoll_wait(ep, ev, ELEMENTSOF(ev), -1)) < 0) {
+                nfds = epoll_wait(ep, ev, ELEMENTSOF(ev), -1);
+                if (nfds < 0) {
 
                         if (errno == EINTR || errno == EAGAIN)
                                 continue;
@@ -885,7 +888,8 @@ static int process_pty(int master, sigset_t *mask) {
                                 struct signalfd_siginfo sfsi;
                                 ssize_t n;
 
-                                if ((n = read(signal_fd, &sfsi, sizeof(sfsi))) != sizeof(sfsi)) {
+                                n = read(signal_fd, &sfsi, sizeof(sfsi));
+                                if (n != sizeof(sfsi)) {
 
                                         if (n >= 0) {
                                                 log_error("Failed to read from signalfd: invalid block size");
@@ -921,7 +925,8 @@ static int process_pty(int master, sigset_t *mask) {
 
                         if (stdin_readable && in_buffer_full < LINE_MAX) {
 
-                                if ((k = read(STDIN_FILENO, in_buffer + in_buffer_full, LINE_MAX - in_buffer_full)) < 0) {
+                                k = read(STDIN_FILENO, in_buffer + in_buffer_full, LINE_MAX - in_buffer_full);
+                                if (k < 0) {
 
                                         if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 stdin_readable = false;
@@ -936,7 +941,8 @@ static int process_pty(int master, sigset_t *mask) {
 
                         if (master_writable && in_buffer_full > 0) {
 
-                                if ((k = write(master, in_buffer, in_buffer_full)) < 0) {
+                                k = write(master, in_buffer, in_buffer_full);
+                                if (k < 0) {
 
                                         if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 master_writable = false;
@@ -955,7 +961,8 @@ static int process_pty(int master, sigset_t *mask) {
 
                         if (master_readable && out_buffer_full < LINE_MAX) {
 
-                                if ((k = read(master, out_buffer + out_buffer_full, LINE_MAX - out_buffer_full)) < 0) {
+                                k = read(master, out_buffer + out_buffer_full, LINE_MAX - out_buffer_full);
+                                if (k < 0) {
 
                                         if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 master_readable = false;
@@ -970,7 +977,8 @@ static int process_pty(int master, sigset_t *mask) {
 
                         if (stdout_writable && out_buffer_full > 0) {
 
-                                if ((k = write(STDOUT_FILENO, out_buffer, out_buffer_full)) < 0) {
+                                k = write(STDOUT_FILENO, out_buffer, out_buffer_full);
+                                if (k < 0) {
 
                                         if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 stdout_writable = false;
@@ -1015,7 +1023,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        if ((r = parse_argv(argc, argv)) <= 0)
+        r = parse_argv(argc, argv);
+        if (r <= 0)
                 goto finish;
 
         if (arg_directory) {
@@ -1054,7 +1063,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if ((k = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 0, &oldcg)) < 0) {
+        k = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 0, &oldcg);
+        if (k < 0) {
                 log_error("Failed to determine current cgroup: %s", strerror(-k));
                 goto finish;
         }
@@ -1070,18 +1080,20 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        STRV_FOREACH(controller,arg_controllers) {
+        STRV_FOREACH(controller, arg_controllers) {
                 k = cg_create_and_attach(*controller, newcg, 0);
                 if (k < 0)
                         log_warning("Failed to create cgroup in controller %s: %s", *controller, strerror(-k));
         }
 
-        if ((master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY)) < 0) {
+        master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
+        if (master < 0) {
                 log_error("Failed to acquire pseudo tty: %m");
                 goto finish;
         }
 
-        if (!(console = ptsname(master))) {
+        console = ptsname(master);
+        if (!console) {
                 log_error("Failed to determine tty name: %m");
                 goto finish;
         }
@@ -1163,15 +1175,26 @@ int main(int argc, char *argv[]) {
                 assert_se(sigemptyset(&mask) == 0);
                 assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
-                if (setsid() < 0)
+                if (open_terminal(console, O_RDWR) != STDIN_FILENO ||
+                    dup2(STDIN_FILENO, STDOUT_FILENO) != STDOUT_FILENO ||
+                    dup2(STDIN_FILENO, STDERR_FILENO) != STDERR_FILENO)
                         goto child_fail;
 
-                if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0)
+                if (setsid() < 0) {
+                        log_error("setsid() failed: %m");
                         goto child_fail;
+                }
+
+                if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
+                        log_error("PR_SET_PDEATHSIG failed: %m");
+                        goto child_fail;
+                }
 
                 /* Mark / as private, in case somebody marked it shared */
-                if (mount(NULL, "/", NULL, MS_PRIVATE|MS_REC, NULL) < 0)
+                if (mount(NULL, "/", NULL, MS_PRIVATE|MS_REC, NULL) < 0) {
+                        log_error("MS_PRIVATE|MS_REC failed: %m");
                         goto child_fail;
+                }
 
                 /* Turn directory into bind mount */
                 if (mount(arg_directory, arg_directory, "bind", MS_BIND, NULL) < 0) {
@@ -1212,11 +1235,6 @@ int main(int argc, char *argv[]) {
                         log_error("chdir(%s) failed: %m", arg_directory);
                         goto child_fail;
                 }
-
-                if (open_terminal("dev/console", O_RDWR) != STDIN_FILENO ||
-                    dup2(STDIN_FILENO, STDOUT_FILENO) != STDOUT_FILENO ||
-                    dup2(STDIN_FILENO, STDERR_FILENO) != STDERR_FILENO)
-                        goto child_fail;
 
                 if (mount(arg_directory, "/", "bind", MS_MOVE, NULL) < 0) {
                         log_error("mount(MS_BIND) failed: %m");
