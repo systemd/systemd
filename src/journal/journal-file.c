@@ -2142,7 +2142,9 @@ int journal_file_open_reliably(
         if (r != -EBADMSG && /* corrupted */
             r != -ENODATA && /* truncated */
             r != -EHOSTDOWN && /* other machine */
-            r != -EPROTONOSUPPORT) /* incompatible feature */
+            r != -EPROTONOSUPPORT && /* incompatible feature */
+            r != -EBUSY && /* unclean shutdown */
+            r != -ESHUTDOWN /* already archived */)
                 return r;
 
         if ((flags & O_ACCMODE) == O_RDONLY)
@@ -2165,7 +2167,7 @@ int journal_file_open_reliably(
         if (r < 0)
                 return -errno;
 
-        log_warning("File %s corrupted, renaming and replacing.", fname);
+        log_warning("File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
         return journal_file_open(fname, flags, mode, metrics, template, ret);
 }
