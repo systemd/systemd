@@ -90,6 +90,8 @@ struct Directory {
 struct sd_journal {
         int flags;
 
+        char *path;
+
         Hashmap *files;
 
         Location current_location;

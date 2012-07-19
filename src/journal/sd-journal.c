@@ -1402,7 +1402,7 @@ static int allocate_inotify(sd_journal *j) {
         return 0;
 }
 
-static sd_journal *journal_new(int flags) {
+static sd_journal *journal_new(int flags, const char *path) {
         sd_journal *j;
 
         j = new0(sd_journal, 1);
@@ -1412,8 +1412,17 @@ static sd_journal *journal_new(int flags) {
         j->inotify_fd = -1;
         j->flags = flags;
 
+        if (path) {
+                j->path = strdup(path);
+                if (!j->path) {
+                        free(j);
+                        return NULL;
+                }
+        }
+
         j->files = hashmap_new(string_hash_func, string_compare_func);
         if (!j->files) {
+                free(j->path);
                 free(j);
                 return NULL;
         }
@@ -1421,6 +1430,7 @@ static sd_journal *journal_new(int flags) {
         j->directories_by_path = hashmap_new(string_hash_func, string_compare_func);
         if (!j->directories_by_path) {
                 hashmap_free(j->files);
+                free(j->path);
                 free(j);
                 return NULL;
         }
@@ -1440,7 +1450,7 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
                       SD_JOURNAL_SYSTEM_ONLY))
                 return -EINVAL;
 
-        j = journal_new(flags);
+        j = journal_new(flags, NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -1470,7 +1480,7 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
         if (flags != 0)
                 return -EINVAL;
 
-        j = journal_new(flags);
+        j = journal_new(flags, path);
         if (!j)
                 return -ENOMEM;
 
@@ -1513,6 +1523,7 @@ _public_ void sd_journal_close(sd_journal *j) {
 
         sd_journal_flush_matches(j);
 
+        free(j->path);
         free(j);
 }
 
@@ -1790,7 +1801,10 @@ _public_ int sd_journal_get_fd(sd_journal *j) {
 
         /* Iterate through all dirs again, to add them to the
          * inotify */
-        r = add_search_paths(j);
+        if (j->path)
+                r = add_root_directory(j, j->path);
+        else
+                r = add_search_paths(j);
         if (r < 0)
                 return r;
 
