@@ -1,5 +1,69 @@
 systemd System and Service Manager
 
+CHANGES WITH 187:
+
+        * The journal and id128 C APIs are now fully documented as man
+          pages.
+
+        * Extra safety checks have been added when transitioning from
+          the initial RAM disk to the main system to avoid accidental
+          data loss.
+
+        * /etc/crypttab entrie now understand the new keyfile-offset=
+          option.
+
+        * systemctl -t can now be used to filter by unit load state.
+
+        * The journal C API gained the new sd_journal_wait() call to
+          make writing synchronous journal clients easier.
+
+        * journalctl gained the new -D switch to show journals from a
+          specific directory.
+
+        * journalctl now displays a special marker between log
+          messages of two different boots.
+
+        * The journal is now explicitly flushed to /var via a service
+          systemd-journal-flush.service, rather than implicitly simply
+          by seeing /var/log/journal to be writable.
+
+        * journalctl (and the journal C APIs) can now match for much
+          more complex expressions, with alternatives and
+          disjunctions.
+
+        * When transitioning from the initial RAM disk to the main
+          system we will now kill all processes in a killing spree to
+          ensure no processes stay around by accident.
+
+        * Three new specifiers may be used in unit files: %u, %h, %s
+          resolve to the user name, user home directory resp. user
+          shell. This is useful for running systemd user instances.
+
+        * We now automatically rotate journal files if their data
+          object hash table gets a fill level > 75%. We also size the
+          hash table based on the configured maximum file size. This
+          together should lower hash collisions drastically and thus
+          speed things up a bit.
+
+        * journalctl gained the new "--header" switch to introspect
+          header data of journal files.
+
+        * A new setting SystemCallFilters= has been added to services
+          which may be used to apply blacklists or whitelists to
+          system calls. This is based on SECCOMP Mode 2 of Linux 3.5.
+
+        * nspawn gained a new --link-journal= switch (and quicker: -j)
+          to link the container journal with the host. This makes it
+          very easy to centralize log viewing on the host for all
+          guests while still keeping the journal files separated.
+
+        * Many bugfixes and optimizations
+
+        Contributions from: Auke Kok, Eelco Dolstra, Harald Hoyer, Kay
+        Sievers, Lennart Poettering, Malte Starostik, Paul Menzel, Rex
+        Tsai, Shawn Landden, Tom Gundersen, Ville Skyttä, Zbigniew
+        Jędrzejewski-Szmek
+
 CHANGES WITH 186:
 
         * Several tools now understand kernel command line arguments,
@@ -139,7 +203,7 @@ CHANGES WITH 186:
           that data collected is only forwarded to the console, the
           kernel log buffer or another syslog implementation.
 
-        * Many bugfixes and optimizations.
+        * Many bugfixes and optimizations
 
         Contributions from: Auke Kok, Colin Guthrie, Dave Reisner,
         David Strauss, Eelco Dolstra, Kay Sievers, Lennart Poettering,

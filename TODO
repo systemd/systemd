@@ -34,10 +34,6 @@ Bugfixes:
 
 Features:
 
-* nspawn: if /var/log/journal/<container machine id> exists in both
-  the container and the host mount one to the other so that the
-  containers logs are stored and visible on the host.
-
 * syscall filter: add knowledge about compat syscalls
 
 * syscall filter: don't enforce no new privs?
@@ -60,14 +56,10 @@ Features:
 
 * refuse taking lower-case variable names in sd_journal_send() and friends.
 
-* Merge KillUnit()'s mode and who params into one
-
 * load-fragment: when loading a unit file via a chain of symlinks
   verify that it isn't masked via any of the names traversed.
 
 * journald: we currently rotate only after MaxUse+MaxFilesize has been reached.
-
-* nspawn: bind mount /var/log/journal from the host
 
 * Document:
         - PID 1 D-Bus API
