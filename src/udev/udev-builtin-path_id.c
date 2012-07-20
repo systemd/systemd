@@ -458,6 +458,7 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
                 } else if (strcmp(subsys, "platform") == 0) {
                         path_prepend(&path, "platform-%s", udev_device_get_sysname(parent));
                         parent = skip_subsystem(parent, "platform");
+                        some_transport = true;
                 } else if (strcmp(subsys, "acpi") == 0) {
                         path_prepend(&path, "acpi-%s", udev_device_get_sysname(parent));
                         parent = skip_subsystem(parent, "acpi");
