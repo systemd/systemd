@@ -21,5 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-void pager_open(void);
+#include <stdbool.h>
+
+bool pager_open(void);
 void pager_close(void);

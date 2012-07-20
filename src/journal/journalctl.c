@@ -398,11 +398,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        have_pager = !arg_no_pager && !arg_follow;
-        if (have_pager) {
-                columns();
-                pager_open();
-        }
+        have_pager = !arg_no_pager && !arg_follow && pager_open();
 
         if (arg_output == OUTPUT_JSON) {
                 fputc('[', stdout);

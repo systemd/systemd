@@ -44,20 +44,20 @@ _noreturn_ static void pager_fallback(void) {
         _exit(EXIT_SUCCESS);
 }
 
-void pager_open(void) {
+bool pager_open(void) {
         int fd[2];
         const char *pager;
         pid_t parent_pid;
 
         if (pager_pid > 0)
-                return;
+                return false;
 
         if ((pager = getenv("SYSTEMD_PAGER")) || (pager = getenv("PAGER")))
                 if (!*pager || streq(pager, "cat"))
-                        return;
+                        return false;
 
         if (isatty(STDOUT_FILENO) <= 0)
-                return;
+                return false;
 
         /* Determine and cache number of columns before we spawn the
          * pager so that we get the value from the actual tty */
@@ -65,7 +65,7 @@ void pager_open(void) {
 
         if (pipe(fd) < 0) {
                 log_error("Failed to create pager pipe: %m");
-                return;
+                return false;
         }
 
         parent_pid = getpid();
@@ -74,7 +74,7 @@ void pager_open(void) {
         if (pager_pid < 0) {
                 log_error("Failed to fork pager: %m");
                 close_pipe(fd);
-                return;
+                return false;
         }
 
         /* In the child start the pager */
@@ -115,10 +115,13 @@ void pager_open(void) {
         }
 
         /* Return in the parent */
-        if (dup2(fd[1], STDOUT_FILENO) < 0)
+        if (dup2(fd[1], STDOUT_FILENO) < 0) {
                 log_error("Failed to duplicate pager pipe: %m");
+                return false;
+        }
 
         close_pipe(fd);
+        return true;
 }
 
 void pager_close(void) {
