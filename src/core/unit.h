@@ -75,12 +75,14 @@ enum UnitDependency {
         UNIT_REQUISITE_OVERRIDABLE,
         UNIT_WANTS,
         UNIT_BINDS_TO,
+        UNIT_PART_OF,
 
         /* Inverse of the above */
         UNIT_REQUIRED_BY,             /* inverse of 'requires' and 'requisite' is 'required_by' */
         UNIT_REQUIRED_BY_OVERRIDABLE, /* inverse of 'requires_overridable' and 'requisite_overridable' is 'soft_required_by' */
         UNIT_WANTED_BY,               /* inverse of 'wants' */
         UNIT_BOUND_BY,                /* inverse of 'binds_to' */
+        UNIT_CONSISTS_OF,             /* inverse of 'part_of' */
 
         /* Negative dependencies */
         UNIT_CONFLICTS,               /* inverse of 'conflicts' is 'conflicted_by' */

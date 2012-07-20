@@ -1610,7 +1610,8 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_TRIGGERS] = UNIT_TRIGGERED_BY,
                 [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
                 [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
-                [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO
+                [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
+                [UNIT_PART_OF] = UNIT_CONSISTS_OF
         };
         int r, q = 0, v = 0, w = 0;
 

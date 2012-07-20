@@ -442,6 +442,21 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>PartOf=</varname></term>
+
+                                 <listitem><para>Configures dependency
+                                 on other unit. When systemd stops or
+                                 restarts unit listed here, stop or
+                                 restart is propagated to dependent
+                                 units. Note that this is one way
+                                 dependency and changes to dependent
+                                 units does not affect listed unit. If
+                                 something else is desired, please
+                                 use some other type of dependency.
+                                 </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>Conflicts=</varname></term>
 
                                 <listitem><para>Configures negative

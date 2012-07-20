@@ -112,6 +112,7 @@ Unit.PropagatesReloadTo,         config_parse_unit_deps,             UNIT_PROPAG
 Unit.PropagateReloadTo,          config_parse_unit_deps,             UNIT_PROPAGATES_RELOAD_TO,     0
 Unit.ReloadPropagatedFrom,       config_parse_unit_deps,             UNIT_RELOAD_PROPAGATED_FROM,   0
 Unit.PropagateReloadFrom,        config_parse_unit_deps,             UNIT_RELOAD_PROPAGATED_FROM,   0
+Unit.PartOf,                     config_parse_unit_deps,             UNIT_PART_OF,                  0
 Unit.RequiresMountsFor,          config_parse_unit_requires_mounts_for, 0,                          offsetof(Unit, requires_mounts_for)
 Unit.StopWhenUnneeded,           config_parse_bool,                  0,                             offsetof(Unit, stop_when_unneeded)
 Unit.RefuseManualStart,          config_parse_bool,                  0,                             offsetof(Unit, refuse_manual_start)

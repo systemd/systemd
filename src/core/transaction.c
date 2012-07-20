@@ -994,6 +994,18 @@ int transaction_add_job_and_dependencies(
                                                 dbus_error_free(e);
                                 }
                         }
+
+                        SET_FOREACH(dep, ret->unit->dependencies[UNIT_CONSISTS_OF], i) {
+                                r = transaction_add_job_and_dependencies(tr, type, dep, ret, true, override, false, false, ignore_order, e);
+                                if (r < 0) {
+                                        if (r != -EBADR)
+                                                goto fail;
+
+                                        if (e)
+                                                dbus_error_free(e);
+                                }
+                        }
+
                 }
 
                 if (type == JOB_RELOAD) {
