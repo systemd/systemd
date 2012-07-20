@@ -107,6 +107,9 @@ static const char * const conf_file_dirs[] = {
         "/run/tmpfiles.d",
         "/usr/local/lib/tmpfiles.d",
         "/usr/lib/tmpfiles.d",
+#ifdef HAVE_SPLIT_USR
+        "/lib/tmpfiles.d",
+#endif
         NULL
 };
 
