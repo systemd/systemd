@@ -509,7 +509,7 @@ if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
         else
-                with_distro=$($GREP '^ID=' /etc/os-release | $SED 's/ID=//');
+                with_distro=$($GREP '^ID=' /etc/os-release 2>/dev/null | $SED 's/ID=//');
         fi
         if test "z$with_distro" = "z"; then
                 with_distro=other
