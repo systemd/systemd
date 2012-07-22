@@ -769,7 +769,7 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
         b = u + IDLE_THRESHOLD_USEC < n;
 
         if (t)
-                dual_timestamp_from_realtime(t, u + b ? IDLE_THRESHOLD_USEC : 0);
+                dual_timestamp_from_realtime(t, u + b*IDLE_THRESHOLD_USEC);
 
         return b;
 
