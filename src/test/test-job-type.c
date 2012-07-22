@@ -37,7 +37,7 @@ int main(int argc, char*argv[]) {
         /* fake a unit */
         static Service s = {
                 .meta.load_state = UNIT_LOADED,
-                .type = UNIT_SERVICE
+                .type = SERVICE_SIMPLE,
         };
         Unit *u = UNIT(&s);
 
