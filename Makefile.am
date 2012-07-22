@@ -538,6 +538,7 @@ MANPAGES_ALIAS = \
 	man/systemd-poweroff.service.8 \
 	man/systemd-reboot.service.8 \
 	man/systemd-kexec.service.8 \
+	man/systemd-fsck.8 \
 	man/systemd-fsck-root.service.8 \
 	man/systemd-ask-password-console.path.8 \
 	man/systemd-ask-password-wall.service.8 \
@@ -604,6 +605,7 @@ man/systemd-shutdown.8: man/systemd-halt.service.8
 man/systemd-poweroff.service.8: man/systemd-halt.service.8
 man/systemd-reboot.service.8: man/systemd-halt.service.8
 man/systemd-kexec.service.8: man/systemd-halt.service.8
+man/systemd-fsck.8: man/systemd-fsck@.service.8
 man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
 man/systemd-ask-password-console.path.8: man/systemd-ask-password-console.service.8
 man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.service.8
@@ -1659,7 +1661,13 @@ MANPAGES += \
 	man/systemd-udevd.service.8
 
 MANPAGES_ALIAS += \
-	man/systemd-udevd.8
+	man/systemd-udevd.8 \
+	man/systemd-udevd-control.socket.8 \
+	man/systemd-udevd-kernel.socket.8
+
+man/systemd-udevd.8: man/systemd-udevd.service.8
+man/systemd-udevd-control.socket.8: man/systemd-udevd.service.8
+man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
 
 udev-confdirs:
 	-mkdir -p $(DESTDIR)$(sysconfdir)/udev/rules.d
@@ -3244,7 +3252,6 @@ MANPAGES += \
 	man/systemd-user-sessions.service.8
 
 MANPAGES_ALIAS += \
-	man/systemd-logind.8 \
 	man/sd_login_monitor_unref.3 \
 	man/sd_login_monitor_flush.3 \
 	man/sd_login_monitor_get_fd.3 \
@@ -3252,6 +3259,7 @@ MANPAGES_ALIAS += \
 	man/sd_session_get_uid.3 \
 	man/sd_session_get_seat.3 \
 	man/sd_session_get_service.3 \
+	man/sd_session_get_state.3 \
 	man/sd_session_get_type.3 \
 	man/sd_session_get_class.3 \
 	man/sd_session_get_display.3 \
@@ -3264,6 +3272,7 @@ MANPAGES_ALIAS += \
 	man/sd_seat_can_multi_session.3 \
 	man/sd_get_sessions.3 \
 	man/sd_get_uids.3 \
+	man/systemd-logind.8 \
 	man/systemd-user-sessions.8
 
 man/systemd-logind.8: man/systemd-logind.service.8
