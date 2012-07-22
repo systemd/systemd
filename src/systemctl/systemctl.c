@@ -5641,7 +5641,7 @@ done:
         return 0;
 }
 
-static void halt_now(enum action a) {
+static _noreturn_ void halt_now(enum action a) {
 
        /* Make sure C-A-D is handled by the kernel from this
          * point on... */

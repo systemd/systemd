@@ -40,6 +40,7 @@ const struct key* lookup_key (const char *str, unsigned int len);
 
 #include "keys-from-name.h"
 #include "keys-to-name.h"
+#include "macro.h"
 #include "util.h"
 
 #define MAX_SCANCODES 1024
@@ -346,7 +347,7 @@ static void interactive(int fd)
         ioctl(fd, EVIOCGRAB, 0);
 }
 
-static void help(int error)
+_noreturn_ static void help(int error)
 {
         const char* h = "Usage: keymap <event device> [<map file>]\n"
                         "       keymap <event device> scancode keyname [...]\n"
