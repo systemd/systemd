@@ -471,7 +471,7 @@ int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
 
                 if (!ih) {
                         if (!idle_hint) {
-                                if (k.monotonic < ts.monotonic)
+                                if (k.monotonic > ts.monotonic)
                                         ts = k;
                         } else {
                                 idle_hint = false;

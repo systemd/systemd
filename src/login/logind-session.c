@@ -738,7 +738,6 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
         char *p;
         struct stat st;
         usec_t u, n;
-        bool b;
         int k;
 
         assert(s);
@@ -773,12 +772,11 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
 
         u = timespec_load(&st.st_atim);
         n = now(CLOCK_REALTIME);
-        b = u + IDLE_THRESHOLD_USEC < n;
 
         if (t)
-                dual_timestamp_from_realtime(t, u + b*IDLE_THRESHOLD_USEC);
+                dual_timestamp_from_realtime(t, u);
 
-        return b;
+        return u + IDLE_THRESHOLD_USEC < n;
 
 dont_know:
         if (t)
