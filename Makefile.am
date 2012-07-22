@@ -3283,6 +3283,7 @@ man/sd_login_monitor.3: man/sd_login_monitor_new.3
 man/sd_session_get_uid.3: man/sd_session_is_active.3
 man/sd_session_get_seat.3: man/sd_session_is_active.3
 man/sd_session_get_service.3: man/sd_session_is_active.3
+man/sd_session_get_state.3: man/sd_session_is_active.3
 man/sd_session_get_type.3: man/sd_session_is_active.3
 man/sd_session_get_class.3: man/sd_session_is_active.3
 man/sd_session_get_display.3: man/sd_session_is_active.3
