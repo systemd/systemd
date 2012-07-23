@@ -783,7 +783,7 @@ static int dot_one_property(const char *name, const char *prop, DBusMessageIter 
                 "RequiresOverridable",   "[color=\"black\"]",
                 "Requisite",             "[color=\"darkblue\"]",
                 "RequisiteOverridable",  "[color=\"darkblue\"]",
-                "Wants",                 "[color=\"darkgrey\"]",
+                "Wants",                 "[color=\"grey66\"]",
                 "Conflicts",             "[color=\"red\"]",
                 "ConflictedBy",          "[color=\"red\"]",
                 "After",                 "[color=\"green\"]"
