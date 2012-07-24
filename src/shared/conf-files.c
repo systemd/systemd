@@ -93,7 +93,7 @@ int conf_files_list_strv(char ***strv, const char *suffix, const char **dirs) {
         Hashmap *fh = NULL;
         char **files = NULL;
         const char **p;
-        int r = 0;
+        int r;
 
         assert(dirs);
 
@@ -104,11 +104,10 @@ int conf_files_list_strv(char ***strv, const char *suffix, const char **dirs) {
         }
 
         STRV_FOREACH(p, dirs) {
-                if (files_add(fh, *p, suffix) < 0) {
-                        log_error("Failed to search for files.");
-                        r = -EINVAL;
-                        goto finish;
-                }
+                r = files_add(fh, *p, suffix);
+                if (r < 0)
+                        log_warning("Failed to search for files in %s: %s",
+                                    *p, strerror(-r));
         }
 
         files = hashmap_get_strv(fh);
@@ -118,6 +117,7 @@ int conf_files_list_strv(char ***strv, const char *suffix, const char **dirs) {
                 goto finish;
         }
         qsort(files, hashmap_size(fh), sizeof(char *), base_cmp);
+        r = 0;
 
 finish:
         hashmap_free(fh);
