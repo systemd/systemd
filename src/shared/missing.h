@@ -190,3 +190,7 @@ static inline pid_t gettid(void) {
 #ifndef PR_SET_NO_NEW_PRIVS
 #define PR_SET_NO_NEW_PRIVS 38
 #endif
+
+#ifndef PR_SET_CHILD_SUBREAPER
+#define PR_SET_CHILD_SUBREAPER 36
+#endif
