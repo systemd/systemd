@@ -72,5 +72,7 @@ hr = SubElement(body, 'hr')
 p = SubElement(body, 'p')
 p.text = "This index contains %s entries, referring to %i individual manual pages." % (len(index), len(argv)-1)
 
+if hasattr(stdout, "buffer"):
+	stdout = stdout.buffer
 prettify(html)
 stdout.write(tostring(html))
