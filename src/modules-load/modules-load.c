@@ -92,14 +92,14 @@ static int parse_proc_cmdline(void) {
 
                 if (startswith(word, "modules-load=")) {
 
-                        r = add_modules(word + 7);
+                        r = add_modules(word + 13);
                         if (r < 0)
                                 goto finish;
 
                 } else if (startswith(word, "rd.modules-load=")) {
 
                         if (in_initrd()) {
-                                r = add_modules(word + 10);
+                                r = add_modules(word + 16);
                                 if (r < 0)
                                         goto finish;
                         }
