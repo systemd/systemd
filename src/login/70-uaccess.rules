@@ -51,6 +51,9 @@ SUBSYSTEM=="misc", KERNEL=="kvm", TAG+="uaccess"
 # smart-card readers
 ENV{ID_SMARTCARD_READER}=="*?", TAG+="uaccess"
 
+# (USB) authentication devices
+ENV{ID_SECURITY_TOKEN}=="*?", TAG+="uaccess"
+
 # PDA devices
 ENV{ID_PDA}=="*?", TAG+="uaccess"
 
