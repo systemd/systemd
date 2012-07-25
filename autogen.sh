@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 #  This file is part of systemd.
 #
@@ -17,26 +17,27 @@
 
 set -e
 
-if [ -f .git/hooks/pre-commit.sample -a ! -f .git/hooks/pre-commit ] ; then
+if [ -f .git/hooks/pre-commit.sample ] && [ ! -f .git/hooks/pre-commit ]; then
+        # This part is allowed to fail
         cp -p .git/hooks/pre-commit.sample .git/hooks/pre-commit && \
         chmod +x .git/hooks/pre-commit && \
-        echo "Activated pre-commit hook."
+        echo "Activated pre-commit hook." || :
 fi
 
-GTKDOCIZE=$(which gtkdocize 2>/dev/null)
-if test -z $GTKDOCIZE; then
-        echo "You don't have gtk-doc installed, and thus won't be able to generate the documentation."
-        echo 'EXTRA_DIST =' > docs/gtk-doc.make
-else
+if which gtkdocize >/dev/null 2>/dev/null; then
         gtkdocize --docdir docs/
         gtkdocargs=--enable-gtk-doc
+else
+        echo "You don't have gtk-doc installed, and thus won't be able to generate the documentation."
+        rm -f docs/gtk-doc.make
+        echo 'EXTRA_DIST =' > docs/gtk-doc.make
 fi
 
 intltoolize --force --automake
 autoreconf --force --install --symlink
 
 libdir() {
-        echo $(cd $1/$(gcc -print-multi-os-directory); pwd)
+        echo $(cd "$1/$(gcc -print-multi-os-directory)"; pwd)
 }
 
 args="\
@@ -52,7 +53,7 @@ args="$args \
 "
 fi
 
-if [ "x$1" == "xc" ]; then
+if [ "x$1" = "xc" ]; then
         ./configure CFLAGS='-g -O0 -Wp,-U_FORTIFY_SOURCE' $args
         make clean
 else
