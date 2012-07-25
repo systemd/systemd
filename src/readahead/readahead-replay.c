@@ -150,7 +150,7 @@ static int replay(const char *root) {
         block_bump_request_nr(root);
 
         if (asprintf(&pack_fn, "%s/.readahead", root) < 0) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 r = -ENOMEM;
                 goto finish;
         }

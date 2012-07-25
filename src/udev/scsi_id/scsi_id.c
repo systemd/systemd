@@ -198,7 +198,7 @@ static int get_file_options(struct udev *udev,
         buffer = malloc(MAX_BUFFER_LEN);
         if (!buffer) {
                 fclose(fd);
-                log_error("can't allocate memory\n");
+                log_error("Out of memory.");
                 return -1;
         }
 
@@ -294,7 +294,7 @@ static int get_file_options(struct udev *udev,
                         c = argc_count(buffer) + 2;
                         *newargv = calloc(c, sizeof(**newargv));
                         if (!*newargv) {
-                                log_error("can't allocate memory\n");
+                                log_error("Out of memory.");
                                 retval = -1;
                         } else {
                                 *argc = c;

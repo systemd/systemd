@@ -108,7 +108,7 @@ int button_open(Button *b) {
 
         p = strappend("/dev/input/", b->name);
         if (!p) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 

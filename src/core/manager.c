@@ -1625,7 +1625,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         }
 
         if (asprintf(&message, "U\002%c%s%n", (int) (strlen(u->id) + 1), u->id, &n) < 0) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 goto finish;
         }
 
@@ -2074,7 +2074,7 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
 
                 p = strappend("/run/systemd/", name);
                 if (!p) {
-                        log_error("Out of memory");
+                        log_error("Out of memory.");
                         return -ENOMEM;
                 }
 
@@ -2087,7 +2087,7 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
         } else {
                 p = strjoin("/tmp/systemd-", name, ".XXXXXX", NULL);
                 if (!p) {
-                        log_error("Out of memory");
+                        log_error("Out of memory.");
                         return -ENOMEM;
                 }
 

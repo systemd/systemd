@@ -53,7 +53,7 @@ static int parse_field(const void *data, size_t length, const char *field, char 
         memcpy(buf, (const char*) data + fl, nl);
         ((char*)buf)[nl] = 0;
         if (!buf) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 

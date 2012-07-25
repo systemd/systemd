@@ -425,7 +425,7 @@ static void push_data(DBusConnection *bus) {
         l_set = new0(char*, _PROP_MAX);
         l_unset = new0(char*, _PROP_MAX);
         if (!l_set || !l_unset) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 goto finish;
         }
 
@@ -438,7 +438,7 @@ static void push_data(DBusConnection *bus) {
                         char *s;
 
                         if (asprintf(&s, "%s=%s", names[p], data[p]) < 0) {
-                                log_error("Out of memory");
+                                log_error("Out of memory.");
                                 goto finish;
                         }
 
@@ -1344,7 +1344,7 @@ static int connect_bus(DBusConnection **_bus) {
 
         if (!dbus_connection_register_object_path(bus, "/org/freedesktop/locale1", &locale_vtable, NULL) ||
             !dbus_connection_add_filter(bus, bus_exit_idle_filter, &remain_until, NULL)) {
-                log_error("Not enough memory");
+                log_error("Out of memory.");
                 r = -ENOMEM;
                 goto fail;
         }

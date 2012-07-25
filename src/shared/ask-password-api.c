@@ -282,7 +282,7 @@ static int create_socket(char **name) {
 
         if (!(c = strdup(sa.un.sun_path))) {
                 r = -ENOMEM;
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 goto fail;
         }
 

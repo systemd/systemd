@@ -1270,7 +1270,7 @@ static void process_native_message(
                         u = MAX((n+N_IOVEC_META_FIELDS+1) * 2U, 4U);
                         c = realloc(iovec, u * sizeof(struct iovec));
                         if (!c) {
-                                log_error("Out of memory");
+                                log_error("Out of memory.");
                                 break;
                         }
 
@@ -1357,7 +1357,7 @@ static void process_native_message(
 
                         k = malloc((e - p) + 1 + l);
                         if (!k) {
-                                log_error("Out of memory");
+                                log_error("Out of memory.");
                                 break;
                         }
 
@@ -1450,7 +1450,7 @@ static void process_native_file(
 
         p = malloc(st.st_size);
         if (!p) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return;
         }
 
@@ -1543,7 +1543,7 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
                 else  {
                         s->identifier = strdup(p);
                         if (!s->identifier) {
-                                log_error("Out of memory");
+                                log_error("Out of memory.");
                                 return -ENOMEM;
                         }
                 }
@@ -1558,7 +1558,7 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
                         else  {
                                 s->unit_id = strdup(p);
                                 if (!s->unit_id) {
-                                        log_error("Out of memory");
+                                        log_error("Out of memory.");
                                         return -ENOMEM;
                                 }
                         }

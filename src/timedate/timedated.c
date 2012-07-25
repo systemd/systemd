@@ -153,7 +153,7 @@ static void verify_timezone(void) {
 
         p = strappend("/usr/share/zoneinfo/", tz.zone);
         if (!p) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return;
         }
 
@@ -220,7 +220,7 @@ static int write_data_timezone(void) {
 
         p = strappend("/usr/share/zoneinfo/", tz.zone);
         if (!p) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 
@@ -341,7 +341,7 @@ static char** get_ntp_services(void) {
 
                         q = strv_append(r, l);
                         if (!q) {
-                                log_error("Out of memory");
+                                log_error("Out of memory.");
                                 break;
                         }
 
@@ -379,7 +379,7 @@ static int read_ntp(DBusConnection *bus) {
                                 "org.freedesktop.systemd1.Manager",
                                 "GetUnitFileState");
                 if (!m) {
-                        log_error("Out of memory");
+                        log_error("Out of memory.");
                         r = -ENOMEM;
                         goto finish;
                 }
@@ -943,7 +943,7 @@ static int connect_bus(DBusConnection **_bus) {
 
         if (!dbus_connection_register_object_path(bus, "/org/freedesktop/timedate1", &timedate_vtable, NULL) ||
             !dbus_connection_add_filter(bus, bus_exit_idle_filter, &remain_until, NULL)) {
-                log_error("Not enough memory");
+                log_error("Out of memory.");
                 r = -ENOMEM;
                 goto fail;
         }

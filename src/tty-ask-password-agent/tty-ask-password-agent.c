@@ -315,7 +315,7 @@ static int parse_password(const char *filename, char **wall) {
                              *wall ? "\r\n\r\n" : "",
                              message,
                              pid) < 0) {
-                        log_error("Out of memory");
+                        log_error("Out of memory.");
                         r = -ENOMEM;
                         goto finish;
                 }
@@ -533,7 +533,7 @@ static int show_passwords(void) {
                         continue;
 
                 if (!(p = strappend("/run/systemd/ask-password/", de->d_name))) {
-                        log_error("Out of memory");
+                        log_error("Out of memory.");
                         r = -ENOMEM;
                         goto finish;
                 }

@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
 
         path = strappend("/run/systemd/multi-session-x/", seat);
         if (!path) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 goto fail;
         }
 

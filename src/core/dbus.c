@@ -724,12 +724,12 @@ static int bus_setup_loop(Manager *m, DBusConnection *bus) {
 
         if (!dbus_connection_set_watch_functions(bus, bus_add_watch, bus_remove_watch, bus_toggle_watch, m, NULL) ||
             !dbus_connection_set_timeout_functions(bus, bus_add_timeout, bus_remove_timeout, bus_toggle_timeout, m, NULL)) {
-                log_error("Not enough memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 
         if (set_put(m->bus_connections_for_dispatch, bus) < 0) {
-                log_error("Not enough memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 
@@ -764,7 +764,7 @@ static void bus_new_connection(
             !dbus_connection_register_fallback(new_connection, "/org/freedesktop/systemd1/unit", &bus_unit_vtable, m) ||
             !dbus_connection_register_fallback(new_connection, "/org/freedesktop/systemd1/job", &bus_job_vtable, m) ||
             !dbus_connection_add_filter(new_connection, private_bus_message_filter, m, NULL)) {
-                log_error("Not enough memory.");
+                log_error("Out of memory.");
                 return;
         }
 
@@ -777,7 +777,7 @@ static int init_registered_system_bus(Manager *m) {
         char *id;
 
         if (!dbus_connection_add_filter(m->system_bus, system_bus_message_filter, m, NULL)) {
-                log_error("Not enough memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 
@@ -815,7 +815,7 @@ static int init_registered_api_bus(Manager *m) {
             !dbus_connection_register_fallback(m->api_bus, "/org/freedesktop/systemd1/unit", &bus_unit_vtable, m) ||
             !dbus_connection_register_fallback(m->api_bus, "/org/freedesktop/systemd1/job", &bus_job_vtable, m) ||
             !dbus_connection_add_filter(m->api_bus, api_bus_message_filter, m, NULL)) {
-                log_error("Not enough memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 
@@ -1090,7 +1090,7 @@ static int bus_init_private(Manager *m) {
                         return 0;
 
                 if (asprintf(&p, "unix:path=%s/systemd/private", e) < 0) {
-                        log_error("Not enough memory");
+                        log_error("Out of memory.");
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -1110,7 +1110,7 @@ static int bus_init_private(Manager *m) {
         if (!dbus_server_set_auth_mechanisms(m->private_bus, (const char**) external_only) ||
             !dbus_server_set_watch_functions(m->private_bus, bus_add_watch, bus_remove_watch, bus_toggle_watch, m, NULL) ||
             !dbus_server_set_timeout_functions(m->private_bus, bus_add_timeout, bus_remove_timeout, bus_toggle_timeout, m, NULL)) {
-                log_error("Not enough memory");
+                log_error("Out of memory.");
                 r = -ENOMEM;
                 goto fail;
         }
@@ -1158,7 +1158,7 @@ int bus_init(Manager *m, bool try_bus_connect) {
 
         return 0;
 oom:
-        log_error("Not enough memory");
+        log_error("Out of memory.");
         return -ENOMEM;
 }
 

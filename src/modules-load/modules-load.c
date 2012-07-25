@@ -50,14 +50,14 @@ static int add_modules(const char *p) {
 
         k = strv_split(p, ",");
         if (!k) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 
         t = strv_merge(arg_proc_cmdline_modules, k);
         strv_free(k);
         if (!t) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 

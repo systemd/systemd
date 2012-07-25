@@ -909,7 +909,7 @@ int load_env_file(
                         continue;
 
                 if (!(u = normalize_env_assignment(p))) {
-                        log_error("Out of memory");
+                        log_error("Out of memory.");
                         r = -ENOMEM;
                         goto finish;
                 }
@@ -918,7 +918,7 @@ int load_env_file(
                 free(u);
 
                 if (!t) {
-                        log_error("Out of memory");
+                        log_error("Out of memory.");
                         r = -ENOMEM;
                         goto finish;
                 }
@@ -4278,7 +4278,7 @@ void execute_directory(const char *directory, DIR *d, char *argv[]) {
                         continue;
 
                 if (asprintf(&path, "%s/%s", directory, de->d_name) < 0) {
-                        log_error("Out of memory");
+                        log_error("Out of memory.");
                         continue;
                 }
 

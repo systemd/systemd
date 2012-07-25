@@ -46,7 +46,7 @@ static int apply_sysctl(const char *property, const char *value) {
 
         p = new(char, sizeof(PROC_SYS_PREFIX) + strlen(property));
         if (!p) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 
@@ -192,7 +192,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         l = strv_append(arg_prefixes, optarg);
                         if (!l) {
-                                log_error("Out of memory");
+                                log_error("Out of memory.");
                                 return -ENOMEM;
                         }
 

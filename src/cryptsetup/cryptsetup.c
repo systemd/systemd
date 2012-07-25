@@ -343,7 +343,7 @@ int main(int argc, char *argv[]) {
                         l = strcspn(opt_cipher, "-");
 
                         if (!(truncated_cipher = strndup(opt_cipher, l))) {
-                                log_error("Out of memory");
+                                log_error("Out of memory.");
                                 goto finish;
                         }
 
@@ -365,7 +365,7 @@ int main(int argc, char *argv[]) {
                                 char **p;
 
                                 if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0) {
-                                        log_error("Out of memory");
+                                        log_error("Out of memory.");
                                         goto finish;
                                 }
 
@@ -383,7 +383,7 @@ int main(int argc, char *argv[]) {
                                         assert(strv_length(passwords) == 1);
 
                                         if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0) {
-                                                log_error("Out of memory");
+                                                log_error("Out of memory.");
                                                 goto finish;
                                         }
 

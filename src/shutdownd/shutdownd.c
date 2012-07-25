@@ -213,7 +213,7 @@ static int update_schedule_file(struct sd_shutdown_command *c) {
 
         t = cescape(c->wall_message);
         if (!t) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 

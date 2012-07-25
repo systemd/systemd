@@ -48,7 +48,7 @@ static int add_symlink(const char *service, const char *where) {
         asprintf(&to, "%s/%s.wants/%s", arg_dest, where, service);
 
         if (!from || !to) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 r = -ENOMEM;
                 goto finish;
         }

@@ -375,7 +375,7 @@ static int session_link_x11_socket(Session *s) {
         k = strspn(s->display+1, "0123456789");
         f = new(char, sizeof("/tmp/.X11-unix/X") + k);
         if (!f) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 
@@ -395,7 +395,7 @@ static int session_link_x11_socket(Session *s) {
 
         t = strappend(s->user->runtime_path, "/X11-display");
         if (!t) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 free(f);
                 return -ENOMEM;
         }
@@ -469,7 +469,7 @@ static int session_create_cgroup(Session *s) {
 
         if (!s->cgroup_path) {
                 if (asprintf(&p, "%s/%s", s->user->cgroup_path, s->id) < 0) {
-                        log_error("Out of memory");
+                        log_error("Out of memory.");
                         return -ENOMEM;
                 }
         } else
@@ -670,7 +670,7 @@ static int session_unlink_x11_socket(Session *s) {
 
         t = strappend(s->user->runtime_path, "/X11-display");
         if (!t) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 

@@ -1176,7 +1176,7 @@ static int manager_connect_bus(Manager *m) {
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/session", &bus_session_vtable, m) ||
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/user", &bus_user_vtable, m) ||
             !dbus_connection_add_filter(m->bus, bus_message_filter, m, NULL)) {
-                log_error("Not enough memory");
+                log_error("Out of memory.");
                 r = -ENOMEM;
                 goto fail;
         }
@@ -1611,7 +1611,7 @@ int main(int argc, char *argv[]) {
 
         m = manager_new();
         if (!m) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 r = -ENOMEM;
                 goto finish;
         }

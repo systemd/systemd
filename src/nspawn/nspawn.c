@@ -289,7 +289,7 @@ static int mount_all(const char *dest) {
                 int t;
 
                 if (asprintf(&where, "%s/%s", dest, mount_table[k].where) < 0) {
-                        log_error("Out of memory");
+                        log_error("Out of memory.");
 
                         if (r == 0)
                                 r = -ENOMEM;
@@ -336,7 +336,7 @@ static int setup_timezone(const char *dest) {
 
         /* Fix the timezone, if possible */
         if (asprintf(&where, "%s/etc/localtime", dest) < 0) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 
@@ -346,7 +346,7 @@ static int setup_timezone(const char *dest) {
         free(where);
 
         if (asprintf(&where, "%s/etc/timezone", dest) < 0) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 
@@ -368,7 +368,7 @@ static int setup_resolv_conf(const char *dest) {
 
         /* Fix resolv.conf, if possible */
         if (asprintf(&where, "%s/etc/resolv.conf", dest) < 0) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 
@@ -480,7 +480,7 @@ static int setup_dev_console(const char *dest, const char *console) {
         }
 
         if (asprintf(&to, "%s/dev/console", dest) < 0) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 r = -ENOMEM;
                 goto finish;
         }
@@ -535,13 +535,13 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
          * avoid any problems with containers deadlocking due to this
          * we simply make /dev/kmsg unavailable to the container. */
         if (asprintf(&from, "%s/dev/kmsg", dest) < 0) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 r = -ENOMEM;
                 goto finish;
         }
 
         if (asprintf(&to, "%s/proc/kmsg", dest) < 0) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 r = -ENOMEM;
                 goto finish;
         }
@@ -639,7 +639,7 @@ static int setup_journal(const char *directory) {
 
         p = strappend(directory, "/etc/machine-id");
         if (!p) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 r = -ENOMEM;
                 goto finish;
         }
@@ -670,7 +670,7 @@ static int setup_journal(const char *directory) {
         p = strappend("/var/log/journal/", l);
         q = strjoin(directory, "/var/log/journal/", l, NULL);
         if (!p || !q) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 r = -ENOMEM;
                 goto finish;
         }
@@ -1296,13 +1296,13 @@ int main(int argc, char *argv[]) {
                 if ((asprintf((char**)(envp + 3), "HOME=%s", home ? home: "/root") < 0) ||
                     (asprintf((char**)(envp + 4), "USER=%s", arg_user ? arg_user : "root") < 0) ||
                     (asprintf((char**)(envp + 5), "LOGNAME=%s", arg_user ? arg_user : "root") < 0)) {
-                    log_error("Out of memory");
+                    log_error("Out of memory.");
                     goto child_fail;
                 }
 
                 if (arg_uuid) {
                         if (asprintf((char**)(envp + 6), "container_uuid=%s", arg_uuid) < 0) {
-                                log_error("Out of memory");
+                                log_error("Out of memory.");
                                 goto child_fail;
                         }
                 }

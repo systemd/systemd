@@ -42,7 +42,7 @@ static int add_symlink(const char *fservice, const char *tservice) {
         to = strjoin(arg_dest,"/getty.target.wants/", tservice, NULL);
 
         if (!from || !to) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 r = -ENOMEM;
                 goto finish;
         }
@@ -78,7 +78,7 @@ static int add_serial_getty(const char *tty) {
 
         n = unit_name_replace_instance("serial-getty@.service", tty);
         if (!n) {
-                log_error("Out of memory");
+                log_error("Out of memory.");
                 return -ENOMEM;
         }
 
@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
                 int k;
 
                 if (asprintf(&p, "/sys/class/tty/%s", j) < 0) {
-                        log_error("Out of memory");
+                        log_error("Out of memory.");
                         r = EXIT_FAILURE;
                         goto finish;
                 }

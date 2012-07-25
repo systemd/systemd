@@ -141,7 +141,7 @@ static int checkout(int fd)
         len = bufsize >> 1;
         buf = calloc(1,bufsize + 1);
         if (!buf) {
-                fprintf(stderr, "Out of memory\n");
+                fprintf(stderr, "Out of memory.\n");
                 return -1;
         }
         memset(buf, ' ', bufsize);
