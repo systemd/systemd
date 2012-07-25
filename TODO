@@ -33,6 +33,7 @@ Bugfixes:
   Jul 09 18:22:37 mop [21866]: Process 21865 (systemd) dumped core.
 
 Features:
+* rename "userspace" to "core-os"
 
 * append ".service" to unit names without any suffix (https://bugs.freedesktop.org/show_bug.cgi?id=39386)
 
