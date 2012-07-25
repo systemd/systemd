@@ -18,6 +18,8 @@ ConditionDirectoryNotEmpty=|/usr/lib/modules-load.d
 ConditionDirectoryNotEmpty=|/usr/local/lib/modules-load.d
 ConditionDirectoryNotEmpty=|/etc/modules-load.d
 ConditionDirectoryNotEmpty=|/run/modules-load.d
+ConditionKernelCommandLine=|modules-load
+ConditionKernelCommandLine=|rd.modules-load
 
 [Service]
 Type=oneshot
