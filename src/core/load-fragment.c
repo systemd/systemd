@@ -2120,10 +2120,12 @@ int config_parse_documentation(
 }
 
 static void syscall_set(uint32_t *p, int nr) {
+        nr = SYSCALL_TO_INDEX(nr);
         p[nr >> 4] |= 1 << (nr & 31);
 }
 
 static void syscall_unset(uint32_t *p, int nr) {
+        nr = SYSCALL_TO_INDEX(nr);
         p[nr >> 4] &= ~(1 << (nr & 31));
 }
 

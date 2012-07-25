@@ -1099,7 +1099,7 @@ BUILT_SOURCES += \
 
 src/core/syscall-list.txt: Makefile
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include sys/syscall.h - < /dev/null | $(AWK) '/^#define[ \t]+__NR_[^ ]+[ \t]+\(?.*[0-9]+.*\)?/ { sub(/__NR_/, "", $$2); print $$2; }' > $@
+	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include sys/syscall.h - < /dev/null | $(AWK) '/^#define[ \t]+__NR_[^ ]+[ \t]+[0-9(]/ { sub(/__NR_/, "", $$2); print $$2; }' > $@
 
 src/core/syscall-from-name.gperf: src/core/syscall-list.txt Makefile
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
@@ -1111,7 +1111,7 @@ src/core/syscall-from-name.h: src/core/syscall-from-name.gperf Makefile
 
 src/core/syscall-to-name.h: src/core/syscall-list.txt Makefile
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const syscall_names[] = { "} { printf "[__NR_%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const syscall_names[] = { "} { printf "[SYSCALL_TO_INDEX(__NR_%s)] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
 
 # ------------------------------------------------------------------------------
 systemd_SOURCES = \

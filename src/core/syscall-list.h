@@ -22,6 +22,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#if defined __x86_64__ && defined __ILP32__
+/* The x32 ABI defines all of its syscalls with bit 30 set, which causes
+   issues when attempting to use syscalls as simple indicies into an array.
+   Instead, use the syscall id & ~SYSCALL_MASK as the index, and | the
+   internal id with the syscall mask as needed.
+*/
+#include <asm/unistd.h>
+#define SYSCALL_TO_INDEX(x) ((x) & ~__X32_SYSCALL_BIT)
+#define INDEX_TO_SYSCALL(x) ((x) | __X32_SYSCALL_BIT)
+#else
+#define SYSCALL_TO_INDEX(x) (x)
+#define INDEX_TO_SYSCALL(x) (x)
+#endif
+
 const char *syscall_to_name(int id);
 int syscall_from_name(const char *name);
 

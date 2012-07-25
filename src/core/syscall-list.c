@@ -32,6 +32,7 @@ const struct syscall_name *lookup_syscall(register const char *str, register uns
 #include "syscall-from-name.h"
 
 const char *syscall_to_name(int id) {
+        id = SYSCALL_TO_INDEX(id);
         if (id < 0 || id >= (int) ELEMENTSOF(syscall_names))
                 return NULL;
 

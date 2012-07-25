@@ -957,7 +957,7 @@ static int apply_seccomp(uint32_t *syscall_filter) {
         for (i = 0, n = 0; i < syscall_max(); i++)
                 if (syscall_filter[i >> 4] & (1 << (i & 31))) {
                         struct sock_filter item[] = {
-                                BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, i, 0, 1),
+                                BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, INDEX_TO_SYSCALL(i), 0, 1),
                                 BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW)
                         };
 
