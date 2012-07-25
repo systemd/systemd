@@ -55,6 +55,7 @@ typedef struct Group {
 } Group;
 
 static unsigned arg_depth = 3;
+static unsigned arg_iterations = 0;
 static usec_t arg_delay = 1*USEC_PER_SEC;
 
 static enum {
@@ -505,6 +506,7 @@ static void help(void) {
                "  -m                  Order by memory load\n"
                "  -i                  Order by IO load\n"
                "  -d --delay=DELAY    Specify delay\n"
+               "  -n --iterations=N   Run for N iterations before exiting\n"
                "     --depth=DEPTH    Maximum traversal depth (default: 2)\n",
                program_invocation_short_name);
 }
@@ -516,10 +518,11 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",  no_argument,       NULL, 'h'       },
-                { "delay", required_argument, NULL, 'd'       },
-                { "depth", required_argument, NULL, ARG_DEPTH },
-                { NULL,    0,                 NULL, 0         }
+                { "help",       no_argument,       NULL, 'h'       },
+                { "delay",      required_argument, NULL, 'd'       },
+                { "iterations", required_argument, NULL, 'n'       },
+                { "depth",      required_argument, NULL, ARG_DEPTH },
+                { NULL,         0,                 NULL, 0         }
         };
 
         int c;
@@ -528,7 +531,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hptcmid:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hptcmin:d:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -549,6 +552,15 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_usec(optarg, &arg_delay);
                         if (r < 0 || arg_delay <= 0) {
                                 log_error("Failed to parse delay parameter.");
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case 'n':
+                        r = safe_atou(optarg, &arg_iterations);
+                        if (r < 0) {
+                                log_error("Failed to parse iterations parameter.");
                                 return -EINVAL;
                         }
 
@@ -639,6 +651,9 @@ int main(int argc, char *argv[]) {
                 r = display(b);
                 if (r < 0)
                         goto finish;
+
+                if (arg_iterations && iteration >= arg_iterations)
+                        break;
 
                 r = read_one_char(stdin, &key, last_refresh + arg_delay - t, NULL);
                 if (r == -ETIMEDOUT)
