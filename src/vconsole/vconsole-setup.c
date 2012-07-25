@@ -274,7 +274,7 @@ int main(int argc, char **argv) {
 
                         t = strdup("/etc/sysconfig/console/default.kmap");
                         if (!t) {
-                                log_error("Out of memory.");
+                                log_oom();
                                 goto finish;
                         }
 
@@ -415,7 +415,7 @@ int main(int argc, char **argv) {
                         free(vc_keytable);
 
                         if (!vc_keymap) {
-                                log_error("Out of memory.");
+                                log_oom();
                                 goto finish;
                         }
                 }
@@ -425,7 +425,7 @@ int main(int argc, char **argv) {
 
                         t = strdup("/etc/sysconfig/console/default.kmap");
                         if (!t) {
-                                log_error("Out of memory.");
+                                log_oom();
                                 goto finish;
                         }
 

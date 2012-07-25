@@ -330,8 +330,7 @@ int manager_setup_cgroup(Manager *m) {
                 /* We need a new root cgroup */
                 m->cgroup_hierarchy = NULL;
                 if (asprintf(&m->cgroup_hierarchy, "%s%s", streq(current, "/") ? "" : current, suffix) < 0) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
         }

@@ -198,8 +198,7 @@ static int get_file_options(struct udev *udev,
         buffer = malloc(MAX_BUFFER_LEN);
         if (!buffer) {
                 fclose(fd);
-                log_error("Out of memory.");
-                return -1;
+                return log_oom();
         }
 
         *newargv = NULL;
@@ -231,7 +230,7 @@ static int get_file_options(struct udev *udev,
                 if (str1 && strcasecmp(str1, "VENDOR") == 0) {
                         str1 = get_value(&buf);
                         if (!str1) {
-                                retval = -1;
+                                retval = log_oom();
                                 break;
                         }
                         vendor_in = str1;
@@ -240,7 +239,7 @@ static int get_file_options(struct udev *udev,
                         if (str1 && strcasecmp(str1, "MODEL") == 0) {
                                 str1 = get_value(&buf);
                                 if (!str1) {
-                                        retval = -1;
+                                        retval = log_oom();
                                         break;
                                 }
                                 model_in = str1;
@@ -251,7 +250,7 @@ static int get_file_options(struct udev *udev,
                 if (str1 && strcasecmp(str1, "OPTIONS") == 0) {
                         str1 = get_value(&buf);
                         if (!str1) {
-                                retval = -1;
+                                retval = log_oom();
                                 break;
                         }
                         options_in = str1;
@@ -294,8 +293,7 @@ static int get_file_options(struct udev *udev,
                         c = argc_count(buffer) + 2;
                         *newargv = calloc(c, sizeof(**newargv));
                         if (!*newargv) {
-                                log_error("Out of memory.");
-                                retval = -1;
+                                retval = log_oom();
                         } else {
                                 *argc = c;
                                 c = 0;

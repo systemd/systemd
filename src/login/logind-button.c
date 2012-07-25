@@ -107,10 +107,8 @@ int button_open(Button *b) {
         }
 
         p = strappend("/dev/input/", b->name);
-        if (!p) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (!p)
+                return log_oom();
 
         b->fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         free(p);

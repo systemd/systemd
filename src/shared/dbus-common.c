@@ -1161,7 +1161,7 @@ void bus_async_unregister_and_exit(DBusConnection *bus, const char *name) {
         return;
 
 oom:
-        log_error("Out of memory.");
+        log_oom();
 
         if (pending) {
                 dbus_pending_call_cancel(pending);

@@ -303,8 +303,7 @@ static int parse_proc_cmdline(void) {
 
                         t = strv_append(arg_proc_cmdline_disks, word + 10);
                         if (!t) {
-                                log_error("Out of memory.");
-                                r = -ENOMEM;
+                                r = log_oom();
                                 goto finish;
                         }
                         strv_free(arg_proc_cmdline_disks);
@@ -317,8 +316,7 @@ static int parse_proc_cmdline(void) {
 
                                 t = strv_append(arg_proc_cmdline_disks, word + 13);
                                 if (!t) {
-                                        log_error("Out of memory.");
-                                        r = -ENOMEM;
+                                        r = log_oom();
                                         goto finish;
                                 }
                                 strv_free(arg_proc_cmdline_disks);
@@ -380,7 +378,7 @@ int main(int argc, char *argv[]) {
                 device = strappend("UUID=", *i);
 
                 if (!name || !device) {
-                        log_error("Out of memory.");
+                        log_oom();
                         r = EXIT_FAILURE;
                         free(name);
                         free(device);

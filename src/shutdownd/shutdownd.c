@@ -212,10 +212,8 @@ static int update_schedule_file(struct sd_shutdown_command *c) {
         }
 
         t = cescape(c->wall_message);
-        if (!t) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (!t)
+                return log_oom();
 
         r = fopen_temporary("/run/systemd/shutdown/scheduled", &f, &temp_path);
         if (r < 0) {

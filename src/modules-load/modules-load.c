@@ -49,17 +49,13 @@ static int add_modules(const char *p) {
         char **t, **k;
 
         k = strv_split(p, ",");
-        if (!k) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (!k)
+                return log_oom();
 
         t = strv_merge(arg_proc_cmdline_modules, k);
         strv_free(k);
-        if (!t) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (!t)
+                return log_oom();
 
         strv_free(arg_proc_cmdline_modules);
         arg_proc_cmdline_modules = t;

@@ -242,8 +242,7 @@ static int collect(const char *root) {
         assert(root);
 
         if (asprintf(&pack_fn, "%s/.readahead", root) < 0) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto finish;
         }
 
@@ -477,8 +476,7 @@ done:
         log_debug("On btrfs: %s", yes_no(on_btrfs));
 
         if (asprintf(&pack_fn_new, "%s/.readahead.new", root) < 0) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto finish;
         }
 
@@ -510,8 +508,7 @@ done:
 
                 n = hashmap_size(files);
                 if (!(ordered = new(struct item, n))) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 

@@ -1020,10 +1020,8 @@ int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **sess
         }
 
         p = strdup(cgroup);
-        if (!p) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (!p)
+                return log_oom();
 
         for (;;) {
                 char *e;
@@ -1061,10 +1059,8 @@ int manager_get_user_by_cgroup(Manager *m, const char *cgroup, User **user) {
         }
 
         p = strdup(cgroup);
-        if (!p) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (!p)
+                return log_oom();
 
         for (;;) {
                 char *e;
@@ -1176,8 +1172,7 @@ static int manager_connect_bus(Manager *m) {
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/session", &bus_session_vtable, m) ||
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/user", &bus_user_vtable, m) ||
             !dbus_connection_add_filter(m->bus, bus_message_filter, m, NULL)) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto fail;
         }
 
@@ -1611,8 +1606,7 @@ int main(int argc, char *argv[]) {
 
         m = manager_new();
         if (!m) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto finish;
         }
 

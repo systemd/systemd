@@ -239,8 +239,7 @@ int main(int argc, char* argv[]) {
 
         p = malloc(9 + COREDUMP_MAX);
         if (!p) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto finish;
         }
 

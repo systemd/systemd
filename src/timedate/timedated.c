@@ -153,7 +153,7 @@ static void verify_timezone(void) {
 
         p = strappend("/usr/share/zoneinfo/", tz.zone);
         if (!p) {
-                log_error("Out of memory.");
+                log_oom();
                 return;
         }
 
@@ -219,10 +219,8 @@ static int write_data_timezone(void) {
         }
 
         p = strappend("/usr/share/zoneinfo/", tz.zone);
-        if (!p) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (!p)
+                return log_oom();
 
         r = symlink_or_copy_atomic(p, "/etc/localtime");
         free(p);
@@ -341,7 +339,7 @@ static char** get_ntp_services(void) {
 
                         q = strv_append(r, l);
                         if (!q) {
-                                log_error("Out of memory.");
+                                log_oom();
                                 break;
                         }
 
@@ -379,16 +377,14 @@ static int read_ntp(DBusConnection *bus) {
                                 "org.freedesktop.systemd1.Manager",
                                 "GetUnitFileState");
                 if (!m) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
                 if (!dbus_message_append_args(m,
                                               DBUS_TYPE_STRING, i,
                                               DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
@@ -943,8 +939,7 @@ static int connect_bus(DBusConnection **_bus) {
 
         if (!dbus_connection_register_object_path(bus, "/org/freedesktop/timedate1", &timedate_vtable, NULL) ||
             !dbus_connection_add_filter(bus, bus_exit_idle_filter, &remain_until, NULL)) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto fail;
         }
 

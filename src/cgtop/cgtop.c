@@ -608,8 +608,7 @@ int main(int argc, char *argv[]) {
         a = hashmap_new(string_hash_func, string_compare_func);
         b = hashmap_new(string_hash_func, string_compare_func);
         if (!a || !b) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto finish;
         }
 

@@ -723,15 +723,11 @@ static int bus_setup_loop(Manager *m, DBusConnection *bus) {
         dbus_connection_set_exit_on_disconnect(bus, FALSE);
 
         if (!dbus_connection_set_watch_functions(bus, bus_add_watch, bus_remove_watch, bus_toggle_watch, m, NULL) ||
-            !dbus_connection_set_timeout_functions(bus, bus_add_timeout, bus_remove_timeout, bus_toggle_timeout, m, NULL)) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+            !dbus_connection_set_timeout_functions(bus, bus_add_timeout, bus_remove_timeout, bus_toggle_timeout, m, NULL))
+                return log_oom();
 
-        if (set_put(m->bus_connections_for_dispatch, bus) < 0) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (set_put(m->bus_connections_for_dispatch, bus) < 0)
+                return log_oom();
 
         dbus_connection_set_dispatch_status_function(bus, bus_dispatch_status, m, NULL);
         return 0;
@@ -764,7 +760,7 @@ static void bus_new_connection(
             !dbus_connection_register_fallback(new_connection, "/org/freedesktop/systemd1/unit", &bus_unit_vtable, m) ||
             !dbus_connection_register_fallback(new_connection, "/org/freedesktop/systemd1/job", &bus_job_vtable, m) ||
             !dbus_connection_add_filter(new_connection, private_bus_message_filter, m, NULL)) {
-                log_error("Out of memory.");
+                log_oom();
                 return;
         }
 
@@ -776,10 +772,8 @@ static void bus_new_connection(
 static int init_registered_system_bus(Manager *m) {
         char *id;
 
-        if (!dbus_connection_add_filter(m->system_bus, system_bus_message_filter, m, NULL)) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (!dbus_connection_add_filter(m->system_bus, system_bus_message_filter, m, NULL))
+                return log_oom();
 
         if (m->running_as != MANAGER_SYSTEM) {
                 DBusError error;
@@ -814,10 +808,8 @@ static int init_registered_api_bus(Manager *m) {
         if (!dbus_connection_register_object_path(m->api_bus, "/org/freedesktop/systemd1", &bus_manager_vtable, m) ||
             !dbus_connection_register_fallback(m->api_bus, "/org/freedesktop/systemd1/unit", &bus_unit_vtable, m) ||
             !dbus_connection_register_fallback(m->api_bus, "/org/freedesktop/systemd1/job", &bus_job_vtable, m) ||
-            !dbus_connection_add_filter(m->api_bus, api_bus_message_filter, m, NULL)) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+            !dbus_connection_add_filter(m->api_bus, api_bus_message_filter, m, NULL))
+                return log_oom();
 
         /* Get NameOwnerChange messages */
         dbus_bus_add_match(m->api_bus,
@@ -1090,8 +1082,7 @@ static int bus_init_private(Manager *m) {
                         return 0;
 
                 if (asprintf(&p, "unix:path=%s/systemd/private", e) < 0) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto fail;
                 }
 
@@ -1110,8 +1101,7 @@ static int bus_init_private(Manager *m) {
         if (!dbus_server_set_auth_mechanisms(m->private_bus, (const char**) external_only) ||
             !dbus_server_set_watch_functions(m->private_bus, bus_add_watch, bus_remove_watch, bus_toggle_watch, m, NULL) ||
             !dbus_server_set_timeout_functions(m->private_bus, bus_add_timeout, bus_remove_timeout, bus_toggle_timeout, m, NULL)) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto fail;
         }
 
@@ -1158,8 +1148,7 @@ int bus_init(Manager *m, bool try_bus_connect) {
 
         return 0;
 oom:
-        log_error("Out of memory.");
-        return -ENOMEM;
+        return log_oom();
 }
 
 static void shutdown_connection(Manager *m, DBusConnection *c) {
@@ -1458,7 +1447,7 @@ void bus_broadcast_finished(
 
         message = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartupFinished");
         if (!message) {
-                log_error("Out of memory.");
+                log_oom();
                 return;
         }
 
@@ -1469,13 +1458,13 @@ void bus_broadcast_finished(
                                       DBUS_TYPE_UINT64, &userspace_usec,
                                       DBUS_TYPE_UINT64, &total_usec,
                                       DBUS_TYPE_INVALID)) {
-                log_error("Out of memory.");
+                log_oom();
                 goto finish;
         }
 
 
         if (bus_broadcast(m, message) < 0) {
-                log_error("Out of memory.");
+                log_oom();
                 goto finish;
         }
 

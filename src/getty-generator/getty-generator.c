@@ -42,8 +42,7 @@ static int add_symlink(const char *fservice, const char *tservice) {
         to = strjoin(arg_dest,"/getty.target.wants/", tservice, NULL);
 
         if (!from || !to) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto finish;
         }
 
@@ -77,10 +76,8 @@ static int add_serial_getty(const char *tty) {
         log_debug("Automatically adding serial getty for /dev/%s.", tty);
 
         n = unit_name_replace_instance("serial-getty@.service", tty);
-        if (!n) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (!n)
+                return log_oom();
 
         r = add_symlink("serial-getty@.service", n);
         free(n);
@@ -160,7 +157,7 @@ int main(int argc, char *argv[]) {
                 int k;
 
                 if (asprintf(&p, "/sys/class/tty/%s", j) < 0) {
-                        log_error("Out of memory.");
+                        log_oom();
                         r = EXIT_FAILURE;
                         goto finish;
                 }

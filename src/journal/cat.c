@@ -91,10 +91,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_identifier = NULL;
                         else {
                                 arg_identifier = strdup(optarg);
-                                if (!arg_identifier) {
-                                        log_error("Out of memory.");
-                                        return -ENOMEM;
-                                }
+                                if (!arg_identifier)
+                                        return log_oom();
                         }
                         break;
 

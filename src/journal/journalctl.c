@@ -256,8 +256,7 @@ static int add_matches(sd_journal *j, char **args) {
                                 t = strappend("_EXE=", path);
                                 if (!t) {
                                         free(p);
-                                        log_error("Out of memory.");
-                                        return -ENOMEM;
+                                        return log_oom();
                                 }
 
                                 r = sd_journal_add_match(j, t, 0);

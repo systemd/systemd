@@ -47,10 +47,8 @@ static int generate_symlink(void) {
         }
 
         p = strappend(arg_dest, "/default.target");
-        if (!p) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (!p)
+                return log_oom();
 
         if (symlink(SYSTEM_DATA_UNIT_PATH "/system-update.target", p) < 0) {
                 free(p);

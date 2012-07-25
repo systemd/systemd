@@ -425,7 +425,7 @@ static void push_data(DBusConnection *bus) {
         l_set = new0(char*, _PROP_MAX);
         l_unset = new0(char*, _PROP_MAX);
         if (!l_set || !l_unset) {
-                log_error("Out of memory.");
+                log_oom();
                 goto finish;
         }
 
@@ -438,7 +438,7 @@ static void push_data(DBusConnection *bus) {
                         char *s;
 
                         if (asprintf(&s, "%s=%s", names[p], data[p]) < 0) {
-                                log_error("Out of memory.");
+                                log_oom();
                                 goto finish;
                         }
 
@@ -456,30 +456,30 @@ static void push_data(DBusConnection *bus) {
         dbus_message_iter_init_append(m, &iter);
 
         if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "s", &sub)) {
-                log_error("Out of memory.");
+                log_oom();
                 goto finish;
         }
 
         STRV_FOREACH(t, l_unset)
                 if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, t)) {
-                        log_error("Out of memory.");
+                        log_oom();
                         goto finish;
                 }
 
         if (!dbus_message_iter_close_container(&iter, &sub) ||
             !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "s", &sub)) {
-                log_error("Out of memory.");
+                log_oom();
                 goto finish;
         }
 
         STRV_FOREACH(t, l_set)
                 if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, t)) {
-                        log_error("Out of memory.");
+                        log_oom();
                         goto finish;
                 }
 
         if (!dbus_message_iter_close_container(&iter, &sub)) {
-                log_error("Out of memory.");
+                log_oom();
                 goto finish;
         }
 
@@ -1344,8 +1344,7 @@ static int connect_bus(DBusConnection **_bus) {
 
         if (!dbus_connection_register_object_path(bus, "/org/freedesktop/locale1", &locale_vtable, NULL) ||
             !dbus_connection_add_filter(bus, bus_exit_idle_filter, &remain_until, NULL)) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto fail;
         }
 

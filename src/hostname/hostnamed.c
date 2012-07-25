@@ -532,8 +532,7 @@ static int connect_bus(DBusConnection **_bus) {
 
         if (!dbus_connection_register_object_path(bus, "/org/freedesktop/hostname1", &hostname_vtable, NULL) ||
             !dbus_connection_add_filter(bus, bus_exit_idle_filter, &remain_until, NULL)) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto fail;
         }
 

@@ -297,7 +297,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (!(udev = udev_new())) {
-                        log_error("Out of memory.");
+                        log_oom();
                         goto finish;
                 }
 

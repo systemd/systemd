@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
                         device_node = strdup(dn);
                         if (!device_node) {
                                 udev_device_unref(d);
-                                log_error("Out of memory.");
+                                log_oom();
                                 goto fail;
                         }
                 }
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
 
         path = strappend("/run/systemd/multi-session-x/", seat);
         if (!path) {
-                log_error("Out of memory.");
+                log_oom();
                 goto fail;
         }
 

@@ -24,6 +24,7 @@
 #include <syslog.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <errno.h>
 
 #include "macro.h"
 
@@ -101,6 +102,11 @@ int log_dump_internal(
 #define log_notice(...)  log_meta(LOG_NOTICE,  __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define log_warning(...) log_meta(LOG_WARNING, __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define log_error(...)   log_meta(LOG_ERR,     __FILE__, __LINE__, __func__, __VA_ARGS__)
+
+static inline int log_oom(void) {
+       log_error("Out of memory.");
+       return -ENOMEM;
+}
 
 /* This modifies the buffer passed! */
 #define log_dump(level, buffer) log_dump_internal(level, __FILE__, __LINE__, __func__, buffer)

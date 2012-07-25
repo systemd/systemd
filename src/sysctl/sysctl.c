@@ -45,10 +45,8 @@ static int apply_sysctl(const char *property, const char *value) {
         log_debug("Setting '%s' to '%s'", property, value);
 
         p = new(char, sizeof(PROC_SYS_PREFIX) + strlen(property));
-        if (!p) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (!p)
+                return log_oom();
 
         n = stpcpy(p, PROC_SYS_PREFIX);
         strcpy(n, property);
@@ -191,10 +189,8 @@ static int parse_argv(int argc, char *argv[]) {
                                         *p = '/';
 
                         l = strv_append(arg_prefixes, optarg);
-                        if (!l) {
-                                log_error("Out of memory.");
-                                return -ENOMEM;
-                        }
+                        if (!l)
+                                return log_oom();
 
                         strv_free(arg_prefixes);
                         arg_prefixes = l;

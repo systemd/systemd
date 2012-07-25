@@ -657,10 +657,8 @@ static int list_unit_files(DBusConnection *bus, char **args) {
                 Iterator i;
 
                 h = hashmap_new(string_hash_func, string_compare_func);
-                if (!h) {
-                        log_error("Out of memory.");
-                        return -ENOMEM;
-                }
+                if (!h)
+                        return log_oom();
 
                 r = unit_file_get_list(arg_scope, arg_root, h);
                 if (r < 0) {
@@ -673,8 +671,7 @@ static int list_unit_files(DBusConnection *bus, char **args) {
                 units = new(UnitFileList, n_units);
                 if (!units) {
                         unit_file_list_free(h);
-                        log_error("Out of memory.");
-                        return -ENOMEM;
+                        return log_oom();
                 }
 
                 HASHMAP_FOREACH(u, h, i) {
@@ -2630,14 +2627,14 @@ static void show_unit_help(UnitStatusInfo *i) {
                         if (e) {
                                 page = strndup((*p) + 4, e - *p - 4);
                                 if (!page) {
-                                        log_error("Out of memory.");
+                                        log_oom();
                                         return;
                                 }
 
                                 section = strndup(e + 1, *p + k - e - 2);
                                 if (!section) {
                                         free(page);
-                                        log_error("Out of memory.");
+                                        log_oom();
                                         return;
                                 }
 
@@ -3282,10 +3279,8 @@ static int show(DBusConnection *bus, char **args) {
                         n = unit_name_mangle(*name);
                         p = unit_dbus_path_from_name(n ? n : *name);
                         free(n);
-                        if (!p) {
-                                log_error("Out of memory.");
-                                return -ENOMEM;
-                        }
+                        if (!p)
+                                return log_oom();
 
                         r = show_one(args[0], bus, p, show_properties, &new_line);
                         free(p);
@@ -3298,10 +3293,8 @@ static int show(DBusConnection *bus, char **args) {
                         /* Interpret as job id */
 
                         char *p;
-                        if (asprintf(&p, "/org/freedesktop/systemd1/job/%u", id) < 0) {
-                                log_error("Out of memory.");
-                                return -ENOMEM;
-                        }
+                        if (asprintf(&p, "/org/freedesktop/systemd1/job/%u", id) < 0)
+                                return log_oom();
 
                         r = show_one(args[0], bus, p, show_properties, &new_line);
                         free(p);
@@ -3974,8 +3967,7 @@ static int enable_sysv_units(char **args) {
                                 asprintf(&p, "%s/%s", *k, name);
 
                         if (!p) {
-                                log_error("Out of memory.");
-                                r = -ENOMEM;
+                                r = log_oom();
                                 goto finish;
                         }
 
@@ -3995,8 +3987,7 @@ static int enable_sysv_units(char **args) {
                 else
                         asprintf(&p, SYSTEM_SYSVINIT_PATH "/%s", name);
                 if (!p) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
@@ -4024,10 +4015,9 @@ static int enable_sysv_units(char **args) {
 
                 l = strv_join((char**)argv, " ");
                 if (!l) {
-                        log_error("Out of memory.");
                         free(q);
                         free(p);
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
@@ -4184,8 +4174,7 @@ static int enable_unit(DBusConnection *bus, char **args) {
                                 "org.freedesktop.systemd1.Manager",
                                 method);
                 if (!m) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
@@ -4339,8 +4328,7 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
                                         "org.freedesktop.systemd1.Manager",
                                         "GetUnitFileState");
                         if (!m) {
-                                log_error("Out of memory.");
-                                r = -ENOMEM;
+                                r = log_oom();
                                 goto finish;
                         }
 

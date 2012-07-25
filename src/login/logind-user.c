@@ -259,10 +259,8 @@ static int user_mkdir_runtime_path(User *u) {
         }
 
         if (!u->runtime_path) {
-                if (asprintf(&p, "/run/user/%lu", (unsigned long) u->uid) < 0) {
-                        log_error("Out of memory.");
-                        return -ENOMEM;
-                }
+                if (asprintf(&p, "/run/user/%lu", (unsigned long) u->uid) < 0)
+                        return log_oom();
         } else
                 p = u->runtime_path;
 
@@ -286,10 +284,8 @@ static int user_create_cgroup(User *u) {
         assert(u);
 
         if (!u->cgroup_path) {
-                if (asprintf(&p, "%s/%s", u->manager->cgroup_path, u->name) < 0) {
-                        log_error("Out of memory.");
-                        return -ENOMEM;
-                }
+                if (asprintf(&p, "%s/%s", u->manager->cgroup_path, u->name) < 0)
+                        return log_oom();
         } else
                 p = u->cgroup_path;
 

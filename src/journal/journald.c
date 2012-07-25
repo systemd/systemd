@@ -393,7 +393,7 @@ static void server_vacuum(Server *s) {
 
         if (s->system_journal) {
                 if (asprintf(&p, "/var/log/journal/%s", ids) < 0) {
-                        log_error("Out of memory.");
+                        log_oom();
                         return;
                 }
 
@@ -405,7 +405,7 @@ static void server_vacuum(Server *s) {
 
         if (s->runtime_journal) {
                 if (asprintf(&p, "/run/log/journal/%s", ids) < 0) {
-                        log_error("Out of memory.");
+                        log_oom();
                         return;
                 }
 
@@ -1270,7 +1270,7 @@ static void process_native_message(
                         u = MAX((n+N_IOVEC_META_FIELDS+1) * 2U, 4U);
                         c = realloc(iovec, u * sizeof(struct iovec));
                         if (!c) {
-                                log_error("Out of memory.");
+                                log_oom();
                                 break;
                         }
 
@@ -1357,7 +1357,7 @@ static void process_native_message(
 
                         k = malloc((e - p) + 1 + l);
                         if (!k) {
-                                log_error("Out of memory.");
+                                log_oom();
                                 break;
                         }
 
@@ -1450,7 +1450,7 @@ static void process_native_file(
 
         p = malloc(st.st_size);
         if (!p) {
-                log_error("Out of memory.");
+                log_oom();
                 return;
         }
 
@@ -1542,10 +1542,8 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
                         s->identifier = NULL;
                 else  {
                         s->identifier = strdup(p);
-                        if (!s->identifier) {
-                                log_error("Out of memory.");
-                                return -ENOMEM;
-                        }
+                        if (!s->identifier)
+                                return log_oom();
                 }
 
                 s->state = STDOUT_STREAM_UNIT_ID;
@@ -1557,10 +1555,8 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
                                 s->unit_id = NULL;
                         else  {
                                 s->unit_id = strdup(p);
-                                if (!s->unit_id) {
-                                        log_error("Out of memory.");
-                                        return -ENOMEM;
-                                }
+                                if (!s->unit_id)
+                                        return log_oom();
                         }
                 }
 
@@ -1761,9 +1757,8 @@ static int stdout_stream_new(Server *s) {
 
         stream = new0(StdoutStream, 1);
         if (!stream) {
-                log_error("Out of memory.");
                 close_nointr_nofail(fd);
-                return -ENOMEM;
+                return log_oom();
         }
 
         stream->fd = fd;
@@ -2753,10 +2748,8 @@ static int server_init(Server *s) {
         server_parse_proc_cmdline(s);
 
         s->user_journals = hashmap_new(trivial_hash_func, trivial_compare_func);
-        if (!s->user_journals) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (!s->user_journals)
+                return log_oom();
 
         s->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (s->epoll_fd < 0) {

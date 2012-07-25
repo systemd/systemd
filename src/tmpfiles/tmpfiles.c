@@ -260,8 +260,7 @@ static int dir_cleanup(
                 sub_path = NULL;
 
                 if (asprintf(&sub_path, "%s/%s", p, dent->d_name) < 0) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
@@ -969,10 +968,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         assert(buffer);
 
         i = new0(Item, 1);
-        if (!i) {
-                log_error("Out of memory.");
-                return -ENOMEM;
-        }
+        if (!i)
+                return log_oom();
 
         if (sscanf(buffer,
                    "%c "
@@ -998,10 +995,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 n += strspn(buffer+n, WHITESPACE);
                 if (buffer[n] != 0 && (buffer[n] != '-' || buffer[n+1] != 0)) {
                         i->argument = unquote(buffer+n, "\"");
-                        if (!i->argument) {
-                                log_error("Out of memory.");
-                                return -ENOMEM;
-                        }
+                        if (!i->argument)
+                                return log_oom();
                 }
         }
 
@@ -1302,7 +1297,7 @@ static char *resolve_fragment(const char *fragment, const char **search_paths) {
         STRV_FOREACH(p, search_paths) {
                 resolved_path = strjoin(*p, "/", fragment, NULL);
                 if (resolved_path == NULL) {
-                        log_error("Out of memory.");
+                        log_oom();
                         return NULL;
                 }
 
@@ -1337,7 +1332,7 @@ int main(int argc, char *argv[]) {
         globs = hashmap_new(string_hash_func, string_compare_func);
 
         if (!items || !globs) {
-                log_error("Out of memory.");
+                log_oom();
                 r = EXIT_FAILURE;
                 goto finish;
         }

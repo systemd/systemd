@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
 
                 s = strdup(me->mnt_dir);
                 if (!s) {
-                        log_error("Out of memory.");
+                        log_oom();
                         ret = EXIT_FAILURE;
                         continue;
                 }

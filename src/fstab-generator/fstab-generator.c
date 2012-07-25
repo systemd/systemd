@@ -47,7 +47,7 @@ static int device_name(const char *path, char **unit) {
 
         p = unit_name_from_path(path, ".device");
         if (!p)
-                return -ENOMEM;
+                return log_oom();
 
         *unit = p;
         return 1;
@@ -98,15 +98,13 @@ static int add_swap(const char *what, struct mntent *me) {
 
         name = unit_name_from_path(what, ".swap");
         if (!name) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto finish;
         }
 
         unit = strjoin(arg_dest, "/", name, NULL);
         if (!unit) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto finish;
         }
 
@@ -148,8 +146,7 @@ static int add_swap(const char *what, struct mntent *me) {
         if (!noauto) {
                 lnk = strjoin(arg_dest, "/" SPECIAL_SWAP_TARGET ".wants/", name, NULL);
                 if (!lnk) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
@@ -161,18 +158,14 @@ static int add_swap(const char *what, struct mntent *me) {
                 }
 
                 r = device_name(what, &device);
-                if (r < 0) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                if (r < 0)
                         goto finish;
-                }
 
                 if (r > 0) {
                         free(lnk);
                         lnk = strjoin(arg_dest, "/", device, ".wants/", name, NULL);
                         if (!lnk) {
-                                log_error("Out of memory.");
-                                r = -ENOMEM;
+                                r = log_oom();
                                 goto finish;
                         }
 
@@ -255,16 +248,14 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
         }
 
         name = unit_name_from_path(where, ".mount");
-        if (!name)  {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+        if (!name) {
+                r = log_oom();
                 goto finish;
         }
 
         unit = strjoin(arg_dest, "/", name, NULL);
         if (!unit) {
-                log_error("Out of memory.");
-                r = -ENOMEM;
+                r = log_oom();
                 goto finish;
         }
 
@@ -323,8 +314,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
         if (!noauto) {
                 lnk = strjoin(arg_dest, "/", post, nofail || automount ? ".wants/" : ".requires/", name, NULL);
                 if (!lnk) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
@@ -339,24 +329,20 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
                     !path_equal(where, "/")) {
 
                         r = device_name(what, &device);
-                        if (r < 0) {
-                                log_error("Out of memory.");
-                                r = -ENOMEM;
+                        if (r < 0)
                                 goto finish;
-                        }
 
                         if (r > 0) {
                                 free(lnk);
                                 lnk = strjoin(arg_dest, "/", device, ".wants/", name, NULL);
                                 if (!lnk) {
-                                        log_error("Out of memory.");
-                                        r = -ENOMEM;
+                                        r = log_oom();
                                         goto finish;
                                 }
 
                                 mkdir_parents_label(lnk, 0755);
                                 if (symlink(unit, lnk) < 0) {
-                                        log_error("Failed to creat symlink: %m");
+                                        log_error("Failed to create symlink: %m");
                                         r = -errno;
                                         goto finish;
                                 }
@@ -367,15 +353,13 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
         if (automount && !path_equal(where, "/")) {
                 automount_name = unit_name_from_path(where, ".automount");
                 if (!name) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
                 automount_unit = strjoin(arg_dest, "/", automount_name, NULL);
                 if (!automount_unit) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
@@ -410,8 +394,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
                 free(lnk);
                 lnk = strjoin(arg_dest, "/", post, nofail ? ".wants/" : ".requires/", automount_name, NULL);
                 if (!lnk) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
@@ -459,16 +442,14 @@ static int parse_fstab(void) {
 
                 what = fstab_node_to_udev_node(me->mnt_fsname);
                 if (!what) {
-                        log_error("Out of memory.");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
                 where = strdup(me->mnt_dir);
                 if (!where) {
-                        log_error("Out of memory.");
+                        r = log_oom();
                         free(what);
-                        r = -ENOMEM;
                         goto finish;
                 }
 
@@ -513,7 +494,7 @@ static int parse_proc_cmdline(void) {
 
                 word = strndup(w, l);
                 if (!word) {
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
