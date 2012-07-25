@@ -56,6 +56,7 @@ typedef struct Group {
 
 static unsigned arg_depth = 3;
 static unsigned arg_iterations = 0;
+static bool arg_batch = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
 
 static enum {
@@ -507,6 +508,7 @@ static void help(void) {
                "  -i                  Order by IO load\n"
                "  -d --delay=DELAY    Specify delay\n"
                "  -n --iterations=N   Run for N iterations before exiting\n"
+               "  -b --batch          Run in batch mode, accepting no input\n"
                "     --depth=DEPTH    Maximum traversal depth (default: 2)\n",
                program_invocation_short_name);
 }
@@ -521,6 +523,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",       no_argument,       NULL, 'h'       },
                 { "delay",      required_argument, NULL, 'd'       },
                 { "iterations", required_argument, NULL, 'n'       },
+                { "batch",      no_argument,       NULL, 'b'       },
                 { "depth",      required_argument, NULL, ARG_DEPTH },
                 { NULL,         0,                 NULL, 0         }
         };
@@ -531,7 +534,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hptcmin:d:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hptcmin:bd:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -564,6 +567,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
+                        break;
+
+                case 'b':
+                        arg_batch = true;
                         break;
 
                 case 'p':
@@ -655,16 +662,24 @@ int main(int argc, char *argv[]) {
                 if (arg_iterations && iteration >= arg_iterations)
                         break;
 
-                r = read_one_char(stdin, &key, last_refresh + arg_delay - t, NULL);
-                if (r == -ETIMEDOUT)
-                        continue;
-                if (r < 0) {
-                        log_error("Couldn't read key: %s", strerror(-r));
-                        goto finish;
+                if (arg_batch) {
+                        usleep(last_refresh + arg_delay - t);
+                } else {
+                        r = read_one_char(stdin, &key,
+                                          last_refresh + arg_delay - t, NULL);
+                        if (r == -ETIMEDOUT)
+                                continue;
+                        if (r < 0) {
+                                log_error("Couldn't read key: %s", strerror(-r));
+                                goto finish;
+                        }
                 }
 
                 fputs("\r \r", stdout);
                 fflush(stdout);
+
+                if (arg_batch)
+                        continue;
 
                 switch (key) {
 
