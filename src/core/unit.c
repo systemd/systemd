@@ -1596,10 +1596,12 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_REQUISITE] = UNIT_REQUIRED_BY,
                 [UNIT_REQUISITE_OVERRIDABLE] = UNIT_REQUIRED_BY_OVERRIDABLE,
                 [UNIT_BINDS_TO] = UNIT_BOUND_BY,
+                [UNIT_PART_OF] = UNIT_CONSISTS_OF,
                 [UNIT_REQUIRED_BY] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_REQUIRED_BY_OVERRIDABLE] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_WANTED_BY] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_BOUND_BY] = UNIT_BINDS_TO,
+                [UNIT_CONSISTS_OF] = UNIT_PART_OF,
                 [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
                 [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
                 [UNIT_BEFORE] = UNIT_AFTER,
@@ -1611,7 +1613,6 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
                 [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
                 [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
-                [UNIT_PART_OF] = UNIT_CONSISTS_OF
         };
         int r, q = 0, v = 0, w = 0;
 
