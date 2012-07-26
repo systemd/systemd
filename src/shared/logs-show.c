@@ -50,10 +50,11 @@ static int parse_field(const void *data, size_t length, const char *field, char 
 
         nl = length - fl;
         buf = malloc(nl+1);
-        memcpy(buf, (const char*) data + fl, nl);
-        ((char*)buf)[nl] = 0;
         if (!buf)
                 return log_oom();
+
+        memcpy(buf, (const char*) data + fl, nl);
+        ((char*)buf)[nl] = 0;
 
         free(*target);
         *target = buf;
