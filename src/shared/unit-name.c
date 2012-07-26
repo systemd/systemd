@@ -335,7 +335,8 @@ bool unit_name_is_template(const char *n) {
 
         assert(n);
 
-        if (!(p = strchr(n, '@')))
+        p = strchr(n, '@');
+        if (!p)
                 return false;
 
         return p[1] == '.';
