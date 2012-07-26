@@ -902,8 +902,8 @@ int main(int argc, char *argv[])
                         break;
                 case 'd':
                         debug = true;
-                        if (udev_get_log_priority(udev) < LOG_INFO)
-                                udev_set_log_priority(udev, LOG_INFO);
+                        log_set_max_level(LOG_DEBUG);
+                        udev_set_log_priority(udev, LOG_DEBUG);
                         break;
                 case 'h':
                         printf("Usage: cdrom_id [options] <device>\n"
