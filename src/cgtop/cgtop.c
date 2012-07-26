@@ -30,6 +30,7 @@
 #include "util.h"
 #include "hashmap.h"
 #include "cgroup-util.h"
+#include "build.h"
 
 typedef struct Group {
         char *path;
@@ -511,6 +512,7 @@ static void help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Show top control groups by their resource usage.\n\n"
                "  -h --help           Show this help\n"
+               "  --version           Print version and exit\n"
                "  -p                  Order by path\n"
                "  -t                  Order by number of tasks\n"
                "  -c                  Order by CPU load\n"
@@ -523,19 +525,25 @@ static void help(void) {
                program_invocation_short_name);
 }
 
+static void version(void) {
+        puts(PACKAGE_STRING " cgtop");
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
-                ARG_DEPTH = 0x100
+                ARG_VERSION = 0x100,
+                ARG_DEPTH,
         };
 
         static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'       },
-                { "delay",      required_argument, NULL, 'd'       },
-                { "iterations", required_argument, NULL, 'n'       },
-                { "batch",      no_argument,       NULL, 'b'       },
-                { "depth",      required_argument, NULL, ARG_DEPTH },
-                { NULL,         0,                 NULL, 0         }
+                { "help",       no_argument,       NULL, 'h'         },
+                { "version",    no_argument,       NULL, ARG_VERSION },
+                { "delay",      required_argument, NULL, 'd'         },
+                { "iterations", required_argument, NULL, 'n'         },
+                { "batch",      no_argument,       NULL, 'b'         },
+                { "depth",      required_argument, NULL, ARG_DEPTH   },
+                { NULL,         0,                 NULL, 0           }
         };
 
         int c;
@@ -550,6 +558,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'h':
                         help();
+                        return 0;
+
+                case ARG_VERSION:
+                        version();
                         return 0;
 
                 case ARG_DEPTH:
