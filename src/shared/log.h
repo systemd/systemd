@@ -103,10 +103,11 @@ int log_dump_internal(
 #define log_warning(...) log_meta(LOG_WARNING, __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define log_error(...)   log_meta(LOG_ERR,     __FILE__, __LINE__, __func__, __VA_ARGS__)
 
-static inline int log_oom(void) {
-       log_error("Out of memory.");
-       return -ENOMEM;
-}
+/* This must be a macro for __LINE__ etc. to work */
+#define log_oom() ({ \
+       log_error("Out of memory."); \
+       -ENOMEM; \
+})
 
 /* This modifies the buffer passed! */
 #define log_dump(level, buffer) log_dump_internal(level, __FILE__, __LINE__, __func__, buffer)
