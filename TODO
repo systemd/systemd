@@ -32,6 +32,11 @@ Bugfixes:
   Jul 09 18:22:37 mop systemd[1]: Freezing execution.
   Jul 09 18:22:37 mop [21866]: Process 21865 (systemd) dumped core.
 
+* support *static* (/run) hibernate inhibitors. All rpm -i actions should completely prevent any
+  sort of hibernate action until the next reboot. If the kernel or any other base tool is replaced
+  by rpm, the resume path might fail, the for resume needed kernel might even be uninstalled, and
+  the whole situation leads directly to data loss.
+
 Features:
 
 * logind: ignore inactive login screens when checking whether power key should be handled
