@@ -3774,24 +3774,41 @@ int fd_columns(int fd) {
         return ws.ws_col;
 }
 
-unsigned columns(void) {
-        static __thread int parsed_columns = 0;
+static unsigned columns_cached(bool cached) {
+        static __thread int parsed_columns = 0, env_columns = -1;
         const char *e;
 
-        if (_likely_(parsed_columns > 0))
+        if (_likely_(parsed_columns > 0 && cached))
                 return parsed_columns;
 
-        e = getenv("COLUMNS");
-        if (e)
-                parsed_columns = atoi(e);
+        if (_unlikely_(env_columns == -1)) {
+                e = getenv("COLUMNS");
+                if (e)
+                        env_columns = atoi(e);
+                else
+                        env_columns = 0;
+        }
 
-        if (parsed_columns <= 0)
+        if (env_columns > 0) {
+                parsed_columns = env_columns;
+                return parsed_columns;
+        }
+
+        if (parsed_columns <= 0 || !cached)
                 parsed_columns = fd_columns(STDOUT_FILENO);
 
         if (parsed_columns <= 0)
                 parsed_columns = 80;
 
         return parsed_columns;
+}
+
+unsigned columns(void) {
+        return columns_cached(true);
+}
+
+unsigned columns_uncached(void) {
+        return columns_cached(false);
 }
 
 int fd_lines(int fd) {

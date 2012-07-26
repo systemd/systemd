@@ -374,6 +374,7 @@ void status_welcome(void);
 
 int fd_columns(int fd);
 unsigned columns(void);
+unsigned columns_uncached(void);
 
 int fd_lines(int fd);
 unsigned lines(void);

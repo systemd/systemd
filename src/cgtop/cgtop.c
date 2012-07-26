@@ -426,7 +426,7 @@ static int display(Hashmap *a) {
         Iterator i;
         Group *g;
         Group **array;
-        unsigned rows, n = 0, j;
+        unsigned rows, path_columns, n = 0, j;
 
         assert(a);
 
@@ -446,13 +446,23 @@ static int display(Hashmap *a) {
         if (rows <= 0)
                 rows = 25;
 
-        printf("%s%-37s%s %s%7s%s %s%6s%s %s%8s%s %s%8s%s %s%8s%s\n\n",
-               arg_order == ORDER_PATH   ? ANSI_HIGHLIGHT_ON : "", "Path",     arg_order == ORDER_PATH   ? ANSI_HIGHLIGHT_OFF : "",
-               arg_order == ORDER_TASKS  ? ANSI_HIGHLIGHT_ON : "", "Tasks",    arg_order == ORDER_TASKS  ? ANSI_HIGHLIGHT_OFF : "",
-               arg_order == ORDER_CPU    ? ANSI_HIGHLIGHT_ON : "", "%CPU",     arg_order == ORDER_CPU    ? ANSI_HIGHLIGHT_OFF : "",
-               arg_order == ORDER_MEMORY ? ANSI_HIGHLIGHT_ON : "", "Memory",   arg_order == ORDER_MEMORY ? ANSI_HIGHLIGHT_OFF : "",
-               arg_order == ORDER_IO     ? ANSI_HIGHLIGHT_ON : "", "Input/s",  arg_order == ORDER_IO     ? ANSI_HIGHLIGHT_OFF : "",
-               arg_order == ORDER_IO     ? ANSI_HIGHLIGHT_ON : "", "Output/s", arg_order == ORDER_IO     ? ANSI_HIGHLIGHT_OFF : "");
+        path_columns = columns_uncached() - 42;
+        if (path_columns < 10)
+                path_columns = 10;
+
+        printf("%s%-*s%s %s%7s%s %s%6s%s %s%8s%s %s%8s%s %s%8s%s\n\n",
+               arg_order == ORDER_PATH   ? ANSI_HIGHLIGHT_ON : "", path_columns, "Path",
+                      arg_order == ORDER_PATH   ? ANSI_HIGHLIGHT_OFF : "",
+               arg_order == ORDER_TASKS  ? ANSI_HIGHLIGHT_ON : "", "Tasks",
+                      arg_order == ORDER_TASKS  ? ANSI_HIGHLIGHT_OFF : "",
+               arg_order == ORDER_CPU    ? ANSI_HIGHLIGHT_ON : "", "%CPU",
+                      arg_order == ORDER_CPU    ? ANSI_HIGHLIGHT_OFF : "",
+               arg_order == ORDER_MEMORY ? ANSI_HIGHLIGHT_ON : "", "Memory",
+                      arg_order == ORDER_MEMORY ? ANSI_HIGHLIGHT_OFF : "",
+               arg_order == ORDER_IO     ? ANSI_HIGHLIGHT_ON : "", "Input/s",
+                      arg_order == ORDER_IO     ? ANSI_HIGHLIGHT_OFF : "",
+               arg_order == ORDER_IO     ? ANSI_HIGHLIGHT_ON : "", "Output/s",
+                      arg_order == ORDER_IO     ? ANSI_HIGHLIGHT_OFF : "");
 
         for (j = 0; j < n; j++) {
                 char *p;
@@ -463,8 +473,8 @@ static int display(Hashmap *a) {
 
                 g = array[j];
 
-                p = ellipsize(g->path, 37, 33);
-                printf("%-37s", p ? p : g->path);
+                p = ellipsize(g->path, path_columns, 33);
+                printf("%-*s", path_columns, p ? p : g->path);
                 free(p);
 
                 if (g->n_tasks_valid)
