@@ -444,16 +444,16 @@
                         <varlistentry>
                                 <term><varname>PartOf=</varname></term>
 
-                                 <listitem><para>Configures dependency
-                                 on other unit. When systemd stops or
-                                 restarts unit listed here, stop or
-                                 restart is propagated to dependent
-                                 units. Note that this is one way
-                                 dependency and changes to dependent
-                                 units does not affect listed unit. If
-                                 something else is desired, please
-                                 use some other type of dependency.
-                                 </para></listitem>
+                                <listitem><para>Configures dependencies
+                                similar to <varname>Requires=</varname>,
+                                but limited to stopping and restarting
+                                of units. When systemd stops or restarts
+                                the units listed here, the action is
+                                propagated to this unit.
+                                Note that this is a one way dependency -
+                                changes to this unit do not affect the
+                                listed units.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
