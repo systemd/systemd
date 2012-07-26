@@ -2982,6 +2982,9 @@ dbusinterface_DATA += \
 	org.freedesktop.timedate1.xml
 
 timedated-install-data-hook:
+	$(MKDIR_P) -m 0755 \
+		$(DESTDIR)$(prefix)/lib/ntp-units.d \
+		$(DESTDIR)$(sysconfdir)/ntp-units.d
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f dbus-org.freedesktop.timedate1.service  && \
 		$(LN_S) systemd-timedated.service dbus-org.freedesktop.timedate1.service )
