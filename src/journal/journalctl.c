@@ -198,6 +198,21 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static bool on_tty(void) {
+        static int t = -1;
+
+        /* Note that this is invoked relatively early, before we start
+         * the pager. That means the value we return reflects whether
+         * we originally were started on a tty, not if we currently
+         * are. But this is intended, since we want colour and so on
+         * when run in our own pager. */
+
+        if (_unlikely_(t < 0))
+                t = isatty(STDOUT_FILENO) > 0;
+
+        return t;
+}
+
 static int generate_new_id128(void) {
         sd_id128_t id;
         int r;
@@ -397,6 +412,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        on_tty();
         have_pager = !arg_no_pager && !arg_follow && pager_open();
 
         if (arg_output == OUTPUT_JSON) {
@@ -407,8 +423,10 @@ int main(int argc, char *argv[]) {
         for (;;) {
                 for (;;) {
                         sd_id128_t boot_id;
-                        int flags = (arg_show_all*OUTPUT_SHOW_ALL |
-                                     have_pager*OUTPUT_FULL_WIDTH);
+                        int flags =
+                                arg_show_all * OUTPUT_SHOW_ALL |
+                                have_pager * OUTPUT_FULL_WIDTH |
+                                on_tty() * OUTPUT_COLOR;
 
                         if (need_seek) {
                                 r = sd_journal_next(j);

@@ -82,12 +82,20 @@ static int output_short(sd_journal *j, unsigned line, unsigned n_columns,
         const void *data;
         size_t length;
         size_t n = 0;
-        char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL;
-        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0;
+        char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL;
+        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0;
+        int p = LOG_INFO;
+        const char *color_on = "", *color_off = "";
 
         assert(j);
 
         SD_JOURNAL_FOREACH_DATA(j, data, length) {
+
+                r = parse_field(data, length, "PRIORITY=", &priority, &priority_len);
+                if (r < 0)
+                        goto finish;
+                else if (r > 0)
+                        continue;
 
                 r = parse_field(data, length, "_HOSTNAME=", &hostname, &hostname_len);
                 if (r < 0)
@@ -140,6 +148,9 @@ static int output_short(sd_journal *j, unsigned line, unsigned n_columns,
                 r = 0;
                 goto finish;
         }
+
+        if (priority_len == 1 && *priority >= '0' && *priority <= '7')
+                p = *priority - '0';
 
         if (flags & OUTPUT_MONOTONIC_MODE) {
                 uint64_t t;
@@ -219,23 +230,33 @@ static int output_short(sd_journal *j, unsigned line, unsigned n_columns,
                 n += fake_pid_len + 2;
         }
 
+        if (flags & OUTPUT_COLOR) {
+                if (p <= LOG_ERR) {
+                        color_on = ANSI_HIGHLIGHT_RED_ON;
+                        color_off = ANSI_HIGHLIGHT_OFF;
+                } else if (p <= LOG_NOTICE) {
+                        color_on = ANSI_HIGHLIGHT_ON;
+                        color_off = ANSI_HIGHLIGHT_OFF;
+                }
+        }
+
         if (flags & OUTPUT_SHOW_ALL)
-                printf(": %.*s\n", (int) message_len, message);
+                printf(": %s%.*s%s\n", color_on, (int) message_len, message, color_off);
         else if (!utf8_is_printable_n(message, message_len)) {
                 char bytes[FORMAT_BYTES_MAX];
                 printf(": [%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
         } else if ((flags & OUTPUT_FULL_WIDTH) ||
                    (message_len + n < n_columns))
-                printf(": %.*s\n", (int) message_len, message);
+                printf(": %s%.*s%s\n", color_on, (int) message_len, message, color_off);
         else if (n < n_columns && n_columns - n - 2 >= 3) {
                 char *e;
 
                 e = ellipsize_mem(message, message_len, n_columns - n - 2, 90);
 
                 if (!e)
-                        printf(": %.*s\n", (int) message_len, message);
+                        printf(": %s%.*s%s\n", color_on, (int) message_len, message, color_off);
                 else
-                        printf(": %s\n", e);
+                        printf(": %s%s%s\n", color_on, e, color_off);
 
                 free(e);
         } else
