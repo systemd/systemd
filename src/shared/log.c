@@ -658,6 +658,11 @@ _noreturn_ void log_assert_failed_unreachable(const char *text, const char *file
         log_assert(text, file, line, func, "Code should not be reached '%s' at %s:%u, function %s(). Aborting.");
 }
 
+int __log_oom(const char *file, int line, const char *func) {
+        log_meta(LOG_ERR, file, line, func, "Out of memory.");
+        return -ENOMEM;
+}
+
 int log_set_target_from_string(const char *e) {
         LogTarget t;
 
