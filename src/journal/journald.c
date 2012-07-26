@@ -721,7 +721,7 @@ static void driver_message(Server *s, sd_id128_t message_id, const char *format,
         assert(s);
         assert(format);
 
-        IOVEC_SET_STRING(iovec[n++], "PRIORITY=5");
+        IOVEC_SET_STRING(iovec[n++], "PRIORITY=6");
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=driver");
 
         memcpy(buffer, "MESSAGE=", 8);
