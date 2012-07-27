@@ -39,6 +39,8 @@ Bugfixes:
 
 Features:
 
+* initialize the hostname from the fs label of /, if /etc/hostname does not exist?
+
 * logind: different policy actions for idle, suspend, shutdown blockers: allow idle blockers by default, don't allow suspend blockers by default
 
 * install README to /etc/rc.d/init.d (if support for that is enabled) helping people who use "ls" there to figure out which services exist.
