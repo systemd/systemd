@@ -54,6 +54,7 @@ static bool arg_quiet = false;
 static bool arg_local = false;
 static bool arg_this_boot = false;
 static const char *arg_directory = NULL;
+static int arg_priorities = 0xFF;
 
 static int help(void) {
 
@@ -72,6 +73,7 @@ static int help(void) {
                "  -l --local          Only local entries\n"
                "  -b --this-boot      Show data only from current boot\n"
                "  -D --directory=PATH Show journal files from directory\n"
+               "  -p --priority=RANGE Show only messages within the specified priority range\n"
                "     --header         Show journal header information\n"
                "     --new-id128      Generate a new 128 Bit id\n",
                program_invocation_short_name);
@@ -104,6 +106,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "this-boot", no_argument,       NULL, 'b'           },
                 { "directory", required_argument, NULL, 'D'           },
                 { "header",    no_argument,       NULL, ARG_HEADER    },
+                { "priority",  no_argument,       NULL, 'p'           },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -112,7 +115,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hfo:an:qlbD:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hfo:an:qlbD:p:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -182,6 +185,56 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_HEADER:
                         arg_print_header = true;
                         break;
+
+                case 'p': {
+                        const char *dots;
+
+                        dots = strstr(optarg, "..");
+                        if (dots) {
+                                char *a;
+                                int from, to, i;
+
+                                /* a range */
+                                a = strndup(optarg, dots - optarg);
+                                if (!a)
+                                        return log_oom();
+
+                                from = log_level_from_string(a);
+                                to = log_level_from_string(dots + 2);
+                                free(a);
+
+                                if (from < 0 || to < 0) {
+                                        log_error("Failed to parse log level range %s", optarg);
+                                        return -EINVAL;
+                                }
+
+                                arg_priorities = 0;
+
+                                if (from < to) {
+                                        for (i = from; i <= to; i++)
+                                                arg_priorities |= 1 << i;
+                                } else {
+                                        for (i = to; i <= from; i++)
+                                                arg_priorities |= 1 << i;
+                                }
+
+                        } else {
+                                int p, i;
+
+                                p = log_level_from_string(optarg);
+                                if (p < 0) {
+                                        log_error("Unknown log level %s", optarg);
+                                        return -EINVAL;
+                                }
+
+                                arg_priorities = 0;
+
+                                for (i = 0; i <= p; i++)
+                                        arg_priorities |= 1 << i;
+                        }
+
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -300,6 +353,8 @@ static int add_this_boot(sd_journal *j) {
         sd_id128_t boot_id;
         int r;
 
+        assert(j);
+
         if (!arg_this_boot)
                 return 0;
 
@@ -315,6 +370,31 @@ static int add_this_boot(sd_journal *j) {
                 log_error("Failed to add match: %s", strerror(-r));
                 return r;
         }
+
+        return 0;
+}
+
+static int add_priorities(sd_journal *j) {
+        char match[] = "PRIORITY=0";
+        int i, r;
+
+        assert(j);
+
+        if (arg_priorities == 0xFF)
+                return 0;
+
+        for (i = LOG_EMERG; i <= LOG_DEBUG; i++)
+                if (arg_priorities & (1 << i)) {
+                        match[sizeof(match)-2] = '0' + i;
+
+                        log_info("adding match %s", match);
+
+                        r = sd_journal_add_match(j, match, strlen(match));
+                        if (r < 0) {
+                                log_error("Failed to add match: %s", strerror(-r));
+                                return r;
+                        }
+                }
 
         return 0;
 }
@@ -366,6 +446,10 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         r = add_matches(j, argv + optind);
+        if (r < 0)
+                goto finish;
+
+        r = add_priorities(j);
         if (r < 0)
                 goto finish;
 

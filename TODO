@@ -39,6 +39,8 @@ Bugfixes:
 
 Features:
 
+* logind: different policy actions for idle, suspend, shutdown blockers: allow idle blockers by default, don't allow suspend blockers by default
+
 * install README to /etc/rc.d/init.d (if support for that is enabled) helping people who use "ls" there to figure out which services exist.
 
 * logind: ignore inactive login screens when checking whether power key should be handled
