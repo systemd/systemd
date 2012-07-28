@@ -477,6 +477,7 @@ char *unit_dbus_path_from_name(const char *name) {
 char *unit_name_mangle(const char *name) {
         char *r, *t;
         const char *f;
+        bool dot = false;
 
         assert(name);
 
@@ -493,11 +494,14 @@ char *unit_name_mangle(const char *name) {
         /* We'll only escape the obvious characters here, to play
          * safe. */
 
-        r = new(char, strlen(name) * 4 + 1);
+        r = new(char, strlen(name) * 4 + 1 + sizeof(".service")-1);
         if (!r)
                 return NULL;
 
         for (f = name, t = r; *f; f++) {
+
+                if (*f == '.')
+                        dot = true;
 
                 if (*f == '/')
                         *(t++) = '-';
@@ -507,7 +511,10 @@ char *unit_name_mangle(const char *name) {
                         *(t++) = *f;
         }
 
-        *t = 0;
+        if (!dot)
+                strcpy(t, ".service");
+        else
+                *t = 0;
 
         return r;
 }
