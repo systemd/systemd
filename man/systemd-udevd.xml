@@ -50,9 +50,10 @@
   </refsynopsisdiv>
 
   <refsect1><title>Description</title>
-    <para>systemd-udevd listens to kernel uevents. For every event, systemd-udevd executes matching
-    instructions specified in udev rules. See <citerefentry>
-        <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
+    <para><command>systemd-udevd</command> listens to kernel uevents.
+      For every event, systemd-udevd executes matching instructions
+      specified in udev rules. See <citerefentry>
+      <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
       </citerefentry>.</para>
     <para>The behavior of the running daemon can be changed with
     <command>udevadm control</command>.</para>
@@ -75,15 +76,17 @@
       <varlistentry>
         <term><option>--children-max=</option></term>
         <listitem>
-          <para>Limit the number of parallel executed events.</para>
+          <para>Limit the number of events executed in parallel.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><option>--exec-delay=</option></term>
         <listitem>
-          <para>Number of seconds to delay the execution of RUN instructions.
-          This might be useful when debugging system crashes during coldplug
-          cause by loading non-working kernel modules.</para>
+
+          <para>Delay the execution of RUN intruction by the given
+          number of seconds. This option might be useful when
+          debugging system crashes during coldplug caused by loading
+          non-working kernel modules.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -125,7 +128,8 @@
 
   <refsect1><title>Kernel command line</title>
     <variablelist>
-      <para>The parameters starting with "rd.", will be read when udev is used in an initrd.</para>
+      <para>Parameters starting with "rd." will be read when
+      <command>systemd-udevd</command> is used in an initrd.</para>
       <varlistentry>
         <term><varname>udev.log-priority=</varname></term>
         <term><varname>rd.udev.log-priority=</varname></term>
@@ -137,16 +141,17 @@
         <term><varname>udev.children-max=</varname></term>
         <term><varname>rd.udev.children-max=</varname></term>
         <listitem>
-          <para>Limit the number of parallel executed events.</para>
+          <para>Limit the number of events executed in parallel.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>udev.exec-delay=</varname></term>
         <term><varname>rd.udev.exec-delay=</varname></term>
         <listitem>
-          <para>Number of seconds to delay the execution of RUN instructions.
-          This might be useful when debugging system crashes during coldplug
-          cause by loading non-working kernel modules.</para>
+          <para>Delay the execution of RUN intruction by the given
+          number of seconds. This option might be useful when
+          debugging system crashes during coldplug caused by loading
+          non-working kernel modules.</para>
         </listitem>
       </varlistentry>
     </variablelist>
