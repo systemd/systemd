@@ -95,6 +95,7 @@ lib_LTLIBRARIES =
 include_HEADERS =
 pkgconfiglib_DATA =
 polkitpolicy_in_files =
+polkitpolicy_files =
 dist_udevrules_DATA =
 nodist_udevrules_DATA =
 dist_man_MANS =
@@ -1950,9 +1951,6 @@ lib_LTLIBRARIES += libgudev-1.0.la
 pkgconfiglib_DATA += \
 	src/gudev/gudev-1.0.pc
 
-EXTRA_DIST += \
-	src/gudev/gudev-1.0.pc.in
-
 CLEANFILES += \
 	src/gudev/gudev-1.0.pc
 
@@ -2002,14 +2000,6 @@ libgudev_1_0_la_LDFLAGS = \
 	-version-info $(LIBGUDEV_CURRENT):$(LIBGUDEV_REVISION):$(LIBGUDEV_AGE) \
 	-export-dynamic -no-undefined \
 	-export-symbols-regex '^g_udev_.*'
-
-EXTRA_DIST += \
-	src/gudev/gudevmarshal.list \
-	src/gudev/gudevenumtypes.h.template \
-	src/gudev/gudevenumtypes.c.template \
-	src/gudev/gjs-example.js \
-	src/gudev/seed-example-enum.js \
-	src/gudev/seed-example.js
 
 src/gudev/gudevmarshal.h: src/gudev/gudevmarshal.list
 	$(AM_V_GEN)glib-genmarshal $< --prefix=g_udev_marshal --header > $@
@@ -2091,6 +2081,16 @@ INSTALL_EXEC_HOOKS += libgudev-install-move-hook
 UNINSTALL_EXEC_HOOKS += libgudev-uninstall-move-hook
 endif
 
+EXTRA_DIST += \
+	src/gudev/gudev-1.0.pc.in \
+	src/gudev/gudevmarshal.list \
+	src/gudev/gudevenumtypes.h.template \
+	src/gudev/gudevenumtypes.c.template \
+	src/gudev/gjs-example.js \
+	src/gudev/seed-example-enum.js \
+	src/gudev/seed-example.js
+
+
 # ------------------------------------------------------------------------------
 if ENABLE_KEYMAP
 keymap_SOURCES = \
@@ -2125,10 +2125,6 @@ dist_udevhome_SCRIPTS = \
 
 TESTS += \
 	src/udev/keymap/check-keymaps.sh
-
-EXTRA_DIST += \
-	src/udev/keymap/check-keymaps.sh \
-	src/udev/keymap/keyboard-force-release.sh.in
 
 CLEANFILES += \
 	src/udev/keymap/keys.txt \
@@ -2218,6 +2214,10 @@ src/udev/keymap/keys-from-name.h: src/udev/keymap/keys-from-name.gperf Makefile
 src/udev/keymap/keys-to-name.h: src/udev/keymap/keys.txt Makefile
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
 endif
+
+EXTRA_DIST += \
+	src/udev/keymap/check-keymaps.sh \
+	src/udev/keymap/keyboard-force-release.sh.in
 
 # ------------------------------------------------------------------------------
 mtd_probe_SOURCES =  \
@@ -2550,12 +2550,12 @@ rootlibexec_PROGRAMS += \
 sysctl_DATA = \
 	sysctl.d/coredump.conf
 
-EXTRA_DIST += \
-	sysctl.d/coredump.conf.in
-
 CLEANFILES += \
 	sysctl.d/coredump.conf
 endif
+
+EXTRA_DIST += \
+	sysctl.d/coredump.conf.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_BINFMT
@@ -2597,10 +2597,10 @@ MANPAGES_ALIAS +=  \
 	man/systemd-binfmt.8
 
 man/systemd-binfmt.8: man/systemd-binfmt.service.8
+endif
 
 EXTRA_DIST += \
 	units/systemd-binfmt.service.in
-endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_VCONSOLE
@@ -2634,10 +2634,10 @@ MANPAGES_ALIAS += \
 	man/systemd-vconsole-setup.8
 
 man/systemd-vconsole-setup.8: man/systemd-vconsole-setup.service.8
+endif
 
 EXTRA_DIST += \
 	units/systemd-vconsole-setup.service.in
-endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_READAHEAD
@@ -2670,11 +2670,6 @@ nodist_systemunit_DATA += \
 	units/systemd-readahead-replay.service \
 	units/systemd-readahead-done.service
 
-EXTRA_DIST += \
-	units/systemd-readahead-collect.service.in \
-	units/systemd-readahead-replay.service.in \
-	units/systemd-readahead-done.service.in
-
 MANPAGES += \
 	man/sd_readahead.3 \
 	man/sd-readahead.3 \
@@ -2693,6 +2688,11 @@ man/systemd-readahead.8: man/systemd-readahead-replay.service.8
 
 endif
 
+EXTRA_DIST += \
+	units/systemd-readahead-collect.service.in \
+	units/systemd-readahead-replay.service.in \
+	units/systemd-readahead-done.service.in
+
 # ------------------------------------------------------------------------------
 if ENABLE_QUOTACHECK
 rootlibexec_PROGRAMS += \
@@ -2700,9 +2700,6 @@ rootlibexec_PROGRAMS += \
 
 nodist_systemunit_DATA += \
 	units/systemd-quotacheck.service
-
-EXTRA_DIST += \
-	units/systemd-quotacheck.service.in
 
 systemd_quotacheck_SOURCES = \
 	src/quotacheck/quotacheck.c
@@ -2720,6 +2717,9 @@ man/systemd-quotacheck.8: man/systemd-quotacheck.service.8
 
 endif
 
+EXTRA_DIST += \
+	units/systemd-quotacheck.service.in
+
 # ------------------------------------------------------------------------------
 if ENABLE_RANDOMSEED
 rootlibexec_PROGRAMS += \
@@ -2728,10 +2728,6 @@ rootlibexec_PROGRAMS += \
 nodist_systemunit_DATA += \
 	units/systemd-random-seed-save.service \
 	units/systemd-random-seed-load.service
-
-EXTRA_DIST += \
-	units/systemd-random-seed-save.service.in \
-	units/systemd-random-seed-load.service.in
 
 systemd_random_seed_SOURCES = \
 	src/random-seed/random-seed.c
@@ -2765,6 +2761,10 @@ man/systemd-random-seed-save.service.8: man/systemd-random-seed-load.service.8
 man/systemd-random-seed.8: man/systemd-random-seed-load.service.8
 
 endif
+
+EXTRA_DIST += \
+	units/systemd-random-seed-save.service.in \
+	units/systemd-random-seed-load.service.in
 
 # ------------------------------------------------------------------------------
 if HAVE_LIBCRYPTSETUP
@@ -2845,8 +2845,8 @@ dist_dbuspolicy_DATA += \
 dist_dbussystemservice_DATA += \
 	src/hostname/org.freedesktop.hostname1.service
 
-polkitpolicy_in_files += \
-	src/hostname/org.freedesktop.hostname1.policy.in
+polkitpolicy_files += \
+	src/hostname/org.freedesktop.hostname1.policy
 
 dbusinterface_DATA += \
 	org.freedesktop.hostname1.xml
@@ -2871,10 +2871,13 @@ MANPAGES_ALIAS += \
 	man/systemd-hostnamed.8
 
 man/systemd-hostnamed.8: man/systemd-hostnamed.service.8
+endif
+
+polkitpolicy_in_files += \
+	src/hostname/org.freedesktop.hostname1.policy.in
 
 EXTRA_DIST += \
 	units/systemd-hostnamed.service.in
-endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOCALED
@@ -2903,8 +2906,8 @@ dist_dbuspolicy_DATA += \
 dist_dbussystemservice_DATA += \
 	src/locale/org.freedesktop.locale1.service
 
-polkitpolicy_in_files += \
-	src/locale/org.freedesktop.locale1.policy.in
+polkitpolicy_files += \
+	src/locale/org.freedesktop.locale1.policy
 
 dbusinterface_DATA += \
 	org.freedesktop.locale1.xml
@@ -2930,9 +2933,6 @@ MANPAGES_ALIAS += \
 
 man/systemd-localed.8: man/systemd-localed.service.8
 
-EXTRA_DIST += \
-	units/systemd-localed.service.in
-
 dist_pkgdata_DATA += \
 	src/locale/kbd-model-map
 
@@ -2943,6 +2943,12 @@ update-kbd-model-map:
 	src/locale/generate-kbd-model-map > src/locale/kbd-model-map
 
 endif
+
+polkitpolicy_in_files += \
+	src/locale/org.freedesktop.locale1.policy.in
+
+EXTRA_DIST += \
+	units/systemd-localed.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_TIMEDATED
@@ -2970,8 +2976,8 @@ dist_dbuspolicy_DATA += \
 nodist_systemunit_DATA += \
 	units/systemd-timedated.service
 
-polkitpolicy_in_files += \
-	src/timedate/org.freedesktop.timedate1.policy.in
+polkitpolicy_files += \
+	src/timedate/org.freedesktop.timedate1.policy
 
 org.freedesktop.timedate1.xml: systemd-timedated
 	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.timedate1 $< $@.tmp && \
@@ -2999,10 +3005,13 @@ MANPAGES_ALIAS += \
 	man/systemd-timedated.8
 
 man/systemd-timedated.8: man/systemd-timedated.service.8
+endif
+
+polkitpolicy_in_files += \
+	src/timedate/org.freedesktop.timedate1.policy.in
 
 EXTRA_DIST += \
 	units/systemd-timedated.service.in
-endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOGIND
@@ -3204,8 +3213,8 @@ noinst_LTLIBRARIES += \
 pkgconfiglib_DATA += \
 	src/login/libsystemd-login.pc
 
-polkitpolicy_in_files += \
-	src/login/org.freedesktop.login1.policy.in
+polkitpolicy_files += \
+	src/login/org.freedesktop.login1.policy
 
 logind-install-data-hook:
 	$(MKDIR_P) -m 0755 \
@@ -3301,6 +3310,15 @@ man/sd_get_sessions.3: man/sd_get_seats.3
 man/sd_get_uids.3: man/sd_get_seats.3
 man/systemd-user-sessions.8: man/systemd-user-sessions.service.8
 
+CLEANFILES += \
+	src/login/logind-gperf.c \
+	src/login/71-seat.rules \
+	src/login/73-seat-late.rules
+endif
+
+polkitpolicy_in_files += \
+	src/login/org.freedesktop.login1.policy.in
+
 EXTRA_DIST += \
 	src/login/logind-gperf.gperf \
 	src/login/libsystemd-login.pc.in \
@@ -3310,11 +3328,6 @@ EXTRA_DIST += \
 	units/systemd-logind.service.in \
 	units/systemd-user-sessions.service.in
 
-CLEANFILES += \
-	src/login/logind-gperf.c \
-	src/login/71-seat.rules \
-	src/login/73-seat-late.rules
-endif
 # ------------------------------------------------------------------------------
 
 SED_PROCESS = \
@@ -3390,7 +3403,7 @@ units/user/%: units/%.m4 Makefile
 	$(M4_PROCESS_USER)
 
 nodist_polkitpolicy_DATA = \
-	$(polkitpolicy_in_files:.policy.in=.policy) \
+	$(polkitpolicy_files) \
 	$(polkitpolicy_in_in_files:.policy.in.in=.policy)
 
 EXTRA_DIST += \
