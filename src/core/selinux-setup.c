@@ -36,9 +36,11 @@
 #include "log.h"
 #include "label.h"
 
+#ifdef HAVE_SELINUX
 static int null_log(int type, const char *fmt, ...) {
         return 0;
 }
+#endif
 
 int selinux_setup(bool *loaded_policy) {
 
