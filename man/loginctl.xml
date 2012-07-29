@@ -243,6 +243,14 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><command>lock-sessions</command></term>
+
+                                <listitem><para>Activate the screen
+                                lock on all current sessions
+                                supporting it.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><command>terminate-session [ID...]</command></term>
 
                                 <listitem><para>Terminates a

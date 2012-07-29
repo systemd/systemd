@@ -1604,6 +1604,48 @@ finish:
         return ret;
 }
 
+static int lock_sessions(DBusConnection *bus, char **args, unsigned n) {
+        DBusMessage *m = NULL, *reply = NULL;
+        int ret = 0;
+        DBusError error;
+
+        assert(bus);
+        assert(args);
+
+        dbus_error_init(&error);
+
+        polkit_agent_open_if_enabled();
+
+        m = dbus_message_new_method_call(
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "LockSessions");
+        if (!m) {
+                log_error("Could not allocate message.");
+                ret = -ENOMEM;
+                goto finish;
+        }
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
+                ret = -EIO;
+                goto finish;
+        }
+
+finish:
+        if (m)
+                dbus_message_unref(m);
+
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return ret;
+}
+
 static int terminate_seat(DBusConnection *bus, char **args, unsigned n) {
         DBusMessage *m = NULL;
         int ret = 0;
@@ -1679,6 +1721,7 @@ static int help(void) {
                "  activate [ID]                   Activate a session\n"
                "  lock-session [ID...]            Screen lock one or more sessions\n"
                "  unlock-session [ID...]          Screen unlock one or more sessions\n"
+               "  lock-sessions                   Screen lock all current sessions\n"
                "  terminate-session [ID...]       Terminate one or more sessions\n"
                "  kill-session [ID...]            Send signal to processes of a session\n"
                "  list-users                      List users\n"
@@ -1820,6 +1863,7 @@ static int loginctl_main(DBusConnection *bus, int argc, char *argv[], DBusError 
                 { "activate",              EQUAL,  2, activate         },
                 { "lock-session",          MORE,   2, activate         },
                 { "unlock-session",        MORE,   2, activate         },
+                { "lock-sessions",         EQUAL,  1, lock_sessions    },
                 { "terminate-session",     MORE,   2, activate         },
                 { "kill-session",          MORE,   2, kill_session     },
                 { "list-users",            EQUAL,  1, list_users       },
