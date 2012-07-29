@@ -1659,16 +1659,16 @@ libudev_private_la_LIBADD = \
 MANPAGES += \
 	man/udev.7 \
 	man/udevadm.8 \
-	man/systemd-udevd.8
+	man/systemd-udevd.service.8
 
 MANPAGES_ALIAS += \
-	man/systemd-udevd.service.8 \
+	man/systemd-udevd.8 \
 	man/systemd-udevd-control.socket.8 \
 	man/systemd-udevd-kernel.socket.8
 
-man/systemd-udevd.service.8: man/systemd-udevd.8
-man/systemd-udevd-control.socket.8: man/systemd-udevd.8
-man/systemd-udevd-kernel.socket.8: man/systemd-udevd.8
+man/systemd-udevd.8: man/systemd-udevd.service.8
+man/systemd-udevd-control.socket.8: man/systemd-udevd.service.8
+man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
 
 udev-confdirs:
 	-mkdir -p $(DESTDIR)$(sysconfdir)/udev/rules.d

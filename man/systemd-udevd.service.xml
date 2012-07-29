@@ -18,16 +18,16 @@
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>systemd-udevd</refentrytitle>
+    <refentrytitle>systemd-udevd.service</refentrytitle>
     <manvolnum>8</manvolnum>
     <refmiscinfo class="version"></refmiscinfo>
   </refmeta>
 
   <refnamediv>
-    <refname>systemd-udevd</refname>
     <refname>systemd-udevd.service</refname>
     <refname>systemd-udevd-control.socket</refname>
     <refname>systemd-udevd-kernel.socket</refname>
+    <refname>systemd-udevd</refname>
     <refpurpose>Device event managing daemon</refpurpose>
   </refnamediv>
 
