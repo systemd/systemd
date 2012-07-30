@@ -22,6 +22,9 @@ SUBSYSTEM=="block", KERNEL!="ram*|loop*", ENV{DM_UUID}=="CRYPT-*", ENV{ID_PART_T
 SUBSYSTEM=="block", KERNEL=="md*", TEST!="md/array_state", ENV{SYSTEMD_READY}="0"
 SUBSYSTEM=="block", KERNEL=="md*", ATTR{md/array_state}=="|clear|inactive", ENV{SYSTEMD_READY}="0"
 
+# Ignore nbd devices in the "add" event, with "change" the nbd is ready
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="nbd*", ENV{SYSTEMD_READY}="0"
+
 # We need a hardware independent way to identify network devices. We
 # use the /sys/subsystem path for this. Current vanilla kernels don't
 # actually support that hierarchy right now, however upcoming kernels
