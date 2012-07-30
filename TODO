@@ -38,6 +38,8 @@ Bugfixes:
   the whole situation leads directly to data loss.
 
 Features:
+* remove Fedora /dev/null logic from localed.c, now that system-config-keyboard is gone
+  delete /etc/X11/xorg.conf.d/00-system-setup-keyboard.conf from spec file
 
 * wiki: document new logind LockSessions() call
 
