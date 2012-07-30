@@ -2042,16 +2042,16 @@ src_gudev_GUdev_1_0_gir_SCANNERFLAGS = \
 	--warn-all
 
 src_gudev_GUdev_1_0_gir_FILES = \
-	$(top_srcdir)/src/gudev/gudev.h \
-	$(top_srcdir)/src/gudev/gudevtypes.h \
-	$(top_srcdir)/src/gudev/gudevenums.h \
-	$(or $(wildcard $(top_builddir)/src/gudev/gudevenumtypes.h),$(top_srcdir)/src/gudev/gudevenumtypes.h) \
-	$(top_srcdir)/src/gudev/gudevclient.h \
-	$(top_srcdir)/src/gudev/gudevdevice.h \
-	$(top_srcdir)/src/gudev/gudevenumerator.h \
-	$(top_srcdir)/src/gudev/gudevclient.c \
-	$(top_srcdir)/src/gudev/gudevdevice.c \
-	$(top_srcdir)/src/gudev/gudevenumerator.c
+	src/gudev/gudev.h \
+	src/gudev/gudevtypes.h \
+	src/gudev/gudevenums.h \
+	src/gudev/gudevenumtypes.h \
+	src/gudev/gudevclient.h \
+	src/gudev/gudevdevice.h \
+	src/gudev/gudevenumerator.h \
+	src/gudev/gudevclient.c \
+	src/gudev/gudevdevice.c \
+	src/gudev/gudevenumerator.c
 
 INTROSPECTION_GIRS = src/gudev/GUdev-1.0.gir
 INTROSPECTION_SCANNER_ARGS = --c-include=gudev/gudev.h
