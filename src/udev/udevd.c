@@ -1035,14 +1035,17 @@ static void kernel_cmdline_options(struct udev *udev)
                 else
                         opt = s;
 
-                if (startswith(opt, "udev.log-priority="))
-                        udev_set_log_priority(udev, util_log_priority(opt + 18));
+                if (startswith(opt, "udev.log-priority=")) {
+                        int prio;
 
-                if (startswith(opt, "udev.children-max="))
+                        prio = util_log_priority(opt + 18);
+                        log_set_max_level(prio);
+                        udev_set_log_priority(udev, prio);
+                } else if (startswith(opt, "udev.children-max=")) {
                         children_max = strtoul(opt + 18, NULL, 0);
-
-                if (startswith(opt, "udev.exec-delay="))
+                } else if (startswith(opt, "udev.exec-delay=")) {
                         exec_delay = strtoul(opt + 16, NULL, 0);
+                }
 
                 free(s);
         }
