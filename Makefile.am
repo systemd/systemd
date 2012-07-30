@@ -677,8 +677,8 @@ CLEANFILES += \
 	man/index.html
 
 man/index.html: make-man-index.py $(XML_FILES)
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(PYTHON) $^ > $@
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(PYTHON) $^ > $@
 
 EXTRA_DIST += \
 	man/index.html
@@ -1011,8 +1011,8 @@ libsystemd_core_la_LIBADD = \
 	$(KMOD_LIBS)
 
 src/core/load-fragment-gperf-nulstr.c: src/core/load-fragment-gperf.gperf
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(AWK) 'BEGIN{ keywords=0 ; FS="," ; print "extern const char load_fragment_gperf_nulstr[];" ; print "const char load_fragment_gperf_nulstr[] ="} ; keyword==1 { print "\"" $$1 "\\0\"" } ; /%%/ { keyword=1} ; END { print ";" }' < $< > $@
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(AWK) 'BEGIN{ keywords=0 ; FS="," ; print "extern const char load_fragment_gperf_nulstr[];" ; print "const char load_fragment_gperf_nulstr[] ="} ; keyword==1 { print "\"" $$1 "\\0\"" } ; /%%/ { keyword=1} ; END { print ";" }' < $< > $@
 
 EXTRA_DIST += \
 	src/core/load-fragment-gperf.gperf.m4
@@ -1029,15 +1029,19 @@ BUILT_SOURCES += \
 	src/core/syscall-to-name.h
 
 src/core/syscall-list.txt: Makefile
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(CPP) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include sys/syscall.h - < /dev/null | $(AWK) '/^#define[ \t]+__NR_[^ ]+[ \t]+[0-9]/ { sub(/__NR_/, "", $$2); print $$2; }' > $@
 
 src/core/syscall-from-name.gperf: src/core/syscall-list.txt Makefile
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct syscall_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, __NR_%s\n", $$1, $$1 }' < $< > $@
 
 src/core/syscall-from-name.h: src/core/syscall-from-name.gperf Makefile
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_syscall -H hash_syscall_name -p -C < $< > $@
 
 src/core/syscall-to-name.h: src/core/syscall-list.txt Makefile
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const syscall_names[] = { "} { printf "[__NR_%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
 
 # ------------------------------------------------------------------------------
@@ -1515,7 +1519,7 @@ pkginclude_HEADERS += \
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-daemon-install-hook:
 	if test "$(libdir)" != "$(rootlibdir)"; then \
-		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
 		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-daemon.so) && \
 		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
 		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-daemon.so && \
@@ -1626,7 +1630,7 @@ CLEANFILES += \
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libudev-install-move-hook:
 	if test "$(libdir)" != "$(rootlibdir)"; then \
-		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
 		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libudev.so) && \
 		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
 		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libudev.so && \
@@ -1671,7 +1675,7 @@ man/systemd-udevd-control.socket.8: man/systemd-udevd.service.8
 man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
 
 udev-confdirs:
-	-mkdir -p $(DESTDIR)$(sysconfdir)/udev/rules.d
+	-$(MKDIR_P) $(DESTDIR)$(sysconfdir)/udev/rules.d
 
 INSTALL_DATA_HOOKS += udev-confdirs
 
@@ -1717,10 +1721,10 @@ CLEANFILES += \
 	units/systemd-udev-settle.service
 
 systemd-install-hook:
-	mkdir -p $(DESTDIR)$(systemunitdir)/sockets.target.wants
+	$(MKDIR_P) $(DESTDIR)$(systemunitdir)/sockets.target.wants
 	ln -sf ../systemd-udevd-control.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/systemd-udevd-control.socket
 	ln -sf ../systemd-udevd-kernel.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/systemd-udevd-kernel.socket
-	mkdir -p $(DESTDIR)$(systemunitdir)/sysinit.target.wants
+	$(MKDIR_P) $(DESTDIR)$(systemunitdir)/sysinit.target.wants
 	ln -sf ../systemd-udevd.service $(DESTDIR)$(systemunitdir)/sysinit.target.wants/systemd-udevd.service
 	ln -sf ../systemd-udev-trigger.service $(DESTDIR)$(systemunitdir)/sysinit.target.wants/systemd-udev-trigger.service
 
@@ -1836,7 +1840,8 @@ check_DATA += \
 
 # packed sysfs test tree
 test/sys:
-	$(AM_V_GEN)mkdir -p test && tar -C test/ -xJf $(top_srcdir)/test/sys.tar.xz
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)tar -C test/ -xJf $(top_srcdir)/test/sys.tar.xz
 
 test-sys-distclean:
 	-rm -rf test/sys
@@ -2002,19 +2007,17 @@ libgudev_1_0_la_LDFLAGS = \
 	-export-symbols-regex '^g_udev_.*'
 
 src/gudev/gudevmarshal.h: src/gudev/gudevmarshal.list
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)glib-genmarshal $< --prefix=g_udev_marshal --header > $@
 
 src/gudev/gudevmarshal.c: src/gudev/gudevmarshal.list
-	$(AM_V_GEN)echo "#include \"gudevmarshal.h\"" > $@ && \
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)echo '#include "gudevmarshal.h"' > $@ && \
 	glib-genmarshal $< --prefix=g_udev_marshal --body >> $@
 
-src/gudev/gudevenumtypes.h: src/gudev/gudevenumtypes.h.template src/gudev/gudevenums.h
-	$(AM_V_GEN)glib-mkenums --template $^ > \
-	    $@.tmp && mv $@.tmp $@
-
-src/gudev/gudevenumtypes.c: src/gudev/gudevenumtypes.c.template src/gudev/gudevenums.h
-	$(AM_V_GEN)glib-mkenums --template $^ > \
-	    $@.tmp && mv $@.tmp $@
+src/gudev/gudevenumtypes.%: src/gudev/gudevenumtypes.%.template src/gudev/gudevenums.h
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)glib-mkenums --template $^ > $@
 
 if HAVE_INTROSPECTION
 -include $(INTROSPECTION_MAKEFILE)
@@ -2067,7 +2070,7 @@ endif # HAVE_INTROSPECTION
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libgudev-install-move-hook:
 	if test "$(libdir)" != "$(rootlibdir)"; then \
-		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
 		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libgudev-1.0.so) && \
 		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
 		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libgudev-1.0.so && \
@@ -2202,7 +2205,7 @@ dist_udevkeymapforcerel_DATA = \
 	keymaps-force-release/common-volume-keys
 
 src/udev/keymap/keys.txt: Makefile
-	$(AM_V_at)mkdir -p src/udev/keymap
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(CPP) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/input.h - < /dev/null | $(AWK) '/^#define[ \t]+KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
 
 src/udev/keymap/keys-from-name.gperf: src/udev/keymap/keys.txt Makefile
@@ -2282,7 +2285,7 @@ pkgconfiglib_DATA += \
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-id128-install-hook:
 	if test "$(libdir)" != "$(rootlibdir)"; then \
-		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
 		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-id128.so) && \
 		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
 		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-id128.so && \
@@ -2446,7 +2449,7 @@ endif
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-journal-install-hook:
 	if test "$(libdir)" != "$(rootlibdir)"; then \
-		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
 		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-journal.so) && \
 		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
 		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-journal.so && \
@@ -3172,7 +3175,7 @@ endif
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-login-install-hook:
 	if test "$(libdir)" != "$(rootlibdir)"; then \
-		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
 		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-login.so) && \
 		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
 		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-login.so && \
@@ -3381,12 +3384,12 @@ src/%.policy.in: src/%.policy.in.in Makefile
 	$(AM_V_GEN)chmod +x $@
 
 src/%.c: src/%.gperf
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(GPERF) < $< > $@
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(GPERF) < $< > $@
 
 src/%: src/%.m4
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DEFINES) < $< > $@
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(M4) -P $(M4_DEFINES) < $< > $@
 
 M4_PROCESS_SYSTEM = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
