@@ -247,12 +247,13 @@ static int translate_bus_error_to_exit_status(int r, const DBusError *error) {
 
 static void warn_wall(enum action a) {
         static const char *table[_ACTION_MAX] = {
-                [ACTION_HALT]      = "The system is going down for system halt NOW!",
-                [ACTION_REBOOT]    = "The system is going down for reboot NOW!",
-                [ACTION_POWEROFF]  = "The system is going down for power-off NOW!",
-                [ACTION_KEXEC]     = "The system is going down for kexec reboot NOW!",
-                [ACTION_RESCUE]    = "The system is going down to rescue mode NOW!",
-                [ACTION_EMERGENCY] = "The system is going down to emergency mode NOW!"
+                [ACTION_HALT]            = "The system is going down for system halt NOW!",
+                [ACTION_REBOOT]          = "The system is going down for reboot NOW!",
+                [ACTION_POWEROFF]        = "The system is going down for power-off NOW!",
+                [ACTION_KEXEC]           = "The system is going down for kexec reboot NOW!",
+                [ACTION_RESCUE]          = "The system is going down to rescue mode NOW!",
+                [ACTION_EMERGENCY]       = "The system is going down to emergency mode NOW!",
+                [ACTION_CANCEL_SHUTDOWN] = "The system shutdown has been cancelled NOW!"
         };
 
         if (arg_no_wall)
@@ -5033,7 +5034,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (argc > optind) {
+        if (argc > optind && arg_action != ACTION_CANCEL_SHUTDOWN) {
                 r = parse_time_spec(argv[optind], &arg_when);
                 if (r < 0) {
                         log_error("Failed to parse time specification: %s", argv[optind]);
@@ -5042,8 +5043,11 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
         } else
                 arg_when = now(CLOCK_REALTIME) + USEC_PER_MINUTE;
 
-        /* We skip the time argument */
-        if (argc > optind + 1)
+        if (argc > optind && arg_action == ACTION_CANCEL_SHUTDOWN)
+                /* No time argument for shutdown cancel */
+                arg_wall = argv + optind;
+        else if (argc > optind + 1)
+                /* We skip the time argument */
                 arg_wall = argv + optind + 1;
 
         optind = argc;
@@ -5822,9 +5826,22 @@ int main(int argc, char*argv[]) {
                 r = reload_with_fallback(bus);
                 break;
 
-        case ACTION_CANCEL_SHUTDOWN:
-                r = send_shutdownd(0, 0, false, false, NULL);
+        case ACTION_CANCEL_SHUTDOWN: {
+                char *m = NULL;
+
+                if (arg_wall) {
+                        m = strv_join(arg_wall, " ");
+                        if (!m) {
+                                retval = EXIT_FAILURE;
+                                goto finish;
+                        }
+                }
+                r = send_shutdownd(arg_when, SD_SHUTDOWN_NONE, false, !arg_no_wall, m);
+                if (r < 0)
+                        log_warning("Failed to talk to shutdownd, shutdown hasn't been cancelled: %s", strerror(-r));
+                free(m);
                 break;
+        }
 
         case ACTION_INVALID:
         case ACTION_RUNLEVEL:

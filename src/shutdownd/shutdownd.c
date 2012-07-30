@@ -136,6 +136,8 @@ static void warn_wall(usec_t n, struct sd_shutdown_command *c) {
                 prefix = "The system is going down for reboot at ";
         else if (c->mode == SD_SHUTDOWN_KEXEC)
                 prefix = "The system is going down for kexec reboot at ";
+        else if (c->mode == SD_SHUTDOWN_NONE)
+                prefix = "The system shutdown has been cancelled at ";
         else
                 assert_not_reached("Unknown mode!");
 
@@ -354,6 +356,8 @@ int main(int argc, char *argv[]) {
 
                                 if (!scheduled(&b.command)) {
                                         log_info("Shutdown canceled.");
+                                        if (b.command.warn_wall)
+                                                warn_wall(0, &b.command);
                                         break;
                                 }
 
