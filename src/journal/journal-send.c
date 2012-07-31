@@ -73,8 +73,11 @@ _public_ int sd_journal_print(int priority, const char *format, ...) {
 }
 
 _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
-        char buffer[8 + LINE_MAX], p[11];
-        struct iovec iov[2];
+
+        /* FIXME: Instead of limiting things to LINE_MAX we could do a
+           C99 variable-length array on the stack here in a loop. */
+
+        char buffer[8 + LINE_MAX], p[11]; struct iovec iov[2];
 
         if (priority < 0 || priority > 7)
                 return -EINVAL;
@@ -340,6 +343,63 @@ finish:
         return r;
 }
 
+static int fill_iovec_perror_and_send(const char *message, int skip, struct iovec iov[]) {
+        size_t n, k, r;
+        int saved_errno;
+
+        saved_errno = errno;
+
+        k = isempty(message) ? 0 : strlen(message) + 2;
+        n = 8 + k + 256 + 1;
+
+        for (;;) {
+                char buffer[n];
+                char* j;
+
+                errno = 0;
+                j = strerror_r(saved_errno, buffer + 8 + k, n - 8 - k);
+                if (errno == 0) {
+                        char error[6 + 10 + 1]; /* for a 32bit value */
+
+                        if (j != buffer + 8 + k)
+                                memmove(buffer + 8 + k, j, strlen(j)+1);
+
+                        memcpy(buffer, "MESSAGE=", 8);
+
+                        if (k > 0) {
+                                memcpy(buffer + 8, message, k - 2);
+                                memcpy(buffer + 8 + k - 2, ": ", 2);
+                        }
+
+                        snprintf(error, sizeof(error), "ERRNO=%u", saved_errno);
+                        char_array_0(error);
+
+                        IOVEC_SET_STRING(iov[skip+0], "PRIORITY=3");
+                        IOVEC_SET_STRING(iov[skip+1], buffer);
+                        IOVEC_SET_STRING(iov[skip+2], error);
+
+                        r = sd_journal_sendv(iov, skip + 3);
+
+                        errno = saved_errno;
+                        return r;
+                }
+
+                if (errno != ERANGE) {
+                        r = -errno;
+                        errno = saved_errno;
+                        return r;
+                }
+
+                n *= 2;
+        }
+}
+
+_public_ int sd_journal_perror(const char *message) {
+        struct iovec iovec[3];
+
+        return fill_iovec_perror_and_send(message, 0, iovec);
+}
+
 _public_ int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix) {
         union sockaddr_union sa;
         int fd;
@@ -489,7 +549,11 @@ finish:
         return r;
 }
 
-_public_ int sd_journal_sendv_with_location(const char *file, const char *line, const char *func, const struct iovec *iov, int n) {
+_public_ int sd_journal_sendv_with_location(
+                const char *file, const char *line,
+                const char *func,
+                const struct iovec *iov, int n) {
+
         struct iovec *niov;
         char *f;
         size_t fl;
@@ -513,4 +577,25 @@ _public_ int sd_journal_sendv_with_location(const char *file, const char *line, 
         IOVEC_SET_STRING(niov[n++], f);
 
         return sd_journal_sendv(niov, n);
+}
+
+_public_ int sd_journal_perror_with_location(
+                const char *file, const char *line,
+                const char *func,
+                const char *message) {
+
+        struct iovec iov[6];
+        size_t fl;
+        char *f;
+
+        fl = strlen(func);
+        f = alloca(fl + 10);
+        memcpy(f, "CODE_FUNC=", 10);
+        memcpy(f + 10, func, fl + 1);
+
+        IOVEC_SET_STRING(iov[0], file);
+        IOVEC_SET_STRING(iov[1], line);
+        IOVEC_SET_STRING(iov[2], f);
+
+        return fill_iovec_perror_and_send(message, 3, iov);
 }

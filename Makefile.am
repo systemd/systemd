@@ -557,6 +557,7 @@ MANPAGES_ALIAS = \
 	man/sd_journal_printv.3 \
 	man/sd_journal_send.3 \
 	man/sd_journal_sendv.3 \
+	man/sd_journal_perror.3 \
 	man/SD_JOURNAL_SUPPRESS_LOCATION.3 \
 	man/sd_journal_open_directory.3 \
 	man/sd_journal_close.3 \
@@ -624,6 +625,7 @@ man/sd_id128_get_boot.3: man/sd_id128_get_machine.3
 man/sd_journal_printv.3: man/sd_journal_print.3
 man/sd_journal_send.3: man/sd_journal_print.3
 man/sd_journal_sendv.3: man/sd_journal_print.3
+man/sd_journal_perror.3: man/sd_journal_print.3
 man/SD_JOURNAL_SUPPRESS_LOCATION.3: man/sd_journal_print.3
 man/sd_journal_open_directory.3: man/sd_journal_open.3
 man/sd_journal_close.3: man/sd_journal_open.3

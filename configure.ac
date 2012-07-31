@@ -89,7 +89,6 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -W \
         -Wextra \
         -Wno-inline \
-        -Wvla \
         -Wundef \
         -Wformat=2 \
         -Wlogical-op \

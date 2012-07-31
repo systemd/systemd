@@ -133,6 +133,19 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term>ERRNO=</term>
+                                <listitem>
+                                        <para>The low-level Unix error
+                                        number causing this entry, if
+                                        any. Contains the numeric
+                                        value of
+                                        <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                        formatted as decimal
+                                        string.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term>SYSLOG_FACILITY=</term>
                                 <term>SYSLOG_IDENTIFIER=</term>
                                 <term>SYSLOG_PID=</term>

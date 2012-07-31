@@ -41,12 +41,14 @@ int sd_journal_print(int priority, const char *format, ...) __attribute__ ((form
 int sd_journal_printv(int priority, const char *format, va_list ap);
 int sd_journal_send(const char *format, ...) __attribute__((sentinel));
 int sd_journal_sendv(const struct iovec *iov, int n);
+int sd_journal_perror(const char *message);
 
 /* Used by the macros below. Don't call this directly. */
 int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) __attribute__ ((format (printf, 5, 6)));
 int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list ap);
 int sd_journal_send_with_location(const char *file, const char *line, const char *func, const char *format, ...) __attribute__((sentinel));
 int sd_journal_sendv_with_location(const char *file, const char *line, const char *func, const struct iovec *iov, int n);
+int sd_journal_perror_with_location(const char *file, const char *line, const char *func, const char *message);
 
 /* implicitly add code location to messages sent, if this is enabled */
 #ifndef SD_JOURNAL_SUPPRESS_LOCATION
@@ -58,6 +60,7 @@ int sd_journal_sendv_with_location(const char *file, const char *line, const cha
 #define sd_journal_printv(priority, format, ap) sd_journal_printv_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, format, ap)
 #define sd_journal_send(...) sd_journal_send_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
 #define sd_journal_sendv(iovec, n) sd_journal_sendv_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, iovec, n)
+#define sd_journal_perror(message) sd_journal_perror_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, message)
 
 #endif
 

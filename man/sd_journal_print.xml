@@ -47,6 +47,7 @@
                 <refname>sd_journal_printv</refname>
                 <refname>sd_journal_send</refname>
                 <refname>sd_journal_sendv</refname>
+                <refname>sd_journal_perror</refname>
                 <refname>SD_JOURNAL_SUPPRESS_LOCATION</refname>
                 <refpurpose>Submit log entries to the journal</refpurpose>
         </refnamediv>
@@ -79,6 +80,11 @@
                                 <funcdef>int <function>sd_journal_sendv</function></funcdef>
                                 <paramdef>const struct iovec *<parameter>iov</parameter></paramdef>
                                 <paramdef>int <parameter>n</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_journal_perror</function></funcdef>
+                                <paramdef>const char* <parameter>message</parameter></paramdef>
                         </funcprototype>
 
                 </funcsynopsis>
@@ -150,6 +156,21 @@
                 particularly useful to submit binary objects to the
                 journal where that is necessary.</para>
 
+                <para><function>sd_journal_perror()</function> is a
+                similar to
+                <citerefentry><refentrytitle>perror</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                and writes a message to the journal that consists of
+                the passed string, suffixed with ": " and a human
+                readable representation of the current error code
+                stored in
+                <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
+                the message string is passed as NULL or empty string
+                only the error string representation will be written,
+                prefixed with nothing. An additional journal field
+                ERRNO= is included in the entry containing the numeric
+                error code formatted as decimal string. The log
+                priority used is <literal>LOG_ERR</literal> (3).</para>
+
                 <para>Note that <function>sd_journal_send()</function>
                 is a wrapper around
                 <function>sd_journal_sendv()</function> to make it
@@ -191,8 +212,10 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
         <refsect1>
                 <title>Return Value</title>
 
-                <para>The four calls return 0 on success or a
-                negative errno-style error code.</para>
+                <para>The four calls return 0 on success or a negative
+                errno-style error code. The
+                <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                variable itself is not altered.</para>
         </refsect1>
 
         <refsect1>
@@ -217,6 +240,8 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
                         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_stream_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>perror</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 </para>
         </refsect1>

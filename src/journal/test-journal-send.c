@@ -32,5 +32,10 @@ int main(int argc, char *argv[]) {
                         "VALUE=%i", 7,
                         NULL);
 
+        errno = ENOENT;
+        sd_journal_perror("Foobar");
+
+        sd_journal_perror("");
+
         return 0;
 }
