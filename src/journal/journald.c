@@ -1174,6 +1174,7 @@ static void process_syslog_message(Server *s, const char *buf, struct ucred *ucr
         free(syslog_priority);
         free(syslog_facility);
         free(syslog_identifier);
+        free(syslog_pid);
 }
 
 static bool valid_user_field(const char *p, size_t l) {
