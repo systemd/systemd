@@ -41,6 +41,8 @@ Features:
 * remove Fedora /dev/null logic from localed.c, now that system-config-keyboard is gone
   delete /etc/X11/xorg.conf.d/00-system-setup-keyboard.conf from spec file
 
+* dracut-shutdown needs to be ordered before unmounting /boot
+
 * wiki: document new logind LockSessions() call
 
 * initialize the hostname from the fs label of /, if /etc/hostname does not exist?
