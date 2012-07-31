@@ -210,11 +210,9 @@ ssize_t udev_queue_read_devpath(FILE *queue_file, char *devpath, size_t size)
 
 static FILE *open_queue_file(struct udev_queue *udev_queue, unsigned long long int *seqnum_start)
 {
-        char filename[UTIL_PATH_SIZE];
         FILE *queue_file;
 
-        util_strscpyl(filename, sizeof(filename), "/run/udev/queue.bin", NULL);
-        queue_file = fopen(filename, "re");
+        queue_file = fopen("/run/udev/queue.bin", "re");
         if (queue_file == NULL)
                 return NULL;
 
