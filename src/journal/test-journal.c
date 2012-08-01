@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
 
         log_error("Exiting...");
 
-        assert_se(rm_rf(t, false, true, false) >= 0);
+        assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
 
         return 0;
 }

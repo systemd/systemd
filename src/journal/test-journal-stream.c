@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
 
         sd_journal_close(j);
 
-        assert_se(rm_rf(t, false, true, false) >= 0);
+        assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
 
         return 0;
 }
