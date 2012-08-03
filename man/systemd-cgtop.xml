@@ -110,6 +110,13 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Prints a version string and
+                                exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-p</option></term>
 
                                 <listitem><para>Order by control group
@@ -140,6 +147,29 @@
                                 <term><option>-i</option></term>
 
                                 <listitem><para>Order by disk I/O load.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-b</option></term>
+                                <term><option>--batch</option></term>
+
+                                <listitem><para>Run in "batch" mode:
+                                do not accept input and run until the
+                                iteration limit set with
+                                <option>--iterations</option> is
+                                exhausted or until killed. This mode
+                                could be useful for sending output
+                                from <command>systemd-cgtop</command>
+                                to other programs or to a
+                                file.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-n</option></term>
+                                <term><option>--iterations=</option></term>
+
+                                <listitem><para>Perform only this many
+                                iterations.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

@@ -41,8 +41,6 @@ Features:
 * remove Fedora /dev/null logic from localed.c, now that system-config-keyboard is gone
   delete /etc/X11/xorg.conf.d/00-system-setup-keyboard.conf from spec file
 
-* update cgtop man page to be in sync with --help
-
 * journal: expose current disk usage
 
 * logind: return EBUSY when a session is created on a seat+VT that already has one.
