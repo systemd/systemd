@@ -1427,8 +1427,6 @@ systemctl_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-journal-internal.la \
-	libsystemd-id128-internal.la \
 	libsystemd-dbus.la \
 	libsystemd-logs.la
 
