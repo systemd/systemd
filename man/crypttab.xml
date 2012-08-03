@@ -131,6 +131,18 @@
 
 
                         <varlistentry>
+                                <term><varname>keyfile-size=</varname></term>
+
+                                <listitem><para>Specifies the maximum number
+                                of bytes to read from the keyfile; see
+                                <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                for possible values and the default
+                                value of this option. This option is ignored
+                                in plain encryption mode, as the keyfile-size is then given by the key size.</para></listitem>
+                        </varlistentry>
+
+
+                        <varlistentry>
                                 <term><varname>keyfile-offset=</varname></term>
 
                                 <listitem><para>Specifies the number

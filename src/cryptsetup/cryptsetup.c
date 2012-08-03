@@ -37,6 +37,7 @@
 static const char *opt_type = NULL; /* LUKS1 or PLAIN */
 static char *opt_cipher = NULL;
 static unsigned opt_key_size = 0;
+static unsigned opt_keyfile_size = 0;
 static unsigned opt_keyfile_offset = 0;
 static char *opt_hash = NULL;
 static unsigned opt_tries = 0;
@@ -77,6 +78,13 @@ static int parse_one_option(const char *option) {
 
                 if (safe_atou(option+5, &opt_key_size) < 0) {
                         log_error("size= parse failure, ignoring.");
+                        return 0;
+                }
+
+        } else if (startswith(option, "keyfile-size=")) {
+
+                if (safe_atou(option+13, &opt_keyfile_size) < 0) {
+                        log_error("keyfile-size= parse failure, ignoring.");
                         return 0;
                 }
 
@@ -238,7 +246,6 @@ int main(int argc, char *argv[]) {
         char **passwords = NULL, *truncated_cipher = NULL;
         const char *cipher = NULL, *cipher_mode = NULL, *hash = NULL, *name = NULL;
         char *description = NULL, *name_buffer = NULL, *mount_point = NULL;
-        unsigned keyfile_size = 0;
 
         if (argc <= 1) {
                 help();
@@ -437,6 +444,11 @@ int main(int argc, char *argv[]) {
                                 zero(params);
                                 params.hash = hash;
 
+                                /* for CRYPT_PLAIN limit reads
+                                * from keyfile to key length, and
+                                * ignore keyfile-size */
+                                opt_keyfile_size = opt_key_size / 8;
+
                                 /* In contrast to what the name
                                  * crypt_setup() might suggest this
                                  * doesn't actually format anything,
@@ -448,14 +460,10 @@ int main(int argc, char *argv[]) {
                                                  cipher_mode,
                                                  NULL,
                                                  NULL,
-                                                 opt_key_size / 8,
+                                                 opt_keyfile_size,
                                                  &params);
 
                                 pass_volume_key = streq(hash, "plain");
-
-                               /* for CRYPT_PLAIN limit reads
-                                * from keyfile to key length */
-                                keyfile_size = opt_key_size / 8;
                         }
 
                         if (k < 0) {
@@ -470,7 +478,7 @@ int main(int argc, char *argv[]) {
                                  argv[3]);
 
                         if (key_file)
-                                k = crypt_activate_by_keyfile_offset(cd, argv[2], CRYPT_ANY_SLOT, key_file, keyfile_size,
+                                k = crypt_activate_by_keyfile_offset(cd, argv[2], CRYPT_ANY_SLOT, key_file, opt_keyfile_size,
                                             opt_keyfile_offset, flags);
                         else {
                                 char **p;
