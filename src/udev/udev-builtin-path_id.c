@@ -236,7 +236,23 @@ static struct udev_device *handle_scsi_default(struct udev_device *parent, char 
         if (sscanf(name, "%d:%d:%d:%d", &host, &bus, &target, &lun) != 4)
                 return NULL;
 
-        /* rebase host offset to get the local relative number */
+        /*
+         * Rebase host offset to get the local relative number
+         *
+         * Note: This is by definition racy, unreliable and too simple.
+         * Please do not copy this model anywhere. It's just a left-over
+         * from the time we had no idea how things should look like in
+         * the end.
+         *
+         * Making assumptions about a global in-kernel counter and use
+         * that to calculate a local offset is a very broken concept. It
+         * can only work as long as things are in strict order.
+         *
+         * The kernel needs to export the instance/port number of a
+         * controller directly, without the need for rebase magic like
+         * this. Manual driver unbind/bind, parallel hotplug/unplug will
+         * get into the way of this "I hope it works" logic.
+         */
         basenum = -1;
         base = strdup(udev_device_get_syspath(hostdev));
         if (base == NULL)
