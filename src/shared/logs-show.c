@@ -246,7 +246,7 @@ static int output_short(sd_journal *j, unsigned line, unsigned n_columns,
                 char bytes[FORMAT_BYTES_MAX];
                 printf(": [%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
         } else if ((flags & OUTPUT_FULL_WIDTH) ||
-                   (message_len + n < n_columns))
+                   (message_len + n + 1 < n_columns))
                 printf(": %s%.*s%s\n", color_on, (int) message_len, message, color_off);
         else if (n < n_columns && n_columns - n - 2 >= 3) {
                 char *e;
