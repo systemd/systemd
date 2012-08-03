@@ -38,6 +38,11 @@ Bugfixes:
   the whole situation leads directly to data loss.
 
 Features:
+
+* add proper journal support to "systemctl --user status ..."
+
+* add _SYSTEMD_USER_UNIT= field to journal entries
+
 * remove Fedora /dev/null logic from localed.c, now that system-config-keyboard is gone
   delete /etc/X11/xorg.conf.d/00-system-setup-keyboard.conf from spec file
 
