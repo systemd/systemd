@@ -40,7 +40,7 @@ static int delete_rule(const char *rule) {
         assert(rule[0]);
 
         if (!(x = strdup(rule)))
-                return -ENOMEM;
+                return log_oom();
 
         e = strchrnul(x+1, x[0]);
         *e = 0;
@@ -49,7 +49,7 @@ static int delete_rule(const char *rule) {
         free(x);
 
         if (!fn)
-                return -ENOMEM;
+                return log_oom();
 
         r = write_one_line_file(fn, "-1");
         free(fn);

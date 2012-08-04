@@ -168,12 +168,12 @@ _noreturn_ static void crash(int sig) {
 
                 pid = fork();
                 if (pid < 0)
-                        log_error("Failed to fork off crash shell: %s", strerror(errno));
+                        log_error("Failed to fork off crash shell: %m");
                 else if (pid == 0) {
                         make_console_stdio();
                         execl("/bin/sh", "/bin/sh", NULL);
 
-                        log_error("execl() failed: %s", strerror(errno));
+                        log_error("execl() failed: %m");
                         _exit(1);
                 }
 
@@ -350,12 +350,12 @@ static int parse_proc_cmdline_word(const char *word) {
                 if (!eq) {
                         r = unsetenv(cenv);
                         if (r < 0)
-                                log_warning("unsetenv failed %s. Ignoring.", strerror(errno));
+                                log_warning("unsetenv failed %m. Ignoring.");
                 } else {
                         *eq = 0;
                         r = setenv(cenv, eq + 1, 1);
                         if (r < 0)
-                                log_warning("setenv failed %s. Ignoring.", strerror(errno));
+                                log_warning("setenv failed %m. Ignoring.");
                 }
                 free(cenv);
 
@@ -495,14 +495,14 @@ static int config_parse_cpu_affinity2(
                 unsigned cpu;
 
                 if (!(t = strndup(w, l)))
-                        return -ENOMEM;
+                        return log_oom();
 
                 r = safe_atou(t, &cpu);
                 free(t);
 
                 if (!c)
                         if (!(c = cpu_set_malloc(&ncpus)))
-                                return -ENOMEM;
+                                return log_oom();
 
                 if (r < 0 || cpu >= ncpus) {
                         log_error("[%s:%u] Failed to parse CPU affinity: %s", filename, line, rvalue);
@@ -568,7 +568,7 @@ static int config_parse_join_controllers(
 
                 s = strndup(w, length);
                 if (!s)
-                        return -ENOMEM;
+                        return log_oom();
 
                 l = strv_split(s, ",");
                 free(s);
@@ -584,7 +584,7 @@ static int config_parse_join_controllers(
                         arg_join_controllers = new(char**, 2);
                         if (!arg_join_controllers) {
                                 strv_free(l);
-                                return -ENOMEM;
+                                return log_oom();
                         }
 
                         arg_join_controllers[0] = l;
@@ -598,7 +598,7 @@ static int config_parse_join_controllers(
                         t = new0(char**, n+2);
                         if (!t) {
                                 strv_free(l);
-                                return -ENOMEM;
+                                return log_oom();
                         }
 
                         n = 0;
@@ -612,7 +612,7 @@ static int config_parse_join_controllers(
                                         if (!c) {
                                                 strv_free(l);
                                                 strv_free_free(t);
-                                                return -ENOMEM;
+                                                return log_oom();
                                         }
 
                                         strv_free(l);
@@ -624,7 +624,7 @@ static int config_parse_join_controllers(
                                         if (!c) {
                                                 strv_free(l);
                                                 strv_free_free(t);
-                                                return -ENOMEM;
+                                                return log_oom();
                                         }
 
                                         t[n++] = c;
@@ -729,8 +729,10 @@ static int parse_proc_cmdline(void) {
                 r = parse_proc_cmdline_word(word);
                 free(word);
 
-                if (r < 0)
+                if (r < 0) {
+                        log_error("Failed on cmdline argument %s: %s", word, strerror(-r));
                         goto finish;
+                }
         }
 
         r = 0;
@@ -1017,8 +1019,10 @@ static int parse_argv(int argc, char *argv[]) {
                  * instead. */
 
                 for (a = argv; a < argv + argc; a++)
-                        if ((r = parse_proc_cmdline_word(*a)) < 0)
+                        if ((r = parse_proc_cmdline_word(*a)) < 0) {
+                                log_error("Failed on cmdline argument %s: %s", *a, strerror(-r));
                                 return r;
+                        }
         }
 
         return 0;
@@ -1293,8 +1297,10 @@ int main(int argc, char *argv[]) {
         }
 
         /* Initialize default unit */
-        if (set_default_unit(SPECIAL_DEFAULT_TARGET) < 0)
+        if (r == set_default_unit(SPECIAL_DEFAULT_TARGET) < 0) {
+                log_error("Failed to set default unit %s: %s", SPECIAL_DEFAULT_TARGET, strerror(-r));
                 goto finish;
+        }
 
         /* By default, mount "cpu" and "cpuacct" together */
         arg_join_controllers = new(char**, 2);

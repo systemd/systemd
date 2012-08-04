@@ -479,7 +479,7 @@ Regularly:
 
 * Use PR_SET_PROCTITLE_AREA if it becomes available in the kernel
 
-* %m in printf() instead of strerror();
+* %m in printf() instead of strerror(errno);
 
 * pahole
 

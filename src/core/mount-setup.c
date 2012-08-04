@@ -190,8 +190,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
 
         controllers = set_new(string_hash_func, string_compare_func);
         if (!controllers) {
-                r = -ENOMEM;
-                log_error("Failed to allocate controller set.");
+                r = log_oom();
                 goto finish;
         }
 
@@ -262,9 +261,8 @@ int mount_cgroup_controllers(char ***join_controllers) {
 
                         options = strv_join(*k, ",");
                         if (!options) {
-                                log_error("Failed to join options");
                                 free(controller);
-                                r = -ENOMEM;
+                                r = log_oom();
                                 goto finish;
                         }
 
@@ -275,9 +273,8 @@ int mount_cgroup_controllers(char ***join_controllers) {
 
                 where = strappend("/sys/fs/cgroup/", options);
                 if (!where) {
-                        log_error("Failed to build path");
                         free(options);
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
@@ -306,8 +303,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
 
                                 t = strappend("/sys/fs/cgroup/", *i);
                                 if (!t) {
-                                        log_error("Failed to build path");
-                                        r = -ENOMEM;
+                                        r = log_oom();
                                         free(options);
                                         goto finish;
                                 }

@@ -782,5 +782,10 @@ finish:
         group_hashmap_free(a);
         group_hashmap_free(b);
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        if (r < 0) {
+                log_error("Exiting with failure: %s", strerror(-r));
+                return EXIT_FAILURE;
+        }
+
+        return EXIT_SUCCESS;
 }
