@@ -133,8 +133,6 @@ Features:
   /sys/firmware/efi/vars/LoaderTicksStartMenu-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f/data
   (only set if the menu was active)
 
-* new dependency type to "group" services in a target
-
 * change Requires=basic.target to RequisiteOverride=basic.target
 
 * support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
@@ -269,8 +267,6 @@ Features:
 
 * logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
 
-* write RPM spec macros for presets
-
 * journal: API for looking for retrieving "all values of this field"
 
 * journal: deal nicely with byte-by-byte copied files, especially regards header
@@ -309,8 +305,6 @@ Features:
   for every user in /run/user/$USER with a configured maximum size
 
 * default to actual 32bit PIDs, via /proc/sys/kernel/pid_max
-
-* add an option to make mounts private/shareable and so on, enable this for root by default
 
 * be able to specify a forced restart of service A where service B depends on, in case B
   needs to be auto-respawned?
@@ -415,7 +409,7 @@ Features:
     http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=99ee5315dac6211e972fa3f23bcc9a0343ff58c4
 
 * implicitly import "defaults" settings file into all types
-* exec settings override
+
 * writable cgroups dbus properties for live changes
 
 * read config fragments for all units from /lib/systemd/system/foobar.service.d/ to override/extend specific settings
