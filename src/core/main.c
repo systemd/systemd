@@ -1297,7 +1297,8 @@ int main(int argc, char *argv[]) {
         }
 
         /* Initialize default unit */
-        if (r == set_default_unit(SPECIAL_DEFAULT_TARGET) < 0) {
+        r = set_default_unit(SPECIAL_DEFAULT_TARGET);
+        if (r < 0) {
                 log_error("Failed to set default unit %s: %s", SPECIAL_DEFAULT_TARGET, strerror(-r));
                 goto finish;
         }
