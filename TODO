@@ -49,8 +49,6 @@ Features:
 
 * .journal~ files should be parsed too
 
-* use mount --make-shared on / by default
-
 * allow services with no ExecStart= but with an ExecStop=
 
 * add proper journal support to "systemctl --user status ..."
