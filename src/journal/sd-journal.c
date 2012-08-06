@@ -1098,7 +1098,9 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
 
         if ((j->flags & SD_JOURNAL_SYSTEM_ONLY) &&
             !(streq(filename, "system.journal") ||
-             (startswith(filename, "system@") && endswith(filename, ".journal"))))
+              streq(filename, "system.journal~") ||
+              (startswith(filename, "system@") &&
+               (endswith(filename, ".journal") || endswith(filename, ".journal~")))))
                 return 0;
 
         path = strjoin(prefix, "/", filename, NULL);
@@ -1246,7 +1248,8 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                 if (r != 0 || !de)
                         break;
 
-                if (dirent_is_file_with_suffix(de, ".journal")) {
+                if (dirent_is_file_with_suffix(de, ".journal") ||
+                    dirent_is_file_with_suffix(de, ".journal~")) {
                         r = add_file(j, m->path, de->d_name);
                         if (r < 0)
                                 log_debug("Failed to add file %s/%s: %s", m->path, de->d_name, strerror(-r));
@@ -1324,7 +1327,8 @@ static int add_root_directory(sd_journal *j, const char *p) {
                 if (r != 0 || !de)
                         break;
 
-                if (dirent_is_file_with_suffix(de, ".journal")) {
+                if (dirent_is_file_with_suffix(de, ".journal") ||
+                    dirent_is_file_with_suffix(de, ".journal~")) {
                         r = add_file(j, m->path, de->d_name);
                         if (r < 0)
                                 log_debug("Failed to add file %s/%s: %s", m->path, de->d_name, strerror(-r));
@@ -1823,7 +1827,9 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
         if (d) {
                 sd_id128_t id;
 
-                if (!(e->mask & IN_ISDIR) && e->len > 0 && endswith(e->name, ".journal")) {
+                if (!(e->mask & IN_ISDIR) && e->len > 0 &&
+                    (endswith(e->name, ".journal") ||
+                     endswith(e->name, ".journal~"))) {
 
                         /* Event for a journal file */
 
