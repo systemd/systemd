@@ -1,4 +1,12 @@
 Bugfixes:
+* kill /etc/timezone handling entirely? What does it provide?
+  - /etc/localtime carries the same information already:
+      $ ls -l /etc/localtime; cat /etc/timezone
+      lrwxrwxrwx 1 root root 33 Jul 27 09:55 /etc/localtime -> /usr/share/zoneinfo/Europe/Berlin
+      Europe/Berlin
+  - systemd enforces /usr to be available at bootup, so we can
+    enforce the use of the symlink
+
 * remove MS_SHARED from src/core/execute.c and src/test/test-ns.c. They are always combined
   with MS_REMOUNT, which currently does nothing in the kernel, but might which fail in the
   future; https://bugzilla.redhat.com/show_bug.cgi?id=813563
