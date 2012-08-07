@@ -386,7 +386,6 @@ EXTRA_DIST += \
 
 if TARGET_FEDORA
 dist_systemunit_DATA += \
-	units/fedora/prefdm.service \
 	units/fedora/rc-local.service \
 	units/fedora/halt-local.service
 systemgenerator_PROGRAMS += \
@@ -395,7 +394,6 @@ endif
 
 if TARGET_MANDRIVA
 dist_systemunit_DATA += \
-	units/mandriva/prefdm.service \
 	units/fedora/rc-local.service \
 	units/fedora/halt-local.service
 systemgenerator_PROGRAMS += \
@@ -417,7 +415,6 @@ endif
 
 if TARGET_MAGEIA
 dist_systemunit_DATA += \
-	units/mageia/prefdm.service \
 	units/fedora/rc-local.service \
 	units/fedora/halt-local.service
 systemgenerator_PROGRAMS += \
@@ -3593,15 +3590,12 @@ systemd-install-data-hook:
 if TARGET_FEDORA
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f display-manager.service single.service && \
-		$(LN_S) prefdm.service display-manager.service && \
 		$(LN_S) rescue.service single.service )
 endif
 
 if TARGET_MANDRIVA
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f display-manager.service dm.service single.service && \
-		$(LN_S) prefdm.service display-manager.service && \
-		$(LN_S) prefdm.service dm.service && \
 		$(LN_S) rescue.service single.service )
 endif
 
@@ -3619,9 +3613,7 @@ endif
 
 if TARGET_MAGEIA
 	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f display-manager.service && \
-		$(LN_S) prefdm.service display-manager.service && \
-		$(LN_S) prefdm.service dm.service )
+		rm -f display-manager.service )
 endif
 
 install-exec-hook: $(INSTALL_EXEC_HOOKS)
