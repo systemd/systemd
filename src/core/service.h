@@ -120,7 +120,8 @@ struct Service {
         char *pid_file;
 
         usec_t restart_usec;
-        usec_t timeout_usec;
+        usec_t timeout_start_usec;
+        usec_t timeout_stop_usec;
 
         dual_timestamp watchdog_timestamp;
         usec_t watchdog_usec;
@@ -166,7 +167,7 @@ struct Service {
         bool bus_name_good:1;
         bool forbid_restart:1;
         bool got_socket_fd:1;
-        bool timeout_defined:1;
+        bool start_timeout_defined:1;
 #ifdef HAVE_SYSV_COMPAT
         bool is_sysv:1;
         bool sysv_has_lsb:1;

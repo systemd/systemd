@@ -1376,10 +1376,16 @@ int config_parse_service_timeout(
 
         r = config_parse_usec(filename, line, section, lvalue, ltype, rvalue, data, userdata);
 
-        if (!r)
-                s->timeout_defined = true;
+        if (r)
+                return r;
 
-        return r;
+        if (streq(lvalue, "TimeoutSec")) {
+                s->start_timeout_defined = true;
+                s->timeout_stop_usec = s->timeout_start_usec;
+        } else if (streq(lvalue, "TimeoutStartSec"))
+                s->start_timeout_defined = true;
+
+        return 0;
 }
 
 int config_parse_unit_env_file(

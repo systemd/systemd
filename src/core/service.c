@@ -134,7 +134,8 @@ static void service_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        s->timeout_usec = DEFAULT_TIMEOUT_USEC;
+        s->timeout_start_usec = DEFAULT_TIMEOUT_USEC;
+        s->timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
         s->restart_usec = DEFAULT_RESTART_USEC;
         s->type = _SERVICE_TYPE_INVALID;
 
@@ -914,9 +915,13 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 UNIT(s)->default_dependencies = false;
 
                 /* Don't timeout special services during boot (like fsck) */
-                s->timeout_usec = 0;
-        } else
-                s->timeout_usec = DEFAULT_SYSV_TIMEOUT_USEC;
+                s->timeout_start_usec = 0;
+                s->timeout_stop_usec = 0;
+        } else {
+                s->timeout_start_usec = DEFAULT_SYSV_TIMEOUT_USEC;
+                s->timeout_stop_usec = DEFAULT_SYSV_TIMEOUT_USEC;
+        }
+
 
         /* Special setting for all SysV services */
         s->type = SERVICE_FORKING;
@@ -1241,9 +1246,9 @@ static int service_load(Unit *u) {
                 if (s->type == _SERVICE_TYPE_INVALID)
                         s->type = s->bus_name ? SERVICE_DBUS : SERVICE_SIMPLE;
 
-                /* Oneshot services have disabled timeout by default */
-                if (s->type == SERVICE_ONESHOT && !s->timeout_defined)
-                        s->timeout_usec = 0;
+                /* Oneshot services have disabled start timeout by default */
+                if (s->type == SERVICE_ONESHOT && !s->start_timeout_defined)
+                        s->timeout_start_usec = 0;
 
                 service_fix_output(s);
 
@@ -1603,11 +1608,10 @@ static int service_coldplug(Unit *u) {
                     s->deserialized_state == SERVICE_FINAL_SIGTERM ||
                     s->deserialized_state == SERVICE_FINAL_SIGKILL ||
                     s->deserialized_state == SERVICE_AUTO_RESTART) {
-
-                        if (s->deserialized_state == SERVICE_AUTO_RESTART || s->timeout_usec > 0) {
+                        if (s->deserialized_state == SERVICE_AUTO_RESTART || s->timeout_start_usec > 0) {
                                 usec_t k;
 
-                                k = s->deserialized_state == SERVICE_AUTO_RESTART ? s->restart_usec : s->timeout_usec;
+                                k = s->deserialized_state == SERVICE_AUTO_RESTART ? s->restart_usec : s->timeout_start_usec;
 
                                 if ((r = unit_watch_timer(UNIT(s), k, &s->timer_watch)) < 0)
                                         return r;
@@ -1753,8 +1757,9 @@ static int service_spawn(
                 }
         }
 
-        if (timeout && s->timeout_usec) {
-                if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
+        if (timeout && s->timeout_start_usec) {
+                r = unit_watch_timer(UNIT(s), s->timeout_start_usec, &s->timer_watch);
+                if (r < 0)
                         goto fail;
         } else
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
@@ -2011,9 +2016,11 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
         }
 
         if (wait_for_exit) {
-                if (s->timeout_usec > 0)
-                        if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
+                if (s->timeout_stop_usec > 0) {
+                        r = unit_watch_timer(UNIT(s), s->timeout_stop_usec, &s->timer_watch);
+                        if (r < 0)
                                 goto fail;
+                }
 
                 service_set_state(s, state);
         } else if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL)
