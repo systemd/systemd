@@ -77,8 +77,8 @@ expand_content_files=
 # be listed only once.
 # Kill CFLAGS here because gtk-doc thinks adding CFLAGS to CC _and_ also
 # adding CFLAGS itself again would work.
-CFLAGS=
-LDFLAGS=
+override CFLAGS=
+override LDFLAGS=
 
 # CFLAGS and LDFLAGS for compiling gtkdoc-scangobj with your library.
 # Only needed if you are using gtkdoc-scangobj to dynamically query widget
