@@ -86,7 +86,6 @@ AM_CONDITIONAL([HAVE_PYTHON], [test "$PYTHON" != :])
 CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -pipe \
         -Wall \
-        -W \
         -Wextra \
         -Wno-inline \
         -Wundef \
