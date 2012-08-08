@@ -53,6 +53,8 @@ Bugfixes:
 
 Features:
 
+* use opterr = 0 for all getopt tools
+
 * properly handle loop back mounts via fstab, especially regards to fsck/passno
 
 * allow services with no ExecStart= but with an ExecStop=
