@@ -1,7 +1,7 @@
 /*
  * load kernel modules
  *
- * Copyright (C) 2011-21012 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2011-2012 Kay Sievers <kay.sievers@vrfy.org>
  * Copyright (C) 2011 ProFUSION embedded systems
  *
  * This program is free software: you can redistribute it and/or modify
