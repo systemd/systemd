@@ -2417,7 +2417,7 @@ dist_udevkeymap_DATA = \
 	keymaps/onkyo \
 	keymaps/oqo-model2 \
 	keymaps/samsung-other \
-	keymaps/samsung-90x3a \
+	keymaps/samsung-series-9 \
 	keymaps/samsung-sq1us \
 	keymaps/samsung-sx20s \
 	keymaps/toshiba-satellite_a100 \
@@ -2431,7 +2431,7 @@ dist_udevkeymapforcerel_DATA = \
 	keymaps-force-release/dell-xps \
 	keymaps-force-release/hp-other \
 	keymaps-force-release/samsung-other \
-	keymaps-force-release/samsung-90x3a \
+	keymaps-force-release/samsung-series-9 \
 	keymaps-force-release/common-volume-keys
 
 src/udev/keymap/keys.txt: Makefile
