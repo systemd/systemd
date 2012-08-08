@@ -87,34 +87,24 @@ static void polkit_agent_open_if_enabled(void) {
 }
 
 static int list_sessions(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
+        DBusMessage *reply = NULL;
         int r;
         DBusMessageIter iter, sub, sub2;
         unsigned k = 0;
 
-        dbus_error_init(&error);
-
-        assert(bus);
-
         pager_open_if_enabled();
 
-        m = dbus_message_new_method_call(
+        r = bus_method_call_with_reply (
+                        bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
-                        "ListSessions");
-        if (!m) {
-                log_error("Could not allocate message.");
-                return -ENOMEM;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
+                        "ListSessions",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
@@ -164,46 +154,31 @@ static int list_sessions(DBusConnection *bus, char **args, unsigned n) {
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         return r;
 }
 
 static int list_users(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
+        DBusMessage *reply = NULL;
         int r;
         DBusMessageIter iter, sub, sub2;
         unsigned k = 0;
 
-        dbus_error_init(&error);
-
-        assert(bus);
-
         pager_open_if_enabled();
 
-        m = dbus_message_new_method_call(
+        r = bus_method_call_with_reply (
+                        bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
-                        "ListUsers");
-        if (!m) {
-                log_error("Could not allocate message.");
-                return -ENOMEM;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
+                        "ListUsers",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_INVALID);
+        if (r)
+              goto finish;
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
@@ -251,46 +226,31 @@ static int list_users(DBusConnection *bus, char **args, unsigned n) {
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         return r;
 }
 
 static int list_seats(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
+        DBusMessage *reply = NULL;
         int r;
         DBusMessageIter iter, sub, sub2;
         unsigned k = 0;
 
-        dbus_error_init(&error);
-
-        assert(bus);
-
         pager_open_if_enabled();
 
-        m = dbus_message_new_method_call(
+        r = bus_method_call_with_reply (
+                        bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
-                        "ListSeats");
-        if (!m) {
-                log_error("Could not allocate message.");
-                return -ENOMEM;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
+                        "ListSeats",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
@@ -336,13 +296,8 @@ static int list_seats(DBusConnection *bus, char **args, unsigned n) {
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         return r;
 }
@@ -907,16 +862,14 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 }
 
 static int show_one(const char *verb, DBusConnection *bus, const char *path, bool show_properties, bool *new_line) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         const char *interface = "";
         int r;
-        DBusError error;
         DBusMessageIter iter, sub, sub2, sub3;
         SessionStatusInfo session_info;
         UserStatusInfo user_info;
         SeatStatusInfo seat_info;
 
-        assert(bus);
         assert(path);
         assert(new_line);
 
@@ -924,33 +877,18 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
         zero(user_info);
         zero(seat_info);
 
-        dbus_error_init(&error);
-
-        m = dbus_message_new_method_call(
+        r = bus_method_call_with_reply (
+                        bus,
                         "org.freedesktop.login1",
                         path,
                         "org.freedesktop.DBus.Properties",
-                        "GetAll");
-        if (!m) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
+                        "GetAll",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &interface,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
@@ -1025,19 +963,14 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         return r;
 }
 
 static int show(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         int r, ret = 0;
         DBusError error;
         unsigned i;
@@ -1066,24 +999,16 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
 
                 if (strstr(args[0], "session")) {
 
-                        m = dbus_message_new_method_call(
+                        ret = bus_method_call_with_reply (
+                                        bus,
                                         "org.freedesktop.login1",
                                         "/org/freedesktop/login1",
                                         "org.freedesktop.login1.Manager",
-                                        "GetSession");
-                        if (!m) {
-                                log_error("Could not allocate message.");
-                                ret = -ENOMEM;
-                                goto finish;
-                        }
-
-                        if (!dbus_message_append_args(m,
-                                                      DBUS_TYPE_STRING, &args[i],
-                                                      DBUS_TYPE_INVALID)) {
-                                log_error("Could not append arguments to message.");
-                                ret = -ENOMEM;
-                                goto finish;
-                        }
+                                        "GetSession",
+                                        &reply,
+                                        NULL,
+                                        DBUS_TYPE_STRING, &args[i],
+                                        DBUS_TYPE_INVALID);
 
                 } else if (strstr(args[0], "user")) {
                         uid_t uid;
@@ -1095,53 +1020,32 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                                 goto finish;
                         }
 
-                        m = dbus_message_new_method_call(
+                        u = (uint32_t) uid;
+                        ret = bus_method_call_with_reply (
+                                        bus,
                                         "org.freedesktop.login1",
                                         "/org/freedesktop/login1",
                                         "org.freedesktop.login1.Manager",
-                                        "GetUser");
-                        if (!m) {
-                                log_error("Could not allocate message.");
-                                ret = -ENOMEM;
-                                goto finish;
-                        }
-
-                        u = (uint32_t) uid;
-                        if (!dbus_message_append_args(m,
-                                                      DBUS_TYPE_UINT32, &u,
-                                                      DBUS_TYPE_INVALID)) {
-                                log_error("Could not append arguments to message.");
-                                ret = -ENOMEM;
-                                goto finish;
-                        }
+                                        "GetUser",
+                                        &reply,
+                                        NULL,
+                                        DBUS_TYPE_UINT32, &u,
+                                        DBUS_TYPE_INVALID);
                 } else {
 
-                        m = dbus_message_new_method_call(
+                        ret = bus_method_call_with_reply (
+                                        bus,
                                         "org.freedesktop.login1",
                                         "/org/freedesktop/login1",
                                         "org.freedesktop.login1.Manager",
-                                        "GetSeat");
-                        if (!m) {
-                                log_error("Could not allocate message.");
-                                ret = -ENOMEM;
-                                goto finish;
-                        }
-
-                        if (!dbus_message_append_args(m,
-                                                      DBUS_TYPE_STRING, &args[i],
-                                                      DBUS_TYPE_INVALID)) {
-                                log_error("Could not append arguments to message.");
-                                ret = -ENOMEM;
-                                goto finish;
-                        }
+                                        "GetSeat",
+                                        &reply,
+                                        NULL,
+                                        DBUS_TYPE_STRING, &args[i],
+                                        DBUS_TYPE_INVALID);
                 }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        ret = -EIO;
+                if (ret)
                         goto finish;
-                }
 
                 if (!dbus_message_get_args(reply, &error,
                                            DBUS_TYPE_OBJECT_PATH, &path,
@@ -1155,15 +1059,11 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                 if (r != 0)
                         ret = r;
 
-                dbus_message_unref(m);
                 dbus_message_unref(reply);
-                m = reply = NULL;
+                reply = NULL;
         }
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
 
@@ -1173,152 +1073,78 @@ finish:
 }
 
 static int activate(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL;
         int ret = 0;
-        DBusError error;
         unsigned i;
 
-        assert(bus);
         assert(args);
 
-        dbus_error_init(&error);
-
         for (i = 1; i < n; i++) {
-                DBusMessage *reply;
 
-                m = dbus_message_new_method_call(
+                ret = bus_method_call_with_reply (
+                                bus,
                                 "org.freedesktop.login1",
                                 "/org/freedesktop/login1",
                                 "org.freedesktop.login1.Manager",
                                 streq(args[0], "lock-session")      ? "LockSession" :
                                 streq(args[0], "unlock-session")    ? "UnlockSession" :
                                 streq(args[0], "terminate-session") ? "TerminateSession" :
-                                                                      "ActivateSession");
-                if (!m) {
-                        log_error("Could not allocate message.");
-                        ret = -ENOMEM;
+                                                                      "ActivateSession",
+                                NULL,
+                                NULL,
+                                DBUS_TYPE_STRING, &args[i],
+                                DBUS_TYPE_INVALID);
+                if (ret)
                         goto finish;
-                }
-
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &args[i],
-                                              DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        ret = -ENOMEM;
-                        goto finish;
-                }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        ret = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_unref(m);
-                dbus_message_unref(reply);
-                m = reply = NULL;
         }
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        dbus_error_free(&error);
-
         return ret;
 }
 
 static int kill_session(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL;
         int ret = 0;
-        DBusError error;
         unsigned i;
 
-        assert(bus);
         assert(args);
-
-        dbus_error_init(&error);
 
         if (!arg_kill_who)
                 arg_kill_who = "all";
 
         for (i = 1; i < n; i++) {
-                DBusMessage *reply;
-
-                m = dbus_message_new_method_call(
+                ret = bus_method_call_with_reply (
+                                bus,
                                 "org.freedesktop.login1",
                                 "/org/freedesktop/login1",
                                 "org.freedesktop.login1.Manager",
-                                "KillSession");
-                if (!m) {
-                        log_error("Could not allocate message.");
-                        ret = -ENOMEM;
+                                "KillSession",
+                                NULL,
+                                NULL,
+                                DBUS_TYPE_STRING, &args[i],
+                                DBUS_TYPE_STRING, &arg_kill_who,
+                                DBUS_TYPE_INT32, &arg_signal,
+                                DBUS_TYPE_INVALID);
+                if (ret)
                         goto finish;
-                }
-
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &args[i],
-                                              DBUS_TYPE_STRING, &arg_kill_who,
-                                              DBUS_TYPE_INT32, &arg_signal,
-                                              DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        ret = -ENOMEM;
-                        goto finish;
-                }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        ret = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_unref(m);
-                dbus_message_unref(reply);
-                m = reply = NULL;
         }
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        dbus_error_free(&error);
-
         return ret;
 }
 
 static int enable_linger(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL;
         int ret = 0;
-        DBusError error;
         unsigned i;
         dbus_bool_t b, interactive = true;
 
-        assert(bus);
         assert(args);
-
-        dbus_error_init(&error);
 
         polkit_agent_open_if_enabled();
 
         b = streq(args[0], "enable-linger");
 
         for (i = 1; i < n; i++) {
-                DBusMessage *reply;
                 uint32_t u;
                 uid_t uid;
-
-                m = dbus_message_new_method_call(
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "SetUserLinger");
-                if (!m) {
-                        log_error("Could not allocate message.");
-                        ret = -ENOMEM;
-                        goto finish;
-                }
 
                 ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
                 if (ret < 0) {
@@ -1327,65 +1153,35 @@ static int enable_linger(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 u = (uint32_t) uid;
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_UINT32, &u,
-                                              DBUS_TYPE_BOOLEAN, &b,
-                                              DBUS_TYPE_BOOLEAN, &interactive,
-                                              DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        ret = -ENOMEM;
+                ret = bus_method_call_with_reply (
+                                bus,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "SetUserLinger",
+                                NULL,
+                                NULL,
+                                DBUS_TYPE_UINT32, &u,
+                                DBUS_TYPE_BOOLEAN, &b,
+                                DBUS_TYPE_BOOLEAN, &interactive,
+                                DBUS_TYPE_INVALID);
+                if (ret)
                         goto finish;
-                }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        ret = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_unref(m);
-                dbus_message_unref(reply);
-                m = reply = NULL;
         }
 
-        ret = 0;
-
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        dbus_error_free(&error);
-
         return ret;
 }
 
 static int terminate_user(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL;
         int ret = 0;
-        DBusError error;
         unsigned i;
 
-        assert(bus);
         assert(args);
-
-        dbus_error_init(&error);
 
         for (i = 1; i < n; i++) {
                 uint32_t u;
                 uid_t uid;
-                DBusMessage *reply;
-
-                m = dbus_message_new_method_call(
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "TerminateUser");
-                if (!m) {
-                        log_error("Could not allocate message.");
-                        ret = -ENOMEM;
-                        goto finish;
-                }
 
                 ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
                 if (ret < 0) {
@@ -1394,66 +1190,36 @@ static int terminate_user(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 u = (uint32_t) uid;
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_UINT32, &u,
-                                              DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        ret = -ENOMEM;
+                ret = bus_method_call_with_reply (
+                                bus,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "TerminateUser",
+                                NULL,
+                                NULL,
+                                DBUS_TYPE_UINT32, &u,
+                                DBUS_TYPE_INVALID);
+                if (ret)
                         goto finish;
-                }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        ret = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_unref(m);
-                dbus_message_unref(reply);
-                m = reply = NULL;
         }
 
-        ret = 0;
-
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        dbus_error_free(&error);
-
         return ret;
 }
 
 static int kill_user(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL;
         int ret = 0;
-        DBusError error;
         unsigned i;
 
-        assert(bus);
         assert(args);
-
-        dbus_error_init(&error);
 
         if (!arg_kill_who)
                 arg_kill_who = "all";
 
         for (i = 1; i < n; i++) {
-                DBusMessage *reply;
                 uid_t uid;
                 uint32_t u;
-
-                m = dbus_message_new_method_call(
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "KillUser");
-                if (!m) {
-                        log_error("Could not allocate message.");
-                        ret = -ENOMEM;
-                        goto finish;
-                }
 
                 ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
                 if (ret < 0) {
@@ -1462,241 +1228,110 @@ static int kill_user(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 u = (uint32_t) uid;
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_UINT32, &u,
-                                              DBUS_TYPE_INT32, &arg_signal,
-                                              DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        ret = -ENOMEM;
+                ret = bus_method_call_with_reply (
+                                bus,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager",
+                                "KillUser",
+                                NULL,
+                                NULL,
+                                DBUS_TYPE_UINT32, &u,
+                                DBUS_TYPE_INT32, &arg_signal,
+                                DBUS_TYPE_INVALID);
+                if (ret)
                         goto finish;
-                }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        ret = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_unref(m);
-                dbus_message_unref(reply);
-                m = reply = NULL;
         }
 
-        ret = 0;
-
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        dbus_error_free(&error);
-
         return ret;
 }
 
 static int attach(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL;
         int ret = 0;
-        DBusError error;
         unsigned i;
         dbus_bool_t interactive = true;
 
-        assert(bus);
         assert(args);
-
-        dbus_error_init(&error);
 
         polkit_agent_open_if_enabled();
 
         for (i = 2; i < n; i++) {
-                DBusMessage *reply;
-
-                m = dbus_message_new_method_call(
+                ret = bus_method_call_with_reply (
+                                bus,
                                 "org.freedesktop.login1",
                                 "/org/freedesktop/login1",
                                 "org.freedesktop.login1.Manager",
-                                "AttachDevice");
-                if (!m) {
-                        log_error("Could not allocate message.");
-                        ret = -ENOMEM;
+                                "AttachDevice",
+                                NULL,
+                                NULL,
+                                DBUS_TYPE_STRING, &args[1],
+                                DBUS_TYPE_STRING, &args[i],
+                                DBUS_TYPE_BOOLEAN, &interactive,
+                                DBUS_TYPE_INVALID);
+                if (ret)
                         goto finish;
-                }
-
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &args[1],
-                                              DBUS_TYPE_STRING, &args[i],
-                                              DBUS_TYPE_BOOLEAN, &interactive,
-                                              DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        ret = -ENOMEM;
-                        goto finish;
-                }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        ret = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_unref(m);
-                dbus_message_unref(reply);
-                m = reply = NULL;
         }
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        dbus_error_free(&error);
-
         return ret;
 }
 
 static int flush_devices(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
-        int ret = 0;
-        DBusError error;
         dbus_bool_t interactive = true;
 
-        assert(bus);
         assert(args);
-
-        dbus_error_init(&error);
 
         polkit_agent_open_if_enabled();
 
-        m = dbus_message_new_method_call(
+        return bus_method_call_with_reply (
+                        bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
-                        "FlushDevices");
-        if (!m) {
-                log_error("Could not allocate message.");
-                ret = -ENOMEM;
-                goto finish;
-        }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_BOOLEAN, &interactive,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                ret = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                ret = -EIO;
-                goto finish;
-        }
-
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
-
-        return ret;
+                        "FlushDevices",
+                        NULL,
+                        NULL,
+                        DBUS_TYPE_BOOLEAN, &interactive,
+                        DBUS_TYPE_INVALID);
 }
 
 static int lock_sessions(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL, *reply = NULL;
-        int ret = 0;
-        DBusError error;
-
-        assert(bus);
-        assert(args);
-
-        dbus_error_init(&error);
-
         polkit_agent_open_if_enabled();
 
-        m = dbus_message_new_method_call(
+        return bus_method_call_with_reply (
+                        bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
-                        "LockSessions");
-        if (!m) {
-                log_error("Could not allocate message.");
-                ret = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                ret = -EIO;
-                goto finish;
-        }
-
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
-
-        return ret;
+                        "LockSessions",
+                        NULL,
+                        NULL,
+                        DBUS_TYPE_INVALID);
 }
 
 static int terminate_seat(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *m = NULL;
         int ret = 0;
-        DBusError error;
         unsigned i;
 
-        assert(bus);
         assert(args);
 
-        dbus_error_init(&error);
-
         for (i = 1; i < n; i++) {
-                DBusMessage *reply;
-
-                m = dbus_message_new_method_call(
+                ret = bus_method_call_with_reply (
+                                bus,
                                 "org.freedesktop.login1",
                                 "/org/freedesktop/login1",
                                 "org.freedesktop.login1.Manager",
-                                "TerminateSeat");
-                if (!m) {
-                        log_error("Could not allocate message.");
-                        ret = -ENOMEM;
+                                "TerminateSeat",
+                                NULL,
+                                NULL,
+                                DBUS_TYPE_STRING, &args[i],
+                                DBUS_TYPE_INVALID);
+                if (ret)
                         goto finish;
-                }
-
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &args[i],
-                                              DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        ret = -ENOMEM;
-                        goto finish;
-                }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        ret = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_unref(m);
-                dbus_message_unref(reply);
-                m = reply = NULL;
         }
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        dbus_error_free(&error);
-
         return ret;
 }
 
