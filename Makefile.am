@@ -151,7 +151,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/udev \
 	$(OUR_CPPFLAGS)
 
-AM_CFLAGS = $(OUR_GFLAGS)
+AM_CFLAGS = $(OUR_CFLAGS)
 AM_LDFLAGS = $(OUR_LDFLAGS)
 
 # ------------------------------------------------------------------------------
