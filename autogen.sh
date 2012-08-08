@@ -54,7 +54,7 @@ args="$args \
 fi
 
 if [ "x$1" = "xc" ]; then
-        ./configure CFLAGS='-g -O0' $args
+        ./configure CFLAGS='-g -O0 -Wp,-U_FORTIFY_SOURCE' $args
         make clean
 else
         echo
@@ -62,6 +62,6 @@ else
         echo "Initialized build system. For a common configuration please run:"
         echo "----------------------------------------------------------------"
         echo
-        echo "./configure CFLAGS='-g -O0' $args"
+        echo "./configure CFLAGS='-g -O0 -Wp,-U_FORTIFY_SOURCE' $args"
         echo
 fi
