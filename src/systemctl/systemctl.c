@@ -202,21 +202,6 @@ static const char *ansi_highlight_green(bool b) {
         return b ? ANSI_HIGHLIGHT_GREEN_ON : ANSI_HIGHLIGHT_OFF;
 }
 
-static bool error_is_no_service(const DBusError *error) {
-        assert(error);
-
-        if (!dbus_error_is_set(error))
-                return false;
-
-        if (dbus_error_has_name(error, DBUS_ERROR_NAME_HAS_NO_OWNER))
-                return true;
-
-        if (dbus_error_has_name(error, DBUS_ERROR_SERVICE_UNKNOWN))
-                return true;
-
-        return startswith(error->name, "org.freedesktop.DBus.Error.Spawn.");
-}
-
 static int translate_bus_error_to_exit_status(int r, const DBusError *error) {
         assert(error);
 
@@ -243,64 +228,6 @@ static int translate_bus_error_to_exit_status(int r, const DBusError *error) {
                 return r;
 
         return EXIT_FAILURE;
-}
-
-static int bus_method_call_with_reply(DBusConnection *bus,
-                                       const char *destination,
-                                       const char *path,
-                                       const char *interface,
-                                       const char *method,
-                                       DBusMessage **return_reply,
-                                       DBusError *return_error,
-                                       int first_arg_type, ...) {
-        DBusError error;
-        DBusMessage *m, *reply;
-        va_list ap;
-        int r = 0;
-
-        dbus_error_init(&error);
-        assert(bus);
-
-        m = dbus_message_new_method_call(destination, path, interface, method);
-        if (!m) {
-                r = log_oom();
-                goto finish;
-        }
-
-        va_start(ap, first_arg_type);
-        if (!dbus_message_append_args_valist(m, first_arg_type, ap)) {
-                va_end(ap);
-                dbus_message_unref(m);
-                r = log_oom();
-                goto finish;
-        }
-        va_end(ap);
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        dbus_message_unref(m);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                if (error_is_no_service(&error))
-                        r = -ENOENT;
-                else if (dbus_error_has_name(&error, DBUS_ERROR_ACCESS_DENIED))
-                        r = -EACCES;
-                else if (dbus_error_has_name(&error, DBUS_ERROR_NO_REPLY))
-                        r = -ETIMEDOUT;
-                else
-                        r = -EIO;
-                goto finish;
-        }
-        if (return_reply)
-                *return_reply = reply;
-        else
-                dbus_message_unref(reply);
-finish:
-        if(return_error)
-                *return_error=error;
-        else
-                dbus_error_free(&error);
-
-        return r;
 }
 
 static void warn_wall(enum action a) {
@@ -4826,7 +4753,7 @@ static int talk_upstart(void) {
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
 
-                if (error_is_no_service(&error)) {
+                if (bus_error_is_no_service(&error)) {
                         r = -EADDRNOTAVAIL;
                         goto finish;
                 }
