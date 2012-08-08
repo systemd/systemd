@@ -123,7 +123,8 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -fvisibility=hidden \
         -ffunction-sections \
         -fdata-sections \
-        -fstack-protector])
+        -fstack-protector \
+        --param=ssp-buffer-size=4])
 AC_SUBST([OUR_CFLAGS], $with_cflags)
 
 CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
