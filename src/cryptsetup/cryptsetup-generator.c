@@ -374,8 +374,8 @@ int main(int argc, char *argv[]) {
                 if (startswith(p, "luks-"))
                         p += 5;
 
-                name = strappend("luks-", *i);
-                device = strappend("UUID=", *i);
+                name = strappend("luks-", p);
+                device = strappend("UUID=", p);
 
                 if (!name || !device) {
                         log_oom();

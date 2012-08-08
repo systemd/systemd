@@ -273,6 +273,7 @@ finish:
         free(message);
         free(monotonic);
         free(realtime);
+        free(priority);
 
         return r;
 }

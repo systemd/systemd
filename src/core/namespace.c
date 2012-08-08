@@ -312,6 +312,8 @@ int setup_namespace(
                 goto undo_mounts;
         }
 
+        free(paths);
+
         t = old_root_dir + sizeof(root_dir) - 1;
         if (umount2(t, MNT_DETACH) < 0)
                 /* At this point it's too late to turn anything back,

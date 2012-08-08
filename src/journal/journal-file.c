@@ -788,7 +788,7 @@ static int journal_file_append_data(
         }
 #endif
 
-        if (!compressed)
+        if (!compressed && size > 0)
                 memcpy(o->data.payload, data, size);
 
         r = journal_file_link_data(f, o, p, hash);
@@ -1057,7 +1057,8 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
             ts->monotonic < le64toh(f->header->tail_entry_monotonic))
                 return -EINVAL;
 
-        items = alloca(sizeof(EntryItem) * n_iovec);
+        /* alloca() can't take 0, hence let's allocate at least one */
+        items = alloca(sizeof(EntryItem) * MAX(1, n_iovec));
 
         for (i = 0; i < n_iovec; i++) {
                 uint64_t p;
@@ -2336,7 +2337,8 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                 n_list ++;
         }
 
-        qsort(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
+        if (n_list > 0)
+                qsort(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
 
         for(i = 0; i < n_list; i++) {
                 struct statvfs ss;

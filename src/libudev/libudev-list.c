@@ -186,6 +186,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                         if (list->entries == NULL) {
                                 free(entry->name);
                                 free(entry->value);
+                                free(entry);
                                 return NULL;
                         }
                         list->entries_max += add;

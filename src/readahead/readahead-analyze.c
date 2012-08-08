@@ -135,11 +135,11 @@ int main_analyze(const char *pack_path) {
         printf("\nHOST:    %s"
                "TYPE:    %c\n"
                "MISSING: %d\n"
-               "TOTAL:   %ld\n",
+               "TOTAL:   %llu\n",
                line,
                a,
                missing,
-               tsize);
+               (unsigned long long) tsize);
 
         return EXIT_SUCCESS;
 

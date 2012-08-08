@@ -275,7 +275,7 @@ char *ascii_filter(const char *str) {
         if (!r)
                 return NULL;
 
-        for (s = r, d = r; *s; s++)
+        for (s = str, d = r; *s; s++)
                 if ((unsigned char) *s < 128)
                         *(d++) = *s;
 
