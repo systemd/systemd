@@ -53,6 +53,8 @@ Bugfixes:
 
 Features:
 
+* properly handle loop back mounts via fstab, especially regards to fsck/passno
+
 * allow services with no ExecStart= but with an ExecStop=
 
 * add proper journal support to "systemctl --user status ..."
