@@ -148,10 +148,11 @@ AM_CPPFLAGS = \
 	-I $(top_builddir)/src/core \
 	-I $(top_srcdir)/src/core \
 	-I $(top_srcdir)/src/libudev \
-	-I $(top_srcdir)/src/udev
+	-I $(top_srcdir)/src/udev \
+	$(OUR_CPPFLAGS)
 
-AM_CFLAGS = $(WARNINGFLAGS)
-AM_LDFLAGS = $(GCLDFLAGS)
+AM_CFLAGS = $(OUR_GFLAGS)
+AM_LDFLAGS = $(OUR_LDFLAGS)
 
 # ------------------------------------------------------------------------------
 if TARGET_GENTOO

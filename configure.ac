@@ -117,20 +117,26 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wno-missing-field-initializers \
         -Wno-unused-result \
         -Werror=overflow \
-        -Wp,-D_FORTIFY_SOURCE=2 \
         -ffast-math \
         -fno-common \
         -fdiagnostics-show-option \
         -fno-strict-aliasing \
         -fvisibility=hidden \
         -ffunction-sections \
-        -fdata-sections])
-AC_SUBST([WARNINGFLAGS], $with_cflags)
+        -fdata-sections \
+        -fstack-protector])
+AC_SUBST([OUR_CFLAGS], $with_cflags)
+
+CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
+        -Wp,-D_FORTIFY_SOURCE=2])
+AC_SUBST([OUR_CPPFLAGS], $with_cppflags)
 
 CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--as-needed \
-        -Wl,--gc-sections])
-AC_SUBST([GCLDFLAGS], $with_ldflags)
+        -Wl,--gc-sections \
+        -Wl,-z,relro \
+        -Wl,-z,now])
+AC_SUBST([OUR_LDFLAGS], $with_ldflags)
 
 AC_SEARCH_LIBS([clock_gettime], [rt], [], [AC_MSG_ERROR([*** POSIX RT library not found])])
 AC_SEARCH_LIBS([dlsym], [dl], [], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
@@ -753,7 +759,7 @@ AC_MSG_RESULT([
         Split /usr:              ${enable_split_usr}
         man pages:               ${have_manpages}
 
-        CFLAGS:                  ${CFLAGS}
-        CPPLAGS:                 ${CPPFLAGS}
-        LDFLAGS:                 ${LDFLAGS}
+        CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
+        CPPLAGS:                 ${OUR_CPPFLAGS} ${CPPFLAGS}
+        LDFLAGS:                 ${OUR_LDFLAGS} ${LDFLAGS}
 ])
