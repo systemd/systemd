@@ -1398,6 +1398,7 @@ systemd_remount_fs_SOURCES = \
 	src/core/mount-setup.h
 
 systemd_remount_fs_LDADD = \
+	libsystemd-label.la \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
