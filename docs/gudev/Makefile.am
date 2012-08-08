@@ -72,6 +72,14 @@ content_files = version.xml
 # e.g. expand_content_files=running.sgml
 expand_content_files=
 
+# Hack, hack. You silly gtk-doc, you must not add  CFLAGS multiple
+# times when calling gcc; it surely can not work with options that must
+# be listed only once.
+# Kill CFLAGS here because gtk-doc thinks adding CFLAGS to CC _and_ also
+# adding CFLAGS itself again would work.
+CFLAGS=
+LDFLAGS=
+
 # CFLAGS and LDFLAGS for compiling gtkdoc-scangobj with your library.
 # Only needed if you are using gtkdoc-scangobj to dynamically query widget
 # signals and properties.
