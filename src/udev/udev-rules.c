@@ -1770,12 +1770,15 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
                 return NULL;
         }
         strv_uniq(rules->dirs);
+
+        rules->dirs_ts_usec = calloc(strv_length(rules->dirs), sizeof(long long));
+        udev_rules_check_timestamp(rules);
+
         r = conf_files_list_strv(&files, ".rules", (const char **)rules->dirs);
         if (r < 0) {
                 log_error("failed to enumerate rules files: %s\n", strerror(-r));
                 return NULL;
         }
-        rules->dirs_ts_usec = calloc(strv_length(rules->dirs), sizeof(long long));
 
         /*
          * The offset value in the rules strct is limited; add all
