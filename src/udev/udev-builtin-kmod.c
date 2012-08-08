@@ -1,7 +1,7 @@
 /*
  * load kernel modules
  *
- * Copyright (C) 2011 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2011-21012 Kay Sievers <kay.sievers@vrfy.org>
  * Copyright (C) 2011 ProFUSION embedded systems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -39,6 +39,8 @@ static int load_module(struct udev *udev, const char *alias)
         struct kmod_list *l;
         int err;
 
+        assert(ctx);
+
         err = kmod_module_new_from_lookup(ctx, alias, &list);
         if (err < 0)
                 return err;
@@ -70,21 +72,10 @@ static void udev_kmod_log(void *data, int priority, const char *file, int line,
         udev_main_log(data, priority, file, line, fn, format, args);
 }
 
-/* needs to re-instantiate the context after a reload */
 static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool test)
 {
         struct udev *udev = udev_device_get_udev(dev);
         int i;
-
-        if (!ctx) {
-                ctx = kmod_new(NULL, NULL);
-                if (!ctx)
-                        return -ENOMEM;
-
-                log_debug("load module index\n");
-                kmod_set_log_fn(ctx, udev_kmod_log, udev);
-                kmod_load_resources(ctx);
-        }
 
         if (argc < 3 || strcmp(argv[1], "load")) {
                 log_error("expect: %s load <module>\n", argv[0]);
@@ -99,7 +90,7 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
         return EXIT_SUCCESS;
 }
 
-/* called at udev startup */
+/* called at udev startup and reload */
 static int builtin_kmod_init(struct udev *udev)
 {
         if (ctx)
@@ -126,9 +117,9 @@ static void builtin_kmod_exit(struct udev *udev)
 static bool builtin_kmod_validate(struct udev *udev)
 {
         log_debug("validate module index\n");
-        if (kmod_validate_resources(ctx) != KMOD_RESOURCES_OK)
-                return true;
-        return false;
+        if (!ctx)
+                return false;
+        return (kmod_validate_resources(ctx) != KMOD_RESOURCES_OK);
 }
 
 const struct udev_builtin udev_builtin_kmod = {

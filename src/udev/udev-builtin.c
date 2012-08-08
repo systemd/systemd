@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2007-2012 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,8 @@
 
 #include "udev.h"
 
+static bool initialized;
+
 static const struct udev_builtin *builtins[] = {
         [UDEV_BUILTIN_BLKID] = &udev_builtin_blkid,
         [UDEV_BUILTIN_FIRMWARE] = &udev_builtin_firmware,
@@ -44,6 +46,9 @@ int udev_builtin_init(struct udev *udev)
         unsigned int i;
         int err = 0;
 
+        if (initialized)
+                return 0;
+
         for (i = 0; i < ELEMENTSOF(builtins); i++) {
                 if (builtins[i]->init) {
                         err = builtins[i]->init(udev);
@@ -51,6 +56,8 @@ int udev_builtin_init(struct udev *udev)
                                 break;
                 }
         }
+
+        initialized = true;
         return err;
 }
 
@@ -58,9 +65,14 @@ void udev_builtin_exit(struct udev *udev)
 {
         unsigned int i;
 
+        if (!initialized)
+                return;
+
         for (i = 0; i < ELEMENTSOF(builtins); i++)
                 if (builtins[i]->exit)
                         builtins[i]->exit(udev);
+
+        initialized = false;
 }
 
 bool udev_builtin_validate(struct udev *udev)

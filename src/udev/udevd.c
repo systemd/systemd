@@ -1107,7 +1107,7 @@ int main(int argc, char *argv[])
                 case 'D':
                         debug = true;
                         log_set_max_level(LOG_DEBUG);
-                        udev_set_log_priority(udev, LOG_INFO);
+                        udev_set_log_priority(udev, LOG_DEBUG);
                         break;
                 case 'N':
                         if (strcmp (optarg, "early") == 0) {
@@ -1486,7 +1486,7 @@ int main(int argc, char *argv[])
                         worker_kill(udev);
                         rules = udev_rules_unref(rules);
                         udev_builtin_exit(udev);
-                        reload = 0;
+                        reload = false;
                 }
 
                 /* event has finished */
@@ -1506,6 +1506,7 @@ int main(int argc, char *argv[])
 
                 /* start new events */
                 if (!udev_list_node_is_empty(&event_list) && !udev_exit && !stop_exec_queue) {
+                        udev_builtin_init(udev);
                         if (rules == NULL)
                                 rules = udev_rules_new(udev, resolve_names);
                         if (rules != NULL)
