@@ -50,36 +50,24 @@ static usec_t get_startup_time(Context *c) {
                 *interface = "org.freedesktop.systemd1.Manager",
                 *property = "StartupTimestamp";
 
-        DBusError error;
         usec_t t = 0;
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         DBusMessageIter iter, sub;
-
-        dbus_error_init(&error);
 
         assert(c);
 
-        if (!(m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.DBus.Properties",
-                              "Get"))) {
-                log_error("Could not allocate message.");
+        if (bus_method_call_with_reply (
+                        c->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_STRING, &property,
+                        DBUS_TYPE_INVALID))
                 goto finish;
-        }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &interface,
-                                      DBUS_TYPE_STRING, &property,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                goto finish;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(c->bus, m, -1, &error))) {
-                log_error("Failed to send command: %s", bus_error_message(&error));
-                goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
@@ -97,14 +85,8 @@ static usec_t get_startup_time(Context *c) {
         dbus_message_iter_get_basic(&sub, &t);
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
-
-        dbus_error_free(&error);
-
         return t;
 }
 
@@ -128,7 +110,7 @@ static int get_current_runlevel(Context *c) {
                 *interface = "org.freedesktop.systemd1.Unit",
                 *property = "ActiveState";
 
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         int r = 0;
         unsigned i;
         DBusError error;
@@ -141,28 +123,20 @@ static int get_current_runlevel(Context *c) {
                 const char *path = NULL, *state;
                 DBusMessageIter iter, sub;
 
-                if (!(m = dbus_message_new_method_call(
-                                      "org.freedesktop.systemd1",
-                                      "/org/freedesktop/systemd1",
-                                      "org.freedesktop.systemd1.Manager",
-                                      "GetUnit"))) {
-                        log_error("Could not allocate message.");
-                        r = -ENOMEM;
+                r = bus_method_call_with_reply (
+                                c->bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "GetUnit",
+                                &reply,
+                                NULL,
+                                DBUS_TYPE_STRING, &table[i].special,
+                                DBUS_TYPE_INVALID);
+                if (r == -ENOMEM)
                         goto finish;
-                }
-
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &table[i].special,
-                                              DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                if (!(reply = dbus_connection_send_with_reply_and_block(c->bus, m, -1, &error))) {
-                        dbus_error_free(&error);
+                if (r)
                         continue;
-                }
 
                 if (!dbus_message_get_args(reply, &error,
                                            DBUS_TYPE_OBJECT_PATH, &path,
@@ -172,32 +146,20 @@ static int get_current_runlevel(Context *c) {
                         goto finish;
                 }
 
-                dbus_message_unref(m);
-                if (!(m = dbus_message_new_method_call(
-                                      "org.freedesktop.systemd1",
-                                      path,
-                                      "org.freedesktop.DBus.Properties",
-                                      "Get"))) {
-                        log_error("Could not allocate message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &interface,
-                                              DBUS_TYPE_STRING, &property,
-                                              DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
                 dbus_message_unref(reply);
-                if (!(reply = dbus_connection_send_with_reply_and_block(c->bus, m, -1, &error))) {
-                        log_error("Failed to send command: %s", bus_error_message(&error));
-                        r = -EIO;
+                r = bus_method_call_with_reply (
+                                c->bus,
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.DBus.Properties",
+                                "Get",
+                                &reply,
+                                NULL,
+                                DBUS_TYPE_STRING, &interface,
+                                DBUS_TYPE_STRING, &property,
+                                DBUS_TYPE_INVALID);
+                if (r)
                         goto finish;
-                }
 
                 if (!dbus_message_iter_init(reply, &iter) ||
                     dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
@@ -219,18 +181,14 @@ static int get_current_runlevel(Context *c) {
                 if (streq(state, "active") || streq(state, "reloading"))
                         r = table[i].runlevel;
 
-                dbus_message_unref(m);
                 dbus_message_unref(reply);
-                m = reply = NULL;
+                reply = NULL;
 
                 if (r)
                         break;
         }
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
 

@@ -202,21 +202,6 @@ static const char *ansi_highlight_green(bool b) {
         return b ? ANSI_HIGHLIGHT_GREEN_ON : ANSI_HIGHLIGHT_OFF;
 }
 
-static bool error_is_no_service(const DBusError *error) {
-        assert(error);
-
-        if (!dbus_error_is_set(error))
-                return false;
-
-        if (dbus_error_has_name(error, DBUS_ERROR_NAME_HAS_NO_OWNER))
-                return true;
-
-        if (dbus_error_has_name(error, DBUS_ERROR_SERVICE_UNKNOWN))
-                return true;
-
-        return startswith(error->name, "org.freedesktop.DBus.Error.Spawn.");
-}
-
 static int translate_bus_error_to_exit_status(int r, const DBusError *error) {
         assert(error);
 
@@ -448,33 +433,25 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 }
 
 static int list_units(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
+        DBusMessage *reply = NULL;
         int r;
         DBusMessageIter iter, sub, sub2;
         unsigned c = 0, n_units = 0;
         struct unit_info *unit_infos = NULL;
 
-        dbus_error_init(&error);
-
-        assert(bus);
-
         pager_open_if_enabled();
 
-        if (!(m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.systemd1.Manager",
-                              "ListUnits"))) {
-                log_error("Could not allocate message.");
-                return -ENOMEM;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "ListUnits",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
@@ -538,18 +515,11 @@ static int list_units(DBusConnection *bus, char **args) {
                 output_units_list(unit_infos, c);
         }
 
-        r = 0;
-
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
 
         free(unit_infos);
-
-        dbus_error_free(&error);
 
         return r;
 }
@@ -641,14 +611,11 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
 }
 
 static int list_unit_files(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
+        DBusMessage *reply = NULL;
         int r;
         DBusMessageIter iter, sub, sub2;
         unsigned c = 0, n_units = 0;
         UnitFileList *units = NULL;
-
-        dbus_error_init(&error);
 
         pager_open_if_enabled();
 
@@ -682,24 +649,17 @@ static int list_unit_files(DBusConnection *bus, char **args) {
 
                 hashmap_free(h);
         } else {
-                assert(bus);
-
-                m = dbus_message_new_method_call(
+                r = bus_method_call_with_reply (
+                                bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "ListUnitFiles");
-                if (!m) {
-                        log_error("Could not allocate message.");
-                        return -ENOMEM;
-                }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        r = -EIO;
+                                "ListUnitFiles",
+                                &reply,
+                                NULL,
+                                DBUS_TYPE_INVALID);
+                if (r)
                         goto finish;
-                }
 
                 if (!dbus_message_iter_init(reply, &iter) ||
                     dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
@@ -762,15 +722,10 @@ static int list_unit_files(DBusConnection *bus, char **args) {
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
 
         free(units);
-
-        dbus_error_free(&error);
 
         return r;
 }
@@ -834,40 +789,25 @@ static int dot_one_property(const char *name, const char *prop, DBusMessageIter 
 }
 
 static int dot_one(DBusConnection *bus, const char *name, const char *path) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         const char *interface = "org.freedesktop.systemd1.Unit";
         int r;
-        DBusError error;
         DBusMessageIter iter, sub, sub2, sub3;
 
-        assert(bus);
         assert(path);
 
-        dbus_error_init(&error);
-
-        if (!(m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              path,
-                              "org.freedesktop.DBus.Properties",
-                              "GetAll"))) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "GetAll",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &interface,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
@@ -913,44 +853,29 @@ static int dot_one(DBusConnection *bus, const char *name, const char *path) {
                 dbus_message_iter_next(&sub);
         }
 
-        r = 0;
-
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         return r;
 }
 
 static int dot(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
+        DBusMessage *reply = NULL;
         int r;
         DBusMessageIter iter, sub, sub2;
 
-        dbus_error_init(&error);
-
-        assert(bus);
-
-        if (!(m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.systemd1.Manager",
-                              "ListUnits"))) {
-                log_error("Could not allocate message.");
-                return -ENOMEM;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "ListUnits",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
@@ -1008,44 +933,31 @@ static int dot(DBusConnection *bus, char **args) {
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         return r;
 }
 
 static int list_jobs(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
+        DBusMessage *reply = NULL;
         int r;
         DBusMessageIter iter, sub, sub2;
         unsigned k = 0;
 
-        dbus_error_init(&error);
-
-        assert(bus);
-
         pager_open_if_enabled();
 
-        if (!(m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.systemd1.Manager",
-                              "ListJobs"))) {
-                log_error("Could not allocate message.");
-                return -ENOMEM;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "ListJobs",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
@@ -1099,87 +1011,44 @@ static int list_jobs(DBusConnection *bus, char **args) {
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         return r;
 }
 
 static int load_unit(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL;
-        DBusError error;
-        int r;
-        char **name;
+        int r = 0;
+        char **name, *n;
 
-        dbus_error_init(&error);
-
-        assert(bus);
         assert(args);
 
         STRV_FOREACH(name, args+1) {
-                DBusMessage *reply;
-                bool b;
-                char *n;
-
-                if (!(m = dbus_message_new_method_call(
-                                      "org.freedesktop.systemd1",
-                                      "/org/freedesktop/systemd1",
-                                      "org.freedesktop.systemd1.Manager",
-                                      "LoadUnit"))) {
-                        log_error("Could not allocate message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
                 n = unit_name_mangle(*name);
-                b = dbus_message_append_args(m,
-                                             DBUS_TYPE_STRING, n ? &n : name,
-                                             DBUS_TYPE_INVALID);
+                r = bus_method_call_with_reply (
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "LoadUnit",
+                                NULL,
+                                NULL,
+                                DBUS_TYPE_STRING, n ? &n : name,
+                                DBUS_TYPE_INVALID);
                 free(n);
-                if (!b) {
-                        log_error("Could not append arguments to message.");
-                        r = -ENOMEM;
+                if (r)
                         goto finish;
-                }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        r = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_unref(m);
-                dbus_message_unref(reply);
-
-                m = reply = NULL;
         }
 
-        r = 0;
-
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        dbus_error_free(&error);
-
         return r;
 }
 
 static int cancel_job(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
-        int r;
+        DBusMessage *reply = NULL;
+        int r = 0;
         char **name;
 
-        dbus_error_init(&error);
-
-        assert(bus);
         assert(args);
 
         if (strv_length(args) <= 1)
@@ -1189,83 +1058,55 @@ static int cancel_job(DBusConnection *bus, char **args) {
                 unsigned id;
                 const char *path;
 
-                if (!(m = dbus_message_new_method_call(
-                                      "org.freedesktop.systemd1",
-                                      "/org/freedesktop/systemd1",
-                                      "org.freedesktop.systemd1.Manager",
-                                      "GetJob"))) {
-                        log_error("Could not allocate message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                if ((r = safe_atou(*name, &id)) < 0) {
+                r = safe_atou(*name, &id);
+                if (r < 0) {
                         log_error("Failed to parse job id: %s", strerror(-r));
                         goto finish;
                 }
-
                 assert_cc(sizeof(uint32_t) == sizeof(id));
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_UINT32, &id,
-                                              DBUS_TYPE_INVALID)) {
-                        log_error("Could not append arguments to message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
 
-                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        r = -EIO;
+                r = bus_method_call_with_reply (
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "GetJob",
+                                &reply,
+                                NULL,
+                                DBUS_TYPE_UINT32, &id,
+                                DBUS_TYPE_INVALID);
+                if (r)
                         goto finish;
-                }
 
-                if (!dbus_message_get_args(reply, &error,
+                if (!dbus_message_get_args(reply, NULL,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", bus_error_message(&error));
+                        log_error("Failed to parse reply");
+                        dbus_message_unref(reply);
                         r = -EIO;
                         goto finish;
                 }
-
-                dbus_message_unref(m);
-                if (!(m = dbus_message_new_method_call(
-                                      "org.freedesktop.systemd1",
-                                      path,
-                                      "org.freedesktop.systemd1.Job",
-                                      "Cancel"))) {
-                        log_error("Could not allocate message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
                 dbus_message_unref(reply);
-                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        r = -EIO;
-                        goto finish;
-                }
 
-                dbus_message_unref(m);
-                dbus_message_unref(reply);
-                m = reply = NULL;
+                r = bus_method_call_with_reply (
+                                bus,
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.systemd1.Job",
+                                "Cancel",
+                                NULL,
+                                NULL,
+                                DBUS_TYPE_INVALID);
+                if (r)
+                        goto finish;
         }
 
-        r = 0;
-
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
-
         return r;
 }
 
 static bool need_daemon_reload(DBusConnection *bus, const char *unit) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         dbus_bool_t b = FALSE;
         DBusMessageIter iter, sub;
         const char
@@ -1273,28 +1114,23 @@ static bool need_daemon_reload(DBusConnection *bus, const char *unit) {
                 *property = "NeedDaemonReload",
                 *path;
         char *n;
-        bool k;
+        int r;
 
         /* We ignore all errors here, since this is used to show a warning only */
 
-        m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.systemd1.Manager",
-                              "GetUnit");
-        if (!m)
-                goto finish;
-
         n = unit_name_mangle(unit);
-        k = dbus_message_append_args(m,
-                                     DBUS_TYPE_STRING, n ? (const char**) &n : &unit,
-                                     DBUS_TYPE_INVALID);
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "GetUnit",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, n ? (const char**) &n : &unit,
+                        DBUS_TYPE_INVALID);
         free(n);
-        if (!k)
-                goto finish;
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, NULL);
-        if (!reply)
+        if (r)
                 goto finish;
 
         if (!dbus_message_get_args(reply, NULL,
@@ -1302,25 +1138,19 @@ static bool need_daemon_reload(DBusConnection *bus, const char *unit) {
                                    DBUS_TYPE_INVALID))
                 goto finish;
 
-        dbus_message_unref(m);
-        m = dbus_message_new_method_call(
+        dbus_message_unref(reply);
+        r = bus_method_call_with_reply (
+                        bus,
                         "org.freedesktop.systemd1",
                         path,
                         "org.freedesktop.DBus.Properties",
-                        "Get");
-        if (!m)
-                goto finish;
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &interface,
-                                      DBUS_TYPE_STRING, &property,
-                                      DBUS_TYPE_INVALID)) {
-                goto finish;
-        }
-
-        dbus_message_unref(reply);
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, NULL);
-        if (!reply)
+                        "Get",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_STRING, &property,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
 
         if (!dbus_message_iter_init(reply, &iter) ||
@@ -1335,9 +1165,6 @@ static bool need_daemon_reload(DBusConnection *bus, const char *unit) {
         dbus_message_iter_get_basic(&sub, &b);
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
 
@@ -1516,90 +1343,58 @@ finish:
 }
 
 static int check_one_unit(DBusConnection *bus, char *name, bool quiet) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
+        DBusMessage *reply = NULL;
         DBusMessageIter iter, sub;
         const char
                 *interface = "org.freedesktop.systemd1.Unit",
                 *property = "ActiveState";
         const char *path = NULL;
         const char *state;
-        int r = 3; /* According to LSB: "program is not running" */
+        int r;
         char *n;
-        bool b;
 
-        assert(bus);
         assert(name);
 
-        dbus_error_init(&error);
-
-        m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.systemd1.Manager",
-                              "GetUnit");
-        if (!m) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
         n = unit_name_mangle(name);
-        b = dbus_message_append_args(m,
-                                     DBUS_TYPE_STRING, n ? &n : &name,
-                                     DBUS_TYPE_INVALID);
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "GetUnit",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, n ? &n : &name,
+                        DBUS_TYPE_INVALID);
         free(n);
-        if (!b) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                /* Hmm, cannot figure out anything about this unit... */
-                if (!quiet)
+        if (r) {
+                if ((r != -ENOMEM) && (!quiet))
                         puts("unknown");
-
                 goto finish;
         }
 
-        if (!dbus_message_get_args(reply, &error,
+        if (!dbus_message_get_args(reply, NULL,
                                    DBUS_TYPE_OBJECT_PATH, &path,
                                    DBUS_TYPE_INVALID)) {
-                log_error("Failed to parse reply: %s", bus_error_message(&error));
+                log_error("Failed to parse reply.");
                 r = -EIO;
-                goto finish;
-        }
-
-        dbus_message_unref(m);
-        m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              path,
-                              "org.freedesktop.DBus.Properties",
-                              "Get");
-        if (!m) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &interface,
-                                      DBUS_TYPE_STRING, &property,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
                 goto finish;
         }
 
         dbus_message_unref(reply);
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_STRING, &property,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
@@ -1623,15 +1418,12 @@ static int check_one_unit(DBusConnection *bus, char *name, bool quiet) {
 
         if (streq(state, "active") || streq(state, "reloading"))
                 r = 0;
+        else
+                r = 3; /* According to LSB: "program is not running" */
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         return r;
 }
@@ -1640,8 +1432,7 @@ static void check_triggering_units(
                 DBusConnection *bus,
                 const char *unit_name) {
 
-        DBusError error;
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         DBusMessageIter iter, sub;
         char *service_trigger = NULL;
         const char *interface = "org.freedesktop.systemd1.Unit",
@@ -1649,8 +1440,7 @@ static void check_triggering_units(
 
         char *unit_path = NULL, *n = NULL;
         bool print_warning_label = true;
-
-        dbus_error_init(&error);
+        int r;
 
         n = unit_name_mangle(unit_name);
         unit_path = unit_dbus_path_from_name(n ? n : unit_name);
@@ -1660,32 +1450,23 @@ static void check_triggering_units(
                 goto finish;
         }
 
-        m = dbus_message_new_method_call("org.freedesktop.systemd1",
-                                         unit_path,
-                                         "org.freedesktop.DBus.Properties",
-                                         "Get");
-        if (!m) {
-                log_error("Could not allocate message.");
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        unit_path,
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_STRING, &triggered_by_property,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &interface,
-                                      DBUS_TYPE_STRING, &triggered_by_property,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
-                log_error("Failed to parse reply: %s", bus_error_message(&error));
+                log_error("Failed to parse reply.");
                 goto finish;
 
         }
@@ -1695,10 +1476,9 @@ static void check_triggering_units(
         sub = iter;
 
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                int r;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
-                        log_error("Failed to parse reply: %s", bus_error_message(&error));
+                        log_error("Failed to parse reply.");
                         goto finish;
                 }
 
@@ -1718,13 +1498,8 @@ static void check_triggering_units(
                 dbus_message_iter_next(&sub);
         }
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         free(unit_path);
 }
@@ -1737,54 +1512,36 @@ static int start_unit_one(
                 DBusError *error,
                 Set *s) {
 
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         const char *path;
         int r;
         char *n;
-        bool b;
 
-        assert(bus);
         assert(method);
         assert(name);
         assert(mode);
         assert(error);
         assert(arg_no_block || s);
 
-        m = dbus_message_new_method_call(
+        n = unit_name_mangle(name);
+        r = bus_method_call_with_reply (
+                        bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        method);
-        if (!m) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        n = unit_name_mangle(name);
-        b = dbus_message_append_args(m,
-                                     DBUS_TYPE_STRING, n ? (const char **) &n : &name,
-                                     DBUS_TYPE_STRING, &mode,
-                                     DBUS_TYPE_INVALID);
+                        method,
+                        &reply,
+                        error,
+                        DBUS_TYPE_STRING, n ? (const char **) &n : &name,
+                        DBUS_TYPE_STRING, &mode,
+                        DBUS_TYPE_INVALID);
         free(n);
-        if (!b) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
-        if (!reply) {
-
-                if (arg_action != ACTION_SYSTEMCTL && error_is_no_service(error)) {
+        if (r) {
+                if (r == -ENOENT && arg_action != ACTION_SYSTEMCTL ) {
                         /* There's always a fallback possible for
                          * legacy actions. */
                         r = -EADDRNOTAVAIL;
-                        goto finish;
                 }
-
-                log_error("Failed to issue method call: %s", bus_error_message(error));
-                r = -EIO;
                 goto finish;
         }
 
@@ -1824,9 +1581,6 @@ static int start_unit_one(
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
 
@@ -1974,12 +1728,7 @@ finish:
 static int reboot_with_logind(DBusConnection *bus, enum action a) {
 #ifdef HAVE_LOGIND
         const char *method;
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
         dbus_bool_t interactive = true;
-        int r;
-
-        dbus_error_init(&error);
 
         polkit_agent_open_if_enabled();
 
@@ -2005,56 +1754,16 @@ static int reboot_with_logind(DBusConnection *bus, enum action a) {
                 return -EINVAL;
         }
 
-        m = dbus_message_new_method_call(
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                method);
-        if (!m) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_BOOLEAN, &interactive,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                if (error_is_no_service(&error)) {
-                        log_debug("Failed to issue method call: %s", bus_error_message(&error));
-                        r = -ENOENT;
-                        goto finish;
-                }
-
-                if (dbus_error_has_name(&error, DBUS_ERROR_ACCESS_DENIED)) {
-                        log_debug("Failed to issue method call: %s", bus_error_message(&error));
-                        r = -EACCES;
-                        goto finish;
-                }
-
-                log_info("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
-
-        r = 0;
-
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
-
-        return r;
+        return bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        method,
+                        NULL,
+                        NULL,
+                        DBUS_TYPE_BOOLEAN, &interactive,
+                        DBUS_TYPE_INVALID);
 #else
         return -ENOSYS;
 #endif
@@ -2124,69 +1833,33 @@ static int check_unit(DBusConnection *bus, char **args) {
 }
 
 static int kill_unit(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL;
         int r = 0;
-        DBusError error;
-        char **name;
+        char **name, *n;
 
-        assert(bus);
         assert(args);
-
-        dbus_error_init(&error);
 
         if (!arg_kill_who)
                 arg_kill_who = "all";
 
         STRV_FOREACH(name, args+1) {
-                DBusMessage *reply;
-                char *n;
-                bool b;
-
-                m = dbus_message_new_method_call(
+                n = unit_name_mangle(*name);
+                r = bus_method_call_with_reply (
+                                bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "KillUnit");
-                if (!m) {
-                        log_error("Could not allocate message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                n = unit_name_mangle(*name);
-                b = dbus_message_append_args(m,
-                                             DBUS_TYPE_STRING, n ? &n : name,
-                                             DBUS_TYPE_STRING, &arg_kill_who,
-                                             DBUS_TYPE_INT32, &arg_signal,
-                                             DBUS_TYPE_INVALID);
+                                "KillUnit",
+                                NULL,
+                                NULL,
+                                DBUS_TYPE_STRING, n ? &n : name,
+                                DBUS_TYPE_STRING, &arg_kill_who,
+                                DBUS_TYPE_INT32, &arg_signal,
+                                DBUS_TYPE_INVALID);
                 free(n);
-                if (!b) {
-                        log_error("Could not append arguments to message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        dbus_error_free(&error);
-                        r = -EIO;
-                }
-
-                dbus_message_unref(m);
-
-                if (reply)
-                        dbus_message_unref(reply);
-                m = reply = NULL;
+                if (r)
+                        return r;
         }
-
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        dbus_error_free(&error);
-
-        return r;
+        return 0;
 }
 
 typedef struct ExecStatusInfo {
@@ -3070,44 +2743,30 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 }
 
 static int show_one(const char *verb, DBusConnection *bus, const char *path, bool show_properties, bool *new_line) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         const char *interface = "";
         int r;
-        DBusError error;
         DBusMessageIter iter, sub, sub2, sub3;
         UnitStatusInfo info;
         ExecStatusInfo *p;
 
-        assert(bus);
         assert(path);
         assert(new_line);
 
         zero(info);
-        dbus_error_init(&error);
 
-        if (!(m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              path,
-                              "org.freedesktop.DBus.Properties",
-                              "GetAll"))) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "GetAll",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &interface,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
@@ -3186,50 +2845,32 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
         }
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         return r;
 }
 
 static int show_one_by_pid(const char *verb, DBusConnection *bus, uint32_t pid, bool *new_line) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         const char *path = NULL;
         DBusError error;
         int r;
 
         dbus_error_init(&error);
 
-        m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.systemd1.Manager",
-                              "GetUnitByPID");
-        if (!m) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "GetUnitByPID",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_UINT32, &pid,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_UINT32, &pid,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
 
         if (!dbus_message_get_args(reply, &error,
                                    DBUS_TYPE_OBJECT_PATH, &path,
@@ -3242,9 +2883,6 @@ static int show_one_by_pid(const char *verb, DBusConnection *bus, uint32_t pid, 
         r = show_one(verb, bus, path, false, new_line);
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
 
@@ -3320,7 +2958,7 @@ static int show(DBusConnection *bus, char **args) {
 }
 
 static int dump(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         DBusError error;
         int r;
         const char *text;
@@ -3329,20 +2967,17 @@ static int dump(DBusConnection *bus, char **args) {
 
         pager_open_if_enabled();
 
-        if (!(m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.systemd1.Manager",
-                              "Dump"))) {
-                log_error("Could not allocate message.");
-                return -ENOMEM;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "Dump",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
 
         if (!dbus_message_get_args(reply, &error,
                                    DBUS_TYPE_STRING, &text,
@@ -3354,12 +2989,7 @@ static int dump(DBusConnection *bus, char **args) {
 
         fputs(text, stdout);
 
-        r = 0;
-
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
 
@@ -3369,51 +2999,37 @@ finish:
 }
 
 static int snapshot(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         DBusError error;
         int r;
-        const char *name = "", *path, *id;
         dbus_bool_t cleanup = FALSE;
         DBusMessageIter iter, sub;
         const char
+                *name = "", *path, *id,
                 *interface = "org.freedesktop.systemd1.Unit",
                 *property = "Id";
         char *n;
-        bool b;
 
         dbus_error_init(&error);
-
-        m = dbus_message_new_method_call(
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "CreateSnapshot");
-        if (!m) {
-                log_error("Could not allocate message.");
-                return -ENOMEM;
-        }
 
         if (strv_length(args) > 1)
                 name = args[1];
 
         n = unit_name_mangle(name);
-        b = dbus_message_append_args(m,
-                                     DBUS_TYPE_STRING, n ? (const char**) &n : &name,
-                                     DBUS_TYPE_BOOLEAN, &cleanup,
-                                     DBUS_TYPE_INVALID);
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "CreateSnapshot",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, n ? (const char**) &n : &name,
+                        DBUS_TYPE_BOOLEAN, &cleanup,
+                        DBUS_TYPE_INVALID);
         free(n);
-        if (!b) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
+        if (r)
                 goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
 
         if (!dbus_message_get_args(reply, &error,
                                    DBUS_TYPE_OBJECT_PATH, &path,
@@ -3423,33 +3039,20 @@ static int snapshot(DBusConnection *bus, char **args) {
                 goto finish;
         }
 
-        dbus_message_unref(m);
-        m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              path,
-                              "org.freedesktop.DBus.Properties",
-                              "Get");
-        if (!m) {
-                log_error("Could not allocate message.");
-                return -ENOMEM;
-        }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &interface,
-                                      DBUS_TYPE_STRING, &property,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
         dbus_message_unref(reply);
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_STRING, &property,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
@@ -3470,12 +3073,8 @@ static int snapshot(DBusConnection *bus, char **args) {
 
         if (!arg_quiet)
                 puts(id);
-        r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
 
@@ -3485,12 +3084,11 @@ finish:
 }
 
 static int delete_snapshot(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
-        int r;
+        DBusMessage *reply = NULL;
+        int r = 0;
         DBusError error;
         char **name;
 
-        assert(bus);
         assert(args);
 
         dbus_error_init(&error);
@@ -3498,91 +3096,53 @@ static int delete_snapshot(DBusConnection *bus, char **args) {
         STRV_FOREACH(name, args+1) {
                 const char *path = NULL;
                 char *n;
-                bool b;
 
-                m = dbus_message_new_method_call(
+                n = unit_name_mangle(*name);
+                r = bus_method_call_with_reply (
+                                bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "GetUnit");
-                if (!m) {
-                        log_error("Could not allocate message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                n = unit_name_mangle(*name);
-                b = dbus_message_append_args(m,
-                                             DBUS_TYPE_STRING, n ? &n : name,
-                                             DBUS_TYPE_INVALID);
+                                "GetUnit",
+                                &reply,
+                                NULL,
+                                DBUS_TYPE_STRING, n ? &n : name,
+                                DBUS_TYPE_INVALID);
                 free(n);
-                if (!b) {
-                        log_error("Could not append arguments to message.");
-                        r = -ENOMEM;
+                if (r)
                         goto finish;
-                }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        r = -EIO;
-                        goto finish;
-                }
 
                 if (!dbus_message_get_args(reply, &error,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID)) {
                         log_error("Failed to parse reply: %s", bus_error_message(&error));
                         r = -EIO;
+                        dbus_message_unref(reply);
+                        dbus_error_free(&error);
                         goto finish;
                 }
+                dbus_message_unref(reply);
 
-                dbus_message_unref(m);
-                m = dbus_message_new_method_call(
+                r = bus_method_call_with_reply (
+                                bus,
                                 "org.freedesktop.systemd1",
                                 path,
                                 "org.freedesktop.systemd1.Snapshot",
-                                "Remove");
-                if (!m) {
-                        log_error("Could not allocate message.");
-                        r = -ENOMEM;
+                                "Remove",
+                                NULL,
+                                NULL,
+                                DBUS_TYPE_INVALID);
+                if (r)
                         goto finish;
-                }
-
-                dbus_message_unref(reply);
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        r = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_unref(m);
-                dbus_message_unref(reply);
-                m = reply = NULL;
         }
 
-        r = 0;
-
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
-
         return r;
 }
 
 static int daemon_reload(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
         int r;
         const char *method;
-
-        dbus_error_init(&error);
 
         if (arg_action == ACTION_RELOAD)
                 method = "Reload";
@@ -3604,148 +3164,79 @@ static int daemon_reload(DBusConnection *bus, char **args) {
                                     /* "daemon-reload" */ "Reload";
         }
 
-        if (!(m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.systemd1.Manager",
-                              method))) {
-                log_error("Could not allocate message.");
-                return -ENOMEM;
-        }
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        method,
+                        NULL,
+                        NULL,
+                        DBUS_TYPE_INVALID);
 
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-
-                if (arg_action != ACTION_SYSTEMCTL && error_is_no_service(&error)) {
-                        /* There's always a fallback possible for
-                         * legacy actions. */
-                        r = -EADDRNOTAVAIL;
-                        goto finish;
-                }
-
-                if (streq(method, "Reexecute") && dbus_error_has_name(&error, DBUS_ERROR_NO_REPLY)) {
-                        /* On reexecution, we expect a disconnect, not
-                         * a reply */
-                        r = 0;
-                        goto finish;
-                }
-
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
-
-        r = 0;
-
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
+        if (r == -ENOENT && arg_action != ACTION_SYSTEMCTL)
+                /* There's always a fallback possible for
+                 * legacy actions. */
+                r = -EADDRNOTAVAIL;
+        else if (r == -ETIMEDOUT && streq(method, "Reexecute"))
+                /* On reexecution, we expect a disconnect, not
+                 * a reply */
+                r = 0;
 
         return r;
 }
 
 static int reset_failed(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL;
-        int r;
-        DBusError error;
-        char **name;
-
-        assert(bus);
-        dbus_error_init(&error);
+        int r = 0;
+        char **name, *n;
 
         if (strv_length(args) <= 1)
                 return daemon_reload(bus, args);
 
         STRV_FOREACH(name, args+1) {
-                DBusMessage *reply;
-                char *n;
-                bool b;
-
-                m = dbus_message_new_method_call(
+                n = unit_name_mangle(*name);
+                r = bus_method_call_with_reply (
+                                bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "ResetFailedUnit");
-                if (!m) {
-                        log_error("Could not allocate message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                n = unit_name_mangle(*name);
-                b = dbus_message_append_args(m,
-                                             DBUS_TYPE_STRING, n ? &n : name,
-                                             DBUS_TYPE_INVALID);
+                                "ResetFailedUnit",
+                                NULL,
+                                NULL,
+                                DBUS_TYPE_STRING, n ? &n : name,
+                                DBUS_TYPE_INVALID);
                 free(n);
-                if (!b) {
-                        log_error("Could not append arguments to message.");
-                        r = -ENOMEM;
+                if (r)
                         goto finish;
-                }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        log_error("Failed to issue method call: %s", bus_error_message(&error));
-                        r = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_unref(m);
-                dbus_message_unref(reply);
-                m = reply = NULL;
         }
 
-        r = 0;
-
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        dbus_error_free(&error);
-
         return r;
 }
 
 static int show_enviroment(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
+        DBusMessage *reply = NULL;
         DBusMessageIter iter, sub, sub2;
         int r;
         const char
                 *interface = "org.freedesktop.systemd1.Manager",
                 *property = "Environment";
 
-        dbus_error_init(&error);
-
         pager_open_if_enabled();
 
-        if (!(m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.DBus.Properties",
-                              "Get"))) {
-                log_error("Could not allocate message.");
-                return -ENOMEM;
-        }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &interface,
-                                      DBUS_TYPE_STRING, &property,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_STRING, &property,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 goto finish;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
@@ -3783,25 +3274,15 @@ static int show_enviroment(DBusConnection *bus, char **args) {
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         return r;
 }
 
 static int switch_root(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
         unsigned l;
         const char *root, *init;
-        DBusError error;
-        int r;
-
-        dbus_error_init(&error);
 
         l = strv_length(args);
         if (l < 2 || l > 3) {
@@ -3812,45 +3293,17 @@ static int switch_root(DBusConnection *bus, char **args) {
         root = args[1];
         init = l >= 3 ? args[2] : "";
 
-        m = dbus_message_new_method_call(
+        return bus_method_call_with_reply (
+                        bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "SwitchRoot");
-        if (!m) {
-                log_error("Could not allocate message.");
-                return -ENOMEM;
-        }
-
-        if (!dbus_message_append_args(
-                            m,
-                            DBUS_TYPE_STRING, &root,
-                            DBUS_TYPE_STRING, &init,
-                            DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
-
-        r = 0;
-
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
-
-        return r;
+                        "SwitchRoot",
+                        NULL,
+                        NULL,
+                        DBUS_TYPE_STRING, &root,
+                        DBUS_TYPE_STRING, &init,
+                        DBUS_TYPE_INVALID);
 }
 
 static int set_environment(DBusConnection *bus, char **args) {
@@ -4290,7 +3743,7 @@ finish:
 static int unit_is_enabled(DBusConnection *bus, char **args) {
         DBusError error;
         int r;
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         bool enabled;
         char **name;
 
@@ -4326,30 +3779,18 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
                 STRV_FOREACH(name, args+1) {
                         const char *s;
 
-                        m = dbus_message_new_method_call(
+                        r = bus_method_call_with_reply (
+                                        bus,
                                         "org.freedesktop.systemd1",
                                         "/org/freedesktop/systemd1",
                                         "org.freedesktop.systemd1.Manager",
-                                        "GetUnitFileState");
-                        if (!m) {
-                                r = log_oom();
+                                        "GetUnitFileState",
+                                        &reply,
+                                        NULL,
+                                        DBUS_TYPE_STRING, name,
+                                        DBUS_TYPE_INVALID);
+                        if (r)
                                 goto finish;
-                        }
-
-                        if (!dbus_message_append_args(m,
-                                                      DBUS_TYPE_STRING, name,
-                                                      DBUS_TYPE_INVALID)) {
-                                log_error("Could not append arguments to message.");
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-
-                        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                        if (!reply) {
-                                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                                r = -EIO;
-                                goto finish;
-                        }
 
                         if (!dbus_message_get_args(reply, &error,
                                                    DBUS_TYPE_STRING, &s,
@@ -4359,9 +3800,8 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
                                 goto finish;
                         }
 
-                        dbus_message_unref(m);
                         dbus_message_unref(reply);
-                        m = reply = NULL;
+                        reply = NULL;
 
                         if (streq(s, "enabled") ||
                             streq(s, "enabled-runtime") ||
@@ -4376,9 +3816,6 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
         r = enabled ? 0 : 1;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
 
@@ -5316,7 +4753,7 @@ static int talk_upstart(void) {
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
 
-                if (error_is_no_service(&error)) {
+                if (bus_error_is_no_service(&error)) {
                         r = -EADDRNOTAVAIL;
                         goto finish;
                 }

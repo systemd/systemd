@@ -203,3 +203,13 @@ void bus_async_unregister_and_exit(DBusConnection *bus, const char *name);
 DBusHandlerResult bus_exit_idle_filter(DBusConnection *bus, DBusMessage *m, void *userdata);
 
 pid_t bus_get_unix_process_id(DBusConnection *connection, const char *name, DBusError *error);
+
+bool bus_error_is_no_service(const DBusError *error);
+int bus_method_call_with_reply(DBusConnection *bus,
+                               const char *destination,
+                               const char *path,
+                               const char *interface,
+                               const char *method,
+                               DBusMessage **return_reply,
+                               DBusError *return_error,
+                               int first_arg_type, ...);

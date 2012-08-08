@@ -942,15 +942,11 @@ static int vt_is_busy(int vtnr) {
 
 int manager_spawn_autovt(Manager *m, int vtnr) {
         int r;
-        DBusMessage *message = NULL, *reply = NULL;
         char *name = NULL;
         const char *mode = "fail";
-        DBusError error;
 
         assert(m);
         assert(vtnr >= 1);
-
-        dbus_error_init(&error);
 
         if ((unsigned) vtnr > m->n_autovts)
                 return 0;
@@ -961,46 +957,25 @@ int manager_spawn_autovt(Manager *m, int vtnr) {
         else if (r > 0)
                 return -EBUSY;
 
-        message = dbus_message_new_method_call("org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartUnit");
-        if (!message) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
         if (asprintf(&name, "autovt@tty%i.service", vtnr) < 0) {
                 log_error("Could not allocate service name.");
                 r = -ENOMEM;
                 goto finish;
         }
-
-        if (!dbus_message_append_args(message,
-                                      DBUS_TYPE_STRING, &name,
-                                      DBUS_TYPE_STRING, &mode,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not attach target and flag information to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(m->bus, message, -1, &error);
-        if (!reply) {
-                log_error("Failed to start unit: %s", bus_error_message(&error));
-                goto finish;
-        }
-
-        r = 0;
+        r = bus_method_call_with_reply (
+                        m->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartUnit",
+                        NULL,
+                        NULL,
+                        DBUS_TYPE_STRING, &name,
+                        DBUS_TYPE_STRING, &mode,
+                        DBUS_TYPE_INVALID);
 
 finish:
         free(name);
-
-        if (message)
-                dbus_message_unref(message);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 
         return r;
 }
