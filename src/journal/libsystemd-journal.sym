@@ -63,6 +63,10 @@ global:
         sd_journal_wait;
         sd_journal_open_directory;
         sd_journal_add_disjunction;
+} LIBSYSTEMD_JOURNAL_184;
+
+LIBSYSTEMD_JOURNAL_188 {
+global:
         sd_journal_perror;
         sd_journal_perror_with_location;
-} LIBSYSTEMD_JOURNAL_184;
+} LIBSYSTEMD_JOURNAL_187;

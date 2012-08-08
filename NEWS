@@ -1,5 +1,69 @@
 systemd System and Service Manager
 
+CHANGES WITH 188:
+
+        * When running in --user mode systemd will now become a
+          subreaper (PR_SET_CHILD_SUBREAPER). This should make the ps
+          tree a lot more organized.
+
+        * A new PartOf= unit dependency type has been introduced that
+          may be used to group services in a natural way.
+
+        * "systemctl enable" may now be used to enable instances of
+          services.
+
+        * journalctl now prints error log levels in red, and
+          warning/notice log levels in bright white. It also supports
+          filtering by log level now.
+
+        * cgtop gained a new -n switch (similar to top), to configure
+          the maximum number of iterations to run for. It also gained
+          -b, to run in batch mode (accepting no input).
+
+        * The suffix ".service" may now be ommited on most systemctl
+          command lines involving service unit names.
+
+        * There's a new bus call in logind to lock all sessions, as
+          well as a loginctl verb for it "lock-sessions".
+
+        * libsystemd-logind.so gained a new call sd_journal_perror()
+          that works similar to libc perror() but logs to the journal
+          and encodes structured information about the error number.
+
+        * /etc/crypttab entries now understand the new keyfile-size=
+          option.
+
+        * shutdown(8) now can send a (configurable) wall message when
+          a shutdown is cancelled.
+
+        * The mount propagation mode for the root file system will now
+          default to "shared", which is useful to make containers work
+          nicely out-of-the-box so that they receive new mounts from
+          the host. This can be undone locally by running "mount
+          --make-rprivate /" if needed.
+
+        * The prefdm.service file has been removed. Distributions
+          should maintain this unit downstream if they intend to keep
+          it around. However, we recommend writing normal unit files
+          for display managers instead.
+
+        * Since systemd is a crucial part of the OS we will now
+          default to a number of compiler switches that improve
+          security (hardening) such as read-only relocations, stack
+          protection, and suchlike.
+
+        * The TimeoutSec= setting for services is now split into
+          TimeoutStartSec= and TimeoutStopSec= to allow configuration
+          of individual time outs for the start and the stop phase of
+          the service.
+
+        Contributions from: Artur Zaprzala, Arvydas Sidorenko, Auke
+        Kok, Bryan Kadzban, Dave Reisner, David Strauss, Harald Hoyer,
+        Jim Meyering, Kay Sievers, Lennart Poettering, Mantas
+        Mikulėnas, Martin Pitt, Michal Schmidt, Michal Sekletar, Peter
+        Alfredsen, Shawn Landden, Simon Peeters, Terence Honles, Tom
+        Gundersen, Zbigniew Jędrzejewski-Szmek
+
 CHANGES WITH 187:
 
         * The journal and id128 C APIs are now fully documented as man
@@ -9,7 +73,7 @@ CHANGES WITH 187:
           the initial RAM disk to the main system to avoid accidental
           data loss.
 
-        * /etc/crypttab entrie now understand the new keyfile-offset=
+        * /etc/crypttab entries now understand the new keyfile-offset=
           option.
 
         * systemctl -t can now be used to filter by unit load state.
