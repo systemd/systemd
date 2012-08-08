@@ -42,73 +42,53 @@ static enum {
 } arg_action = ACTION_INHIBIT;
 
 static int inhibit(DBusConnection *bus, DBusError *error) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *reply = NULL;
         int fd;
 
-        assert(bus);
-
-        m = dbus_message_new_method_call(
+        fd = bus_method_call_with_reply (
+                        bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
-                        "Inhibit");
-        if (!m)
-                return -ENOMEM;
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &arg_what,
-                                      DBUS_TYPE_STRING, &arg_who,
-                                      DBUS_TYPE_STRING, &arg_why,
-                                      DBUS_TYPE_STRING, &arg_mode,
-                                      DBUS_TYPE_INVALID)) {
-                fd = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
-        if (!reply) {
-                fd = -EIO;
-                goto finish;
-        }
+                        "Inhibit",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &arg_what,
+                        DBUS_TYPE_STRING, &arg_who,
+                        DBUS_TYPE_STRING, &arg_why,
+                        DBUS_TYPE_STRING, &arg_mode,
+                        DBUS_TYPE_INVALID);
+        if (fd)
+                return fd;
 
         if (!dbus_message_get_args(reply, error,
                                    DBUS_TYPE_UNIX_FD, &fd,
-                                   DBUS_TYPE_INVALID)){
+                                   DBUS_TYPE_INVALID))
                 fd = -EIO;
-                goto finish;
-        }
 
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
+        dbus_message_unref(reply);
 
         return fd;
 }
 
 static int print_inhibitors(DBusConnection *bus, DBusError *error) {
-        DBusMessage *m, *reply;
+        DBusMessage *reply;
         unsigned n = 0;
         DBusMessageIter iter, sub, sub2;
         int r;
 
-        assert(bus);
-
-        m = dbus_message_new_method_call(
+        r = bus_method_call_with_reply (
+                        bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
-                        "ListInhibitors");
-        if (!m)
+                        "ListInhibitors",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_INVALID);
+        if (r)
                 return -ENOMEM;
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
-        if (!reply) {
-                r = -EIO;
                 goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter)) {
                 r = -ENOMEM;
@@ -170,9 +150,6 @@ static int print_inhibitors(DBusConnection *bus, DBusError *error) {
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (reply)
                 dbus_message_unref(reply);
 

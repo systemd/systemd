@@ -968,36 +968,21 @@ static int have_multiple_sessions(
 }
 
 static int send_start_unit(DBusConnection *connection, const char *unit_name, DBusError *error) {
-        DBusMessage *message, *reply;
         const char *mode = "replace";
 
-        assert(connection);
         assert(unit_name);
 
-        message = dbus_message_new_method_call(
+        return bus_method_call_with_reply (
+                        connection,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "StartUnit");
-        if (!message)
-                return -ENOMEM;
-
-        if (!dbus_message_append_args(message,
-                                      DBUS_TYPE_STRING, &unit_name,
-                                      DBUS_TYPE_STRING, &mode,
-                                      DBUS_TYPE_INVALID)) {
-                dbus_message_unref(message);
-                return -ENOMEM;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(connection, message, -1, error);
-        dbus_message_unref(message);
-
-        if (!reply)
-                return -EIO;
-
-        dbus_message_unref(reply);
-        return 0;
+                        "StartUnit",
+                        NULL,
+                        NULL,
+                        DBUS_TYPE_STRING, &unit_name,
+                        DBUS_TYPE_STRING, &mode,
+                        DBUS_TYPE_INVALID);
 }
 
 static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
