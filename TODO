@@ -53,6 +53,10 @@ Bugfixes:
 
 Features:
 
+* drop PID 1 reloading, only do reexecing
+
+* document that service reload may be implemented as service reexec
+
 * systemctl daemon-reexec is borked
 
 * add option to reconfigure success exit codes/signals for services
