@@ -70,6 +70,7 @@
 #define RECHECK_AVAILABLE_SPACE_USEC (30*USEC_PER_SEC)
 
 #define N_IOVEC_META_FIELDS 17
+#define N_IOVEC_KERNEL_FIELDS 64
 
 #define ENTRY_SIZE_MAX (1024*1024*32)
 
@@ -1807,12 +1808,12 @@ static bool is_us(const char *pid) {
 }
 
 static void dev_kmsg_record(Server *s, char *p, size_t l) {
-        struct iovec iovec[N_IOVEC_META_FIELDS + 7];
+        struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS];
         char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL;
         int priority, r;
-        unsigned n = 0;
+        unsigned n = 0, z = 0, j;
         usec_t usec;
-        char *identifier = NULL, *pid = NULL, *e, *f;
+        char *identifier = NULL, *pid = NULL, *e, *f, *k;
         uint64_t serial;
 
         assert(s);
@@ -1862,8 +1863,42 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
         l -= (f - p) + 1;
         p = f + 1;
         e = memchr(p, '\n', l);
-        if (e)
+        if (!e)
+                return;
+        *e = 0;
+
+        l -= (e - p) + 1;
+        k = e + 1;
+
+        for (j = 0; l > 0 && j < N_IOVEC_KERNEL_FIELDS; j++) {
+                char *m;
+                /* Meta data fields attached */
+
+                if (*k != ' ')
+                        break;
+
+                k ++, l --;
+
+                e = memchr(k, '\n', l);
+                if (!e)
+                        return;
+
                 *e = 0;
+
+                m = new(char, sizeof("_KERNEL_") - 1 + e - k);
+                if (!m)
+                        break;
+
+                memcpy(m, "_KERNEL_", sizeof("_KERNEL_") - 1);
+                memcpy(m + sizeof("_KERNEL_") - 1, k, e - k);
+
+                iovec[n].iov_base = m;
+                iovec[n].iov_len = sizeof("_KERNEL_") - 1 + e - k;
+                n++, z++;
+
+                l -= (e - k) + 1;
+                k = e + 1;
+        }
 
         if (asprintf(&source_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu",
                      (unsigned long long) usec) >= 0)
@@ -1907,6 +1942,9 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
         dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, NULL, 0, NULL, priority);
 
 finish:
+        for (j = 0; j < z; j++)
+                free(iovec[j].iov_base);
+
         free(message);
         free(syslog_priority);
         free(syslog_identifier);
