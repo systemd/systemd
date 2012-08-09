@@ -29,6 +29,7 @@
 #include <sys/ioctl.h>
 #include <linux/sockios.h>
 #include <sys/statvfs.h>
+#include <sys/mman.h>
 
 #include <systemd/sd-journal.h>
 #include <systemd/sd-messages.h>
@@ -1846,6 +1847,22 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (r < 0)
                 return;
 
+        if (s->kernel_seqnum) {
+                /* We already read this one? */
+                if (serial < *s->kernel_seqnum)
+                        return;
+
+                /* Did we lose any? */
+                if (serial > *s->kernel_seqnum)
+                        driver_message(s, SD_MESSAGE_JOURNAL_MISSED, "Missed %llu kernel messages", (unsigned long long) serial - *s->kernel_seqnum - 1);
+
+                /* Make sure we never read this one again. Note that
+                 * we always store the next message serial we expect
+                 * here, simply because this makes handling the first
+                 * message with serial 0 easy. */
+                *s->kernel_seqnum = serial + 1;
+        }
+
         l -= (e - p) + 1;
         p = e + 1;
         f = memchr(p, ';', l);
@@ -2607,6 +2624,41 @@ static int open_dev_kmsg(Server *s) {
         return 0;
 }
 
+static int open_kernel_seqnum(Server *s) {
+        int fd;
+        uint64_t *p;
+
+        assert(s);
+
+        /* We store the seqnum we last read in an mmaped file. That
+         * way we can just use it like a variable, but it is
+         * persistant and automatically flushed at reboot. */
+
+        fd = open("/run/systemd/journal/kernel-seqnum", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
+        if (fd < 0) {
+                log_error("Failed to open /run/systemd/journal/kernel-seqnum, ignoring: %m");
+                return 0;
+        }
+
+        if (posix_fallocate(fd, 0, sizeof(uint64_t)) < 0) {
+                log_error("Failed to allocate sequential number file, ignoring: %m");
+                close_nointr_nofail(fd);
+                return 0;
+        }
+
+        p = mmap(NULL, sizeof(uint64_t), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        if (p == MAP_FAILED) {
+                log_error("Failed to map sequential number file, ignoring: %m");
+                close_nointr_nofail(fd);
+                return 0;
+        }
+
+        close_nointr_nofail(fd);
+        s->kernel_seqnum = p;
+
+        return 0;
+}
+
 static int open_signalfd(Server *s) {
         sigset_t mask;
         struct epoll_event ev;
@@ -2740,6 +2792,8 @@ static int server_init(Server *s) {
         server_parse_config_file(s);
         server_parse_proc_cmdline(s);
 
+        mkdir_p("/run/systemd/journal", 0755);
+
         s->user_journals = hashmap_new(trivial_hash_func, trivial_compare_func);
         if (!s->user_journals)
                 return log_oom();
@@ -2807,6 +2861,10 @@ static int server_init(Server *s) {
         if (r < 0)
                 return r;
 
+        r = open_kernel_seqnum(s);
+        if (r < 0)
+                return r;
+
         r = open_signalfd(s);
         if (r < 0)
                 return r;
@@ -2860,6 +2918,9 @@ static void server_done(Server *s) {
 
         if (s->rate_limit)
                 journal_rate_limit_free(s->rate_limit);
+
+        if (s->kernel_seqnum)
+                munmap(s->kernel_seqnum, sizeof(uint64_t));
 
         free(s->buffer);
         free(s->tty_path);

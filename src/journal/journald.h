@@ -94,6 +94,8 @@ typedef struct Server {
         Storage storage;
 
         bool dev_kmsg_readable;
+
+        uint64_t *kernel_seqnum;
 } Server;
 
 /* gperf lookup function */
