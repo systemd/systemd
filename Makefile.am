@@ -684,8 +684,32 @@ man/index.html: make-man-index.py $(XML_FILES)
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(PYTHON) $^ > $@
 
+MANPAGES += \
+	man/systemd.directives.5
+
 EXTRA_DIST += \
 	man/index.html
+
+XML_DIRECTIVE_FILES = \
+	man/systemd.unit.xml \
+	man/systemd.service.xml \
+	man/systemd.socket.xml \
+	man/systemd.mount.xml \
+	man/systemd.automount.xml \
+	man/systemd.swap.xml \
+	man/systemd.target.xml \
+	man/systemd.path.xml \
+	man/systemd.timer.xml \
+	man/systemd.snapshot.xml \
+	man/systemd.exec.xml
+
+man/systemd.directives.xml: make-directive-index.py $(XML_DIRECTIVE_FILES)
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(PYTHON) $^ > $@
+
+EXTRA_DIST += \
+	man/systemd.directives.xml
+
 endif
 
 endif
@@ -695,7 +719,8 @@ EXTRA_DIST += \
 	${XML_FILES:.xml=.html} \
 	$(MANPAGES) \
 	$(MANPAGES_ALIAS) \
-	make-man-index.py
+	make-man-index.py \
+	make-directive-index.py
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
