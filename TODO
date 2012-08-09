@@ -165,8 +165,6 @@ Features:
 
 * nspawn: make use of device cgroup contrller by default
 
-* journalctl /dev/sda, journalctl --device=b12:8 (--device=n12, --device=+usb:1-1)
-
 * make use of /sys/power/wake_lock in inhibitors
 
 * drop accountsservice's StandardOutput=syslog and Type=dbus fields
@@ -303,7 +301,7 @@ Features:
 
 * systemctl journal command
 
-* journalctl: --cursor support, priority filtering
+* journalctl: --cursor support
 
 * systemctl status: show coredumps
 
