@@ -1562,19 +1562,25 @@ char *cescape(const char *s) {
         return r;
 }
 
-char *cunescape_length(const char *s, size_t length) {
+char *cunescape_length_with_prefix(const char *s, size_t length, const char *prefix) {
         char *r, *t;
         const char *f;
+        size_t pl;
 
         assert(s);
 
-        /* Undoes C style string escaping */
+        /* Undoes C style string escaping, and optionally prefixes it. */
 
-        r = new(char, length+1);
+        pl = prefix ? strlen(prefix) : 0;
+
+        r = new(char, pl+length+1);
         if (!r)
                 return r;
 
-        for (f = s, t = r; f < s + length; f++) {
+        if (prefix)
+                memcpy(r, prefix, pl);
+
+        for (f = s, t = r + pl; f < s + length; f++) {
 
                 if (*f != '\\') {
                         *(t++) = *f;
@@ -1685,7 +1691,13 @@ finish:
         return r;
 }
 
+char *cunescape_length(const char *s, size_t length) {
+        return cunescape_length_with_prefix(s, length, NULL);
+}
+
 char *cunescape(const char *s) {
+        assert(s);
+
         return cunescape_length(s, strlen(s));
 }
 

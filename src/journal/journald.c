@@ -1815,6 +1815,7 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
         usec_t usec;
         char *identifier = NULL, *pid = NULL, *e, *f, *k;
         uint64_t serial;
+        size_t pl;
 
         assert(s);
         assert(p);
@@ -1867,6 +1868,7 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
                 return;
         *e = 0;
 
+        pl = e - p;
         l -= (e - p) + 1;
         k = e + 1;
 
@@ -1885,16 +1887,12 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
 
                 *e = 0;
 
-                m = new(char, sizeof("_KERNEL_") - 1 + e - k);
+                m = cunescape_length_with_prefix(k, e - k, "_KERNEL_");
                 if (!m)
                         break;
 
-                memcpy(m, "_KERNEL_", sizeof("_KERNEL_") - 1);
-                memcpy(m + sizeof("_KERNEL_") - 1, k, e - k);
-
-                iovec[n].iov_base = m;
-                iovec[n].iov_len = sizeof("_KERNEL_") - 1 + e - k;
-                n++, z++;
+                IOVEC_SET_STRING(iovec[n++], m);
+                z++;
 
                 l -= (e - k) + 1;
                 k = e + 1;
@@ -1935,7 +1933,7 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
                         IOVEC_SET_STRING(iovec[n++], syslog_facility);
         }
 
-        message = strappend("MESSAGE=", p);
+        message = cunescape_length_with_prefix(p, pl, "MESSAGE=");
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 

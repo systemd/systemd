@@ -256,6 +256,7 @@ int undecchar(char c);
 char *cescape(const char *s);
 char *cunescape(const char *s);
 char *cunescape_length(const char *s, size_t length);
+char *cunescape_length_with_prefix(const char *s, size_t length, const char *prefix);
 
 char *xescape(const char *s, const char *bad);
 
