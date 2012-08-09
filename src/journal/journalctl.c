@@ -305,7 +305,7 @@ static int add_matches(sd_journal *j, char **args) {
                 if (streq(*i, "+"))
                         r = sd_journal_add_disjunction(j);
                 else if (path_is_absolute(*i)) {
-                        char *p;
+                        char *p, *t = NULL;
                         const char *path;
                         struct stat st;
 
@@ -318,24 +318,25 @@ static int add_matches(sd_journal *j, char **args) {
                                 return -errno;
                         }
 
-                        if (S_ISREG(st.st_mode) && (0111 & st.st_mode)) {
-                                char *t;
-
+                        if (S_ISREG(st.st_mode) && (0111 & st.st_mode))
                                 t = strappend("_EXE=", path);
-                                if (!t) {
-                                        free(p);
-                                        return log_oom();
-                                }
-
-                                r = sd_journal_add_match(j, t, 0);
-                                free(t);
-                        } else {
+                        else if (S_ISCHR(st.st_mode))
+                                asprintf(&t, "_KERNEL_DEVICE=c%u:%u", major(st.st_rdev), minor(st.st_rdev));
+                        else if (S_ISBLK(st.st_mode))
+                                asprintf(&t, "_KERNEL_DEVICE=b%u:%u", major(st.st_rdev), minor(st.st_rdev));
+                        else {
                                 free(p);
-                                log_error("File is not a regular file or is not executable: %s", *i);
+                                log_error("File is not a device node, regular file or is not executable: %s", *i);
                                 return -EINVAL;
                         }
 
                         free(p);
+
+                        if (!t)
+                                return log_oom();
+
+                        r = sd_journal_add_match(j, t, 0);
+                        free(t);
                 } else
                         r = sd_journal_add_match(j, *i, 0);
 
