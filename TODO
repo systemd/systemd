@@ -53,6 +53,8 @@ Bugfixes:
 
 Features:
 
+* systemctl daemon-reexec is borked
+
 * add option to reconfigure success exit codes/signals for services
 
 * remember which condition failed for services, not just the fact that something failed
