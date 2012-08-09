@@ -955,14 +955,16 @@ static void forward_kmsg(Server *s, int priority, const char *identifier, const 
         char header_priority[6], header_pid[16];
         int n = 0;
         char *ident_buf = NULL;
-        int fd;
 
         assert(s);
         assert(priority >= 0);
         assert(priority <= 999);
         assert(message);
 
-        if (LOG_PRI(priority) > s->max_level_kmsg)
+        if (_unlikely_(LOG_PRI(priority) > s->max_level_kmsg))
+                return;
+
+        if (_unlikely_(s->dev_kmsg_fd < 0))
                 return;
 
         /* Never allow messages with kernel facility to be written to
@@ -997,18 +999,9 @@ static void forward_kmsg(Server *s, int priority, const char *identifier, const 
         IOVEC_SET_STRING(iovec[n++], message);
         IOVEC_SET_STRING(iovec[n++], "\n");
 
-        fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0) {
-                log_debug("Failed to open /dev/kmsg for logging: %s", strerror(errno));
-                goto finish;
-        }
-
-        if (writev(fd, iovec, n) < 0)
+        if (writev(s->dev_kmsg_fd, iovec, n) < 0)
                 log_debug("Failed to write to /dev/kmsg for logging: %s", strerror(errno));
 
-        close_nointr_nofail(fd);
-
-finish:
         free(ident_buf);
 }
 
@@ -1802,52 +1795,6 @@ fail:
         return r;
 }
 
-static int parse_kernel_timestamp(char **_p, usec_t *t) {
-        usec_t r;
-        int k, i;
-        char *p;
-
-        assert(_p);
-        assert(*_p);
-        assert(t);
-
-        p = *_p;
-
-        if (strlen(p) < 14 || p[0] != '[' || p[13] != ']' || p[6] != '.')
-                return 0;
-
-        r = 0;
-
-        for (i = 1; i <= 5; i++) {
-                r *= 10;
-
-                if (p[i] == ' ')
-                        continue;
-
-                k = undecchar(p[i]);
-                if (k < 0)
-                        return 0;
-
-                r += k;
-        }
-
-        for (i = 7; i <= 12; i++) {
-                r *= 10;
-
-                k = undecchar(p[i]);
-                if (k < 0)
-                        return 0;
-
-                r += k;
-        }
-
-        *t = r;
-        *_p += 14;
-        *_p += strspn(*_p, WHITESPACE);
-
-        return 1;
-}
-
 static bool is_us(const char *pid) {
         pid_t t;
 
@@ -1859,52 +1806,83 @@ static bool is_us(const char *pid) {
         return t == getpid();
 }
 
-static void proc_kmsg_line(Server *s, const char *p) {
+static void dev_kmsg_record(Server *s, char *p, size_t l) {
         struct iovec iovec[N_IOVEC_META_FIELDS + 7];
         char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL;
-        int priority = LOG_KERN | LOG_INFO;
+        int priority, r;
         unsigned n = 0;
         usec_t usec;
-        char *identifier = NULL, *pid = NULL;
+        char *identifier = NULL, *pid = NULL, *e, *f;
+        uint64_t serial;
 
         assert(s);
         assert(p);
 
-        if (isempty(p))
+        if (l <= 0)
                 return;
 
-        parse_syslog_priority((char **) &p, &priority);
+        e = memchr(p, ',', l);
+        if (!e)
+                return;
+        *e = 0;
+
+        r = safe_atoi(p, &priority);
+        if (r < 0 || priority < 0 || priority > 999)
+                return;
 
         if (s->forward_to_kmsg && (priority & LOG_FACMASK) != LOG_KERN)
                 return;
 
-        if (parse_kernel_timestamp((char **) &p, &usec) > 0) {
-                if (asprintf(&source_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu",
-                             (unsigned long long) usec) >= 0)
-                        IOVEC_SET_STRING(iovec[n++], source_time);
-        }
+        l -= (e - p) + 1;
+        p = e + 1;
+        e = memchr(p, ',', l);
+        if (!e)
+                return;
+        *e = 0;
+
+        r = safe_atou64(p, &serial);
+        if (r < 0)
+                return;
+
+        l -= (e - p) + 1;
+        p = e + 1;
+        f = memchr(p, ';', l);
+        if (!f)
+                return;
+        /* Kernel 3.6 has the flags field, kernel 3.5 lacks that */
+        e = memchr(p, ',', l);
+        if (!e || f < e)
+                e = f;
+        *e = 0;
+
+        r = parse_usec(p, &usec);
+        if (r < 0)
+                return;
+
+        l -= (f - p) + 1;
+        p = f + 1;
+        e = memchr(p, '\n', l);
+        if (e)
+                *e = 0;
+
+        if (asprintf(&source_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu",
+                     (unsigned long long) usec) >= 0)
+                IOVEC_SET_STRING(iovec[n++], source_time);
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=kernel");
 
         if (asprintf(&syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK) >= 0)
                 IOVEC_SET_STRING(iovec[n++], syslog_priority);
 
-        if ((priority & LOG_FACMASK) == LOG_KERN) {
-
-                if (s->forward_to_syslog)
-                        forward_syslog(s, priority, "kernel", p, NULL, NULL);
-
+        if ((priority & LOG_FACMASK) == LOG_KERN)
                 IOVEC_SET_STRING(iovec[n++], "SYSLOG_IDENTIFIER=kernel");
-        } else {
-                read_identifier(&p, &identifier, &pid);
+        else {
+                read_identifier((const char**) &p, &identifier, &pid);
 
                 /* Avoid any messages we generated ourselves via
                  * log_info() and friends. */
                 if (pid && is_us(pid))
                         goto finish;
-
-                if (s->forward_to_syslog)
-                        forward_syslog(s, priority, identifier, p, NULL, NULL);
 
                 if (identifier) {
                         syslog_identifier = strappend("SYSLOG_IDENTIFIER=", identifier);
@@ -1937,41 +1915,6 @@ finish:
         free(source_time);
         free(identifier);
         free(pid);
-}
-
-static void proc_kmsg_scan(Server *s) {
-        char *p;
-        size_t remaining;
-
-        assert(s);
-
-        p = s->proc_kmsg_buffer;
-        remaining = s->proc_kmsg_length;
-        for (;;) {
-                char *end;
-                size_t skip;
-
-                end = memchr(p, '\n', remaining);
-                if (end)
-                        skip = end - p + 1;
-                else if (remaining >= sizeof(s->proc_kmsg_buffer) - 1) {
-                        end = p + sizeof(s->proc_kmsg_buffer) - 1;
-                        skip = remaining;
-                } else
-                        break;
-
-                *end = 0;
-
-                proc_kmsg_line(s, p);
-
-                remaining -= skip;
-                p += skip;
-        }
-
-        if (p > s->proc_kmsg_buffer) {
-                memmove(s->proc_kmsg_buffer, p, remaining);
-                s->proc_kmsg_length = remaining;
-        }
 }
 
 static int system_journal_open(Server *s) {
@@ -2149,17 +2092,24 @@ finish:
         return r;
 }
 
-static int server_read_proc_kmsg(Server *s) {
+static int server_read_dev_kmsg(Server *s) {
+        char buffer[8192+1]; /* the kernel-side limit per record is 8K currently */
         ssize_t l;
-        assert(s);
-        assert(s->proc_kmsg_fd >= 0);
 
-        l = read(s->proc_kmsg_fd, s->proc_kmsg_buffer + s->proc_kmsg_length, sizeof(s->proc_kmsg_buffer) - 1 - s->proc_kmsg_length);
-        if (l == 0) /* the kernel is stupid and in some race
-                     * conditions returns 0 in the middle of the
-                     * stream. */
+        assert(s);
+        assert(s->dev_kmsg_fd >= 0);
+
+        l = read(s->dev_kmsg_fd, buffer, sizeof(buffer) - 1);
+        if (l == 0)
                 return 0;
         if (l < 0) {
+                /* Old kernels who don't allow reading from /dev/kmsg
+                 * return EINVAL when we try. So handle this cleanly,
+                 * but don' try to ever read from it again. */
+                if (errno == EINVAL) {
+                        epoll_ctl(s->epoll_fd, EPOLL_CTL_DEL, s->dev_kmsg_fd, NULL);
+                        return 0;
+                }
 
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
@@ -2168,24 +2118,25 @@ static int server_read_proc_kmsg(Server *s) {
                 return -errno;
         }
 
-        s->proc_kmsg_length += l;
-
-        proc_kmsg_scan(s);
+        dev_kmsg_record(s, buffer, l);
         return 1;
 }
 
-static int server_flush_proc_kmsg(Server *s) {
+static int server_flush_dev_kmsg(Server *s) {
         int r;
 
         assert(s);
 
-        if (s->proc_kmsg_fd < 0)
+        if (s->dev_kmsg_fd < 0)
                 return 0;
 
-        log_info("Flushing /proc/kmsg...");
+        if (!s->dev_kmsg_readable)
+                return 0;
+
+        log_info("Flushing /dev/kmsg...");
 
         for (;;) {
-                r = server_read_proc_kmsg(s);
+                r = server_read_dev_kmsg(s);
                 if (r < 0)
                         return r;
 
@@ -2237,7 +2188,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
                 return 0;
 
-        } else if (ev->data.fd == s->proc_kmsg_fd) {
+        } else if (ev->data.fd == s->dev_kmsg_fd) {
                 int r;
 
                 if (ev->events != EPOLLIN) {
@@ -2245,7 +2196,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
                         return -EIO;
                 }
 
-                r = server_read_proc_kmsg(s);
+                r = server_read_dev_kmsg(s);
                 if (r < 0)
                         return r;
 
@@ -2590,27 +2541,32 @@ static int open_stdout_socket(Server *s) {
         return 0;
 }
 
-static int open_proc_kmsg(Server *s) {
+static int open_dev_kmsg(Server *s) {
         struct epoll_event ev;
 
         assert(s);
 
-        if (!s->import_proc_kmsg)
-                return 0;
-
-        s->proc_kmsg_fd = open("/proc/kmsg", O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (s->proc_kmsg_fd < 0) {
-                log_warning("Failed to open /proc/kmsg, ignoring: %m");
+        s->dev_kmsg_fd = open("/dev/kmsg", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (s->dev_kmsg_fd < 0) {
+                log_warning("Failed to open /dev/kmsg, ignoring: %m");
                 return 0;
         }
 
         zero(ev);
         ev.events = EPOLLIN;
-        ev.data.fd = s->proc_kmsg_fd;
-        if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, s->proc_kmsg_fd, &ev) < 0) {
-                log_error("Failed to add /proc/kmsg fd to epoll object: %m");
+        ev.data.fd = s->dev_kmsg_fd;
+        if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, s->dev_kmsg_fd, &ev) < 0) {
+
+                /* This will fail with EPERM on older kernels where
+                 * /dev/kmsg is not readable. */
+                if (errno == EPERM)
+                        return 0;
+
+                log_error("Failed to add /dev/kmsg fd to epoll object: %m");
                 return -errno;
         }
+
+        s->dev_kmsg_readable = true;
 
         return 0;
 }
@@ -2729,7 +2685,7 @@ static int server_init(Server *s) {
         assert(s);
 
         zero(*s);
-        s->syslog_fd = s->native_fd = s->stdout_fd = s->signal_fd = s->epoll_fd = s->proc_kmsg_fd = -1;
+        s->syslog_fd = s->native_fd = s->stdout_fd = s->signal_fd = s->epoll_fd = s->dev_kmsg_fd = -1;
         s->compress = true;
 
         s->rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
@@ -2811,7 +2767,7 @@ static int server_init(Server *s) {
         if (r < 0)
                 return r;
 
-        r = open_proc_kmsg(s);
+        r = open_dev_kmsg(s);
         if (r < 0)
                 return r;
 
@@ -2863,8 +2819,8 @@ static void server_done(Server *s) {
         if (s->stdout_fd >= 0)
                 close_nointr_nofail(s->stdout_fd);
 
-        if (s->proc_kmsg_fd >= 0)
-                close_nointr_nofail(s->proc_kmsg_fd);
+        if (s->dev_kmsg_fd >= 0)
+                close_nointr_nofail(s->dev_kmsg_fd);
 
         if (s->rate_limit)
                 journal_rate_limit_free(s->rate_limit);
@@ -2900,7 +2856,7 @@ int main(int argc, char *argv[]) {
 
         server_vacuum(&server);
         server_flush_to_var(&server);
-        server_flush_proc_kmsg(&server);
+        server_flush_dev_kmsg(&server);
 
         log_debug("systemd-journald running as pid %lu", (unsigned long) getpid());
         driver_message(&server, SD_MESSAGE_JOURNAL_START, "Journal started");

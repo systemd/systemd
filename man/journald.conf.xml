@@ -210,17 +210,12 @@
                                 is running the respective option has
                                 no effect. By default only forwarding
                                 to syslog is enabled. These settings
-                                may be overridden at boot time with the
-                                kernel command line options
+                                may be overridden at boot time with
+                                the kernel command line options
                                 <literal>systemd.journald.forward_to_syslog=</literal>,
                                 <literal>systemd.journald.forward_to_kmsg=</literal>
                                 and
-                                <literal>systemd.journald.forward_to_console=</literal>. If
-                                forwarding to the kernel log buffer and
-                                <varname>ImportKernel=</varname> is
-                                enabled at the same time care is taken
-                                to avoid logging loops. It is safe to
-                                use these options in combination.
+                                <literal>systemd.journald.forward_to_console=</literal>.
                                 </para></listitem>
                         </varlistentry>
 
@@ -268,23 +263,6 @@
                                 <varname>ForwardToConsole=yes</varname>
                                 is used. Defaults to
                                 <filename>/dev/console</filename>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>ImportKernel=</varname></term>
-
-                                <listitem><para>Controls whether
-                                kernel log messages shall be stored in
-                                the journal. Takes a boolean argument
-                                and defaults to disabled. Note that
-                                currently only one userspace service
-                                can read kernel messages at a time,
-                                which means that kernel log message
-                                reading might get corrupted if it
-                                is enabled in more than one service,
-                                for example in both the journal and a
-                                traditional syslog service.
-                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
