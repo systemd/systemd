@@ -89,6 +89,8 @@
 
                 <para>Similar, <function>sd_get_uids()</function> may
                 be used to determine all Unix users who currently have login sessions.</para>
+
+                <para>Note that the returned lists are not sorted and in an undefined order.</para>
         </refsect1>
 
         <refsect1>
