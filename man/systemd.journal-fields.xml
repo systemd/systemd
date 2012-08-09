@@ -306,6 +306,42 @@
         </refsect1>
 
         <refsect1>
+                <title>Kernel Journal Fields</title>
+
+                <para>Kernel fields are fields that are used by
+                messages originating in the kernel and stored in the
+                journal.</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term>_KERNEL_DEVICE=</term>
+                                <listitem>
+                                        <para>The kernel device
+                                        name. If the entry is
+                                        associated to a block device,
+                                        the major and minor of the
+                                        device node, separated by ':'
+                                        and prefixed by 'b'. Similar
+                                        for character devices, but
+                                        prefixed by 'c'. For network
+                                        devices the interface index,
+                                        prefixed by 'n'. For all other
+                                        devices '+' followed by the
+                                        subsystem name, followed by
+                                        ':', followed by the kernel
+                                        device name.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term>_KERNEL_SUBSYSTEM=</term>
+                                <listitem>
+                                        <para>The kernel subsystem name.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
                 <title>Address Fields</title>
 
                 <para>During serialization into external formats the
