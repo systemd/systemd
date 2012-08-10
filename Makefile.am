@@ -702,7 +702,9 @@ XML_DIRECTIVE_FILES = \
 	man/systemd.timer.xml \
 	man/systemd.snapshot.xml \
 	man/systemd.exec.xml \
-	man/systemd.device.xml
+	man/systemd.kill.xml \
+	man/systemd.device.xml \
+	man/systemd.conf.xml
 
 man/systemd.directives.xml: make-directive-index.py $(XML_DIRECTIVE_FILES)
 	$(AM_V_at)$(MKDIR_P) $(dir $@)

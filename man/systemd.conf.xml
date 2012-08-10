@@ -69,7 +69,7 @@
                 <para>All options are configured in the
                 <literal>[Manager]</literal> section:</para>
 
-                <variablelist>
+                <variablelist class='systemd-directives'>
 
                         <varlistentry>
                                 <term><varname>LogLevel=</varname></term>

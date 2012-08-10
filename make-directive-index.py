@@ -40,6 +40,15 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
+                <title>System manager directives</title>
+
+                <para>Directives for configuring the behaviour of the
+                systemd process.</para>
+
+                <variablelist id='systemd-directives' />
+        </refsect1>
+
+        <refsect1>
                 <title>UDEV directives</title>
 
                 <para>Directives for configuring systemd units through the
@@ -101,6 +110,7 @@ def make_page(xml_files):
     directive_groups = {name:collections.defaultdict(list)
                         for name in ['unit-directives',
                                      'udev-directives',
+                                     'systemd-directives',
                                      ]}
     for page in xml_files:
         _extract_directives(directive_groups, page)
