@@ -1287,7 +1287,8 @@ int bus_method_call_with_reply(DBusConnection *bus,
         reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
         dbus_message_unref(m);
         if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
+                if (!return_error)
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                 if (bus_error_is_no_service(&error))
                         r = -ENOENT;
                 else if (dbus_error_has_name(&error, DBUS_ERROR_ACCESS_DENIED))

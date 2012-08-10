@@ -1537,11 +1537,12 @@ static int start_unit_one(
                         DBUS_TYPE_INVALID);
         free(n);
         if (r) {
-                if (r == -ENOENT && arg_action != ACTION_SYSTEMCTL ) {
+                if (r == -ENOENT && arg_action != ACTION_SYSTEMCTL )
                         /* There's always a fallback possible for
                          * legacy actions. */
                         r = -EADDRNOTAVAIL;
-                }
+                else
+                        log_error("Failed to issue method call: %s", bus_error_message(error));
                 goto finish;
         }
 
@@ -3143,6 +3144,7 @@ finish:
 static int daemon_reload(DBusConnection *bus, char **args) {
         int r;
         const char *method;
+        DBusError error;
 
         if (arg_action == ACTION_RELOAD)
                 method = "Reload";
@@ -3171,7 +3173,7 @@ static int daemon_reload(DBusConnection *bus, char **args) {
                         "org.freedesktop.systemd1.Manager",
                         method,
                         NULL,
-                        NULL,
+                        &error,
                         DBUS_TYPE_INVALID);
 
         if (r == -ENOENT && arg_action != ACTION_SYSTEMCTL)
@@ -3182,6 +3184,9 @@ static int daemon_reload(DBusConnection *bus, char **args) {
                 /* On reexecution, we expect a disconnect, not
                  * a reply */
                 r = 0;
+        else if (r)
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
+        dbus_error_free(&error);
 
         return r;
 }
