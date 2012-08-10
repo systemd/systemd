@@ -714,7 +714,25 @@ _public_ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char
         return udev_device_new_from_syspath(udev, path);
 }
 
-struct udev_device *udev_device_new_from_id_filename(struct udev *udev, char *id)
+/**
+ * udev_device_new_from_device_id:
+ * @udev: udev library context
+ * @id: text string identifying a kernel device
+ *
+ * Create new udev device, and fill in information from the sys
+ * device and the udev database entry. The device is looked-up
+ * by a special string:
+ *   b8:2          - block device major:minor
+ *   c128:1        - char device major:minor
+ *   n3            - network device ifindex
+ *   +sound:card29 - kernel driver core subsystem:device name
+ *
+ * The initial refcount is 1, and needs to be decremented to
+ * release the resources of the udev device.
+ *
+ * Returns: a new udev device, or #NULL, if it does not exist
+ **/
+_public_ struct udev_device *udev_device_new_from_device_id(struct udev *udev, char *id)
 {
         char type;
         int maj, min;

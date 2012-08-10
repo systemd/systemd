@@ -789,7 +789,7 @@ static int scan_devices_tags(struct udev_enumerate *udev_enumerate)
                         if (dent->d_name[0] == '.')
                                 continue;
 
-                        dev = udev_device_new_from_id_filename(udev_enumerate->udev, dent->d_name);
+                        dev = udev_device_new_from_device_id(udev_enumerate->udev, dent->d_name);
                         if (dev == NULL)
                                 continue;
 

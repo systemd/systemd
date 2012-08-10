@@ -159,7 +159,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
                 if (strcmp(dent->d_name, udev_device_get_id_filename(dev)) == 0)
                         continue;
 
-                dev_db = udev_device_new_from_id_filename(udev, dent->d_name);
+                dev_db = udev_device_new_from_device_id(udev, dent->d_name);
                 if (dev_db != NULL) {
                         const char *devnode;
 

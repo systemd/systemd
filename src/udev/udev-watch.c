@@ -75,7 +75,7 @@ void udev_watch_restore(struct udev *udev)
                                 goto unlink;
                         device[len] = '\0';
 
-                        dev = udev_device_new_from_id_filename(udev, device);
+                        dev = udev_device_new_from_device_id(udev, device);
                         if (dev == NULL)
                                 goto unlink;
 
@@ -154,5 +154,5 @@ struct udev_device *udev_watch_lookup(struct udev *udev, int wd)
                 return NULL;
         device[len] = '\0';
 
-        return udev_device_new_from_id_filename(udev, device);
+        return udev_device_new_from_device_id(udev, device);
 }
