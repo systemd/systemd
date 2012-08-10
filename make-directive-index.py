@@ -56,6 +56,15 @@ TEMPLATE = '''\
 
                 <variablelist id='udev-directives' />
         </refsect1>
+
+        <refsect1>
+                <title>Journal directives</title>
+
+                <para>Directives for configuring the behaviour of the
+                journald process.</para>
+
+                <variablelist id='journal-directives' />
+        </refsect1>
 </refentry>
 '''
 
@@ -111,6 +120,7 @@ def make_page(xml_files):
                         for name in ['unit-directives',
                                      'udev-directives',
                                      'systemd-directives',
+                                     'journal-directives',
                                      ]}
     for page in xml_files:
         _extract_directives(directive_groups, page)

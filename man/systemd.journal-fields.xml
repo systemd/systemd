@@ -68,9 +68,9 @@
                 <para>User fields are fields that are directly passed
                 from clients and stored in the journal.</para>
 
-                <variablelist>
+                <variablelist class='journal-directives'>
                         <varlistentry>
-                                <term>MESSAGE=</term>
+                                <term><varname>MESSAGE=</varname></term>
                                 <listitem>
                                         <para>The human readable
                                         message string for this
@@ -85,7 +85,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>MESSAGE_ID=</term>
+                                <term><varname>MESSAGE_ID=</varname></term>
                                 <listitem>
                                         <para>A 128bit message
                                         identifier ID for recognizing
@@ -107,7 +107,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>PRIORITY=</term>
+                                <term><varname>PRIORITY=</varname></term>
                                 <listitem>
                                         <para>A priority value between
                                         0 (<literal>emerg</literal>)
@@ -121,9 +121,9 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>CODE_FILE=</term>
-                                <term>CODE_LINE=</term>
-                                <term>CODE_FUNC=</term>
+                                <term><varname>CODE_FILE=</varname></term>
+                                <term><varname>CODE_LINE=</varname></term>
+                                <term><varname>CODE_FUNC=</varname></term>
                                 <listitem>
                                         <para>The code location
                                         generating this message, if
@@ -134,7 +134,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>ERRNO=</term>
+                                <term><varname>ERRNO=</varname></term>
                                 <listitem>
                                         <para>The low-level Unix error
                                         number causing this entry, if
@@ -147,9 +147,9 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SYSLOG_FACILITY=</term>
-                                <term>SYSLOG_IDENTIFIER=</term>
-                                <term>SYSLOG_PID=</term>
+                                <term><varname>SYSLOG_FACILITY=</varname></term>
+                                <term><varname>SYSLOG_IDENTIFIER=</varname></term>
+                                <term><varname>SYSLOG_PID=</varname></term>
                                 <listitem>
                                         <para>Syslog compatibility
                                         fields containing the facility
@@ -170,11 +170,11 @@
                 fields, i.e. fields that are implicitly added by the
                 journal and cannot be altered by client code.</para>
 
-                <variablelist>
+                <variablelist class='journal-directives'>
                         <varlistentry>
-                                <term>_PID=</term>
-                                <term>_UID=</term>
-                                <term>_GID=</term>
+                                <term><varname>_PID=</varname></term>
+                                <term><varname>_UID=</varname></term>
+                                <term><varname>_GID=</varname></term>
                                 <listitem>
                                         <para>The process, user and
                                         group ID of the process the
@@ -185,9 +185,9 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>_COMM=</term>
-                                <term>_EXE=</term>
-                                <term>_CMDLINE=</term>
+                                <term><varname>_COMM=</varname></term>
+                                <term><varname>_EXE=</varname></term>
+                                <term><varname>_CMDLINE=</varname></term>
                                 <listitem>
                                         <para>The name, the executable
                                         path and the command line of
@@ -197,8 +197,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>_AUDIT_SESSION=</term>
-                                <term>_AUDIT_LOGINUID=</term>
+                                <term><varname>_AUDIT_SESSION=</varname></term>
+                                <term><varname>_AUDIT_LOGINUID=</varname></term>
                                 <listitem>
                                         <para>The session and login
                                         UID of the process the journal
@@ -209,10 +209,10 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>_SYSTEMD_CGROUP=</term>
-                                <term>_SYSTEMD_SESSION=</term>
-                                <term>_SYSTEMD_UNIT=</term>
-                                <term>_SYSTEMD_OWNER_UID=</term>
+                                <term><varname>_SYSTEMD_CGROUP=</varname></term>
+                                <term><varname>_SYSTEMD_SESSION=</varname></term>
+                                <term><varname>_SYSTEMD_UNIT=</varname></term>
+                                <term><varname>_SYSTEMD_OWNER_UID=</varname></term>
 
                                 <listitem>
                                         <para>The contol group path in
@@ -227,7 +227,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>_SELINUX_CONTEXT=</term>
+                                <term><varname>_SELINUX_CONTEXT=</varname></term>
                                 <listitem>
                                         <para>The SELinux security
                                         context of the process the
@@ -237,7 +237,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>_SOURCE_REALTIME_TIMESTAMP=</term>
+                                <term><varname>_SOURCE_REALTIME_TIMESTAMP=</varname></term>
                                 <listitem>
                                         <para>The earliest trusted
                                         timestamp of the message, if
@@ -251,7 +251,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>_BOOT_ID=</term>
+                                <term><varname>_BOOT_ID=</varname></term>
                                 <listitem>
                                         <para>The kernel boot ID for
                                         the boot the message was
@@ -262,7 +262,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>_MACHINE_ID=</term>
+                                <term><varname>_MACHINE_ID=</varname></term>
                                 <listitem>
                                         <para>The machine ID of the
                                         originating host, as available
@@ -272,7 +272,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>_HOSTNAME=</term>
+                                <term><varname>_HOSTNAME=</varname></term>
                                 <listitem>
                                         <para>The name of the
                                         originating host.</para>
@@ -280,7 +280,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>_TRANSPORT=</term>
+                                <term><varname>_TRANSPORT=</varname></term>
                                 <listitem>
                                         <para>How the entry was
                                         received by the journal
@@ -383,9 +383,9 @@
                 may also not be used as matches for
                 <citerefentry><refentrytitle>sd_journal_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry></para>
 
-                <variablelist>
+                <variablelist class='journal-directives'>
                         <varlistentry>
-                                <term>__CURSOR=</term>
+                                <term><varname>__CURSOR=</varname></term>
                                 <listitem>
                                         <para>The cursor for the
                                         entry. A cursor is an opaque
@@ -399,7 +399,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>__REALTIME_TIMESTAMP=</term>
+                                <term><varname>__REALTIME_TIMESTAMP=</varname></term>
                                 <listitem>
                                         <para>The wallclock time
                                         (CLOCK_REALTIME) at the point
@@ -416,7 +416,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>__MONOTONIC_TIMESTAMP=</term>
+                                <term><varname>__MONOTONIC_TIMESTAMP=</varname></term>
                                 <listitem>
                                         <para>The monotonic time
                                         (CLOCK_MONOTONIC) at the point
