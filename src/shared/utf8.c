@@ -265,7 +265,8 @@ char *ascii_is_valid(const char *str) {
 }
 
 char *ascii_filter(const char *str) {
-        char *r, *s, *d;
+        const char *s;
+        char *r, *d;
         size_t l;
 
         assert(str);
