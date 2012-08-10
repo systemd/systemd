@@ -109,7 +109,7 @@ static int pivot_to_new_root(void) {
           It works for pivot_root, but the ref count for the root device
           is not decreasing :-/
         */
-        if (mount(NULL, "/", NULL, MS_PRIVATE, NULL) < 0) {
+        if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL) < 0) {
                 log_error("Failed to make \"/\" private mount %m");
                 return -errno;
         }
