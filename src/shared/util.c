@@ -4159,6 +4159,12 @@ char *fstab_node_to_udev_node(const char *p) {
         if (startswith(p, "UUID="))
                 return tag_to_udev_node(p+5, "uuid");
 
+        if (startswith(p, "PARTUUID="))
+                return tag_to_udev_node(p+9, "partuuid");
+
+        if (startswith(p, "PARTLABEL="))
+                return tag_to_udev_node(p+10, "partlabel");
+
         return strdup(p);
 }
 
