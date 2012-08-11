@@ -4126,52 +4126,38 @@ void dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
         }
 }
 
-char *fstab_node_to_udev_node(const char *p) {
+static char *tag_to_udev_node(const char *tagvalue, const char *by) {
         char *dn, *t, *u;
         int r;
 
         /* FIXME: to follow udev's logic 100% we need to leave valid
          * UTF8 chars unescaped */
 
-        if (startswith(p, "LABEL=")) {
+        u = unquote(tagvalue, "\"\'");
+        if (u == NULL)
+                return NULL;
 
-                if (!(u = unquote(p+6, "\"\'")))
-                        return NULL;
+        t = xescape(u, "/ ");
+        free(u);
 
-                t = xescape(u, "/ ");
-                free(u);
+        if (t == NULL)
+                return NULL;
 
-                if (!t)
-                        return NULL;
+        r = asprintf(&dn, "/dev/disk/by-%s/%s", by, t);
+        free(t);
 
-                r = asprintf(&dn, "/dev/disk/by-label/%s", t);
-                free(t);
+        if (r < 0)
+                return NULL;
 
-                if (r < 0)
-                        return NULL;
+        return dn;
+}
 
-                return dn;
-        }
+char *fstab_node_to_udev_node(const char *p) {
+        if (startswith(p, "LABEL="))
+                return tag_to_udev_node(p+6, "label");
 
-        if (startswith(p, "UUID=")) {
-
-                if (!(u = unquote(p+5, "\"\'")))
-                        return NULL;
-
-                t = xescape(u, "/ ");
-                free(u);
-
-                if (!t)
-                        return NULL;
-
-                r = asprintf(&dn, "/dev/disk/by-uuid/%s", t);
-                free(t);
-
-                if (r < 0)
-                        return NULL;
-
-                return dn;
-        }
+        if (startswith(p, "UUID="))
+                return tag_to_udev_node(p+5, "uuid");
 
         return strdup(p);
 }
