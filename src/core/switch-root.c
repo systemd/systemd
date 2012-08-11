@@ -56,6 +56,15 @@ int switch_root(const char *new_root) {
                 goto fail;
         }
 
+        /* Work-around for a kernel bug: for some reason the kernel
+         * refuses switching root if any file systems are mounted
+         * MS_SHARED. Hence remount them MS_PRIVATE here as a
+         * work-around.
+         *
+         * https://bugzilla.redhat.com/show_bug.cgi?id=847418 */
+        if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL) < 0)
+                log_warning("Failed to make \"/\" private mount: %m");
+
         NULSTR_FOREACH(i, move_mounts) {
                 char new_mount[PATH_MAX];
                 struct stat sb;

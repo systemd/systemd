@@ -104,15 +104,14 @@ static int pivot_to_new_root(void) {
                 return -errno;
         }
 
-        /*
-          In case some evil process made "/" MS_SHARED
-          It works for pivot_root, but the ref count for the root device
-          is not decreasing :-/
-        */
-        if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL) < 0) {
-                log_error("Failed to make \"/\" private mount %m");
-                return -errno;
-        }
+        /* Work-around for a kernel bug: for some reason the kernel
+         * refuses switching root if any file systems are mounted
+         * MS_SHARED. Hence remount them MS_PRIVATE here as a
+         * work-around.
+         *
+         * https://bugzilla.redhat.com/show_bug.cgi?id=847418 */
+        if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL) < 0)
+                log_warning("Failed to make \"/\" private mount: %m");
 
         if (pivot_root(".", "oldroot") < 0) {
                 log_error("pivot failed: %m");
