@@ -28,6 +28,7 @@ typedef struct Service Service;
 #include "ratelimit.h"
 #include "service.h"
 #include "kill.h"
+#include "exit-status.h"
 
 typedef enum ServiceState {
         SERVICE_DEAD,
@@ -115,6 +116,8 @@ struct Service {
 
         ServiceType type;
         ServiceRestart restart;
+        ExitStatusSet restart_ignore_status;
+        ExitStatusSet success_status;
 
         /* If set we'll read the main daemon PID from this file */
         char *pid_file;

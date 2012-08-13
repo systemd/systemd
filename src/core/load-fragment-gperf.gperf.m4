@@ -158,6 +158,8 @@ Service.PermissionsStartOnly,    config_parse_bool,                  0,         
 Service.RootDirectoryStartOnly,  config_parse_bool,                  0,                             offsetof(Service, root_directory_start_only)
 Service.RemainAfterExit,         config_parse_bool,                  0,                             offsetof(Service, remain_after_exit)
 Service.GuessMainPID,            config_parse_bool,                  0,                             offsetof(Service, guess_main_pid)
+Service.RestartPreventExitStatus, config_parse_set_status,           0,                             offsetof(Service, restart_ignore_status)
+Service.SuccessExitStatus,       config_parse_set_status,            0,                             offsetof(Service, success_status)
 m4_ifdef(`HAVE_SYSV_COMPAT',
 `Service.SysVStartPriority,      config_parse_sysv_priority,         0,                             offsetof(Service, sysv_start_priority)',
 `Service.SysVStartPriority,      config_parse_warn_compat,           0,                             0')

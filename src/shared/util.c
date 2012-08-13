@@ -4357,7 +4357,7 @@ void execute_directory(const char *directory, DIR *d, char *argv[]) {
                 }
 
                 if ((path = hashmap_remove(pids, UINT_TO_PTR(si.si_pid)))) {
-                        if (!is_clean_exit(si.si_code, si.si_status)) {
+                        if (!is_clean_exit(si.si_code, si.si_status, NULL)) {
                                 if (si.si_code == CLD_EXITED)
                                         log_error("%s exited with exit status %i.", path, si.si_status);
                                 else

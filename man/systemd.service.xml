@@ -580,6 +580,20 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>RestartPreventExitStatus=</varname></term>
+                                <listitem><para>Specify exit status list, which
+                                will prevent service from restart. Codes are
+                                separated by whitespace (e.g. "1 6 SIGKILL").</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>SuccessExitStatus=</varname></term>
+                                <listitem><para>Specify exit status list, which
+                                will be considered as successful exit. Codes are
+                                separated by whitespace (e.g. "1 6 SIGKILL").</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>PermissionsStartOnly=</varname></term>
                                 <listitem><para>Takes a boolean
                                 argument. If true, the permission

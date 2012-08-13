@@ -22,7 +22,7 @@
 ***/
 
 #include <stdbool.h>
-
+#include "set.h"
 typedef enum ExitStatus {
         /* EXIT_SUCCESS defined by libc */
         /* EXIT_FAILURE defined by libc */
@@ -77,7 +77,12 @@ typedef enum ExitStatusLevel {
         EXIT_STATUS_FULL = EXIT_STATUS_LSB
 } ExitStatusLevel;
 
+typedef struct ExitStatusSet {
+        Set *code;
+        Set *signal;
+} ExitStatusSet;
+
 const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level);
 
-bool is_clean_exit(int code, int status);
-bool is_clean_exit_lsb(int code, int status);
+bool is_clean_exit(int code, int status, ExitStatusSet *success_status);
+bool is_clean_exit_lsb(int code, int status, ExitStatusSet *success_status);

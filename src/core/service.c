@@ -294,6 +294,16 @@ static void service_done(Unit *u) {
         s->control_command = NULL;
         s->main_command = NULL;
 
+        set_free(s->restart_ignore_status.code);
+        s->restart_ignore_status.code = NULL;
+        set_free(s->restart_ignore_status.signal);
+        s->restart_ignore_status.signal = NULL;
+
+        set_free(s->success_status.code);
+        s->success_status.code = NULL;
+        set_free(s->success_status.signal);
+        s->success_status.signal = NULL;
+
         /* This will leak a process, but at least no memory or any of
          * our resources */
         service_unwatch_main_pid(s);
@@ -1902,7 +1912,12 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
              (s->restart == SERVICE_RESTART_ON_SUCCESS && s->result == SERVICE_SUCCESS) ||
              (s->restart == SERVICE_RESTART_ON_FAILURE && s->result != SERVICE_SUCCESS) ||
              (s->restart == SERVICE_RESTART_ON_ABORT && (s->result == SERVICE_FAILURE_SIGNAL ||
-                                                         s->result == SERVICE_FAILURE_CORE_DUMP)))) {
+                                                         s->result == SERVICE_FAILURE_CORE_DUMP))) &&
+            (s->result != SERVICE_FAILURE_EXIT_CODE ||
+             !set_contains(s->restart_ignore_status.code, INT_TO_PTR(s->main_exec_status.status))) &&
+            (s->result != SERVICE_FAILURE_SIGNAL ||
+             !set_contains(s->restart_ignore_status.signal, INT_TO_PTR(s->main_exec_status.status)))
+                ) {
 
                 r = unit_watch_timer(UNIT(s), s->restart_usec, &s->timer_watch);
                 if (r < 0)
@@ -2874,7 +2889,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(s);
         assert(pid >= 0);
 
-        if (UNIT(s)->fragment_path ? is_clean_exit(code, status) : is_clean_exit_lsb(code, status))
+        if (UNIT(s)->fragment_path ? is_clean_exit(code, status, &s->success_status) :
+                                     is_clean_exit_lsb(code, status, &s->success_status))
                 f = SERVICE_SUCCESS;
         else if (code == CLD_EXITED)
                 f = SERVICE_FAILURE_EXIT_CODE;

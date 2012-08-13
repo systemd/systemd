@@ -40,6 +40,7 @@ int set_ensure_allocated(Set **s, hash_func_t hash_func, compare_func_t compare_
 int set_put(Set *s, void *value);
 int set_replace(Set *s, void *value);
 void *set_get(Set *s, void *value);
+bool set_contains(Set *s, void *value);
 void *set_remove(Set *s, void *value);
 int set_remove_and_put(Set *s, void *old_value, void *new_value);
 

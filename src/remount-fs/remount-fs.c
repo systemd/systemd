@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
 
                 s = hashmap_remove(pids, UINT_TO_PTR(si.si_pid));
                 if (s) {
-                        if (!is_clean_exit(si.si_code, si.si_status)) {
+                        if (!is_clean_exit(si.si_code, si.si_status, NULL)) {
                                 if (si.si_code == CLD_EXITED)
                                         log_error("/bin/mount for %s exited with exit status %i.", s, si.si_status);
                                 else

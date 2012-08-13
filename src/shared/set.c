@@ -57,6 +57,10 @@ void *set_get(Set *s, void *value) {
         return hashmap_get(MAKE_HASHMAP(s), value);
 }
 
+bool set_contains(Set *s, void *value) {
+        return hashmap_contains(MAKE_HASHMAP(s), value);
+}
+
 void *set_remove(Set *s, void *value) {
         return hashmap_remove(MAKE_HASHMAP(s), value);
 }

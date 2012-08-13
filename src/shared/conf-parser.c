@@ -32,6 +32,8 @@
 #include "log.h"
 #include "utf8.h"
 #include "path-util.h"
+#include "set.h"
+#include "exit-status.h"
 
 int config_item_table_lookup(
                 void *table,
@@ -931,5 +933,73 @@ int config_parse_level(
         }
 
         *o = (*o & LOG_FACMASK) | x;
+        return 0;
+}
+
+int config_parse_set_status(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char *w;
+        size_t l;
+        char *state;
+        int r;
+        ExitStatusSet *status_set = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        FOREACH_WORD(w, l, rvalue, state) {
+                int val;
+                char *temp = strndup(w, l);
+                if (!temp)
+                        return log_oom();
+
+                r = safe_atoi(temp, &val);
+                if (r < 0) {
+                        val = signal_from_string_try_harder(temp);
+                        free(temp);
+                        if (val > 0) {
+                                if (!status_set->signal) {
+                                        status_set->signal = set_new(trivial_hash_func, trivial_compare_func);
+                                        if (!status_set->signal)
+                                                return log_oom();
+                                }
+                                r = set_put(status_set->signal, INT_TO_PTR(val));
+                                if (r < 0) {
+                                        log_error("[%s:%u] Unable to store: %s", filename, line, w);
+                                        return r;
+                                }
+                        } else {
+                                log_error("[%s:%u] Failed to parse value: %s", filename, line, w);
+                                return r;
+                        }
+                } else {
+                        free(temp);
+                        if(val < 0 || val > 255)
+                                log_warning("[%s:%u] Value %d is outside range 0-255, ignoring", filename, line, val);
+                        else {
+                                if (!status_set->code) {
+                                        status_set->code = set_new(trivial_hash_func, trivial_compare_func);
+                                        if (!status_set->code)
+                                                return log_oom();
+                                }
+                                r = set_put(status_set->code, INT_TO_PTR(val));
+                                if (r < 0) {
+                                        log_error("[%s:%u] Unable to store: %s", filename, line, w);
+                                        return r;
+                                }
+                        }
+                }
+
+        }
         return 0;
 }

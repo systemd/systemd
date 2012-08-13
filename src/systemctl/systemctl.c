@@ -2148,7 +2148,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("\t Process: %u %s=%s ", p->pid, p->name, strna(t));
                 free(t);
 
-                good = is_clean_exit_lsb(p->code, p->status);
+                good = is_clean_exit_lsb(p->code, p->status, NULL);
                 if (!good) {
                         on = ansi_highlight_red(true);
                         off = ansi_highlight_red(false);
