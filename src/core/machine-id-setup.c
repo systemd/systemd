@@ -226,12 +226,16 @@ int machine_id_setup(void) {
         }
 
         /* And now, let's mount it over */
-        r = mount("/run/machine-id", "/etc/machine-id", "bind", MS_BIND|MS_RDONLY, NULL) < 0 ? -errno : 0;
+        r = mount("/run/machine-id", "/etc/machine-id", NULL, MS_BIND, NULL) < 0 ? -errno : 0;
         if (r < 0) {
                 unlink("/run/machine-id");
                 log_error("Failed to mount /etc/machine-id: %s", strerror(-r));
-        } else
+        } else {
                 log_info("Installed transient /etc/machine-id file.");
+
+                /* Mark the mount read-only */
+                mount(NULL, "/etc/machine-id", NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
+        }
 
 finish:
 
