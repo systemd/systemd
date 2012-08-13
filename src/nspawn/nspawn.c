@@ -1187,13 +1187,13 @@ int main(int argc, char *argv[]) {
                 }
 
                 /* Turn directory into bind mount */
-                if (mount(arg_directory, arg_directory, "bind", MS_BIND, NULL) < 0) {
+                if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REC, NULL) < 0) {
                         log_error("Failed to make bind mount.");
                         goto child_fail;
                 }
 
                 if (arg_read_only)
-                        if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) < 0) {
+                        if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY|MS_REC, NULL) < 0) {
                                 log_error("Failed to make read-only.");
                                 goto child_fail;
                         }

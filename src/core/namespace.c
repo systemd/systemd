@@ -156,7 +156,7 @@ static int apply_mount(
 
         assert(what);
 
-        r = mount(what, p->path, NULL, MS_BIND, NULL);
+        r = mount(what, p->path, NULL, MS_BIND|MS_REC, NULL);
         if (r >= 0)
                 log_debug("Successfully mounted %s to %s", what, p->path);
 
@@ -171,7 +171,7 @@ static int make_read_only(Path *p) {
         if (p->mode != INACCESSIBLE && p->mode != READONLY)
                 return 0;
 
-        r = mount(NULL, p->path, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+        r = mount(NULL, p->path, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_REC, NULL);
         if (r < 0)
                 return -errno;
 
