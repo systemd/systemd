@@ -124,6 +124,7 @@ _packed_ struct EntryArrayObject {
 
 _packed_ struct TagObject {
         ObjectHeader object;
+        uint64_t seqnum;
         uint8_t tag[TAG_LENGTH]; /* SHA-256 HMAC */
 };
 
@@ -182,6 +183,8 @@ _packed_ struct Header {
         /* Added in 187 */
         le64_t n_data;
         le64_t n_fields;
+        /* Added in 189 */
+        le64_t n_tags;
 };
 
 #define FSPRG_HEADER_SIGNATURE ((char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })

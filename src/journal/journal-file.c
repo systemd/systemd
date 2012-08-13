@@ -475,7 +475,7 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
         return 0;
 }
 
-static uint64_t journal_file_seqnum(JournalFile *f, uint64_t *seqnum) {
+static uint64_t journal_file_entry_seqnum(JournalFile *f, uint64_t *seqnum) {
         uint64_t r;
 
         assert(f);
@@ -1050,7 +1050,7 @@ static int journal_file_append_entry_internal(
         if (r < 0)
                 return r;
 
-        o->entry.seqnum = htole64(journal_file_seqnum(f, seqnum));
+        o->entry.seqnum = htole64(journal_file_entry_seqnum(f, seqnum));
         memcpy(o->entry.items, items, n_items * sizeof(EntryItem));
         o->entry.realtime = htole64(ts->realtime);
         o->entry.monotonic = htole64(ts->monotonic);
@@ -1905,6 +1905,17 @@ static void *fsprg_state(JournalFile *f) {
         return (uint8_t*) f->fsprg_header + a;
 }
 
+static uint64_t journal_file_tag_seqnum(JournalFile *f) {
+        uint64_t r;
+
+        assert(f);
+
+        r = le64toh(f->header->n_tags) + 1;
+        f->header->n_tags = htole64(r);
+
+        return r;
+}
+
 int journal_file_append_tag(JournalFile *f) {
         Object *o;
         uint64_t p;
@@ -1923,6 +1934,14 @@ int journal_file_append_tag(JournalFile *f) {
         assert(f->hmac);
 
         r = journal_file_append_object(f, OBJECT_TAG, sizeof(struct TagObject), &o, &p);
+        if (r < 0)
+                return r;
+
+        o->tag.seqnum = htole64(journal_file_tag_seqnum(f));
+
+        /* Add the tag object itself, so that we can protect its
+         * header. This will exclude the actual hash value in it */
+        r = journal_file_hmac_put_object(f, OBJECT_TAG, p);
         if (r < 0)
                 return r;
 
@@ -2071,8 +2090,8 @@ static int journal_file_hmac_put_object(JournalFile *f, int type, uint64_t p) {
         switch (o->object.type) {
 
         case OBJECT_DATA:
-                /* All but: entry_array_offset, n_entries are mutable */
-                gcry_md_write(f->hmac, &o->data.hash, offsetof(DataObject, entry_array_offset) - offsetof(DataObject, hash));
+                /* All but: hash and payload are mutable */
+                gcry_md_write(f->hmac, &o->data.hash, sizeof(o->data.hash));
                 gcry_md_write(f->hmac, o->data.payload, le64toh(o->object.size) - offsetof(DataObject, payload));
                 break;
 
@@ -2088,10 +2107,9 @@ static int journal_file_hmac_put_object(JournalFile *f, int type, uint64_t p) {
                 break;
 
         case OBJECT_TAG:
-                /* All */
-                gcry_md_write(f->hmac, o->tag.tag, le64toh(o->object.size) - offsetof(TagObject, tag));
+                /* All but the tag itself */
+                gcry_md_write(f->hmac, &o->tag.seqnum, sizeof(o->tag.seqnum));
                 break;
-
         default:
                 return -EINVAL;
         }
@@ -2322,7 +2340,8 @@ void journal_file_dump(JournalFile *f) {
                         break;
 
                 case OBJECT_TAG:
-                        printf("Type: OBJECT_TAG\n");
+                        printf("Type: OBJECT_TAG %llu\n",
+                               (unsigned long long) le64toh(o->tag.seqnum));
                         break;
                 }
 
