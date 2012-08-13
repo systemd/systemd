@@ -49,7 +49,11 @@ Bugfixes:
 
 Features:
 
+* nspawn: --read-only is not applied recursively to submounts
+
 * MountFlags=shared acts as MountFlags=slave right now.
+
+* ReadOnlyDirectories= is not applied recursively to submounts
 
 * drop PID 1 reloading, only do reexecing (difficult: Reload()
   currently is properly synchronous, Reexec() is weird, because we
