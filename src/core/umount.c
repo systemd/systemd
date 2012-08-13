@@ -440,7 +440,7 @@ static int mount_points_list_remount_read_only(MountPoint **head, bool *changed)
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
 
                 /* Trying to remount read-only */
-                if (mount(NULL, m->path, NULL, MS_MGC_VAL|MS_REMOUNT|MS_RDONLY, NULL) == 0) {
+                if (mount(NULL, m->path, NULL, MS_REMOUNT|MS_RDONLY, NULL) == 0) {
                         if (changed)
                                 *changed = true;
 
