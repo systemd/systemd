@@ -2323,14 +2323,13 @@ systemd_journald_SOURCES = \
 nodist_systemd_journald_SOURCES = \
 	src/journal/journald-gperf.c
 
-systemd_journald_CFLAGS =
-
 systemd_journald_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-audit.la \
 	libsystemd-daemon.la \
-	libsystemd-id128-internal.la
+	libsystemd-id128-internal.la \
+	libsystemd-journal-internal.la
 
 if ENABLE_LOGIND
 systemd_journald_LDADD += \
@@ -2342,18 +2341,6 @@ systemd_journald_LDADD += \
 	libsystemd-acl.la
 endif
 
-if HAVE_XZ
-systemd_journald_SOURCES += \
-	src/journal/compress.c
-
-systemd_journald_CFLAGS += \
-	$(AM_CFLAGS) \
-	$(XZ_CFLAGS)
-
-systemd_journald_LDADD += \
-	$(XZ_LIBS)
-endif
-
 systemd_cat_SOURCES = \
 	src/journal/cat.c
 
@@ -2363,6 +2350,9 @@ systemd_cat_LDADD = \
 
 journalctl_SOURCES = \
 	src/journal/journalctl.c
+
+journalctl_CFLAGS = \
+	$(AM_CFLAGS)
 
 journalctl_LDADD = \
 	libsystemd-shared.la \
@@ -2425,24 +2415,47 @@ libsystemd_journal_la_LIBADD = \
 libsystemd_journal_internal_la_SOURCES = \
 	$(libsystemd_journal_la_SOURCES)
 
+libsystemd_journal_internal_la_CFLAGS = \
+	$(AM_CFLAGS)
+
+libsystemd_journal_internal_la_LIBADD =
+
 if HAVE_XZ
 libsystemd_journal_la_SOURCES += \
 	src/journal/compress.c
 
 libsystemd_journal_la_CFLAGS += \
-	$(AM_CFLAGS) \
 	$(XZ_CFLAGS)
 
 libsystemd_journal_la_LIBADD += \
 	$(XZ_LIBS)
 
-libsystemd_journal_internal_la_CFLAGS = \
-	$(AM_CFLAGS)
+libsystemd_journal_internal_la_CFLAGS += \
 	$(XZ_CFLAGS)
 
-libsystemd_journal_internal_la_LIBADD = \
+libsystemd_journal_internal_la_LIBADD += \
 	$(XZ_LIBS)
 
+endif
+
+if HAVE_GCRYPT
+libsystemd_journal_la_SOURCES += \
+	src/journal/fsprg.c \
+	src/journal/fsprg.h
+
+libsystemd_journal_la_CFLAGS += \
+	$(GCRYPT_CFLAGS) \
+	-Wno-pointer-arith
+
+libsystemd_journal_la_LIBADD += \
+	$(GCRYPT_LIBS)
+
+libsystemd_journal_internal_la_CFLAGS += \
+	$(GCRYPT_CFLAGS) \
+	-Wno-pointer-arith
+
+libsystemd_journal_internal_la_LIBADD += \
+	$(GCRYPT_LIBS)
 endif
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed

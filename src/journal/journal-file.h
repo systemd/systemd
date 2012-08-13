@@ -23,6 +23,10 @@
 
 #include <inttypes.h>
 
+#ifdef HAVE_GCRYPT
+#include <gcrypt.h>
+#endif
+
 #include <systemd/sd-id128.h>
 
 #include "sparse-endian.h"
@@ -42,7 +46,7 @@ enum {
         WINDOW_DATA_HASH_TABLE = OBJECT_DATA_HASH_TABLE,
         WINDOW_FIELD_HASH_TABLE = OBJECT_FIELD_HASH_TABLE,
         WINDOW_ENTRY_ARRAY = OBJECT_ENTRY_ARRAY,
-        WINDOW_SIGNATURE = OBJECT_SIGNATURE,
+        WINDOW_TAG = OBJECT_TAG,
         WINDOW_HEADER,
         _WINDOW_MAX
 };
@@ -59,9 +63,13 @@ typedef struct JournalFile {
         char *path;
         struct stat last_stat;
         mode_t mode;
+
         int flags;
         int prot;
         bool writable;
+        bool compress;
+        bool authenticate;
+
         bool tail_entry_monotonic_valid;
 
         Header *header;
@@ -74,11 +82,17 @@ typedef struct JournalFile {
 
         JournalMetrics metrics;
 
-        bool compress;
-
 #ifdef HAVE_XZ
         void *compress_buffer;
         uint64_t compress_buffer_size;
+#endif
+
+#ifdef HAVE_GCRYPT
+        gcry_md_hd_t hmac;
+        bool hmac_running;
+
+        FSPRGHeader *fsprg_header;
+        size_t fsprg_size;
 #endif
 } JournalFile;
 
@@ -91,6 +105,8 @@ int journal_file_open(
                 const char *fname,
                 int flags,
                 mode_t mode,
+                bool compress,
+                bool authenticate,
                 JournalMetrics *metrics,
                 JournalFile *template,
                 JournalFile **ret);
@@ -101,6 +117,8 @@ int journal_file_open_reliably(
                 const char *fname,
                 int flags,
                 mode_t mode,
+                bool compress,
+                bool authenticate,
                 JournalMetrics *metrics,
                 JournalFile *template,
                 JournalFile **ret);
@@ -134,7 +152,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
 
-int journal_file_rotate(JournalFile **f);
+int journal_file_rotate(JournalFile **f, bool compress, bool authenticate);
 
 int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t min_free);
 

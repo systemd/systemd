@@ -37,10 +37,12 @@ typedef struct FieldObject FieldObject;
 typedef struct EntryObject EntryObject;
 typedef struct HashTableObject HashTableObject;
 typedef struct EntryArrayObject EntryArrayObject;
-typedef struct SignatureObject SignatureObject;
+typedef struct TagObject TagObject;
 
 typedef struct EntryItem EntryItem;
 typedef struct HashItem HashItem;
+
+typedef struct FSPRGHeader FSPRGHeader;
 
 /* Object types */
 enum {
@@ -51,7 +53,7 @@ enum {
         OBJECT_DATA_HASH_TABLE,
         OBJECT_FIELD_HASH_TABLE,
         OBJECT_ENTRY_ARRAY,
-        OBJECT_SIGNATURE,
+        OBJECT_TAG,
         _OBJECT_TYPE_MAX
 };
 
@@ -84,7 +86,6 @@ _packed_ struct FieldObject {
         le64_t hash;
         le64_t next_hash_offset;
         le64_t head_data_offset;
-        le64_t tail_data_offset;
         uint8_t payload[];
 };
 
@@ -119,12 +120,11 @@ _packed_ struct EntryArrayObject {
         le64_t items[];
 };
 
-#define SIGNATURE_LENGTH 160
+#define TAG_LENGTH (256/8)
 
-_packed_ struct SignatureObject {
+_packed_ struct TagObject {
         ObjectHeader object;
-        le64_t from;
-        uint8_t signature[SIGNATURE_LENGTH];
+        uint8_t tag[TAG_LENGTH]; /* SHA-256 HMAC */
 };
 
 union Object {
@@ -134,7 +134,7 @@ union Object {
         EntryObject entry;
         HashTableObject hash_table;
         EntryArrayObject entry_array;
-        SignatureObject signature;
+        TagObject tag;
 };
 
 enum {
@@ -149,17 +149,19 @@ enum {
 };
 
 enum {
-        HEADER_COMPATIBLE_SIGNED = 1
+        HEADER_COMPATIBLE_AUTHENTICATED = 1
 };
+
+#define HEADER_SIGNATURE ((char[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
 
 _packed_ struct Header {
         uint8_t signature[8]; /* "LPKSHHRH" */
-        uint32_t compatible_flags;
-        uint32_t incompatible_flags;
+        le32_t compatible_flags;
+        le32_t incompatible_flags;
         uint8_t state;
         uint8_t reserved[7];
         sd_id128_t file_id;
-        sd_id128_t machine_id; /* last writer */
+        sd_id128_t machine_id;
         sd_id128_t boot_id;    /* last writer */
         sd_id128_t seqnum_id;
         le64_t header_size;
@@ -180,4 +182,20 @@ _packed_ struct Header {
         /* Added in 187 */
         le64_t n_data;
         le64_t n_fields;
+};
+
+#define FSPRG_HEADER_SIGNATURE ((char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
+
+_packed_ struct FSPRGHeader {
+        uint8_t signature[8]; /* "KSHHRHLP" */
+        le32_t compatible_flags;
+        le32_t incompatible_flags;
+        sd_id128_t machine_id;
+        sd_id128_t boot_id;    /* last writer */
+        le64_t header_size;
+        le64_t fsprg_start_usec;
+        le64_t fsprg_interval_usec;
+        le16_t secpar;
+        le16_t reserved[3];
+        le64_t state_size;
 };

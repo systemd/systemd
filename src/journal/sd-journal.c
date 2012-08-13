@@ -1118,7 +1118,7 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
                 return 0;
         }
 
-        r = journal_file_open(path, O_RDONLY, 0, NULL, NULL, &f);
+        r = journal_file_open(path, O_RDONLY, 0, false, false, NULL, NULL, &f);
         free(path);
 
         if (r < 0) {

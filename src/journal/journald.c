@@ -281,7 +281,6 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         char *p;
         int r;
         JournalFile *f;
-        char ids[33];
         sd_id128_t machine;
 
         assert(s);
@@ -305,7 +304,8 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (f)
                 return f;
 
-        if (asprintf(&p, "/var/log/journal/%s/user-%lu.journal", sd_id128_to_string(machine, ids), (unsigned long) uid) < 0)
+        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/user-%lu.journal",
+                     SD_ID128_FORMAT_VAL(machine), (unsigned long) uid) < 0)
                 return s->system_journal;
 
         while (hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
@@ -315,7 +315,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 journal_file_close(f);
         }
 
-        r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, &s->system_metrics, s->system_journal, &f);
+        r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, s->compress, false, &s->system_metrics, s->system_journal, &f);
         free(p);
 
         if (r < 0)
@@ -341,7 +341,7 @@ static void server_rotate(Server *s) {
         log_info("Rotating...");
 
         if (s->runtime_journal) {
-                r = journal_file_rotate(&s->runtime_journal);
+                r = journal_file_rotate(&s->runtime_journal, s->compress, false);
                 if (r < 0)
                         if (s->runtime_journal)
                                 log_error("Failed to rotate %s: %s", s->runtime_journal->path, strerror(-r));
@@ -352,7 +352,7 @@ static void server_rotate(Server *s) {
         }
 
         if (s->system_journal) {
-                r = journal_file_rotate(&s->system_journal);
+                r = journal_file_rotate(&s->system_journal, s->compress, true);
                 if (r < 0)
                         if (s->system_journal)
                                 log_error("Failed to rotate %s: %s", s->system_journal->path, strerror(-r));
@@ -364,7 +364,7 @@ static void server_rotate(Server *s) {
         }
 
         HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
-                r = journal_file_rotate(&f);
+                r = journal_file_rotate(&f, s->compress, false);
                 if (r < 0)
                         if (f->path)
                                 log_error("Failed to rotate %s: %s", f->path, strerror(-r));
@@ -2006,14 +2006,12 @@ static int system_journal_open(Server *s) {
                 if (!fn)
                         return -ENOMEM;
 
-                r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, &s->system_metrics, NULL, &s->system_journal);
+                r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, true, &s->system_metrics, NULL, &s->system_journal);
                 free(fn);
 
-                if (r >= 0) {
-                        s->system_journal->compress = s->compress;
-
+                if (r >= 0)
                         server_fix_perms(s, s->system_journal, 0);
-                } else if (r < 0) {
+                else if (r < 0) {
 
                         if (r != -ENOENT && r != -EROFS)
                                 log_warning("Failed to open system journal: %s", strerror(-r));
@@ -2035,7 +2033,7 @@ static int system_journal_open(Server *s) {
                          * if it already exists, so that we can flush
                          * it into the system journal */
 
-                        r = journal_file_open(fn, O_RDWR, 0640, &s->runtime_metrics, NULL, &s->runtime_journal);
+                        r = journal_file_open(fn, O_RDWR, 0640, s->compress, false, &s->runtime_metrics, NULL, &s->runtime_journal);
                         free(fn);
 
                         if (r < 0) {
@@ -2051,7 +2049,7 @@ static int system_journal_open(Server *s) {
                          * it if necessary. */
 
                         (void) mkdir_parents(fn, 0755);
-                        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, &s->runtime_metrics, NULL, &s->runtime_journal);
+                        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, false, &s->runtime_metrics, NULL, &s->runtime_journal);
                         free(fn);
 
                         if (r < 0) {
@@ -2060,11 +2058,8 @@ static int system_journal_open(Server *s) {
                         }
                 }
 
-                if (s->runtime_journal) {
-                        s->runtime_journal->compress = s->compress;
-
+                if (s->runtime_journal)
                         server_fix_perms(s, s->runtime_journal, 0);
-                }
         }
 
         return r;

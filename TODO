@@ -49,6 +49,8 @@ Bugfixes:
 
 Features:
 
+* shutdown: don't read-only mount anything when running in container
+
 * nspawn: --read-only is not applied recursively to submounts
 
 * MountFlags=shared acts as MountFlags=slave right now.

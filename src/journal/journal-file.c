@@ -31,6 +31,7 @@
 #include "journal-file.h"
 #include "lookup3.h"
 #include "compress.h"
+#include "fsprg.h"
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
 #define DEFAULT_FIELD_HASH_TABLE_SIZE (333ULL*sizeof(HashItem))
@@ -66,12 +67,20 @@
 #define JOURNAL_HEADER_CONTAINS(h, field) \
         (le64toh((h)->header_size) >= offsetof(Header, field) + sizeof((h)->field))
 
-static const char signature[] = { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' };
+static int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime);
 
 void journal_file_close(JournalFile *f) {
         int t;
 
         assert(f);
+
+        /* Sync everything to disk, before we mark the file offline */
+        for (t = 0; t < _WINDOW_MAX; t++)
+                if (f->windows[t].ptr)
+                        munmap(f->windows[t].ptr, f->windows[t].size);
+
+        if (f->writable && f->fd >= 0)
+                fdatasync(f->fd);
 
         if (f->header) {
                 /* Mark the file offline. Don't override the archived state if it already is set */
@@ -81,10 +90,6 @@ void journal_file_close(JournalFile *f) {
                 munmap(f->header, PAGE_ALIGN(sizeof(Header)));
         }
 
-        for (t = 0; t < _WINDOW_MAX; t++)
-                if (f->windows[t].ptr)
-                        munmap(f->windows[t].ptr, f->windows[t].size);
-
         if (f->fd >= 0)
                 close_nointr_nofail(f->fd);
 
@@ -92,6 +97,14 @@ void journal_file_close(JournalFile *f) {
 
 #ifdef HAVE_XZ
         free(f->compress_buffer);
+#endif
+
+#ifdef HAVE_GCRYPT
+        if (f->fsprg_header)
+                munmap(f->fsprg_header, PAGE_ALIGN(f->fsprg_size));
+
+        if (f->hmac)
+                gcry_md_close(f->hmac);
 #endif
 
         free(f);
@@ -105,8 +118,14 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
         assert(f);
 
         zero(h);
-        memcpy(h.signature, signature, 8);
+        memcpy(h.signature, HEADER_SIGNATURE, 8);
         h.header_size = htole64(ALIGN64(sizeof(h)));
+
+        h.incompatible_flags =
+                htole32(f->compress ? HEADER_INCOMPATIBLE_COMPRESSED : 0);
+
+        h.compatible_flags =
+                htole32(f->authenticate ? HEADER_COMPATIBLE_AUTHENTICATED : 0);
 
         r = sd_id128_randomize(&h.file_id);
         if (r < 0)
@@ -149,7 +168,9 @@ static int journal_file_refresh_header(JournalFile *f) {
 
         f->header->state = STATE_ONLINE;
 
-        __sync_synchronize();
+        /* Sync the online state to disk */
+        msync(f->header, PAGE_ALIGN(sizeof(Header)), MS_SYNC);
+        fdatasync(f->fd);
 
         return 0;
 }
@@ -157,16 +178,30 @@ static int journal_file_refresh_header(JournalFile *f) {
 static int journal_file_verify_header(JournalFile *f) {
         assert(f);
 
-        if (memcmp(f->header, signature, 8))
+        if (memcmp(f->header->signature, HEADER_SIGNATURE, 8))
                 return -EBADMSG;
 
+        /* In both read and write mode we refuse to open files with
+         * incompatible flags we don't know */
 #ifdef HAVE_XZ
-        if ((le64toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_COMPRESSED) != 0)
+        if ((le32toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_COMPRESSED) != 0)
                 return -EPROTONOSUPPORT;
 #else
         if (f->header->incompatible_flags != 0)
                 return -EPROTONOSUPPORT;
 #endif
+
+        /* When open for writing we refuse to open files with
+         * compatible flags, too */
+        if (f->writable) {
+#ifdef HAVE_GCRYPT
+                if ((le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_AUTHENTICATED) != 0)
+                        return -EPROTONOSUPPORT;
+#else
+                if (f->header->compatible_flags != 0)
+                        return -EPROTONOSUPPORT;
+#endif
+        }
 
         /* The first addition was n_data, so check that we are at least this large */
         if (le64toh(f->header->header_size) < HEADER_SIZE_MIN)
@@ -199,6 +234,9 @@ static int journal_file_verify_header(JournalFile *f) {
                         return -EBUSY;
                 }
         }
+
+        f->compress = !!(le32toh(f->header->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED);
+        f->authenticate = !!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_AUTHENTICATED);
 
         return 0;
 }
@@ -781,8 +819,6 @@ static int journal_file_append_data(
                         o->object.size = htole64(offsetof(Object, data.payload) + rsize);
                         o->object.flags |= OBJECT_COMPRESSED;
 
-                        f->header->incompatible_flags = htole32(le32toh(f->header->incompatible_flags) | HEADER_INCOMPATIBLE_COMPRESSED);
-
                         log_debug("Compressed data object %lu -> %lu", (unsigned long) size, (unsigned long) rsize);
                 }
         }
@@ -1056,6 +1092,10 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
         if (f->tail_entry_monotonic_valid &&
             ts->monotonic < le64toh(f->header->tail_entry_monotonic))
                 return -EINVAL;
+
+        r = journal_file_maybe_append_tag(f, ts->realtime);
+        if (r < 0)
+                return r;
 
         /* alloca() can't take 0, hence let's allocate at least one */
         items = alloca(sizeof(EntryItem) * MAX(1, n_iovec));
@@ -1832,6 +1872,394 @@ int journal_file_move_to_entry_by_realtime_for_data(
                                              ret, offset, NULL);
 }
 
+static void *fsprg_state(JournalFile *f) {
+        uint64_t a, b;
+        assert(f);
+
+        if (!f->authenticate)
+                return NULL;
+
+        a = le64toh(f->fsprg_header->header_size);
+        b = le64toh(f->fsprg_header->state_size);
+
+        if (a + b > f->fsprg_size)
+                return NULL;
+
+        return (uint8_t*) f->fsprg_header + a;
+}
+
+static int journal_file_append_tag(JournalFile *f) {
+        Object *o;
+        uint64_t p;
+        int r;
+
+        assert(f);
+
+        if (!f->authenticate)
+                return 0;
+
+        if (!f->hmac_running)
+                return 0;
+
+        log_debug("Writing tag for epoch %llu\n", (unsigned long long) FSPRG_GetEpoch(fsprg_state(f)));
+
+        assert(f->hmac);
+
+        r = journal_file_append_object(f, OBJECT_TAG, sizeof(struct TagObject), &o, &p);
+        if (r < 0)
+                return r;
+
+        /* Get the HMAC tag and store it in the object */
+        memcpy(o->tag.tag, gcry_md_read(f->hmac, 0), TAG_LENGTH);
+        f->hmac_running = false;
+
+        return 0;
+}
+
+static int journal_file_hmac_start(JournalFile *f) {
+        uint8_t key[256 / 8]; /* Let's pass 256 bit from FSPRG to HMAC */
+
+        assert(f);
+
+        if (!f->authenticate)
+                return 0;
+
+        if (f->hmac_running)
+                return 0;
+
+        /* Prepare HMAC for next cycle */
+        gcry_md_reset(f->hmac);
+        FSPRG_GetKey(fsprg_state(f), key, sizeof(key), 0);
+        gcry_md_setkey(f->hmac, key, sizeof(key));
+
+        f->hmac_running = true;
+
+        return 0;
+}
+
+static int journal_file_get_epoch(JournalFile *f, uint64_t realtime, uint64_t *epoch) {
+        uint64_t t;
+
+        assert(f);
+        assert(epoch);
+        assert(f->authenticate);
+
+        if (le64toh(f->fsprg_header->fsprg_start_usec) == 0 ||
+            le64toh(f->fsprg_header->fsprg_interval_usec) == 0)
+                return -ENOTSUP;
+
+        if (realtime < le64toh(f->fsprg_header->fsprg_start_usec))
+                return -ESTALE;
+
+        t = realtime - le64toh(f->fsprg_header->fsprg_start_usec);
+        t = t / le64toh(f->fsprg_header->fsprg_interval_usec);
+
+        *epoch = t;
+        return 0;
+}
+
+static int journal_file_need_evolve(JournalFile *f, uint64_t realtime) {
+        uint64_t goal, epoch;
+        int r;
+        assert(f);
+
+        if (!f->authenticate)
+                return 0;
+
+        r = journal_file_get_epoch(f, realtime, &goal);
+        if (r < 0)
+                return r;
+
+        epoch = FSPRG_GetEpoch(fsprg_state(f));
+        if (epoch > goal)
+                return -ESTALE;
+
+        return epoch != goal;
+}
+
+static int journal_file_evolve(JournalFile *f, uint64_t realtime) {
+        uint64_t goal, epoch;
+        int r;
+
+        assert(f);
+
+        if (!f->authenticate)
+                return 0;
+
+        r = journal_file_get_epoch(f, realtime, &goal);
+        if (r < 0)
+                return r;
+
+        epoch = FSPRG_GetEpoch(fsprg_state(f));
+        if (epoch < goal)
+                log_debug("Evolving FSPRG key from epoch %llu to %llu.", (unsigned long long) epoch, (unsigned long long) goal);
+
+        for (;;) {
+                if (epoch > goal)
+                        return -ESTALE;
+                if (epoch == goal)
+                        return 0;
+
+                FSPRG_Evolve(fsprg_state(f));
+                epoch = FSPRG_GetEpoch(fsprg_state(f));
+        }
+}
+
+static int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
+        int r;
+
+        assert(f);
+
+        if (!f->authenticate)
+                return 0;
+
+        r = journal_file_need_evolve(f, realtime);
+        if (r <= 0)
+                return 0;
+
+        r = journal_file_append_tag(f);
+        if (r < 0)
+                return r;
+
+        r = journal_file_evolve(f, realtime);
+        if (r < 0)
+                return r;
+
+        r = journal_file_hmac_start(f);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int journal_file_hmac_put_object(JournalFile *f, int type, uint64_t p) {
+        int r;
+        Object *o;
+
+        assert(f);
+
+        if (!f->authenticate)
+                return 0;
+
+        r = journal_file_hmac_start(f);
+        if (r < 0)
+                return r;
+
+        r = journal_file_move_to_object(f, type, p, &o);
+        if (r < 0)
+                return r;
+
+        gcry_md_write(f->hmac, o, offsetof(ObjectHeader, payload));
+
+        switch (o->object.type) {
+
+        case OBJECT_DATA:
+                /* All but: entry_array_offset, n_entries are mutable */
+                gcry_md_write(f->hmac, &o->data.hash, offsetof(DataObject, entry_array_offset) - offsetof(DataObject, hash));
+                gcry_md_write(f->hmac, o->data.payload, le64toh(o->object.size) - offsetof(DataObject, payload));
+                break;
+
+        case OBJECT_ENTRY:
+                /* All */
+                gcry_md_write(f->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(EntryObject, seqnum));
+                break;
+
+        case OBJECT_FIELD_HASH_TABLE:
+        case OBJECT_DATA_HASH_TABLE:
+        case OBJECT_ENTRY_ARRAY:
+                /* Nothing: everything is mutable */
+                break;
+
+        case OBJECT_TAG:
+                /* All */
+                gcry_md_write(f->hmac, o->tag.tag, le64toh(o->object.size) - offsetof(TagObject, tag));
+                break;
+
+        default:
+                return -EINVAL;
+        }
+
+        return 0;
+}
+
+static int journal_file_hmac_put_header(JournalFile *f) {
+        int r;
+
+        assert(f);
+
+        if (!f->authenticate)
+                return 0;
+
+        r = journal_file_hmac_start(f);
+        if (r < 0)
+                return r;
+
+        /* All but state+reserved, boot_id, arena_size,
+         * tail_object_offset, n_objects, n_entries, tail_seqnum,
+         * head_entry_realtime, tail_entry_realtime,
+         * tail_entry_monotonic, n_data, n_fields, header_tag */
+
+        gcry_md_write(f->hmac, f->header->signature, offsetof(Header, state) - offsetof(Header, signature));
+        gcry_md_write(f->hmac, &f->header->file_id, offsetof(Header, boot_id) - offsetof(Header, file_id));
+        gcry_md_write(f->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
+        gcry_md_write(f->hmac, &f->header->data_hash_table_offset, offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
+        gcry_md_write(f->hmac, &f->header->head_seqnum, offsetof(Header, head_entry_realtime) - offsetof(Header, head_seqnum));
+
+        return 0;
+}
+
+static int journal_file_load_fsprg(JournalFile *f) {
+        int r, fd = -1;
+        char *p = NULL;
+        struct stat st;
+        FSPRGHeader *m = NULL;
+        sd_id128_t machine;
+
+        assert(f);
+
+        if (!f->authenticate)
+                return 0;
+
+        r = sd_id128_get_machine(&machine);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/fsprg",
+                     SD_ID128_FORMAT_VAL(machine)) < 0)
+                return -ENOMEM;
+
+        fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
+        if (fd < 0) {
+                log_error("Failed to open %s: %m", p);
+                r = -errno;
+                goto finish;
+        }
+
+        if (fstat(fd, &st) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        if (st.st_size < (off_t) sizeof(FSPRGHeader)) {
+                r = -ENODATA;
+                goto finish;
+        }
+
+        m = mmap(NULL, PAGE_ALIGN(sizeof(FSPRGHeader)), PROT_READ, MAP_SHARED, fd, 0);
+        if (m == MAP_FAILED) {
+                m = NULL;
+                r = -errno;
+                goto finish;
+        }
+
+        if (memcmp(m->signature, FSPRG_HEADER_SIGNATURE, 8) != 0) {
+                r = -EBADMSG;
+                goto finish;
+        }
+
+        if (m->incompatible_flags != 0) {
+                r = -EPROTONOSUPPORT;
+                goto finish;
+        }
+
+        if (le64toh(m->header_size) < sizeof(FSPRGHeader)) {
+                r = -EBADMSG;
+                goto finish;
+        }
+
+        if (le64toh(m->state_size) != FSPRG_stateinbytes(m->secpar)) {
+                r = -EBADMSG;
+                goto finish;
+        }
+
+        f->fsprg_size = le64toh(m->header_size) + le64toh(m->state_size);
+        if ((uint64_t) st.st_size < f->fsprg_size) {
+                r = -ENODATA;
+                goto finish;
+        }
+
+        if (!sd_id128_equal(machine, m->machine_id)) {
+                r = -EHOSTDOWN;
+                goto finish;
+        }
+
+        if (le64toh(m->fsprg_start_usec) <= 0 ||
+            le64toh(m->fsprg_interval_usec) <= 0) {
+                r = -EBADMSG;
+                goto finish;
+        }
+
+        f->fsprg_header = mmap(NULL, PAGE_ALIGN(f->fsprg_size), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        if (f->fsprg_header == MAP_FAILED) {
+                f->fsprg_header = NULL;
+                r = -errno;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        if (m)
+                munmap(m, PAGE_ALIGN(sizeof(FSPRGHeader)));
+
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+
+        free(p);
+        return r;
+}
+
+static int journal_file_setup_hmac(JournalFile *f) {
+        gcry_error_t e;
+
+        if (!f->authenticate)
+                return 0;
+
+        e = gcry_md_open(&f->hmac, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
+        if (e != 0)
+                return -ENOTSUP;
+
+        return 0;
+}
+
+static int journal_file_append_first_tag(JournalFile *f) {
+        int r;
+        uint64_t p;
+
+        if (!f->authenticate)
+                return 0;
+
+        log_debug("Calculating first tag...");
+
+        r = journal_file_hmac_put_header(f);
+        if (r < 0)
+                return r;
+
+        p = le64toh(f->header->field_hash_table_offset);
+        if (p < offsetof(Object, hash_table.items))
+                return -EINVAL;
+        p -= offsetof(Object, hash_table.items);
+
+        r = journal_file_hmac_put_object(f, OBJECT_FIELD_HASH_TABLE, p);
+        if (r < 0)
+                return r;
+
+        p = le64toh(f->header->data_hash_table_offset);
+        if (p < offsetof(Object, hash_table.items))
+                return -EINVAL;
+        p -= offsetof(Object, hash_table.items);
+
+        r = journal_file_hmac_put_object(f, OBJECT_DATA_HASH_TABLE, p);
+        if (r < 0)
+                return r;
+
+        r = journal_file_append_tag(f);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 void journal_file_dump(JournalFile *f) {
         Object *o;
         int r;
@@ -1876,8 +2304,8 @@ void journal_file_dump(JournalFile *f) {
                         printf("Type: OBJECT_ENTRY_ARRAY\n");
                         break;
 
-                case OBJECT_SIGNATURE:
-                        printf("Type: OBJECT_SIGNATURE\n");
+                case OBJECT_TAG:
+                        printf("Type: OBJECT_TAG\n");
                         break;
                 }
 
@@ -1928,8 +2356,8 @@ void journal_file_print_header(JournalFile *f) {
                f->header->state == STATE_OFFLINE ? "offline" :
                f->header->state == STATE_ONLINE ? "online" :
                f->header->state == STATE_ARCHIVED ? "archived" : "unknown",
-               (f->header->compatible_flags & HEADER_COMPATIBLE_SIGNED) ? " SIGNED" : "",
-               (f->header->compatible_flags & ~HEADER_COMPATIBLE_SIGNED) ? " ???" : "",
+               (f->header->compatible_flags & HEADER_COMPATIBLE_AUTHENTICATED) ? " AUTHENTICATED" : "",
+               (f->header->compatible_flags & ~HEADER_COMPATIBLE_AUTHENTICATED) ? " ???" : "",
                (f->header->incompatible_flags & HEADER_INCOMPATIBLE_COMPRESSED) ? " COMPRESSED" : "",
                (f->header->incompatible_flags & ~HEADER_INCOMPATIBLE_COMPRESSED) ? " ???" : "",
                (unsigned long long) le64toh(f->header->header_size),
@@ -1961,6 +2389,8 @@ int journal_file_open(
                 const char *fname,
                 int flags,
                 mode_t mode,
+                bool compress,
+                bool authenticate,
                 JournalMetrics *metrics,
                 JournalFile *template,
                 JournalFile **ret) {
@@ -1983,13 +2413,13 @@ int journal_file_open(
                 return -ENOMEM;
 
         f->fd = -1;
-        f->flags = flags;
         f->mode = mode;
-        f->writable = (flags & O_ACCMODE) != O_RDONLY;
-        f->prot = prot_from_flags(flags);
 
-        if (template)
-                f->compress = template->compress;
+        f->flags = flags;
+        f->prot = prot_from_flags(flags);
+        f->writable = (flags & O_ACCMODE) != O_RDONLY;
+        f->compress = compress;
+        f->authenticate = authenticate;
 
         f->path = strdup(fname);
         if (!f->path) {
@@ -2010,6 +2440,12 @@ int journal_file_open(
 
         if (f->last_stat.st_size == 0 && f->writable) {
                 newly_created = true;
+
+                /* Try to load the FSPRG state, and if we can't, then
+                 * just don't do authentication */
+                r = journal_file_load_fsprg(f);
+                if (r < 0)
+                        f->authenticate = false;
 
                 r = journal_file_init_header(f, template);
                 if (r < 0)
@@ -2037,6 +2473,10 @@ int journal_file_open(
                 r = journal_file_verify_header(f);
                 if (r < 0)
                         goto fail;
+
+                r = journal_file_load_fsprg(f);
+                if (r < 0)
+                        goto fail;
         }
 
         if (f->writable) {
@@ -2049,15 +2489,22 @@ int journal_file_open(
                 r = journal_file_refresh_header(f);
                 if (r < 0)
                         goto fail;
+
+                r = journal_file_setup_hmac(f);
+                if (r < 0)
+                        goto fail;
         }
 
         if (newly_created) {
-
                 r = journal_file_setup_field_hash_table(f);
                 if (r < 0)
                         goto fail;
 
                 r = journal_file_setup_data_hash_table(f);
+                if (r < 0)
+                        goto fail;
+
+                r = journal_file_append_first_tag(f);
                 if (r < 0)
                         goto fail;
         }
@@ -2081,7 +2528,7 @@ fail:
         return r;
 }
 
-int journal_file_rotate(JournalFile **f) {
+int journal_file_rotate(JournalFile **f, bool compress, bool authenticate) {
         char *p;
         size_t l;
         JournalFile *old_file, *new_file = NULL;
@@ -2120,7 +2567,7 @@ int journal_file_rotate(JournalFile **f) {
 
         old_file->header->state = STATE_ARCHIVED;
 
-        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, NULL, old_file, &new_file);
+        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, authenticate, NULL, old_file, &new_file);
         journal_file_close(old_file);
 
         *f = new_file;
@@ -2131,6 +2578,8 @@ int journal_file_open_reliably(
                 const char *fname,
                 int flags,
                 mode_t mode,
+                bool compress,
+                bool authenticate,
                 JournalMetrics *metrics,
                 JournalFile *template,
                 JournalFile **ret) {
@@ -2139,7 +2588,7 @@ int journal_file_open_reliably(
         size_t l;
         char *p;
 
-        r = journal_file_open(fname, flags, mode, metrics, template, ret);
+        r = journal_file_open(fname, flags, mode, compress, authenticate, metrics, template, ret);
         if (r != -EBADMSG && /* corrupted */
             r != -ENODATA && /* truncated */
             r != -EHOSTDOWN && /* other machine */
@@ -2152,6 +2601,9 @@ int journal_file_open_reliably(
                 return r;
 
         if (!(flags & O_CREAT))
+                return r;
+
+        if (!endswith(fname, ".journal"))
                 return r;
 
         /* The file is corrupted. Rotate it away and try it again (but only once) */
@@ -2170,7 +2622,7 @@ int journal_file_open_reliably(
 
         log_warning("File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
-        return journal_file_open(fname, flags, mode, metrics, template, ret);
+        return journal_file_open(fname, flags, mode, compress, authenticate, metrics, template, ret);
 }
 
 struct vacuum_info {

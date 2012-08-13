@@ -41,6 +41,10 @@
 #include "logs-show.h"
 #include "strv.h"
 #include "journal-internal.h"
+#include "fsprg.h"
+#include "journal-def.h"
+
+#define DEFAULT_FSPRG_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_follow = false;
@@ -48,13 +52,18 @@ static bool arg_show_all = false;
 static bool arg_no_pager = false;
 static int arg_lines = -1;
 static bool arg_no_tail = false;
-static bool arg_new_id128 = false;
-static bool arg_print_header = false;
 static bool arg_quiet = false;
 static bool arg_local = false;
 static bool arg_this_boot = false;
 static const char *arg_directory = NULL;
 static int arg_priorities = 0xFF;
+
+static enum {
+        ACTION_SHOW,
+        ACTION_NEW_ID128,
+        ACTION_PRINT_HEADER,
+        ACTION_SETUP_KEYS
+} arg_action = ACTION_SHOW;
 
 static int help(void) {
 
@@ -73,9 +82,11 @@ static int help(void) {
                "  -l --local          Only local entries\n"
                "  -b --this-boot      Show data only from current boot\n"
                "  -D --directory=PATH Show journal files from directory\n"
-               "  -p --priority=RANGE Show only messages within the specified priority range\n"
+               "  -p --priority=RANGE Show only messages within the specified priority range\n\n"
+               "Commands:\n"
+               "     --new-id128      Generate a new 128 Bit id\n"
                "     --header         Show journal header information\n"
-               "     --new-id128      Generate a new 128 Bit id\n",
+               "     --setup-keys     Generate new FSPRG key pair\n",
                program_invocation_short_name);
 
         return 0;
@@ -88,7 +99,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_TAIL,
                 ARG_NEW_ID128,
-                ARG_HEADER
+                ARG_HEADER,
+                ARG_SETUP_KEYS
         };
 
         static const struct option options[] = {
@@ -107,6 +119,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "directory", required_argument, NULL, 'D'           },
                 { "header",    no_argument,       NULL, ARG_HEADER    },
                 { "priority",  no_argument,       NULL, 'p'           },
+                { "setup-keys",no_argument,       NULL, ARG_SETUP_KEYS},
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -163,7 +176,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NEW_ID128:
-                        arg_new_id128 = true;
+                        arg_action = ACTION_NEW_ID128;
                         break;
 
                 case 'q':
@@ -183,7 +196,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_HEADER:
-                        arg_print_header = true;
+                        arg_action = ACTION_PRINT_HEADER;
+                        break;
+
+                case ARG_SETUP_KEYS:
+                        arg_action = ACTION_SETUP_KEYS;
                         break;
 
                 case 'p': {
@@ -400,6 +417,161 @@ static int add_priorities(sd_journal *j) {
         return 0;
 }
 
+static int setup_keys(void) {
+#ifdef HAVE_GCRYPT
+        size_t mpk_size, seed_size, state_size, i;
+        uint8_t *mpk, *seed, *state;
+        ssize_t l;
+        int fd = -1, r;
+        sd_id128_t machine, boot;
+        char *p = NULL, *k = NULL;
+        struct FSPRGHeader h;
+        uint64_t n, interval;
+
+        r = sd_id128_get_machine(&machine);
+        if (r < 0) {
+                log_error("Failed to get machine ID: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_id128_get_boot(&boot);
+        if (r < 0) {
+                log_error("Failed to get boot ID: %s", strerror(-r));
+                return r;
+        }
+
+        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/fsprg",
+                     SD_ID128_FORMAT_VAL(machine)) < 0)
+                return log_oom();
+
+        if (access(p, F_OK) >= 0) {
+                log_error("Evolving key file %s exists already.", p);
+                r = -EEXIST;
+                goto finish;
+        }
+
+        if (asprintf(&k, "/var/log/journal/" SD_ID128_FORMAT_STR "/fsprg.tmp.XXXXXX",
+                     SD_ID128_FORMAT_VAL(machine)) < 0) {
+                r = log_oom();
+                goto finish;
+        }
+
+        mpk_size = FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR);
+        mpk = alloca(mpk_size);
+
+        seed_size = FSPRG_RECOMMENDED_SEEDLEN;
+        seed = alloca(seed_size);
+
+        state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
+        state = alloca(state_size);
+
+        fd = open("/dev/random", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0) {
+                log_error("Failed to open /dev/random: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        log_info("Generating seed...");
+        l = loop_read(fd, seed, seed_size, true);
+        if (l < 0 || (size_t) l != seed_size) {
+                log_error("Failed to read random seed: %s", strerror(EIO));
+                r = -EIO;
+                goto finish;
+        }
+
+        log_info("Generating key pair...");
+        FSPRG_GenMK(NULL, mpk, seed, seed_size, FSPRG_RECOMMENDED_SECPAR);
+
+        log_info("Generating evolving key...");
+        FSPRG_GenState0(state, mpk, seed, seed_size);
+
+        interval = DEFAULT_FSPRG_INTERVAL_USEC;
+        n = now(CLOCK_REALTIME);
+        n /= interval;
+
+        close_nointr_nofail(fd);
+        fd = mkostemp(k, O_WRONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0) {
+                log_error("Failed to open %s: %m", k);
+                r = -errno;
+                goto finish;
+        }
+
+        zero(h);
+        memcpy(h.signature, "KSHHRHLP", 8);
+        h.machine_id = machine;
+        h.boot_id = boot;
+        h.header_size = htole64(sizeof(h));
+        h.fsprg_start_usec = htole64(n * interval);
+        h.fsprg_interval_usec = htole64(interval);
+        h.secpar = htole16(FSPRG_RECOMMENDED_SECPAR);
+        h.state_size = htole64(state_size);
+
+        l = loop_write(fd, &h, sizeof(h), false);
+        if (l < 0 || (size_t) l != sizeof(h)) {
+                log_error("Failed to write header: %s", strerror(EIO));
+                r = -EIO;
+                goto finish;
+        }
+
+        l = loop_write(fd, state, state_size, false);
+        if (l < 0 || (size_t) l != state_size) {
+                log_error("Failed to write state: %s", strerror(EIO));
+                r = -EIO;
+                goto finish;
+        }
+
+        if (link(k, p) < 0) {
+                log_error("Failed to link file: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        if (isatty(STDOUT_FILENO)) {
+                fprintf(stderr,
+                        "\n"
+                        "The new key pair has been generated. The evolving key has been written to the\n"
+                        "following file. It will be used to protect local journal files. This file does\n"
+                        "not need to be kept secret. It should not be used on multiple hosts.\n"
+                        "\n"
+                        "\t%s\n"
+                        "\n"
+                        "Please write down the following " ANSI_HIGHLIGHT_ON "secret" ANSI_HIGHLIGHT_OFF " seed value. It should not be stored\n"
+                        "locally on disk, and may be used to verify journal files from this host.\n"
+                        "\n\t" ANSI_HIGHLIGHT_RED_ON, p);
+                fflush(stderr);
+        }
+        for (i = 0; i < seed_size; i++) {
+                if (i > 0 && i % 3 == 0)
+                        putchar('-');
+                printf("%02x", ((uint8_t*) seed)[i]);
+        }
+
+        printf("/%llx-%llx\n", (unsigned long long) n, (unsigned long long) interval);
+
+        if (isatty(STDOUT_FILENO))
+                fputs(ANSI_HIGHLIGHT_OFF "\n", stderr);
+
+        r = 0;
+
+finish:
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+
+        if (k) {
+                unlink(k);
+                free(k);
+        }
+
+        free(p);
+
+        return r;
+#else
+        log_error("Forward-secure journal verification not available.");
+#endif
+}
+
 int main(int argc, char *argv[]) {
         int r;
         sd_journal *j = NULL;
@@ -416,8 +588,13 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (arg_new_id128) {
+        if (arg_action == ACTION_NEW_ID128) {
                 r = generate_new_id128();
+                goto finish;
+        }
+
+        if (arg_action == ACTION_SETUP_KEYS) {
+                r = setup_keys();
                 goto finish;
         }
 
@@ -436,7 +613,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_print_header) {
+        if (arg_action == ACTION_PRINT_HEADER) {
                 journal_print_header(j);
                 r = 0;
                 goto finish;
