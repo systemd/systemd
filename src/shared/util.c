@@ -3011,7 +3011,8 @@ unsigned long long random_ull(void) {
         uint64_t ull;
         ssize_t r;
 
-        if ((fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY)) < 0)
+        fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
                 goto fallback;
 
         r = loop_read(fd, &ull, sizeof(ull), true);

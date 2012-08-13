@@ -1043,20 +1043,13 @@
                                 <option>shared</option>,
                                 <option>slave</option> or
                                 <option>private</option>, which
-                                control whether namespaces set up with
-                                <varname>ReadWriteDirectories=</varname>,
-                                <varname>ReadOnlyDirectories=</varname>
-                                and
-                                <varname>InaccessibleDirectories=</varname>
-                                receive or propagate new mounts
-                                from/to the main namespace. See
+                                control whether the file system
+                                namespace set up for this unit's
+                                processes will receive or propagate
+                                new mounts. See
                                 <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                                for details. Defaults to
-                                <option>shared</option>, i.e. the new
-                                namespace will both receive new mount
-                                points from the main namespace as well
-                                as propagate new mounts to
-                                it.</para></listitem>
+                                for details. Default to
+                                <option>shared</option>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

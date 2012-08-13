@@ -41,13 +41,15 @@ typedef enum PathMode {
         /* This is ordered by priority! */
         INACCESSIBLE,
         READONLY,
-        PRIVATE,
+        PRIVATE_TMP,
+        PRIVATE_VAR_TMP,
         READWRITE
 } PathMode;
 
 typedef struct Path {
         const char *path;
         PathMode mode;
+        bool done;
 } Path;
 
 static int append_paths(Path **p, char **strv, PathMode mode) {
@@ -91,24 +93,21 @@ static int path_compare(const void *a, const void *b) {
         return 0;
 }
 
-static void drop_duplicates(Path *p, unsigned *n, bool *need_inaccessible, bool *need_private) {
+static void drop_duplicates(Path *p, unsigned *n, bool *need_inaccessible) {
         Path *f, *t, *previous;
 
         assert(p);
         assert(n);
         assert(need_inaccessible);
-        assert(need_private);
 
         for (f = p, t = p, previous = NULL; f < p+*n; f++) {
 
+                /* The first one wins */
                 if (previous && path_equal(f->path, previous->path))
                         continue;
 
                 t->path = f->path;
                 t->mode = f->mode;
-
-                if (t->mode == PRIVATE)
-                        *need_private = true;
 
                 if (t->mode == INACCESSIBLE)
                         *need_inaccessible = true;
@@ -121,65 +120,62 @@ static void drop_duplicates(Path *p, unsigned *n, bool *need_inaccessible, bool 
         *n = t - p;
 }
 
-static int apply_mount(Path *p, const char *root_dir, const char *inaccessible_dir, const char *private_dir, unsigned long flags) {
+static int apply_mount(
+                Path *p,
+                const char *tmp_dir,
+                const char *var_tmp_dir,
+                const char *inaccessible_dir) {
+
         const char *what;
-        char *where;
         int r;
 
         assert(p);
-        assert(root_dir);
-        assert(inaccessible_dir);
-        assert(private_dir);
-
-        where = strappend(root_dir, p->path);
-        if (!where)
-                return -ENOMEM;
 
         switch (p->mode) {
 
         case INACCESSIBLE:
                 what = inaccessible_dir;
-                flags |= MS_RDONLY;
                 break;
 
         case READONLY:
-                flags |= MS_RDONLY;
-                /* Fall through */
-
         case READWRITE:
                 what = p->path;
                 break;
 
-        case PRIVATE:
-                what = private_dir;
+        case PRIVATE_TMP:
+                what = tmp_dir;
+                break;
+
+        case PRIVATE_VAR_TMP:
+                what = var_tmp_dir;
                 break;
 
         default:
                 assert_not_reached("Unknown mode");
         }
 
-        r = mount(what, where, NULL, MS_BIND|MS_REC, NULL);
-        if (r >= 0) {
-                log_debug("Successfully mounted %s to %s", what, where);
+        assert(what);
 
-                /* The bind mount will always inherit the original
-                 * flags. If we want to set any flag we need
-                 * to do so in a second independent step. */
-                if (flags)
-                        r = mount(NULL, where, NULL, MS_REMOUNT|MS_BIND|MS_REC|flags, NULL);
+        r = mount(what, p->path, NULL, MS_BIND, NULL);
+        if (r >= 0)
+                log_debug("Successfully mounted %s to %s", what, p->path);
 
-                /* Avoid exponential growth of trees */
-                if (r >= 0 && path_equal(p->path, "/"))
-                        r = mount(NULL, where, NULL, MS_REMOUNT|MS_BIND|flags, NULL);
-
-                if (r < 0) {
-                        r = -errno;
-                        umount2(where, MNT_DETACH);
-                }
-        }
-
-        free(where);
         return r;
+}
+
+static int make_read_only(Path *p) {
+        int r;
+
+        assert(p);
+
+        if (p->mode != INACCESSIBLE && p->mode != READONLY)
+                return 0;
+
+        r = mount(NULL, p->path, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+        if (r < 0)
+                return -errno;
+
+        return 0;
 }
 
 int setup_namespace(
@@ -190,30 +186,26 @@ int setup_namespace(
                 unsigned long flags) {
 
         char
-                tmp_dir[] = "/tmp/systemd-namespace-XXXXXX",
-                root_dir[] = "/tmp/systemd-namespace-XXXXXX/root",
-                old_root_dir[] = "/tmp/systemd-namespace-XXXXXX/root/tmp/old-root-XXXXXX",
-                inaccessible_dir[] = "/tmp/systemd-namespace-XXXXXX/inaccessible",
-                private_dir[] = "/tmp/systemd-namespace-XXXXXX/private";
+                tmp_dir[] = "/tmp/systemd-private-XXXXXX",
+                var_tmp_dir[] = "/var/tmp/systemd-private-XXXXXX",
+                inaccessible_dir[] = "/tmp/systemd-inaccessible-XXXXXX";
 
         Path *paths, *p;
         unsigned n;
-        bool need_private = false, need_inaccessible = false;
-        bool remove_tmp = false, remove_root = false, remove_old_root = false, remove_inaccessible = false, remove_private = false;
+        bool need_inaccessible = false;
+        bool remove_tmp = false, remove_var_tmp = false, remove_inaccessible = false;
         int r;
-        const char *t;
+
+        if (!flags)
+                flags = MS_SHARED;
 
         n =
                 strv_length(writable) +
                 strv_length(readable) +
                 strv_length(inaccessible) +
-                (private_tmp ? 3 : 1);
+                (private_tmp ? 2 : 0);
 
-        paths = new(Path, n);
-        if (!paths)
-                return -ENOMEM;
-
-        p = paths;
+        p = paths = alloca(sizeof(Path) * n);
         if ((r = append_paths(&p, writable, READWRITE)) < 0 ||
             (r = append_paths(&p, readable, READONLY)) < 0 ||
             (r = append_paths(&p, inaccessible, INACCESSIBLE)) < 0)
@@ -221,60 +213,70 @@ int setup_namespace(
 
         if (private_tmp) {
                 p->path = "/tmp";
-                p->mode = PRIVATE;
+                p->mode = PRIVATE_TMP;
                 p++;
 
                 p->path = "/var/tmp";
-                p->mode = PRIVATE;
+                p->mode = PRIVATE_VAR_TMP;
                 p++;
         }
-
-        p->path = "/";
-        p->mode = READWRITE;
-        p++;
 
         assert(paths + n == p);
 
         qsort(paths, n, sizeof(Path), path_compare);
-        drop_duplicates(paths, &n, &need_inaccessible, &need_private);
-
-        if (!mkdtemp(tmp_dir)) {
-                r = -errno;
-                goto fail;
-        }
-        remove_tmp = true;
-
-        memcpy(root_dir, tmp_dir, sizeof(tmp_dir)-1);
-        if (mkdir(root_dir, 0777) < 0) {
-                r = -errno;
-                goto fail;
-        }
-        remove_root = true;
+        drop_duplicates(paths, &n, &need_inaccessible);
 
         if (need_inaccessible) {
-                memcpy(inaccessible_dir, tmp_dir, sizeof(tmp_dir)-1);
-                if (mkdir(inaccessible_dir, 0) < 0) {
+                mode_t u;
+                char *d;
+
+                u = umask(0777);
+                d = mkdtemp(inaccessible_dir);
+                umask(u);
+
+                if (!d) {
                         r = -errno;
                         goto fail;
                 }
+
                 remove_inaccessible = true;
         }
 
-        if (need_private) {
+        if (private_tmp) {
                 mode_t u;
-
-                memcpy(private_dir, tmp_dir, sizeof(tmp_dir)-1);
+                char *d;
 
                 u = umask(0000);
-                if (mkdir(private_dir, 0777 + S_ISVTX) < 0) {
-                        umask(u);
+                d = mkdtemp(tmp_dir);
+                umask(u);
 
+                if (!d) {
                         r = -errno;
                         goto fail;
                 }
 
+                remove_tmp = true;
+
+                u = umask(0000);
+                d = mkdtemp(var_tmp_dir);
                 umask(u);
-                remove_private = true;
+
+                if (!d) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                remove_var_tmp = true;
+
+                if (chmod(tmp_dir, 0777 + S_ISVTX) < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                if (chmod(var_tmp_dir, 0777 + S_ISVTX) < 0) {
+                        r = -errno;
+                        goto fail;
+                }
         }
 
         if (unshare(CLONE_NEWNS) < 0) {
@@ -282,7 +284,7 @@ int setup_namespace(
                 goto fail;
         }
 
-        /* Remount / as SLAVE so that nothing mounted in the namespace
+        /* Remount / as SLAVE so that nothing now mounted in the namespace
            shows up in the parent */
         if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
                 r = -errno;
@@ -290,69 +292,39 @@ int setup_namespace(
         }
 
         for (p = paths; p < paths + n; p++) {
-                r = apply_mount(p, root_dir, inaccessible_dir, private_dir, flags);
+                r = apply_mount(p, tmp_dir, var_tmp_dir, inaccessible_dir);
                 if (r < 0)
                         goto undo_mounts;
         }
 
-        memcpy(old_root_dir, tmp_dir, sizeof(tmp_dir)-1);
-        if (!mkdtemp(old_root_dir)) {
+        for (p = paths; p < paths + n; p++) {
+                r = make_read_only(p);
+                if (r < 0)
+                        goto undo_mounts;
+        }
+
+        /* Remount / as the desired mode */
+        if (mount(NULL, "/", NULL, flags|MS_REC, NULL) < 0) {
                 r = -errno;
                 goto undo_mounts;
         }
-        remove_old_root = true;
-
-        if (chdir(root_dir) < 0) {
-                r = -errno;
-                goto undo_mounts;
-        }
-
-        if (pivot_root(root_dir, old_root_dir) < 0) {
-                r = -errno;
-                goto undo_mounts;
-        }
-
-        free(paths);
-
-        t = old_root_dir + sizeof(root_dir) - 1;
-        if (umount2(t, MNT_DETACH) < 0)
-                /* At this point it's too late to turn anything back,
-                 * since we are already in the new root. */
-                return -errno;
-
-        if (rmdir(t) < 0)
-                return -errno;
 
         return 0;
 
 undo_mounts:
-
-        for (p--; p >= paths; p--) {
-                char full_path[PATH_MAX];
-
-                snprintf(full_path, sizeof(full_path), "%s%s", root_dir, p->path);
-                char_array_0(full_path);
-
-                umount2(full_path, MNT_DETACH);
-        }
+        for (p = paths; p < paths + n; p++)
+                if (p->done)
+                        umount2(p->path, MNT_DETACH);
 
 fail:
-        if (remove_old_root)
-                rmdir(old_root_dir);
-
         if (remove_inaccessible)
                 rmdir(inaccessible_dir);
-
-        if (remove_private)
-                rmdir(private_dir);
-
-        if (remove_root)
-                rmdir(root_dir);
 
         if (remove_tmp)
                 rmdir(tmp_dir);
 
-        free(paths);
+        if (remove_var_tmp)
+                rmdir(var_tmp_dir);
 
         return r;
 }

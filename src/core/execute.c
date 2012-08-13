@@ -1304,7 +1304,7 @@ int exec_spawn(ExecCommand *command,
                 if (strv_length(context->read_write_dirs) > 0 ||
                     strv_length(context->read_only_dirs) > 0 ||
                     strv_length(context->inaccessible_dirs) > 0 ||
-                    context->mount_flags != MS_SHARED ||
+                    context->mount_flags != 0 ||
                     context->private_tmp) {
                         err = setup_namespace(context->read_write_dirs,
                                               context->read_only_dirs,
@@ -1540,7 +1540,6 @@ void exec_context_init(ExecContext *c) {
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
         c->syslog_level_prefix = true;
-        c->mount_flags = MS_SHARED;
         c->control_group_persistent = -1;
         c->ignore_sigpipe = true;
         c->timer_slack_nsec = (nsec_t) -1;

@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
                 NULL
         };
 
-        const char * const readable[] = {
+        const char * const readonly[] = {
                 "/",
                 "/usr",
                 "/boot",
@@ -48,7 +48,8 @@ int main(int argc, char *argv[]) {
 
         int r;
 
-        if ((r = setup_namespace((char**) writable, (char**) readable, (char**) inaccessible, true, MS_SHARED)) < 0) {
+        r = setup_namespace((char**) writable, (char**) readonly, (char**) inaccessible, true, 0);
+        if (r < 0) {
                 log_error("Failed to setup namespace: %s", strerror(-r));
                 return 1;
         }

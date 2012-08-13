@@ -115,6 +115,12 @@ int switch_root(const char *new_root) {
                 goto fail;
         }
 
+        if (chdir("/") < 0) {
+                r = -errno;
+                log_error("Failed to change directory: %m");
+                goto fail;
+        }
+
         if (old_root_fd >= 0) {
                 struct stat rb;
 
