@@ -1178,9 +1178,11 @@ int main(int argc, char *argv[]) {
                         goto child_fail;
                 }
 
-                /* Mark / as private, in case somebody marked it shared */
-                if (mount(NULL, "/", NULL, MS_PRIVATE|MS_REC, NULL) < 0) {
-                        log_error("MS_PRIVATE|MS_REC failed: %m");
+                /* Mark everything as slave, so that we still
+                 * receive mounts from the real root, but don't
+                 * propagate mounts to the real root. */
+                if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
+                        log_error("MS_SLAVE|MS_REC failed: %m");
                         goto child_fail;
                 }
 
@@ -1224,8 +1226,8 @@ int main(int argc, char *argv[]) {
                         goto child_fail;
                 }
 
-                if (mount(arg_directory, "/", "bind", MS_MOVE, NULL) < 0) {
-                        log_error("mount(MS_BIND) failed: %m");
+                if (mount(arg_directory, "/", NULL, MS_MOVE, NULL) < 0) {
+                        log_error("mount(MS_MOVE) failed: %m");
                         goto child_fail;
                 }
 
