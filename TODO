@@ -13,10 +13,6 @@ Bugfixes:
   - systemd enforces /usr to be available at bootup, so we can
     enforce the use of the symlink
 
-* remove MS_SHARED from src/core/execute.c and src/test/test-ns.c. They are always combined
-  with MS_REMOUNT, which currently does nothing in the kernel, but might which fail in the
-  future; https://bugzilla.redhat.com/show_bug.cgi?id=813563
-
 * check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
@@ -53,11 +49,16 @@ Bugfixes:
 
 Features:
 
-* drop PID 1 reloading, only do reexecing
+* MountFlags=shared acts as MountFlags=slave right now.
+
+* drop PID 1 reloading, only do reexecing (difficult: Reload()
+  currently is properly synchronous, Reexec() is weird, because we
+  can't delay the response properly until we are back, so instead of
+  being properly synchronous we just keep open the fd and close it
+  when done. That means clients don't get a succesful method reply,
+  but much rather a disconnect on success.
 
 * document that service reload may be implemented as service reexec
-
-* systemctl daemon-reexec is borked
 
 * add option to reconfigure success exit codes/signals for services
 
@@ -77,8 +78,6 @@ Features:
   delete /etc/X11/xorg.conf.d/00-system-setup-keyboard.conf from spec file
 
 * journal: expose current disk usage
-
-* logind: return EBUSY when a session is created on a seat+VT that already has one.
 
 * dracut-shutdown needs to be ordered before unmounting /boot
 
@@ -101,6 +100,8 @@ Features:
 * syscall filter: don't enforce no new privs?
 
 * syscall filter: option to return EPERM rather than SIGSYS?
+
+* syscall filter: port to libseccomp
 
 * logind: wakelock/opportunistic suspend support
 
@@ -164,8 +165,6 @@ Features:
 * handle C-A-Del in logind, like the power/suspend buttons?
 
 * nspawn: make use of device cgroup contrller by default
-
-* make use of /sys/power/wake_lock in inhibitors
 
 * drop accountsservice's StandardOutput=syslog and Type=dbus fields
 
@@ -296,8 +295,6 @@ Features:
 * journal: forward-secure signatures
 
 * document the exit codes when services fail before they are exec()ed
-
-* rework namespace support, don't use pivot_root, and mount things after creating the namespace, not before
 
 * systemctl journal command
 
