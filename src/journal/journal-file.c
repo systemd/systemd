@@ -68,11 +68,16 @@
         (le64toh((h)->header_size) >= offsetof(Header, field) + sizeof((h)->field))
 
 static int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime);
+static int journal_file_hmac_put_object(JournalFile *f, int type, uint64_t p);
 
 void journal_file_close(JournalFile *f) {
         int t;
 
         assert(f);
+
+        /* Write the final tag */
+        if (f->authenticate)
+                journal_file_append_tag(f);
 
         /* Sync everything to disk, before we mark the file offline */
         for (t = 0; t < _WINDOW_MAX; t++)
@@ -831,6 +836,10 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
+        r = journal_file_hmac_put_object(f, OBJECT_DATA, p);
+        if (r < 0)
+                return r;
+
         /* The linking might have altered the window, so let's
          * refresh our pointer */
         r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
@@ -904,6 +913,10 @@ static int link_entry_into_array(JournalFile *f,
         r = journal_file_append_object(f, OBJECT_ENTRY_ARRAY,
                                        offsetof(Object, entry_array.items) + n * sizeof(uint64_t),
                                        &o, &q);
+        if (r < 0)
+                return r;
+
+        r = journal_file_hmac_put_object(f, OBJECT_ENTRY_ARRAY, q);
         if (r < 0)
                 return r;
 
@@ -1043,6 +1056,10 @@ static int journal_file_append_entry_internal(
         o->entry.monotonic = htole64(ts->monotonic);
         o->entry.xor_hash = htole64(xor_hash);
         o->entry.boot_id = f->header->boot_id;
+
+        r = journal_file_hmac_put_object(f, OBJECT_ENTRY, np);
+        if (r < 0)
+                return r;
 
         r = journal_file_link_entry(f, o, np);
         if (r < 0)
@@ -1888,7 +1905,7 @@ static void *fsprg_state(JournalFile *f) {
         return (uint8_t*) f->fsprg_header + a;
 }
 
-static int journal_file_append_tag(JournalFile *f) {
+int journal_file_append_tag(JournalFile *f) {
         Object *o;
         uint64_t p;
         int r;
@@ -2473,7 +2490,9 @@ int journal_file_open(
                 r = journal_file_verify_header(f);
                 if (r < 0)
                         goto fail;
+        }
 
+        if (!newly_created && f->writable) {
                 r = journal_file_load_fsprg(f);
                 if (r < 0)
                         goto fail;

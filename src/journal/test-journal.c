@@ -57,6 +57,7 @@ int main(int argc, char *argv[]) {
         iovec.iov_len = strlen(test);
         assert_se(journal_file_append_entry(f, &ts, &iovec, 1, NULL, NULL, NULL) == 0);
 
+        journal_file_append_tag(f);
         journal_file_dump(f);
 
         assert(journal_file_next_entry(f, NULL, 0, DIRECTION_DOWN, &o, &p) == 1);

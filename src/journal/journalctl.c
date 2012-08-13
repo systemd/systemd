@@ -84,7 +84,7 @@ static int help(void) {
                "  -D --directory=PATH Show journal files from directory\n"
                "  -p --priority=RANGE Show only messages within the specified priority range\n\n"
                "Commands:\n"
-               "     --new-id128      Generate a new 128 Bit id\n"
+               "     --new-id128      Generate a new 128 Bit ID\n"
                "     --header         Show journal header information\n"
                "     --setup-keys     Generate new FSPRG key pair\n",
                program_invocation_short_name);
