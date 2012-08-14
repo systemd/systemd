@@ -580,17 +580,46 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>RestartPreventExitStatus=</varname></term>
-                                <listitem><para>Specify exit status list, which
-                                will prevent service from restart. Codes are
-                                separated by whitespace (e.g. "1 6 SIGKILL").</para></listitem>
+                                <term><varname>SuccessExitStatus=</varname></term>
+                                <listitem><para>Takes a list of exit
+                                status definitions that when returned
+                                by the main service process will be
+                                considered successful termination, in
+                                addition to the normal successful exit
+                                code 0 and the signals SIGHUP, SIGINT,
+                                SIGTERM and SIGPIPE. Exit status
+                                definitions can either be numeric exit
+                                codes or termination signal names, and
+                                are are separated by spaces. Example:
+                                "<literal>SuccessExitStatus=1 2 8
+                                SIGKILL</literal>", ensures that exit
+                                codes 1, 2, 8 and the termination
+                                signal SIGKILL are considered clean
+                                service
+                                terminations.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>SuccessExitStatus=</varname></term>
-                                <listitem><para>Specify exit status list, which
-                                will be considered as successful exit. Codes are
-                                separated by whitespace (e.g. "1 6 SIGKILL").</para></listitem>
+                                <term><varname>RestartPreventExitStatus=</varname></term>
+                                <listitem><para>Takes a list of exit
+                                status definitions that when returned
+                                by the main service process will
+                                prevent automatic service restarts
+                                regardless of the restart setting
+                                configured with
+                                <varname>Restart=</varname>. Exit
+                                status definitions can either be
+                                numeric exit codes or termination
+                                signal names, and are separated by
+                                spaces. Defaults to the empty list, so
+                                that by default no exit status is
+                                excluded from the configured restart
+                                logic. Example:
+                                "<literal>RestartPreventExitStatus=1 6
+                                SIGABRT</literal>", ensures that exit
+                                codes 1 and 6 and the termination signal
+                                SIGABRT will not result in automatic
+                                service restarting.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

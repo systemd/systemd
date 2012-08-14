@@ -397,6 +397,7 @@ Features:
   - resource control in systemd
   - inhibiting
   - testing with Harald's awesome test kit
+  - restart
 
 * allow port=0 in .socket units
 
