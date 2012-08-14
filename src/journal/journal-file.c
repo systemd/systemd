@@ -136,7 +136,7 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
 
         if (template) {
                 h.seqnum_id = template->header->seqnum_id;
-                h.tail_seqnum = template->header->tail_seqnum;
+                h.tail_entry_seqnum = template->header->tail_entry_seqnum;
         } else
                 h.seqnum_id = h.file_id;
 
@@ -208,6 +208,10 @@ static int journal_file_verify_header(JournalFile *f) {
 
         /* The first addition was n_data, so check that we are at least this large */
         if (le64toh(f->header->header_size) < HEADER_SIZE_MIN)
+                return -EBADMSG;
+
+        if ((le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_AUTHENTICATED) &&
+                !JOURNAL_HEADER_CONTAINS(f->header, n_tags))
                 return -EBADMSG;
 
         if ((uint64_t) f->last_stat.st_size < (le64toh(f->header->header_size) + le64toh(f->header->arena_size)))
@@ -407,7 +411,7 @@ static uint64_t journal_file_entry_seqnum(JournalFile *f, uint64_t *seqnum) {
 
         assert(f);
 
-        r = le64toh(f->header->tail_seqnum) + 1;
+        r = le64toh(f->header->tail_entry_seqnum) + 1;
 
         if (seqnum) {
                 /* If an external seqnum counter was passed, we update
@@ -420,10 +424,10 @@ static uint64_t journal_file_entry_seqnum(JournalFile *f, uint64_t *seqnum) {
                 *seqnum = r;
         }
 
-        f->header->tail_seqnum = htole64(r);
+        f->header->tail_entry_seqnum = htole64(r);
 
-        if (f->header->head_seqnum == 0)
-                f->header->head_seqnum = htole64(r);
+        if (f->header->head_entry_seqnum == 0)
+                f->header->head_entry_seqnum = htole64(r);
 
         return r;
 }
@@ -2066,7 +2070,7 @@ static int journal_file_hmac_put_header(JournalFile *f) {
         gcry_md_write(f->hmac, &f->header->file_id, offsetof(Header, boot_id) - offsetof(Header, file_id));
         gcry_md_write(f->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
         gcry_md_write(f->hmac, &f->header->data_hash_table_offset, offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
-        gcry_md_write(f->hmac, &f->header->head_seqnum, offsetof(Header, head_entry_realtime) - offsetof(Header, head_seqnum));
+        gcry_md_write(f->hmac, &f->header->head_entry_seqnum, offsetof(Header, head_entry_realtime) - offsetof(Header, head_entry_seqnum));
 
         return 0;
 }
@@ -2223,6 +2227,405 @@ static int journal_file_append_first_tag(JournalFile *f) {
         return 0;
 }
 
+static int journal_file_object_verify(JournalFile *f, Object *o) {
+        assert(f);
+        assert(o);
+
+        /* This does various superficial tests about the length an
+         * possible field values. It does not follow any references to
+         * other objects. */
+
+        switch (o->object.type) {
+        case OBJECT_DATA:
+                if (le64toh(o->data.entry_offset) <= 0 ||
+                    le64toh(o->data.n_entries) <= 0)
+                        return -EBADMSG;
+
+                if (le64toh(o->object.size) - offsetof(DataObject, payload) <= 0)
+                        return -EBADMSG;
+                break;
+
+        case OBJECT_FIELD:
+                if (le64toh(o->object.size) - offsetof(FieldObject, payload) <= 0)
+                        return -EBADMSG;
+                break;
+
+        case OBJECT_ENTRY:
+                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0)
+                        return -EBADMSG;
+
+                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem) <= 0)
+                        return -EBADMSG;
+
+                if (le64toh(o->entry.seqnum) <= 0 ||
+                    le64toh(o->entry.realtime) <= 0)
+                        return -EBADMSG;
+
+                break;
+
+        case OBJECT_DATA_HASH_TABLE:
+        case OBJECT_FIELD_HASH_TABLE:
+                if ((le64toh(o->object.size) - offsetof(HashTableObject, items)) % sizeof(HashItem) != 0)
+                        return -EBADMSG;
+
+                break;
+
+        case OBJECT_ENTRY_ARRAY:
+                if ((le64toh(o->object.size) - offsetof(EntryArrayObject, items)) % sizeof(le64_t) != 0)
+                        return -EBADMSG;
+
+                break;
+
+        case OBJECT_TAG:
+                if (le64toh(o->object.size) != sizeof(TagObject))
+                        return -EBADMSG;
+                break;
+        }
+
+        return 0;
+}
+
+static void draw_progress(uint64_t p, usec_t *last_usec) {
+        unsigned n, i, j, k;
+        usec_t z, x;
+
+        if (!isatty(STDOUT_FILENO))
+                return;
+
+        z = now(CLOCK_MONOTONIC);
+        x = *last_usec;
+
+        if (x != 0 && x + 40 * USEC_PER_MSEC > z)
+                return;
+
+        *last_usec = z;
+
+        n = (3 * columns()) / 4;
+        j = (n * (unsigned) p) / 65535ULL;
+        k = n - j;
+
+        fputs("\r\x1B[?25l", stdout);
+
+        for (i = 0; i < j; i++)
+                fputs("\xe2\x96\x88", stdout);
+
+        for (i = 0; i < k; i++)
+                fputs("\xe2\x96\x91", stdout);
+
+        printf(" %3lu%%", 100LU * (unsigned long) p / 65535LU);
+
+        fputs("\r\x1B[?25h", stdout);
+        fflush(stdout);
+}
+
+static void flush_progress(void) {
+        unsigned n, i;
+
+        if (!isatty(STDOUT_FILENO))
+                return;
+
+        n = (3 * columns()) / 4;
+
+        putchar('\r');
+
+        for (i = 0; i < n + 5; i++)
+                putchar(' ');
+
+        putchar('\r');
+        fflush(stdout);
+}
+
+int journal_file_verify(JournalFile *f, const char *key) {
+        int r;
+        Object *o;
+        uint64_t p = 0, q = 0, e;
+        uint64_t tag_seqnum = 0, entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
+        sd_id128_t entry_boot_id;
+        bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
+        uint64_t n_weird = 0, n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0;
+        usec_t last_usec = 0;
+
+        assert(f);
+
+        /* First iteration: we go through all objects, verify the
+         * superficial structure, headers, hashes. */
+
+        r = journal_file_hmac_put_header(f);
+        if (r < 0) {
+                log_error("Failed to calculate HMAC of header.");
+                goto fail;
+        }
+
+        p = le64toh(f->header->header_size);
+        while (p != 0) {
+                draw_progress((65535ULL * p / le64toh(f->header->tail_object_offset)), &last_usec);
+
+                r = journal_file_move_to_object(f, -1, p, &o);
+                if (r < 0) {
+                        log_error("Invalid object at %llu", (unsigned long long) p);
+                        goto fail;
+                }
+
+                if (le64toh(f->header->tail_object_offset) < p) {
+                        log_error("Invalid tail object pointer.");
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
+                n_objects ++;
+
+                r = journal_file_object_verify(f, o);
+                if (r < 0) {
+                        log_error("Invalid object contents at %llu", (unsigned long long) p);
+                        goto fail;
+                }
+
+                r = journal_file_hmac_put_object(f, -1, p);
+                if (r < 0) {
+                        log_error("Failed to calculate HMAC at %llu", (unsigned long long) p);
+                        goto fail;
+                }
+
+                if (o->object.flags & OBJECT_COMPRESSED &&
+                    !(le32toh(f->header->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED)) {
+                        log_error("Compressed object without compression at %llu", (unsigned long long) p);
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
+                if (o->object.flags & OBJECT_COMPRESSED &&
+                    o->object.type != OBJECT_DATA) {
+                        log_error("Compressed non-data object at %llu", (unsigned long long) p);
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
+                if (o->object.type == OBJECT_TAG) {
+
+                        if (!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_AUTHENTICATED)) {
+                                log_error("Tag object without authentication at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        if (le64toh(o->tag.seqnum) != tag_seqnum) {
+                                log_error("Tag sequence number out of synchronization at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                } else if (o->object.type == OBJECT_ENTRY) {
+
+                        if (!entry_seqnum_set &&
+                            le64toh(o->entry.seqnum) != le64toh(f->header->head_entry_seqnum)) {
+                                log_error("Head entry sequence number incorrect");
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        if (entry_seqnum_set &&
+                            entry_seqnum >= le64toh(o->entry.seqnum)) {
+                                log_error("Entry sequence number out of synchronization at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        entry_seqnum = le64toh(o->entry.seqnum);
+                        entry_seqnum_set = true;
+
+                        if (entry_monotonic_set &&
+                            sd_id128_equal(entry_boot_id, o->entry.boot_id) &&
+                            entry_monotonic > le64toh(o->entry.monotonic)) {
+                                log_error("Entry timestamp out of synchronization at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        entry_monotonic = le64toh(o->entry.monotonic);
+                        entry_boot_id = o->entry.boot_id;
+                        entry_monotonic_set = true;
+
+                        if (!entry_realtime_set &&
+                            le64toh(o->entry.realtime) != le64toh(f->header->head_entry_realtime)) {
+                                log_error("Head entry realtime timestamp incorrect");
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        entry_realtime = le64toh(o->entry.realtime);
+                        entry_realtime_set = true;
+
+                        n_entries ++;
+                } else if (o->object.type == OBJECT_ENTRY_ARRAY) {
+
+                        if (p == le64toh(f->header->entry_array_offset)) {
+                                if (found_main_entry_array) {
+                                        log_error("More than one main entry array at %llu", (unsigned long long) p);
+                                        r = -EBADMSG;
+                                        goto fail;
+                                }
+
+                                found_main_entry_array = true;
+                        }
+
+                } else if (o->object.type == OBJECT_DATA)
+                        n_data++;
+                else if (o->object.type == OBJECT_FIELD)
+                        n_fields++;
+                else if (o->object.type == OBJECT_DATA_HASH_TABLE) {
+                        n_data_hash_tables++;
+
+                        if (n_data_hash_tables > 1) {
+                                log_error("More than one data hash table at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        if (le64toh(f->header->data_hash_table_offset) != p + offsetof(HashTableObject, items) ||
+                            le64toh(f->header->data_hash_table_size) != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
+                                log_error("Header fields for data hash table invalid.");
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+                } else if (o->object.type == OBJECT_FIELD_HASH_TABLE) {
+                        n_field_hash_tables++;
+
+                        if (n_field_hash_tables > 1) {
+                                log_error("More than one field hash table at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        if (le64toh(f->header->field_hash_table_offset) != p + offsetof(HashTableObject, items) ||
+                            le64toh(f->header->field_hash_table_size) != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
+                                log_error("Header fields for field hash table invalid.");
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+                }
+
+                if (o->object.type >= _OBJECT_TYPE_MAX)
+                        n_weird ++;
+                else {
+                        /* Write address to file... */
+
+                }
+
+                if (p == le64toh(f->header->tail_object_offset))
+                        p = 0;
+                else
+                        p = p + ALIGN64(le64toh(o->object.size));
+        }
+
+        if (n_objects != le64toh(f->header->n_objects)) {
+                log_error("Object number mismatch");
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        if (n_entries != le64toh(f->header->n_entries)) {
+                log_error("Entry number mismatch");
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_data) &&
+            n_data != le64toh(f->header->n_data)) {
+                log_error("Data number mismatch");
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_fields) &&
+            n_fields != le64toh(f->header->n_fields)) {
+                log_error("Field number mismatch");
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_tags) &&
+            tag_seqnum != le64toh(f->header->n_tags)) {
+                log_error("Tag number mismatch");
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        if (n_data_hash_tables != 1) {
+                log_error("Missing data hash table");
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        if (n_field_hash_tables != 1) {
+                log_error("Missing field hash table");
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        if (!found_main_entry_array) {
+                log_error("Missing entry array");
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        if (entry_seqnum_set &&
+            entry_seqnum != le64toh(f->header->tail_entry_seqnum)) {
+                log_error("Invalid tail seqnum");
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        if (entry_monotonic_set &&
+            (!sd_id128_equal(entry_boot_id, f->header->boot_id) ||
+             entry_monotonic != le64toh(f->header->tail_entry_monotonic))) {
+                log_error("Invalid tail monotonic timestamp");
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        if (entry_realtime_set && entry_realtime != le64toh(f->header->tail_entry_realtime)) {
+                log_error("Invalid tail realtime timestamp");
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        /* Second iteration: we go through all objects again, this
+         * time verify all pointers. */
+
+        /* q = le64toh(f->header->header_size); */
+        /* while (q != 0) { */
+        /*         r = journal_file_move_to_object(f, -1, q, &o); */
+        /*         if (r < 0) { */
+        /*                 log_error("Invalid object at %llu", (unsigned long long) q); */
+        /*                 goto fail; */
+        /*         } */
+
+        /*         if (q == le64toh(f->header->tail_object_offset)) */
+        /*                 q = 0; */
+        /*         else */
+        /*                 q = q + ALIGN64(le64toh(o->object.size)); */
+        /* } */
+
+        flush_progress();
+
+        return 0;
+
+fail:
+        e = p <= 0 ? q :
+        q <= 0 ? p :
+        MIN(p, q);
+
+        flush_progress();
+
+        log_error("File corruption detected at %s:%llu (of %llu, %llu%%).",
+                  f->path,
+                  (unsigned long long) e,
+                  (unsigned long long) f->last_stat.st_size,
+                  (unsigned long long) (100 * e / f->last_stat.st_size));
+
+        return r;
+}
+
 void journal_file_dump(JournalFile *f) {
         Object *o;
         int r;
@@ -2331,8 +2734,8 @@ void journal_file_print_header(JournalFile *f) {
                (unsigned long long) le64toh(f->header->n_objects),
                (unsigned long long) le64toh(f->header->n_entries),
                yes_no(journal_file_rotate_suggested(f)),
-               (unsigned long long) le64toh(f->header->head_seqnum),
-               (unsigned long long) le64toh(f->header->tail_seqnum),
+               (unsigned long long) le64toh(f->header->head_entry_seqnum),
+               (unsigned long long) le64toh(f->header->tail_entry_seqnum),
                format_timestamp(x, sizeof(x), le64toh(f->header->head_entry_realtime)),
                format_timestamp(y, sizeof(y), le64toh(f->header->tail_entry_realtime)));
 
@@ -2536,7 +2939,7 @@ int journal_file_rotate(JournalFile **f, bool compress, bool authenticate) {
         sd_id128_to_string(old_file->header->seqnum_id, p + l - 8 + 1);
         snprintf(p + l - 8 + 1 + 32, 1 + 16 + 1 + 16 + 8 + 1,
                  "-%016llx-%016llx.journal",
-                 (unsigned long long) le64toh((*f)->header->tail_seqnum),
+                 (unsigned long long) le64toh((*f)->header->tail_entry_seqnum),
                  (unsigned long long) le64toh((*f)->header->tail_entry_realtime));
 
         r = rename(old_file->path, p);

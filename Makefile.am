@@ -2384,6 +2384,14 @@ test_journal_stream_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la
 
+test_journal_verify_SOURCES = \
+	src/journal/test-journal-verify.c
+
+test_journal_verify_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la
+
 libsystemd_journal_la_SOURCES = \
 	src/journal/sd-journal.c \
 	src/systemd/sd-journal.h \
@@ -2482,12 +2490,14 @@ noinst_PROGRAMS += \
 	test-journal \
 	test-journal-send \
 	test-journal-match \
-	test-journal-stream
+	test-journal-stream \
+	test-journal-verify
 
 TESTS += \
 	test-journal \
 	test-journal-match \
-	test-journal-stream
+	test-journal-stream \
+	test-journal-verify
 
 pkginclude_HEADERS += \
 	src/systemd/sd-journal.h \

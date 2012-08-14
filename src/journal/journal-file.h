@@ -150,3 +150,5 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec
 bool journal_file_rotate_suggested(JournalFile *f);
 
 int journal_file_append_tag(JournalFile *f);
+
+int journal_file_verify(JournalFile *f, const char *key);

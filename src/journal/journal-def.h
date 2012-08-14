@@ -174,8 +174,8 @@ _packed_ struct Header {
         le64_t tail_object_offset;
         le64_t n_objects;
         le64_t n_entries;
-        le64_t tail_seqnum;
-        le64_t head_seqnum;
+        le64_t tail_entry_seqnum;
+        le64_t head_entry_seqnum;
         le64_t entry_array_offset;
         le64_t head_entry_realtime;
         le64_t tail_entry_realtime;

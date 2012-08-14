@@ -232,7 +232,6 @@ MMapCache* mmap_cache_new(unsigned contexts_max, unsigned fds_max) {
                 mmap_cache_free(m);
                 return NULL;
         }
-
         memset(m->by_context, -1, m->contexts_max * sizeof(unsigned));
 
         m->by_fd = new(FileDescriptor, m->fds_max);
@@ -334,7 +333,7 @@ static int mmap_cache_put(
         if (wsize < WINDOW_SIZE) {
                 uint64_t delta;
 
-                delta = (WINDOW_SIZE - wsize) / 2;
+                delta = PAGE_ALIGN((WINDOW_SIZE - wsize) / 2);
 
                 if (delta > offset)
                         woffset = 0;

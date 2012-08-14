@@ -62,7 +62,8 @@ static enum {
         ACTION_SHOW,
         ACTION_NEW_ID128,
         ACTION_PRINT_HEADER,
-        ACTION_SETUP_KEYS
+        ACTION_SETUP_KEYS,
+        ACTION_VERIFY
 } arg_action = ACTION_SHOW;
 
 static int help(void) {
@@ -86,7 +87,8 @@ static int help(void) {
                "Commands:\n"
                "     --new-id128      Generate a new 128 Bit ID\n"
                "     --header         Show journal header information\n"
-               "     --setup-keys     Generate new FSPRG key pair\n",
+               "     --setup-keys     Generate new FSPRG key pair\n"
+               "     --verify         Verify journal file consistency\n",
                program_invocation_short_name);
 
         return 0;
@@ -100,7 +102,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_TAIL,
                 ARG_NEW_ID128,
                 ARG_HEADER,
-                ARG_SETUP_KEYS
+                ARG_SETUP_KEYS,
+                ARG_VERIFY
         };
 
         static const struct option options[] = {
@@ -120,6 +123,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "header",    no_argument,       NULL, ARG_HEADER    },
                 { "priority",  no_argument,       NULL, 'p'           },
                 { "setup-keys",no_argument,       NULL, ARG_SETUP_KEYS},
+                { "verify",    no_argument,       NULL, ARG_VERIFY    },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -201,6 +205,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SETUP_KEYS:
                         arg_action = ACTION_SETUP_KEYS;
+                        break;
+
+                case ARG_VERIFY:
+                        arg_action = ACTION_VERIFY;
                         break;
 
                 case 'p': {
@@ -572,6 +580,27 @@ finish:
 #endif
 }
 
+static int verify(sd_journal *j) {
+        int r = 0;
+        Iterator i;
+        JournalFile *f;
+
+        assert(j);
+
+        HASHMAP_FOREACH(f, j->files, i) {
+                int k;
+
+                k = journal_file_verify(f, NULL);
+                if (k < 0) {
+                        log_warning("FAIL: %s (%s)", f->path, strerror(-k));
+                        r = -r;
+                } else
+                        log_info("PASS: %s", f->path);
+        }
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
         int r;
         sd_journal *j = NULL;
@@ -598,11 +627,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-#ifdef HAVE_ACL
-        if (!arg_quiet && geteuid() != 0 && in_group("adm") <= 0)
-                log_warning("Showing user generated messages only. Users in the group 'adm' can see all messages. Pass -q to turn this message off.");
-#endif
-
         if (arg_directory)
                 r = sd_journal_open_directory(&j, arg_directory, 0);
         else
@@ -613,11 +637,21 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (arg_action == ACTION_VERIFY) {
+                r = verify(j);
+                goto finish;
+        }
+
         if (arg_action == ACTION_PRINT_HEADER) {
                 journal_print_header(j);
                 r = 0;
                 goto finish;
         }
+
+#ifdef HAVE_ACL
+        if (!arg_quiet && geteuid() != 0 && in_group("adm") <= 0)
+                log_warning("Showing user generated messages only. Users in the group 'adm' can see all messages. Pass -q to turn this message off.");
+#endif
 
         r = add_this_boot(j);
         if (r < 0)
