@@ -315,7 +315,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 journal_file_close(f);
         }
 
-        r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, s->compress, false, &s->system_metrics, s->system_journal, &f);
+        r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, s->compress, false, &s->system_metrics, s->mmap, s->system_journal, &f);
         free(p);
 
         if (r < 0)
@@ -2006,7 +2006,7 @@ static int system_journal_open(Server *s) {
                 if (!fn)
                         return -ENOMEM;
 
-                r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, true, &s->system_metrics, NULL, &s->system_journal);
+                r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, true, &s->system_metrics, s->mmap, NULL, &s->system_journal);
                 free(fn);
 
                 if (r >= 0)
@@ -2033,7 +2033,7 @@ static int system_journal_open(Server *s) {
                          * if it already exists, so that we can flush
                          * it into the system journal */
 
-                        r = journal_file_open(fn, O_RDWR, 0640, s->compress, false, &s->runtime_metrics, NULL, &s->runtime_journal);
+                        r = journal_file_open(fn, O_RDWR, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
                         free(fn);
 
                         if (r < 0) {
@@ -2049,7 +2049,7 @@ static int system_journal_open(Server *s) {
                          * it if necessary. */
 
                         (void) mkdir_parents(fn, 0755);
-                        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, false, &s->runtime_metrics, NULL, &s->runtime_journal);
+                        r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, false, &s->runtime_metrics, s->mmap, NULL, &s->runtime_journal);
                         free(fn);
 
                         if (r < 0) {
@@ -2793,6 +2793,10 @@ static int server_init(Server *s) {
         if (!s->user_journals)
                 return log_oom();
 
+        s->mmap = mmap_cache_new(_OBJECT_TYPE_MAX, USER_JOURNALS_MAX + 2);
+        if (!s->mmap)
+                return log_oom();
+
         s->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (s->epoll_fd < 0) {
                 log_error("Failed to create epoll object: %m");
@@ -2919,6 +2923,9 @@ static void server_done(Server *s) {
 
         free(s->buffer);
         free(s->tty_path);
+
+        if (s->mmap)
+                mmap_cache_unref(s->mmap);
 }
 
 int main(int argc, char *argv[]) {

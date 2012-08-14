@@ -2308,17 +2308,9 @@ EXTRA_DIST += \
 systemd_journald_SOURCES = \
 	src/journal/journald.c \
 	src/journal/journald.h \
-	src/journal/sd-journal.c \
-	src/journal/journal-file.c \
-	src/journal/journal-file.h \
-	src/journal/lookup3.c \
-	src/journal/lookup3.h \
 	src/journal/journal-rate-limit.c \
 	src/journal/journal-rate-limit.h \
-	src/journal/sparse-endian.h \
-	src/journal/journal-def.h \
-	src/journal/journal-internal.h \
-	src/journal/compress.h
+	src/journal/journal-internal.h
 
 nodist_systemd_journald_SOURCES = \
 	src/journal/journald-gperf.c
@@ -2394,9 +2386,18 @@ test_journal_stream_LDADD = \
 
 libsystemd_journal_la_SOURCES = \
 	src/journal/sd-journal.c \
+	src/systemd/sd-journal.h \
 	src/journal/journal-file.c \
+	src/journal/journal-file.h \
 	src/journal/lookup3.c \
-	src/journal/journal-send.c
+	src/journal/lookup3.h \
+	src/journal/journal-send.c \
+	src/journal/journal-send.h \
+	src/journal/sparse-endian.h \
+	src/journal/journal-def.h \
+	src/journal/compress.h \
+	src/journal/mmap-cache.c \
+	src/journal/mmap-cache.h
 
 libsystemd_journal_la_CFLAGS = \
 	$(AM_CFLAGS) \

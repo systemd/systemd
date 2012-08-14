@@ -93,6 +93,8 @@ typedef struct Server {
 
         Storage storage;
 
+        MMapCache *mmap;
+
         bool dev_kmsg_readable;
 
         uint64_t *kernel_seqnum;

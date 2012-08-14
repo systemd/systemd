@@ -92,6 +92,7 @@ struct sd_journal {
         char *path;
 
         Hashmap *files;
+        MMapCache *mmap;
 
         Location current_location;
 
@@ -110,4 +111,3 @@ struct sd_journal {
 
 char *journal_make_match_string(sd_journal *j);
 void journal_print_header(sd_journal *j);
-

@@ -36,8 +36,6 @@
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
 #define DEFAULT_FIELD_HASH_TABLE_SIZE (333ULL*sizeof(HashItem))
 
-#define DEFAULT_WINDOW_SIZE (8ULL*1024ULL*1024ULL)
-
 #define COMPRESSION_SIZE_THRESHOLD (512ULL)
 
 /* This is the minimum journal file size */
@@ -71,8 +69,6 @@ static int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime);
 static int journal_file_hmac_put_object(JournalFile *f, int type, uint64_t p);
 
 void journal_file_close(JournalFile *f) {
-        int t;
-
         assert(f);
 
         /* Write the final tag */
@@ -80,9 +76,8 @@ void journal_file_close(JournalFile *f) {
                 journal_file_append_tag(f);
 
         /* Sync everything to disk, before we mark the file offline */
-        for (t = 0; t < _WINDOW_MAX; t++)
-                if (f->windows[t].ptr)
-                        munmap(f->windows[t].ptr, f->windows[t].size);
+        if (f->mmap && f->fd >= 0)
+                mmap_cache_close_fd(f->mmap, f->fd);
 
         if (f->writable && f->fd >= 0)
                 fdatasync(f->fd);
@@ -99,6 +94,9 @@ void journal_file_close(JournalFile *f) {
                 close_nointr_nofail(f->fd);
 
         free(f->path);
+
+        if (f->mmap)
+                mmap_cache_unref(f->mmap);
 
 #ifdef HAVE_XZ
         free(f->compress_buffer);
@@ -305,59 +303,11 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         return 0;
 }
 
-static int journal_file_map(
-                JournalFile *f,
-                uint64_t offset,
-                uint64_t size,
-                void **_window,
-                uint64_t *_woffset,
-                uint64_t *_wsize,
-                void **ret) {
-
-        uint64_t woffset, wsize;
-        void *window;
-
+static int journal_file_move_to(JournalFile *f, int context, uint64_t offset, uint64_t size, void **ret) {
         assert(f);
-        assert(size > 0);
         assert(ret);
-
-        woffset = offset & ~((uint64_t) page_size() - 1ULL);
-        wsize = size + (offset - woffset);
-        wsize = PAGE_ALIGN(wsize);
 
         /* Avoid SIGBUS on invalid accesses */
-        if (woffset + wsize > (uint64_t) PAGE_ALIGN(f->last_stat.st_size))
-                return -EADDRNOTAVAIL;
-
-        window = mmap(NULL, wsize, f->prot, MAP_SHARED, f->fd, woffset);
-        if (window == MAP_FAILED)
-                return -errno;
-
-        if (_window)
-                *_window = window;
-
-        if (_woffset)
-                *_woffset = woffset;
-
-        if (_wsize)
-                *_wsize = wsize;
-
-        *ret = (uint8_t*) window + (offset - woffset);
-
-        return 0;
-}
-
-static int journal_file_move_to(JournalFile *f, int wt, uint64_t offset, uint64_t size, void **ret) {
-        void *p = NULL;
-        uint64_t delta;
-        int r;
-        Window *w;
-
-        assert(f);
-        assert(ret);
-        assert(wt >= 0);
-        assert(wt < _WINDOW_MAX);
-
         if (offset + size > (uint64_t) f->last_stat.st_size) {
                 /* Hmm, out of range? Let's refresh the fstat() data
                  * first, before we trust that check. */
@@ -367,57 +317,7 @@ static int journal_file_move_to(JournalFile *f, int wt, uint64_t offset, uint64_
                         return -EADDRNOTAVAIL;
         }
 
-        w = f->windows + wt;
-
-        if (_likely_(w->ptr &&
-                     w->offset <= offset &&
-                     w->offset + w->size >= offset + size)) {
-
-                *ret = (uint8_t*) w->ptr + (offset - w->offset);
-                return 0;
-        }
-
-        if (w->ptr) {
-                if (munmap(w->ptr, w->size) < 0)
-                        return -errno;
-
-                w->ptr = NULL;
-                w->size = w->offset = 0;
-        }
-
-        if (size < DEFAULT_WINDOW_SIZE) {
-                /* If the default window size is larger then what was
-                 * asked for extend the mapping a bit in the hope to
-                 * minimize needed remappings later on. We add half
-                 * the window space before and half behind the
-                 * requested mapping */
-
-                delta = (DEFAULT_WINDOW_SIZE - size) / 2;
-
-                if (delta > offset)
-                        delta = offset;
-
-                offset -= delta;
-                size = DEFAULT_WINDOW_SIZE;
-        } else
-                delta = 0;
-
-        if (offset + size > (uint64_t) f->last_stat.st_size)
-                size = (uint64_t) f->last_stat.st_size - offset;
-
-        if (size <= 0)
-                return -EADDRNOTAVAIL;
-
-        r = journal_file_map(f,
-                             offset, size,
-                             &w->ptr, &w->offset, &w->size,
-                             &p);
-
-        if (r < 0)
-                return r;
-
-        *ret = (uint8_t*) p + delta;
-        return 0;
+        return mmap_cache_get(f->mmap, f->fd, f->prot, context, offset, size, ret);
 }
 
 static bool verify_hash(Object *o) {
@@ -437,17 +337,38 @@ static bool verify_hash(Object *o) {
         return h1 == h2;
 }
 
+static uint64_t minimum_header_size(Object *o) {
+
+        static uint64_t table[] = {
+                [OBJECT_DATA] = sizeof(DataObject),
+                [OBJECT_FIELD] = sizeof(FieldObject),
+                [OBJECT_ENTRY] = sizeof(EntryObject),
+                [OBJECT_DATA_HASH_TABLE] = sizeof(HashTableObject),
+                [OBJECT_FIELD_HASH_TABLE] = sizeof(HashTableObject),
+                [OBJECT_ENTRY_ARRAY] = sizeof(EntryArrayObject),
+                [OBJECT_TAG] = sizeof(TagObject),
+        };
+
+        if (o->object.type >= ELEMENTSOF(table) || table[o->object.type] <= 0)
+                return sizeof(ObjectHeader);
+
+        return table[o->object.type];
+}
+
 int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Object **ret) {
         int r;
         void *t;
         Object *o;
         uint64_t s;
+        unsigned context;
 
         assert(f);
         assert(ret);
-        assert(type < _OBJECT_TYPE_MAX);
 
-        r = journal_file_move_to(f, type >= 0 ? type : WINDOW_UNKNOWN, offset, sizeof(ObjectHeader), &t);
+        /* One context for each type, plus one catch-all for the rest */
+        context = type > 0 && type < _OBJECT_TYPE_MAX ? type : 0;
+
+        r = journal_file_move_to(f, context, offset, sizeof(ObjectHeader), &t);
         if (r < 0)
                 return r;
 
@@ -455,6 +376,12 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
         s = le64toh(o->object.size);
 
         if (s < sizeof(ObjectHeader))
+                return -EBADMSG;
+
+        if (o->object.type <= OBJECT_UNUSED)
+                return -EBADMSG;
+
+        if (s < minimum_header_size(o))
                 return -EBADMSG;
 
         if (type >= 0 && o->object.type != type)
@@ -508,6 +435,7 @@ static int journal_file_append_object(JournalFile *f, int type, uint64_t size, O
         void *t;
 
         assert(f);
+        assert(type > 0 && type < _OBJECT_TYPE_MAX);
         assert(size >= sizeof(ObjectHeader));
         assert(offset);
         assert(ret);
@@ -613,7 +541,7 @@ static int journal_file_map_data_hash_table(JournalFile *f) {
         s = le64toh(f->header->data_hash_table_size);
 
         r = journal_file_move_to(f,
-                                 WINDOW_DATA_HASH_TABLE,
+                                 OBJECT_DATA_HASH_TABLE,
                                  p, s,
                                  &t);
         if (r < 0)
@@ -634,7 +562,7 @@ static int journal_file_map_field_hash_table(JournalFile *f) {
         s = le64toh(f->header->field_hash_table_size);
 
         r = journal_file_move_to(f,
-                                 WINDOW_FIELD_HASH_TABLE,
+                                 OBJECT_FIELD_HASH_TABLE,
                                  p, s,
                                  &t);
         if (r < 0)
@@ -2428,6 +2356,7 @@ int journal_file_open(
                 bool compress,
                 bool authenticate,
                 JournalMetrics *metrics,
+                MMapCache *mmap_cache,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -2456,6 +2385,19 @@ int journal_file_open(
         f->writable = (flags & O_ACCMODE) != O_RDONLY;
         f->compress = compress;
         f->authenticate = authenticate;
+
+        if (mmap_cache)
+                f->mmap = mmap_cache_ref(mmap_cache);
+        else {
+                /* One context for each type, plus the zeroth catchall
+                 * context. One fd for the file plus one for each type
+                 * (which we need during verification */
+                f->mmap = mmap_cache_new(_OBJECT_TYPE_MAX, 1 + _OBJECT_TYPE_MAX);
+                if (!f->mmap) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        }
 
         f->path = strdup(fname);
         if (!f->path) {
@@ -2605,7 +2547,7 @@ int journal_file_rotate(JournalFile **f, bool compress, bool authenticate) {
 
         old_file->header->state = STATE_ARCHIVED;
 
-        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, authenticate, NULL, old_file, &new_file);
+        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, authenticate, NULL, old_file->mmap, old_file, &new_file);
         journal_file_close(old_file);
 
         *f = new_file;
@@ -2619,6 +2561,7 @@ int journal_file_open_reliably(
                 bool compress,
                 bool authenticate,
                 JournalMetrics *metrics,
+                MMapCache *mmap,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -2626,7 +2569,7 @@ int journal_file_open_reliably(
         size_t l;
         char *p;
 
-        r = journal_file_open(fname, flags, mode, compress, authenticate, metrics, template, ret);
+        r = journal_file_open(fname, flags, mode, compress, authenticate, metrics, mmap, template, ret);
         if (r != -EBADMSG && /* corrupted */
             r != -ENODATA && /* truncated */
             r != -EHOSTDOWN && /* other machine */
@@ -2660,7 +2603,7 @@ int journal_file_open_reliably(
 
         log_warning("File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
-        return journal_file_open(fname, flags, mode, compress, authenticate, metrics, template, ret);
+        return journal_file_open(fname, flags, mode, compress, authenticate, metrics, mmap, template, ret);
 }
 
 struct vacuum_info {

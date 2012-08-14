@@ -32,24 +32,7 @@
 #include "sparse-endian.h"
 #include "journal-def.h"
 #include "util.h"
-
-typedef struct Window {
-        void *ptr;
-        uint64_t offset;
-        uint64_t size;
-} Window;
-
-enum {
-        WINDOW_UNKNOWN = OBJECT_UNUSED,
-        WINDOW_DATA = OBJECT_DATA,
-        WINDOW_ENTRY = OBJECT_ENTRY,
-        WINDOW_DATA_HASH_TABLE = OBJECT_DATA_HASH_TABLE,
-        WINDOW_FIELD_HASH_TABLE = OBJECT_FIELD_HASH_TABLE,
-        WINDOW_ENTRY_ARRAY = OBJECT_ENTRY_ARRAY,
-        WINDOW_TAG = OBJECT_TAG,
-        WINDOW_HEADER,
-        _WINDOW_MAX
-};
+#include "mmap-cache.h"
 
 typedef struct JournalMetrics {
         uint64_t max_use;
@@ -76,11 +59,10 @@ typedef struct JournalFile {
         HashItem *data_hash_table;
         HashItem *field_hash_table;
 
-        Window windows[_WINDOW_MAX];
-
         uint64_t current_offset;
 
         JournalMetrics metrics;
+        MMapCache *mmap;
 
 #ifdef HAVE_XZ
         void *compress_buffer;
@@ -108,6 +90,7 @@ int journal_file_open(
                 bool compress,
                 bool authenticate,
                 JournalMetrics *metrics,
+                MMapCache *mmap,
                 JournalFile *template,
                 JournalFile **ret);
 
@@ -120,6 +103,7 @@ int journal_file_open_reliably(
                 bool compress,
                 bool authenticate,
                 JournalMetrics *metrics,
+                MMapCache *mmap,
                 JournalFile *template,
                 JournalFile **ret);
 

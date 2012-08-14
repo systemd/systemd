@@ -1118,7 +1118,7 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
                 return 0;
         }
 
-        r = journal_file_open(path, O_RDONLY, 0, false, false, NULL, NULL, &f);
+        r = journal_file_open(path, O_RDONLY, 0, false, false, NULL, j->mmap, NULL, &f);
         free(path);
 
         if (r < 0) {
@@ -1439,6 +1439,17 @@ static sd_journal *journal_new(int flags, const char *path) {
                 return NULL;
         }
 
+        /* One context for each type, plus the zeroth catchall
+         * context. One fd for each file plus one for each type, which
+         * is need when verifying things */
+        j->mmap = mmap_cache_new(_OBJECT_TYPE_MAX, JOURNAL_FILES_MAX + _OBJECT_TYPE_MAX);
+        if (!j->mmap) {
+                hashmap_free(j->files);
+                hashmap_free(j->directories_by_path);
+                free(j->path);
+                free(j);
+        }
+
         return j;
 }
 
@@ -1526,6 +1537,9 @@ _public_ void sd_journal_close(sd_journal *j) {
                 close_nointr_nofail(j->inotify_fd);
 
         sd_journal_flush_matches(j);
+
+        if (j->mmap)
+                mmap_cache_unref(j->mmap);
 
         free(j->path);
         free(j);
