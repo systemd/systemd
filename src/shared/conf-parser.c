@@ -959,7 +959,9 @@ int config_parse_set_status(
 
         FOREACH_WORD(w, l, rvalue, state) {
                 int val;
-                char *temp = strndup(w, l);
+                char *temp;
+
+                temp = strndup(w, l);
                 if (!temp)
                         return log_oom();
 
@@ -967,12 +969,12 @@ int config_parse_set_status(
                 if (r < 0) {
                         val = signal_from_string_try_harder(temp);
                         free(temp);
+
                         if (val > 0) {
-                                if (!status_set->signal) {
-                                        status_set->signal = set_new(trivial_hash_func, trivial_compare_func);
-                                        if (!status_set->signal)
-                                                return log_oom();
-                                }
+                                r = set_ensure_allocated(&status_set->signal, trivial_hash_func, trivial_compare_func);
+                                if (r < 0)
+                                        return log_oom();
+
                                 r = set_put(status_set->signal, INT_TO_PTR(val));
                                 if (r < 0) {
                                         log_error("[%s:%u] Unable to store: %s", filename, line, w);
@@ -984,14 +986,14 @@ int config_parse_set_status(
                         }
                 } else {
                         free(temp);
-                        if(val < 0 || val > 255)
+
+                        if (val < 0 || val > 255)
                                 log_warning("[%s:%u] Value %d is outside range 0-255, ignoring", filename, line, val);
                         else {
-                                if (!status_set->code) {
-                                        status_set->code = set_new(trivial_hash_func, trivial_compare_func);
-                                        if (!status_set->code)
-                                                return log_oom();
-                                }
+                                r = set_ensure_allocated(&status_set->code, trivial_hash_func, trivial_compare_func);
+                                if (r < 0)
+                                        return log_oom();
+
                                 r = set_put(status_set->code, INT_TO_PTR(val));
                                 if (r < 0) {
                                         log_error("[%s:%u] Unable to store: %s", filename, line, w);
