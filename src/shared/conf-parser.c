@@ -981,8 +981,8 @@ int config_parse_set_status(
                                         return r;
                                 }
                         } else {
-                                log_error("[%s:%u] Failed to parse value: %s", filename, line, w);
-                                return r;
+                                log_error("[%s:%u] Failed to parse value, ignoring: %s", filename, line, w);
+                                return 0;
                         }
                 } else {
                         free(temp);
@@ -1001,7 +1001,7 @@ int config_parse_set_status(
                                 }
                         }
                 }
-
         }
+
         return 0;
 }
