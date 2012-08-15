@@ -299,6 +299,8 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (r != 0)
                 return -r;
 
+        mmap_cache_close_fd_range(f->mmap, f->fd, old_size);
+
         if (fstat(f->fd, &f->last_stat) < 0)
                 return -errno;
 
@@ -2335,17 +2337,85 @@ static void flush_progress(void) {
         fflush(stdout);
 }
 
+static int write_uint64(int fd, uint64_t p) {
+        ssize_t k;
+
+        k = write(fd, &p, sizeof(p));
+        if (k < 0)
+                return -errno;
+        if (k != sizeof(p))
+                return -EIO;
+
+        return 0;
+}
+
+static int contains_uint64(MMapCache *m, int fd, uint64_t n, uint64_t p) {
+        uint64_t a, b;
+        int r;
+
+        assert(m);
+        assert(fd >= 0);
+
+        /* Bisection ... */
+
+        a = 0; b = n;
+        while (a < b) {
+                uint64_t c, *z;
+
+                c = (a + b) / 2;
+
+                r = mmap_cache_get(m, fd, PROT_READ, 0, c * sizeof(uint64_t), sizeof(uint64_t), (void **) &z);
+                if (r < 0)
+                        return r;
+
+                if (*z == p)
+                        return 1;
+
+                if (p < *z)
+                        b = c;
+                else
+                        a = c;
+        }
+
+        return 0;
+}
+
 int journal_file_verify(JournalFile *f, const char *key) {
         int r;
         Object *o;
-        uint64_t p = 0, q = 0, e;
+        uint64_t p = 0;
         uint64_t tag_seqnum = 0, entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
         sd_id128_t entry_boot_id;
         bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
-        uint64_t n_weird = 0, n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0;
+        uint64_t n_weird = 0, n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0;
         usec_t last_usec = 0;
+        int data_fd = -1, entry_fd = -1, entry_array_fd = -1;
+        char data_path[] = "/var/tmp/journal-data-XXXXXX",
+                entry_path[] = "/var/tmp/journal-entry-XXXXXX",
+                entry_array_path[] = "/var/tmp/journal-entry-array-XXXXXX";
 
         assert(f);
+
+        data_fd = mkostemp(data_path, O_CLOEXEC);
+        if (data_fd < 0) {
+                log_error("Failed to create data file: %m");
+                goto fail;
+        }
+        unlink(data_path);
+
+        entry_fd = mkostemp(entry_path, O_CLOEXEC);
+        if (entry_fd < 0) {
+                log_error("Failed to create entry file: %m");
+                goto fail;
+        }
+        unlink(entry_path);
+
+        entry_array_fd = mkostemp(entry_array_path, O_CLOEXEC);
+        if (entry_array_fd < 0) {
+                log_error("Failed to create entry array file: %m");
+                goto fail;
+        }
+        unlink(entry_array_path);
 
         /* First iteration: we go through all objects, verify the
          * superficial structure, headers, hashes. */
@@ -2358,7 +2428,7 @@ int journal_file_verify(JournalFile *f, const char *key) {
 
         p = le64toh(f->header->header_size);
         while (p != 0) {
-                draw_progress((65535ULL * p / le64toh(f->header->tail_object_offset)), &last_usec);
+                draw_progress((0x7FFF * p) / le64toh(f->header->tail_object_offset), &last_usec);
 
                 r = journal_file_move_to_object(f, -1, p, &o);
                 if (r < 0) {
@@ -2416,6 +2486,10 @@ int journal_file_verify(JournalFile *f, const char *key) {
 
                 } else if (o->object.type == OBJECT_ENTRY) {
 
+                        r = write_uint64(entry_fd, p);
+                        if (r < 0)
+                                goto fail;
+
                         if (!entry_seqnum_set &&
                             le64toh(o->entry.seqnum) != le64toh(f->header->head_entry_seqnum)) {
                                 log_error("Head entry sequence number incorrect");
@@ -2458,6 +2532,10 @@ int journal_file_verify(JournalFile *f, const char *key) {
                         n_entries ++;
                 } else if (o->object.type == OBJECT_ENTRY_ARRAY) {
 
+                        r = write_uint64(entry_array_fd, p);
+                        if (r < 0)
+                                goto fail;
+
                         if (p == le64toh(f->header->entry_array_offset)) {
                                 if (found_main_entry_array) {
                                         log_error("More than one main entry array at %llu", (unsigned long long) p);
@@ -2468,9 +2546,17 @@ int journal_file_verify(JournalFile *f, const char *key) {
                                 found_main_entry_array = true;
                         }
 
-                } else if (o->object.type == OBJECT_DATA)
+                        n_entry_arrays++;
+
+                } else if (o->object.type == OBJECT_DATA) {
+
+                        r = write_uint64(data_fd, p);
+                        if (r < 0)
+                                goto fail;
+
                         n_data++;
-                else if (o->object.type == OBJECT_FIELD)
+
+                } else if (o->object.type == OBJECT_FIELD)
                         n_fields++;
                 else if (o->object.type == OBJECT_DATA_HASH_TABLE) {
                         n_data_hash_tables++;
@@ -2502,14 +2588,8 @@ int journal_file_verify(JournalFile *f, const char *key) {
                                 r = -EBADMSG;
                                 goto fail;
                         }
-                }
-
-                if (o->object.type >= _OBJECT_TYPE_MAX)
+                } else if (o->object.type >= _OBJECT_TYPE_MAX)
                         n_weird ++;
-                else {
-                        /* Write address to file... */
-
-                }
 
                 if (p == le64toh(f->header->tail_object_offset))
                         p = 0;
@@ -2592,36 +2672,86 @@ int journal_file_verify(JournalFile *f, const char *key) {
         /* Second iteration: we go through all objects again, this
          * time verify all pointers. */
 
-        /* q = le64toh(f->header->header_size); */
-        /* while (q != 0) { */
-        /*         r = journal_file_move_to_object(f, -1, q, &o); */
-        /*         if (r < 0) { */
-        /*                 log_error("Invalid object at %llu", (unsigned long long) q); */
-        /*                 goto fail; */
-        /*         } */
+        p = le64toh(f->header->header_size);
+        while (p != 0) {
+                draw_progress(0x8000 + (0x7FFF * p) / le64toh(f->header->tail_object_offset), &last_usec);
 
-        /*         if (q == le64toh(f->header->tail_object_offset)) */
-        /*                 q = 0; */
-        /*         else */
-        /*                 q = q + ALIGN64(le64toh(o->object.size)); */
-        /* } */
+                r = journal_file_move_to_object(f, -1, p, &o);
+                if (r < 0) {
+                        log_error("Invalid object at %llu", (unsigned long long) p);
+                        goto fail;
+                }
+
+                if (o->object.type == OBJECT_ENTRY_ARRAY) {
+                        uint64_t i = 0, n;
+
+                        if (le64toh(o->entry_array.next_entry_array_offset) != 0 &&
+                            !contains_uint64(f->mmap, entry_array_fd, n_entry_arrays, le64toh(o->entry_array.next_entry_array_offset))) {
+                                log_error("Entry array chains up to invalid next array at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        n = journal_file_entry_array_n_items(o);
+                        for (i = 0; i < n; i++) {
+                                if (le64toh(o->entry_array.items[i]) != 0 &&
+                                    !contains_uint64(f->mmap, entry_fd, n_entries, le64toh(o->entry_array.items[i]))) {
+
+                                        log_error("Entry array points to invalid next array at %llu", (unsigned long long) p);
+                                        r = -EBADMSG;
+                                        goto fail;
+                                }
+                        }
+
+                }
+
+                r = journal_file_move_to_object(f, -1, p, &o);
+                if (r < 0) {
+                        log_error("Invalid object at %llu", (unsigned long long) p);
+                        goto fail;
+                }
+
+                if (p == le64toh(f->header->tail_object_offset))
+                        p = 0;
+                else
+                        p = p + ALIGN64(le64toh(o->object.size));
+        }
 
         flush_progress();
+
+        mmap_cache_close_fd(f->mmap, data_fd);
+        mmap_cache_close_fd(f->mmap, entry_fd);
+        mmap_cache_close_fd(f->mmap, entry_array_fd);
+
+        close_nointr_nofail(data_fd);
+        close_nointr_nofail(entry_fd);
+        close_nointr_nofail(entry_array_fd);
 
         return 0;
 
 fail:
-        e = p <= 0 ? q :
-        q <= 0 ? p :
-        MIN(p, q);
-
         flush_progress();
 
         log_error("File corruption detected at %s:%llu (of %llu, %llu%%).",
                   f->path,
-                  (unsigned long long) e,
+                  (unsigned long long) p,
                   (unsigned long long) f->last_stat.st_size,
-                  (unsigned long long) (100 * e / f->last_stat.st_size));
+                  (unsigned long long) (100 * p / f->last_stat.st_size));
+
+        if (data_fd >= 0) {
+                mmap_cache_close_fd(f->mmap, data_fd);
+                close_nointr_nofail(data_fd);
+        }
+
+        if (entry_fd >= 0) {
+                mmap_cache_close_fd(f->mmap, entry_fd);
+                close_nointr_nofail(entry_fd);
+        }
+
+        if (entry_array_fd >= 0) {
+                mmap_cache_close_fd(f->mmap, entry_array_fd);
+                close_nointr_nofail(entry_array_fd);
+        }
 
         return r;
 }

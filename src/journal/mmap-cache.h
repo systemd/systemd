@@ -31,4 +31,5 @@ MMapCache* mmap_cache_unref(MMapCache *m);
 
 int mmap_cache_get(MMapCache *m, int fd, int prot, unsigned context, uint64_t offset, uint64_t size, void **ret);
 void mmap_cache_close_fd(MMapCache *m, int fd);
+void mmap_cache_close_fd_range(MMapCache *m, int fd, uint64_t range);
 void mmap_cache_close_context(MMapCache *m, unsigned context);

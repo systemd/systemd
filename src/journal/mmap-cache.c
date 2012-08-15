@@ -68,6 +68,8 @@ struct MMapCache {
         FileDescriptor *by_fd;
 };
 
+static int mmap_cache_peek_fd_index(MMapCache *m, int fd, unsigned *fd_index);
+
 static void mmap_cache_window_unmap(MMapCache *m, unsigned w) {
         Window *v;
 
@@ -89,6 +91,13 @@ static void mmap_cache_window_add_lru(MMapCache *m, unsigned w) {
         assert(w < m->n_windows);
 
         v = m->windows + w;
+        assert(v->n_ref == 0);
+
+        if (m->lru_last != (unsigned) -1) {
+                assert(m->windows[m->lru_last].lru_next == (unsigned) -1);
+                m->windows[m->lru_last].lru_next = w;
+        }
+
         v->lru_prev = m->lru_last;
         v->lru_next = (unsigned) -1;
 
@@ -105,15 +114,21 @@ static void mmap_cache_window_remove_lru(MMapCache *m, unsigned w) {
 
         v = m->windows + w;
 
-        if (v->lru_prev == (unsigned) -1)
+        if (v->lru_prev == (unsigned) -1) {
+                assert(m->lru_first == w);
                 m->lru_first = v->lru_next;
-        else
+        } else {
+                assert(m->windows[v->lru_prev].lru_next == w);
                 m->windows[v->lru_prev].lru_next = v->lru_next;
+        }
 
-        if (v->lru_next == (unsigned) -1)
+        if (v->lru_next == (unsigned) -1) {
+                assert(m->lru_last == w);
                 m->lru_last = v->lru_prev;
-        else
+        } else {
+                assert(m->windows[v->lru_next].lru_prev == w);
                 m->windows[v->lru_next].lru_prev = v->lru_prev;
+        }
 }
 
 static void mmap_cache_fd_add(MMapCache *m, unsigned fd_index, unsigned w) {
@@ -123,6 +138,13 @@ static void mmap_cache_fd_add(MMapCache *m, unsigned fd_index, unsigned w) {
         assert(fd_index < m->n_fds);
 
         v = m->windows + w;
+        assert(m->by_fd[fd_index].fd == v->fd);
+
+        if (m->by_fd[fd_index].windows != (unsigned) -1) {
+                assert(m->windows[m->by_fd[fd_index].windows].by_fd_prev == (unsigned) -1);
+                m->windows[m->by_fd[fd_index].windows].by_fd_prev = w;
+        }
+
         v->by_fd_next = m->by_fd[fd_index].windows;
         v->by_fd_prev = (unsigned) -1;
 
@@ -136,13 +158,22 @@ static void mmap_cache_fd_remove(MMapCache *m, unsigned fd_index, unsigned w) {
         assert(fd_index < m->n_fds);
 
         v = m->windows + w;
-        if (v->by_fd_prev == (unsigned) -1)
-                m->by_fd[fd_index].windows = v->by_fd_next;
-        else
-                m->windows[v->by_fd_prev].by_fd_next = v->by_fd_next;
+        assert(m->by_fd[fd_index].fd == v->fd);
+        assert(v->by_fd_next == (unsigned) -1 || m->windows[v->by_fd_next].fd == v->fd);
+        assert(v->by_fd_prev == (unsigned) -1 || m->windows[v->by_fd_prev].fd == v->fd);
 
-        if (v->by_fd_next != (unsigned) -1)
+        if (v->by_fd_prev == (unsigned) -1) {
+                assert(m->by_fd[fd_index].windows == w);
+                m->by_fd[fd_index].windows = v->by_fd_next;
+        } else {
+                assert(m->windows[v->by_fd_prev].by_fd_next == w);
+                m->windows[v->by_fd_prev].by_fd_next = v->by_fd_next;
+        }
+
+        if (v->by_fd_next != (unsigned) -1) {
+                assert(m->windows[v->by_fd_next].by_fd_prev == w);
                 m->windows[v->by_fd_next].by_fd_prev = v->by_fd_prev;
+        }
 }
 
 static void mmap_cache_context_unset(MMapCache *m, unsigned c) {
@@ -182,6 +213,7 @@ static void mmap_cache_context_set(MMapCache *m, unsigned c, unsigned w) {
 
         v = m->windows + w;
         v->n_ref ++;
+
         if (v->n_ref == 1)
                 mmap_cache_window_remove_lru(m, w);
 }
@@ -264,6 +296,9 @@ MMapCache* mmap_cache_unref(MMapCache *m) {
 }
 
 static int mmap_cache_allocate_window(MMapCache *m, unsigned *w) {
+        Window *v;
+        unsigned fd_index;
+
         assert(m);
         assert(w);
 
@@ -276,7 +311,16 @@ static int mmap_cache_allocate_window(MMapCache *m, unsigned *w) {
                 return -E2BIG;
 
         *w = m->lru_first;
+        v = m->windows + *w;
+        assert(v->n_ref == 0);
+
         mmap_cache_window_unmap(m, *w);
+
+        if (v->fd >= 0) {
+                assert_se(mmap_cache_peek_fd_index(m, v->fd, &fd_index) > 0);
+                mmap_cache_fd_remove(m, fd_index, *w);
+        }
+
         mmap_cache_window_remove_lru(m, *w);
 
         return 0;
@@ -370,8 +414,7 @@ static int mmap_cache_put(
         v->size = wsize;
 
         v->n_ref = 0;
-        v->lru_prev = v->lru_next = (unsigned) -1;
-
+        mmap_cache_window_add_lru(m, w);
         mmap_cache_fd_add(m, fd_index, w);
         mmap_cache_context_set(m, context, w);
 
@@ -390,28 +433,48 @@ static int fd_cmp(const void *_a, const void *_b) {
         return 0;
 }
 
-static int mmap_cache_get_fd_index(MMapCache *m, int fd, unsigned *fd_index) {
+static int mmap_cache_peek_fd_index(MMapCache *m, int fd, unsigned *fd_index) {
         FileDescriptor *j;
+        unsigned r;
 
         assert(m);
         assert(fd >= 0);
         assert(fd_index);
 
-        j = bsearch(&fd, m->by_fd, m->n_fds, sizeof(m->by_fd[0]), fd_cmp);
-        if (!j) {
-                if (m->n_fds >= m->fds_max)
-                        return -E2BIG;
+        for (r = 0; r < m->n_fds; r++)
+                assert(m->by_fd[r].windows == (unsigned) -1 ||
+                       m->windows[m->by_fd[r].windows].fd == m->by_fd[r].fd);
 
-                j = m->by_fd + m->n_fds ++;
-                j->fd = fd;
-                j->windows = (unsigned) -1;
-
-                qsort(m->by_fd, m->n_fds, sizeof(m->by_fd[0]), fd_cmp);
-                j = bsearch(&fd, m->by_fd, m->n_fds, sizeof(m->by_fd[0]), fd_cmp);
-        }
+        j = bsearch(&fd, m->by_fd, m->n_fds, sizeof(FileDescriptor), fd_cmp);
+        if (!j)
+                return 0;
 
         *fd_index = (unsigned) (j - m->by_fd);
-        return 0;
+        return 1;
+}
+
+static int mmap_cache_get_fd_index(MMapCache *m, int fd, unsigned *fd_index) {
+        FileDescriptor *j;
+        int r;
+
+        assert(m);
+        assert(fd >= 0);
+        assert(fd_index);
+
+        r = mmap_cache_peek_fd_index(m, fd, fd_index);
+        if (r != 0)
+                return r;
+
+        if (m->n_fds >= m->fds_max)
+                return -E2BIG;
+
+        j = m->by_fd + m->n_fds ++;
+        j->fd = fd;
+        j->windows = (unsigned) -1;
+
+        qsort(m->by_fd, m->n_fds, sizeof(FileDescriptor), fd_cmp);
+
+        return mmap_cache_peek_fd_index(m, fd, fd_index);
 }
 
 static bool mmap_cache_test_window(
@@ -466,6 +529,7 @@ static int mmap_cache_current(
 
 static int mmap_cache_find(
                 MMapCache *m,
+                int fd,
                 unsigned fd_index,
                 unsigned context,
                 uint64_t offset,
@@ -476,6 +540,7 @@ static int mmap_cache_find(
         unsigned w;
 
         assert(m);
+        assert(fd >= 0);
         assert(fd_index < m->n_fds);
         assert(context < m->contexts_max);
         assert(size > 0);
@@ -483,10 +548,13 @@ static int mmap_cache_find(
 
         w = m->by_fd[fd_index].windows;
         while (w != (unsigned) -1) {
+                v = m->windows + w;
+                assert(v->fd == fd);
+
                 if (mmap_cache_test_window(m, w, offset, size))
                         break;
 
-                w = m->windows[w].by_fd_next;
+                w = v->by_fd_next;
         }
 
         if (w == (unsigned) -1)
@@ -494,7 +562,6 @@ static int mmap_cache_find(
 
         mmap_cache_context_set(m, context, w);
 
-        v = m->windows + w;
         *ret = (uint8_t*) v->ptr + (offset - v->offset);
         return 1;
 }
@@ -523,13 +590,17 @@ int mmap_cache_get(
         if (r != 0)
                 return r;
 
+        /* Hmm, drop the reference to the current one, since it wasn't
+         * good enough */
+        mmap_cache_context_unset(m, context);
+
         /* OK, let's find the chain for this FD */
         r = mmap_cache_get_fd_index(m, fd, &fd_index);
         if (r < 0)
                 return r;
 
         /* And let's look through the available mmaps */
-        r = mmap_cache_find(m, fd_index, context, offset, size, ret);
+        r = mmap_cache_find(m, fd, fd_index, context, offset, size, ret);
         if (r != 0)
                 return r;
 
@@ -538,16 +609,15 @@ int mmap_cache_get(
 }
 
 void mmap_cache_close_fd(MMapCache *m, int fd) {
-        FileDescriptor *j;
         unsigned fd_index, c, w;
+        int r;
 
         assert(m);
         assert(fd > 0);
 
-        j = bsearch(&fd, m->by_fd, m->n_fds, sizeof(m->by_fd[0]), fd_cmp);
-        if (!j)
+        r = mmap_cache_peek_fd_index(m, fd, &fd_index);
+        if (r <= 0)
                 return;
-        fd_index = (unsigned) (j - m->by_fd);
 
         for (c = 0; c < m->contexts_max; c++) {
                 w = m->by_context[c];
@@ -560,15 +630,65 @@ void mmap_cache_close_fd(MMapCache *m, int fd) {
 
         w = m->by_fd[fd_index].windows;
         while (w != (unsigned) -1) {
+                Window *v;
 
-                mmap_cache_fd_remove(m, fd_index, w);
+                v = m->windows + w;
+                assert(v->fd == fd);
+
                 mmap_cache_window_unmap(m, w);
+                mmap_cache_fd_remove(m, fd_index, w);
+                v->fd = -1;
 
                 w = m->by_fd[fd_index].windows;
         }
 
         memmove(m->by_fd + fd_index, m->by_fd + fd_index + 1, (m->n_fds - (fd_index + 1)) * sizeof(FileDescriptor));
         m->n_fds --;
+}
+
+void mmap_cache_close_fd_range(MMapCache *m, int fd, uint64_t p) {
+        unsigned fd_index, c, w;
+        int r;
+
+        assert(m);
+        assert(fd > 0);
+
+        /* This drops all windows that include space right of the
+         * specified offset. This is useful to ensure that after the
+         * file size is extended we drop our mappings of the end and
+         * create it anew, since otherwise it is undefined whether
+         * mapping will continue to work as intended. */
+
+        r = mmap_cache_peek_fd_index(m, fd, &fd_index);
+        if (r <= 0)
+                return;
+
+        for (c = 0; c < m->contexts_max; c++) {
+                w = m->by_context[c];
+
+                if (w != (unsigned) -1 && m->windows[w].fd == fd)
+                        mmap_cache_context_unset(m, c);
+        }
+
+        w = m->by_fd[fd_index].windows;
+        while (w != (unsigned) -1) {
+                Window *v;
+
+                v = m->windows + w;
+                assert(v->fd == fd);
+                assert(v->by_fd_next == (unsigned) -1 ||
+                       m->windows[v->by_fd_next].fd == fd);
+
+                if (v->offset + v->size > p) {
+
+                        mmap_cache_window_unmap(m, w);
+                        mmap_cache_fd_remove(m, fd_index, w);
+                        v->fd = -1;
+
+                        w = m->by_fd[fd_index].windows;
+                } else
+                        w = v->by_fd_next;
+        }
 }
 
 void mmap_cache_close_context(MMapCache *m, unsigned context) {
