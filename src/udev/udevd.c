@@ -1155,7 +1155,7 @@ int main(int argc, char *argv[])
 
         mkdir("/run/udev", 0755);
 
-        dev_setup();
+        dev_setup("");
         static_dev_create_from_modules(udev);
 
         /* before opening new files, make sure std{in,out,err} fds are in a sane state */

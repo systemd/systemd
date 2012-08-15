@@ -50,7 +50,7 @@ static int symlink_and_label(const char *old_path, const char *new_path) {
         return r;
 }
 
-void dev_setup(void) {
+void dev_setup(const char *pathprefix) {
         const char *j, *k;
 
         static const char symlinks[] =
@@ -60,6 +60,16 @@ void dev_setup(void) {
                 "/proc/self/fd/1\0"  "/dev/stdout\0"
                 "/proc/self/fd/2\0"  "/dev/stderr\0";
 
-        NULSTR_FOREACH_PAIR(j, k, symlinks)
-                symlink_and_label(j, k);
+        NULSTR_FOREACH_PAIR(j, k, symlinks) {
+                char *linkname;
+
+                if (asprintf(&linkname, "%s/%s", pathprefix, k) < 0) {
+                        log_oom();
+                        break;
+                }
+
+                symlink_and_label(j, linkname);
+
+                free(linkname);
+        }
 }

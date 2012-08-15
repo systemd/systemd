@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodevsetuphfoo
-#define foodevsetuphfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -22,6 +21,4 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-void dev_setup(void);
-
-#endif
+void dev_setup(const char *pathprefix);
