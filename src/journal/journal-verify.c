@@ -29,6 +29,16 @@
 #include "journal-file.h"
 #include "journal-authenticate.h"
 #include "journal-verify.h"
+#include "lookup3.h"
+
+/* FIXME:
+ *
+ * - verify hashes of compressed objects
+ * - follow all chains
+ * - check for unreferenced objects
+ * - verify FSPRG
+ *
+ * */
 
 static int journal_file_object_verify(JournalFile *f, Object *o) {
         assert(f);
@@ -38,7 +48,12 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
          * possible field values. It does not follow any references to
          * other objects. */
 
+        if ((o->object.flags & OBJECT_COMPRESSED) &&
+            o->object.type != OBJECT_DATA)
+                return -EBADMSG;
+
         switch (o->object.type) {
+
         case OBJECT_DATA:
                 if (le64toh(o->data.entry_offset) <= 0 ||
                     le64toh(o->data.n_entries) <= 0)
@@ -46,6 +61,17 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
 
                 if (le64toh(o->object.size) - offsetof(DataObject, payload) <= 0)
                         return -EBADMSG;
+
+                if (!(o->object.flags & OBJECT_COMPRESSED)) {
+                        uint64_t h1, h2;
+
+                        h1 = le64toh(o->data.hash);
+                        h2 = hash64(o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
+
+                        if (h1 != h2)
+                                return -EBADMSG;
+                }
+
                 break;
 
         case OBJECT_FIELD:
@@ -251,12 +277,6 @@ int journal_file_verify(JournalFile *f, const char *key) {
                         goto fail;
                 }
 
-                r = journal_file_hmac_put_object(f, -1, p);
-                if (r < 0) {
-                        log_error("Failed to calculate HMAC at %llu", (unsigned long long) p);
-                        goto fail;
-                }
-
                 if (o->object.flags & OBJECT_COMPRESSED &&
                     !(le32toh(f->header->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED)) {
                         log_error("Compressed object without compression at %llu", (unsigned long long) p);
@@ -264,10 +284,9 @@ int journal_file_verify(JournalFile *f, const char *key) {
                         goto fail;
                 }
 
-                if (o->object.flags & OBJECT_COMPRESSED &&
-                    o->object.type != OBJECT_DATA) {
-                        log_error("Compressed non-data object at %llu", (unsigned long long) p);
-                        r = -EBADMSG;
+                r = journal_file_hmac_put_object(f, -1, p);
+                if (r < 0) {
+                        log_error("Failed to calculate HMAC at %llu", (unsigned long long) p);
                         goto fail;
                 }
 

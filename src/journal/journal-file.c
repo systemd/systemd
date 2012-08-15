@@ -319,23 +319,6 @@ static int journal_file_move_to(JournalFile *f, int context, uint64_t offset, ui
         return mmap_cache_get(f->mmap, f->fd, f->prot, context, offset, size, ret);
 }
 
-static bool verify_hash(Object *o) {
-        uint64_t h1, h2;
-
-        assert(o);
-
-        if (o->object.type == OBJECT_DATA && !(o->object.flags & OBJECT_COMPRESSED)) {
-                h1 = le64toh(o->data.hash);
-                h2 = hash64(o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
-        } else if (o->object.type == OBJECT_FIELD) {
-                h1 = le64toh(o->field.hash);
-                h2 = hash64(o->field.payload, le64toh(o->object.size) - offsetof(Object, field.payload));
-        } else
-                return true;
-
-        return h1 == h2;
-}
-
 static uint64_t minimum_header_size(Object *o) {
 
         static uint64_t table[] = {
@@ -393,9 +376,6 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
 
                 o = (Object*) t;
         }
-
-        if (!verify_hash(o))
-                return -EBADMSG;
 
         *ret = o;
         return 0;
