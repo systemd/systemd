@@ -1,0 +1,4 @@
+# 0x05 touchpad_toggle # fn_f1 -> KEY_TOUCHPAD_TOGGLE
+0x05 f21 # fn_f1 -> KEY_F21 (The actual touchpad toggle)
+0x0d zoomout # fn_f9
+0x0e zoomin # fn_f10
