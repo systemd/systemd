@@ -53,6 +53,7 @@
 #include "path-util.h"
 #include "loopback-setup.h"
 #include "sd-id128.h"
+#include "dev-setup.h"
 
 typedef enum LinkJournal {
         LINK_NO,
@@ -1203,6 +1204,8 @@ int main(int argc, char *argv[]) {
 
                 if (copy_devnodes(arg_directory) < 0)
                         goto child_fail;
+
+                dev_setup(arg_directory);
 
                 if (setup_dev_console(arg_directory, console) < 0)
                         goto child_fail;
