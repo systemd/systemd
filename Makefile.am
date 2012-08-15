@@ -2397,6 +2397,12 @@ libsystemd_journal_la_SOURCES = \
 	src/systemd/sd-journal.h \
 	src/journal/journal-file.c \
 	src/journal/journal-file.h \
+	src/journal/journal-vacuum.c \
+	src/journal/journal-vacuum.h \
+	src/journal/journal-verify.c \
+	src/journal/journal-verify.h \
+	src/journal/journal-authenticate.c \
+	src/journal/journal-authenticate.h \
 	src/journal/lookup3.c \
 	src/journal/lookup3.h \
 	src/journal/journal-send.c \

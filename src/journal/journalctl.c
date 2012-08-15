@@ -43,6 +43,7 @@
 #include "journal-internal.h"
 #include "fsprg.h"
 #include "journal-def.h"
+#include "journal-verify.h"
 
 #define DEFAULT_FSPRG_INTERVAL_USEC (15*USEC_PER_MINUTE)
 

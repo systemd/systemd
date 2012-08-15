@@ -107,10 +107,17 @@ int journal_file_open_reliably(
                 JournalFile *template,
                 JournalFile **ret);
 
+#define ALIGN64(x) (((x) + 7ULL) & ~7ULL)
+
+#define JOURNAL_HEADER_CONTAINS(h, field) \
+        (le64toh((h)->header_size) >= offsetof(Header, field) + sizeof((h)->field))
+
 int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Object **ret);
 
 uint64_t journal_file_entry_n_items(Object *o);
+uint64_t journal_file_entry_array_n_items(Object *o);
 
+int journal_file_append_object(JournalFile *f, int type, uint64_t size, Object **ret, uint64_t *offset);
 int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqno, Object **ret, uint64_t *offset);
 
 int journal_file_find_data_object(JournalFile *f, const void *data, uint64_t size, Object **ret, uint64_t *offset);
@@ -138,8 +145,6 @@ void journal_file_print_header(JournalFile *f);
 
 int journal_file_rotate(JournalFile **f, bool compress, bool authenticate);
 
-int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t min_free);
-
 void journal_file_post_change(JournalFile *f);
 
 void journal_default_metrics(JournalMetrics *m, int fd);
@@ -148,7 +153,3 @@ int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *
 int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec_t *from, usec_t *to);
 
 bool journal_file_rotate_suggested(JournalFile *f);
-
-int journal_file_append_tag(JournalFile *f);
-
-int journal_file_verify(JournalFile *f, const char *key);

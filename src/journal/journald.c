@@ -47,6 +47,7 @@
 #include "list.h"
 #include "journal-rate-limit.h"
 #include "journal-internal.h"
+#include "journal-vacuum.h"
 #include "conf-parser.h"
 #include "journald.h"
 #include "virt.h"

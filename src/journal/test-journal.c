@@ -24,8 +24,10 @@
 
 #include <systemd/sd-journal.h>
 
-#include "journal-file.h"
 #include "log.h"
+#include "journal-file.h"
+#include "journal-authenticate.h"
+#include "journal-vacuum.h"
 
 int main(int argc, char *argv[]) {
         dual_timestamp ts;
