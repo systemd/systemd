@@ -47,12 +47,12 @@ typedef struct FSPRGHeader FSPRGHeader;
 /* Object types */
 enum {
         OBJECT_UNUSED,
-        OBJECT_DATA,
+        OBJECT_DATA,               /* !!! */
         OBJECT_FIELD,
         OBJECT_ENTRY,
         OBJECT_DATA_HASH_TABLE,
         OBJECT_FIELD_HASH_TABLE,
-        OBJECT_ENTRY_ARRAY,
+        OBJECT_ENTRY_ARRAY,        /* !!! */
         OBJECT_TAG,
         _OBJECT_TYPE_MAX
 };

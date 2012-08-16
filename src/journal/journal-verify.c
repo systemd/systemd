@@ -34,10 +34,11 @@
 
 /* FIXME:
  *
- * - follow all chains
- * - check for unreferenced objects
  * - verify FSPRG
  * - Allow building without libgcrypt
+ * - check with sparse
+ * - 64bit conversions
+ * - verification should use MAP_PRIVATE
  *
  * */
 
@@ -110,10 +111,16 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
                 if ((le64toh(o->object.size) - offsetof(HashTableObject, items)) % sizeof(HashItem) != 0)
                         return -EBADMSG;
 
+                if ((le64toh(o->object.size) - offsetof(HashTableObject, items)) / sizeof(HashItem) <= 0)
+                        return -EBADMSG;
+
                 break;
 
         case OBJECT_ENTRY_ARRAY:
                 if ((le64toh(o->object.size) - offsetof(EntryArrayObject, items)) % sizeof(le64_t) != 0)
+                        return -EBADMSG;
+
+                if ((le64toh(o->object.size) - offsetof(EntryArrayObject, items)) / sizeof(le64_t) <= 0)
                         return -EBADMSG;
 
                 break;
@@ -206,7 +213,7 @@ static int contains_uint64(MMapCache *m, int fd, uint64_t n, uint64_t p) {
 
                 c = (a + b) / 2;
 
-                r = mmap_cache_get(m, fd, PROT_READ, 0, c * sizeof(uint64_t), sizeof(uint64_t), (void **) &z);
+                r = mmap_cache_get(m, fd, PROT_READ|PROT_WRITE, 0, c * sizeof(uint64_t), sizeof(uint64_t), (void **) &z);
                 if (r < 0)
                         return r;
 
@@ -217,6 +224,368 @@ static int contains_uint64(MMapCache *m, int fd, uint64_t n, uint64_t p) {
                         b = c;
                 else
                         a = c;
+        }
+
+        return 0;
+}
+
+static int entry_points_to_data(
+                JournalFile *f,
+                int entry_fd,
+                uint64_t n_entries,
+                uint64_t entry_p,
+                uint64_t data_p) {
+
+        int r;
+        uint64_t i, n, a;
+        Object *o;
+        bool found = false;
+
+        assert(f);
+        assert(entry_fd >= 0);
+
+        if (!contains_uint64(f->mmap, entry_fd, n_entries, entry_p)) {
+                log_error("Data object references invalid entry at %llu", (unsigned long long) data_p);
+                return -EBADMSG;
+        }
+
+        r = journal_file_move_to_object(f, OBJECT_ENTRY, entry_p, &o);
+        if (r < 0)
+                return r;
+
+        n = journal_file_entry_n_items(o);
+        for (i = 0; i < n; i++)
+                if (le64toh(o->entry.items[i].object_offset) == data_p) {
+                        found = true;
+                        break;
+                }
+
+        if (!found) {
+                log_error("Data object not referenced by linked entry at %llu", (unsigned long long) data_p);
+                return -EBADMSG;
+        }
+
+        /* Check if this entry is also in main entry array. Since the
+         * main entry array has already been verified we can rely on
+         * its consistency.*/
+
+        n = le64toh(f->header->n_entries);
+        a = le64toh(f->header->entry_array_offset);
+        i = 0;
+
+        while (i < n) {
+                uint64_t m, j;
+
+                r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
+                if (r < 0)
+                        return r;
+
+                m = journal_file_entry_array_n_items(o);
+                for (j = 0; i < n && j < m; i++, j++)
+                        if (le64toh(o->entry_array.items[j]) == entry_p)
+                                return 0;
+
+                a = le64toh(o->entry_array.next_entry_array_offset);;
+        }
+
+        return 0;
+}
+
+static int verify_data(
+                JournalFile *f,
+                Object *o, uint64_t p,
+                int entry_fd, uint64_t n_entries,
+                int entry_array_fd, uint64_t n_entry_arrays) {
+
+        uint64_t i, n, a, last, q;
+        int r;
+
+        assert(f);
+        assert(o);
+        assert(entry_fd >= 0);
+        assert(entry_array_fd >= 0);
+
+        n = le64toh(o->data.n_entries);
+        a = le64toh(o->data.entry_array_offset);
+
+        /* We already checked this earlier */
+        assert(n > 0);
+
+        last = q = le64toh(o->data.entry_offset);
+        r = entry_points_to_data(f, entry_fd, n_entries, q, p);
+        if (r < 0)
+                return r;
+
+        while (i < n) {
+                uint64_t next, m, j;
+
+                if (a == 0) {
+                        log_error("Array chain too short at %llu.", (unsigned long long) p);
+                        return -EBADMSG;
+                }
+
+                if (!contains_uint64(f->mmap, entry_array_fd, n_entry_arrays, a)) {
+                        log_error("Invalid array at %llu.", (unsigned long long) p);
+                        return -EBADMSG;
+                }
+
+                r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
+                if (r < 0)
+                        return r;
+
+                next = le64toh(o->entry_array.next_entry_array_offset);
+                if (next != 0 && next <= a) {
+                        log_error("Array chain has cycle at %llu.", (unsigned long long) p);
+                        return -EBADMSG;
+                }
+
+                m = journal_file_entry_array_n_items(o);
+                for (j = 0; i < n && j < m; i++, j++) {
+
+                        q = le64toh(o->entry_array.items[j]);
+                        if (q <= last) {
+                                log_error("Data object's entry array not sorted at %llu.", (unsigned long long) p);
+                                return -EBADMSG;
+                        }
+                        last = q;
+
+                        r = entry_points_to_data(f, entry_fd, n_entries, q, p);
+                        if (r < 0)
+                                return r;
+
+                        /* Pointer might have moved, reposition */
+                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
+                        if (r < 0)
+                                return r;
+                }
+
+                a = next;
+        }
+
+        return 0;
+}
+
+static int verify_hash_table(
+                JournalFile *f,
+                int data_fd, uint64_t n_data,
+                int entry_fd, uint64_t n_entries,
+                int entry_array_fd, uint64_t n_entry_arrays,
+                usec_t *last_usec) {
+
+        uint64_t i, n;
+        int r;
+
+        assert(f);
+        assert(data_fd >= 0);
+        assert(entry_fd >= 0);
+        assert(entry_array_fd >= 0);
+        assert(last_usec);
+
+        n = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
+        for (i = 0; i < n; i++) {
+                uint64_t last = 0, p;
+
+                draw_progress(0xC000 + (0x3FFF * i / n), last_usec);
+
+                p = le64toh(f->data_hash_table[i].head_hash_offset);
+                while (p != 0) {
+                        Object *o;
+                        uint64_t next;
+
+                        if (!contains_uint64(f->mmap, data_fd, n_data, p)) {
+                                log_error("Invalid data object at hash entry %llu of %llu.",
+                                          (unsigned long long) i, (unsigned long long) n);
+                                return -EBADMSG;
+                        }
+
+                        r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
+                        if (r < 0)
+                                return r;
+
+                        next = le64toh(o->data.next_hash_offset);
+                        if (next != 0 && next <= p) {
+                                log_error("Hash chain has a cycle in hash entry %llu of %llu.",
+                                          (unsigned long long) i, (unsigned long long) n);
+                                return -EBADMSG;
+                        }
+
+                        if (le64toh(o->data.hash) % n != i) {
+                                log_error("Hash value mismatch in hash entry %llu of %llu.",
+                                          (unsigned long long) i, (unsigned long long) n);
+                                return -EBADMSG;
+                        }
+
+                        r = verify_data(f, o, p, entry_fd, n_entries, entry_array_fd, n_entry_arrays);
+                        if (r < 0)
+                                return r;
+
+                        last = p;
+                        p = next;
+                }
+
+                if (last != le64toh(f->data_hash_table[i].tail_hash_offset)) {
+                        log_error("Tail hash pointer mismatch in hash table.");
+                        return -EBADMSG;
+                }
+        }
+
+        return 0;
+}
+
+static int data_object_in_hash_table(JournalFile *f, uint64_t hash, uint64_t p) {
+        uint64_t n, h, q;
+        int r;
+        assert(f);
+
+        n = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
+        h = hash % n;
+
+        q = le64toh(f->data_hash_table[h].head_hash_offset);
+        while (q != 0) {
+                Object *o;
+
+                if (p == q)
+                        return 1;
+
+                r = journal_file_move_to_object(f, OBJECT_DATA, q, &o);
+                if (r < 0)
+                        return r;
+
+                q = le64toh(o->data.next_hash_offset);
+        }
+
+        return 0;
+}
+
+static int verify_entry(
+                JournalFile *f,
+                Object *o, uint64_t p,
+                int data_fd, uint64_t n_data) {
+
+        uint64_t i, n;
+        int r;
+
+        assert(f);
+        assert(o);
+        assert(data_fd >= 0);
+
+        n = journal_file_entry_n_items(o);
+        for (i = 0; i < n; i++) {
+                uint64_t q, h;
+                Object *u;
+
+                q = le64toh(o->entry.items[i].object_offset);
+                h = le64toh(o->entry.items[i].hash);
+
+                if (!contains_uint64(f->mmap, data_fd, n_data, q)) {
+                        log_error("Invalid data object at entry %llu.",
+                                  (unsigned long long) o);
+                                return -EBADMSG;
+                        }
+
+                r = journal_file_move_to_object(f, OBJECT_DATA, q, &u);
+                if (r < 0)
+                        return r;
+
+                if (le64toh(u->data.hash) != h) {
+                        log_error("Hash mismatch for data object at entry %llu.",
+                                  (unsigned long long) p);
+                        return -EBADMSG;
+                }
+
+                r = data_object_in_hash_table(f, h, q);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_error("Data object missing from hash at entry %llu.",
+                                  (unsigned long long) p);
+                        return -EBADMSG;
+                }
+        }
+
+        return 0;
+}
+
+static int verify_entry_array(
+                JournalFile *f,
+                int data_fd, uint64_t n_data,
+                int entry_fd, uint64_t n_entries,
+                int entry_array_fd, uint64_t n_entry_arrays,
+                usec_t *last_usec) {
+
+        uint64_t i = 0, a, n, last = 0;
+        int r;
+
+        assert(f);
+        assert(data_fd >= 0);
+        assert(entry_fd >= 0);
+        assert(entry_array_fd >= 0);
+        assert(last_usec);
+
+        n = le64toh(f->header->n_entries);
+        a = le64toh(f->header->entry_array_offset);
+        while (i < n) {
+                uint64_t next, m, j;
+                Object *o;
+
+                draw_progress(0x8000 + (0x3FFF * i / n), last_usec);
+
+                if (a == 0) {
+                        log_error("Array chain too short at %llu of %llu.",
+                                  (unsigned long long) i, (unsigned long long) n);
+                        return -EBADMSG;
+                }
+
+                if (!contains_uint64(f->mmap, entry_array_fd, n_entry_arrays, a)) {
+                        log_error("Invalid array at %llu of %llu.",
+                                  (unsigned long long) i, (unsigned long long) n);
+                        return -EBADMSG;
+                }
+
+                r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
+                if (r < 0)
+                        return r;
+
+                next = le64toh(o->entry_array.next_entry_array_offset);
+                if (next != 0 && next <= a) {
+                        log_error("Array chain has cycle at %llu of %llu.",
+                                  (unsigned long long) i, (unsigned long long) n);
+                        return -EBADMSG;
+                }
+
+                m = journal_file_entry_array_n_items(o);
+                for (j = 0; i < n && j < m; i++, j++) {
+                        uint64_t p;
+
+                        p = le64toh(o->entry_array.items[j]);
+                        if (p <= last) {
+                                log_error("Entry array not sorted at %llu of %llu.",
+                                          (unsigned long long) i, (unsigned long long) n);
+                                return -EBADMSG;
+                        }
+                        last = p;
+
+                        if (!contains_uint64(f->mmap, entry_fd, n_entries, p)) {
+                                log_error("Invalid array entry at %llu of %llu.",
+                                          (unsigned long long) i, (unsigned long long) n);
+                                return -EBADMSG;
+                        }
+
+                        r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
+                        if (r < 0)
+                                return r;
+
+                        r = verify_entry(f, o, p, data_fd, n_data);
+                        if (r < 0)
+                                return r;
+
+                        /* Pointer might have moved, reposition */
+                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
+                        if (r < 0)
+                                return r;
+                }
+
+                a = next;
         }
 
         return 0;
@@ -270,7 +639,7 @@ int journal_file_verify(JournalFile *f, const char *key) {
 
         p = le64toh(f->header->header_size);
         while (p != 0) {
-                draw_progress((0x7FFF * p) / le64toh(f->header->tail_object_offset), &last_usec);
+                draw_progress(0x7FFF * p / le64toh(f->header->tail_object_offset), &last_usec);
 
                 r = journal_file_move_to_object(f, -1, p, &o);
                 if (r < 0) {
@@ -504,53 +873,29 @@ int journal_file_verify(JournalFile *f, const char *key) {
                 goto fail;
         }
 
-        /* Second iteration: we go through all objects again, this
-         * time verify all pointers. */
+        /* Second iteration: we follow all objects referenced from the
+         * two entry points: the object hash table and the entry
+         * array. We also check that everything referenced (directly
+         * or indirectly) in the data hash table also exists in the
+         * entry array, and vice versa. Note that we do not care for
+         * unreferenced objects. We only care that everything that is
+         * referenced is consistent. */
 
-        p = le64toh(f->header->header_size);
-        while (p != 0) {
-                draw_progress(0x8000 + (0x7FFF * p) / le64toh(f->header->tail_object_offset), &last_usec);
+        r = verify_entry_array(f,
+                               data_fd, n_data,
+                               entry_fd, n_entries,
+                               entry_array_fd, n_entry_arrays,
+                               &last_usec);
+        if (r < 0)
+                goto fail;
 
-                r = journal_file_move_to_object(f, -1, p, &o);
-                if (r < 0) {
-                        log_error("Invalid object at %llu", (unsigned long long) p);
-                        goto fail;
-                }
-
-                if (o->object.type == OBJECT_ENTRY_ARRAY) {
-                        uint64_t i = 0, n;
-
-                        if (le64toh(o->entry_array.next_entry_array_offset) != 0 &&
-                            !contains_uint64(f->mmap, entry_array_fd, n_entry_arrays, le64toh(o->entry_array.next_entry_array_offset))) {
-                                log_error("Entry array chains up to invalid next array at %llu", (unsigned long long) p);
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        n = journal_file_entry_array_n_items(o);
-                        for (i = 0; i < n; i++) {
-                                if (le64toh(o->entry_array.items[i]) != 0 &&
-                                    !contains_uint64(f->mmap, entry_fd, n_entries, le64toh(o->entry_array.items[i]))) {
-
-                                        log_error("Entry array points to invalid next array at %llu", (unsigned long long) p);
-                                        r = -EBADMSG;
-                                        goto fail;
-                                }
-                        }
-
-                }
-
-                r = journal_file_move_to_object(f, -1, p, &o);
-                if (r < 0) {
-                        log_error("Invalid object at %llu", (unsigned long long) p);
-                        goto fail;
-                }
-
-                if (p == le64toh(f->header->tail_object_offset))
-                        p = 0;
-                else
-                        p = p + ALIGN64(le64toh(o->object.size));
-        }
+        r = verify_hash_table(f,
+                              data_fd, n_data,
+                              entry_fd, n_entries,
+                              entry_array_fd, n_entry_arrays,
+                              &last_usec);
+        if (r < 0)
+                goto fail;
 
         flush_progress();
 
