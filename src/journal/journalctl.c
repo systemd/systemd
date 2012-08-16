@@ -46,7 +46,7 @@
 #include "journal-authenticate.h"
 #include "fsprg.h"
 
-#define DEFAULT_FSPRG_INTERVAL_USEC (15*USEC_PER_MINUTE)
+#define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_follow = false;
@@ -59,8 +59,8 @@ static bool arg_local = false;
 static bool arg_this_boot = false;
 static const char *arg_directory = NULL;
 static int arg_priorities = 0xFF;
-static const char *arg_verify_seed = NULL;
-static usec_t arg_evolve = DEFAULT_FSPRG_INTERVAL_USEC;
+static const char *arg_verify_key = NULL;
+static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
 
 static enum {
         ACTION_SHOW,
@@ -74,27 +74,27 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [MATCH]\n\n"
                "Send control commands to or query the journal.\n\n"
-               "  -h --help                Show this help\n"
-               "     --version             Show package version\n"
-               "     --no-pager            Do not pipe output into a pager\n"
-               "  -a --all                 Show all fields, including long and unprintable\n"
-               "  -f --follow              Follow journal\n"
-               "  -n --lines=INTEGER       Journal entries to show\n"
-               "     --no-tail             Show all lines, even in follow mode\n"
-               "  -o --output=STRING       Change journal output mode (short, short-monotonic,\n"
-               "                           verbose, export, json, cat)\n"
-               "  -q --quiet               Don't show privilege warning\n"
-               "  -l --local               Only local entries\n"
-               "  -b --this-boot           Show data only from current boot\n"
-               "  -D --directory=PATH      Show journal files from directory\n"
-               "  -p --priority=RANGE      Show only messages within the specified priority range\n\n"
+               "  -h --help              Show this help\n"
+               "     --version           Show package version\n"
+               "     --no-pager          Do not pipe output into a pager\n"
+               "  -a --all               Show all fields, including long and unprintable\n"
+               "  -f --follow            Follow journal\n"
+               "  -n --lines=INTEGER     Journal entries to show\n"
+               "     --no-tail           Show all lines, even in follow mode\n"
+               "  -o --output=STRING     Change journal output mode (short, short-monotonic,\n"
+               "                         verbose, export, json, cat)\n"
+               "  -q --quiet             Don't show privilege warning\n"
+               "  -l --local             Only local entries\n"
+               "  -b --this-boot         Show data only from current boot\n"
+               "  -D --directory=PATH    Show journal files from directory\n"
+               "  -p --priority=RANGE    Show only messages within the specified priority range\n\n"
                "Commands:\n"
-               "     --new-id128           Generate a new 128 Bit ID\n"
-               "     --header              Show journal header information\n"
-               "     --verify              Verify journal file consistency\n"
-               "       --verify-seed=SEED  Specify FSPRG seed for verification\n"
-               "     --setup-keys          Generate new FSPRG key and seed\n"
-               "       --evolve=TIME       How of to evolve FSPRG keys\n",
+               "     --new-id128         Generate a new 128 Bit ID\n"
+               "     --header            Show journal header information\n"
+               "     --setup-keys        Generate new FSS key pair\n"
+               "       --interval=TIME   Time interval for changing the FSS sealing key\n"
+               "     --verify            Verify journal file consistency\n"
+               "       --verify-key=KEY  Specify FSS verification key\n",
                program_invocation_short_name);
 
         return 0;
@@ -109,32 +109,32 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NEW_ID128,
                 ARG_HEADER,
                 ARG_SETUP_KEYS,
+                ARG_INTERVAL,
                 ARG_VERIFY,
-                ARG_VERIFY_SEED,
-                ARG_EVOLVE
+                ARG_VERIFY_KEY
         };
 
         static const struct option options[] = {
-                { "help",        no_argument,       NULL, 'h'             },
-                { "version" ,    no_argument,       NULL, ARG_VERSION     },
-                { "no-pager",    no_argument,       NULL, ARG_NO_PAGER    },
-                { "follow",      no_argument,       NULL, 'f'             },
-                { "output",      required_argument, NULL, 'o'             },
-                { "all",         no_argument,       NULL, 'a'             },
-                { "lines",       required_argument, NULL, 'n'             },
-                { "no-tail",     no_argument,       NULL, ARG_NO_TAIL     },
-                { "new-id128",   no_argument,       NULL, ARG_NEW_ID128   },
-                { "quiet",       no_argument,       NULL, 'q'             },
-                { "local",       no_argument,       NULL, 'l'             },
-                { "this-boot",   no_argument,       NULL, 'b'             },
-                { "directory",   required_argument, NULL, 'D'             },
-                { "header",      no_argument,       NULL, ARG_HEADER      },
-                { "priority",    no_argument,       NULL, 'p'             },
-                { "setup-keys",  no_argument,       NULL, ARG_SETUP_KEYS  },
-                { "verify",      no_argument,       NULL, ARG_VERIFY      },
-                { "verify-seed", required_argument, NULL, ARG_VERIFY_SEED },
-                { "evolve",      required_argument, NULL, ARG_EVOLVE      },
-                { NULL,          0,                 NULL, 0               }
+                { "help",         no_argument,       NULL, 'h'              },
+                { "version" ,     no_argument,       NULL, ARG_VERSION      },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
+                { "follow",       no_argument,       NULL, 'f'              },
+                { "output",       required_argument, NULL, 'o'              },
+                { "all",          no_argument,       NULL, 'a'              },
+                { "lines",        required_argument, NULL, 'n'              },
+                { "no-tail",      no_argument,       NULL, ARG_NO_TAIL      },
+                { "new-id128",    no_argument,       NULL, ARG_NEW_ID128    },
+                { "quiet",        no_argument,       NULL, 'q'              },
+                { "local",        no_argument,       NULL, 'l'              },
+                { "this-boot",    no_argument,       NULL, 'b'              },
+                { "directory",    required_argument, NULL, 'D'              },
+                { "header",       no_argument,       NULL, ARG_HEADER       },
+                { "priority",     no_argument,       NULL, 'p'              },
+                { "setup-keys",   no_argument,       NULL, ARG_SETUP_KEYS   },
+                { "interval",     required_argument, NULL, ARG_INTERVAL     },
+                { "verify",       no_argument,       NULL, ARG_VERIFY       },
+                { "verify-key",   required_argument, NULL, ARG_VERIFY_KEY   },
+                { NULL,           0,                 NULL, 0                }
         };
 
         int c, r;
@@ -221,15 +221,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_VERIFY;
                         break;
 
-                case ARG_VERIFY_SEED:
+                case ARG_VERIFY_KEY:
                         arg_action = ACTION_VERIFY;
-                        arg_verify_seed = optarg;
+                        arg_verify_key = optarg;
                         break;
 
-                case ARG_EVOLVE:
-                        r = parse_usec(optarg, &arg_evolve);
-                        if (r < 0 || arg_evolve <= 0) {
-                                log_error("Failed to parse evolve interval: %s", optarg);
+                case ARG_INTERVAL:
+                        r = parse_usec(optarg, &arg_interval);
+                        if (r < 0 || arg_interval <= 0) {
+                                log_error("Failed to parse sealing key change interval: %s", optarg);
                                 return -EINVAL;
                         }
                         break;
@@ -456,7 +456,7 @@ static int setup_keys(void) {
         int fd = -1, r;
         sd_id128_t machine, boot;
         char *p = NULL, *k = NULL;
-        struct FSPRGHeader h;
+        struct FSSHeader h;
         uint64_t n;
 
         r = sd_id128_get_machine(&machine);
@@ -471,7 +471,7 @@ static int setup_keys(void) {
                 return r;
         }
 
-        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/fsprg",
+        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss",
                      SD_ID128_FORMAT_VAL(machine)) < 0)
                 return log_oom();
 
@@ -481,7 +481,7 @@ static int setup_keys(void) {
                 goto finish;
         }
 
-        if (asprintf(&k, "/var/log/journal/" SD_ID128_FORMAT_STR "/fsprg.tmp.XXXXXX",
+        if (asprintf(&k, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss.tmp.XXXXXX",
                      SD_ID128_FORMAT_VAL(machine)) < 0) {
                 r = log_oom();
                 goto finish;
@@ -514,11 +514,13 @@ static int setup_keys(void) {
         log_info("Generating key pair...");
         FSPRG_GenMK(NULL, mpk, seed, seed_size, FSPRG_RECOMMENDED_SECPAR);
 
-        log_info("Generating evolving key...");
+        log_info("Generating sealing key...");
         FSPRG_GenState0(state, mpk, seed, seed_size);
 
+        assert(arg_interval > 0);
+
         n = now(CLOCK_REALTIME);
-        n /= arg_evolve;
+        n /= arg_interval;
 
         close_nointr_nofail(fd);
         fd = mkostemp(k, O_WRONLY|O_CLOEXEC|O_NOCTTY);
@@ -533,10 +535,10 @@ static int setup_keys(void) {
         h.machine_id = machine;
         h.boot_id = boot;
         h.header_size = htole64(sizeof(h));
-        h.fsprg_start_usec = htole64(n * arg_evolve);
-        h.fsprg_interval_usec = htole64(arg_evolve);
-        h.secpar = htole16(FSPRG_RECOMMENDED_SECPAR);
-        h.state_size = htole64(state_size);
+        h.start_usec = htole64(n * arg_interval);
+        h.interval_usec = htole64(arg_interval);
+        h.fsprg_secpar = htole16(FSPRG_RECOMMENDED_SECPAR);
+        h.fsprg_state_size = htole64(state_size);
 
         l = loop_write(fd, &h, sizeof(h), false);
         if (l < 0 || (size_t) l != sizeof(h)) {
@@ -561,14 +563,13 @@ static int setup_keys(void) {
         if (isatty(STDOUT_FILENO)) {
                 fprintf(stderr,
                         "\n"
-                        "The new key pair has been generated. The evolving key has been written to the\n"
-                        "following file. It will be used to protect local journal files. This file\n"
-                        "should be kept secret. It should not be used on multiple hosts.\n"
+                        "The new key pair has been generated. The " ANSI_HIGHLIGHT_ON "secret sealing key" ANSI_HIGHLIGHT_OFF " has been written to\n"
+                        "the following local file. It should not be used on multiple hosts.\n"
                         "\n"
                         "\t%s\n"
                         "\n"
-                        "Please write down the following " ANSI_HIGHLIGHT_ON "secret" ANSI_HIGHLIGHT_OFF " seed value. It should not be stored\n"
-                        "locally on disk, and may be used to verify journal files from this host.\n"
+                        "Please write down the following " ANSI_HIGHLIGHT_ON "secret verification key" ANSI_HIGHLIGHT_OFF ". It should be stored\n"
+                        "at a safe location and should not be saved locally on disk.\n"
                         "\n\t" ANSI_HIGHLIGHT_RED_ON, p);
                 fflush(stderr);
         }
@@ -578,10 +579,16 @@ static int setup_keys(void) {
                 printf("%02x", ((uint8_t*) seed)[i]);
         }
 
-        printf("/%llx-%llx\n", (unsigned long long) n, (unsigned long long) arg_evolve);
+        printf("/%llx-%llx\n", (unsigned long long) n, (unsigned long long) arg_interval);
 
-        if (isatty(STDOUT_FILENO))
-                fputs(ANSI_HIGHLIGHT_OFF "\n", stderr);
+        if (isatty(STDOUT_FILENO)) {
+                char tsb[FORMAT_TIMESPAN_MAX];
+
+                fprintf(stderr,
+                        ANSI_HIGHLIGHT_OFF "\n"
+                        "The sealing key is automatically changed every %s.\n",
+                        format_timespan(tsb, sizeof(tsb), arg_interval));
+        }
 
         r = 0;
 
@@ -613,13 +620,13 @@ static int verify(sd_journal *j) {
                 int k;
 
 #ifdef HAVE_GCRYPT
-                if (!arg_verify_seed && journal_file_fsprg_enabled(f))
-                        log_warning("Journal file %s has authentication enabled but verification seed has not been passed using --verify-seed=.", f->path);
+                if (!arg_verify_key && journal_file_fss_enabled(f))
+                        log_warning("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
 #endif
 
-                k = journal_file_verify(f, arg_verify_seed);
+                k = journal_file_verify(f, arg_verify_key);
                 if (k == -EINVAL) {
-                        /* If the seed was invalid give up right-away. */
+                        /* If the key was invalid give up right-away. */
                         return k;
                 } else if (k < 0) {
                         log_warning("FAIL: %s (%s)", f->path, strerror(-k));

@@ -38,6 +38,7 @@
  * - write tag only if non-tag objects have been written
  * - change terms
  * - write bit mucking test
+ * - tag timestamps should be between entry timestamps
  *
  * - Allow building without libgcrypt
  * - check with sparse
@@ -595,7 +596,7 @@ static int verify_entry_array(
         return 0;
 }
 
-static int journal_file_parse_seed(JournalFile *f, const char *s) {
+static int journal_file_parse_verification_key(JournalFile *f, const char *key) {
         uint8_t *seed;
         size_t seed_size, c;
         const char *k;
@@ -607,7 +608,7 @@ static int journal_file_parse_seed(JournalFile *f, const char *s) {
         if (!seed)
                 return -ENOMEM;
 
-        k = s;
+        k = key;
         for (c = 0; c < seed_size; c++) {
                 int x, y;
 
@@ -644,13 +645,14 @@ static int journal_file_parse_seed(JournalFile *f, const char *s) {
 
         f->fsprg_seed = seed;
         f->fsprg_seed_size = seed_size;
-        f->fsprg_start_usec = start;
-        f->fsprg_interval_usec = interval;
+
+        f->fss_start_usec = start;
+        f->fss_interval_usec = interval;
 
         return 0;
 }
 
-int journal_file_verify(JournalFile *f, const char *seed) {
+int journal_file_verify(JournalFile *f, const char *key) {
         int r;
         Object *o;
         uint64_t p = 0, last_tag = 0, last_epoch = 0;
@@ -666,8 +668,8 @@ int journal_file_verify(JournalFile *f, const char *seed) {
 
         assert(f);
 
-        if (seed) {
-                r = journal_file_parse_seed(f, seed);
+        if (key) {
+                r = journal_file_parse_verification_key(f, key);
                 if (r < 0) {
                         log_error("Failed to parse seed.");
                         return r;
@@ -848,8 +850,8 @@ int journal_file_verify(JournalFile *f, const char *seed) {
                 case OBJECT_TAG: {
                         uint64_t q;
 
-                        if (!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_AUTHENTICATED)) {
-                                log_error("Tag object without authentication at %llu", (unsigned long long) p);
+                        if (!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED)) {
+                                log_error("Tag object without sealing at %llu", (unsigned long long) p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -904,7 +906,7 @@ int journal_file_verify(JournalFile *f, const char *seed) {
                                 goto fail;
 
                         if (memcmp(o->tag.tag, gcry_md_read(f->hmac, 0), TAG_LENGTH) != 0) {
-                                log_error("Tag did not authenticate at %llu", (unsigned long long) p);
+                                log_error("Tag failed verification at %llu", (unsigned long long) p);
                                 r = -EBADMSG;
                                 goto fail;
                         }

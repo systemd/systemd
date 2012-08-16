@@ -51,7 +51,7 @@ typedef struct JournalFile {
         int prot;
         bool writable;
         bool compress;
-        bool authenticate;
+        bool seal;
 
         bool tail_entry_monotonic_valid;
 
@@ -73,17 +73,17 @@ typedef struct JournalFile {
         gcry_md_hd_t hmac;
         bool hmac_running;
 
-        FSPRGHeader *fsprg_file;
-        size_t fsprg_file_size;
+        FSSHeader *fss_file;
+        size_t fss_file_size;
+
+        uint64_t fss_start_usec;
+        uint64_t fss_interval_usec;
 
         void *fsprg_state;
         size_t fsprg_state_size;
 
         void *fsprg_seed;
         size_t fsprg_seed_size;
-
-        uint64_t fsprg_start_usec;
-        uint64_t fsprg_interval_usec;
 #endif
 } JournalFile;
 
@@ -97,7 +97,7 @@ int journal_file_open(
                 int flags,
                 mode_t mode,
                 bool compress,
-                bool authenticate,
+                bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,
@@ -110,7 +110,7 @@ int journal_file_open_reliably(
                 int flags,
                 mode_t mode,
                 bool compress,
-                bool authenticate,
+                bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,
@@ -152,7 +152,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
 
-int journal_file_rotate(JournalFile **f, bool compress, bool authenticate);
+int journal_file_rotate(JournalFile **f, bool compress, bool seal);
 
 void journal_file_post_change(JournalFile *f);
 

@@ -45,7 +45,7 @@ int journal_file_append_tag(JournalFile *f) {
 
         assert(f);
 
-        if (!f->authenticate)
+        if (!f->seal)
                 return 0;
 
         if (!f->hmac_running)
@@ -79,7 +79,7 @@ int journal_file_hmac_start(JournalFile *f) {
         uint8_t key[256 / 8]; /* Let's pass 256 bit from FSPRG to HMAC */
         assert(f);
 
-        if (!f->authenticate)
+        if (!f->seal)
                 return 0;
 
         if (f->hmac_running)
@@ -100,28 +100,28 @@ static int journal_file_get_epoch(JournalFile *f, uint64_t realtime, uint64_t *e
 
         assert(f);
         assert(epoch);
-        assert(f->authenticate);
+        assert(f->seal);
 
-        if (f->fsprg_start_usec == 0 ||
-            f->fsprg_interval_usec == 0)
+        if (f->fss_start_usec == 0 ||
+            f->fss_interval_usec == 0)
                 return -ENOTSUP;
 
-        if (realtime < f->fsprg_start_usec)
+        if (realtime < f->fss_start_usec)
                 return -ESTALE;
 
-        t = realtime - f->fsprg_start_usec;
-        t = t / f->fsprg_interval_usec;
+        t = realtime - f->fss_start_usec;
+        t = t / f->fss_interval_usec;
 
         *epoch = t;
         return 0;
 }
 
-static int journal_file_need_evolve(JournalFile *f, uint64_t realtime) {
+static int journal_file_fsprg_need_evolve(JournalFile *f, uint64_t realtime) {
         uint64_t goal, epoch;
         int r;
         assert(f);
 
-        if (!f->authenticate)
+        if (!f->seal)
                 return 0;
 
         r = journal_file_get_epoch(f, realtime, &goal);
@@ -135,13 +135,13 @@ static int journal_file_need_evolve(JournalFile *f, uint64_t realtime) {
         return epoch != goal;
 }
 
-static int journal_file_evolve(JournalFile *f, uint64_t realtime) {
+int journal_file_fsprg_evolve(JournalFile *f, uint64_t realtime) {
         uint64_t goal, epoch;
         int r;
 
         assert(f);
 
-        if (!f->authenticate)
+        if (!f->seal)
                 return 0;
 
         r = journal_file_get_epoch(f, realtime, &goal);
@@ -169,7 +169,7 @@ int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
 
         assert(f);
 
-        if (!f->authenticate)
+        if (!f->seal)
                 return 0;
 
         assert(f->fsprg_seed);
@@ -206,10 +206,10 @@ int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
 
         assert(f);
 
-        if (!f->authenticate)
+        if (!f->seal)
                 return 0;
 
-        r = journal_file_need_evolve(f, realtime);
+        r = journal_file_fsprg_need_evolve(f, realtime);
         if (r <= 0)
                 return 0;
 
@@ -217,7 +217,7 @@ int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
         if (r < 0)
                 return r;
 
-        r = journal_file_evolve(f, realtime);
+        r = journal_file_fsprg_evolve(f, realtime);
         if (r < 0)
                 return r;
 
@@ -234,7 +234,7 @@ int journal_file_hmac_put_object(JournalFile *f, int type, uint64_t p) {
 
         assert(f);
 
-        if (!f->authenticate)
+        if (!f->seal)
                 return 0;
 
         r = journal_file_hmac_start(f);
@@ -283,7 +283,7 @@ int journal_file_hmac_put_header(JournalFile *f) {
 
         assert(f);
 
-        if (!f->authenticate)
+        if (!f->seal)
                 return 0;
 
         r = journal_file_hmac_start(f);
@@ -305,23 +305,23 @@ int journal_file_hmac_put_header(JournalFile *f) {
         return 0;
 }
 
-int journal_file_load_fsprg(JournalFile *f) {
+int journal_file_fss_load(JournalFile *f) {
         int r, fd = -1;
         char *p = NULL;
         struct stat st;
-        FSPRGHeader *m = NULL;
+        FSSHeader *m = NULL;
         sd_id128_t machine;
 
         assert(f);
 
-        if (!f->authenticate)
+        if (!f->seal)
                 return 0;
 
         r = sd_id128_get_machine(&machine);
         if (r < 0)
                 return r;
 
-        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/fsprg",
+        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss",
                      SD_ID128_FORMAT_VAL(machine)) < 0)
                 return -ENOMEM;
 
@@ -337,19 +337,19 @@ int journal_file_load_fsprg(JournalFile *f) {
                 goto finish;
         }
 
-        if (st.st_size < (off_t) sizeof(FSPRGHeader)) {
+        if (st.st_size < (off_t) sizeof(FSSHeader)) {
                 r = -ENODATA;
                 goto finish;
         }
 
-        m = mmap(NULL, PAGE_ALIGN(sizeof(FSPRGHeader)), PROT_READ, MAP_SHARED, fd, 0);
+        m = mmap(NULL, PAGE_ALIGN(sizeof(FSSHeader)), PROT_READ, MAP_SHARED, fd, 0);
         if (m == MAP_FAILED) {
                 m = NULL;
                 r = -errno;
                 goto finish;
         }
 
-        if (memcmp(m->signature, FSPRG_HEADER_SIGNATURE, 8) != 0) {
+        if (memcmp(m->signature, FSS_HEADER_SIGNATURE, 8) != 0) {
                 r = -EBADMSG;
                 goto finish;
         }
@@ -359,18 +359,18 @@ int journal_file_load_fsprg(JournalFile *f) {
                 goto finish;
         }
 
-        if (le64toh(m->header_size) < sizeof(FSPRGHeader)) {
+        if (le64toh(m->header_size) < sizeof(FSSHeader)) {
                 r = -EBADMSG;
                 goto finish;
         }
 
-        if (le64toh(m->state_size) != FSPRG_stateinbytes(m->secpar)) {
+        if (le64toh(m->fsprg_state_size) != FSPRG_stateinbytes(m->fsprg_secpar)) {
                 r = -EBADMSG;
                 goto finish;
         }
 
-        f->fsprg_file_size = le64toh(m->header_size) + le64toh(m->state_size);
-        if ((uint64_t) st.st_size < f->fsprg_file_size) {
+        f->fss_file_size = le64toh(m->header_size) + le64toh(m->fsprg_state_size);
+        if ((uint64_t) st.st_size < f->fss_file_size) {
                 r = -ENODATA;
                 goto finish;
         }
@@ -380,30 +380,30 @@ int journal_file_load_fsprg(JournalFile *f) {
                 goto finish;
         }
 
-        if (le64toh(m->fsprg_start_usec) <= 0 ||
-            le64toh(m->fsprg_interval_usec) <= 0) {
+        if (le64toh(m->start_usec) <= 0 ||
+            le64toh(m->interval_usec) <= 0) {
                 r = -EBADMSG;
                 goto finish;
         }
 
-        f->fsprg_file = mmap(NULL, PAGE_ALIGN(f->fsprg_file_size), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-        if (f->fsprg_file == MAP_FAILED) {
-                f->fsprg_file = NULL;
+        f->fss_file = mmap(NULL, PAGE_ALIGN(f->fss_file_size), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        if (f->fss_file == MAP_FAILED) {
+                f->fss_file = NULL;
                 r = -errno;
                 goto finish;
         }
 
-        f->fsprg_start_usec = le64toh(f->fsprg_file->fsprg_start_usec);
-        f->fsprg_interval_usec = le64toh(f->fsprg_file->fsprg_interval_usec);
+        f->fss_start_usec = le64toh(f->fss_file->start_usec);
+        f->fss_interval_usec = le64toh(f->fss_file->interval_usec);
 
-        f->fsprg_state = (uint8_t*) f->fsprg_file + le64toh(f->fsprg_file->header_size);
-        f->fsprg_state_size = le64toh(f->fsprg_file->state_size);
+        f->fsprg_state = (uint8_t*) f->fss_file + le64toh(f->fss_file->header_size);
+        f->fsprg_state_size = le64toh(f->fss_file->fsprg_state_size);
 
         r = 0;
 
 finish:
         if (m)
-                munmap(m, PAGE_ALIGN(sizeof(FSPRGHeader)));
+                munmap(m, PAGE_ALIGN(sizeof(FSSHeader)));
 
         if (fd >= 0)
                 close_nointr_nofail(fd);
@@ -412,10 +412,10 @@ finish:
         return r;
 }
 
-int journal_file_setup_hmac(JournalFile *f) {
+int journal_file_hmac_setup(JournalFile *f) {
         gcry_error_t e;
 
-        if (!f->authenticate)
+        if (!f->seal)
                 return 0;
 
         e = gcry_md_open(&f->hmac, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
@@ -429,7 +429,7 @@ int journal_file_append_first_tag(JournalFile *f) {
         int r;
         uint64_t p;
 
-        if (!f->authenticate)
+        if (!f->seal)
                 return 0;
 
         log_debug("Calculating first tag...");
@@ -463,8 +463,8 @@ int journal_file_append_first_tag(JournalFile *f) {
         return 0;
 }
 
-bool journal_file_fsprg_enabled(JournalFile *f) {
+bool journal_file_fss_enabled(JournalFile *f) {
         assert(f);
 
-        return !!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_AUTHENTICATED);
+        return !!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED);
 }

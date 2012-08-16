@@ -65,7 +65,7 @@ void journal_file_close(JournalFile *f) {
         assert(f);
 
         /* Write the final tag */
-        if (f->authenticate)
+        if (f->seal)
                 journal_file_append_tag(f);
 
         /* Sync everything to disk, before we mark the file offline */
@@ -96,8 +96,8 @@ void journal_file_close(JournalFile *f) {
 #endif
 
 #ifdef HAVE_GCRYPT
-        if (f->fsprg_file)
-                munmap(f->fsprg_file, PAGE_ALIGN(f->fsprg_file_size));
+        if (f->fss_file)
+                munmap(f->fss_file, PAGE_ALIGN(f->fss_file_size));
         else if (f->fsprg_state)
                 free(f->fsprg_state);
 
@@ -125,7 +125,7 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
                 htole32(f->compress ? HEADER_INCOMPATIBLE_COMPRESSED : 0);
 
         h.compatible_flags =
-                htole32(f->authenticate ? HEADER_COMPATIBLE_AUTHENTICATED : 0);
+                htole32(f->seal ? HEADER_COMPATIBLE_SEALED : 0);
 
         r = sd_id128_randomize(&h.file_id);
         if (r < 0)
@@ -195,7 +195,7 @@ static int journal_file_verify_header(JournalFile *f) {
          * compatible flags, too */
         if (f->writable) {
 #ifdef HAVE_GCRYPT
-                if ((le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_AUTHENTICATED) != 0)
+                if ((le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_SEALED) != 0)
                         return -EPROTONOSUPPORT;
 #else
                 if (f->header->compatible_flags != 0)
@@ -207,8 +207,8 @@ static int journal_file_verify_header(JournalFile *f) {
         if (le64toh(f->header->header_size) < HEADER_SIZE_MIN)
                 return -EBADMSG;
 
-        if ((le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_AUTHENTICATED) &&
-                !JOURNAL_HEADER_CONTAINS(f->header, n_tags))
+        if ((le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED) &&
+                !JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
                 return -EBADMSG;
 
         if ((uint64_t) f->last_stat.st_size < (le64toh(f->header->header_size) + le64toh(f->header->arena_size)))
@@ -240,7 +240,7 @@ static int journal_file_verify_header(JournalFile *f) {
         }
 
         f->compress = !!(le32toh(f->header->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED);
-        f->authenticate = !!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_AUTHENTICATED);
+        f->seal = !!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED);
 
         return 0;
 }
@@ -1900,8 +1900,8 @@ void journal_file_print_header(JournalFile *f) {
                f->header->state == STATE_OFFLINE ? "offline" :
                f->header->state == STATE_ONLINE ? "online" :
                f->header->state == STATE_ARCHIVED ? "archived" : "unknown",
-               (f->header->compatible_flags & HEADER_COMPATIBLE_AUTHENTICATED) ? " AUTHENTICATED" : "",
-               (f->header->compatible_flags & ~HEADER_COMPATIBLE_AUTHENTICATED) ? " ???" : "",
+               (f->header->compatible_flags & HEADER_COMPATIBLE_SEALED) ? " SEALED" : "",
+               (f->header->compatible_flags & ~HEADER_COMPATIBLE_SEALED) ? " ???" : "",
                (f->header->incompatible_flags & HEADER_INCOMPATIBLE_COMPRESSED) ? " COMPRESSED" : "",
                (f->header->incompatible_flags & ~HEADER_INCOMPATIBLE_COMPRESSED) ? " ???" : "",
                (unsigned long long) le64toh(f->header->header_size),
@@ -1934,7 +1934,7 @@ int journal_file_open(
                 int flags,
                 mode_t mode,
                 bool compress,
-                bool authenticate,
+                bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,
@@ -1964,7 +1964,7 @@ int journal_file_open(
         f->prot = prot_from_flags(flags);
         f->writable = (flags & O_ACCMODE) != O_RDONLY;
         f->compress = compress;
-        f->authenticate = authenticate;
+        f->seal = seal;
 
         if (mmap_cache)
                 f->mmap = mmap_cache_ref(mmap_cache);
@@ -2000,10 +2000,10 @@ int journal_file_open(
                 newly_created = true;
 
                 /* Try to load the FSPRG state, and if we can't, then
-                 * just don't do authentication */
-                r = journal_file_load_fsprg(f);
+                 * just don't do sealing */
+                r = journal_file_fss_load(f);
                 if (r < 0)
-                        f->authenticate = false;
+                        f->seal = false;
 
                 r = journal_file_init_header(f, template);
                 if (r < 0)
@@ -2034,7 +2034,7 @@ int journal_file_open(
         }
 
         if (!newly_created && f->writable) {
-                r = journal_file_load_fsprg(f);
+                r = journal_file_fss_load(f);
                 if (r < 0)
                         goto fail;
         }
@@ -2051,7 +2051,7 @@ int journal_file_open(
                         goto fail;
         }
 
-        r = journal_file_setup_hmac(f);
+        r = journal_file_hmac_setup(f);
         if (r < 0)
                 goto fail;
 
@@ -2088,7 +2088,7 @@ fail:
         return r;
 }
 
-int journal_file_rotate(JournalFile **f, bool compress, bool authenticate) {
+int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
         char *p;
         size_t l;
         JournalFile *old_file, *new_file = NULL;
@@ -2127,7 +2127,7 @@ int journal_file_rotate(JournalFile **f, bool compress, bool authenticate) {
 
         old_file->header->state = STATE_ARCHIVED;
 
-        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, authenticate, NULL, old_file->mmap, old_file, &new_file);
+        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, seal, NULL, old_file->mmap, old_file, &new_file);
         journal_file_close(old_file);
 
         *f = new_file;
@@ -2139,7 +2139,7 @@ int journal_file_open_reliably(
                 int flags,
                 mode_t mode,
                 bool compress,
-                bool authenticate,
+                bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,
@@ -2149,7 +2149,7 @@ int journal_file_open_reliably(
         size_t l;
         char *p;
 
-        r = journal_file_open(fname, flags, mode, compress, authenticate,
+        r = journal_file_open(fname, flags, mode, compress, seal,
                               metrics, mmap_cache, template, ret);
         if (r != -EBADMSG && /* corrupted */
             r != -ENODATA && /* truncated */
@@ -2184,7 +2184,7 @@ int journal_file_open_reliably(
 
         log_warning("File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
-        return journal_file_open(fname, flags, mode, compress, authenticate,
+        return journal_file_open(fname, flags, mode, compress, seal,
                                  metrics, mmap_cache, template, ret);
 }
 
