@@ -185,6 +185,7 @@ _packed_ struct Header {
         le64_t n_fields;
         /* Added in 189 */
         le64_t n_tags;
+        le64_t n_entry_arrays;
 };
 
 #define FSPRG_HEADER_SIGNATURE ((char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })

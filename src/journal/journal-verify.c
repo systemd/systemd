@@ -837,6 +837,13 @@ int journal_file_verify(JournalFile *f, const char *key) {
                 goto fail;
         }
 
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays) &&
+            n_entry_arrays != le64toh(f->header->n_entry_arrays)) {
+                log_error("Entry array number mismatch");
+                r = -EBADMSG;
+                goto fail;
+        }
+
         if (n_data_hash_tables != 1) {
                 log_error("Missing data hash table");
                 r = -EBADMSG;

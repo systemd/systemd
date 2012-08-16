@@ -839,6 +839,9 @@ static int link_entry_into_array(JournalFile *f,
                 o->entry_array.next_entry_array_offset = htole64(q);
         }
 
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
+                f->header->n_entry_arrays = htole64(le64toh(f->header->n_entry_arrays) + 1);
+
         *idx = htole64(hidx + 1);
 
         return 0;
