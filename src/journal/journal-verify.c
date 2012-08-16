@@ -30,13 +30,14 @@
 #include "journal-authenticate.h"
 #include "journal-verify.h"
 #include "lookup3.h"
+#include "compress.h"
 
 /* FIXME:
  *
- * - verify hashes of compressed objects
  * - follow all chains
  * - check for unreferenced objects
  * - verify FSPRG
+ * - Allow building without libgcrypt
  *
  * */
 
@@ -54,7 +55,9 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
 
         switch (o->object.type) {
 
-        case OBJECT_DATA:
+        case OBJECT_DATA: {
+                uint64_t h1, h2;
+
                 if (le64toh(o->data.entry_offset) <= 0 ||
                     le64toh(o->data.n_entries) <= 0)
                         return -EBADMSG;
@@ -62,17 +65,27 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
                 if (le64toh(o->object.size) - offsetof(DataObject, payload) <= 0)
                         return -EBADMSG;
 
-                if (!(o->object.flags & OBJECT_COMPRESSED)) {
-                        uint64_t h1, h2;
+                h1 = le64toh(o->data.hash);
 
-                        h1 = le64toh(o->data.hash);
+                if (o->object.flags & OBJECT_COMPRESSED) {
+                        void *b = NULL;
+                        uint64_t alloc = 0, b_size;
+
+                        if (!uncompress_blob(o->data.payload,
+                                             le64toh(o->object.size) - offsetof(Object, data.payload),
+                                             &b, &alloc, &b_size))
+                                return -EBADMSG;
+
+                        h2 = hash64(b, b_size);
+                        free(b);
+                } else
                         h2 = hash64(o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
 
-                        if (h1 != h2)
-                                return -EBADMSG;
-                }
+                if (h1 != h2)
+                        return -EBADMSG;
 
                 break;
+        }
 
         case OBJECT_FIELD:
                 if (le64toh(o->object.size) - offsetof(FieldObject, payload) <= 0)
