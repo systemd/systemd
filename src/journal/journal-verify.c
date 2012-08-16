@@ -610,6 +610,7 @@ int journal_file_verify(JournalFile *f, const char *key) {
         data_fd = mkostemp(data_path, O_CLOEXEC);
         if (data_fd < 0) {
                 log_error("Failed to create data file: %m");
+                r = -errno;
                 goto fail;
         }
         unlink(data_path);
@@ -617,6 +618,7 @@ int journal_file_verify(JournalFile *f, const char *key) {
         entry_fd = mkostemp(entry_path, O_CLOEXEC);
         if (entry_fd < 0) {
                 log_error("Failed to create entry file: %m");
+                r = -errno;
                 goto fail;
         }
         unlink(entry_path);
@@ -624,6 +626,7 @@ int journal_file_verify(JournalFile *f, const char *key) {
         entry_array_fd = mkostemp(entry_array_path, O_CLOEXEC);
         if (entry_array_fd < 0) {
                 log_error("Failed to create entry array file: %m");
+                r = -errno;
                 goto fail;
         }
         unlink(entry_array_path);
