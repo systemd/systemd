@@ -667,7 +667,7 @@ int journal_file_verify(JournalFile *f, const char *seed) {
                 r = journal_file_parse_seed(f, seed);
                 if (r < 0) {
                         log_error("Failed to parse seed.");
-                        goto fail;
+                        return r;
                 }
         }
 

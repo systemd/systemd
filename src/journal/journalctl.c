@@ -601,13 +601,18 @@ static int verify(sd_journal *j) {
         HASHMAP_FOREACH(f, j->files, i) {
                 int k;
 
+#ifdef HAVE_GCRYPT
                 if (!arg_verify_seed && journal_file_fsprg_enabled(f))
                         log_warning("Journal file %s has authentication enabled but verification seed has not been passed using --verify-seed=.", f->path);
+#endif
 
                 k = journal_file_verify(f, arg_verify_seed);
-                if (k < 0) {
+                if (k == -EINVAL) {
+                        /* If the seed was invalid give up right-away. */
+                        return k;
+                } else if (k < 0) {
                         log_warning("FAIL: %s (%s)", f->path, strerror(-k));
-                        r = -r;
+                        r = k;
                 } else
                         log_info("PASS: %s", f->path);
         }
