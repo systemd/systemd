@@ -51,8 +51,6 @@ int journal_file_append_tag(JournalFile *f) {
         if (!f->hmac_running)
                 return 0;
 
-        log_debug("Writing tag for epoch %llu\n", (unsigned long long) FSPRG_GetEpoch(f->fsprg_state));
-
         assert(f->hmac);
 
         r = journal_file_append_object(f, OBJECT_TAG, sizeof(struct TagObject), &o, &p);
@@ -61,6 +59,10 @@ int journal_file_append_tag(JournalFile *f) {
 
         o->tag.seqnum = htole64(journal_file_tag_seqnum(f));
         o->tag.epoch = htole64(FSPRG_GetEpoch(f->fsprg_state));
+
+        log_debug("Writing tag %llu for epoch %llu\n",
+                  (unsigned long long) le64toh(o->tag.seqnum),
+                  (unsigned long long) FSPRG_GetEpoch(f->fsprg_state));
 
         /* Add the tag object itself, so that we can protect its
          * header. This will exclude the actual hash value in it */
@@ -218,10 +220,6 @@ int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
                 return r;
 
         r = journal_file_fsprg_evolve(f, realtime);
-        if (r < 0)
-                return r;
-
-        r = journal_file_hmac_start(f);
         if (r < 0)
                 return r;
 

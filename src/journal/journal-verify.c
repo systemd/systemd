@@ -35,7 +35,6 @@
 
 /* FIXME:
  *
- * - write tag only if non-tag objects have been written
  * - write bit mucking test
  * - tag timestamps should be between entry timestamps
  * - output validated time ranges
@@ -856,6 +855,8 @@ int journal_file_verify(JournalFile *f, const char *key) {
                                 r = -EBADMSG;
                                 goto fail;
                         }
+
+                        log_debug("Checking tag %llu..", (unsigned long long) le64toh(o->tag.seqnum));
 
                         if (le64toh(o->tag.seqnum) != n_tags + 1) {
                                 log_error("Tag sequence number out of synchronization at %llu", (unsigned long long) p);
