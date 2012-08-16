@@ -96,8 +96,12 @@ void journal_file_close(JournalFile *f) {
 #endif
 
 #ifdef HAVE_GCRYPT
-        if (f->fsprg_header)
-                munmap(f->fsprg_header, PAGE_ALIGN(f->fsprg_size));
+        if (f->fsprg_file)
+                munmap(f->fsprg_file, PAGE_ALIGN(f->fsprg_file_size));
+        else if (f->fsprg_state)
+                free(f->fsprg_state);
+
+        free(f->fsprg_seed);
 
         if (f->hmac)
                 gcry_md_close(f->hmac);

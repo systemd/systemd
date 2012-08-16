@@ -73,8 +73,17 @@ typedef struct JournalFile {
         gcry_md_hd_t hmac;
         bool hmac_running;
 
-        FSPRGHeader *fsprg_header;
-        size_t fsprg_size;
+        FSPRGHeader *fsprg_file;
+        size_t fsprg_file_size;
+
+        void *fsprg_state;
+        size_t fsprg_state_size;
+
+        void *fsprg_seed;
+        size_t fsprg_seed_size;
+
+        uint64_t fsprg_start_usec;
+        uint64_t fsprg_interval_usec;
 #endif
 } JournalFile;
 

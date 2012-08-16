@@ -27,22 +27,6 @@
 #include "journal-authenticate.h"
 #include "fsprg.h"
 
-static void *fsprg_state(JournalFile *f) {
-        uint64_t a, b;
-        assert(f);
-
-        if (!f->authenticate)
-                return NULL;
-
-        a = le64toh(f->fsprg_header->header_size);
-        b = le64toh(f->fsprg_header->state_size);
-
-        if (a + b > f->fsprg_size)
-                return NULL;
-
-        return (uint8_t*) f->fsprg_header + a;
-}
-
 static uint64_t journal_file_tag_seqnum(JournalFile *f) {
         uint64_t r;
 
@@ -67,7 +51,7 @@ int journal_file_append_tag(JournalFile *f) {
         if (!f->hmac_running)
                 return 0;
 
-        log_debug("Writing tag for epoch %llu\n", (unsigned long long) FSPRG_GetEpoch(fsprg_state(f)));
+        log_debug("Writing tag for epoch %llu\n", (unsigned long long) FSPRG_GetEpoch(f->fsprg_state));
 
         assert(f->hmac);
 
@@ -103,7 +87,7 @@ static int journal_file_hmac_start(JournalFile *f) {
 
         /* Prepare HMAC for next cycle */
         gcry_md_reset(f->hmac);
-        FSPRG_GetKey(fsprg_state(f), key, sizeof(key), 0);
+        FSPRG_GetKey(f->fsprg_state, key, sizeof(key), 0);
         gcry_md_setkey(f->hmac, key, sizeof(key));
 
         f->hmac_running = true;
@@ -118,15 +102,15 @@ static int journal_file_get_epoch(JournalFile *f, uint64_t realtime, uint64_t *e
         assert(epoch);
         assert(f->authenticate);
 
-        if (le64toh(f->fsprg_header->fsprg_start_usec) == 0 ||
-            le64toh(f->fsprg_header->fsprg_interval_usec) == 0)
+        if (f->fsprg_start_usec == 0 ||
+            f->fsprg_interval_usec == 0)
                 return -ENOTSUP;
 
-        if (realtime < le64toh(f->fsprg_header->fsprg_start_usec))
+        if (realtime < f->fsprg_start_usec)
                 return -ESTALE;
 
-        t = realtime - le64toh(f->fsprg_header->fsprg_start_usec);
-        t = t / le64toh(f->fsprg_header->fsprg_interval_usec);
+        t = realtime - f->fsprg_start_usec;
+        t = t / f->fsprg_interval_usec;
 
         *epoch = t;
         return 0;
@@ -144,7 +128,7 @@ static int journal_file_need_evolve(JournalFile *f, uint64_t realtime) {
         if (r < 0)
                 return r;
 
-        epoch = FSPRG_GetEpoch(fsprg_state(f));
+        epoch = FSPRG_GetEpoch(f->fsprg_state);
         if (epoch > goal)
                 return -ESTALE;
 
@@ -164,7 +148,7 @@ static int journal_file_evolve(JournalFile *f, uint64_t realtime) {
         if (r < 0)
                 return r;
 
-        epoch = FSPRG_GetEpoch(fsprg_state(f));
+        epoch = FSPRG_GetEpoch(f->fsprg_state);
         if (epoch < goal)
                 log_debug("Evolving FSPRG key from epoch %llu to %llu.", (unsigned long long) epoch, (unsigned long long) goal);
 
@@ -174,8 +158,8 @@ static int journal_file_evolve(JournalFile *f, uint64_t realtime) {
                 if (epoch == goal)
                         return 0;
 
-                FSPRG_Evolve(fsprg_state(f));
-                epoch = FSPRG_GetEpoch(fsprg_state(f));
+                FSPRG_Evolve(f->fsprg_state);
+                epoch = FSPRG_GetEpoch(f->fsprg_state);
         }
 }
 
@@ -345,8 +329,8 @@ int journal_file_load_fsprg(JournalFile *f) {
                 goto finish;
         }
 
-        f->fsprg_size = le64toh(m->header_size) + le64toh(m->state_size);
-        if ((uint64_t) st.st_size < f->fsprg_size) {
+        f->fsprg_file_size = le64toh(m->header_size) + le64toh(m->state_size);
+        if ((uint64_t) st.st_size < f->fsprg_file_size) {
                 r = -ENODATA;
                 goto finish;
         }
@@ -362,12 +346,18 @@ int journal_file_load_fsprg(JournalFile *f) {
                 goto finish;
         }
 
-        f->fsprg_header = mmap(NULL, PAGE_ALIGN(f->fsprg_size), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-        if (f->fsprg_header == MAP_FAILED) {
-                f->fsprg_header = NULL;
+        f->fsprg_file = mmap(NULL, PAGE_ALIGN(f->fsprg_file_size), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        if (f->fsprg_file == MAP_FAILED) {
+                f->fsprg_file = NULL;
                 r = -errno;
                 goto finish;
         }
+
+        f->fsprg_start_usec = le64toh(f->fsprg_file->fsprg_start_usec);
+        f->fsprg_interval_usec = le64toh(f->fsprg_file->fsprg_interval_usec);
+
+        f->fsprg_state = (uint8_t*) f->fsprg_file + le64toh(f->fsprg_file->header_size);
+        f->fsprg_state_size = le64toh(f->fsprg_file->state_size);
 
         r = 0;
 

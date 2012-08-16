@@ -31,6 +31,7 @@
 #include "journal-verify.h"
 #include "lookup3.h"
 #include "compress.h"
+#include "fsprg.h"
 
 /* FIXME:
  *
@@ -591,7 +592,62 @@ static int verify_entry_array(
         return 0;
 }
 
-int journal_file_verify(JournalFile *f, const char *key) {
+static int journal_file_parse_seed(JournalFile *f, const char *s) {
+        uint8_t *seed;
+        size_t seed_size, c;
+        const char *k;
+        int r;
+        unsigned long long start, interval;
+
+        seed_size = FSPRG_RECOMMENDED_SEEDLEN;
+        seed = malloc(seed_size);
+        if (!seed)
+                return -ENOMEM;
+
+        k = s;
+        for (c = 0; c < seed_size; c++) {
+                int x, y;
+
+                while (*k == '-')
+                        k++;
+
+                x = unhexchar(*k);
+                if (x < 0) {
+                        free(seed);
+                        return -EINVAL;
+                }
+                k++;
+                y = unhexchar(*k);
+                if (y < 0) {
+                        free(seed);
+                        return -EINVAL;
+                }
+                k++;
+
+                seed[c] = (uint8_t) (x * 16 + y);
+        }
+
+        if (*k != '/') {
+                free(seed);
+                return -EINVAL;
+        }
+        k++;
+
+        r = sscanf(k, "%llx-%llx", &start, &interval);
+        if (r != 2) {
+                free(seed);
+                return -EINVAL;
+        }
+
+        f->fsprg_seed = seed;
+        f->fsprg_seed_size = seed_size;
+        f->fsprg_start_usec = start;
+        f->fsprg_interval_usec = interval;
+
+        return 0;
+}
+
+int journal_file_verify(JournalFile *f, const char *seed) {
         int r;
         Object *o;
         uint64_t p = 0;
@@ -606,6 +662,14 @@ int journal_file_verify(JournalFile *f, const char *key) {
                 entry_array_path[] = "/var/tmp/journal-entry-array-XXXXXX";
 
         assert(f);
+
+        if (seed) {
+                r = journal_file_parse_seed(f, seed);
+                if (r < 0) {
+                        log_error("Failed to parse seed.");
+                        goto fail;
+                }
+        }
 
         data_fd = mkostemp(data_path, O_CLOEXEC);
         if (data_fd < 0) {
