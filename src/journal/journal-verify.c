@@ -38,7 +38,6 @@
  * - Allow building without libgcrypt
  * - check with sparse
  * - 64bit conversions
- * - verification should use MAP_PRIVATE
  *
  * */
 

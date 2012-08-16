@@ -2406,7 +2406,6 @@ libsystemd_journal_la_SOURCES = \
 	src/journal/lookup3.c \
 	src/journal/lookup3.h \
 	src/journal/journal-send.c \
-	src/journal/journal-send.h \
 	src/journal/sparse-endian.h \
 	src/journal/journal-def.h \
 	src/journal/compress.h \
