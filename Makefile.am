@@ -2182,6 +2182,7 @@ dist_udevkeymap_DATA = \
 	keymaps/module-sony \
 	keymaps/module-sony-old \
 	keymaps/module-sony-vgn \
+	keymaps/module-sony-vpc \
 	keymaps/olpc-xo \
 	keymaps/onkyo \
 	keymaps/oqo-model2 \
