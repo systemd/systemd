@@ -36,9 +36,10 @@
 /* FIXME:
  *
  * - write tag only if non-tag objects have been written
- * - change terms
  * - write bit mucking test
  * - tag timestamps should be between entry timestamps
+ * - output validated time ranges
+ * - add missing fields to journal header dump
  *
  * - Allow building without libgcrypt
  * - check with sparse

@@ -255,31 +255,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--new-id128</option></term>
-
-                                <listitem><para>Instead of showing
-                                journal contents generate a new 128
-                                bit ID suitable for identifying
-                                messages. This is intended for usage
-                                by developers who need a new
-                                identifier for a new message they
-                                introduce and want to make
-                                recognizable. Will print the new ID in
-                                three different formats which can be
-                                copied into source code or
-                                similar.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--header</option></term>
-
-                                <listitem><para>Instead of showing
-                                journal contents show internal header
-                                information of the journal fiels
-                                accessed.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>-p</option></term>
                                 <term><option>--priority=</option></term>
 
@@ -309,6 +284,81 @@
                                 messages within the range are shown,
                                 including both the start and the end
                                 value of the range.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--new-id128</option></term>
+
+                                <listitem><para>Instead of showing
+                                journal contents generate a new 128
+                                bit ID suitable for identifying
+                                messages. This is intended for usage
+                                by developers who need a new
+                                identifier for a new message they
+                                introduce and want to make
+                                recognizable. Will print the new ID in
+                                three different formats which can be
+                                copied into source code or
+                                similar.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--header</option></term>
+
+                                <listitem><para>Instead of showing
+                                journal contents show internal header
+                                information of the journal fiels
+                                accessed.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--setup-keys</option></term>
+
+                                <listitem><para>Instead of showing
+                                journal contents generate a new key
+                                pair for Forward Secure Sealing
+                                (FSS). This will generate a sealing
+                                key and a verification key. The
+                                sealing key is stored in the journal
+                                data directory and shall remain on the
+                                host. The verification key should be
+                                stored externally.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--interval=</option></term>
+
+                                <listitem><para>Specifies the change
+                                interval for the sealing key, when
+                                generating an FSS key pair with
+                                <option>--setup-keys</option>. Shorter
+                                intervals increase CPU consumption but
+                                shorten the time range of
+                                undetectable journal
+                                alterations. Defaults to
+                                15min.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--verify</option></term>
+
+                                <listitem><para>Check the journal file
+                                for internal consistency. If the
+                                file has been generated with FSS
+                                enabled, and the FSS verification key
+                                has been specified with
+                                <option>--verify-key=</option>
+                                authenticity of the journal file is
+                                verified.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--verify-key=</option></term>
+
+                                <listitem><para>Specifies the FSS
+                                verification key to use for the
+                                <option>--verify</option>
+                                operation.</para></listitem>
                         </varlistentry>
 
                 </variablelist>
