@@ -2134,7 +2134,7 @@ int journal_file_open_reliably(
                 bool compress,
                 bool authenticate,
                 JournalMetrics *metrics,
-                MMapCache *mmap,
+                MMapCache *mmap_cache,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -2142,7 +2142,8 @@ int journal_file_open_reliably(
         size_t l;
         char *p;
 
-        r = journal_file_open(fname, flags, mode, compress, authenticate, metrics, mmap, template, ret);
+        r = journal_file_open(fname, flags, mode, compress, authenticate,
+                              metrics, mmap_cache, template, ret);
         if (r != -EBADMSG && /* corrupted */
             r != -ENODATA && /* truncated */
             r != -EHOSTDOWN && /* other machine */
@@ -2176,7 +2177,8 @@ int journal_file_open_reliably(
 
         log_warning("File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
-        return journal_file_open(fname, flags, mode, compress, authenticate, metrics, mmap, template, ret);
+        return journal_file_open(fname, flags, mode, compress, authenticate,
+                                 metrics, mmap_cache, template, ret);
 }
 
 

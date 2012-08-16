@@ -90,7 +90,7 @@ int journal_file_open(
                 bool compress,
                 bool authenticate,
                 JournalMetrics *metrics,
-                MMapCache *mmap,
+                MMapCache *mmap_cache,
                 JournalFile *template,
                 JournalFile **ret);
 
@@ -103,7 +103,7 @@ int journal_file_open_reliably(
                 bool compress,
                 bool authenticate,
                 JournalMetrics *metrics,
-                MMapCache *mmap,
+                MMapCache *mmap_cache,
                 JournalFile *template,
                 JournalFile **ret);
 
