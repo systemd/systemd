@@ -650,8 +650,8 @@ static int journal_file_parse_seed(JournalFile *f, const char *s) {
 int journal_file_verify(JournalFile *f, const char *seed) {
         int r;
         Object *o;
-        uint64_t p = 0;
-        uint64_t tag_seqnum = 0, entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
+        uint64_t p = 0, last_tag = 0;
+        uint64_t n_tags = 0, entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
         sd_id128_t entry_boot_id;
         bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
         uint64_t n_weird = 0, n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0;
@@ -698,12 +698,6 @@ int journal_file_verify(JournalFile *f, const char *seed) {
         /* First iteration: we go through all objects, verify the
          * superficial structure, headers, hashes. */
 
-        r = journal_file_hmac_put_header(f);
-        if (r < 0) {
-                log_error("Failed to calculate HMAC of header.");
-                goto fail;
-        }
-
         p = le64toh(f->header->header_size);
         while (p != 0) {
                 draw_progress(0x7FFF * p / le64toh(f->header->tail_object_offset), &last_usec);
@@ -735,28 +729,21 @@ int journal_file_verify(JournalFile *f, const char *seed) {
                         goto fail;
                 }
 
-                r = journal_file_hmac_put_object(f, -1, p);
-                if (r < 0) {
-                        log_error("Failed to calculate HMAC at %llu", (unsigned long long) p);
-                        goto fail;
-                }
+                switch (o->object.type) {
 
-                if (o->object.type == OBJECT_TAG) {
-
-                        if (!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_AUTHENTICATED)) {
-                                log_error("Tag object without authentication at %llu", (unsigned long long) p);
-                                r = -EBADMSG;
+                case OBJECT_DATA:
+                        r = write_uint64(data_fd, p);
+                        if (r < 0)
                                 goto fail;
-                        }
 
-                        if (le64toh(o->tag.seqnum) != tag_seqnum) {
-                                log_error("Tag sequence number out of synchronization at %llu", (unsigned long long) p);
-                                r = -EBADMSG;
-                                goto fail;
-                        }
+                        n_data++;
+                        break;
 
-                } else if (o->object.type == OBJECT_ENTRY) {
+                case OBJECT_FIELD:
+                        n_fields++;
+                        break;
 
+                case OBJECT_ENTRY:
                         r = write_uint64(entry_fd, p);
                         if (r < 0)
                                 goto fail;
@@ -801,8 +788,43 @@ int journal_file_verify(JournalFile *f, const char *seed) {
                         entry_realtime_set = true;
 
                         n_entries ++;
-                } else if (o->object.type == OBJECT_ENTRY_ARRAY) {
+                        break;
 
+                case OBJECT_DATA_HASH_TABLE:
+                        if (n_data_hash_tables > 1) {
+                                log_error("More than one data hash table at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        if (le64toh(f->header->data_hash_table_offset) != p + offsetof(HashTableObject, items) ||
+                            le64toh(f->header->data_hash_table_size) != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
+                                log_error("Header fields for data hash table invalid.");
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        n_data_hash_tables++;
+                        break;
+
+                case OBJECT_FIELD_HASH_TABLE:
+                        if (n_field_hash_tables > 1) {
+                                log_error("More than one field hash table at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        if (le64toh(f->header->field_hash_table_offset) != p + offsetof(HashTableObject, items) ||
+                            le64toh(f->header->field_hash_table_size) != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
+                                log_error("Header fields for field hash table invalid.");
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        n_field_hash_tables++;
+                        break;
+
+                case OBJECT_ENTRY_ARRAY:
                         r = write_uint64(entry_array_fd, p);
                         if (r < 0)
                                 goto fail;
@@ -818,49 +840,27 @@ int journal_file_verify(JournalFile *f, const char *seed) {
                         }
 
                         n_entry_arrays++;
+                        break;
 
-                } else if (o->object.type == OBJECT_DATA) {
-
-                        r = write_uint64(data_fd, p);
-                        if (r < 0)
-                                goto fail;
-
-                        n_data++;
-
-                } else if (o->object.type == OBJECT_FIELD)
-                        n_fields++;
-                else if (o->object.type == OBJECT_DATA_HASH_TABLE) {
-                        n_data_hash_tables++;
-
-                        if (n_data_hash_tables > 1) {
-                                log_error("More than one data hash table at %llu", (unsigned long long) p);
+                case OBJECT_TAG:
+                        if (!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_AUTHENTICATED)) {
+                                log_error("Tag object without authentication at %llu", (unsigned long long) p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
-                        if (le64toh(f->header->data_hash_table_offset) != p + offsetof(HashTableObject, items) ||
-                            le64toh(f->header->data_hash_table_size) != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
-                                log_error("Header fields for data hash table invalid.");
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-                } else if (o->object.type == OBJECT_FIELD_HASH_TABLE) {
-                        n_field_hash_tables++;
-
-                        if (n_field_hash_tables > 1) {
-                                log_error("More than one field hash table at %llu", (unsigned long long) p);
+                        if (le64toh(o->tag.seqnum) != n_tags + 1) {
+                                log_error("Tag sequence number out of synchronization at %llu", (unsigned long long) p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
-                        if (le64toh(f->header->field_hash_table_offset) != p + offsetof(HashTableObject, items) ||
-                            le64toh(f->header->field_hash_table_size) != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
-                                log_error("Header fields for field hash table invalid.");
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-                } else if (o->object.type >= _OBJECT_TYPE_MAX)
+                        n_tags ++;
+                        break;
+
+                default:
                         n_weird ++;
+                }
 
                 if (p == le64toh(f->header->tail_object_offset))
                         p = 0;
@@ -895,7 +895,7 @@ int journal_file_verify(JournalFile *f, const char *seed) {
         }
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_tags) &&
-            tag_seqnum != le64toh(f->header->n_tags)) {
+            n_tags != le64toh(f->header->n_tags)) {
                 log_error("Tag number mismatch");
                 r = -EBADMSG;
                 goto fail;
