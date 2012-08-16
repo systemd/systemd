@@ -315,6 +315,7 @@ static int verify_data(
         if (r < 0)
                 return r;
 
+        i = 1;
         while (i < n) {
                 uint64_t next, m, j;
 
