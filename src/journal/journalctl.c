@@ -60,6 +60,7 @@ static bool arg_this_boot = false;
 static const char *arg_directory = NULL;
 static int arg_priorities = 0xFF;
 static const char *arg_verify_seed = NULL;
+static usec_t arg_evolve = DEFAULT_FSPRG_INTERVAL_USEC;
 
 static enum {
         ACTION_SHOW,
@@ -73,26 +74,27 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [MATCH]\n\n"
                "Send control commands to or query the journal.\n\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --no-pager          Do not pipe output into a pager\n"
-               "  -a --all               Show all fields, including long and unprintable\n"
-               "  -f --follow            Follow journal\n"
-               "  -n --lines=INTEGER     Journal entries to show\n"
-               "     --no-tail           Show all lines, even in follow mode\n"
-               "  -o --output=STRING     Change journal output mode (short, short-monotonic,\n"
-               "                         verbose, export, json, cat)\n"
-               "  -q --quiet             Don't show privilege warning\n"
-               "  -l --local             Only local entries\n"
-               "  -b --this-boot         Show data only from current boot\n"
-               "  -D --directory=PATH    Show journal files from directory\n"
-               "  -p --priority=RANGE    Show only messages within the specified priority range\n\n"
+               "  -h --help                Show this help\n"
+               "     --version             Show package version\n"
+               "     --no-pager            Do not pipe output into a pager\n"
+               "  -a --all                 Show all fields, including long and unprintable\n"
+               "  -f --follow              Follow journal\n"
+               "  -n --lines=INTEGER       Journal entries to show\n"
+               "     --no-tail             Show all lines, even in follow mode\n"
+               "  -o --output=STRING       Change journal output mode (short, short-monotonic,\n"
+               "                           verbose, export, json, cat)\n"
+               "  -q --quiet               Don't show privilege warning\n"
+               "  -l --local               Only local entries\n"
+               "  -b --this-boot           Show data only from current boot\n"
+               "  -D --directory=PATH      Show journal files from directory\n"
+               "  -p --priority=RANGE      Show only messages within the specified priority range\n\n"
                "Commands:\n"
-               "     --new-id128         Generate a new 128 Bit ID\n"
-               "     --header            Show journal header information\n"
-               "     --verify            Verify journal file consistency\n"
-               "     --verify-seed=SEED  Specify FSPRG seed for verification\n"
-               "     --setup-keys        Generate new FSPRG key and seed\n",
+               "     --new-id128           Generate a new 128 Bit ID\n"
+               "     --header              Show journal header information\n"
+               "     --verify              Verify journal file consistency\n"
+               "       --verify-seed=SEED  Specify FSPRG seed for verification\n"
+               "     --setup-keys          Generate new FSPRG key and seed\n"
+               "       --evolve=TIME       How of to evolve FSPRG keys\n",
                program_invocation_short_name);
 
         return 0;
@@ -108,7 +110,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_HEADER,
                 ARG_SETUP_KEYS,
                 ARG_VERIFY,
-                ARG_VERIFY_SEED
+                ARG_VERIFY_SEED,
+                ARG_EVOLVE
         };
 
         static const struct option options[] = {
@@ -130,6 +133,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "setup-keys",  no_argument,       NULL, ARG_SETUP_KEYS  },
                 { "verify",      no_argument,       NULL, ARG_VERIFY      },
                 { "verify-seed", required_argument, NULL, ARG_VERIFY_SEED },
+                { "evolve",      required_argument, NULL, ARG_EVOLVE      },
                 { NULL,          0,                 NULL, 0               }
         };
 
@@ -220,6 +224,14 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERIFY_SEED:
                         arg_action = ACTION_VERIFY;
                         arg_verify_seed = optarg;
+                        break;
+
+                case ARG_EVOLVE:
+                        r = parse_usec(optarg, &arg_evolve);
+                        if (r < 0 || arg_evolve <= 0) {
+                                log_error("Failed to parse evolve interval: %s", optarg);
+                                return -EINVAL;
+                        }
                         break;
 
                 case 'p': {
@@ -445,7 +457,7 @@ static int setup_keys(void) {
         sd_id128_t machine, boot;
         char *p = NULL, *k = NULL;
         struct FSPRGHeader h;
-        uint64_t n, interval;
+        uint64_t n;
 
         r = sd_id128_get_machine(&machine);
         if (r < 0) {
@@ -505,9 +517,8 @@ static int setup_keys(void) {
         log_info("Generating evolving key...");
         FSPRG_GenState0(state, mpk, seed, seed_size);
 
-        interval = DEFAULT_FSPRG_INTERVAL_USEC;
         n = now(CLOCK_REALTIME);
-        n /= interval;
+        n /= arg_evolve;
 
         close_nointr_nofail(fd);
         fd = mkostemp(k, O_WRONLY|O_CLOEXEC|O_NOCTTY);
@@ -522,8 +533,8 @@ static int setup_keys(void) {
         h.machine_id = machine;
         h.boot_id = boot;
         h.header_size = htole64(sizeof(h));
-        h.fsprg_start_usec = htole64(n * interval);
-        h.fsprg_interval_usec = htole64(interval);
+        h.fsprg_start_usec = htole64(n * arg_evolve);
+        h.fsprg_interval_usec = htole64(arg_evolve);
         h.secpar = htole16(FSPRG_RECOMMENDED_SECPAR);
         h.state_size = htole64(state_size);
 
@@ -567,7 +578,7 @@ static int setup_keys(void) {
                 printf("%02x", ((uint8_t*) seed)[i]);
         }
 
-        printf("/%llx-%llx\n", (unsigned long long) n, (unsigned long long) interval);
+        printf("/%llx-%llx\n", (unsigned long long) n, (unsigned long long) arg_evolve);
 
         if (isatty(STDOUT_FILENO))
                 fputs(ANSI_HIGHLIGHT_OFF "\n", stderr);

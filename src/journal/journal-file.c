@@ -2049,11 +2049,11 @@ int journal_file_open(
                 r = journal_file_refresh_header(f);
                 if (r < 0)
                         goto fail;
-
-                r = journal_file_setup_hmac(f);
-                if (r < 0)
-                        goto fail;
         }
+
+        r = journal_file_setup_hmac(f);
+        if (r < 0)
+                goto fail;
 
         if (newly_created) {
                 r = journal_file_setup_field_hash_table(f);

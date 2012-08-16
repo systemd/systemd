@@ -35,7 +35,10 @@
 
 /* FIXME:
  *
- * - verify FSPRG
+ * - write tag only if non-tag objects have been written
+ * - change terms
+ * - write bit mucking test
+ *
  * - Allow building without libgcrypt
  * - check with sparse
  * - 64bit conversions
@@ -650,11 +653,11 @@ static int journal_file_parse_seed(JournalFile *f, const char *s) {
 int journal_file_verify(JournalFile *f, const char *seed) {
         int r;
         Object *o;
-        uint64_t p = 0, last_tag = 0;
-        uint64_t n_tags = 0, entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
+        uint64_t p = 0, last_tag = 0, last_epoch = 0;
+        uint64_t entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
         sd_id128_t entry_boot_id;
         bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
-        uint64_t n_weird = 0, n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0;
+        uint64_t n_weird = 0, n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0, n_tags = 0;
         usec_t last_usec = 0;
         int data_fd = -1, entry_fd = -1, entry_array_fd = -1;
         char data_path[] = "/var/tmp/journal-data-XXXXXX",
@@ -842,7 +845,9 @@ int journal_file_verify(JournalFile *f, const char *seed) {
                         n_entry_arrays++;
                         break;
 
-                case OBJECT_TAG:
+                case OBJECT_TAG: {
+                        uint64_t q;
+
                         if (!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_AUTHENTICATED)) {
                                 log_error("Tag object without authentication at %llu", (unsigned long long) p);
                                 r = -EBADMSG;
@@ -855,8 +860,61 @@ int journal_file_verify(JournalFile *f, const char *seed) {
                                 goto fail;
                         }
 
+                        if (le64toh(o->tag.epoch) < last_epoch) {
+                                log_error("Epoch sequence out of synchronization at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        /* OK, now we know the epoch. So let's now set
+                         * it, and calculate the HMAC for everything
+                         * since the last tag. */
+                        r = journal_file_fsprg_seek(f, le64toh(o->tag.epoch));
+                        if (r < 0)
+                                goto fail;
+
+                        r = journal_file_hmac_start(f);
+                        if (r < 0)
+                                goto fail;
+
+                        if (last_tag == 0) {
+                                r = journal_file_hmac_put_header(f);
+                                if (r < 0)
+                                        goto fail;
+
+                                q = le64toh(f->header->header_size);
+                        } else
+                                q = last_tag;
+
+                        while (q <= p) {
+                                r = journal_file_move_to_object(f, -1, q, &o);
+                                if (r < 0)
+                                        goto fail;
+
+                                r = journal_file_hmac_put_object(f, -1, q);
+                                if (r < 0)
+                                        goto fail;
+
+                                q = q + ALIGN64(le64toh(o->object.size));
+                        }
+
+                        /* Position might have changed, let's reposition things */
+                        r = journal_file_move_to_object(f, -1, p, &o);
+                        if (r < 0)
+                                goto fail;
+
+                        if (memcmp(o->tag.tag, gcry_md_read(f->hmac, 0), TAG_LENGTH) != 0) {
+                                log_error("Tag did not authenticate at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        f->hmac_running = false;
+
+                        last_tag = p + ALIGN64(le64toh(o->object.size));
                         n_tags ++;
                         break;
+                }
 
                 default:
                         n_weird ++;

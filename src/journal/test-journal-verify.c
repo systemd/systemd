@@ -35,6 +35,7 @@ int main(int argc, char *argv[]) {
         char t[] = "/tmp/journal-XXXXXX";
         unsigned n;
         JournalFile *f;
+        const char *verification_key = argv[1];
 
         log_set_max_level(LOG_DEBUG);
 
@@ -43,7 +44,7 @@ int main(int argc, char *argv[]) {
 
         log_info("Generating...");
 
-        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, true, true, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, true, !!verification_key, NULL, NULL, NULL, &f) == 0);
 
         for (n = 0; n < N_ENTRIES; n++) {
                 struct iovec iovec;
@@ -67,7 +68,7 @@ int main(int argc, char *argv[]) {
         log_info("Verifying...");
 
         assert_se(journal_file_open("test.journal", O_RDONLY, 0666, false, false, NULL, NULL, NULL, &f) == 0);
-        assert_se(journal_file_verify(f, NULL) >= 0);
+        assert_se(journal_file_verify(f, verification_key) >= 0);
         journal_file_close(f);
 
         log_info("Exiting...");

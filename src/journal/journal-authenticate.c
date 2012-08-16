@@ -60,6 +60,7 @@ int journal_file_append_tag(JournalFile *f) {
                 return r;
 
         o->tag.seqnum = htole64(journal_file_tag_seqnum(f));
+        o->tag.epoch = htole64(FSPRG_GetEpoch(f->fsprg_state));
 
         /* Add the tag object itself, so that we can protect its
          * header. This will exclude the actual hash value in it */
@@ -74,9 +75,8 @@ int journal_file_append_tag(JournalFile *f) {
         return 0;
 }
 
-static int journal_file_hmac_start(JournalFile *f) {
+int journal_file_hmac_start(JournalFile *f) {
         uint8_t key[256 / 8]; /* Let's pass 256 bit from FSPRG to HMAC */
-
         assert(f);
 
         if (!f->authenticate)
@@ -163,6 +163,44 @@ static int journal_file_evolve(JournalFile *f, uint64_t realtime) {
         }
 }
 
+int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
+        void *msk;
+        uint64_t epoch;
+
+        assert(f);
+
+        if (!f->authenticate)
+                return 0;
+
+        assert(f->fsprg_seed);
+
+        if (f->fsprg_state) {
+                /* Cheaper... */
+
+                epoch = FSPRG_GetEpoch(f->fsprg_state);
+                if (goal == epoch)
+                        return 0;
+
+                if (goal == epoch+1) {
+                        FSPRG_Evolve(f->fsprg_state);
+                        return 0;
+                }
+        } else {
+                f->fsprg_state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
+                f->fsprg_state = malloc(f->fsprg_state_size);
+
+                if (!f->fsprg_state)
+                        return -ENOMEM;
+        }
+
+        log_debug("Seeking FSPRG key to %llu.", (unsigned long long) goal);
+
+        msk = alloca(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR));
+        FSPRG_GenMK(msk, NULL, f->fsprg_seed, f->fsprg_seed_size, FSPRG_RECOMMENDED_SECPAR);
+        FSPRG_Seek(f->fsprg_state, goal, msk, f->fsprg_seed, f->fsprg_seed_size);
+        return 0;
+}
+
 int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
         int r;
 
@@ -212,7 +250,7 @@ int journal_file_hmac_put_object(JournalFile *f, int type, uint64_t p) {
         switch (o->object.type) {
 
         case OBJECT_DATA:
-                /* All but: hash and payload are mutable */
+                /* All but hash and payload are mutable */
                 gcry_md_write(f->hmac, &o->data.hash, sizeof(o->data.hash));
                 gcry_md_write(f->hmac, o->data.payload, le64toh(o->object.size) - offsetof(DataObject, payload));
                 break;
@@ -231,6 +269,7 @@ int journal_file_hmac_put_object(JournalFile *f, int type, uint64_t p) {
         case OBJECT_TAG:
                 /* All but the tag itself */
                 gcry_md_write(f->hmac, &o->tag.seqnum, sizeof(o->tag.seqnum));
+                gcry_md_write(f->hmac, &o->tag.epoch, sizeof(o->tag.epoch));
                 break;
         default:
                 return -EINVAL;
@@ -252,15 +291,16 @@ int journal_file_hmac_put_header(JournalFile *f) {
                 return r;
 
         /* All but state+reserved, boot_id, arena_size,
-         * tail_object_offset, n_objects, n_entries, tail_seqnum,
+         * tail_object_offset, n_objects, n_entries,
+         * tail_entry_seqnum, head_entry_seqnum, entry_array_offset,
          * head_entry_realtime, tail_entry_realtime,
-         * tail_entry_monotonic, n_data, n_fields, header_tag */
+         * tail_entry_monotonic, n_data, n_fields, n_tags,
+         * n_entry_arrays. */
 
         gcry_md_write(f->hmac, f->header->signature, offsetof(Header, state) - offsetof(Header, signature));
         gcry_md_write(f->hmac, &f->header->file_id, offsetof(Header, boot_id) - offsetof(Header, file_id));
         gcry_md_write(f->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
         gcry_md_write(f->hmac, &f->header->data_hash_table_offset, offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
-        gcry_md_write(f->hmac, &f->header->head_entry_seqnum, offsetof(Header, head_entry_realtime) - offsetof(Header, head_entry_seqnum));
 
         return 0;
 }
