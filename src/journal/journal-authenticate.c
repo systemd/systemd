@@ -432,3 +432,9 @@ int journal_file_append_first_tag(JournalFile *f) {
 
         return 0;
 }
+
+bool journal_file_fsprg_enabled(JournalFile *f) {
+        assert(f);
+
+        return !!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_AUTHENTICATED);
+}

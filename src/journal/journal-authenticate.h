@@ -21,6 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+#include <inttypes.h>
+
 #include "journal-file.h"
 
 int journal_file_append_tag(JournalFile *f);
@@ -33,3 +36,5 @@ int journal_file_hmac_put_object(JournalFile *f, int type, uint64_t p);
 int journal_file_load_fsprg(JournalFile *f);
 
 int journal_file_setup_hmac(JournalFile *f);
+
+bool journal_file_fsprg_enabled(JournalFile *f);

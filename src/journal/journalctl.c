@@ -41,9 +41,10 @@
 #include "logs-show.h"
 #include "strv.h"
 #include "journal-internal.h"
-#include "fsprg.h"
 #include "journal-def.h"
 #include "journal-verify.h"
+#include "journal-authenticate.h"
+#include "fsprg.h"
 
 #define DEFAULT_FSPRG_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
@@ -58,6 +59,7 @@ static bool arg_local = false;
 static bool arg_this_boot = false;
 static const char *arg_directory = NULL;
 static int arg_priorities = 0xFF;
+static const char *arg_verify_seed = NULL;
 
 static enum {
         ACTION_SHOW,
@@ -71,25 +73,26 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [MATCH]\n\n"
                "Send control commands to or query the journal.\n\n"
-               "  -h --help           Show this help\n"
-               "     --version        Show package version\n"
-               "     --no-pager       Do not pipe output into a pager\n"
-               "  -a --all            Show all fields, including long and unprintable\n"
-               "  -f --follow         Follow journal\n"
-               "  -n --lines=INTEGER  Journal entries to show\n"
-               "     --no-tail        Show all lines, even in follow mode\n"
-               "  -o --output=STRING  Change journal output mode (short, short-monotonic,\n"
-               "                      verbose, export, json, cat)\n"
-               "  -q --quiet          Don't show privilege warning\n"
-               "  -l --local          Only local entries\n"
-               "  -b --this-boot      Show data only from current boot\n"
-               "  -D --directory=PATH Show journal files from directory\n"
-               "  -p --priority=RANGE Show only messages within the specified priority range\n\n"
+               "  -h --help              Show this help\n"
+               "     --version           Show package version\n"
+               "     --no-pager          Do not pipe output into a pager\n"
+               "  -a --all               Show all fields, including long and unprintable\n"
+               "  -f --follow            Follow journal\n"
+               "  -n --lines=INTEGER     Journal entries to show\n"
+               "     --no-tail           Show all lines, even in follow mode\n"
+               "  -o --output=STRING     Change journal output mode (short, short-monotonic,\n"
+               "                         verbose, export, json, cat)\n"
+               "  -q --quiet             Don't show privilege warning\n"
+               "  -l --local             Only local entries\n"
+               "  -b --this-boot         Show data only from current boot\n"
+               "  -D --directory=PATH    Show journal files from directory\n"
+               "  -p --priority=RANGE    Show only messages within the specified priority range\n\n"
                "Commands:\n"
-               "     --new-id128      Generate a new 128 Bit ID\n"
-               "     --header         Show journal header information\n"
-               "     --setup-keys     Generate new FSPRG key pair\n"
-               "     --verify         Verify journal file consistency\n",
+               "     --new-id128         Generate a new 128 Bit ID\n"
+               "     --header            Show journal header information\n"
+               "     --verify            Verify journal file consistency\n"
+               "     --verify-seed=SEED  Specify FSPRG seed for verification\n"
+               "     --setup-keys        Generate new FSPRG key and seed\n",
                program_invocation_short_name);
 
         return 0;
@@ -104,28 +107,30 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NEW_ID128,
                 ARG_HEADER,
                 ARG_SETUP_KEYS,
-                ARG_VERIFY
+                ARG_VERIFY,
+                ARG_VERIFY_SEED
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version" ,  no_argument,       NULL, ARG_VERSION   },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
-                { "follow",    no_argument,       NULL, 'f'           },
-                { "output",    required_argument, NULL, 'o'           },
-                { "all",       no_argument,       NULL, 'a'           },
-                { "lines",     required_argument, NULL, 'n'           },
-                { "no-tail",   no_argument,       NULL, ARG_NO_TAIL   },
-                { "new-id128", no_argument,       NULL, ARG_NEW_ID128 },
-                { "quiet",     no_argument,       NULL, 'q'           },
-                { "local",     no_argument,       NULL, 'l'           },
-                { "this-boot", no_argument,       NULL, 'b'           },
-                { "directory", required_argument, NULL, 'D'           },
-                { "header",    no_argument,       NULL, ARG_HEADER    },
-                { "priority",  no_argument,       NULL, 'p'           },
-                { "setup-keys",no_argument,       NULL, ARG_SETUP_KEYS},
-                { "verify",    no_argument,       NULL, ARG_VERIFY    },
-                { NULL,        0,                 NULL, 0             }
+                { "help",        no_argument,       NULL, 'h'             },
+                { "version" ,    no_argument,       NULL, ARG_VERSION     },
+                { "no-pager",    no_argument,       NULL, ARG_NO_PAGER    },
+                { "follow",      no_argument,       NULL, 'f'             },
+                { "output",      required_argument, NULL, 'o'             },
+                { "all",         no_argument,       NULL, 'a'             },
+                { "lines",       required_argument, NULL, 'n'             },
+                { "no-tail",     no_argument,       NULL, ARG_NO_TAIL     },
+                { "new-id128",   no_argument,       NULL, ARG_NEW_ID128   },
+                { "quiet",       no_argument,       NULL, 'q'             },
+                { "local",       no_argument,       NULL, 'l'             },
+                { "this-boot",   no_argument,       NULL, 'b'             },
+                { "directory",   required_argument, NULL, 'D'             },
+                { "header",      no_argument,       NULL, ARG_HEADER      },
+                { "priority",    no_argument,       NULL, 'p'             },
+                { "setup-keys",  no_argument,       NULL, ARG_SETUP_KEYS  },
+                { "verify",      no_argument,       NULL, ARG_VERIFY      },
+                { "verify-seed", required_argument, NULL, ARG_VERIFY_SEED },
+                { NULL,          0,                 NULL, 0               }
         };
 
         int c, r;
@@ -210,6 +215,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERIFY:
                         arg_action = ACTION_VERIFY;
+                        break;
+
+                case ARG_VERIFY_SEED:
+                        arg_action = ACTION_VERIFY;
+                        arg_verify_seed = optarg;
                         break;
 
                 case 'p': {
@@ -541,8 +551,8 @@ static int setup_keys(void) {
                 fprintf(stderr,
                         "\n"
                         "The new key pair has been generated. The evolving key has been written to the\n"
-                        "following file. It will be used to protect local journal files. This file does\n"
-                        "not need to be kept secret. It should not be used on multiple hosts.\n"
+                        "following file. It will be used to protect local journal files. This file\n"
+                        "should be kept secret. It should not be used on multiple hosts.\n"
                         "\n"
                         "\t%s\n"
                         "\n"
@@ -591,7 +601,10 @@ static int verify(sd_journal *j) {
         HASHMAP_FOREACH(f, j->files, i) {
                 int k;
 
-                k = journal_file_verify(f, NULL);
+                if (!arg_verify_seed && journal_file_fsprg_enabled(f))
+                        log_warning("Journal file %s has authentication enabled but verification seed has not been passed using --verify-seed=.", f->path);
+
+                k = journal_file_verify(f, arg_verify_seed);
                 if (k < 0) {
                         log_warning("FAIL: %s (%s)", f->path, strerror(-k));
                         r = -r;
