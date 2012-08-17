@@ -45,6 +45,8 @@
  * */
 
 static int journal_file_object_verify(JournalFile *f, Object *o) {
+        uint64_t i;
+
         assert(f);
         assert(o);
 
@@ -87,11 +89,21 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
                 if (h1 != h2)
                         return -EBADMSG;
 
+                if (!VALID64(o->data.next_hash_offset) ||
+                    !VALID64(o->data.next_field_offset) ||
+                    !VALID64(o->data.entry_offset) ||
+                    !VALID64(o->data.entry_array_offset))
+                        return -EBADMSG;
+
                 break;
         }
 
         case OBJECT_FIELD:
                 if (le64toh(o->object.size) - offsetof(FieldObject, payload) <= 0)
+                        return -EBADMSG;
+
+                if (!VALID64(o->field.next_hash_offset) ||
+                    !VALID64(o->field.head_data_offset))
                         return -EBADMSG;
                 break;
 
@@ -105,6 +117,12 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
                 if (le64toh(o->entry.seqnum) <= 0 ||
                     le64toh(o->entry.realtime) <= 0)
                         return -EBADMSG;
+
+                for (i = 0; i < journal_file_entry_n_items(o); i++) {
+                        if (o->entry.items[i].object_offset == 0 ||
+                            !VALID64(o->entry.items[i].object_offset))
+                                return -EBADMSG;
+                }
 
                 break;
 
@@ -123,6 +141,9 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
                         return -EBADMSG;
 
                 if ((le64toh(o->object.size) - offsetof(EntryArrayObject, items)) / sizeof(le64_t) <= 0)
+                        return -EBADMSG;
+
+                if (!VALID64(o->entry_array.next_entry_array_offset))
                         return -EBADMSG;
 
                 break;

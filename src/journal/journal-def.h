@@ -140,9 +140,10 @@ union Object {
 };
 
 enum {
-        STATE_OFFLINE,
-        STATE_ONLINE,
-        STATE_ARCHIVED
+        STATE_OFFLINE = 0,
+        STATE_ONLINE = 1,
+        STATE_ARCHIVED = 2,
+        _STATE_MAX
 };
 
 /* Header flags */

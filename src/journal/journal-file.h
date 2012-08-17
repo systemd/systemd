@@ -117,6 +117,7 @@ int journal_file_open_reliably(
                 JournalFile **ret);
 
 #define ALIGN64(x) (((x) + 7ULL) & ~7ULL)
+#define VALID64(x) (((x) & 7ULL) == 0ULL)
 
 #define JOURNAL_HEADER_CONTAINS(h, field) \
         (le64toh((h)->header_size) >= offsetof(Header, field) + sizeof((h)->field))

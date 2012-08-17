@@ -203,6 +203,9 @@ static int journal_file_verify_header(JournalFile *f) {
 #endif
         }
 
+        if (f->header->state >= _STATE_MAX)
+                return -EBADMSG;
+
         /* The first addition was n_data, so check that we are at least this large */
         if (le64toh(f->header->header_size) < HEADER_SIZE_MIN)
                 return -EBADMSG;
@@ -211,7 +214,16 @@ static int journal_file_verify_header(JournalFile *f) {
                 !JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
                 return -EBADMSG;
 
-        if ((uint64_t) f->last_stat.st_size < (le64toh(f->header->header_size) + le64toh(f->header->arena_size)))
+        if ((le64toh(f->header->header_size) + le64toh(f->header->arena_size)) > (uint64_t) f->last_stat.st_size)
+                return -ENODATA;
+
+        if (le64toh(f->header->tail_object_offset) > (le64toh(f->header->header_size) + le64toh(f->header->arena_size)))
+                return -ENODATA;
+
+        if (!VALID64(f->header->data_hash_table_offset) ||
+            !VALID64(f->header->field_hash_table_offset) ||
+            !VALID64(f->header->tail_object_offset) ||
+            !VALID64(f->header->entry_array_offset))
                 return -ENODATA;
 
         if (f->writable) {
@@ -350,6 +362,10 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
 
         assert(f);
         assert(ret);
+
+        /* Objects may only be located at multiple of 64 bit */
+        if (!VALID64(offset))
+                return -EFAULT;
 
         /* One context for each type, plus one catch-all for the rest */
         context = type > 0 && type < _OBJECT_TYPE_MAX ? type : 0;
