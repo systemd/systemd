@@ -646,7 +646,7 @@ static int journal_file_parse_verification_key(JournalFile *f, const char *key) 
         f->fsprg_seed = seed;
         f->fsprg_seed_size = seed_size;
 
-        f->fss_start_usec = start;
+        f->fss_start_usec = start * interval;
         f->fss_interval_usec = interval;
 
         return 0;
@@ -655,7 +655,7 @@ static int journal_file_parse_verification_key(JournalFile *f, const char *key) 
 int journal_file_verify(JournalFile *f, const char *key) {
         int r;
         Object *o;
-        uint64_t p = 0, last_tag = 0, last_epoch = 0;
+        uint64_t p = 0, last_tag = 0, last_epoch = 0, last_tag_realtime = 0;
         uint64_t entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
         sd_id128_t entry_boot_id;
         bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
@@ -752,6 +752,12 @@ int journal_file_verify(JournalFile *f, const char *key) {
                         r = write_uint64(entry_fd, p);
                         if (r < 0)
                                 goto fail;
+
+                        if (last_tag_realtime > le64toh(o->entry.realtime)) {
+                                log_error("Older entry after newer tag at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
 
                         if (!entry_seqnum_set &&
                             le64toh(o->entry.seqnum) != le64toh(f->header->head_entry_seqnum)) {
@@ -866,6 +872,13 @@ int journal_file_verify(JournalFile *f, const char *key) {
 
                         if (le64toh(o->tag.epoch) < last_epoch) {
                                 log_error("Epoch sequence out of synchronization at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        last_tag_realtime = (o->tag.epoch + 1) * f->fss_interval_usec + f->fss_start_usec;
+                        if (entry_realtime_set && entry_realtime >= last_tag_realtime) {
+                                log_error("Tag/entry realtime timestamp out of synchronization at %llu", (unsigned long long) p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
