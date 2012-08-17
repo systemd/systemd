@@ -134,6 +134,19 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
                 if ((le64toh(o->object.size) - offsetof(HashTableObject, items)) / sizeof(HashItem) <= 0)
                         return -EBADMSG;
 
+                for (i = 0; i < journal_file_hash_table_n_items(o); i++) {
+                        if (o->hash_table.items[i].head_hash_offset != 0 &&
+                            !VALID64(le64toh(o->hash_table.items[i].head_hash_offset)))
+                                return -EBADMSG;
+                        if (o->hash_table.items[i].tail_hash_offset != 0 &&
+                            !VALID64(le64toh(o->hash_table.items[i].tail_hash_offset)))
+                                return -EBADMSG;
+
+                        if ((o->hash_table.items[i].head_hash_offset != 0) !=
+                            (o->hash_table.items[i].tail_hash_offset != 0))
+                                return -EBADMSG;
+                }
+
                 break;
 
         case OBJECT_ENTRY_ARRAY:
@@ -145,6 +158,11 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
 
                 if (!VALID64(o->entry_array.next_entry_array_offset))
                         return -EBADMSG;
+
+                for (i = 0; i < journal_file_entry_array_n_items(o); i++)
+                        if (o->entry_array.items[i] != 0 &&
+                            !VALID64(o->entry_array.items[i]))
+                                return -EBADMSG;
 
                 break;
 

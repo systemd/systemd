@@ -126,6 +126,7 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
 
 uint64_t journal_file_entry_n_items(Object *o);
 uint64_t journal_file_entry_array_n_items(Object *o);
+uint64_t journal_file_hash_table_n_items(Object *o);
 
 int journal_file_append_object(JournalFile *f, int type, uint64_t size, Object **ret, uint64_t *offset);
 int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqno, Object **ret, uint64_t *offset);

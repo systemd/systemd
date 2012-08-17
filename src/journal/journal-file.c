@@ -798,6 +798,14 @@ uint64_t journal_file_entry_array_n_items(Object *o) {
         return (le64toh(o->object.size) - offsetof(Object, entry_array.items)) / sizeof(uint64_t);
 }
 
+uint64_t journal_file_hash_table_n_items(Object *o) {
+        assert(o);
+        assert(o->object.type == OBJECT_DATA_HASH_TABLE ||
+               o->object.type == OBJECT_FIELD_HASH_TABLE);
+
+        return (le64toh(o->object.size) - offsetof(Object, hash_table.items)) / sizeof(HashItem);
+}
+
 static int link_entry_into_array(JournalFile *f,
                                  le64_t *first,
                                  le64_t *idx,
