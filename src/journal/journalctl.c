@@ -637,7 +637,7 @@ static int verify(sd_journal *j) {
                         log_warning("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
 #endif
 
-                k = journal_file_verify(f, arg_verify_key, &from, &to, &total);
+                k = journal_file_verify(f, arg_verify_key, &from, &to, &total, true);
                 if (k == -EINVAL) {
                         /* If the key was invalid give up right-away. */
                         return k;
@@ -648,7 +648,7 @@ static int verify(sd_journal *j) {
                         char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];
                         log_info("PASS: %s", f->path);
 
-                        if (journal_file_fss_enabled(f))
+                        if (arg_verify_key && journal_file_fss_enabled(f))
                                 log_info("=> Validated from %s to %s, %s missing",
                                          format_timestamp(a, sizeof(a), from),
                                          format_timestamp(b, sizeof(b), to),

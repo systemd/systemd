@@ -27,19 +27,55 @@
 #include "log.h"
 #include "journal-file.h"
 #include "journal-verify.h"
+#include "journal-authenticate.h"
 
 #define N_ENTRIES 6000
 #define RANDOM_RANGE 77
+
+static void bit_toggle(const char *fn, uint64_t p) {
+        uint8_t b;
+        ssize_t r;
+        int fd;
+
+        fd = open(fn, O_RDWR|O_CLOEXEC);
+        assert(fd >= 0);
+
+        r = pread(fd, &b, 1, p/8);
+        assert(r == 1);
+
+        b ^= 1 << (p % 8);
+
+        r = pwrite(fd, &b, 1, p/8);
+        assert(r == 1);
+
+        close_nointr_nofail(fd);
+}
+
+static int raw_verify(const char *fn, const char *verification_key) {
+        JournalFile *f;
+        int r;
+
+        r = journal_file_open(fn, O_RDONLY, 0666, true, true, NULL, NULL, NULL, &f);
+        if (r < 0)
+                return r;
+
+        r = journal_file_verify(f, verification_key, NULL, NULL, NULL, false);
+        journal_file_close(f);
+
+        return r;
+}
 
 int main(int argc, char *argv[]) {
         char t[] = "/tmp/journal-XXXXXX";
         unsigned n;
         JournalFile *f;
         const char *verification_key = argv[1];
-        usec_t from, to, total;
+        usec_t from = 0, to = 0, total = 0;
         char a[FORMAT_TIMESTAMP_MAX];
         char b[FORMAT_TIMESTAMP_MAX];
         char c[FORMAT_TIMESPAN_MAX];
+        struct stat st;
+        uint64_t p;
 
         log_set_max_level(LOG_DEBUG);
 
@@ -71,18 +107,35 @@ int main(int argc, char *argv[]) {
 
         log_info("Verifying...");
 
-        assert_se(journal_file_open("test.journal", O_RDONLY, 0666, false, false, NULL, NULL, NULL, &f) == 0);
-
+        assert_se(journal_file_open("test.journal", O_RDONLY, 0666, true, true, NULL, NULL, NULL, &f) == 0);
         journal_file_print_header(f);
 
-        assert_se(journal_file_verify(f, verification_key, &from, &to, &total) >= 0);
+        assert_se(journal_file_verify(f, verification_key, &from, &to, &total, true) >= 0);
 
-        log_info("=> Validated from %s to %s, %s missing",
-                 format_timestamp(a, sizeof(a), from),
-                 format_timestamp(b, sizeof(b), to),
-                 format_timespan(c, sizeof(c), total > to ? total - to : 0));
-
+        if (verification_key && journal_file_fss_enabled(f)) {
+                log_info("=> Validated from %s to %s, %s missing",
+                         format_timestamp(a, sizeof(a), from),
+                         format_timestamp(b, sizeof(b), to),
+                         format_timespan(c, sizeof(c), total > to ? total - to : 0));
+        }
         journal_file_close(f);
+
+        log_info("Toggling bits...");
+
+        assert_se(stat("test.journal", &st) >= 0);
+
+        for (p = 240*8; p < ((uint64_t) st.st_size * 8); p ++) {
+                bit_toggle("test.journal", p);
+
+                log_info("[ %llu+%llu]", (unsigned long long) p / 8, (unsigned long long) p % 8);
+
+                if (raw_verify("test.journal", verification_key) >= 0) {
+                        log_notice(ANSI_HIGHLIGHT_RED_ON ">>>> %llu (bit %llu) can be toggled without detection." ANSI_HIGHLIGHT_OFF, (unsigned long long) p / 8, (unsigned long long) p % 8);
+                        sleep(1);
+                }
+
+                bit_toggle("test.journal", p);
+        }
 
         log_info("Exiting...");
 

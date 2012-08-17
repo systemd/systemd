@@ -394,7 +394,8 @@ static int verify_hash_table(
                 int data_fd, uint64_t n_data,
                 int entry_fd, uint64_t n_entries,
                 int entry_array_fd, uint64_t n_entry_arrays,
-                usec_t *last_usec) {
+                usec_t *last_usec,
+                bool show_progress) {
 
         uint64_t i, n;
         int r;
@@ -409,7 +410,8 @@ static int verify_hash_table(
         for (i = 0; i < n; i++) {
                 uint64_t last = 0, p;
 
-                draw_progress(0xC000 + (0x3FFF * i / n), last_usec);
+                if (show_progress)
+                        draw_progress(0xC000 + (0x3FFF * i / n), last_usec);
 
                 p = le64toh(f->data_hash_table[i].head_hash_offset);
                 while (p != 0) {
@@ -535,7 +537,8 @@ static int verify_entry_array(
                 int data_fd, uint64_t n_data,
                 int entry_fd, uint64_t n_entries,
                 int entry_array_fd, uint64_t n_entry_arrays,
-                usec_t *last_usec) {
+                usec_t *last_usec,
+                bool show_progress) {
 
         uint64_t i = 0, a, n, last = 0;
         int r;
@@ -552,7 +555,8 @@ static int verify_entry_array(
                 uint64_t next, m, j;
                 Object *o;
 
-                draw_progress(0x8000 + (0x3FFF * i / n), last_usec);
+                if (show_progress)
+                        draw_progress(0x8000 + (0x3FFF * i / n), last_usec);
 
                 if (a == 0) {
                         log_error("Array chain too short at %llu of %llu",
@@ -674,7 +678,8 @@ static int journal_file_parse_verification_key(JournalFile *f, const char *key) 
 int journal_file_verify(
                 JournalFile *f,
                 const char *key,
-                usec_t *first_validated, usec_t *last_validated, usec_t *last_contained) {
+                usec_t *first_validated, usec_t *last_validated, usec_t *last_contained,
+                bool show_progress) {
         int r;
         Object *o;
         uint64_t p = 0, last_tag = 0, last_epoch = 0, last_tag_realtime = 0;
@@ -728,7 +733,8 @@ int journal_file_verify(
 
         p = le64toh(f->header->header_size);
         while (p != 0) {
-                draw_progress(0x7FFF * p / le64toh(f->header->tail_object_offset), &last_usec);
+                if (show_progress)
+                        draw_progress(0x7FFF * p / le64toh(f->header->tail_object_offset), &last_usec);
 
                 r = journal_file_move_to_object(f, -1, p, &o);
                 if (r < 0) {
@@ -890,8 +896,6 @@ int journal_file_verify(
                                 r = -EBADMSG;
                                 goto fail;
                         }
-
-                        log_debug("Checking tag %llu..", (unsigned long long) le64toh(o->tag.seqnum));
 
                         if (le64toh(o->tag.seqnum) != n_tags + 1) {
                                 log_error("Tag sequence number out of synchronization at %llu", (unsigned long long) p);
@@ -1070,7 +1074,8 @@ int journal_file_verify(
                                data_fd, n_data,
                                entry_fd, n_entries,
                                entry_array_fd, n_entry_arrays,
-                               &last_usec);
+                               &last_usec,
+                               show_progress);
         if (r < 0)
                 goto fail;
 
@@ -1078,11 +1083,13 @@ int journal_file_verify(
                               data_fd, n_data,
                               entry_fd, n_entries,
                               entry_array_fd, n_entry_arrays,
-                              &last_usec);
+                              &last_usec,
+                              show_progress);
         if (r < 0)
                 goto fail;
 
-        flush_progress();
+        if (show_progress)
+                flush_progress();
 
         mmap_cache_close_fd(f->mmap, data_fd);
         mmap_cache_close_fd(f->mmap, entry_fd);
@@ -1102,7 +1109,8 @@ int journal_file_verify(
         return 0;
 
 fail:
-        flush_progress();
+        if (show_progress)
+                flush_progress();
 
         log_error("File corruption detected at %s:%llu (of %llu, %llu%%).",
                   f->path,
