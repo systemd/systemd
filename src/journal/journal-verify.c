@@ -692,6 +692,8 @@ int journal_file_verify(
         char data_path[] = "/var/tmp/journal-data-XXXXXX",
                 entry_path[] = "/var/tmp/journal-entry-XXXXXX",
                 entry_array_path[] = "/var/tmp/journal-entry-array-XXXXXX";
+        unsigned i;
+        bool found_last;
 
         assert(f);
 
@@ -728,6 +730,24 @@ int journal_file_verify(
         }
         unlink(entry_array_path);
 
+#ifdef HAVE_GCRYPT
+        if ((le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_SEALED) != 0)
+#else
+        if (f->header->compatible_flags != 0)
+#endif
+        {
+                log_error("Cannot verify file with unknown extensions.");
+                r = -ENOTSUP;
+                goto fail;
+        }
+
+        for (i = 0; i < sizeof(f->header->reserved); i++)
+                if (f->header->reserved[i] != 0) {
+                        log_error("Reserved field in non-zero.");
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
         /* First iteration: we go through all objects, verify the
          * superficial structure, headers, hashes. */
 
@@ -742,11 +762,14 @@ int journal_file_verify(
                         goto fail;
                 }
 
-                if (le64toh(f->header->tail_object_offset) < p) {
+                if (p > le64toh(f->header->tail_object_offset)) {
                         log_error("Invalid tail object pointer");
                         r = -EBADMSG;
                         goto fail;
                 }
+
+                if (p == le64toh(f->header->tail_object_offset))
+                        found_last = true;
 
                 n_objects ++;
 
@@ -981,6 +1004,12 @@ int journal_file_verify(
                         p = 0;
                 else
                         p = p + ALIGN64(le64toh(o->object.size));
+        }
+
+        if (!found_last) {
+                log_error("Tail object pointer dead");
+                r = -EBADMSG;
+                goto fail;
         }
 
         if (n_objects != le64toh(f->header->n_objects)) {
