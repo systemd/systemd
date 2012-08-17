@@ -65,7 +65,7 @@ void journal_file_close(JournalFile *f) {
         assert(f);
 
         /* Write the final tag */
-        if (f->seal)
+        if (f->seal && f->writable)
                 journal_file_append_tag(f);
 
         /* Sync everything to disk, before we mark the file offline */
@@ -252,7 +252,9 @@ static int journal_file_verify_header(JournalFile *f) {
         }
 
         f->compress = !!(le32toh(f->header->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED);
-        f->seal = !!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED);
+
+        if (f->writable)
+                f->seal = !!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED);
 
         return 0;
 }

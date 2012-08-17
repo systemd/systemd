@@ -696,7 +696,8 @@ int journal_file_verify(
                         log_error("Failed to parse seed.");
                         return r;
                 }
-        }
+        } else if (f->seal)
+                return -ENOKEY;
 
         data_fd = mkostemp(data_path, O_CLOEXEC);
         if (data_fd < 0) {
@@ -904,60 +905,65 @@ int journal_file_verify(
                                 goto fail;
                         }
 
-                        rt = (o->tag.epoch + 1) * f->fss_interval_usec + f->fss_start_usec;
-                        if (entry_realtime_set && entry_realtime >= rt) {
-                                log_error("Tag/entry realtime timestamp out of synchronization at %llu", (unsigned long long) p);
-                                r = -EBADMSG;
-                                goto fail;
-                        }
+                        if (f->seal) {
+                                log_debug("Checking tag %llu..", (unsigned long long) le64toh(o->tag.seqnum));
 
-                        /* OK, now we know the epoch. So let's now set
-                         * it, and calculate the HMAC for everything
-                         * since the last tag. */
-                        r = journal_file_fsprg_seek(f, le64toh(o->tag.epoch));
-                        if (r < 0)
-                                goto fail;
+                                rt = (o->tag.epoch + 1) * f->fss_interval_usec + f->fss_start_usec;
+                                if (entry_realtime_set && entry_realtime >= rt) {
+                                        log_error("Tag/entry realtime timestamp out of synchronization at %llu", (unsigned long long) p);
+                                        r = -EBADMSG;
+                                        goto fail;
+                                }
 
-                        r = journal_file_hmac_start(f);
-                        if (r < 0)
-                                goto fail;
-
-                        if (last_tag == 0) {
-                                r = journal_file_hmac_put_header(f);
+                                /* OK, now we know the epoch. So let's now set
+                                 * it, and calculate the HMAC for everything
+                                 * since the last tag. */
+                                r = journal_file_fsprg_seek(f, le64toh(o->tag.epoch));
                                 if (r < 0)
                                         goto fail;
 
-                                q = le64toh(f->header->header_size);
-                        } else
-                                q = last_tag;
-
-                        while (q <= p) {
-                                r = journal_file_move_to_object(f, -1, q, &o);
+                                r = journal_file_hmac_start(f);
                                 if (r < 0)
                                         goto fail;
 
-                                r = journal_file_hmac_put_object(f, -1, q);
+                                if (last_tag == 0) {
+                                        r = journal_file_hmac_put_header(f);
+                                        if (r < 0)
+                                                goto fail;
+
+                                        q = le64toh(f->header->header_size);
+                                } else
+                                        q = last_tag;
+
+                                while (q <= p) {
+                                        r = journal_file_move_to_object(f, -1, q, &o);
+                                        if (r < 0)
+                                                goto fail;
+
+                                        r = journal_file_hmac_put_object(f, -1, q);
+                                        if (r < 0)
+                                                goto fail;
+
+                                        q = q + ALIGN64(le64toh(o->object.size));
+                                }
+
+                                /* Position might have changed, let's reposition things */
+                                r = journal_file_move_to_object(f, -1, p, &o);
                                 if (r < 0)
                                         goto fail;
 
-                                q = q + ALIGN64(le64toh(o->object.size));
+                                if (memcmp(o->tag.tag, gcry_md_read(f->hmac, 0), TAG_LENGTH) != 0) {
+                                        log_error("Tag failed verification at %llu", (unsigned long long) p);
+                                        r = -EBADMSG;
+                                        goto fail;
+                                }
+
+                                f->hmac_running = false;
+                                last_tag_realtime = rt;
                         }
-
-                        /* Position might have changed, let's reposition things */
-                        r = journal_file_move_to_object(f, -1, p, &o);
-                        if (r < 0)
-                                goto fail;
-
-                        if (memcmp(o->tag.tag, gcry_md_read(f->hmac, 0), TAG_LENGTH) != 0) {
-                                log_error("Tag failed verification at %llu", (unsigned long long) p);
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        f->hmac_running = false;
 
                         last_tag = p + ALIGN64(le64toh(o->object.size));
-                        last_tag_realtime = rt;
+                        last_epoch = le64toh(o->tag.epoch);
 
                         n_tags ++;
                         break;
@@ -1087,7 +1093,7 @@ int journal_file_verify(
         close_nointr_nofail(entry_array_fd);
 
         if (first_validated)
-                *first_validated = le64toh(f->header->head_entry_realtime);
+                *first_validated = last_tag_realtime ? le64toh(f->header->head_entry_realtime) : 0;
         if (last_validated)
                 *last_validated = last_tag_realtime;
         if (last_contained)
