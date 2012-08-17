@@ -30,6 +30,8 @@
 #include <time.h>
 #include <getopt.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <linux/fs.h>
 
 #include <systemd/sd-journal.h>
 
@@ -453,7 +455,7 @@ static int setup_keys(void) {
         size_t mpk_size, seed_size, state_size, i;
         uint8_t *mpk, *seed, *state;
         ssize_t l;
-        int fd = -1, r;
+        int fd = -1, r, attr = 0;
         sd_id128_t machine, boot;
         char *p = NULL, *k = NULL;
         struct FSSHeader h;
@@ -529,6 +531,16 @@ static int setup_keys(void) {
                 r = -errno;
                 goto finish;
         }
+
+        /* Enable secure remove, exclusion from dump, synchronous
+         * writing and in-place updating */
+        if (ioctl(fd, FS_IOC_GETFLAGS, &attr) < 0)
+                log_warning("FS_IOC_GETFLAGS failed: %m");
+
+        attr |= FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL;
+
+        if (ioctl(fd, FS_IOC_SETFLAGS, &attr) < 0)
+                log_warning("FS_IOC_SETFLAGS failed: %m");
 
         zero(h);
         memcpy(h.signature, "KSHHRHLP", 8);
