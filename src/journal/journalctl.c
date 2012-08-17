@@ -618,21 +618,30 @@ static int verify(sd_journal *j) {
 
         HASHMAP_FOREACH(f, j->files, i) {
                 int k;
+                usec_t from, to, total;
 
 #ifdef HAVE_GCRYPT
                 if (!arg_verify_key && journal_file_fss_enabled(f))
                         log_warning("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
 #endif
 
-                k = journal_file_verify(f, arg_verify_key);
+                k = journal_file_verify(f, arg_verify_key, &from, &to, &total);
                 if (k == -EINVAL) {
                         /* If the key was invalid give up right-away. */
                         return k;
                 } else if (k < 0) {
                         log_warning("FAIL: %s (%s)", f->path, strerror(-k));
                         r = k;
-                } else
+                } else {
+                        char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];
                         log_info("PASS: %s", f->path);
+
+                        if (journal_file_fss_enabled(f))
+                                log_info("=> Validated from %s to %s, %s missing",
+                                         format_timestamp(a, sizeof(a), from),
+                                         format_timestamp(b, sizeof(b), to),
+                                         format_timespan(c, sizeof(c), total > to ? total - to : 0));
+                }
         }
 
         return r;

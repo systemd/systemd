@@ -36,6 +36,10 @@ int main(int argc, char *argv[]) {
         unsigned n;
         JournalFile *f;
         const char *verification_key = argv[1];
+        usec_t from, to, total;
+        char a[FORMAT_TIMESTAMP_MAX];
+        char b[FORMAT_TIMESTAMP_MAX];
+        char c[FORMAT_TIMESPAN_MAX];
 
         log_set_max_level(LOG_DEBUG);
 
@@ -71,7 +75,13 @@ int main(int argc, char *argv[]) {
 
         journal_file_print_header(f);
 
-        assert_se(journal_file_verify(f, verification_key) >= 0);
+        assert_se(journal_file_verify(f, verification_key, &from, &to, &total) >= 0);
+
+        log_info("=> Validated from %s to %s, %s missing",
+                 format_timestamp(a, sizeof(a), from),
+                 format_timestamp(b, sizeof(b), to),
+                 format_timespan(c, sizeof(c), total > to ? total - to : 0));
+
         journal_file_close(f);
 
         log_info("Exiting...");

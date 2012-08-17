@@ -36,8 +36,6 @@
 /* FIXME:
  *
  * - write bit mucking test
- * - tag timestamps should be between entry timestamps
- * - output validated time ranges
  * - evolve key even if nothing happened in regular intervals
  *
  * - Allow building without libgcrypt
@@ -652,7 +650,10 @@ static int journal_file_parse_verification_key(JournalFile *f, const char *key) 
         return 0;
 }
 
-int journal_file_verify(JournalFile *f, const char *key) {
+int journal_file_verify(
+                JournalFile *f,
+                const char *key,
+                usec_t *first_validated, usec_t *last_validated, usec_t *last_contained) {
         int r;
         Object *o;
         uint64_t p = 0, last_tag = 0, last_epoch = 0, last_tag_realtime = 0;
@@ -749,6 +750,12 @@ int journal_file_verify(JournalFile *f, const char *key) {
                         break;
 
                 case OBJECT_ENTRY:
+                        if ((le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED) && n_tags <= 0) {
+                                log_error("First entry before first tag at %llu", (unsigned long long) p);
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
                         r = write_uint64(entry_fd, p);
                         if (r < 0)
                                 goto fail;
@@ -854,7 +861,7 @@ int journal_file_verify(JournalFile *f, const char *key) {
                         break;
 
                 case OBJECT_TAG: {
-                        uint64_t q;
+                        uint64_t q, rt;
 
                         if (!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED)) {
                                 log_error("Tag object in file without sealing at %llu", (unsigned long long) p);
@@ -876,8 +883,8 @@ int journal_file_verify(JournalFile *f, const char *key) {
                                 goto fail;
                         }
 
-                        last_tag_realtime = (o->tag.epoch + 1) * f->fss_interval_usec + f->fss_start_usec;
-                        if (entry_realtime_set && entry_realtime >= last_tag_realtime) {
+                        rt = (o->tag.epoch + 1) * f->fss_interval_usec + f->fss_start_usec;
+                        if (entry_realtime_set && entry_realtime >= rt) {
                                 log_error("Tag/entry realtime timestamp out of synchronization at %llu", (unsigned long long) p);
                                 r = -EBADMSG;
                                 goto fail;
@@ -929,6 +936,8 @@ int journal_file_verify(JournalFile *f, const char *key) {
                         f->hmac_running = false;
 
                         last_tag = p + ALIGN64(le64toh(o->object.size));
+                        last_tag_realtime = rt;
+
                         n_tags ++;
                         break;
                 }
@@ -1055,6 +1064,13 @@ int journal_file_verify(JournalFile *f, const char *key) {
         close_nointr_nofail(data_fd);
         close_nointr_nofail(entry_fd);
         close_nointr_nofail(entry_array_fd);
+
+        if (first_validated)
+                *first_validated = le64toh(f->header->head_entry_realtime);
+        if (last_validated)
+                *last_validated = last_tag_realtime;
+        if (last_contained)
+                *last_contained = le64toh(f->header->tail_entry_realtime);
 
         return 0;
 
