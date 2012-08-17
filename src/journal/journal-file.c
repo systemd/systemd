@@ -1957,7 +1957,8 @@ int journal_file_open(
             (flags & O_ACCMODE) != O_RDWR)
                 return -EINVAL;
 
-        if (!endswith(fname, ".journal"))
+        if (!endswith(fname, ".journal") &&
+            !endswith(fname, ".journal~"))
                 return -EINVAL;
 
         f = new0(JournalFile, 1);
