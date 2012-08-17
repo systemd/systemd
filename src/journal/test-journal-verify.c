@@ -68,6 +68,9 @@ int main(int argc, char *argv[]) {
         log_info("Verifying...");
 
         assert_se(journal_file_open("test.journal", O_RDONLY, 0666, false, false, NULL, NULL, NULL, &f) == 0);
+
+        journal_file_print_header(f);
+
         assert_se(journal_file_verify(f, verification_key) >= 0);
         journal_file_close(f);
 

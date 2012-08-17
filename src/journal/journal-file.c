@@ -1885,21 +1885,21 @@ void journal_file_print_header(JournalFile *f) {
                "Arena size: %llu\n"
                "Data Hash Table Size: %llu\n"
                "Field Hash Table Size: %llu\n"
-               "Objects: %llu\n"
-               "Entry Objects: %llu\n"
                "Rotate Suggested: %s\n"
                "Head Sequential Number: %llu\n"
                "Tail Sequential Number: %llu\n"
                "Head Realtime Timestamp: %s\n"
-               "Tail Realtime Timestamp: %s\n",
+               "Tail Realtime Timestamp: %s\n"
+               "Objects: %llu\n"
+               "Entry Objects: %llu\n",
                f->path,
                sd_id128_to_string(f->header->file_id, a),
                sd_id128_to_string(f->header->machine_id, b),
                sd_id128_to_string(f->header->boot_id, c),
                sd_id128_to_string(f->header->seqnum_id, c),
-               f->header->state == STATE_OFFLINE ? "offline" :
-               f->header->state == STATE_ONLINE ? "online" :
-               f->header->state == STATE_ARCHIVED ? "archived" : "unknown",
+               f->header->state == STATE_OFFLINE ? "OFFLINE" :
+               f->header->state == STATE_ONLINE ? "ONLINE" :
+               f->header->state == STATE_ARCHIVED ? "ARCHIVED" : "UNKNOWN",
                (f->header->compatible_flags & HEADER_COMPATIBLE_SEALED) ? " SEALED" : "",
                (f->header->compatible_flags & ~HEADER_COMPATIBLE_SEALED) ? " ???" : "",
                (f->header->incompatible_flags & HEADER_INCOMPATIBLE_COMPRESSED) ? " COMPRESSED" : "",
@@ -1908,13 +1908,13 @@ void journal_file_print_header(JournalFile *f) {
                (unsigned long long) le64toh(f->header->arena_size),
                (unsigned long long) le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
                (unsigned long long) le64toh(f->header->field_hash_table_size) / sizeof(HashItem),
-               (unsigned long long) le64toh(f->header->n_objects),
-               (unsigned long long) le64toh(f->header->n_entries),
                yes_no(journal_file_rotate_suggested(f)),
                (unsigned long long) le64toh(f->header->head_entry_seqnum),
                (unsigned long long) le64toh(f->header->tail_entry_seqnum),
                format_timestamp(x, sizeof(x), le64toh(f->header->head_entry_realtime)),
-               format_timestamp(y, sizeof(y), le64toh(f->header->tail_entry_realtime)));
+               format_timestamp(y, sizeof(y), le64toh(f->header->tail_entry_realtime)),
+               (unsigned long long) le64toh(f->header->n_objects),
+               (unsigned long long) le64toh(f->header->n_entries));
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
                 printf("Data Objects: %llu\n"
@@ -1927,6 +1927,13 @@ void journal_file_print_header(JournalFile *f) {
                        "Field Hash Table Fill: %.1f%%\n",
                        (unsigned long long) le64toh(f->header->n_fields),
                        100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))));
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_tags))
+                printf("Tag Objects: %llu\n",
+                       (unsigned long long) le64toh(f->header->n_tags));
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
+                printf("Entry Array Objects: %llu\n",
+                       (unsigned long long) le64toh(f->header->n_entry_arrays));
 }
 
 int journal_file_open(

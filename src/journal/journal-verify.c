@@ -38,7 +38,7 @@
  * - write bit mucking test
  * - tag timestamps should be between entry timestamps
  * - output validated time ranges
- * - add missing fields to journal header dump
+ * - evolve key even if nothing happened in regular intervals
  *
  * - Allow building without libgcrypt
  * - check with sparse
