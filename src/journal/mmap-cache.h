@@ -25,7 +25,7 @@
 
 typedef struct MMapCache MMapCache;
 
-MMapCache* mmap_cache_new(unsigned contexts_max, unsigned fds_max);
+MMapCache* mmap_cache_new(void);
 MMapCache* mmap_cache_ref(MMapCache *m);
 MMapCache* mmap_cache_unref(MMapCache *m);
 

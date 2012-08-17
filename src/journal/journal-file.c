@@ -2003,10 +2003,7 @@ int journal_file_open(
         if (mmap_cache)
                 f->mmap = mmap_cache_ref(mmap_cache);
         else {
-                /* One context for each type, plus the zeroth catchall
-                 * context. One fd for the file plus one for each type
-                 * (which we need during verification */
-                f->mmap = mmap_cache_new(_OBJECT_TYPE_MAX, 1 + _OBJECT_TYPE_MAX);
+                f->mmap = mmap_cache_new();
                 if (!f->mmap) {
                         r = -ENOMEM;
                         goto fail;

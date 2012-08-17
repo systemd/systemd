@@ -2794,7 +2794,7 @@ static int server_init(Server *s) {
         if (!s->user_journals)
                 return log_oom();
 
-        s->mmap = mmap_cache_new(_OBJECT_TYPE_MAX, USER_JOURNALS_MAX + 2);
+        s->mmap = mmap_cache_new();
         if (!s->mmap)
                 return log_oom();
 

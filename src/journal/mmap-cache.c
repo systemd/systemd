@@ -30,7 +30,10 @@
 #include "mmap-cache.h"
 
 #define WINDOW_SIZE (8ULL*1024ULL*1024ULL)
-#define WINDOWS_MAX 32
+
+#define DEFAULT_WINDOWS_MAX 64
+#define DEFAULT_FDS_MAX 32
+#define DEFAULT_CONTEXTS_MAX 32
 
 typedef struct Window {
         int fd;
@@ -236,19 +239,16 @@ static void mmap_cache_free(MMapCache *m) {
         free(m);
 }
 
-MMapCache* mmap_cache_new(unsigned contexts_max, unsigned fds_max) {
+MMapCache* mmap_cache_new(void) {
         MMapCache *m;
-
-        assert(contexts_max > 0);
-        assert(fds_max > 0);
 
         m = new0(MMapCache, 1);
         if (!m)
                 return NULL;
 
-        m->contexts_max = contexts_max;
-        m->fds_max = fds_max;
-        m->windows_max = MAX(m->contexts_max, WINDOWS_MAX);
+        m->contexts_max = DEFAULT_CONTEXTS_MAX;
+        m->fds_max = DEFAULT_FDS_MAX;
+        m->windows_max = DEFAULT_WINDOWS_MAX;
         m->n_ref = 1;
         m->lru_first = (unsigned) -1;
         m->lru_last = (unsigned) -1;
@@ -465,8 +465,18 @@ static int mmap_cache_get_fd_index(MMapCache *m, int fd, unsigned *fd_index) {
         if (r != 0)
                 return r;
 
-        if (m->n_fds >= m->fds_max)
-                return -E2BIG;
+        if (m->n_fds >= m->fds_max) {
+                unsigned k;
+                FileDescriptor *n;
+
+                k = m->n_fds * 2;
+                n = realloc(m->by_fd, sizeof(FileDescriptor) * k);
+                if (!n)
+                        return -ENOMEM;
+
+                m->fds_max = k;
+                m->by_fd = n;
+        }
 
         j = m->by_fd + m->n_fds ++;
         j->fd = fd;
@@ -580,9 +590,32 @@ int mmap_cache_get(
 
         assert(m);
         assert(fd >= 0);
-        assert(context < m->contexts_max);
         assert(size > 0);
         assert(ret);
+
+        if (context >= m->contexts_max) {
+                unsigned k, *n;
+                Window *w;
+
+                /* Increase the number of contexts if necessary, and
+                 * make sure we have twice the number of windows */
+
+                k = context * 2;
+                n = realloc(m->by_context, sizeof(unsigned) * k);
+                if (!n)
+                        return -ENOMEM;
+                memset(n + m->contexts_max, -1, (k - m->contexts_max) * sizeof(unsigned));
+                m->contexts_max = k;
+                m->by_context = n;
+
+                k = MAX(m->windows_max, m->contexts_max*2);
+                w = realloc(m->windows, sizeof(Window) * k);
+                if (!w)
+                        return -ENOMEM;
+
+                m->windows_max = k;
+                m->windows = w;
+        }
 
         /* Maybe the current pointer for this context is already the
          * right one? */

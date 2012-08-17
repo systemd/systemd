@@ -1439,10 +1439,7 @@ static sd_journal *journal_new(int flags, const char *path) {
                 return NULL;
         }
 
-        /* One context for each type, plus the zeroth catchall
-         * context. One fd for each file plus one for each type, which
-         * is need when verifying things */
-        j->mmap = mmap_cache_new(_OBJECT_TYPE_MAX, JOURNAL_FILES_MAX + _OBJECT_TYPE_MAX);
+        j->mmap = mmap_cache_new();
         if (!j->mmap) {
                 hashmap_free(j->files);
                 hashmap_free(j->directories_by_path);
