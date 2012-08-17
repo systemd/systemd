@@ -289,7 +289,7 @@ static int entry_points_to_data(
                         if (le64toh(o->entry_array.items[j]) == entry_p)
                                 return 0;
 
-                a = le64toh(o->entry_array.next_entry_array_offset);;
+                a = le64toh(o->entry_array.next_entry_array_offset);
         }
 
         return 0;
@@ -325,12 +325,12 @@ static int verify_data(
                 uint64_t next, m, j;
 
                 if (a == 0) {
-                        log_error("Array chain too short at %llu.", (unsigned long long) p);
+                        log_error("Array chain too short at %llu", (unsigned long long) p);
                         return -EBADMSG;
                 }
 
                 if (!contains_uint64(f->mmap, entry_array_fd, n_entry_arrays, a)) {
-                        log_error("Invalid array at %llu.", (unsigned long long) p);
+                        log_error("Invalid array at %llu", (unsigned long long) p);
                         return -EBADMSG;
                 }
 
@@ -340,7 +340,7 @@ static int verify_data(
 
                 next = le64toh(o->entry_array.next_entry_array_offset);
                 if (next != 0 && next <= a) {
-                        log_error("Array chain has cycle at %llu.", (unsigned long long) p);
+                        log_error("Array chain has cycle at %llu", (unsigned long long) p);
                         return -EBADMSG;
                 }
 
@@ -349,7 +349,7 @@ static int verify_data(
 
                         q = le64toh(o->entry_array.items[j]);
                         if (q <= last) {
-                                log_error("Data object's entry array not sorted at %llu.", (unsigned long long) p);
+                                log_error("Data object's entry array not sorted at %llu", (unsigned long long) p);
                                 return -EBADMSG;
                         }
                         last = q;
@@ -398,7 +398,7 @@ static int verify_hash_table(
                         uint64_t next;
 
                         if (!contains_uint64(f->mmap, data_fd, n_data, p)) {
-                                log_error("Invalid data object at hash entry %llu of %llu.",
+                                log_error("Invalid data object at hash entry %llu of %llu",
                                           (unsigned long long) i, (unsigned long long) n);
                                 return -EBADMSG;
                         }
@@ -409,13 +409,13 @@ static int verify_hash_table(
 
                         next = le64toh(o->data.next_hash_offset);
                         if (next != 0 && next <= p) {
-                                log_error("Hash chain has a cycle in hash entry %llu of %llu.",
+                                log_error("Hash chain has a cycle in hash entry %llu of %llu",
                                           (unsigned long long) i, (unsigned long long) n);
                                 return -EBADMSG;
                         }
 
                         if (le64toh(o->data.hash) % n != i) {
-                                log_error("Hash value mismatch in hash entry %llu of %llu.",
+                                log_error("Hash value mismatch in hash entry %llu of %llu",
                                           (unsigned long long) i, (unsigned long long) n);
                                 return -EBADMSG;
                         }
@@ -429,7 +429,7 @@ static int verify_hash_table(
                 }
 
                 if (last != le64toh(f->data_hash_table[i].tail_hash_offset)) {
-                        log_error("Tail hash pointer mismatch in hash table.");
+                        log_error("Tail hash pointer mismatch in hash table");
                         return -EBADMSG;
                 }
         }
@@ -483,8 +483,8 @@ static int verify_entry(
                 h = le64toh(o->entry.items[i].hash);
 
                 if (!contains_uint64(f->mmap, data_fd, n_data, q)) {
-                        log_error("Invalid data object at entry %llu.",
-                                  (unsigned long long) o);
+                        log_error("Invalid data object at entry %llu",
+                                  (unsigned long long) p);
                                 return -EBADMSG;
                         }
 
@@ -493,7 +493,7 @@ static int verify_entry(
                         return r;
 
                 if (le64toh(u->data.hash) != h) {
-                        log_error("Hash mismatch for data object at entry %llu.",
+                        log_error("Hash mismatch for data object at entry %llu",
                                   (unsigned long long) p);
                         return -EBADMSG;
                 }
@@ -502,7 +502,7 @@ static int verify_entry(
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        log_error("Data object missing from hash at entry %llu.",
+                        log_error("Data object missing from hash at entry %llu",
                                   (unsigned long long) p);
                         return -EBADMSG;
                 }
@@ -536,13 +536,13 @@ static int verify_entry_array(
                 draw_progress(0x8000 + (0x3FFF * i / n), last_usec);
 
                 if (a == 0) {
-                        log_error("Array chain too short at %llu of %llu.",
+                        log_error("Array chain too short at %llu of %llu",
                                   (unsigned long long) i, (unsigned long long) n);
                         return -EBADMSG;
                 }
 
                 if (!contains_uint64(f->mmap, entry_array_fd, n_entry_arrays, a)) {
-                        log_error("Invalid array at %llu of %llu.",
+                        log_error("Invalid array at %llu of %llu",
                                   (unsigned long long) i, (unsigned long long) n);
                         return -EBADMSG;
                 }
@@ -553,7 +553,7 @@ static int verify_entry_array(
 
                 next = le64toh(o->entry_array.next_entry_array_offset);
                 if (next != 0 && next <= a) {
-                        log_error("Array chain has cycle at %llu of %llu.",
+                        log_error("Array chain has cycle at %llu of %llu",
                                   (unsigned long long) i, (unsigned long long) n);
                         return -EBADMSG;
                 }
@@ -564,14 +564,14 @@ static int verify_entry_array(
 
                         p = le64toh(o->entry_array.items[j]);
                         if (p <= last) {
-                                log_error("Entry array not sorted at %llu of %llu.",
+                                log_error("Entry array not sorted at %llu of %llu",
                                           (unsigned long long) i, (unsigned long long) n);
                                 return -EBADMSG;
                         }
                         last = p;
 
                         if (!contains_uint64(f->mmap, entry_fd, n_entries, p)) {
-                                log_error("Invalid array entry at %llu of %llu.",
+                                log_error("Invalid array entry at %llu of %llu",
                                           (unsigned long long) i, (unsigned long long) n);
                                 return -EBADMSG;
                         }
@@ -714,7 +714,7 @@ int journal_file_verify(JournalFile *f, const char *key) {
                 }
 
                 if (le64toh(f->header->tail_object_offset) < p) {
-                        log_error("Invalid tail object pointer.");
+                        log_error("Invalid tail object pointer");
                         r = -EBADMSG;
                         goto fail;
                 }
@@ -729,7 +729,7 @@ int journal_file_verify(JournalFile *f, const char *key) {
 
                 if (o->object.flags & OBJECT_COMPRESSED &&
                     !(le32toh(f->header->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED)) {
-                        log_error("Compressed object without compression at %llu", (unsigned long long) p);
+                        log_error("Compressed object in file without compression at %llu", (unsigned long long) p);
                         r = -EBADMSG;
                         goto fail;
                 }
@@ -761,7 +761,7 @@ int journal_file_verify(JournalFile *f, const char *key) {
 
                         if (!entry_seqnum_set &&
                             le64toh(o->entry.seqnum) != le64toh(f->header->head_entry_seqnum)) {
-                                log_error("Head entry sequence number incorrect");
+                                log_error("Head entry sequence number incorrect at %llu", (unsigned long long) p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -810,7 +810,7 @@ int journal_file_verify(JournalFile *f, const char *key) {
 
                         if (le64toh(f->header->data_hash_table_offset) != p + offsetof(HashTableObject, items) ||
                             le64toh(f->header->data_hash_table_size) != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
-                                log_error("Header fields for data hash table invalid.");
+                                log_error("Header fields for data hash table invalid");
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -827,7 +827,7 @@ int journal_file_verify(JournalFile *f, const char *key) {
 
                         if (le64toh(f->header->field_hash_table_offset) != p + offsetof(HashTableObject, items) ||
                             le64toh(f->header->field_hash_table_size) != le64toh(o->object.size) - offsetof(HashTableObject, items)) {
-                                log_error("Header fields for field hash table invalid.");
+                                log_error("Header fields for field hash table invalid");
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -857,7 +857,7 @@ int journal_file_verify(JournalFile *f, const char *key) {
                         uint64_t q;
 
                         if (!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED)) {
-                                log_error("Tag object without sealing at %llu", (unsigned long long) p);
+                                log_error("Tag object in file without sealing at %llu", (unsigned long long) p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
