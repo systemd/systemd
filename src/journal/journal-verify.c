@@ -266,10 +266,14 @@ static int contains_uint64(MMapCache *m, int fd, uint64_t n, uint64_t p) {
                 if (*z == p)
                         return 1;
 
+                if (a + 1 >= b)
+                        return 0;
+
                 if (p < *z)
                         b = c;
-                else
+                else {
                         a = c;
+                }
         }
 
         return 0;
