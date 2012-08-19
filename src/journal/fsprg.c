@@ -160,7 +160,7 @@ static gcry_mpi_t twopowmodphi(uint64_t m, const gcry_mpi_t p) {
         gcry_mpi_sub_ui(phi, p, 1);
 
         /* count number of used bits in m */
-        for (n = 0; ((uint64_t)1 << n) <= m; n++)
+        for (n = 0; (1ULL << n) <= m; n++)
                 ;
 
         r = gcry_mpi_new(0);

@@ -119,6 +119,21 @@ int journal_file_open_reliably(
 #define ALIGN64(x) (((x) + 7ULL) & ~7ULL)
 #define VALID64(x) (((x) & 7ULL) == 0ULL)
 
+static inline bool VALID_REALTIME(uint64_t u) {
+        /* This considers timestamps until the year 3112 valid. That should be plenty room... */
+        return u > 0 && u < (1ULL << 55);
+}
+
+static inline bool VALID_MONOTONIC(uint64_t u) {
+        /* This considers timestamps until 1142 years of runtime valid. */
+        return u < (1ULL << 55);
+}
+
+static inline bool VALID_EPOCH(uint64_t u) {
+        /* This allows changing the key for 1142 years, every usec. */
+        return u < (1ULL << 55);
+}
+
 #define JOURNAL_HEADER_CONTAINS(h, field) \
         (le64toh((h)->header_size) >= offsetof(Header, field) + sizeof((h)->field))
 

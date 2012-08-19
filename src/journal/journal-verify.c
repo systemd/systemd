@@ -35,8 +35,8 @@
 
 /* FIXME:
  *
- * - write bit mucking test
  * - evolve key even if nothing happened in regular intervals
+ * - add macro for accessing flags
  *
  * - Allow building without libgcrypt
  * - check with sparse
@@ -115,7 +115,8 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
                         return -EBADMSG;
 
                 if (le64toh(o->entry.seqnum) <= 0 ||
-                    le64toh(o->entry.realtime) <= 0)
+                    !VALID_REALTIME(le64toh(o->entry.realtime)) ||
+                    !VALID_MONOTONIC(le64toh(o->entry.monotonic)))
                         return -EBADMSG;
 
                 for (i = 0; i < journal_file_entry_n_items(o); i++) {
@@ -169,6 +170,10 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
         case OBJECT_TAG:
                 if (le64toh(o->object.size) != sizeof(TagObject))
                         return -EBADMSG;
+
+                if (!VALID_EPOCH(o->tag.epoch))
+                        return -EBADMSG;
+
                 break;
         }
 
