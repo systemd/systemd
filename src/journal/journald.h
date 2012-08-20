@@ -68,6 +68,7 @@ typedef struct Server {
         JournalMetrics system_metrics;
 
         bool compress;
+        bool seal;
 
         bool forward_to_kmsg;
         bool forward_to_syslog;

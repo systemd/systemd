@@ -316,7 +316,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                 journal_file_close(f);
         }
 
-        r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, s->compress, false, &s->system_metrics, s->mmap, s->system_journal, &f);
+        r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, s->system_journal, &f);
         free(p);
 
         if (r < 0)
@@ -353,7 +353,7 @@ static void server_rotate(Server *s) {
         }
 
         if (s->system_journal) {
-                r = journal_file_rotate(&s->system_journal, s->compress, true);
+                r = journal_file_rotate(&s->system_journal, s->compress, s->seal);
                 if (r < 0)
                         if (s->system_journal)
                                 log_error("Failed to rotate %s: %s", s->system_journal->path, strerror(-r));
@@ -365,7 +365,7 @@ static void server_rotate(Server *s) {
         }
 
         HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
-                r = journal_file_rotate(&f, s->compress, false);
+                r = journal_file_rotate(&f, s->compress, s->seal);
                 if (r < 0)
                         if (f->path)
                                 log_error("Failed to rotate %s: %s", f->path, strerror(-r));
@@ -2007,7 +2007,7 @@ static int system_journal_open(Server *s) {
                 if (!fn)
                         return -ENOMEM;
 
-                r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, true, &s->system_metrics, s->mmap, NULL, &s->system_journal);
+                r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &s->system_journal);
                 free(fn);
 
                 if (r >= 0)
@@ -2771,6 +2771,7 @@ static int server_init(Server *s) {
         zero(*s);
         s->syslog_fd = s->native_fd = s->stdout_fd = s->signal_fd = s->epoll_fd = s->dev_kmsg_fd = -1;
         s->compress = true;
+        s->seal = true;
 
         s->rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
         s->rate_limit_burst = DEFAULT_RATE_LIMIT_BURST;

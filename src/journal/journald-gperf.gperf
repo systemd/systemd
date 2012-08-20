@@ -14,9 +14,11 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
+Journal.Storage,            config_parse_storage,   0, offsetof(Server, storage)
+Journal.Compress,           config_parse_bool,      0, offsetof(Server, compress)
+Journal.Seal,               config_parse_bool,      0, offsetof(Server, seal)
 Journal.RateLimitInterval,  config_parse_usec,      0, offsetof(Server, rate_limit_interval)
 Journal.RateLimitBurst,     config_parse_unsigned,  0, offsetof(Server, rate_limit_burst)
-Journal.Compress,           config_parse_bool,      0, offsetof(Server, compress)
 Journal.SystemMaxUse,       config_parse_bytes_off, 0, offsetof(Server, system_metrics.max_use)
 Journal.SystemMaxFileSize,  config_parse_bytes_off, 0, offsetof(Server, system_metrics.max_size)
 Journal.SystemMinFileSize,  config_parse_bytes_off, 0, offsetof(Server, system_metrics.min_size)
@@ -33,4 +35,3 @@ Journal.MaxLevelStore,      config_parse_level,     0, offsetof(Server, max_leve
 Journal.MaxLevelSyslog,     config_parse_level,     0, offsetof(Server, max_level_syslog)
 Journal.MaxLevelKMsg,       config_parse_level,     0, offsetof(Server, max_level_kmsg)
 Journal.MaxLevelConsole,    config_parse_level,     0, offsetof(Server, max_level_console)
-Journal.Storage,            config_parse_storage,   0, offsetof(Server, storage)

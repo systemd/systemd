@@ -69,6 +69,46 @@
                 <variablelist>
 
                         <varlistentry>
+                                <term><varname>Storage=</varname></term>
+
+                                <listitem><para>Controls where to
+                                store journal data. One of
+                                <literal>volatile</literal>,
+                                <literal>persistent</literal>,
+                                <literal>auto</literal> and
+                                <literal>none</literal>. If
+                                <literal>volatile</literal> journal
+                                log data will be stored only in
+                                memory, i.e. below the
+                                <filename>/run/log/journal</filename>
+                                hierarchy (which is created if
+                                needed). If
+                                <literal>persistent</literal> data will
+                                be stored preferably on disk,
+                                i.e. below the
+                                <filename>/var/log/journal</filename>
+                                hierarchy (which is created if
+                                needed), with a fallback to
+                                <filename>/run/log/journal</filename>
+                                (which is created if needed), during
+                                early boot and if the disk is not
+                                writable. <literal>auto</literal> is
+                                similar to
+                                <literal>persistent</literal> but the
+                                directory
+                                <filename>/var/log/journal</filename>
+                                is not created if needed, so that its
+                                existence controls where log data
+                                goes. <literal>none</literal> turns
+                                off all storage, all log data received
+                                will be dropped. Forwarding to other
+                                targets, such as the console, the
+                                kernel log buffer or a syslog daemon
+                                will still work however.  Defaults to
+                                <literal>auto</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>Compress=</varname></term>
 
                                 <listitem><para>Takes a boolean
@@ -79,6 +119,20 @@
                                 compression algorithm before they are
                                 written to the file
                                 system.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Seal=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                value. If enabled (the default) and a
+                                sealing key is available (as created
+                                by
+                                <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+                                <option>--setup-keys</option>
+                                command), forward secure sealing (FSS) for
+                                all persistent journal files is
+                                enabled.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -265,45 +319,6 @@
                                 <filename>/dev/console</filename>.</para></listitem>
                         </varlistentry>
 
-                        <varlistentry>
-                                <term><varname>Storage=</varname></term>
-
-                                <listitem><para>Controls where to
-                                store journal data. One of
-                                <literal>volatile</literal>,
-                                <literal>persistent</literal>,
-                                <literal>auto</literal> and
-                                <literal>none</literal>. If
-                                <literal>volatile</literal> journal
-                                log data will be stored only in
-                                memory, i.e. below the
-                                <filename>/run/log/journal</filename>
-                                hierarchy (which is created if
-                                needed). If
-                                <literal>persistent</literal> data will
-                                be stored preferably on disk,
-                                i.e. below the
-                                <filename>/var/log/journal</filename>
-                                hierarchy (which is created if
-                                needed), with a fallback to
-                                <filename>/run/log/journal</filename>
-                                (which is created if needed), during
-                                early boot and if the disk is not
-                                writable. <literal>auto</literal> is
-                                similar to
-                                <literal>persistent</literal> but the
-                                directory
-                                <filename>/var/log/journal</filename>
-                                is not created if needed, so that its
-                                existence controls where log data
-                                goes. <literal>none</literal> turns
-                                off all storage, all log data received
-                                will be dropped. Forwarding to other
-                                targets, such as the console, the
-                                kernel log buffer or a syslog daemon
-                                will still work however.  Defaults to
-                                <literal>auto</literal>.</para></listitem>
-                        </varlistentry>
                 </variablelist>
 
         </refsect1>
