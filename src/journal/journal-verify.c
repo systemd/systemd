@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <stddef.h>
 
 #include "util.h"
 #include "macro.h"
@@ -37,7 +38,6 @@
  *
  * - evolve key even if nothing happened in regular intervals
  *
- * - Allow building without libgcrypt
  * - check with sparse
  * - 64bit conversions
  *
@@ -645,62 +645,6 @@ static int verify_entry_array(
         return 0;
 }
 
-static int journal_file_parse_verification_key(JournalFile *f, const char *key) {
-        uint8_t *seed;
-        size_t seed_size, c;
-        const char *k;
-        int r;
-        unsigned long long start, interval;
-
-        seed_size = FSPRG_RECOMMENDED_SEEDLEN;
-        seed = malloc(seed_size);
-        if (!seed)
-                return -ENOMEM;
-
-        k = key;
-        for (c = 0; c < seed_size; c++) {
-                int x, y;
-
-                while (*k == '-')
-                        k++;
-
-                x = unhexchar(*k);
-                if (x < 0) {
-                        free(seed);
-                        return -EINVAL;
-                }
-                k++;
-                y = unhexchar(*k);
-                if (y < 0) {
-                        free(seed);
-                        return -EINVAL;
-                }
-                k++;
-
-                seed[c] = (uint8_t) (x * 16 + y);
-        }
-
-        if (*k != '/') {
-                free(seed);
-                return -EINVAL;
-        }
-        k++;
-
-        r = sscanf(k, "%llx-%llx", &start, &interval);
-        if (r != 2) {
-                free(seed);
-                return -EINVAL;
-        }
-
-        f->fsprg_seed = seed;
-        f->fsprg_seed_size = seed_size;
-
-        f->fss_start_usec = start * interval;
-        f->fss_interval_usec = interval;
-
-        return 0;
-}
-
 int journal_file_verify(
                 JournalFile *f,
                 const char *key,
@@ -724,11 +668,15 @@ int journal_file_verify(
         assert(f);
 
         if (key) {
+#ifdef HAVE_GCRYPT
                 r = journal_file_parse_verification_key(f, key);
                 if (r < 0) {
                         log_error("Failed to parse seed.");
                         return r;
                 }
+#else
+                return -ENOTSUP;
+#endif
         } else if (f->seal)
                 return -ENOKEY;
 
@@ -936,9 +884,7 @@ int journal_file_verify(
                         n_entry_arrays++;
                         break;
 
-                case OBJECT_TAG: {
-                        uint64_t q, rt;
-
+                case OBJECT_TAG:
                         if (!JOURNAL_HEADER_SEALED(f->header)) {
                                 log_error("Tag object in file without sealing at %llu", (unsigned long long) p);
                                 r = -EBADMSG;
@@ -957,7 +903,10 @@ int journal_file_verify(
                                 goto fail;
                         }
 
+#ifdef HAVE_GCRYPT
                         if (f->seal) {
+                                uint64_t q, rt;
+
                                 log_debug("Checking tag %llu..", (unsigned long long) le64toh(o->tag.seqnum));
 
                                 rt = f->fss_start_usec + o->tag.epoch * f->fss_interval_usec;
@@ -1014,13 +963,13 @@ int journal_file_verify(
                                 last_tag_realtime = rt;
                                 last_sealed_realtime = entry_realtime;
                         }
+#endif
 
                         last_tag = p + ALIGN64(le64toh(o->object.size));
                         last_epoch = le64toh(o->tag.epoch);
 
                         n_tags ++;
                         break;
-                }
 
                 default:
                         n_weird ++;

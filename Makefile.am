@@ -2402,8 +2402,6 @@ libsystemd_journal_la_SOURCES = \
 	src/journal/journal-vacuum.h \
 	src/journal/journal-verify.c \
 	src/journal/journal-verify.h \
-	src/journal/journal-authenticate.c \
-	src/journal/journal-authenticate.h \
 	src/journal/lookup3.c \
 	src/journal/lookup3.h \
 	src/journal/journal-send.c \
@@ -2455,6 +2453,8 @@ endif
 
 if HAVE_GCRYPT
 libsystemd_journal_la_SOURCES += \
+	src/journal/journal-authenticate.c \
+	src/journal/journal-authenticate.h \
 	src/journal/fsprg.c \
 	src/journal/fsprg.h
 

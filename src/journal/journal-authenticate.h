@@ -36,7 +36,7 @@ int journal_file_hmac_put_header(JournalFile *f);
 int journal_file_hmac_put_object(JournalFile *f, int type, uint64_t p);
 
 int journal_file_fss_load(JournalFile *f);
-bool journal_file_fss_enabled(JournalFile *f);
+int journal_file_parse_verification_key(JournalFile *f, const char *key);
 
 int journal_file_fsprg_evolve(JournalFile *f, uint64_t realtime);
 int journal_file_fsprg_seek(JournalFile *f, uint64_t epoch);

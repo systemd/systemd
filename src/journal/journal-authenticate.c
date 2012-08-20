@@ -461,8 +461,59 @@ int journal_file_append_first_tag(JournalFile *f) {
         return 0;
 }
 
-bool journal_file_fss_enabled(JournalFile *f) {
-        assert(f);
 
-        return JOURNAL_HEADER_SEALED(f->header);
+int journal_file_parse_verification_key(JournalFile *f, const char *key) {
+        uint8_t *seed;
+        size_t seed_size, c;
+        const char *k;
+        int r;
+        unsigned long long start, interval;
+
+        seed_size = FSPRG_RECOMMENDED_SEEDLEN;
+        seed = malloc(seed_size);
+        if (!seed)
+                return -ENOMEM;
+
+        k = key;
+        for (c = 0; c < seed_size; c++) {
+                int x, y;
+
+                while (*k == '-')
+                        k++;
+
+                x = unhexchar(*k);
+                if (x < 0) {
+                        free(seed);
+                        return -EINVAL;
+                }
+                k++;
+                y = unhexchar(*k);
+                if (y < 0) {
+                        free(seed);
+                        return -EINVAL;
+                }
+                k++;
+
+                seed[c] = (uint8_t) (x * 16 + y);
+        }
+
+        if (*k != '/') {
+                free(seed);
+                return -EINVAL;
+        }
+        k++;
+
+        r = sscanf(k, "%llx-%llx", &start, &interval);
+        if (r != 2) {
+                free(seed);
+                return -EINVAL;
+        }
+
+        f->fsprg_seed = seed;
+        f->fsprg_seed_size = seed_size;
+
+        f->fss_start_usec = start * interval;
+        f->fss_interval_usec = interval;
+
+        return 0;
 }

@@ -42,6 +42,7 @@ REQUIREMENTS:
         libcap
         PAM >= 1.1.2 (optional)
         libcryptsetup (optional)
+        libgcrypt (optional)
         libaudit (optional)
         libacl (optional)
         libselinux (optional)

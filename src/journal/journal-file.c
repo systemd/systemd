@@ -64,9 +64,11 @@
 void journal_file_close(JournalFile *f) {
         assert(f);
 
+#ifdef HAVE_GCRYPT
         /* Write the final tag */
         if (f->seal && f->writable)
                 journal_file_append_tag(f);
+#endif
 
         /* Sync everything to disk, before we mark the file offline */
         if (f->mmap && f->fd >= 0)
@@ -764,9 +766,11 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
+#ifdef HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_DATA, p);
         if (r < 0)
                 return r;
+#endif
 
         /* The linking might have altered the window, so let's
          * refresh our pointer */
@@ -852,9 +856,11 @@ static int link_entry_into_array(JournalFile *f,
         if (r < 0)
                 return r;
 
+#ifdef HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY_ARRAY, q);
         if (r < 0)
                 return r;
+#endif
 
         o->entry_array.items[i] = htole64(p);
 
@@ -996,9 +1002,11 @@ static int journal_file_append_entry_internal(
         o->entry.xor_hash = htole64(xor_hash);
         o->entry.boot_id = f->header->boot_id;
 
+#ifdef HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY, np);
         if (r < 0)
                 return r;
+#endif
 
         r = journal_file_link_entry(f, o, np);
         if (r < 0)
@@ -1049,9 +1057,11 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
             ts->monotonic < le64toh(f->header->tail_entry_monotonic))
                 return -EINVAL;
 
+#ifdef HAVE_GCRYPT
         r = journal_file_maybe_append_tag(f, ts->realtime);
         if (r < 0)
                 return r;
+#endif
 
         /* alloca() can't take 0, hence let's allocate at least one */
         items = alloca(sizeof(EntryItem) * MAX(1, n_iovec));
@@ -2030,11 +2040,13 @@ int journal_file_open(
         if (f->last_stat.st_size == 0 && f->writable) {
                 newly_created = true;
 
+#ifdef HAVE_GCRYPT
                 /* Try to load the FSPRG state, and if we can't, then
                  * just don't do sealing */
                 r = journal_file_fss_load(f);
                 if (r < 0)
                         f->seal = false;
+#endif
 
                 r = journal_file_init_header(f, template);
                 if (r < 0)
@@ -2064,11 +2076,13 @@ int journal_file_open(
                         goto fail;
         }
 
+#ifdef HAVE_GCRYPT
         if (!newly_created && f->writable) {
                 r = journal_file_fss_load(f);
                 if (r < 0)
                         goto fail;
         }
+#endif
 
         if (f->writable) {
                 if (metrics) {
@@ -2082,9 +2096,11 @@ int journal_file_open(
                         goto fail;
         }
 
+#ifdef HAVE_GCRYPT
         r = journal_file_hmac_setup(f);
         if (r < 0)
                 goto fail;
+#endif
 
         if (newly_created) {
                 r = journal_file_setup_field_hash_table(f);
@@ -2095,9 +2111,11 @@ int journal_file_open(
                 if (r < 0)
                         goto fail;
 
+#ifdef HAVE_GCRYPT
                 r = journal_file_append_first_tag(f);
                 if (r < 0)
                         goto fail;
+#endif
         }
 
         r = journal_file_map_field_hash_table(f);

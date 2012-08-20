@@ -62,7 +62,9 @@ static bool arg_this_boot = false;
 static const char *arg_directory = NULL;
 static int arg_priorities = 0xFF;
 static const char *arg_verify_key = NULL;
+#ifdef HAVE_GCRYPT
 static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
+#endif
 
 static enum {
         ACTION_SHOW,
@@ -93,11 +95,13 @@ static int help(void) {
                "Commands:\n"
                "     --new-id128         Generate a new 128 Bit ID\n"
                "     --header            Show journal header information\n"
+#ifdef HAVE_GCRYPT
                "     --setup-keys        Generate new FSS key pair\n"
                "       --interval=TIME   Time interval for changing the FSS sealing key\n"
                "     --verify            Verify journal file consistency\n"
-               "       --verify-key=KEY  Specify FSS verification key\n",
-               program_invocation_short_name);
+               "       --verify-key=KEY  Specify FSS verification key\n"
+#endif
+               , program_invocation_short_name);
 
         return 0;
 }
@@ -215,13 +219,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_PRINT_HEADER;
                         break;
 
+                case ARG_VERIFY:
+                        arg_action = ACTION_VERIFY;
+                        break;
+
+#ifdef HAVE_GCRYPT
                 case ARG_SETUP_KEYS:
                         arg_action = ACTION_SETUP_KEYS;
                         break;
 
-                case ARG_VERIFY:
-                        arg_action = ACTION_VERIFY;
-                        break;
 
                 case ARG_VERIFY_KEY:
                         arg_action = ACTION_VERIFY;
@@ -235,6 +241,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
                         break;
+#else
+                case ARG_SETUP_KEYS:
+                case ARG_VERIFY_KEY:
+                case ARG_INTERVAL:
+                        log_error("Forward-secure sealing not available.");
+                        return -ENOTSUP;
+#endif
 
                 case 'p': {
                         const char *dots;
@@ -617,7 +630,8 @@ finish:
 
         return r;
 #else
-        log_error("Forward-secure journal verification not available.");
+        log_error("Forward-secure sealing not available.");
+        return -ENOTSUP;
 #endif
 }
 
@@ -633,7 +647,7 @@ static int verify(sd_journal *j) {
                 usec_t from, to, total;
 
 #ifdef HAVE_GCRYPT
-                if (!arg_verify_key && journal_file_fss_enabled(f))
+                if (!arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
                         log_warning("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
 #endif
 
@@ -648,7 +662,7 @@ static int verify(sd_journal *j) {
                         char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];
                         log_info("PASS: %s", f->path);
 
-                        if (arg_verify_key && journal_file_fss_enabled(f))
+                        if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
                                 log_info("=> Validated from %s to %s, %s missing",
                                          format_timestamp(a, sizeof(a), from),
                                          format_timestamp(b, sizeof(b), to),

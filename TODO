@@ -254,8 +254,6 @@ Features:
 
 * cleanup syslog 'priority' vs. 'level' wording
 
-* journal: if mmap() fails for mapping window try to unmap a a few older maps
-
 * dbus upstream still refers to dbus.target and shouldn't
 
 * when a service has the same env var set twice we actually store it twice and return that in systemctl show -p... We should only show the last setting
@@ -299,8 +297,6 @@ Features:
 * journal: local deserializer of export mode, http server
 
 * journal: message catalog
-
-* journal: forward-secure signatures
 
 * document the exit codes when services fail before they are exec()ed
 
@@ -502,7 +498,5 @@ Regularly:
 Scheduled for removal (or fixing):
 
 * xxxOverridable dependencies
-
-* journald.conf: ImportKernel=
 
 * prefdm.service

@@ -55,7 +55,7 @@ static int raw_verify(const char *fn, const char *verification_key) {
         JournalFile *f;
         int r;
 
-        r = journal_file_open(fn, O_RDONLY, 0666, true, true, NULL, NULL, NULL, &f);
+        r = journal_file_open(fn, O_RDONLY, 0666, true, !!verification_key, NULL, NULL, NULL, &f);
         if (r < 0)
                 return r;
 
@@ -107,18 +107,19 @@ int main(int argc, char *argv[]) {
 
         log_info("Verifying...");
 
-        assert_se(journal_file_open("test.journal", O_RDONLY, 0666, true, true, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_file_open("test.journal", O_RDONLY, 0666, true, !!verification_key, NULL, NULL, NULL, &f) == 0);
         /* journal_file_print_header(f); */
         journal_file_dump(f);
 
         assert_se(journal_file_verify(f, verification_key, &from, &to, &total, true) >= 0);
 
-        if (verification_key && journal_file_fss_enabled(f)) {
+        if (verification_key && JOURNAL_HEADER_SEALED(f->header)) {
                 log_info("=> Validated from %s to %s, %s missing",
                          format_timestamp(a, sizeof(a), from),
                          format_timestamp(b, sizeof(b), to),
                          format_timespan(c, sizeof(c), total > to ? total - to : 0));
         }
+
         journal_file_close(f);
 
         if (verification_key) {

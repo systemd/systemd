@@ -302,7 +302,7 @@ AC_SUBST(ACL_LIBS)
 AM_CONDITIONAL([HAVE_ACL], [test "x$have_acl" != xno])
 
 # ------------------------------------------------------------------------------
-AC_ARG_ENABLE([],
+AC_ARG_ENABLE([gcrypt],
         AS_HELP_STRING([--disable-gcrypt],[Disable optional GCRYPT support]),
                 [case "${enableval}" in
                         yes) have_gcrypt=yes ;;
