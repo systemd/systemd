@@ -626,6 +626,7 @@ static int setup_keys(void) {
 #ifdef HAVE_QRENCODE
                 fputc('\n', stderr);
                 print_qr_code(stderr, seed, seed_size, n, arg_interval, hn, machine);
+                fprintf(stderr, "\nScan this QR code with your mobile phone to transfer the verification key to it.\n");
 #endif
                 free(hn);
         }
