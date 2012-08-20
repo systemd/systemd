@@ -727,12 +727,13 @@ static int parse_proc_cmdline(void) {
                 }
 
                 r = parse_proc_cmdline_word(word);
-                free(word);
-
                 if (r < 0) {
                         log_error("Failed on cmdline argument %s: %s", word, strerror(-r));
+                        free(word);
                         goto finish;
                 }
+
+                free(word);
         }
 
         r = 0;
