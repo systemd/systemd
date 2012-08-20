@@ -108,7 +108,8 @@ int main(int argc, char *argv[]) {
         log_info("Verifying...");
 
         assert_se(journal_file_open("test.journal", O_RDONLY, 0666, true, true, NULL, NULL, NULL, &f) == 0);
-        journal_file_print_header(f);
+        /* journal_file_print_header(f); */
+        journal_file_dump(f);
 
         assert_se(journal_file_verify(f, verification_key, &from, &to, &total, true) >= 0);
 
@@ -120,21 +121,21 @@ int main(int argc, char *argv[]) {
         }
         journal_file_close(f);
 
-        log_info("Toggling bits...");
+        if (verification_key) {
+                log_info("Toggling bits...");
 
-        assert_se(stat("test.journal", &st) >= 0);
+                assert_se(stat("test.journal", &st) >= 0);
 
-        for (p = 240*8; p < ((uint64_t) st.st_size * 8); p ++) {
-                bit_toggle("test.journal", p);
+                for (p = 38448*8+0; p < ((uint64_t) st.st_size * 8); p ++) {
+                        bit_toggle("test.journal", p);
 
-                log_info("[ %llu+%llu]", (unsigned long long) p / 8, (unsigned long long) p % 8);
+                        log_info("[ %llu+%llu]", (unsigned long long) p / 8, (unsigned long long) p % 8);
 
-                if (raw_verify("test.journal", verification_key) >= 0) {
-                        log_notice(ANSI_HIGHLIGHT_RED_ON ">>>> %llu (bit %llu) can be toggled without detection." ANSI_HIGHLIGHT_OFF, (unsigned long long) p / 8, (unsigned long long) p % 8);
-                        sleep(1);
+                        if (raw_verify("test.journal", verification_key) >= 0)
+                                log_notice(ANSI_HIGHLIGHT_RED_ON ">>>> %llu (bit %llu) can be toggled without detection." ANSI_HIGHLIGHT_OFF, (unsigned long long) p / 8, (unsigned long long) p % 8);
+
+                        bit_toggle("test.journal", p);
                 }
-
-                bit_toggle("test.journal", p);
         }
 
         log_info("Exiting...");

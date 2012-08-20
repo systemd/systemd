@@ -709,7 +709,7 @@ int journal_file_verify(
                 bool show_progress) {
         int r;
         Object *o;
-        uint64_t p = 0, last_tag = 0, last_epoch = 0, last_tag_realtime = 0;
+        uint64_t p = 0, last_tag = 0, last_epoch = 0, last_tag_realtime = 0, last_sealed_realtime = 0;
         uint64_t entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
         sd_id128_t entry_boot_id;
         bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
@@ -838,7 +838,7 @@ int journal_file_verify(
                         if (r < 0)
                                 goto fail;
 
-                        if (last_tag_realtime > le64toh(o->entry.realtime)) {
+                        if (le64toh(o->entry.realtime) < last_tag_realtime) {
                                 log_error("Older entry after newer tag at %llu", (unsigned long long) p);
                                 r = -EBADMSG;
                                 goto fail;
@@ -962,8 +962,8 @@ int journal_file_verify(
                         if (f->seal) {
                                 log_debug("Checking tag %llu..", (unsigned long long) le64toh(o->tag.seqnum));
 
-                                rt = (o->tag.epoch + 1) * f->fss_interval_usec + f->fss_start_usec;
-                                if (entry_realtime_set && entry_realtime >= rt) {
+                                rt = f->fss_start_usec + o->tag.epoch * f->fss_interval_usec;
+                                if (entry_realtime_set && entry_realtime >= rt + f->fss_interval_usec) {
                                         log_error("Tag/entry realtime timestamp out of synchronization at %llu", (unsigned long long) p);
                                         r = -EBADMSG;
                                         goto fail;
@@ -1014,6 +1014,7 @@ int journal_file_verify(
 
                                 f->hmac_running = false;
                                 last_tag_realtime = rt;
+                                last_sealed_realtime = entry_realtime;
                         }
 
                         last_tag = p + ALIGN64(le64toh(o->object.size));
@@ -1158,7 +1159,7 @@ int journal_file_verify(
         if (first_validated)
                 *first_validated = last_tag_realtime ? le64toh(f->header->head_entry_realtime) : 0;
         if (last_validated)
-                *last_validated = last_tag_realtime;
+                *last_validated = last_sealed_realtime;
         if (last_contained)
                 *last_contained = le64toh(f->header->tail_entry_realtime);
 

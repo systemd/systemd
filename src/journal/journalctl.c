@@ -478,7 +478,7 @@ static int setup_keys(void) {
                 return log_oom();
 
         if (access(p, F_OK) >= 0) {
-                log_error("Evolving key file %s exists already.", p);
+                log_error("Sealing key file %s exists already.", p);
                 r = -EEXIST;
                 goto finish;
         }

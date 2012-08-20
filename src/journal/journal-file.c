@@ -1855,7 +1855,7 @@ void journal_file_dump(JournalFile *f) {
                         break;
 
                 case OBJECT_ENTRY:
-                        printf("Type: OBJECT_ENTRY %llu %llu %llu\n",
+                        printf("Type: OBJECT_ENTRY seqnum=%llu monotonic=%llu realtime=%llu\n",
                                (unsigned long long) le64toh(o->entry.seqnum),
                                (unsigned long long) le64toh(o->entry.monotonic),
                                (unsigned long long) le64toh(o->entry.realtime));
@@ -1874,8 +1874,9 @@ void journal_file_dump(JournalFile *f) {
                         break;
 
                 case OBJECT_TAG:
-                        printf("Type: OBJECT_TAG %llu\n",
-                               (unsigned long long) le64toh(o->tag.seqnum));
+                        printf("Type: OBJECT_TAG seqnum=%llu epoch=%llu\n",
+                               (unsigned long long) le64toh(o->tag.seqnum),
+                               (unsigned long long) le64toh(o->tag.epoch));
                         break;
                 }
 
