@@ -211,6 +211,9 @@ int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
         if (!f->seal)
                 return 0;
 
+        if (realtime <= 0)
+                realtime = now(CLOCK_MONOTONIC);
+
         r = journal_file_fsprg_need_evolve(f, realtime);
         if (r <= 0)
                 return 0;
@@ -516,4 +519,20 @@ int journal_file_parse_verification_key(JournalFile *f, const char *key) {
         f->fss_interval_usec = interval;
 
         return 0;
+}
+
+bool journal_file_next_evolve_usec(JournalFile *f, usec_t *u) {
+        uint64_t epoch;
+
+        assert(f);
+        assert(u);
+
+        if (!f->seal)
+                return false;
+
+        epoch = FSPRG_GetEpoch(f->fsprg_state);
+
+        *u = (usec_t) (f->fss_start_usec + f->fss_interval_usec * epoch + f->fss_interval_usec);
+
+        return true;
 }

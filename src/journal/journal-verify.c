@@ -34,14 +34,6 @@
 #include "compress.h"
 #include "fsprg.h"
 
-/* FIXME:
- *
- * - evolve key even if nothing happened in regular intervals
- *
- * - check with sparse
- *
- * */
-
 static int journal_file_object_verify(JournalFile *f, Object *o) {
         uint64_t i;
 

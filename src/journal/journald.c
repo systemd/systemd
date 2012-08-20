@@ -48,6 +48,7 @@
 #include "journal-rate-limit.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
+#include "journal-authenticate.h"
 #include "conf-parser.h"
 #include "journald.h"
 #include "virt.h"
@@ -2969,8 +2970,26 @@ int main(int argc, char *argv[]) {
 
         for (;;) {
                 struct epoll_event event;
+                int t;
 
-                r = epoll_wait(server.epoll_fd, &event, 1, -1);
+#ifdef HAVE_GCRYPT
+                usec_t u;
+
+                if (server.system_journal &&
+                    journal_file_next_evolve_usec(server.system_journal, &u)) {
+                        usec_t n;
+
+                        n = now(CLOCK_MONOTONIC);
+
+                        if (n >= u)
+                                t = 0;
+                        else
+                                t = (int) ((u - n + USEC_PER_MSEC - 1) / USEC_PER_MSEC);
+                } else
+#endif
+                        t = -1;
+
+                r = epoll_wait(server.epoll_fd, &event, 1, t);
                 if (r < 0) {
 
                         if (errno == EINTR)
@@ -2979,14 +2998,20 @@ int main(int argc, char *argv[]) {
                         log_error("epoll_wait() failed: %m");
                         r = -errno;
                         goto finish;
-                } else if (r == 0)
-                        break;
+                }
 
-                r = process_event(&server, &event);
-                if (r < 0)
-                        goto finish;
-                else if (r == 0)
-                        break;
+                if (r > 0) {
+                        r = process_event(&server, &event);
+                        if (r < 0)
+                                goto finish;
+                        else if (r == 0)
+                                break;
+                }
+
+#ifdef HAVE_GCRYPT
+                if (server.system_journal)
+                        journal_file_maybe_append_tag(server.system_journal, 0);
+#endif
         }
 
         log_debug("systemd-journald stopped as pid %lu", (unsigned long) getpid());

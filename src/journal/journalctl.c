@@ -233,6 +233,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERIFY_KEY:
                         arg_action = ACTION_VERIFY;
                         arg_verify_key = optarg;
+                        arg_local = true;
                         break;
 
                 case ARG_INTERVAL:
