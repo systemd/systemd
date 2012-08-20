@@ -219,11 +219,17 @@ int inhibitor_load(Inhibitor *i) {
         if  (mm >= 0)
                 i->mode = mm;
 
-        if (uid)
-                parse_uid(uid, &i->uid);
+        if (uid) {
+                r = parse_uid(uid, &i->uid);
+                if (r < 0)
+                        goto finish;
+        }
 
-        if (pid)
-                parse_pid(pid, &i->pid);
+        if (pid) {
+                r = parse_pid(pid, &i->pid);
+                if (r < 0)
+                        goto finish;
+        }
 
         if (who) {
                 cc = cunescape(who);
