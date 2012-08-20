@@ -619,14 +619,13 @@ static int setup_keys(void) {
 
                 if (hn) {
                         hostname_cleanup(hn);
-                        fprintf(stderr, "The keys have been generated for host %s (" SD_ID128_FORMAT_STR ").\n", hn, SD_ID128_FORMAT_VAL(machine));
+                        fprintf(stderr, "\nThe keys have been generated for host %s/" SD_ID128_FORMAT_STR ".\n", hn, SD_ID128_FORMAT_VAL(machine));
                 } else
-                        fprintf(stderr, "The keys have been generated for host " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(machine));
+                        fprintf(stderr, "\nThe keys have been generated for host " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(machine));
 
 #ifdef HAVE_QRENCODE
-                fputc('\n', stderr);
+                fprintf(stderr, "\nTo transfer the verification key to your phone please scan the QR code below:\n\n");
                 print_qr_code(stderr, seed, seed_size, n, arg_interval, hn, machine);
-                fprintf(stderr, "\nScan this QR code with your mobile phone to transfer the verification key to it.\n");
 #endif
                 free(hn);
         }
