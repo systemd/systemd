@@ -362,7 +362,7 @@ int journal_file_fss_load(JournalFile *f) {
                 goto finish;
         }
 
-        if (le64toh(m->fsprg_state_size) != FSPRG_stateinbytes(m->fsprg_secpar)) {
+        if (le64toh(m->fsprg_state_size) != FSPRG_stateinbytes(le16toh(m->fsprg_secpar))) {
                 r = -EBADMSG;
                 goto finish;
         }

@@ -39,7 +39,6 @@
  * - evolve key even if nothing happened in regular intervals
  *
  * - check with sparse
- * - 64bit conversions
  *
  * */
 
