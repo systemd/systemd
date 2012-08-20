@@ -2031,7 +2031,7 @@ int config_parse_syscall_filter(
 
         ExecContext *c = data;
         Unit *u = userdata;
-        bool invert;
+        bool invert = false;
         char *w;
         size_t l;
         char *state;
