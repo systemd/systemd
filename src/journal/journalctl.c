@@ -590,7 +590,8 @@ static int setup_keys(void) {
                 fprintf(stderr,
                         "\n"
                         "The new key pair has been generated. The " ANSI_HIGHLIGHT_ON "secret sealing key" ANSI_HIGHLIGHT_OFF " has been written to\n"
-                        "the following local file. It should not be used on multiple hosts.\n"
+                        "the following local file. This key file is automatically updated when the\n"
+                        "sealing key is advanced. It should not be used on multiple hosts.\n"
                         "\n"
                         "\t%s\n"
                         "\n"
