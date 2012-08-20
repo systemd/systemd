@@ -464,5 +464,5 @@ int journal_file_append_first_tag(JournalFile *f) {
 bool journal_file_fss_enabled(JournalFile *f) {
         assert(f);
 
-        return !!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED);
+        return JOURNAL_HEADER_SEALED(f->header);
 }

@@ -210,8 +210,7 @@ static int journal_file_verify_header(JournalFile *f) {
         if (le64toh(f->header->header_size) < HEADER_SIZE_MIN)
                 return -EBADMSG;
 
-        if ((le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED) &&
-                !JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
+        if (JOURNAL_HEADER_SEALED(f->header) && !JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
                 return -EBADMSG;
 
         if ((le64toh(f->header->header_size) + le64toh(f->header->arena_size)) > (uint64_t) f->last_stat.st_size)
@@ -251,10 +250,10 @@ static int journal_file_verify_header(JournalFile *f) {
                 }
         }
 
-        f->compress = !!(le32toh(f->header->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED);
+        f->compress = JOURNAL_HEADER_COMPRESSED(f->header);
 
         if (f->writable)
-                f->seal = !!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED);
+                f->seal = JOURNAL_HEADER_SEALED(f->header);
 
         return 0;
 }
@@ -1927,10 +1926,10 @@ void journal_file_print_header(JournalFile *f) {
                f->header->state == STATE_OFFLINE ? "OFFLINE" :
                f->header->state == STATE_ONLINE ? "ONLINE" :
                f->header->state == STATE_ARCHIVED ? "ARCHIVED" : "UNKNOWN",
-               (f->header->compatible_flags & HEADER_COMPATIBLE_SEALED) ? " SEALED" : "",
-               (f->header->compatible_flags & ~HEADER_COMPATIBLE_SEALED) ? " ???" : "",
-               (f->header->incompatible_flags & HEADER_INCOMPATIBLE_COMPRESSED) ? " COMPRESSED" : "",
-               (f->header->incompatible_flags & ~HEADER_INCOMPATIBLE_COMPRESSED) ? " ???" : "",
+               JOURNAL_HEADER_SEALED(f->header) ? " SEALED" : "",
+               (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_SEALED) ? " ???" : "",
+               JOURNAL_HEADER_COMPRESSED(f->header) ? " COMPRESSED" : "",
+               (le32toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_COMPRESSED) ? " ???" : "",
                (unsigned long long) le64toh(f->header->header_size),
                (unsigned long long) le64toh(f->header->arena_size),
                (unsigned long long) le64toh(f->header->data_hash_table_size) / sizeof(HashItem),

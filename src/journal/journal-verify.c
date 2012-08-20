@@ -36,7 +36,6 @@
 /* FIXME:
  *
  * - evolve key even if nothing happened in regular intervals
- * - add macro for accessing flags
  *
  * - Allow building without libgcrypt
  * - check with sparse
@@ -806,8 +805,7 @@ int journal_file_verify(
                         goto fail;
                 }
 
-                if (o->object.flags & OBJECT_COMPRESSED &&
-                    !(le32toh(f->header->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED)) {
+                if ((o->object.flags & OBJECT_COMPRESSED) && !JOURNAL_HEADER_COMPRESSED(f->header)) {
                         log_error("Compressed object in file without compression at %llu", (unsigned long long) p);
                         r = -EBADMSG;
                         goto fail;
@@ -828,7 +826,7 @@ int journal_file_verify(
                         break;
 
                 case OBJECT_ENTRY:
-                        if ((le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED) && n_tags <= 0) {
+                        if (JOURNAL_HEADER_SEALED(f->header) && n_tags <= 0) {
                                 log_error("First entry before first tag at %llu", (unsigned long long) p);
                                 r = -EBADMSG;
                                 goto fail;
@@ -941,7 +939,7 @@ int journal_file_verify(
                 case OBJECT_TAG: {
                         uint64_t q, rt;
 
-                        if (!(le32toh(f->header->compatible_flags) & HEADER_COMPATIBLE_SEALED)) {
+                        if (!JOURNAL_HEADER_SEALED(f->header)) {
                                 log_error("Tag object in file without sealing at %llu", (unsigned long long) p);
                                 r = -EBADMSG;
                                 goto fail;
