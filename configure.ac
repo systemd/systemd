@@ -384,6 +384,18 @@ fi
 AM_CONDITIONAL(HAVE_LIBCRYPTSETUP, [test "$have_libcryptsetup" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_qrencode=no
+AC_ARG_ENABLE(qrencode, AS_HELP_STRING([--disable-qrencode], [disable qrencode support]))
+if test "x$enable_qrencode" != "xno"; then
+        PKG_CHECK_MODULES(QRENCODE, [ libqrencode ],
+                [AC_DEFINE(HAVE_QRENCODE, 1, [Define if qrencode is available]) have_qrencode=yes], have_qrencode=no)
+        if test "x$have_qrencode" = xno -a "x$enable_qrencode" = xyes; then
+                AC_MSG_ERROR([*** qrencode support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_QRENCODE, [test "$have_qrencode" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_binfmt=no
 AC_ARG_ENABLE(binfmt, AS_HELP_STRING([--disable-binfmt], [disable binfmt tool]))
 if test "x$enable_binfmt" != "xno"; then
@@ -760,6 +772,7 @@ AC_MSG_RESULT([
         XZ:                      ${have_xz}
         ACL:                     ${have_acl}
         GCRYPT:                  ${have_gcrypt}
+        QRENCODE:                ${have_qrencode}
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}
         readahead:               ${have_readahead}

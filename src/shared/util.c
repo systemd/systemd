@@ -3089,7 +3089,6 @@ bool hostname_is_set(void) {
         return !isempty(u.nodename) && !streq(u.nodename, "(none)");
 }
 
-
 static char *lookup_uid(uid_t uid) {
         long bufsize;
         char *buf, *name;

@@ -46,6 +46,7 @@
 #include "journal-def.h"
 #include "journal-verify.h"
 #include "journal-authenticate.h"
+#include "journal-qrcode.h"
 #include "fsprg.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
@@ -607,12 +608,26 @@ static int setup_keys(void) {
         printf("/%llx-%llx\n", (unsigned long long) n, (unsigned long long) arg_interval);
 
         if (isatty(STDOUT_FILENO)) {
-                char tsb[FORMAT_TIMESPAN_MAX];
+                char tsb[FORMAT_TIMESPAN_MAX], *hn;
 
                 fprintf(stderr,
                         ANSI_HIGHLIGHT_OFF "\n"
                         "The sealing key is automatically changed every %s.\n",
                         format_timespan(tsb, sizeof(tsb), arg_interval));
+
+                hn = gethostname_malloc();
+
+                if (hn) {
+                        hostname_cleanup(hn);
+                        fprintf(stderr, "The keys have been generated for host %s (" SD_ID128_FORMAT_STR ").\n", hn, SD_ID128_FORMAT_VAL(machine));
+                } else
+                        fprintf(stderr, "The keys have been generated for host " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(machine));
+
+#ifdef HAVE_QRENCODE
+                fputc('\n', stderr);
+                print_qr_code(stderr, seed, seed_size, n, arg_interval, hn, machine);
+#endif
+                free(hn);
         }
 
         r = 0;
