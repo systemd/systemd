@@ -309,22 +309,46 @@ static int entry_points_to_data(
          * main entry array has already been verified we can rely on
          * its consistency.*/
 
+        i = 0;
         n = le64toh(f->header->n_entries);
         a = le64toh(f->header->entry_array_offset);
-        i = 0;
 
         while (i < n) {
-                uint64_t m, j;
+                uint64_t m, u;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
                 if (r < 0)
                         return r;
 
                 m = journal_file_entry_array_n_items(o);
-                for (j = 0; i < n && j < m; i++, j++)
-                        if (le64toh(o->entry_array.items[j]) == entry_p)
-                                return 0;
+                u = MIN(n - i, m);
 
+                if (entry_p <= le64toh(o->entry_array.items[u-1])) {
+                        uint64_t x, y, z;
+
+                        x = 0;
+                        y = u;
+
+                        while (x < y) {
+                                z = (x + y) / 2;
+
+                                if (le64toh(o->entry_array.items[z]) == entry_p)
+                                        return 0;
+
+                                if (x + 1 >= y)
+                                        break;
+
+                                if (entry_p < le64toh(o->entry_array.items[z]))
+                                        y = z;
+                                else
+                                        x = z;
+                        }
+
+                        log_error("Entry object doesn't exist in main entry array at %llu", (unsigned long long) entry_p);
+                        return -EBADMSG;
+                }
+
+                i += u;
                 a = le64toh(o->entry_array.next_entry_array_offset);
         }
 
