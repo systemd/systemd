@@ -1509,11 +1509,11 @@ int main(int argc, char *argv[]) {
 
         if (arg_running_as == MANAGER_USER) {
                 /* Become reaper of our children */
-                r = prctl(PR_SET_CHILD_SUBREAPER, 1);
-                if (r < 0)
-                        log_error("Failed to prctl(PR_SET_CHILD_SUBREAPER): %s", strerror(-r));
-                if (r == -EINVAL)
-                        log_error("Perhaps the kernel version is too old (< 3.4?)");
+                if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
+                        log_warning("Failed to make us a subreaper: %m");
+                        if (errno == EINVAL)
+                                log_info("Perhaps the kernel version is too old (< 3.3?)");
+                }
         }
 
         r = manager_new(arg_running_as, &m);
