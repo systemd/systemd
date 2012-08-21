@@ -49,6 +49,10 @@ Bugfixes:
 
 Features:
 
+* explore multiple service instances per listening socket idea
+
+* testing tool for socket activation: some binary that listens on a socket and passes it on using the usual socket activation protocol to some server.
+
 * ConditionHost= for filtering services for clusters
 
 * journald: add symlinks and device names to kernel messages
