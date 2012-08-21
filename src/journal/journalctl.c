@@ -681,11 +681,18 @@ static int verify(sd_journal *j) {
                         char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];
                         log_info("PASS: %s", f->path);
 
-                        if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
-                                log_info("=> Validated from %s to %s, %s missing",
-                                         format_timestamp(a, sizeof(a), from),
-                                         format_timestamp(b, sizeof(b), to),
-                                         format_timespan(c, sizeof(c), total > to ? total - to : 0));
+                        if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
+                                if (from > 0) {
+                                        log_info("=> Validated from %s to %s, final %s entries not sealed.",
+                                                 format_timestamp(a, sizeof(a), from),
+                                                 format_timestamp(b, sizeof(b), to),
+                                                 format_timespan(c, sizeof(c), total > to ? total - to : 0));
+                                } else if (total > 0)
+                                        log_info("=> No sealing yet, %s of entries not sealed.",
+                                                 format_timespan(c, sizeof(c), total));
+                                else
+                                        log_info("=> No sealing yet, no entries in file.");
+                        }
                 }
         }
 
