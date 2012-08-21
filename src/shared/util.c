@@ -1800,7 +1800,7 @@ char *ascii_strlower(char *t) {
         return t;
 }
 
-bool ignore_file(const char *filename) {
+static bool ignore_file_allow_backup(const char *filename) {
         assert(filename);
 
         return
@@ -1808,13 +1808,21 @@ bool ignore_file(const char *filename) {
                 streq(filename, "lost+found") ||
                 streq(filename, "aquota.user") ||
                 streq(filename, "aquota.group") ||
-                endswith(filename, "~") ||
                 endswith(filename, ".rpmnew") ||
                 endswith(filename, ".rpmsave") ||
                 endswith(filename, ".rpmorig") ||
                 endswith(filename, ".dpkg-old") ||
                 endswith(filename, ".dpkg-new") ||
                 endswith(filename, ".swp");
+}
+
+bool ignore_file(const char *filename) {
+        assert(filename);
+
+        if (endswith(filename, "~"))
+                return false;
+
+        return ignore_file_allow_backup(filename);
 }
 
 int fd_nonblock(int fd, bool nonblock) {
@@ -4262,7 +4270,12 @@ bool dirent_is_file(const struct dirent *de) {
 bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
         assert(de);
 
-        if (!dirent_is_file(de))
+        if (de->d_type != DT_REG &&
+            de->d_type != DT_LNK &&
+            de->d_type != DT_UNKNOWN)
+                return false;
+
+        if (ignore_file_allow_backup(de->d_name))
                 return false;
 
         return endswith(de->d_name, suffix);
