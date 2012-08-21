@@ -311,8 +311,6 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (r != 0)
                 return -r;
 
-        mmap_cache_close_fd_range(f->mmap, f->fd, old_size);
-
         if (fstat(f->fd, &f->last_stat) < 0)
                 return -errno;
 
@@ -321,7 +319,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         return 0;
 }
 
-static int journal_file_move_to(JournalFile *f, int context, uint64_t offset, uint64_t size, void **ret) {
+static int journal_file_move_to(JournalFile *f, int context, bool keep_always, uint64_t offset, uint64_t size, void **ret) {
         assert(f);
         assert(ret);
 
@@ -335,7 +333,7 @@ static int journal_file_move_to(JournalFile *f, int context, uint64_t offset, ui
                         return -EADDRNOTAVAIL;
         }
 
-        return mmap_cache_get(f->mmap, f->fd, f->prot, context, offset, size, ret);
+        return mmap_cache_get(f->mmap, f->fd, f->prot, context, keep_always, offset, size, &f->last_stat, ret);
 }
 
 static uint64_t minimum_header_size(Object *o) {
@@ -373,7 +371,7 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
         /* One context for each type, plus one catch-all for the rest */
         context = type > 0 && type < _OBJECT_TYPE_MAX ? type : 0;
 
-        r = journal_file_move_to(f, context, offset, sizeof(ObjectHeader), &t);
+        r = journal_file_move_to(f, context, false, offset, sizeof(ObjectHeader), &t);
         if (r < 0)
                 return r;
 
@@ -393,7 +391,7 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
                 return -EBADMSG;
 
         if (s > sizeof(ObjectHeader)) {
-                r = journal_file_move_to(f, o->object.type, offset, s, &t);
+                r = journal_file_move_to(f, o->object.type, false, offset, s, &t);
                 if (r < 0)
                         return r;
 
@@ -457,7 +455,7 @@ int journal_file_append_object(JournalFile *f, int type, uint64_t size, Object *
         if (r < 0)
                 return r;
 
-        r = journal_file_move_to(f, type, p, size, &t);
+        r = journal_file_move_to(f, type, false, p, size, &t);
         if (r < 0)
                 return r;
 
@@ -544,6 +542,7 @@ static int journal_file_map_data_hash_table(JournalFile *f) {
 
         r = journal_file_move_to(f,
                                  OBJECT_DATA_HASH_TABLE,
+                                 true,
                                  p, s,
                                  &t);
         if (r < 0)
@@ -565,6 +564,7 @@ static int journal_file_map_field_hash_table(JournalFile *f) {
 
         r = journal_file_move_to(f,
                                  OBJECT_FIELD_HASH_TABLE,
+                                 true,
                                  p, s,
                                  &t);
         if (r < 0)

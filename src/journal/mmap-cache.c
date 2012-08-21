@@ -336,6 +336,7 @@ static int mmap_cache_make_room(MMapCache *m) {
                 Window *v;
 
                 v = m->windows + w;
+                assert(v->n_ref == 0);
 
                 if (v->ptr) {
                         mmap_cache_window_unmap(m, w);
@@ -354,8 +355,10 @@ static int mmap_cache_put(
                 unsigned fd_index,
                 int prot,
                 unsigned context,
+                bool keep_always,
                 uint64_t offset,
                 uint64_t size,
+                struct stat *st,
                 void **ret) {
 
         unsigned w;
@@ -387,6 +390,18 @@ static int mmap_cache_put(
                 wsize = WINDOW_SIZE;
         }
 
+        if (st) {
+                /* Memory maps that are larger then the files
+                   underneath have undefined behaviour. Hence, clamp
+                   things to the file size if we know it */
+
+                if (woffset >= (uint64_t) st->st_size)
+                        return -EADDRNOTAVAIL;
+
+                if (woffset + wsize > (uint64_t) st->st_size)
+                        wsize = PAGE_ALIGN(st->st_size - woffset);
+        }
+
         for (;;) {
                 d = mmap(NULL, wsize, prot, MAP_SHARED, fd, woffset);
                 if (d != MAP_FAILED)
@@ -413,8 +428,13 @@ static int mmap_cache_put(
         v->offset = woffset;
         v->size = wsize;
 
-        v->n_ref = 0;
-        mmap_cache_window_add_lru(m, w);
+        if (keep_always)
+                v->n_ref = 1;
+        else {
+                v->n_ref = 0;
+                mmap_cache_window_add_lru(m, w);
+        }
+
         mmap_cache_fd_add(m, fd_index, w);
         mmap_cache_context_set(m, context, w);
 
@@ -581,8 +601,10 @@ int mmap_cache_get(
                 int fd,
                 int prot,
                 unsigned context,
+                bool keep_always,
                 uint64_t offset,
                 uint64_t size,
+                struct stat *st,
                 void **ret) {
 
         unsigned fd_index;
@@ -638,7 +660,7 @@ int mmap_cache_get(
                 return r;
 
         /* Not found? Then, let's add it */
-        return mmap_cache_put(m, fd, fd_index, prot, context, offset, size, ret);
+        return mmap_cache_put(m, fd, fd_index, prot, context, keep_always, offset, size, st, ret);
 }
 
 void mmap_cache_close_fd(MMapCache *m, int fd) {
@@ -677,51 +699,6 @@ void mmap_cache_close_fd(MMapCache *m, int fd) {
 
         memmove(m->by_fd + fd_index, m->by_fd + fd_index + 1, (m->n_fds - (fd_index + 1)) * sizeof(FileDescriptor));
         m->n_fds --;
-}
-
-void mmap_cache_close_fd_range(MMapCache *m, int fd, uint64_t p) {
-        unsigned fd_index, c, w;
-        int r;
-
-        assert(m);
-        assert(fd > 0);
-
-        /* This drops all windows that include space right of the
-         * specified offset. This is useful to ensure that after the
-         * file size is extended we drop our mappings of the end and
-         * create it anew, since otherwise it is undefined whether
-         * mapping will continue to work as intended. */
-
-        r = mmap_cache_peek_fd_index(m, fd, &fd_index);
-        if (r <= 0)
-                return;
-
-        for (c = 0; c < m->contexts_max; c++) {
-                w = m->by_context[c];
-
-                if (w != (unsigned) -1 && m->windows[w].fd == fd)
-                        mmap_cache_context_unset(m, c);
-        }
-
-        w = m->by_fd[fd_index].windows;
-        while (w != (unsigned) -1) {
-                Window *v;
-
-                v = m->windows + w;
-                assert(v->fd == fd);
-                assert(v->by_fd_next == (unsigned) -1 ||
-                       m->windows[v->by_fd_next].fd == fd);
-
-                if (v->offset + v->size > p) {
-
-                        mmap_cache_window_unmap(m, w);
-                        mmap_cache_fd_remove(m, fd_index, w);
-                        v->fd = -1;
-
-                        w = m->by_fd[fd_index].windows;
-                } else
-                        w = v->by_fd_next;
-        }
 }
 
 void mmap_cache_close_context(MMapCache *m, unsigned context) {
