@@ -1512,7 +1512,7 @@ int main(int argc, char *argv[]) {
                 if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
                         log_warning("Failed to make us a subreaper: %m");
                         if (errno == EINVAL)
-                                log_info("Perhaps the kernel version is too old (< 3.3?)");
+                                log_info("Perhaps the kernel version is too old (< 3.4?)");
                 }
         }
 
