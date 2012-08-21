@@ -659,13 +659,15 @@ static int verify(sd_journal *j) {
 
         assert(j);
 
+        log_show_color(true);
+
         HASHMAP_FOREACH(f, j->files, i) {
                 int k;
                 usec_t from, to, total;
 
 #ifdef HAVE_GCRYPT
                 if (!arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
-                        log_warning("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
+                        log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
 #endif
 
                 k = journal_file_verify(f, arg_verify_key, &from, &to, &total, true);
