@@ -49,6 +49,16 @@ Bugfixes:
 
 Features:
 
+* ConditionHost= for filtering services for clusters
+
+* journald: add symlinks and device names to kernel messages
+
+* maybe make systemd-detect-virt suid? or use fscaps?
+
+* consider using __secure_getenv() instead of getenv() in libs
+
+* journald: automatic rekeying with no log messages doesn't appear to work
+
 * man: document in ExecStart= explicitly that we don't take shell command lines, only executable names with arguments
 
 * shutdown: don't read-only mount anything when running in container
@@ -498,5 +508,3 @@ Regularly:
 Scheduled for removal (or fixing):
 
 * xxxOverridable dependencies
-
-* prefdm.service
