@@ -1516,14 +1516,17 @@ int config_parse_unit_condition_string(
         assert(rvalue);
         assert(data);
 
-        if ((trigger = rvalue[0] == '|'))
+        trigger = rvalue[0] == '|';
+        if (trigger)
                 rvalue++;
 
-        if ((negate = rvalue[0] == '!'))
+        negate = rvalue[0] == '!';
+        if (negate)
                 rvalue++;
 
-        if (!(c = condition_new(cond, rvalue, trigger, negate)))
-                return -ENOMEM;
+        c = condition_new(cond, rvalue, trigger, negate);
+        if (!c)
+                return log_oom();
 
         LIST_PREPEND(Condition, conditions, u->conditions, c);
         return 0;

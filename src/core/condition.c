@@ -25,11 +25,13 @@
 #include <unistd.h>
 #include <sys/capability.h>
 #include <sys/statvfs.h>
+#include <fnmatch.h>
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
 
+#include <systemd/sd-id128.h>
 #include "util.h"
 #include "condition.h"
 #include "virt.h"
@@ -194,6 +196,31 @@ static bool test_capability(const char *parameter) {
         return !!(capabilities & (1ULL << value));
 }
 
+static bool test_host(const char *parameter) {
+        sd_id128_t x, y;
+        char *h;
+        int r;
+        bool b;
+
+        if (sd_id128_from_string(parameter, &x) >= 0) {
+
+                r = sd_id128_get_machine(&y);
+                if (r < 0)
+                        return false;
+
+                return sd_id128_equal(x, y);
+        }
+
+        h = gethostname_malloc();
+        if (!h)
+                return false;
+
+        b = fnmatch(parameter, h, FNM_CASEFOLD) == 0;
+        free(h);
+
+        return b;
+}
+
 bool condition_test(Condition *c) {
         assert(c);
 
@@ -254,6 +281,9 @@ bool condition_test(Condition *c) {
 
         case CONDITION_CAPABILITY:
                 return test_capability(c->parameter) == !c->negate;
+
+        case CONDITION_HOST:
+                return test_host(c->parameter) == !c->negate;
 
         case CONDITION_NULL:
                 return !c->negate;
@@ -323,6 +353,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
         [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",
         [CONDITION_SECURITY] = "ConditionSecurity",
+        [CONDITION_HOST] = "ConditionHost",
         [CONDITION_NULL] = "ConditionNull"
 };
 

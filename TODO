@@ -49,6 +49,8 @@ Bugfixes:
 
 Features:
 
+* There's something wrong with escaping unit names: http://lists.freedesktop.org/archives/systemd-devel/2012-August/006292.html
+
 * cleanup ellipsation for log output in journalctl and systemctl status: have a sane way to disable ellipsation, and disable it by default when invoked in less/more
 
 * enforce limits on fds openened by socket units
@@ -58,8 +60,6 @@ Features:
 * explore multiple service instances per listening socket idea
 
 * testing tool for socket activation: some binary that listens on a socket and passes it on using the usual socket activation protocol to some server.
-
-* ConditionHost= for filtering services for clusters
 
 * journald: add symlinks and device names to kernel messages
 

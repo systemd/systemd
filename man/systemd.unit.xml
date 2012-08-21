@@ -586,7 +586,7 @@
                                 <term><varname>RequiresMountsFor=</varname></term>
 
                                 <listitem><para>Takes a space
-                                separated list of paths. Automatically
+                                separated list of absolute paths. Automatically
                                 adds dependencies of type
                                 <varname>Requires=</varname> and
                                 <varname>After=</varname> for all
@@ -760,65 +760,86 @@
                                 <term><varname>ConditionVirtualization=</varname></term>
                                 <term><varname>ConditionSecurity=</varname></term>
                                 <term><varname>ConditionCapability=</varname></term>
+                                <term><varname>ConditionHost=</varname></term>
                                 <term><varname>ConditionNull=</varname></term>
 
                                 <listitem><para>Before starting a unit
                                 verify that the specified condition is
-                                true. With
+                                true. If it is not true the starting
+                                of the unit will be skipped, however
+                                all ordering dependencies of it are
+                                still respected. A failing condition
+                                will not result in the unit being
+                                moved into a failure state. The
+                                condition is checked at the time the
+                                queued start job is to be
+                                executed.</para>
+
+                                <para>With
                                 <varname>ConditionPathExists=</varname>
-                                a file existence condition can be
+                                a file existence condition is
                                 checked before a unit is started. If
                                 the specified absolute path name does
-                                not exist, startup of a unit will not
-                                actually happen, however the unit is
-                                still useful for ordering purposes in
-                                this case. The condition is checked at
-                                the time the queued start job is to be
-                                executed. If the absolute path name
-                                passed to
+                                not exist the condition will
+                                fail. If the absolute path name passed
+                                to
                                 <varname>ConditionPathExists=</varname>
                                 is prefixed with an exclamation mark
-                                (!), the test is negated, and the unit
+                                ('!'), the test is negated, and the unit
                                 is only started if the path does not
-                                exist.
-                                <varname>ConditionPathExistsGlob=</varname>
-                                works in a similar way, but checks for
-                                the existence of at least one file or
-                                directory matching the specified
-                                globbing
-                                pattern. <varname>ConditionPathIsDirectory=</varname>
+                                exist.</para>
+
+                                <para><varname>ConditionPathExistsGlob=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>,
+                                but checks for the existence of at
+                                least one file or directory matching
+                                the specified globbing pattern.</para>
+
+                                <para><varname>ConditionPathIsDirectory=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
                                 exists and is a
-                                directory. <varname>ConditionPathIsSymbolicLink=</varname>
+                                directory.</para>
+
+                                <para><varname>ConditionPathIsSymbolicLink=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
                                 exists and is a symbolic
-                                link. <varname>ConditionPathIsMountPoint=</varname>
+                                link.</para>
+
+                                <para><varname>ConditionPathIsMountPoint=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
                                 exists and is a mount
-                                point. <varname>ConditionPathIsReadWrite=</varname>
+                                point.</para>
+
+                                <para><varname>ConditionPathIsReadWrite=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether the underlying
-                                file system is read and writable
+                                file system is readable and writable
                                 (i.e. not mounted
-                                read-only). <varname>ConditionFileIsExecutable=</varname>
+                                read-only).</para>
+
+                                <para><varname>ConditionFileIsExecutable=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
                                 exists, is a regular file and marked
-                                executable.
-                                <varname>ConditionDirectoryNotEmpty=</varname>
+                                executable.</para>
+
+                                <para><varname>ConditionDirectoryNotEmpty=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
                                 exists and is a non-empty
-                                directory. Similarly
+                                directory.</para>
+
+                                <para>Similarly,
                                 <varname>ConditionKernelCommandLine=</varname>
                                 may be used to check whether a
                                 specific kernel command line option is
@@ -826,14 +847,16 @@
                                 exclamation mark unset). The argument
                                 must either be a single word, or an
                                 assignment (i.e. two words, separated
-                                by the equality sign). In the former
+                                '='). In the former
                                 case the kernel command line is
                                 searched for the word appearing as is,
                                 or as left hand side of an
                                 assignment. In the latter case the
                                 exact assignment is looked for with
                                 right and left hand side
-                                matching. <varname>ConditionVirtualization=</varname>
+                                matching.</para>
+
+                                <para><varname>ConditionVirtualization=</varname>
                                 may be used to check whether the
                                 system is executed in a virtualized
                                 environment and optionally test
@@ -843,7 +866,7 @@
                                 any virtualized environment, or one of
                                 <varname>vm</varname> and
                                 <varname>container</varname> to test
-                                against a specific type of
+                                against a generic type of
                                 virtualization solution, or one of
                                 <varname>qemu</varname>,
                                 <varname>kvm</varname>,
@@ -862,15 +885,18 @@
                                 virtualization technologies are nested
                                 only the innermost is considered. The
                                 test may be negated by prepending an
-                                exclamation mark.
-                                <varname>ConditionSecurity=</varname>
+                                exclamation mark.</para>
+
+                                <para><varname>ConditionSecurity=</varname>
                                 may be used to check whether the given
                                 security module is enabled on the
                                 system.  Currently the only recognized
                                 value is <varname>selinux</varname>.
                                 The test may be negated by prepending
                                 an exclamation
-                                mark. <varname>ConditionCapability=</varname>
+                                mark.</para>
+
+                                <para><varname>ConditionCapability=</varname>
                                 may be used to check whether the given
                                 capability exists in the capability
                                 bounding set of the service manager
@@ -881,14 +907,32 @@
                                 for details). Pass a capability name
                                 such as <literal>CAP_MKNOD</literal>,
                                 possibly prefixed with an exclamation
-                                mark to negate the check. Finally,
+                                mark to negate the check.</para>
+
+                                <para><varname>ConditionHost=</varname>
+                                may be used to match against the
+                                host name or machine ID of the
+                                host. This either takes a host name
+                                string (optionally with shell style
+                                globs) which is tested against the
+                                locally set host name as returned by
+                                <citerefentry><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+                                or a machine ID formatted as string
+                                (see
+                                <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+                                The test may be negated by prepending
+                                an exclamation mark.</para>
+
+                                <para>Finally,
                                 <varname>ConditionNull=</varname> may
                                 be used to add a constant condition
                                 check value to the unit. It takes a
                                 boolean argument. If set to
                                 <varname>false</varname> the condition
                                 will always fail, otherwise
-                                succeed. If multiple conditions are
+                                succeed.</para>
+
+                                <para>If multiple conditions are
                                 specified the unit will be executed if
                                 all of them apply (i.e. a logical AND
                                 is applied). Condition checks can be
