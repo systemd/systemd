@@ -2161,7 +2161,7 @@ static int server_read_dev_kmsg(Server *s) {
                         return 0;
                 }
 
-                if (errno == EAGAIN || errno == EINTR)
+                if (errno == EAGAIN || errno == EINTR || errno == EPIPE)
                         return 0;
 
                 log_error("Failed to read from kernel: %m");
