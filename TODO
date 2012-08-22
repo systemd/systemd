@@ -61,13 +61,9 @@ Features:
 
 * testing tool for socket activation: some binary that listens on a socket and passes it on using the usual socket activation protocol to some server.
 
-* journald: add symlinks and device names to kernel messages
-
 * maybe make systemd-detect-virt suid? or use fscaps?
 
 * consider using __secure_getenv() instead of getenv() in libs
-
-* journald: automatic rekeying with no log messages doesn't appear to work
 
 * man: document in ExecStart= explicitly that we don't take shell command lines, only executable names with arguments
 
@@ -135,13 +131,9 @@ Features:
 
 * switch-root: sockets need relabelling
 
-* segfault in journalctl during /var migration
-
 * systemd-analyze post-boot is broken for initrd
 
 * man: clarify that time-sync.target is not only sysv compat but also useful otherwise. Same for similar targets
-
-* journalctl should complain if run with uid != 0 and no persistent logs exist
 
 * .device aliases need to be implemented with the "following" logic, probably.
 
@@ -188,7 +180,7 @@ Features:
 
 * systemctl: when stopping a service which has triggres and warning about it actually check the TriggeredBy= deps fields
 
-* journal: hook up with EFI firmware log, new kmsg logic
+* journal: hook up with EFI firmware log
 
 * handle C-A-Del in logind, like the power/suspend buttons?
 

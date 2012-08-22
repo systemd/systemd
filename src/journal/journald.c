@@ -360,7 +360,8 @@ static void server_vacuum(Server *s) {
         sd_id128_to_string(machine, ids);
 
         if (s->system_journal) {
-                if (asprintf(&p, "/var/log/journal/%s", ids) < 0) {
+                p = strappend("/var/log/journal/", ids);
+                if (!p) {
                         log_oom();
                         return;
                 }
@@ -372,7 +373,8 @@ static void server_vacuum(Server *s) {
         }
 
         if (s->runtime_journal) {
-                if (asprintf(&p, "/run/log/journal/%s", ids) < 0) {
+                p = strappend("/run/log/journal/", ids);
+                if (!p) {
                         log_oom();
                         return;
                 }
@@ -1394,7 +1396,7 @@ static int server_init(Server *s) {
         return 0;
 }
 
-static void maybe_append_tags(Server *s) {
+static void server_maybe_append_tags(Server *s) {
 #ifdef HAVE_GCRYPT
         JournalFile *f;
         Iterator i;
@@ -1539,7 +1541,7 @@ int main(int argc, char *argv[]) {
                                 break;
                 }
 
-                maybe_append_tags(&server);
+                server_maybe_append_tags(&server);
         }
 
         log_debug("systemd-journald stopped as pid %lu", (unsigned long) getpid());

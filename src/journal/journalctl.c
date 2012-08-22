@@ -747,8 +747,20 @@ int main(int argc, char *argv[]) {
         }
 
 #ifdef HAVE_ACL
+        if (access("/var/log/journal", F_OK) < 0 && geteuid() != 0 && in_group("adm") <= 0) {
+                log_error("Unprivileged users can't see messages unless persistent log storage is enabled. Users in the group 'adm' can always see messages.");
+                r = -EACCES;
+                goto finish;
+        }
+
         if (!arg_quiet && geteuid() != 0 && in_group("adm") <= 0)
-                log_warning("Showing user generated messages only. Users in the group 'adm' can see all messages. Pass -q to turn this message off.");
+                log_warning("Showing user generated messages only. Users in the group 'adm' can see all messages. Pass -q to turn this notice off.");
+#else
+        if (geteuid() != 0 && in_group("adm") <= 0) {
+                log_error("No access to messages. Only users in the group 'adm' can see messages.");
+                r = -EACCES;
+                goto finish;
+        }
 #endif
 
         r = add_this_boot(j);
