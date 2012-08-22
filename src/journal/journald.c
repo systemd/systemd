@@ -58,6 +58,7 @@
 #include "journald-syslog.h"
 #include "journald-stream.h"
 #include "journald-console.h"
+#include "journald-native.h"
 
 #ifdef HAVE_ACL
 #include <sys/acl.h>
@@ -75,8 +76,6 @@
 #define DEFAULT_RATE_LIMIT_BURST 200
 
 #define RECHECK_AVAILABLE_SPACE_USEC (30*USEC_PER_SEC)
-
-#define ENTRY_SIZE_MAX (1024*1024*32)
 
 static const char* const storage_table[] = {
         [STORAGE_AUTO] = "auto",
@@ -773,292 +772,6 @@ finish:
         dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len, unit_id);
 }
 
-static bool valid_user_field(const char *p, size_t l) {
-        const char *a;
-
-        /* We kinda enforce POSIX syntax recommendations for
-           environment variables here, but make a couple of additional
-           requirements.
-
-           http://pubs.opengroup.org/onlinepubs/000095399/basedefs/xbd_chap08.html */
-
-        /* No empty field names */
-        if (l <= 0)
-                return false;
-
-        /* Don't allow names longer than 64 chars */
-        if (l > 64)
-                return false;
-
-        /* Variables starting with an underscore are protected */
-        if (p[0] == '_')
-                return false;
-
-        /* Don't allow digits as first character */
-        if (p[0] >= '0' && p[0] <= '9')
-                return false;
-
-        /* Only allow A-Z0-9 and '_' */
-        for (a = p; a < p + l; a++)
-                if (!((*a >= 'A' && *a <= 'Z') ||
-                      (*a >= '0' && *a <= '9') ||
-                      *a == '_'))
-                        return false;
-
-        return true;
-}
-
-static void process_native_message(
-                Server *s,
-                const void *buffer, size_t buffer_size,
-                struct ucred *ucred,
-                struct timeval *tv,
-                const char *label, size_t label_len) {
-
-        struct iovec *iovec = NULL;
-        unsigned n = 0, m = 0, j, tn = (unsigned) -1;
-        const char *p;
-        size_t remaining;
-        int priority = LOG_INFO;
-        char *identifier = NULL, *message = NULL;
-
-        assert(s);
-        assert(buffer || buffer_size == 0);
-
-        p = buffer;
-        remaining = buffer_size;
-
-        while (remaining > 0) {
-                const char *e, *q;
-
-                e = memchr(p, '\n', remaining);
-
-                if (!e) {
-                        /* Trailing noise, let's ignore it, and flush what we collected */
-                        log_debug("Received message with trailing noise, ignoring.");
-                        break;
-                }
-
-                if (e == p) {
-                        /* Entry separator */
-                        server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority);
-                        n = 0;
-                        priority = LOG_INFO;
-
-                        p++;
-                        remaining--;
-                        continue;
-                }
-
-                if (*p == '.' || *p == '#') {
-                        /* Ignore control commands for now, and
-                         * comments too. */
-                        remaining -= (e - p) + 1;
-                        p = e + 1;
-                        continue;
-                }
-
-                /* A property follows */
-
-                if (n+N_IOVEC_META_FIELDS >= m) {
-                        struct iovec *c;
-                        unsigned u;
-
-                        u = MAX((n+N_IOVEC_META_FIELDS+1) * 2U, 4U);
-                        c = realloc(iovec, u * sizeof(struct iovec));
-                        if (!c) {
-                                log_oom();
-                                break;
-                        }
-
-                        iovec = c;
-                        m = u;
-                }
-
-                q = memchr(p, '=', e - p);
-                if (q) {
-                        if (valid_user_field(p, q - p)) {
-                                size_t l;
-
-                                l = e - p;
-
-                                /* If the field name starts with an
-                                 * underscore, skip the variable,
-                                 * since that indidates a trusted
-                                 * field */
-                                iovec[n].iov_base = (char*) p;
-                                iovec[n].iov_len = l;
-                                n++;
-
-                                /* We need to determine the priority
-                                 * of this entry for the rate limiting
-                                 * logic */
-                                if (l == 10 &&
-                                    memcmp(p, "PRIORITY=", 9) == 0 &&
-                                    p[9] >= '0' && p[9] <= '9')
-                                        priority = (priority & LOG_FACMASK) | (p[9] - '0');
-
-                                else if (l == 17 &&
-                                         memcmp(p, "SYSLOG_FACILITY=", 16) == 0 &&
-                                         p[16] >= '0' && p[16] <= '9')
-                                        priority = (priority & LOG_PRIMASK) | ((p[16] - '0') << 3);
-
-                                else if (l == 18 &&
-                                         memcmp(p, "SYSLOG_FACILITY=", 16) == 0 &&
-                                         p[16] >= '0' && p[16] <= '9' &&
-                                         p[17] >= '0' && p[17] <= '9')
-                                        priority = (priority & LOG_PRIMASK) | (((p[16] - '0')*10 + (p[17] - '0')) << 3);
-
-                                else if (l >= 19 &&
-                                         memcmp(p, "SYSLOG_IDENTIFIER=", 18) == 0) {
-                                        char *t;
-
-                                        t = strndup(p + 18, l - 18);
-                                        if (t) {
-                                                free(identifier);
-                                                identifier = t;
-                                        }
-                                } else if (l >= 8 &&
-                                           memcmp(p, "MESSAGE=", 8) == 0) {
-                                        char *t;
-
-                                        t = strndup(p + 8, l - 8);
-                                        if (t) {
-                                                free(message);
-                                                message = t;
-                                        }
-                                }
-                        }
-
-                        remaining -= (e - p) + 1;
-                        p = e + 1;
-                        continue;
-                } else {
-                        le64_t l_le;
-                        uint64_t l;
-                        char *k;
-
-                        if (remaining < e - p + 1 + sizeof(uint64_t) + 1) {
-                                log_debug("Failed to parse message, ignoring.");
-                                break;
-                        }
-
-                        memcpy(&l_le, e + 1, sizeof(uint64_t));
-                        l = le64toh(l_le);
-
-                        if (remaining < e - p + 1 + sizeof(uint64_t) + l + 1 ||
-                            e[1+sizeof(uint64_t)+l] != '\n') {
-                                log_debug("Failed to parse message, ignoring.");
-                                break;
-                        }
-
-                        k = malloc((e - p) + 1 + l);
-                        if (!k) {
-                                log_oom();
-                                break;
-                        }
-
-                        memcpy(k, p, e - p);
-                        k[e - p] = '=';
-                        memcpy(k + (e - p) + 1, e + 1 + sizeof(uint64_t), l);
-
-                        if (valid_user_field(p, e - p)) {
-                                iovec[n].iov_base = k;
-                                iovec[n].iov_len = (e - p) + 1 + l;
-                                n++;
-                        } else
-                                free(k);
-
-                        remaining -= (e - p) + 1 + sizeof(uint64_t) + l + 1;
-                        p = e + 1 + sizeof(uint64_t) + l + 1;
-                }
-        }
-
-        if (n <= 0)
-                goto finish;
-
-        tn = n++;
-        IOVEC_SET_STRING(iovec[tn], "_TRANSPORT=journal");
-
-        if (message) {
-                if (s->forward_to_syslog)
-                        server_forward_syslog(s, priority, identifier, message, ucred, tv);
-
-                if (s->forward_to_kmsg)
-                        server_forward_kmsg(s, priority, identifier, message, ucred);
-
-                if (s->forward_to_console)
-                        server_forward_console(s, priority, identifier, message, ucred);
-        }
-
-        server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority);
-
-finish:
-        for (j = 0; j < n; j++)  {
-                if (j == tn)
-                        continue;
-
-                if (iovec[j].iov_base < buffer ||
-                    (const uint8_t*) iovec[j].iov_base >= (const uint8_t*) buffer + buffer_size)
-                        free(iovec[j].iov_base);
-        }
-
-        free(iovec);
-        free(identifier);
-        free(message);
-}
-
-static void process_native_file(
-                Server *s,
-                int fd,
-                struct ucred *ucred,
-                struct timeval *tv,
-                const char *label, size_t label_len) {
-
-        struct stat st;
-        void *p;
-        ssize_t n;
-
-        assert(s);
-        assert(fd >= 0);
-
-        /* Data is in the passed file, since it didn't fit in a
-         * datagram. We can't map the file here, since clients might
-         * then truncate it and trigger a SIGBUS for us. So let's
-         * stupidly read it */
-
-        if (fstat(fd, &st) < 0) {
-                log_error("Failed to stat passed file, ignoring: %m");
-                return;
-        }
-
-        if (!S_ISREG(st.st_mode)) {
-                log_error("File passed is not regular. Ignoring.");
-                return;
-        }
-
-        if (st.st_size <= 0)
-                return;
-
-        if (st.st_size > ENTRY_SIZE_MAX) {
-                log_error("File passed too large. Ignoring.");
-                return;
-        }
-
-        p = malloc(st.st_size);
-        if (!p) {
-                log_oom();
-                return;
-        }
-
-        n = pread(fd, p, st.st_size, 0);
-        if (n < 0)
-                log_error("Failed to read file, ignoring: %s", strerror(-n));
-        else if (n > 0)
-                process_native_message(s, p, n, ucred, tv, label, label_len);
-
-        free(p);
-}
 
 static int system_journal_open(Server *s) {
         int r;
@@ -1402,9 +1115,9 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
                         } else {
                                 if (n > 0 && n_fds == 0)
-                                        process_native_message(s, s->buffer, n, ucred, tv, label, label_len);
+                                        server_process_native_message(s, s->buffer, n, ucred, tv, label, label_len);
                                 else if (n == 0 && n_fds == 1)
-                                        process_native_file(s, fds[0], ucred, tv, label, label_len);
+                                        server_process_native_file(s, fds[0], ucred, tv, label, label_len);
                                 else if (n_fds > 0)
                                         log_warning("Got too many file descriptors via native socket. Ignoring.");
                         }
@@ -1450,71 +1163,6 @@ static int process_event(Server *s, struct epoll_event *ev) {
         log_error("Unknown event.");
         return 0;
 }
-
-
-static int open_native_socket(Server*s) {
-        union sockaddr_union sa;
-        int one, r;
-        struct epoll_event ev;
-
-        assert(s);
-
-        if (s->native_fd < 0) {
-
-                s->native_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-                if (s->native_fd < 0) {
-                        log_error("socket() failed: %m");
-                        return -errno;
-                }
-
-                zero(sa);
-                sa.un.sun_family = AF_UNIX;
-                strncpy(sa.un.sun_path, "/run/systemd/journal/socket", sizeof(sa.un.sun_path));
-
-                unlink(sa.un.sun_path);
-
-                r = bind(s->native_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
-                if (r < 0) {
-                        log_error("bind() failed: %m");
-                        return -errno;
-                }
-
-                chmod(sa.un.sun_path, 0666);
-        } else
-                fd_nonblock(s->native_fd, 1);
-
-        one = 1;
-        r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
-        if (r < 0) {
-                log_error("SO_PASSCRED failed: %m");
-                return -errno;
-        }
-
-#ifdef HAVE_SELINUX
-        one = 1;
-        r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
-        if (r < 0)
-                log_warning("SO_PASSSEC failed: %m");
-#endif
-
-        one = 1;
-        r = setsockopt(s->native_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one));
-        if (r < 0) {
-                log_error("SO_TIMESTAMP failed: %m");
-                return -errno;
-        }
-
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.fd = s->native_fd;
-        if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, s->native_fd, &ev) < 0) {
-                log_error("Failed to add native server fd to epoll object: %m");
-                return -errno;
-        }
-
-        return 0;
-}
-
 
 static int open_signalfd(Server *s) {
         sigset_t mask;
@@ -1711,7 +1359,7 @@ static int server_init(Server *s) {
         if (r < 0)
                 return r;
 
-        r = open_native_socket(s);
+        r = server_open_native_socket(s);
         if (r < 0)
                 return r;
 
