@@ -2319,8 +2319,8 @@ systemd_journald_SOURCES = \
 	src/journal/journald-console.h \
 	src/journal/journald-native.c \
 	src/journal/journald-native.h \
-	src/journal/journal-rate-limit.c \
-	src/journal/journal-rate-limit.h \
+	src/journal/journald-rate-limit.c \
+	src/journal/journald-rate-limit.h \
 	src/journal/journal-internal.h
 
 nodist_systemd_journald_SOURCES = \

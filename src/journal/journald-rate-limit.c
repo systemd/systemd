@@ -22,7 +22,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "journal-rate-limit.h"
+#include "journald-rate-limit.h"
 #include "list.h"
 #include "util.h"
 #include "hashmap.h"

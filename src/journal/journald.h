@@ -29,7 +29,7 @@
 #include "hashmap.h"
 #include "util.h"
 #include "audit.h"
-#include "journal-rate-limit.h"
+#include "journald-rate-limit.h"
 #include "list.h"
 
 typedef enum Storage {
