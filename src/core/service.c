@@ -2508,7 +2508,7 @@ static int service_start(Unit *u) {
         /* Make sure we don't enter a busy loop of some kind. */
         r = service_start_limit_test(s);
         if (r < 0) {
-                service_notify_sockets_dead(s, true);
+                service_enter_dead(s, SERVICE_FAILURE_START_LIMIT, false);
                 return r;
         }
 
@@ -3821,7 +3821,8 @@ static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
         [SERVICE_FAILURE_EXIT_CODE] = "exit-code",
         [SERVICE_FAILURE_SIGNAL] = "signal",
         [SERVICE_FAILURE_CORE_DUMP] = "core-dump",
-        [SERVICE_FAILURE_WATCHDOG] = "watchdog"
+        [SERVICE_FAILURE_WATCHDOG] = "watchdog",
+        [SERVICE_FAILURE_START_LIMIT] = "start-limit"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult);

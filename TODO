@@ -55,8 +55,6 @@ Features:
 
 * enforce limits on fds openened by socket units
 
-* proper service failure code for services which hit the restart limit
-
 * explore multiple service instances per listening socket idea
 
 * testing tool for socket activation: some binary that listens on a socket and passes it on using the usual socket activation protocol to some server.
@@ -236,8 +234,6 @@ Features:
 * fix utmp for console logins in containers
 
 * Add pretty name for seats in logind
-
-* nspawn wants dev_setup() for /dev/fd/ and friends?
 
 * selinux: merge systemd selinux access controls (dwalsh)
 
