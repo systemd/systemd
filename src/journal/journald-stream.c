@@ -32,6 +32,7 @@
 #include "journald-stream.h"
 #include "journald-syslog.h"
 #include "journald-kmsg.h"
+#include "journald-console.h"
 
 #define STDOUT_STREAMS_MAX 4096
 

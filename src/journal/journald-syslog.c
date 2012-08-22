@@ -26,6 +26,7 @@
 #include "journald.h"
 #include "journald-syslog.h"
 #include "journald-kmsg.h"
+#include "journald-console.h"
 
 static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, struct ucred *ucred, struct timeval *tv) {
         struct msghdr msghdr;

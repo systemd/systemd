@@ -108,7 +108,6 @@ typedef struct Server {
 #define N_IOVEC_UDEV_FIELDS 32
 
 void server_dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, struct ucred *ucred, struct timeval *tv, const char *label, size_t label_len, const char *unit_id, int priority);
-
 void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...);
 
 /* gperf lookup function */
@@ -118,5 +117,3 @@ int config_parse_storage(const char *filename, unsigned line, const char *sectio
 
 const char *storage_to_string(Storage s);
 Storage storage_from_string(const char *s);
-
-void server_forward_console(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred);

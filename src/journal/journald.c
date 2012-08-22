@@ -57,6 +57,7 @@
 #include "journald-kmsg.h"
 #include "journald-syslog.h"
 #include "journald-stream.h"
+#include "journald-console.h"
 
 #ifdef HAVE_ACL
 #include <sys/acl.h>
@@ -771,61 +772,6 @@ void server_dispatch_message(
 finish:
         dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len, unit_id);
 }
-
-void server_forward_console(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred) {
-        struct iovec iovec[4];
-        char header_pid[16];
-        int n = 0, fd;
-        char *ident_buf = NULL;
-        const char *tty;
-
-        assert(s);
-        assert(message);
-
-        if (LOG_PRI(priority) > s->max_level_console)
-                return;
-
-        /* First: identifier and PID */
-        if (ucred) {
-                if (!identifier) {
-                        get_process_comm(ucred->pid, &ident_buf);
-                        identifier = ident_buf;
-                }
-
-                snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) ucred->pid);
-                char_array_0(header_pid);
-
-                if (identifier)
-                        IOVEC_SET_STRING(iovec[n++], identifier);
-
-                IOVEC_SET_STRING(iovec[n++], header_pid);
-        } else if (identifier) {
-                IOVEC_SET_STRING(iovec[n++], identifier);
-                IOVEC_SET_STRING(iovec[n++], ": ");
-        }
-
-        /* Third: message */
-        IOVEC_SET_STRING(iovec[n++], message);
-        IOVEC_SET_STRING(iovec[n++], "\n");
-
-        tty = s->tty_path ? s->tty_path : "/dev/console";
-
-        fd = open_terminal(tty, O_WRONLY|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0) {
-                log_debug("Failed to open %s for logging: %s", tty, strerror(errno));
-                goto finish;
-        }
-
-        if (writev(fd, iovec, n) < 0)
-                log_debug("Failed to write to %s for logging: %s", tty, strerror(errno));
-
-        close_nointr_nofail(fd);
-
-finish:
-        free(ident_buf);
-}
-
-
 
 static bool valid_user_field(const char *p, size_t l) {
         const char *a;
