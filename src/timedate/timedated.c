@@ -76,6 +76,9 @@
         BUS_GENERIC_INTERFACES_LIST             \
         "org.freedesktop.timedate1\0"
 
+/* Must start and end with '/' */
+#define ZONEINFO_PATH "/usr/share/zoneinfo/"
+
 const char timedate_interface[] _introspect_("timedate1") = INTERFACE;
 
 typedef struct TZ {
@@ -129,7 +132,7 @@ static bool valid_timezone(const char *name) {
         if (slash)
                 return false;
 
-        t = strappend("/usr/share/zoneinfo/", name);
+        t = strappend(ZONEINFO_PATH, name);
         if (!t)
                 return false;
 
@@ -153,16 +156,16 @@ static void verify_timezone(void) {
         if (!tz.zone)
                 return;
 
-        p = strappend("/usr/share/zoneinfo/", tz.zone);
+        p = strappend(ZONEINFO_PATH, tz.zone);
         if (!p) {
                 log_oom();
                 return;
         }
 
-        j = read_full_file("/etc/localtime", &a, &l);
         k = read_full_file(p, &b, &q);
-
         free(p);
+
+        j = read_full_file("/etc/localtime", &a, &l);
 
         if (j < 0 || k < 0 || l != q || memcmp(a, b, l)) {
                 log_warning("/etc/localtime and /etc/timezone out of sync.");
@@ -176,8 +179,33 @@ static void verify_timezone(void) {
 
 static int read_data(void) {
         int r;
+        char *t = NULL;
 
         free_data();
+
+        r = readlink_malloc("/etc/localtime", &t);
+        if (r < 0) {
+                if (r == -EINVAL)
+                        log_warning("/etc/localtime should be a symbolic link to a timezone data file in " ZONEINFO_PATH);
+                else
+                        log_warning("Failed to get target of %s: %s", "/etc/localtime", strerror(-r));
+        } else {
+                /* we only support the trivial relative link of (/etc/)..$ABSOLUTE */
+                int rel_link_offset = startswith(t, "..") ? strlen("..") : 0;
+
+                if (!startswith(t + rel_link_offset, ZONEINFO_PATH))
+                        log_warning("/etc/localtime should be a symbolic link to a timezone data file in " ZONEINFO_PATH);
+                else {
+                        tz.zone = strdup(t + rel_link_offset + strlen(ZONEINFO_PATH));
+                        free(t);
+                        if (!tz.zone)
+                                return log_oom();
+
+                        goto have_timezone;
+                }
+        }
+
+        free(t);
 
         r = read_one_line_file("/etc/timezone", &tz.zone);
         if (r < 0) {
@@ -194,6 +222,7 @@ static int read_data(void) {
 #endif
         }
 
+have_timezone:
         if (isempty(tz.zone)) {
                 free(tz.zone);
                 tz.zone = NULL;
@@ -209,6 +238,7 @@ static int read_data(void) {
 static int write_data_timezone(void) {
         int r = 0;
         char *p;
+        struct stat st;
 
         if (!tz.zone) {
                 if (unlink("/etc/timezone") < 0 && errno != ENOENT)
@@ -220,19 +250,21 @@ static int write_data_timezone(void) {
                 return r;
         }
 
-        p = strappend("/usr/share/zoneinfo/", tz.zone);
+        p = strappend(ZONEINFO_PATH, tz.zone);
         if (!p)
                 return log_oom();
 
-        r = symlink_or_copy_atomic(p, "/etc/localtime");
+        r = symlink(p, "/etc/localtime");
         free(p);
 
         if (r < 0)
-                return r;
+                return -errno;
 
-        r = write_one_line_file_atomic("/etc/timezone", tz.zone);
-        if (r < 0)
-                return r;
+        if (stat("/etc/timezone", &st) == 0 && S_ISREG(st.st_mode)) {
+                r = write_one_line_file_atomic("/etc/timezone", tz.zone);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
