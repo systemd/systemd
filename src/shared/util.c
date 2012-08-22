@@ -4409,7 +4409,7 @@ bool plymouth_running(void) {
         return access("/run/plymouth/pid", F_OK) >= 0;
 }
 
-void parse_syslog_priority(char **p, int *priority) {
+void syslog_parse_priority(char **p, int *priority) {
         int a = 0, b = 0, c = 0;
         int k;
 
@@ -4445,7 +4445,7 @@ void parse_syslog_priority(char **p, int *priority) {
         *p += k;
 }
 
-void skip_syslog_pid(char **buf) {
+void syslog_skip_pid(char **buf) {
         char *p;
 
         assert(buf);
@@ -4467,7 +4467,7 @@ void skip_syslog_pid(char **buf) {
         *buf = p;
 }
 
-void skip_syslog_date(char **buf) {
+void syslog_skip_date(char **buf) {
         enum {
                 LETTER,
                 SPACE,

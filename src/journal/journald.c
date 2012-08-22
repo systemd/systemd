@@ -52,6 +52,7 @@
 #include "journal-authenticate.h"
 #include "conf-parser.h"
 #include "journald.h"
+#include "journald-kmsg.h"
 #include "virt.h"
 #include "missing.h"
 
@@ -72,10 +73,6 @@
 #define DEFAULT_RATE_LIMIT_BURST 200
 
 #define RECHECK_AVAILABLE_SPACE_USEC (30*USEC_PER_SEC)
-
-#define N_IOVEC_META_FIELDS 17
-#define N_IOVEC_KERNEL_FIELDS 64
-#define N_IOVEC_UDEV_FIELDS 32
 
 #define ENTRY_SIZE_MAX (1024*1024*32)
 
@@ -716,7 +713,7 @@ static void dispatch_message_real(
         free(selinux_context);
 }
 
-static void driver_message(Server *s, sd_id128_t message_id, const char *format, ...) {
+void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) {
         char mid[11 + 32 + 1];
         char buffer[16 + LINE_MAX + 1];
         struct iovec iovec[N_IOVEC_META_FIELDS + 4];
@@ -749,13 +746,15 @@ static void driver_message(Server *s, sd_id128_t message_id, const char *format,
         dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL);
 }
 
-static void dispatch_message(Server *s,
-                             struct iovec *iovec, unsigned n, unsigned m,
-                             struct ucred *ucred,
-                             struct timeval *tv,
-                             const char *label, size_t label_len,
-                             const char *unit_id,
-                             int priority) {
+void server_dispatch_message(
+                Server *s,
+                struct iovec *iovec, unsigned n, unsigned m,
+                struct ucred *ucred,
+                struct timeval *tv,
+                const char *label, size_t label_len,
+                const char *unit_id,
+                int priority) {
+
         int rl;
         char *path = NULL, *c;
 
@@ -800,7 +799,7 @@ static void dispatch_message(Server *s,
 
         /* Write a suppression message if we suppressed something */
         if (rl > 1)
-                driver_message(s, SD_MESSAGE_JOURNAL_DROPPED, "Suppressed %u messages from %s", rl - 1, path);
+                server_driver_message(s, SD_MESSAGE_JOURNAL_DROPPED, "Suppressed %u messages from %s", rl - 1, path);
 
         free(path);
 
@@ -948,69 +947,6 @@ static void forward_syslog(Server *s, int priority, const char *identifier, cons
         free(ident_buf);
 }
 
-static int fixup_priority(int priority) {
-
-        if ((priority & LOG_FACMASK) == 0)
-                return (priority & LOG_PRIMASK) | LOG_USER;
-
-        return priority;
-}
-
-static void forward_kmsg(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred) {
-        struct iovec iovec[5];
-        char header_priority[6], header_pid[16];
-        int n = 0;
-        char *ident_buf = NULL;
-
-        assert(s);
-        assert(priority >= 0);
-        assert(priority <= 999);
-        assert(message);
-
-        if (_unlikely_(LOG_PRI(priority) > s->max_level_kmsg))
-                return;
-
-        if (_unlikely_(s->dev_kmsg_fd < 0))
-                return;
-
-        /* Never allow messages with kernel facility to be written to
-         * kmsg, regardless where the data comes from. */
-        priority = fixup_priority(priority);
-
-        /* First: priority field */
-        snprintf(header_priority, sizeof(header_priority), "<%i>", priority);
-        char_array_0(header_priority);
-        IOVEC_SET_STRING(iovec[n++], header_priority);
-
-        /* Second: identifier and PID */
-        if (ucred) {
-                if (!identifier) {
-                        get_process_comm(ucred->pid, &ident_buf);
-                        identifier = ident_buf;
-                }
-
-                snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) ucred->pid);
-                char_array_0(header_pid);
-
-                if (identifier)
-                        IOVEC_SET_STRING(iovec[n++], identifier);
-
-                IOVEC_SET_STRING(iovec[n++], header_pid);
-        } else if (identifier) {
-                IOVEC_SET_STRING(iovec[n++], identifier);
-                IOVEC_SET_STRING(iovec[n++], ": ");
-        }
-
-        /* Fourth: message */
-        IOVEC_SET_STRING(iovec[n++], message);
-        IOVEC_SET_STRING(iovec[n++], "\n");
-
-        if (writev(s->dev_kmsg_fd, iovec, n) < 0)
-                log_debug("Failed to write to /dev/kmsg for logging: %s", strerror(errno));
-
-        free(ident_buf);
-}
-
 static void forward_console(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred) {
         struct iovec iovec[4];
         char header_pid[16];
@@ -1064,7 +1000,15 @@ finish:
         free(ident_buf);
 }
 
-static void read_identifier(const char **buf, char **identifier, char **pid) {
+int syslog_fixup_facility(int priority) {
+
+        if ((priority & LOG_FACMASK) == 0)
+                return (priority & LOG_PRIMASK) | LOG_USER;
+
+        return priority;
+}
+
+void syslog_read_identifier(const char **buf, char **identifier, char **pid) {
         const char *p;
         char *t;
         size_t l, e;
@@ -1126,16 +1070,16 @@ static void process_syslog_message(Server *s, const char *buf, struct ucred *ucr
         assert(buf);
 
         orig = buf;
-        parse_syslog_priority((char**) &buf, &priority);
+        syslog_parse_priority((char**) &buf, &priority);
 
         if (s->forward_to_syslog)
                 forward_syslog_raw(s, priority, orig, ucred, tv);
 
-        skip_syslog_date((char**) &buf);
-        read_identifier(&buf, &identifier, &pid);
+        syslog_skip_date((char**) &buf);
+        syslog_read_identifier(&buf, &identifier, &pid);
 
         if (s->forward_to_kmsg)
-                forward_kmsg(s, priority, identifier, buf, ucred);
+                server_forward_kmsg(s, priority, identifier, buf, ucred);
 
         if (s->forward_to_console)
                 forward_console(s, priority, identifier, buf, ucred);
@@ -1165,7 +1109,7 @@ static void process_syslog_message(Server *s, const char *buf, struct ucred *ucr
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, label, label_len, NULL, priority);
+        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), ucred, tv, label, label_len, NULL, priority);
 
         free(message);
         free(identifier);
@@ -1244,7 +1188,7 @@ static void process_native_message(
 
                 if (e == p) {
                         /* Entry separator */
-                        dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority);
+                        server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority);
                         n = 0;
                         priority = LOG_INFO;
 
@@ -1388,13 +1332,13 @@ static void process_native_message(
                         forward_syslog(s, priority, identifier, message, ucred, tv);
 
                 if (s->forward_to_kmsg)
-                        forward_kmsg(s, priority, identifier, message, ucred);
+                        server_forward_kmsg(s, priority, identifier, message, ucred);
 
                 if (s->forward_to_console)
                         forward_console(s, priority, identifier, message, ucred);
         }
 
-        dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority);
+        server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority);
 
 finish:
         for (j = 0; j < n; j++)  {
@@ -1480,13 +1424,13 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         priority = s->priority;
 
         if (s->level_prefix)
-                parse_syslog_priority((char**) &p, &priority);
+                syslog_parse_priority((char**) &p, &priority);
 
         if (s->forward_to_syslog || s->server->forward_to_syslog)
-                forward_syslog(s->server, fixup_priority(priority), s->identifier, p, &s->ucred, NULL);
+                forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
 
         if (s->forward_to_kmsg || s->server->forward_to_kmsg)
-                forward_kmsg(s->server, priority, s->identifier, p, &s->ucred);
+                server_forward_kmsg(s->server, priority, s->identifier, p, &s->ucred);
 
         if (s->forward_to_console || s->server->forward_to_console)
                 forward_console(s->server, priority, s->identifier, p, &s->ucred);
@@ -1517,7 +1461,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         }
 #endif
 
-        dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, label, label_len, s->unit_id, priority);
+        server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, label, label_len, s->unit_id, priority);
 
         free(message);
         free(syslog_priority);
@@ -1801,231 +1745,6 @@ fail:
         return r;
 }
 
-static bool is_us(const char *pid) {
-        pid_t t;
-
-        assert(pid);
-
-        if (parse_pid(pid, &t) < 0)
-                return false;
-
-        return t == getpid();
-}
-
-static void dev_kmsg_record(Server *s, char *p, size_t l) {
-        struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS + 2 + N_IOVEC_UDEV_FIELDS];
-        char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL;
-        int priority, r;
-        unsigned n = 0, z = 0, j;
-        usec_t usec;
-        char *identifier = NULL, *pid = NULL, *e, *f, *k;
-        uint64_t serial;
-        size_t pl;
-        char *kernel_device = NULL;
-
-        assert(s);
-        assert(p);
-
-        if (l <= 0)
-                return;
-
-        e = memchr(p, ',', l);
-        if (!e)
-                return;
-        *e = 0;
-
-        r = safe_atoi(p, &priority);
-        if (r < 0 || priority < 0 || priority > 999)
-                return;
-
-        if (s->forward_to_kmsg && (priority & LOG_FACMASK) != LOG_KERN)
-                return;
-
-        l -= (e - p) + 1;
-        p = e + 1;
-        e = memchr(p, ',', l);
-        if (!e)
-                return;
-        *e = 0;
-
-        r = safe_atou64(p, &serial);
-        if (r < 0)
-                return;
-
-        if (s->kernel_seqnum) {
-                /* We already read this one? */
-                if (serial < *s->kernel_seqnum)
-                        return;
-
-                /* Did we lose any? */
-                if (serial > *s->kernel_seqnum)
-                        driver_message(s, SD_MESSAGE_JOURNAL_MISSED, "Missed %llu kernel messages", (unsigned long long) serial - *s->kernel_seqnum - 1);
-
-                /* Make sure we never read this one again. Note that
-                 * we always store the next message serial we expect
-                 * here, simply because this makes handling the first
-                 * message with serial 0 easy. */
-                *s->kernel_seqnum = serial + 1;
-        }
-
-        l -= (e - p) + 1;
-        p = e + 1;
-        f = memchr(p, ';', l);
-        if (!f)
-                return;
-        /* Kernel 3.6 has the flags field, kernel 3.5 lacks that */
-        e = memchr(p, ',', l);
-        if (!e || f < e)
-                e = f;
-        *e = 0;
-
-        r = parse_usec(p, &usec);
-        if (r < 0)
-                return;
-
-        l -= (f - p) + 1;
-        p = f + 1;
-        e = memchr(p, '\n', l);
-        if (!e)
-                return;
-        *e = 0;
-
-        pl = e - p;
-        l -= (e - p) + 1;
-        k = e + 1;
-
-        for (j = 0; l > 0 && j < N_IOVEC_KERNEL_FIELDS; j++) {
-                char *m;
-                /* Meta data fields attached */
-
-                if (*k != ' ')
-                        break;
-
-                k ++, l --;
-
-                e = memchr(k, '\n', l);
-                if (!e)
-                        return;
-
-                *e = 0;
-
-                m = cunescape_length_with_prefix(k, e - k, "_KERNEL_");
-                if (!m)
-                        break;
-
-                if (startswith(m, "_KERNEL_DEVICE="))
-                        kernel_device = m + 15;
-
-                IOVEC_SET_STRING(iovec[n++], m);
-                z++;
-
-                l -= (e - k) + 1;
-                k = e + 1;
-        }
-
-        if (kernel_device) {
-                struct udev_device *ud;
-
-                ud = udev_device_new_from_device_id(s->udev, kernel_device);
-                if (ud) {
-                        const char *g;
-                        struct udev_list_entry *ll;
-                        char *b;
-
-                        g = udev_device_get_devnode(ud);
-                        if (g) {
-                                b = strappend("_UDEV_DEVNODE=", g);
-                                if (b) {
-                                        IOVEC_SET_STRING(iovec[n++], b);
-                                        z++;
-                                }
-                        }
-
-                        g = udev_device_get_sysname(ud);
-                        if (g) {
-                                b = strappend("_UDEV_SYSNAME=", g);
-                                if (b) {
-                                        IOVEC_SET_STRING(iovec[n++], b);
-                                        z++;
-                                }
-                        }
-
-                        j = 0;
-                        ll = udev_device_get_devlinks_list_entry(ud);
-                        udev_list_entry_foreach(ll, ll) {
-
-                                if (j > N_IOVEC_UDEV_FIELDS)
-                                        break;
-
-                                g = udev_list_entry_get_name(ll);
-                                b = strappend("_UDEV_DEVLINK=", g);
-                                if (g) {
-                                        IOVEC_SET_STRING(iovec[n++], b);
-                                        z++;
-                                }
-
-                                j++;
-                        }
-
-                        udev_device_unref(ud);
-                }
-        }
-
-        if (asprintf(&source_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu",
-                     (unsigned long long) usec) >= 0)
-                IOVEC_SET_STRING(iovec[n++], source_time);
-
-        IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=kernel");
-
-        if (asprintf(&syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK) >= 0)
-                IOVEC_SET_STRING(iovec[n++], syslog_priority);
-
-        if ((priority & LOG_FACMASK) == LOG_KERN)
-                IOVEC_SET_STRING(iovec[n++], "SYSLOG_IDENTIFIER=kernel");
-        else {
-                read_identifier((const char**) &p, &identifier, &pid);
-
-                /* Avoid any messages we generated ourselves via
-                 * log_info() and friends. */
-                if (pid && is_us(pid))
-                        goto finish;
-
-                if (identifier) {
-                        syslog_identifier = strappend("SYSLOG_IDENTIFIER=", identifier);
-                        if (syslog_identifier)
-                                IOVEC_SET_STRING(iovec[n++], syslog_identifier);
-                }
-
-                if (pid) {
-                        syslog_pid = strappend("SYSLOG_PID=", pid);
-                        if (syslog_pid)
-                                IOVEC_SET_STRING(iovec[n++], syslog_pid);
-                }
-
-                if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
-                        IOVEC_SET_STRING(iovec[n++], syslog_facility);
-        }
-
-        message = cunescape_length_with_prefix(p, pl, "MESSAGE=");
-        if (message)
-                IOVEC_SET_STRING(iovec[n++], message);
-
-        dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, NULL, 0, NULL, priority);
-
-finish:
-        for (j = 0; j < z; j++)
-                free(iovec[j].iov_base);
-
-        free(message);
-        free(syslog_priority);
-        free(syslog_identifier);
-        free(syslog_pid);
-        free(syslog_facility);
-        free(source_time);
-        free(identifier);
-        free(pid);
-}
-
 static int system_journal_open(Server *s) {
         int r;
         char *fn;
@@ -2194,61 +1913,6 @@ finish:
                 rm_rf("/run/log/journal", false, true, false);
 
         return r;
-}
-
-static int server_read_dev_kmsg(Server *s) {
-        char buffer[8192+1]; /* the kernel-side limit per record is 8K currently */
-        ssize_t l;
-
-        assert(s);
-        assert(s->dev_kmsg_fd >= 0);
-
-        l = read(s->dev_kmsg_fd, buffer, sizeof(buffer) - 1);
-        if (l == 0)
-                return 0;
-        if (l < 0) {
-                /* Old kernels who don't allow reading from /dev/kmsg
-                 * return EINVAL when we try. So handle this cleanly,
-                 * but don' try to ever read from it again. */
-                if (errno == EINVAL) {
-                        epoll_ctl(s->epoll_fd, EPOLL_CTL_DEL, s->dev_kmsg_fd, NULL);
-                        return 0;
-                }
-
-                if (errno == EAGAIN || errno == EINTR || errno == EPIPE)
-                        return 0;
-
-                log_error("Failed to read from kernel: %m");
-                return -errno;
-        }
-
-        dev_kmsg_record(s, buffer, l);
-        return 1;
-}
-
-static int server_flush_dev_kmsg(Server *s) {
-        int r;
-
-        assert(s);
-
-        if (s->dev_kmsg_fd < 0)
-                return 0;
-
-        if (!s->dev_kmsg_readable)
-                return 0;
-
-        log_info("Flushing /dev/kmsg...");
-
-        for (;;) {
-                r = server_read_dev_kmsg(s);
-                if (r < 0)
-                        return r;
-
-                if (r == 0)
-                        break;
-        }
-
-        return 0;
 }
 
 static int process_event(Server *s, struct epoll_event *ev) {
@@ -2645,71 +2309,6 @@ static int open_stdout_socket(Server *s) {
         return 0;
 }
 
-static int open_dev_kmsg(Server *s) {
-        struct epoll_event ev;
-
-        assert(s);
-
-        s->dev_kmsg_fd = open("/dev/kmsg", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (s->dev_kmsg_fd < 0) {
-                log_warning("Failed to open /dev/kmsg, ignoring: %m");
-                return 0;
-        }
-
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.fd = s->dev_kmsg_fd;
-        if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, s->dev_kmsg_fd, &ev) < 0) {
-
-                /* This will fail with EPERM on older kernels where
-                 * /dev/kmsg is not readable. */
-                if (errno == EPERM)
-                        return 0;
-
-                log_error("Failed to add /dev/kmsg fd to epoll object: %m");
-                return -errno;
-        }
-
-        s->dev_kmsg_readable = true;
-
-        return 0;
-}
-
-static int open_kernel_seqnum(Server *s) {
-        int fd;
-        uint64_t *p;
-
-        assert(s);
-
-        /* We store the seqnum we last read in an mmaped file. That
-         * way we can just use it like a variable, but it is
-         * persistant and automatically flushed at reboot. */
-
-        fd = open("/run/systemd/journal/kernel-seqnum", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
-        if (fd < 0) {
-                log_error("Failed to open /run/systemd/journal/kernel-seqnum, ignoring: %m");
-                return 0;
-        }
-
-        if (posix_fallocate(fd, 0, sizeof(uint64_t)) < 0) {
-                log_error("Failed to allocate sequential number file, ignoring: %m");
-                close_nointr_nofail(fd);
-                return 0;
-        }
-
-        p = mmap(NULL, sizeof(uint64_t), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-        if (p == MAP_FAILED) {
-                log_error("Failed to map sequential number file, ignoring: %m");
-                close_nointr_nofail(fd);
-                return 0;
-        }
-
-        close_nointr_nofail(fd);
-        s->kernel_seqnum = p;
-
-        return 0;
-}
-
 static int open_signalfd(Server *s) {
         sigset_t mask;
         struct epoll_event ev;
@@ -2913,11 +2512,11 @@ static int server_init(Server *s) {
         if (r < 0)
                 return r;
 
-        r = open_dev_kmsg(s);
+        r = server_open_dev_kmsg(s);
         if (r < 0)
                 return r;
 
-        r = open_kernel_seqnum(s);
+        r = server_open_kernel_seqnum(s);
         if (r < 0)
                 return r;
 
@@ -3039,7 +2638,7 @@ int main(int argc, char *argv[]) {
         server_flush_dev_kmsg(&server);
 
         log_debug("systemd-journald running as pid %lu", (unsigned long) getpid());
-        driver_message(&server, SD_MESSAGE_JOURNAL_START, "Journal started");
+        server_driver_message(&server, SD_MESSAGE_JOURNAL_START, "Journal started");
 
         sd_notify(false,
                   "READY=1\n"
@@ -3089,7 +2688,7 @@ int main(int argc, char *argv[]) {
         }
 
         log_debug("systemd-journald stopped as pid %lu", (unsigned long) getpid());
-        driver_message(&server, SD_MESSAGE_JOURNAL_STOP, "Journal stopped");
+        server_driver_message(&server, SD_MESSAGE_JOURNAL_STOP, "Journal stopped");
 
 finish:
         sd_notify(false,

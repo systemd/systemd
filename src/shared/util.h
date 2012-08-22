@@ -419,9 +419,9 @@ bool nulstr_contains(const char*nulstr, const char *needle);
 
 bool plymouth_running(void);
 
-void parse_syslog_priority(char **p, int *priority);
-void skip_syslog_pid(char **buf);
-void skip_syslog_date(char **buf);
+void syslog_parse_priority(char **p, int *priority);
+void syslog_skip_pid(char **buf);
+void syslog_skip_date(char **buf);
 
 bool hostname_is_valid(const char *s);
 char* hostname_cleanup(char *s);

@@ -103,6 +103,14 @@ typedef struct Server {
         struct udev *udev;
 } Server;
 
+#define N_IOVEC_META_FIELDS 17
+#define N_IOVEC_KERNEL_FIELDS 64
+#define N_IOVEC_UDEV_FIELDS 32
+
+void server_dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, struct ucred *ucred, struct timeval *tv, const char *label, size_t label_len, const char *unit_id, int priority);
+
+void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...);
+
 /* gperf lookup function */
 const struct ConfigPerfItem* journald_gperf_lookup(const char *key, unsigned length);
 
@@ -110,3 +118,6 @@ int config_parse_storage(const char *filename, unsigned line, const char *sectio
 
 const char *storage_to_string(Storage s);
 Storage storage_from_string(const char *s);
+
+int syslog_fixup_facility(int priority);
+void syslog_read_identifier(const char **buf, char **identifier, char **pid);
