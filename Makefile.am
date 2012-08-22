@@ -471,7 +471,7 @@ MANPAGES = \
 	man/systemd.conf.5 \
 	man/tmpfiles.d.5 \
 	man/hostname.5 \
-	man/timezone.5 \
+	man/localtime.5 \
 	man/machine-id.5 \
 	man/locale.conf.5 \
 	man/os-release.5 \

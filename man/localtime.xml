@@ -7,6 +7,7 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
+  Copyright 2012 Shawn Landden
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -22,9 +23,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="timezone">
+<refentry id="localtime">
         <refentryinfo>
-                <title>/etc/timezone</title>
+                <title>/etc/localtime</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -34,38 +35,46 @@
                                 <surname>Poettering</surname>
                                 <email>lennart@poettering.net</email>
                         </author>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Shawn</firstname>
+                                <surname>Landden</surname>
+                                <email>shawnlandden@gmail.com</email>
+                        </author>
                 </authorgroup>
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>timezone</refentrytitle>
+                <refentrytitle>localtime</refentrytitle>
                 <manvolnum>5</manvolnum>
         </refmeta>
 
         <refnamediv>
-                <refname>timezone</refname>
+                <refname>localtime</refname>
                 <refpurpose>Local time zone configuration file</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>/etc/timezone</filename></para>
+                <para><filename>/etc/localtime</filename> -> <filename>/usr/share/zoneinfo/…</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para>The <filename>/etc/timezone</filename> file
+                <para>The <filename>/etc/localtime</filename> file
                 configures the system-wide time zone of the local
                 system that is used by applications for presentation
-                to the user. It should contain a single
-                newline-terminated line consisting of a time zone
-                identifier such as
-                <literal>Europe/Berlin</literal>. The file
-                <filename>/etc/localtime</filename> corresponds with
-                <filename>/etc/timezone</filename> and contains the
-                binary time zone data for the time zone. These files
-                should always be changed simultaneously and kept in
-                sync.</para>
+                to the user. It should be an absolute symbolic link
+                with a destination of <filename>/usr/share/zoneinfo/</filename>,
+                fallowed by a time zone identifier such as
+                <literal>Europe/Berlin</literal> or <literal>Etc/UTC</literal>.
+                The resulting link should point to the corresponding binary
+                <citerefentry><refentrytitle>tzfile</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                time zone data for the configured time zone.</para>
+
+                <para>As the time zone identifier is extracted from the name of
+                the target of <filename>/etc/localtime</filename> this file may
+                not be a normal file or hardlink.</para>
 
                 <para>The time zone may be overridden for individual
                 programs by using the TZ environment variable. See
@@ -73,16 +82,10 @@
         </refsect1>
 
         <refsect1>
-                <title>History</title>
-
-                <para>The simple configuration file format of
-                <filename>/etc/timezone</filename> originates from
-                Debian GNU/Linux.</para>
-        </refsect1>
-
-        <refsect1>
                   <title>See Also</title>
                   <para>
+                          <citerefentry><refentrytitle>tzset</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                   </para>
         </refsect1>
