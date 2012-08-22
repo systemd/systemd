@@ -2940,6 +2940,22 @@ static int server_init(Server *s) {
         return 0;
 }
 
+static void maybe_append_tags(Server *s) {
+#ifdef HAVE_GCRYPT
+        JournalFile *f;
+        Iterator i;
+        usec_t n;
+
+        n = now(CLOCK_REALTIME);
+
+        if (s->system_journal)
+                journal_file_maybe_append_tag(s->system_journal, n);
+
+        HASHMAP_FOREACH(f, s->user_journals, i)
+                journal_file_maybe_append_tag(f, n);
+#endif
+}
+
 static void server_done(Server *s) {
         JournalFile *f;
         assert(s);
@@ -3040,7 +3056,7 @@ int main(int argc, char *argv[]) {
                     journal_file_next_evolve_usec(server.system_journal, &u)) {
                         usec_t n;
 
-                        n = now(CLOCK_MONOTONIC);
+                        n = now(CLOCK_REALTIME);
 
                         if (n >= u)
                                 t = 0;
@@ -3069,10 +3085,7 @@ int main(int argc, char *argv[]) {
                                 break;
                 }
 
-#ifdef HAVE_GCRYPT
-                if (server.system_journal)
-                        journal_file_maybe_append_tag(server.system_journal, 0);
-#endif
+                maybe_append_tags(&server);
         }
 
         log_debug("systemd-journald stopped as pid %lu", (unsigned long) getpid());

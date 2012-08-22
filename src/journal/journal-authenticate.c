@@ -212,7 +212,7 @@ int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
                 return 0;
 
         if (realtime <= 0)
-                realtime = now(CLOCK_MONOTONIC);
+                realtime = now(CLOCK_REALTIME);
 
         r = journal_file_fsprg_need_evolve(f, realtime);
         if (r <= 0)
