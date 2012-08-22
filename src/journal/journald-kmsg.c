@@ -29,6 +29,7 @@
 
 #include "journald.h"
 #include "journald-kmsg.h"
+#include "journald-syslog.h"
 
 void server_forward_kmsg(
         Server *s,

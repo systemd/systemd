@@ -2311,6 +2311,8 @@ systemd_journald_SOURCES = \
 	src/journal/journald.h \
 	src/journal/journald-kmsg.c \
 	src/journal/journald-kmsg.h \
+	src/journal/journald-syslog.c \
+	src/journal/journald-syslog.h \
 	src/journal/journal-rate-limit.c \
 	src/journal/journal-rate-limit.h \
 	src/journal/journal-internal.h

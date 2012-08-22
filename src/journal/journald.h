@@ -119,5 +119,4 @@ int config_parse_storage(const char *filename, unsigned line, const char *sectio
 const char *storage_to_string(Storage s);
 Storage storage_from_string(const char *s);
 
-int syslog_fixup_facility(int priority);
-void syslog_read_identifier(const char **buf, char **identifier, char **pid);
+void server_forward_console(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred);
