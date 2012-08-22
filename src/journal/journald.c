@@ -31,6 +31,7 @@
 #include <sys/statvfs.h>
 #include <sys/mman.h>
 
+#include <libudev.h>
 #include <systemd/sd-journal.h>
 #include <systemd/sd-messages.h>
 #include <systemd/sd-daemon.h>
@@ -74,6 +75,7 @@
 
 #define N_IOVEC_META_FIELDS 17
 #define N_IOVEC_KERNEL_FIELDS 64
+#define N_IOVEC_UDEV_FIELDS 32
 
 #define ENTRY_SIZE_MAX (1024*1024*32)
 
@@ -1811,7 +1813,7 @@ static bool is_us(const char *pid) {
 }
 
 static void dev_kmsg_record(Server *s, char *p, size_t l) {
-        struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS];
+        struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS + 2 + N_IOVEC_UDEV_FIELDS];
         char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL;
         int priority, r;
         unsigned n = 0, z = 0, j;
@@ -1819,6 +1821,7 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
         char *identifier = NULL, *pid = NULL, *e, *f, *k;
         uint64_t serial;
         size_t pl;
+        char *kernel_device = NULL;
 
         assert(s);
         assert(p);
@@ -1910,11 +1913,62 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
                 if (!m)
                         break;
 
+                if (startswith(m, "_KERNEL_DEVICE="))
+                        kernel_device = m + 15;
+
                 IOVEC_SET_STRING(iovec[n++], m);
                 z++;
 
                 l -= (e - k) + 1;
                 k = e + 1;
+        }
+
+        if (kernel_device) {
+                struct udev_device *ud;
+
+                ud = udev_device_new_from_device_id(s->udev, kernel_device);
+                if (ud) {
+                        const char *g;
+                        struct udev_list_entry *ll;
+                        char *b;
+
+                        g = udev_device_get_devnode(ud);
+                        if (g) {
+                                b = strappend("_UDEV_DEVNODE=", g);
+                                if (b) {
+                                        IOVEC_SET_STRING(iovec[n++], b);
+                                        z++;
+                                }
+                        }
+
+                        g = udev_device_get_sysname(ud);
+                        if (g) {
+                                b = strappend("_UDEV_SYSNAME=", g);
+                                if (b) {
+                                        IOVEC_SET_STRING(iovec[n++], b);
+                                        z++;
+                                }
+                        }
+
+                        j = 0;
+                        ll = udev_device_get_devlinks_list_entry(ud);
+                        udev_list_entry_foreach(ll, ll) {
+
+                                if (j > N_IOVEC_UDEV_FIELDS)
+                                        break;
+
+                                g = udev_list_entry_get_name(ll);
+                                b = strappend("_UDEV_DEVLINK=", g);
+                                if (g) {
+                                        IOVEC_SET_STRING(iovec[n++], b);
+                                        z++;
+                                }
+
+                                j++;
+                        }
+
+                        udev_device_unref(ud);
+                }
         }
 
         if (asprintf(&source_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu",
@@ -2871,6 +2925,10 @@ static int server_init(Server *s) {
         if (r < 0)
                 return r;
 
+        s->udev = udev_new();
+        if (!s->udev)
+                return -ENOMEM;
+
         s->rate_limit = journal_rate_limit_new(s->rate_limit_interval, s->rate_limit_burst);
         if (!s->rate_limit)
                 return -ENOMEM;
@@ -2929,6 +2987,9 @@ static void server_done(Server *s) {
 
         if (s->mmap)
                 mmap_cache_unref(s->mmap);
+
+        if (s->udev)
+                udev_unref(s->udev);
 }
 
 int main(int argc, char *argv[]) {

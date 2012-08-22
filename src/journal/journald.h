@@ -99,6 +99,8 @@ typedef struct Server {
         bool dev_kmsg_readable;
 
         uint64_t *kernel_seqnum;
+
+        struct udev *udev;
 } Server;
 
 /* gperf lookup function */

@@ -2322,7 +2322,8 @@ systemd_journald_LDADD = \
 	libsystemd-audit.la \
 	libsystemd-daemon.la \
 	libsystemd-id128-internal.la \
-	libsystemd-journal-internal.la
+	libsystemd-journal-internal.la \
+	libudev.la
 
 if ENABLE_LOGIND
 systemd_journald_LDADD += \

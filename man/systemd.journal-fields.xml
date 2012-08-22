@@ -58,7 +58,8 @@
                 sense. New fields may freely be defined by
                 applications, but a few fields have special
                 meaning. All fields with special meanings are
-                optional.</para>
+                optional. In some cases fields may appear more than
+                once per entry.</para>
         </refsect1>
 
         <refsect1>
@@ -336,6 +337,33 @@
                                 <term>_KERNEL_SUBSYSTEM=</term>
                                 <listitem>
                                         <para>The kernel subsystem name.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term>_UDEV_SYSNAME=</term>
+                                <listitem>
+                                        <para>The kernel device name
+                                        as it shows up in the device
+                                        tree below
+                                        <filename>/sys</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term>_UDEV_DEVNODE=</term>
+                                <listitem>
+                                        <para>The device node path of
+                                        this device in
+                                        <filename>/dev</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term>_UDEV_DEVLINK=</term>
+                                <listitem>
+                                        <para>Additional symlink names
+                                        pointing to the device node in
+                                        <filename>/dev</filename>. This
+                                        field is frequently set more
+                                        than once per entry.</para>
                                 </listitem>
                         </varlistentry>
                 </variablelist>
