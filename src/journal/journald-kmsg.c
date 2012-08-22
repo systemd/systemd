@@ -274,7 +274,7 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
         if ((priority & LOG_FACMASK) == LOG_KERN)
                 IOVEC_SET_STRING(iovec[n++], "SYSLOG_IDENTIFIER=kernel");
         else {
-                syslog_read_identifier((const char**) &p, &identifier, &pid);
+                syslog_parse_identifier((const char**) &p, &identifier, &pid);
 
                 /* Avoid any messages we generated ourselves via
                  * log_info() and friends. */

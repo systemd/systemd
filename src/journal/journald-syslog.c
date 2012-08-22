@@ -175,7 +175,7 @@ int syslog_fixup_facility(int priority) {
         return priority;
 }
 
-void syslog_read_identifier(const char **buf, char **identifier, char **pid) {
+void syslog_parse_identifier(const char **buf, char **identifier, char **pid) {
         const char *p;
         char *t;
         size_t l, e;
@@ -225,6 +225,112 @@ void syslog_read_identifier(const char **buf, char **identifier, char **pid) {
         *buf += strspn(*buf, WHITESPACE);
 }
 
+void syslog_parse_priority(char **p, int *priority) {
+        int a = 0, b = 0, c = 0;
+        int k;
+
+        assert(p);
+        assert(*p);
+        assert(priority);
+
+        if ((*p)[0] != '<')
+                return;
+
+        if (!strchr(*p, '>'))
+                return;
+
+        if ((*p)[2] == '>') {
+                c = undecchar((*p)[1]);
+                k = 3;
+        } else if ((*p)[3] == '>') {
+                b = undecchar((*p)[1]);
+                c = undecchar((*p)[2]);
+                k = 4;
+        } else if ((*p)[4] == '>') {
+                a = undecchar((*p)[1]);
+                b = undecchar((*p)[2]);
+                c = undecchar((*p)[3]);
+                k = 5;
+        } else
+                return;
+
+        if (a < 0 || b < 0 || c < 0)
+                return;
+
+        *priority = a*100+b*10+c;
+        *p += k;
+}
+
+static void syslog_skip_date(char **buf) {
+        enum {
+                LETTER,
+                SPACE,
+                NUMBER,
+                SPACE_OR_NUMBER,
+                COLON
+        } sequence[] = {
+                LETTER, LETTER, LETTER,
+                SPACE,
+                SPACE_OR_NUMBER, NUMBER,
+                SPACE,
+                SPACE_OR_NUMBER, NUMBER,
+                COLON,
+                SPACE_OR_NUMBER, NUMBER,
+                COLON,
+                SPACE_OR_NUMBER, NUMBER,
+                SPACE
+        };
+
+        char *p;
+        unsigned i;
+
+        assert(buf);
+        assert(*buf);
+
+        p = *buf;
+
+        for (i = 0; i < ELEMENTSOF(sequence); i++, p++) {
+
+                if (!*p)
+                        return;
+
+                switch (sequence[i]) {
+
+                case SPACE:
+                        if (*p != ' ')
+                                return;
+                        break;
+
+                case SPACE_OR_NUMBER:
+                        if (*p == ' ')
+                                break;
+
+                        /* fall through */
+
+                case NUMBER:
+                        if (*p < '0' || *p > '9')
+                                return;
+
+                        break;
+
+                case LETTER:
+                        if (!(*p >= 'A' && *p <= 'Z') &&
+                            !(*p >= 'a' && *p <= 'z'))
+                                return;
+
+                        break;
+
+                case COLON:
+                        if (*p != ':')
+                                return;
+                        break;
+
+                }
+        }
+
+        *buf = p;
+}
+
 void server_process_syslog_message(
         Server *s,
         const char *buf,
@@ -250,7 +356,7 @@ void server_process_syslog_message(
                 forward_syslog_raw(s, priority, orig, ucred, tv);
 
         syslog_skip_date((char**) &buf);
-        syslog_read_identifier(&buf, &identifier, &pid);
+        syslog_parse_identifier(&buf, &identifier, &pid);
 
         if (s->forward_to_kmsg)
                 server_forward_kmsg(s, priority, identifier, buf, ucred);

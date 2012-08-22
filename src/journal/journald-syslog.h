@@ -23,8 +23,10 @@
 
 #include "journald.h"
 
-void syslog_read_identifier(const char **buf, char **identifier, char **pid);
 int syslog_fixup_facility(int priority);
+
+void syslog_parse_priority(char **p, int *priority);
+void syslog_parse_identifier(const char **buf, char **identifier, char **pid);
 
 void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred, struct timeval *tv);
 
