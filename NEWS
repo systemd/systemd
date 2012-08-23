@@ -1,5 +1,65 @@
 systemd System and Service Manager
 
+CHANGES WITH 189:
+
+        * Support for reading structured kernel messages from
+          /dev/kmsg has now been added and is enabled by default.
+
+        * Support for reading kernel messages from /proc/kmsg has now
+          been removed. If you want kernel messages in the journal
+          make sure to run a recent kernel (>= 3.5) that supports
+          reading structured messages from /dev/kmsg (see
+          above). /proc/kmsg is now exclusive property of classic
+          syslog daemons again.
+
+        * The libudev API gained the new
+          udev_device_new_from_device_id() call.
+
+        * The logic for file system namespace (ReadOnlyDirectory=,
+          ReadWriteDirectoy=, PrivateTmp=) has been reworked not to
+          require pivot_root() anymore. This means fewer temporary
+          directories are created below /tmp for this feature.
+
+        * nspawn containers will now see and receive all submounts
+          made on the host OS below the root file system of the
+          container.
+
+        * Forward Secure Sealing is now supported for Journal files,
+          which provide cryptographical sealing of journal files so
+          that attackers cannot alter log history anymore without this
+          being detectable. Lennart will soon post a blog story about
+          this explaining it in more detail.
+
+        * There are two new service settings RestartPreventExitStatus=
+          and SuccessExitStatus= which allow configuration of exit
+          status (exit code or signal) which will be excepted from the
+          restart logic, resp. consider successful.
+
+        * journalctl gained the new --verify switch that can be used
+          to check the integrity of the structure of journal files and
+          (if Forward Secure Sealing is enabled) the contents of
+          journal files.
+
+        * nspawn containers will now be run with /dev/stdin, /dev/fd/
+          and similar symlinks pre-created. This makes running shells
+          as container init process a lot more fun.
+
+        * The fstab support can now handle PARTUUID= and PARTLABEL=
+          entries.
+
+        * A new ConditionHost= condition has been added to match
+          against the hostname (with globs) and machine ID. This is
+          useful for clusters where a single OS image is used to
+          provision a large number of hosts which shall run slightly
+          different sets of services.
+
+        * Services which hit the restart limit will now be placed in a
+          failure state.
+
+        Contributions from Bertram Poettering, Dave Reisner, Huang
+        Hang, Kay Sievers, Lennart Poettering, Lukas Nykryn, Martin
+        Pitt, Simon Peeters, Zbigniew Jędrzejewski-Szmek
+
 CHANGES WITH 188:
 
         * When running in --user mode systemd will now become a

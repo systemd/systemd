@@ -49,6 +49,10 @@ Bugfixes:
 
 Features:
 
+* allow writing multiple conditions in unit files on one line
+
+* journal: json output needs to be able to deal with multiple assignments of the same field
+
 * There's something wrong with escaping unit names: http://lists.freedesktop.org/archives/systemd-devel/2012-August/006292.html
 
 * cleanup ellipsation for log output in journalctl and systemctl status: have a sane way to disable ellipsation, and disable it by default when invoked in less/more
@@ -81,8 +85,6 @@ Features:
   but much rather a disconnect on success.
 
 * document that service reload may be implemented as service reexec
-
-* add option to reconfigure success exit codes/signals for services
 
 * remember which condition failed for services, not just the fact that something failed
 
