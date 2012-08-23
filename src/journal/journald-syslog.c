@@ -20,6 +20,7 @@
 ***/
 
 #include <unistd.h>
+#include <stddef.h>
 #include <sys/epoll.h>
 
 #include "socket-util.h"

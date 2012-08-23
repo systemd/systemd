@@ -1,5 +1,6 @@
 %{
 #include <stddef.h>
+#include <sys/socket.h>
 #include "conf-parser.h"
 #include "journald.h"
 %}

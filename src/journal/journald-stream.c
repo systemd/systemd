@@ -21,6 +21,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <stddef.h>
 #include <sys/epoll.h>
 
 #ifdef HAVE_SELINUX
