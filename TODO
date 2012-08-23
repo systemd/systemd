@@ -65,8 +65,6 @@ Features:
 
 * maybe make systemd-detect-virt suid? or use fscaps?
 
-* consider using __secure_getenv() instead of getenv() in libs
-
 * man: document in ExecStart= explicitly that we don't take shell command lines, only executable names with arguments
 
 * shutdown: don't read-only mount anything when running in container
@@ -504,6 +502,8 @@ Regularly:
 * pahole
 
 * set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
+
+* use __secure_getenv() instead of getenv() where appropriate
 
 Scheduled for removal (or fixing):
 

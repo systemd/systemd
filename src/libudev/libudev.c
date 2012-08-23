@@ -191,7 +191,7 @@ _public_ struct udev *udev_new(void)
         }
 
         /* environment overrides config */
-        env = getenv("UDEV_LOG");
+        env = __secure_getenv("UDEV_LOG");
         if (env != NULL)
                 udev_set_log_priority(udev, util_log_priority(env));
 

@@ -955,12 +955,12 @@ static DBusConnection* manager_bus_connect_private(Manager *m, DBusBusType type)
 
         switch (type) {
         case DBUS_BUS_SYSTEM:
-                address = getenv("DBUS_SYSTEM_BUS_ADDRESS");
+                address = __secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
                 if (!address || !address[0])
                         address = DBUS_SYSTEM_BUS_DEFAULT_ADDRESS;
                 break;
         case DBUS_BUS_SESSION:
-                address = getenv("DBUS_SESSION_BUS_ADDRESS");
+                address = __secure_getenv("DBUS_SESSION_BUS_ADDRESS");
                 if (!address || !address[0])
                         address = DBUS_SESSION_BUS_DEFAULT_ADDRESS;
                 break;
@@ -1077,7 +1077,7 @@ static int bus_init_private(Manager *m) {
                 const char *e;
                 char *p;
 
-                e = getenv("XDG_RUNTIME_DIR");
+                e = __secure_getenv("XDG_RUNTIME_DIR");
                 if (!e)
                         return 0;
 
