@@ -1445,6 +1445,7 @@ static sd_journal *journal_new(int flags, const char *path) {
                 hashmap_free(j->directories_by_path);
                 free(j->path);
                 free(j);
+                return NULL;
         }
 
         return j;
