@@ -380,14 +380,13 @@ void* hashmap_get(Hashmap *h, const void *key) {
 
 bool hashmap_contains(Hashmap *h, const void *key) {
         unsigned hash;
-        struct hashmap_entry *e;
 
         if (!h)
                 return false;
 
         hash = h->hash_func(key) % NBUCKETS;
 
-        if (!(e = hash_scan(h, hash, key)))
+        if (!hash_scan(h, hash, key))
                 return false;
 
         return true;
