@@ -34,6 +34,7 @@
 #include "umount.h"
 #include "path-util.h"
 #include "util.h"
+#include "virt.h"
 
 typedef struct MountPoint {
         char *path;
@@ -548,11 +549,9 @@ static int dm_points_list_detach(MountPoint **head, bool *changed) {
 int umount_all(bool *changed) {
         int r;
         bool umount_changed;
-
         LIST_HEAD(MountPoint, mp_list_head);
 
         LIST_HEAD_INIT(MountPoint, mp_list_head);
-
         r = mount_points_list_get(&mp_list_head);
         if (r < 0)
                 goto end;
@@ -572,7 +571,12 @@ int umount_all(bool *changed) {
         if (r <= 0)
                 goto end;
 
-        r = mount_points_list_remount_read_only(&mp_list_head, changed);
+        /* If we are in a container, don't attempt to read-only mount
+           anything as that brings no real benefits, but might confuse
+           the host, as we remount the superblock here, not the bind
+           mound. */
+        if (detect_container(NULL) <= 0)
+                r = mount_points_list_remount_read_only(&mp_list_head, changed);
 
   end:
         mount_points_list_free(&mp_list_head);
