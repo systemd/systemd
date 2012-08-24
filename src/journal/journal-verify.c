@@ -63,6 +63,7 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
                 h1 = le64toh(o->data.hash);
 
                 if (o->object.flags & OBJECT_COMPRESSED) {
+#ifdef HAVE_XZ
                         void *b = NULL;
                         uint64_t alloc = 0, b_size;
 
@@ -73,6 +74,9 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
 
                         h2 = hash64(b, b_size);
                         free(b);
+#else
+                        return -EPROTONOSUPPORT;
+#endif
                 } else
                         h2 = hash64(o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
 
