@@ -49,6 +49,8 @@ Bugfixes:
 
 Features:
 
+* introduce $container_boot_id
+
 * wall messages for shutdown should move to logind
 
 * remove wants from journald.service

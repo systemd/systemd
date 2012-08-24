@@ -12,6 +12,7 @@ DefaultDependencies=no
 Wants=systemd-journal-flush.service
 Requires=systemd-journald.socket
 After=systemd-journald.socket syslog.socket
+Before=sysinit.target
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-journald
