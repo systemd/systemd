@@ -330,15 +330,22 @@ bool path_equal(const char *a, const char *b) {
 }
 
 int path_is_mount_point(const char *t, bool allow_symlink) {
-        struct stat a, b;
         char *parent;
         int r;
+        struct file_handle *h;
+        int mount_id, mount_id_parent;
 
-        if (allow_symlink)
-                r = stat(t, &a);
-        else
-                r = lstat(t, &a);
+        /* We are not actually interested in the file handles, but
+         * name_to_handle_at() also passes us the mount ID, hence use
+         * it but throw the handle away */
 
+        if (path_equal(t, "/"))
+                return 1;
+
+        h = alloca(MAX_HANDLE_SZ);
+        h->handle_bytes = MAX_HANDLE_SZ;
+
+        r = name_to_handle_at(AT_FDCWD, t, h, &mount_id, allow_symlink ? AT_SYMLINK_FOLLOW : 0);
         if (r < 0) {
                 if (errno == ENOENT)
                         return 0;
@@ -350,13 +357,15 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
         if (r < 0)
                 return r;
 
-        r = lstat(parent, &b);
+        h->handle_bytes = MAX_HANDLE_SZ;
+        r = name_to_handle_at(AT_FDCWD, parent, h, &mount_id_parent, 0);
         free(parent);
 
         if (r < 0)
                 return -errno;
 
-        return a.st_dev != b.st_dev;
+
+        return mount_id != mount_id_parent;
 }
 
 int path_is_read_only_fs(const char *path) {

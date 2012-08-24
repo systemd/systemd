@@ -49,11 +49,11 @@ Bugfixes:
 
 Features:
 
-* introduce $container_boot_id
+* introduce /run/kmsg in containers?
+
+* introduce $container_boot_id?
 
 * wall messages for shutdown should move to logind
-
-* remove wants from journald.service
 
 * allow writing multiple conditions in unit files on one line
 
