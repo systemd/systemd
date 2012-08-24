@@ -70,30 +70,51 @@ void log_close_console(void);
 void log_parse_environment(void);
 
 int log_meta(
-        int level,
-        const char*file,
-        int line,
-        const char *func,
-        const char *format, ...) _printf_attr_(5,6);
+                int level,
+                const char*file,
+                int line,
+                const char *func,
+                const char *format, ...) _printf_attr_(5,6);
 
 int log_metav(
-        int level,
-        const char*file,
-        int line,
-        const char *func,
-        const char *format,
-        va_list ap);
+                int level,
+                const char*file,
+                int line,
+                const char *func,
+                const char *format,
+                va_list ap);
 
-_noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func);
-_noreturn_ void log_assert_failed_unreachable(const char *text, const char *file, int line, const char *func);
+int log_struct_internal(
+                int level,
+                const char *file,
+                int line,
+                const char *func,
+                const char *format, ...) _sentinel_;
+
+int log_oom_internal(
+                const char *file,
+                int line,
+                const char *func);
 
 /* This modifies the buffer passed! */
 int log_dump_internal(
-        int level,
-        const char*file,
-        int line,
-        const char *func,
-        char *buffer);
+                int level,
+                const char*file,
+                int line,
+                const char *func,
+                char *buffer);
+
+_noreturn_ void log_assert_failed(
+                const char *text,
+                const char *file,
+                int line,
+                const char *func);
+
+_noreturn_ void log_assert_failed_unreachable(
+                const char *text,
+                const char *file,
+                int line,
+                const char *func);
 
 #define log_full(level, ...) log_meta(level,   __FILE__, __LINE__, __func__, __VA_ARGS__)
 
@@ -103,8 +124,9 @@ int log_dump_internal(
 #define log_warning(...) log_meta(LOG_WARNING, __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define log_error(...)   log_meta(LOG_ERR,     __FILE__, __LINE__, __func__, __VA_ARGS__)
 
-int __log_oom(const char *file, int line, const char *func);
-#define log_oom() __log_oom(__FILE__, __LINE__, __func__)
+#define log_struct(level, ...) log_struct_internal(level, __FILE__, __LINE__, __func__, __VA_ARGS__)
+
+#define log_oom() log_oom_internal(__FILE__, __LINE__, __func__)
 
 /* This modifies the buffer passed! */
 #define log_dump(level, buffer) log_dump_internal(level, __FILE__, __LINE__, __func__, buffer)

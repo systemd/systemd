@@ -27,6 +27,8 @@
 #include <linux/vt.h>
 #include <string.h>
 
+#include "systemd/sd-id128.h"
+#include "systemd/sd-messages.h"
 #include "logind-seat.h"
 #include "logind-acl.h"
 #include "util.h"
@@ -337,7 +339,11 @@ int seat_start(Seat *s) {
         if (s->started)
                 return 0;
 
-        log_info("New seat %s.", s->id);
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SEAT_START),
+                   "SEAT_ID=%s", s->id,
+                   "MESSAGE=New seat %s.", s->id,
+                   NULL);
 
         /* Initialize VT magic stuff */
         seat_preallocate_vts(s);
@@ -361,7 +367,11 @@ int seat_stop(Seat *s) {
         assert(s);
 
         if (s->started)
-                log_info("Removed seat %s.", s->id);
+                log_struct(LOG_INFO,
+                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SEAT_STOP),
+                           "SEAT_ID=%s", s->id,
+                           "MESSAGE=Removed seat %s.", s->id,
+                           NULL);
 
         seat_stop_sessions(s);
 

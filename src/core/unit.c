@@ -29,6 +29,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#include "systemd/sd-id128.h"
+#include "systemd/sd-messages.h"
 #include "set.h"
 #include "unit.h"
 #include "macro.h"
@@ -936,20 +938,92 @@ bool unit_condition_test(Unit *u) {
         return u->condition_result;
 }
 
-static void unit_status_print_starting_stopping(Unit *u, bool stopping) {
+static const char* unit_get_status_message_format(Unit *u, JobType t) {
         const UnitStatusMessageFormats *format_table;
-        const char *format;
+
+        assert(u);
+        assert(t >= 0);
+        assert(t < _JOB_TYPE_MAX);
+
+        if (t != JOB_START && t != JOB_STOP)
+                return NULL;
 
         format_table = &UNIT_VTABLE(u)->status_message_formats;
         if (!format_table)
-                return;
+                return NULL;
 
-        format = format_table->starting_stopping[stopping];
+        return format_table->starting_stopping[t == JOB_STOP];
+}
+
+static const char *unit_get_status_message_format_try_harder(Unit *u, JobType t) {
+        const char *format;
+
+        assert(u);
+        assert(t >= 0);
+        assert(t < _JOB_TYPE_MAX);
+
+        format = unit_get_status_message_format(u, t);
+        if (format)
+                return format;
+
+        /* Return generic strings */
+        if (t == JOB_START)
+                return "Starting %s.";
+        else if (t == JOB_STOP)
+                return "Stopping %s.";
+        else if (t == JOB_RELOAD)
+                return "Reloading %s.";
+
+        return NULL;
+}
+
+static void unit_status_print_starting_stopping(Unit *u, JobType t) {
+        const char *format;
+
+        assert(u);
+
+        /* We only print status messages for selected units on
+         * selected operations. */
+
+        format = unit_get_status_message_format(u, t);
         if (!format)
                 return;
 
         unit_status_printf(u, "", format, unit_description(u));
 }
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
+        const char *format;
+        char buf[LINE_MAX];
+        sd_id128_t mid;
+
+        assert(u);
+
+        if (t != JOB_START && t != JOB_STOP && t != JOB_RELOAD)
+                return;
+
+        /* We log status messages for all units and all operations. */
+
+        format = unit_get_status_message_format_try_harder(u, t);
+        if (!format)
+                return;
+
+        snprintf(buf, sizeof(buf), format, unit_description(u));
+        char_array_0(buf);
+
+        mid = t == JOB_START ? SD_MESSAGE_UNIT_STARTING :
+              t == JOB_STOP  ? SD_MESSAGE_UNIT_STOPPING :
+                               SD_MESSAGE_UNIT_RELOADING;
+
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(mid),
+                   "UNIT=%s", u->id,
+                   "MESSAGE=%s", buf,
+                   NULL);
+}
+#pragma GCC diagnostic pop
 
 /* Errors:
  *         -EBADR:     This unit type does not support starting.
@@ -990,7 +1064,8 @@ int unit_start(Unit *u) {
                 return unit_start(following);
         }
 
-        unit_status_print_starting_stopping(u, false);
+        unit_status_log_starting_stopping_reloading(u, JOB_START);
+        unit_status_print_starting_stopping(u, JOB_START);
 
         /* If it is stopped, but we cannot start it, then fail */
         if (!UNIT_VTABLE(u)->start)
@@ -1040,7 +1115,8 @@ int unit_stop(Unit *u) {
                 return unit_stop(following);
         }
 
-        unit_status_print_starting_stopping(u, true);
+        unit_status_log_starting_stopping_reloading(u, JOB_STOP);
+        unit_status_print_starting_stopping(u, JOB_STOP);
 
         if (!UNIT_VTABLE(u)->stop)
                 return -EBADR;
@@ -1078,6 +1154,8 @@ int unit_reload(Unit *u) {
                 log_debug("Redirecting reload request from %s to %s.", u->id, following->id);
                 return unit_reload(following);
         }
+
+        unit_status_log_starting_stopping_reloading(u, JOB_RELOAD);
 
         unit_add_to_dbus_queue(u);
         return UNIT_VTABLE(u)->reload(u);

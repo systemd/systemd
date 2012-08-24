@@ -24,6 +24,8 @@
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
 
+#include "systemd/sd-id128.h"
+#include "systemd/sd-messages.h"
 #include "set.h"
 #include "unit.h"
 #include "macro.h"
@@ -549,17 +551,74 @@ int job_run_and_invalidate(Job *j) {
         return r;
 }
 
-static void job_print_status_message(Unit *u, JobType t, JobResult result) {
+static const char *job_get_status_message_format(Unit *u, JobType t, JobResult result) {
         const UnitStatusMessageFormats *format_table;
-        const char *format;
+
+        assert(u);
+        assert(t >= 0);
+        assert(t < _JOB_TYPE_MAX);
 
         format_table = &UNIT_VTABLE(u)->status_message_formats;
         if (!format_table)
-                return;
+                return NULL;
+
+        if (t == JOB_START)
+                return format_table->finished_start_job[result];
+        else if (t == JOB_STOP || t == JOB_RESTART)
+                return format_table->finished_stop_job[result];
+
+        return NULL;
+}
+
+static const char *job_get_status_message_format_try_harder(Unit *u, JobType t, JobResult result) {
+        const char *format;
+
+        assert(u);
+        assert(t >= 0);
+        assert(t < _JOB_TYPE_MAX);
+
+        format = job_get_status_message_format(u, t, result);
+        if (format)
+                return format;
+
+        /* Return generic strings */
+        if (t == JOB_START) {
+                if (result == JOB_DONE)
+                        return "Started %s.";
+                else if (result == JOB_FAILED)
+                        return "Failed to start %s.";
+                else if (result == JOB_DEPENDENCY)
+                        return "Dependency failed for %s.";
+                else if (result == JOB_TIMEOUT)
+                        return "Timed out starting %s.";
+        } else if (t == JOB_STOP || t == JOB_RESTART) {
+                if (result == JOB_DONE)
+                        return "Stopped %s.";
+                else if (result == JOB_FAILED)
+                        return "Stopped (with error) %s.";
+                else if (result == JOB_TIMEOUT)
+                        return "Timed out stoppping %s.";
+        } else if (t == JOB_RELOAD) {
+                if (result == JOB_DONE)
+                        return "Reloaded %s.";
+                else if (result == JOB_FAILED)
+                        return "Reload failed for %s.";
+                else if (result == JOB_TIMEOUT)
+                        return "Timed out reloading %s.";
+        }
+
+        return NULL;
+}
+
+static void job_print_status_message(Unit *u, JobType t, JobResult result) {
+        const char *format;
+
+        assert(u);
+        assert(t >= 0);
+        assert(t < _JOB_TYPE_MAX);
 
         if (t == JOB_START) {
-
-                format = format_table->finished_start_job[result];
+                format = job_get_status_message_format(u, t, result);
                 if (!format)
                         return;
 
@@ -572,7 +631,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
 
                 case JOB_FAILED:
                         unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON "FAILED" ANSI_HIGHLIGHT_OFF, format, unit_description(u));
-                        unit_status_printf(u, "", "See 'systemctl status %s' for details.", u->id);
+                        unit_status_printf(u, NULL, "See 'systemctl status %s' for details.", u->id);
                         break;
 
                 case JOB_DEPENDENCY:
@@ -589,7 +648,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
 
         } else if (t == JOB_STOP || t == JOB_RESTART) {
 
-                format = format_table->finished_stop_job[result];
+                format = job_get_status_message_format(u, t, result);
                 if (!format)
                         return;
 
@@ -618,6 +677,52 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         }
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+static void job_log_status_message(Unit *u, JobType t, JobResult result) {
+        const char *format;
+        char buf[LINE_MAX];
+
+        assert(u);
+        assert(t >= 0);
+        assert(t < _JOB_TYPE_MAX);
+
+        format = job_get_status_message_format_try_harder(u, t, result);
+        if (!format)
+                return;
+
+        snprintf(buf, sizeof(buf), format, unit_description(u));
+        char_array_0(buf);
+
+        if (t == JOB_START) {
+                sd_id128_t mid;
+
+                mid = result == JOB_DONE ? SD_MESSAGE_UNIT_STARTED : SD_MESSAGE_UNIT_FAILED;
+                log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                           "MESSSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(mid),
+                           "UNIT=%s", u->id,
+                           "RESULT=%s", job_result_to_string(result),
+                           "MESSAGE=%s", buf,
+                           NULL);
+
+        } else if (t == JOB_STOP)
+                log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                           "MESSSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_UNIT_STOPPED),
+                           "UNIT=%s", u->id,
+                           "RESULT=%s", job_result_to_string(result),
+                           "MESSAGE=%s", buf,
+                           NULL);
+
+        else if (t == JOB_RELOAD)
+                log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                           "MESSSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_UNIT_RELOADED),
+                           "UNIT=%s", u->id,
+                           "RESULT=%s", job_result_to_string(result),
+                           "MESSAGE=%s", buf,
+                           NULL);
+}
+#pragma GCC diagnostic pop
+
 int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
         Unit *u;
         Unit *other;
@@ -636,6 +741,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
         log_debug("Job %s/%s finished, result=%s", u->id, job_type_to_string(t), job_result_to_string(result));
 
         job_print_status_message(u, t, result);
+        job_log_status_message(u, t, result);
 
         job_add_to_dbus_queue(j);
 

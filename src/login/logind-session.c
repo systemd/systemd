@@ -25,6 +25,8 @@
 #include <sys/epoll.h>
 #include <fcntl.h>
 
+#include "systemd/sd-id128.h"
+#include "systemd/sd-messages.h"
 #include "strv.h"
 #include "util.h"
 #include "mkdir.h"
@@ -542,8 +544,13 @@ int session_start(Session *s) {
         if (r < 0)
                 return r;
 
-        log_full(s->type == SESSION_TTY || s->type == SESSION_X11 ? LOG_INFO : LOG_DEBUG,
-                 "New session %s of user %s.", s->id, s->user->name);
+        log_struct(s->type == SESSION_TTY || s->type == SESSION_X11 ? LOG_INFO : LOG_DEBUG,
+                   "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SESSION_START),
+                   "SESSION_ID=%s", s->id,
+                   "USER_ID=%s", s->user->name,
+                   "LEADER=%lu", (unsigned long) s->leader,
+                   "MESSAGE=New session %s of user %s.", s->id, s->user->name,
+                   NULL);
 
         /* Create cgroup */
         r = session_create_cgroup(s);
@@ -679,8 +686,13 @@ int session_stop(Session *s) {
         assert(s);
 
         if (s->started)
-                log_full(s->type == SESSION_TTY || s->type == SESSION_X11 ? LOG_INFO : LOG_DEBUG,
-                         "Removed session %s.", s->id);
+                log_struct(s->type == SESSION_TTY || s->type == SESSION_X11 ? LOG_INFO : LOG_DEBUG,
+                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SESSION_STOP),
+                           "SESSION_ID=%s", s->id,
+                           "USER_ID=%s", s->user->name,
+                           "LEADER=%lu", (unsigned long) s->leader,
+                           "MESSAGE=Removed session %s.", s->id,
+                           NULL);
 
         /* Kill cgroup */
         k = session_terminate_cgroup(s);

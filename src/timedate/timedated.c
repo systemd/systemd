@@ -25,6 +25,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "systemd/sd-id128.h"
+#include "systemd/sd-messages.h"
 #include "util.h"
 #include "strv.h"
 #include "dbus-common.h"
@@ -701,7 +703,11 @@ static DBusHandlerResult timedate_message_handler(
                                 hwclock_set_time(tm);
                         }
 
-                        log_info("Changed timezone to '%s'.", tz.zone);
+                        log_struct(LOG_INFO,
+                                   "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_TIMEZONE_CHANGE),
+                                   "TIMEZONE=%s", tz.zone,
+                                   "MESSAGE=Changed timezone to '%s'.", tz.zone,
+                                   NULL);
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/timedate1",
@@ -842,7 +848,11 @@ static DBusHandlerResult timedate_message_handler(
 
                         hwclock_set_time(tm);
 
-                        log_info("Changed local time to %s", ctime(&ts.tv_sec));
+                        log_struct(LOG_INFO,
+                                   "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_TIME_CHANGE),
+                                   "REALTIME=%llu", (unsigned long long) timespec_load(&ts),
+                                   "MESSAGE=Changed local time to %s", ctime(&ts.tv_sec),
+                                   NULL);
                 }
         } else if (dbus_message_is_method_call(message, "org.freedesktop.timedate1", "SetNTP")) {
                 dbus_bool_t ntp;

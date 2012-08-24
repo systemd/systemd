@@ -658,9 +658,125 @@ _noreturn_ void log_assert_failed_unreachable(const char *text, const char *file
         log_assert(text, file, line, func, "Code should not be reached '%s' at %s:%u, function %s(). Aborting.");
 }
 
-int __log_oom(const char *file, int line, const char *func) {
+int log_oom_internal(const char *file, int line, const char *func) {
         log_meta(LOG_ERR, file, line, func, "Out of memory.");
         return -ENOMEM;
+}
+
+int log_struct_internal(
+                int level,
+                const char *file,
+                int line,
+                const char *func,
+                const char *format, ...) {
+
+        int saved_errno;
+        va_list ap;
+        int r;
+
+        if (_likely_(LOG_PRI(level) > log_max_level))
+                return 0;
+
+        if (log_target == LOG_TARGET_NULL)
+                return 0;
+
+        if ((level & LOG_FACMASK) == 0)
+                level = log_facility | LOG_PRI(level);
+
+        saved_errno = errno;
+
+        if ((log_target == LOG_TARGET_AUTO ||
+             log_target == LOG_TARGET_JOURNAL_OR_KMSG ||
+             log_target == LOG_TARGET_JOURNAL) &&
+            journal_fd >= 0) {
+
+                char header[LINE_MAX];
+                struct iovec iovec[17];
+                unsigned n = 0, i;
+                struct msghdr mh;
+                const char nl = '\n';
+
+                /* If the journal is available do structured logging */
+
+                snprintf(header, sizeof(header),
+                        "PRIORITY=%i\n"
+                        "SYSLOG_FACILITY=%i\n"
+                        "CODE_FILE=%s\n"
+                        "CODE_LINE=%i\n"
+                        "CODE_FUNCTION=%s\n"
+                        "SYSLOG_IDENTIFIER=%s\n",
+                        LOG_PRI(level),
+                        LOG_FAC(level),
+                        file,
+                        line,
+                        func,
+                        program_invocation_short_name);
+                char_array_0(header);
+
+                zero(iovec);
+                IOVEC_SET_STRING(iovec[n++], header);
+
+                va_start(ap, format);
+                while (format && n + 1 < ELEMENTSOF(iovec)) {
+                        char *buf;
+
+                        if (vasprintf(&buf, format, ap) < 0) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        IOVEC_SET_STRING(iovec[n++], buf);
+
+                        iovec[n].iov_base = (char*) &nl;
+                        iovec[n].iov_len = 1;
+                        n++;
+
+                        format = va_arg(ap, char *);
+                }
+                va_end(ap);
+
+                zero(mh);
+                mh.msg_iov = iovec;
+                mh.msg_iovlen = n;
+
+                if (sendmsg(journal_fd, &mh, MSG_NOSIGNAL) < 0)
+                        r = -errno;
+                else
+                        r = 1;
+
+        finish:
+                for (i = 1; i < n; i += 2)
+                        free(iovec[i].iov_base);
+
+        } else {
+                char buf[LINE_MAX];
+                bool found = false;
+
+                /* Fallback if journal logging is not available */
+
+                va_start(ap, format);
+                while (format) {
+
+                        vsnprintf(buf, sizeof(buf), format, ap);
+                        char_array_0(buf);
+
+                        if (startswith(buf, "MESSAGE=")) {
+                                found = true;
+                                break;
+                        }
+
+                        format = va_arg(ap, char *);
+                }
+                va_end(ap);
+
+                if (found)
+                        r = log_dispatch(level, file, line, func, buf + 8);
+                else
+                        r = -EINVAL;
+        }
+
+        errno = saved_errno;
+        return r;
 }
 
 int log_set_target_from_string(const char *e) {

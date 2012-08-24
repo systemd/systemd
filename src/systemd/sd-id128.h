@@ -56,6 +56,7 @@ int sd_id128_get_boot(sd_id128_t *ret);
  * times. It is hence not a good idea to call this macro with an
  * expensive function as paramater or an expression with side
  * effects */
+
 #define SD_ID128_FORMAT_STR "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
 #define SD_ID128_FORMAT_VAL(x) (x).bytes[0], (x).bytes[1], (x).bytes[2], (x).bytes[3], (x).bytes[4], (x).bytes[5], (x).bytes[6], (x).bytes[7], (x).bytes[8], (x).bytes[9], (x).bytes[10], (x).bytes[11], (x).bytes[12], (x).bytes[13], (x).bytes[14], (x).bytes[15]
 

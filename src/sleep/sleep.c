@@ -25,6 +25,8 @@
 
 #include "log.h"
 #include "util.h"
+#include "systemd/sd-id128.h"
+#include "systemd/sd-messages.h"
 
 int main(int argc, char *argv[]) {
         const char *verb;
@@ -66,9 +68,17 @@ int main(int argc, char *argv[]) {
         execute_directory(SYSTEM_SLEEP_PATH, NULL, arguments);
 
         if (streq(argv[1], "suspend"))
-                log_info("Suspending system...");
+                log_struct(LOG_INFO,
+                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SLEEP_START),
+                           "MESSAGE=Suspending system...",
+                           "SLEEP=suspend",
+                           NULL);
         else
-                log_info("Hibernating system...");
+                log_struct(LOG_INFO,
+                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SLEEP_START),
+                           "MESSAGE=Hibernating system...",
+                           "SLEEP=hibernate",
+                           NULL);
 
         fputs(verb, f);
         fputc('\n', f);
@@ -77,9 +87,17 @@ int main(int argc, char *argv[]) {
         r = ferror(f) ? -errno : 0;
 
         if (streq(argv[1], "suspend"))
-                log_info("System resumed.");
+                log_struct(LOG_INFO,
+                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SLEEP_STOP),
+                           "MESSAGE=System resumed.",
+                           "SLEEP=suspend",
+                           NULL);
         else
-                log_info("System thawed.");
+                log_struct(LOG_INFO,
+                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SLEEP_STOP),
+                           "MESSAGE=System thawed.",
+                           "SLEEP=hibernate",
+                           NULL);
 
         arguments[1] = (char*) "post";
         execute_directory(SYSTEM_SLEEP_PATH, NULL, arguments);

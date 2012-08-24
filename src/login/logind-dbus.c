@@ -31,6 +31,8 @@
 #include "path-util.h"
 #include "polkit.h"
 #include "special.h"
+#include "systemd/sd-id128.h"
+#include "systemd/sd-messages.h"
 
 #define BUS_MANAGER_INTERFACE                                           \
         " <interface name=\"org.freedesktop.login1.Manager\">\n"        \
@@ -1138,6 +1140,42 @@ finish:
         return 0;
 }
 
+static int bus_manager_log_shutdown(
+                Manager *m,
+                InhibitWhat w,
+                const char *unit_name) {
+
+        const char *p, *q;
+
+        assert(m);
+        assert(unit_name);
+
+        if (w != INHIBIT_SHUTDOWN)
+                return 0;
+
+        if (streq(unit_name, SPECIAL_POWEROFF_TARGET)) {
+                p = "MESSAGE=System is powering down.";
+                q = "SHUTDOWN=power-off";
+        } else if (streq(unit_name, SPECIAL_HALT_TARGET)) {
+                p = "MESSAGE=System is halting.";
+                q = "SHUTDOWN=halt";
+        } else if (streq(unit_name, SPECIAL_REBOOT_TARGET)) {
+                p = "MESSAGE=System is rebooting.";
+                q = "SHUTDOWN=reboot";
+        } else if (streq(unit_name, SPECIAL_KEXEC_TARGET)) {
+                p = "MESSAGE=System is rebooting with kexec.";
+                q = "SHUTDOWN=kexec";
+        } else {
+                p = "MESSAGE=System is shutting down.";
+                q = NULL;
+        }
+
+        return log_struct(LOG_NOTICE,
+                          "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SHUTDOWN),
+                          p,
+                          q, NULL);
+}
+
 int bus_manager_shutdown_or_sleep_now_or_later(
                 Manager *m,
                 const char *unit_name,
@@ -1160,10 +1198,13 @@ int bus_manager_shutdown_or_sleep_now_or_later(
                 /* Shutdown is delayed, keep in mind what we
                  * want to do, and start a timeout */
                 r = delay_shutdown_or_sleep(m, w, unit_name);
-        else
+        else {
+                bus_manager_log_shutdown(m, w, unit_name);
+
                 /* Shutdown is not delayed, execute it
                  * immediately */
                 r = send_start_unit(m->bus, unit_name, error);
+        }
 
         return r;
 }
@@ -2255,6 +2296,8 @@ int manager_dispatch_delayed(Manager *manager) {
                 manager_is_inhibited(manager, manager->delayed_what, INHIBIT_DELAY, NULL);
         if (delayed)
                 return 0;
+
+        bus_manager_log_shutdown(manager, manager->delayed_what, manager->delayed_unit);
 
         /* Reset delay data */
         unit_name = manager->delayed_unit;
