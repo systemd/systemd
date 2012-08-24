@@ -577,7 +577,7 @@ int show_journal_by_unit(
                 unsigned how_many,
                 OutputFlags flags) {
 
-        char *m = NULL;
+        char *m1 = NULL, *m2 = NULL, *m3 = NULL;
         sd_journal *j = NULL;
         int r;
         unsigned line = 0;
@@ -597,7 +597,9 @@ int show_journal_by_unit(
         if (how_many <= 0)
                 return 0;
 
-        if (asprintf(&m, "_SYSTEMD_UNIT=%s", unit) < 0) {
+        if (asprintf(&m1, "_SYSTEMD_UNIT=%s", unit) < 0 ||
+            asprintf(&m2, "COREDUMP_UNIT=%s", unit) < 0 ||
+            asprintf(&m3, "UNIT=%s", unit) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }
@@ -606,10 +608,34 @@ int show_journal_by_unit(
         if (r < 0)
                 goto finish;
 
-        r = sd_journal_add_match(j, m, strlen(m));
+        /* Look for messages from the service itself */
+        r = sd_journal_add_match(j, m1, 0);
         if (r < 0)
                 goto finish;
 
+        /* Look for coredumps of the service */
+        r = sd_journal_add_disjunction(j);
+        if (r < 0)
+                goto finish;
+        r = sd_journal_add_match(j, "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1", 0);
+        if (r < 0)
+                goto finish;
+        r = sd_journal_add_match(j, m2, 0);
+        if (r < 0)
+                goto finish;
+
+        /* Look for messages from PID 1 about this service */
+        r = sd_journal_add_disjunction(j);
+        if (r < 0)
+                goto finish;
+        r = sd_journal_add_match(j, "_PID=1", 0);
+        if (r < 0)
+                goto finish;
+        r = sd_journal_add_match(j, m3, 0);
+        if (r < 0)
+                goto finish;
+
+        /* Seek to end */
         r = sd_journal_seek_tail(j);
         if (r < 0)
                 goto finish;
@@ -692,8 +718,9 @@ int show_journal_by_unit(
                 fputs("\n]\n", stdout);
 
 finish:
-        if (m)
-                free(m);
+        free(m1);
+        free(m2);
+        free(m3);
 
         if (j)
                 sd_journal_close(j);

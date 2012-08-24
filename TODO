@@ -49,6 +49,8 @@ Bugfixes:
 
 Features:
 
+* currently system services appear not to generate core dumps...
+
 * introduce /run/kmsg in containers?
 
 * introduce $container_boot_id?
