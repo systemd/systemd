@@ -2032,41 +2032,44 @@ void manager_check_finished(Manager *m) {
                         kernel_usec = m->initrd_timestamp.monotonic;
                         initrd_usec = m->startup_timestamp.monotonic - m->initrd_timestamp.monotonic;
 
-                        log_struct(LOG_INFO,
-                                   "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_STARTUP_FINISHED),
-                                   "KERNEL_USEC=%llu", (unsigned long long) kernel_usec,
-                                   "INITRD_USEC=%llu", (unsigned long long) initrd_usec,
-                                   "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
-                                   "MESSAGE=Startup finished in %s (kernel) + %s (initrd) + %s (userspace) = %s.",
-                                   format_timespan(kernel, sizeof(kernel), kernel_usec),
-                                   format_timespan(initrd, sizeof(initrd), initrd_usec),
-                                   format_timespan(userspace, sizeof(userspace), userspace_usec),
-                                   format_timespan(sum, sizeof(sum), total_usec),
-                                   NULL);
+                        if (!log_on_console())
+                                log_struct(LOG_INFO,
+                                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_STARTUP_FINISHED),
+                                           "KERNEL_USEC=%llu", (unsigned long long) kernel_usec,
+                                           "INITRD_USEC=%llu", (unsigned long long) initrd_usec,
+                                           "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
+                                           "MESSAGE=Startup finished in %s (kernel) + %s (initrd) + %s (userspace) = %s.",
+                                           format_timespan(kernel, sizeof(kernel), kernel_usec),
+                                           format_timespan(initrd, sizeof(initrd), initrd_usec),
+                                           format_timespan(userspace, sizeof(userspace), userspace_usec),
+                                           format_timespan(sum, sizeof(sum), total_usec),
+                                           NULL);
                 } else {
                         kernel_usec = m->startup_timestamp.monotonic;
                         initrd_usec = 0;
 
-                        log_struct(LOG_INFO,
-                                   "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_STARTUP_FINISHED),
-                                   "KERNEL_USEC=%llu", (unsigned long long) kernel_usec,
-                                   "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
-                                   "MESSAGE=Startup finished in %s (kernel) + %s (userspace) = %s.",
-                                   format_timespan(kernel, sizeof(kernel), kernel_usec),
-                                   format_timespan(userspace, sizeof(userspace), userspace_usec),
-                                   format_timespan(sum, sizeof(sum), total_usec),
-                                   NULL);
+                        if (!log_on_console())
+                                log_struct(LOG_INFO,
+                                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_STARTUP_FINISHED),
+                                           "KERNEL_USEC=%llu", (unsigned long long) kernel_usec,
+                                           "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
+                                           "MESSAGE=Startup finished in %s (kernel) + %s (userspace) = %s.",
+                                           format_timespan(kernel, sizeof(kernel), kernel_usec),
+                                           format_timespan(userspace, sizeof(userspace), userspace_usec),
+                                           format_timespan(sum, sizeof(sum), total_usec),
+                                           NULL);
                 }
         } else {
                 initrd_usec = kernel_usec = 0;
                 total_usec = userspace_usec = m->finish_timestamp.monotonic - m->startup_timestamp.monotonic;
 
-                log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_STARTUP_FINISHED),
-                           "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
-                           "MESSAGE=Startup finished in %s.",
-                           format_timespan(sum, sizeof(sum), total_usec),
-                           NULL);
+                if (!log_on_console())
+                        log_struct(LOG_INFO,
+                                   "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_STARTUP_FINISHED),
+                                   "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
+                                   "MESSAGE=Startup finished in %s.",
+                                   format_timespan(sum, sizeof(sum), total_usec),
+                                   NULL);
         }
 
         bus_broadcast_finished(m, kernel_usec, initrd_usec, userspace_usec, total_usec);

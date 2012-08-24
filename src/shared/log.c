@@ -859,6 +859,13 @@ int log_show_location_from_string(const char *e) {
         return 0;
 }
 
+bool log_on_console(void) {
+        if (log_target == LOG_TARGET_CONSOLE)
+                return true;
+
+        return syslog_fd < 0 && kmsg_fd < 0 && journal_fd < 0;
+}
+
 static const char *const log_target_table[] = {
         [LOG_TARGET_CONSOLE] = "console",
         [LOG_TARGET_KMSG] = "kmsg",

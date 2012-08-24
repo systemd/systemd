@@ -687,6 +687,12 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 
+        /* Skip this if it goes to the console. since we already print
+         * to the console anyway... */
+
+        if (log_on_console())
+                return;
+
         format = job_get_status_message_format_try_harder(u, t, result);
         if (!format)
                 return;

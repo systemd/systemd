@@ -1004,6 +1004,9 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
         if (t != JOB_START && t != JOB_STOP && t != JOB_RELOAD)
                 return;
 
+        if (log_on_console())
+                return;
+
         /* We log status messages for all units and all operations. */
 
         format = unit_get_status_message_format_try_harder(u, t);
