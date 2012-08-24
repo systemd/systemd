@@ -62,11 +62,16 @@ AM_PROG_CC_C_O
 AC_PROG_GCC_TRADITIONAL
 
 AC_PATH_PROG([M4], [m4])
+AC_PATH_PROG([XSLTPROC], [xsltproc])
 
 # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
 m4_ifdef([GTK_DOC_CHECK], [
 GTK_DOC_CHECK([1.18],[--flavour no-tmpl])
 ], [AM_CONDITIONAL([ENABLE_GTK_DOC], [false])])
+
+AS_IF([test "x$enable_gtk_doc" = "xyes" -a "x$XSLTPROC" = x], [
+        AC_MSG_ERROR([*** GTK doc requested but xsltproc not found])
+])
 
 m4_ifdef([GOBJECT_INTROSPECTION_CHECK], [
 GOBJECT_INTROSPECTION_CHECK([1.31.1])
@@ -545,14 +550,15 @@ AM_CONDITIONAL([ENABLE_KEYMAP], [test "x$enable_keymap" = "xyes"])
 # ------------------------------------------------------------------------------
 have_manpages=no
 AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
-if test "x$enable_manpages" != "xno"; then
-        have_manpages=yes
-fi
-AM_CONDITIONAL(ENABLE_MANPAGES, [test "$have_manpages" = "yes"])
+AS_IF([test "x$enable_manpages" != xno], [
+        AS_IF([test "x$enable_manpages" = xyes -a "x$XSLTPROC" = x], [
+                AC_MSG_ERROR([*** Manpages requested but xsltproc not found])
+        ])
+        AS_IF([test "x$XSLTPROC" != x], [have_manpages=yes])
+])
+AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
 
 # ------------------------------------------------------------------------------
-AC_PATH_PROG([XSLTPROC], [xsltproc])
-AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
 AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware, altlinux, mandriva, mageia, angstrom or other]))
 if test "z$with_distro" = "z"; then
@@ -805,6 +811,7 @@ AC_MSG_RESULT([
         D-Bus interfaces dir:    ${with_dbusinterfacedir}
         Split /usr:              ${enable_split_usr}
         man pages:               ${have_manpages}
+        gtk-doc:                 ${enable_gtk_doc}
 
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
         CPPLAGS:                 ${OUR_CPPFLAGS} ${CPPFLAGS}

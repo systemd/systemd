@@ -3473,7 +3473,7 @@ CLEANFILES += \
 	$(pkgconfiglib_DATA) \
 	$(nodist_polkitpolicy_DATA)
 
-if HAVE_XSLTPROC
+if ENABLE_MANPAGES
 XSLTPROC_FLAGS = \
 	--nonet \
 	--stringparam man.output.quietly 1 \
