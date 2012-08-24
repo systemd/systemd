@@ -2,3 +2,4 @@
 0x92 media      # acer arcade
 0xD4 bluetooth  # bluetooth on
 0xD9 bluetooth  # bluetooth off
+0xF4 prog3      # e-key
