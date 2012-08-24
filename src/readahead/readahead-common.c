@@ -71,14 +71,16 @@ int fs_on_ssd(const char *p) {
         if (major(st.st_dev) == 0)
                 return false;
 
-        if (!(udev = udev_new()))
+        udev = udev_new();
+        if (!udev)
                 return -ENOMEM;
 
-        if (!(udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev)))
+        udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev);
+        if (!udev_device)
                 goto finish;
 
-        if ((devtype = udev_device_get_property_value(udev_device, "DEVTYPE")) &&
-            streq(devtype, "partition"))
+        devtype = udev_device_get_property_value(udev_device, "DEVTYPE");
+        if (devtype && streq(devtype, "partition"))
                 look_at = udev_device_get_parent(udev_device);
         else
                 look_at = udev_device;
@@ -87,21 +89,25 @@ int fs_on_ssd(const char *p) {
                 goto finish;
 
         /* First, try high-level property */
-        if ((id = udev_device_get_property_value(look_at, "ID_SSD"))) {
+        id = udev_device_get_property_value(look_at, "ID_SSD");
+        if (id) {
                 b = streq(id, "1");
                 goto finish;
         }
 
         /* Second, try kernel attribute */
-        if ((rotational = udev_device_get_sysattr_value(look_at, "queue/rotational")))
+        rotational = udev_device_get_sysattr_value(look_at, "queue/rotational");
+        if (rotational)
                 if ((b = streq(rotational, "0")))
                         goto finish;
 
         /* Finally, fallback to heuristics */
-        if (!(look_at = udev_device_get_parent(look_at)))
+        look_at = udev_device_get_parent(look_at);
+        if (!look_at)
                 goto finish;
 
-        if ((model = udev_device_get_sysattr_value(look_at, "model")))
+        model = udev_device_get_sysattr_value(look_at, "model");
+        if (model)
                 b = !!strstr(model, "SSD");
 
 finish:
