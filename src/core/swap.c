@@ -174,7 +174,8 @@ static int swap_add_target_links(Swap *s) {
         if (!s->from_fragment)
                 return 0;
 
-        if ((r = manager_load_unit(UNIT(s)->manager, SPECIAL_SWAP_TARGET, NULL, NULL, &tu)) < 0)
+        r = manager_load_unit(UNIT(s)->manager, SPECIAL_SWAP_TARGET, NULL, NULL, &tu);
+        if (r < 0)
                 return r;
 
         return unit_add_dependency(UNIT(s), UNIT_BEFORE, tu, true);
@@ -210,6 +211,9 @@ static int swap_add_default_dependencies(Swap *s) {
         assert(s);
 
         if (UNIT(s)->manager->running_as != MANAGER_SYSTEM)
+                return 0;
+
+        if (detect_container(NULL) > 0)
                 return 0;
 
         r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
