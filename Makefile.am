@@ -2575,8 +2575,9 @@ journal-install-data-hook:
 		rm -f systemd-journald.socket && \
 		$(LN_S) ../systemd-journald.socket )
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f systemd-journald.service && \
-		$(LN_S) ../systemd-journald.service )
+		rm -f systemd-journald.service systemd-journal-flush.service && \
+		$(LN_S) ../systemd-journald.service && \
+		$(LN_S) ../systemd-journal-flush.service )
 
 INSTALL_DATA_HOOKS += \
 	journal-install-data-hook

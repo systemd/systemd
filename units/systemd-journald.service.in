@@ -9,7 +9,6 @@
 Description=Journal Service
 Documentation=man:systemd-journald.service(8) man:journald.conf(5)
 DefaultDependencies=no
-Wants=systemd-journal-flush.service
 Requires=systemd-journald.socket
 After=systemd-journald.socket syslog.socket
 Before=sysinit.target
