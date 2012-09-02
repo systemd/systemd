@@ -11,9 +11,9 @@ Documentation=man:quotaon(8)
 DefaultDependencies=no
 After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-quotacheck.service
 Before=local-fs.target shutdown.target
-ConditionPathExists=/sbin/quotaon
+ConditionPathExists=@QUOTAON@
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/sbin/quotaon -aug
+ExecStart=@QUOTAON@ -aug

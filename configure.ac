@@ -64,6 +64,9 @@ AC_PROG_GCC_TRADITIONAL
 AC_PATH_PROG([M4], [m4])
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 
+AC_PATH_PROG([QUOTAON], [quotaon], [/sbin/quotaon])
+AC_PATH_PROG([QUOTACHECK], [quotacheck], [/sbin/quotacheck])
+
 # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
 m4_ifdef([GTK_DOC_CHECK], [
 GTK_DOC_CHECK([1.18],[--flavour no-tmpl])

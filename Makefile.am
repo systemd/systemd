@@ -382,6 +382,7 @@ EXTRA_DIST += \
 	units/debug-shell.service.in \
 	units/systemd-hibernate.service.in \
 	units/systemd-suspend.service.in \
+	units/quotaon.service.in \
 	introspect.awk \
 	man/custom-html.xsl
 
@@ -2794,6 +2795,9 @@ endif
 EXTRA_DIST += \
 	units/systemd-quotacheck.service.in
 
+nodist_systemunit_DATA += \
+	units/quotaon.service
+
 # ------------------------------------------------------------------------------
 if ENABLE_RANDOMSEED
 rootlibexec_PROGRAMS += \
@@ -3427,6 +3431,8 @@ SED_PROCESS = \
 		-e 's,@rootprefix\@,$(rootprefix),g' \
 		-e 's,@udevlibexecdir\@,$(udevlibexecdir),g' \
 		-e 's,@sushell\@,$(sushell),g' \
+		-e 's,@QUOTAON\@,$(QUOTAON),g' \
+		-e 's,@QUOTACHECK\@,$(QUOTACHECK),g' \
 		< $< > $@
 
 units/%: units/%.in Makefile
