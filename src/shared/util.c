@@ -3358,7 +3358,7 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct 
                                 continue;
                         }
 
-                        r = rm_rf_children(subdir_fd, only_dirs, honour_sticky, root_dev);
+                        r = rm_rf_children_dangerous(subdir_fd, only_dirs, honour_sticky, root_dev);
                         if (r < 0 && ret == 0)
                                 ret = r;
 
