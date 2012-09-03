@@ -476,6 +476,75 @@ static int item_set_perms(Item *i, const char *path) {
         return label_fix(path, false, false);
 }
 
+static int write_one_file(Item *i, const char *path) {
+        int r, e, fd, flags;
+        struct stat st;
+        mode_t u;
+
+        flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND :
+                i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC : 0;
+
+        u = umask(0);
+        label_context_set(path, S_IFREG);
+        fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY|O_NOFOLLOW, i->mode);
+        e = errno;
+        label_context_clear();
+        umask(u);
+        errno = e;
+
+        if (fd < 0) {
+                if (i->type == WRITE_FILE && errno == ENOENT)
+                        return 0;
+
+                log_error("Failed to create file %s: %m", path);
+                return -errno;
+        }
+
+        if (i->argument) {
+                ssize_t n;
+                size_t l;
+                struct iovec iovec[2];
+                static const char new_line = '\n';
+
+                l = strlen(i->argument);
+
+                zero(iovec);
+                iovec[0].iov_base = i->argument;
+                iovec[0].iov_len = l;
+
+                iovec[1].iov_base = (void*) &new_line;
+                iovec[1].iov_len = 1;
+
+                n = writev(fd, iovec, 2);
+
+                /* It's OK if we don't write the trailing
+                 * newline, hence we check for l, instead of
+                 * l+1 here. Files in /sys often refuse
+                 * writing of the trailing newline. */
+                if (n < 0 || (size_t) n < l) {
+                        log_error("Failed to write file %s: %s", path, n < 0 ? strerror(-n) : "Short write");
+                        close_nointr_nofail(fd);
+                        return n < 0 ? n : -EIO;
+                }
+        }
+
+        if (stat(path, &st) < 0) {
+                log_error("stat(%s) failed: %m", path);
+                return -errno;
+        }
+
+        if (!S_ISREG(st.st_mode)) {
+                log_error("%s is not a file.", path);
+                return -EEXIST;
+        }
+
+        r = item_set_perms(i, path);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int recursive_relabel_children(Item *i, const char *path) {
         DIR *d;
         int ret = 0;
@@ -609,74 +678,12 @@ static int create_item(Item *i) {
 
         case CREATE_FILE:
         case TRUNCATE_FILE:
-        case WRITE_FILE: {
-                int fd, flags;
-
-                flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND :
-                        i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC : 0;
-
-                u = umask(0);
-                label_context_set(i->path, S_IFREG);
-                fd = open(i->path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY|O_NOFOLLOW, i->mode);
-                e = errno;
-                label_context_clear();
-                umask(u);
-                errno = e;
-
-                if (fd < 0) {
-                        if (i->type == WRITE_FILE && errno == ENOENT)
-                                break;
-
-                        log_error("Failed to create file %s: %m", i->path);
-                        return -errno;
-                }
-
-                if (i->argument) {
-                        ssize_t n;
-                        size_t l;
-                        struct iovec iovec[2];
-                        static const char new_line = '\n';
-
-                        l = strlen(i->argument);
-
-                        zero(iovec);
-                        iovec[0].iov_base = i->argument;
-                        iovec[0].iov_len = l;
-
-                        iovec[1].iov_base = (void*) &new_line;
-                        iovec[1].iov_len = 1;
-
-                        n = writev(fd, iovec, 2);
-
-                        /* It's OK if we don't write the trailing
-                         * newline, hence we check for l, instead of
-                         * l+1 here. Files in /sys often refuse
-                         * writing of the trailing newline. */
-                        if (n < 0 || (size_t) n < l) {
-                                log_error("Failed to write file %s: %s", i->path, n < 0 ? strerror(-n) : "Short write");
-                                close_nointr_nofail(fd);
-                                return n < 0 ? n : -EIO;
-                        }
-                }
-
-                close_nointr_nofail(fd);
-
-                if (stat(i->path, &st) < 0) {
-                        log_error("stat(%s) failed: %m", i->path);
-                        return -errno;
-                }
-
-                if (!S_ISREG(st.st_mode)) {
-                        log_error("%s is not a file.", i->path);
-                        return -EEXIST;
-                }
-
-                r = item_set_perms(i, i->path);
+        case WRITE_FILE:
+                r = glob_item(i, write_one_file);
                 if (r < 0)
                         return r;
 
                 break;
-        }
 
         case TRUNCATE_DIRECTORY:
         case CREATE_DIRECTORY:

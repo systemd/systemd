@@ -114,7 +114,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                                 <varlistentry>
                                         <term><varname>w</varname></term>
-                                        <listitem><para>Write the argument parameter to a file, if it exists.</para></listitem>
+                                        <listitem><para>Write the argument parameter to a file, if it exists. Lines of this type accept shell-style globs in place of normal path names.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
