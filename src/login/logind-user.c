@@ -180,10 +180,38 @@ int user_save(User *u) {
                         fputs(i->id, f);
                 }
 
+                fputs("\nONLINE_SESSIONS=", f);
+                first = true;
+                LIST_FOREACH(sessions_by_user, i, u->sessions) {
+                        if (session_get_state(i) == SESSION_CLOSING)
+                                continue;
+
+                        if (first)
+                                first = false;
+                        else
+                                fputc(' ', f);
+
+                        fputs(i->id, f);
+                }
+
                 fputs("\nACTIVE_SEATS=", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (!session_is_active(i) || !i->seat)
+                                continue;
+
+                        if (first)
+                                first = false;
+                        else
+                                fputc(' ', f);
+
+                        fputs(i->seat->id, f);
+                }
+
+                fputs("\nONLINE_SEATS=", f);
+                first = true;
+                LIST_FOREACH(sessions_by_user, i, u->sessions) {
+                        if (session_get_state(i) == SESSION_CLOSING || !i->seat)
                                 continue;
 
                         if (first)
