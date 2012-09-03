@@ -2021,7 +2021,9 @@ int journal_file_open(
         f->flags = flags;
         f->prot = prot_from_flags(flags);
         f->writable = (flags & O_ACCMODE) != O_RDONLY;
+#ifdef HAVE_XZ
         f->compress = compress;
+#endif
         f->seal = seal;
 
         if (mmap_cache)
