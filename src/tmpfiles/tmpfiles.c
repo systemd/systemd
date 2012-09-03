@@ -409,7 +409,7 @@ static int clean_item(Item *i) {
             i->type != IGNORE_PATH)
                 return 0;
 
-        if (!i->age_set || i->age <= 0)
+        if (!i->age_set)
                 return 0;
 
         n = now(CLOCK_REALTIME);

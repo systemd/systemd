@@ -265,7 +265,12 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         </variablelist>
 
                         <para>If multiple integers and units are specified the time
-                        values are summed up.</para>
+                        values are summed up. If an integer is given witohut a unit,
+                        s is assumed.
+                        </para>
+
+                        <para>When the age is set to zero, the files are cleaned
+                        unconditionally.</para>
 
                         <para>The age field only applies to lines starting with
                         d, D and x. If omitted or set to - no automatic clean-up
