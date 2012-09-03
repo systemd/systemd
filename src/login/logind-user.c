@@ -568,15 +568,20 @@ void user_add_to_gc_queue(User *u) {
 
 UserState user_get_state(User *u) {
         Session *i;
+        bool all_closing = true;
 
         assert(u);
 
-        LIST_FOREACH(sessions_by_user, i, u->sessions)
+
+        LIST_FOREACH(sessions_by_user, i, u->sessions) {
                 if (session_is_active(i))
                         return USER_ACTIVE;
+                if (session_get_state(i) != SESSION_CLOSING)
+                        all_closing = false;
+        }
 
         if (u->sessions)
-                return USER_ONLINE;
+                return all_closing ? USER_CLOSING : USER_ONLINE;
 
         if (user_check_linger_file(u) > 0)
                 return USER_LINGERING;
