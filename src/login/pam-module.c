@@ -517,8 +517,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "Asking logind to create session: "
-                           "uid=%u pid=%u service=%s type=%s seat=%s vtnr=%u tty=%s display=%s remote=%s remote_user=%s remote_host=%s",
-                           uid, pid, service, type, seat, vtnr, tty, display, yes_no(remote), remote_user, remote_host);
+                           "uid=%u pid=%u service=%s type=%s class=%s seat=%s vtnr=%u tty=%s display=%s remote=%s remote_user=%s remote_host=%s",
+                           uid, pid, service, type, class, seat, vtnr, tty, display, yes_no(remote), remote_user, remote_host);
 
         reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
         if (!reply) {
