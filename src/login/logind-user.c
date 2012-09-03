@@ -189,7 +189,9 @@ int user_save(User *u) {
                         if (first)
                                 first = false;
                         else
-                                fputs(i->seat->id, f);
+                                fputc(' ', f);
+
+                        fputs(i->seat->id, f);
                 }
                 fputc('\n', f);
         }
