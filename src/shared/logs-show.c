@@ -521,7 +521,6 @@ static int output_json(sd_journal *j, unsigned line,
         }
 
         fputs("\n}", stdout);
-        fflush(stdout);
 
         return 0;
 }
@@ -560,13 +559,16 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(sd_journal*j, unsigned line,
 
 int output_journal(sd_journal *j, OutputMode mode, unsigned line,
                    unsigned n_columns, OutputFlags flags) {
+        int ret;
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
 
         if (n_columns <= 0)
                 n_columns = columns();
 
-        return output_funcs[mode](j, line, n_columns, flags);
+        ret = output_funcs[mode](j, line, n_columns, flags);
+        fflush(stdout);
+        return ret;
 }
 
 int show_journal_by_unit(
