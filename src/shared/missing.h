@@ -83,9 +83,11 @@
 #define IP_TRANSPARENT 19
 #endif
 
+#if !HAVE_DECL_PIVOT_ROOT
 static inline int pivot_root(const char *new_root, const char *put_old) {
         return syscall(SYS_pivot_root, new_root, put_old);
 }
+#endif
 
 #ifdef __x86_64__
 #  ifndef __NR_fanotify_init
@@ -126,10 +128,13 @@ static inline int pivot_root(const char *new_root, const char *put_old) {
 #  endif
 #endif
 
+#ifndef HAVE_FANOTIFY_INIT
 static inline int fanotify_init(unsigned int flags, unsigned int event_f_flags) {
         return syscall(__NR_fanotify_init, flags, event_f_flags);
 }
+#endif
 
+#ifndef HAVE_FANOTIFY_MARK
 static inline int fanotify_mark(int fanotify_fd, unsigned int flags, uint64_t mask,
                                 int dfd, const char *pathname) {
 #if defined _MIPS_SIM && _MIPS_SIM == _MIPS_SIM_ABI32 || defined __powerpc__ && !defined __powerpc64__
@@ -145,6 +150,7 @@ static inline int fanotify_mark(int fanotify_fd, unsigned int flags, uint64_t ma
         return syscall(__NR_fanotify_mark, fanotify_fd, flags, mask, dfd, pathname);
 #endif
 }
+#endif
 
 #ifndef BTRFS_IOCTL_MAGIC
 #define BTRFS_IOCTL_MAGIC 0x94
@@ -175,9 +181,11 @@ struct btrfs_ioctl_vol_args {
 #define MS_PRIVATE  (1 << 18)
 #endif
 
+#if !HAVE_DECL_GETTID
 static inline pid_t gettid(void) {
         return (pid_t) syscall(SYS_gettid);
 }
+#endif
 
 #ifndef SCM_SECURITY
 #define SCM_SECURITY 0x03
@@ -193,4 +201,31 @@ static inline pid_t gettid(void) {
 
 #ifndef PR_SET_CHILD_SUBREAPER
 #define PR_SET_CHILD_SUBREAPER 36
+#endif
+
+#ifndef MAX_HANDLE_SZ
+#define MAX_HANDLE_SZ 128
+#endif
+
+#ifdef __x86_64__
+#  ifndef __NR_name_to_handle
+#    define __NR_name_to_handle 303
+#  endif
+#else
+#  ifndef __NR_name_to_handle
+#    define __NR_name_to_handle 341
+#  endif
+#endif
+
+#ifndef HAVE_NAME_TO_HANDLE_AT
+
+struct file_handle {
+        unsigned int handle_bytes;
+        int handle_type;
+        unsigned char f_handle[0];
+};
+
+static inline int name_to_handle_at(int fd, const char *name, struct file_handle *handle, int *mnt_id, int flags) {
+        return syscall(__NR_name_to_handle_at, fd, name, handle, mnt_id, flags);
+}
 #endif

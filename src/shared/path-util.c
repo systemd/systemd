@@ -35,6 +35,7 @@
 #include "log.h"
 #include "strv.h"
 #include "path-util.h"
+#include "missing.h"
 
 bool path_is_absolute(const char *p) {
         return p[0] == '/';
