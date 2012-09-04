@@ -335,6 +335,7 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
         int r;
         struct file_handle *h;
         int mount_id, mount_id_parent;
+        struct stat a, b;
 
         /* We are not actually interested in the file handles, but
          * name_to_handle_at() also passes us the mount ID, hence use
@@ -348,6 +349,12 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
 
         r = name_to_handle_at(AT_FDCWD, t, h, &mount_id, allow_symlink ? AT_SYMLINK_FOLLOW : 0);
         if (r < 0) {
+                if (errno == ENOTSUP)
+                        /* This file system does not support
+                         * name_to_handle_at(), hence fallback to the
+                         * traditional stat() logic */
+                        goto fallback;
+
                 if (errno == ENOENT)
                         return 0;
 
@@ -362,11 +369,38 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
         r = name_to_handle_at(AT_FDCWD, parent, h, &mount_id_parent, 0);
         free(parent);
 
+        if (r < 0) {
+                /* The parent can't do name_to_handle_at() but the
+                 * directory we are interested in can? If so, it must
+                 * be a mount point */
+                if (errno == ENOTSUP)
+                        return 1;
+
+                return -errno;
+        }
+
+        return mount_id != mount_id_parent;
+
+fallback:
+        if (allow_symlink)
+                r = stat(t, &a);
+        else
+                r = lstat(t, &b);
+
         if (r < 0)
                 return -errno;
 
+        r = path_get_parent(t, &parent);
+        if (r < 0)
+                return r;
 
-        return mount_id != mount_id_parent;
+        r = lstat(parent, &b);
+        free(parent);
+
+        if (r < 0)
+                return -errno;
+
+        return a.st_dev != b.st_dev;
 }
 
 int path_is_read_only_fs(const char *path) {
