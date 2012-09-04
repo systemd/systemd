@@ -269,8 +269,7 @@ static int mount_all(const char *dest) {
                 { "proc",      "/proc",     "proc",  NULL,       MS_NOSUID|MS_NOEXEC|MS_NODEV, true  },
                 { "/proc/sys", "/proc/sys", NULL,    NULL,       MS_BIND, true                       },   /* Bind mount first */
                 { NULL,        "/proc/sys", NULL,    NULL,       MS_BIND|MS_RDONLY|MS_REMOUNT, true  },   /* Then, make it r/o */
-                { "/sys",      "/sys",      NULL,    NULL,       MS_BIND,                      true  },   /* Bind mount first */
-                { NULL,        "/sys",      NULL,    NULL,       MS_BIND|MS_RDONLY|MS_REMOUNT, true  },   /* Then, make it r/o */
+                { "sysfs",     "/sys",      "sysfs", NULL,       MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, true  },
                 { "tmpfs",     "/dev",      "tmpfs", "mode=755", MS_NOSUID|MS_STRICTATIME,     true  },
                 { "/dev/pts",  "/dev/pts",  NULL,    NULL,       MS_BIND,                      true  },
                 { "tmpfs",     "/run",      "tmpfs", "mode=755", MS_NOSUID|MS_NODEV|MS_STRICTATIME, true  },
@@ -296,7 +295,7 @@ static int mount_all(const char *dest) {
                         break;
                 }
 
-                t = path_is_mount_point(where, false);
+                t = path_is_mount_point(where, true);
                 if (t < 0) {
                         log_error("Failed to detect whether %s is a mount point: %s", where, strerror(-t));
                         free(where);
