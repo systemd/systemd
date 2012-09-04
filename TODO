@@ -49,6 +49,39 @@ Bugfixes:
 
 Features:
 
+* journald: check whether it is OK if the client can still modify delivered journal entries
+
+* json: use yajl
+* json: don't add wrapping array, just put entries on one line each
+* json: add -o json-pretty in addition to -o json, make the latter output one line per entry
+* json: properly serialize multiple fields with the same name per entry
+
+* journalctl: make -l the default
+
+* journald: add option to choose between "split up nothing", "split up login user journals", "split up all user journals"
+
+* journal live copy, bsaed on libneon (client) and libmicrohttpd
+
+* document in wiki json serialization
+
+* python-journal merge
+
+* system-wide seccomp filter
+
+* securityfs: don't mount in container
+
+* slave/shared remount root fs in container
+
+* ability to pass fds into systemd
+
+* system.conf should have controls for cgroups
+
+* tmpfiles: skip mknod if CAP_MKNOD is missing
+
+* fake boot id
+
+* bind mount read-only the cgroup tree higher than than nspawn
+
 * currently system services appear not to generate core dumps...
 
 * introduce /run/kmsg in containers?
@@ -202,12 +235,6 @@ Features:
         - implement .d/ auto includes for unit files
         - add syntax to reset ExecStart= lists (and similar)
 
-* manipulate CPU governor during boot, set it to performance
-
-* steal SBF management from the kernel
-
-* delay journal /var writeout to after boot if SBF is clean
-
 * move passno parsing to fstab generator
 
 * improve !/proc/*/loginuid situation: make /proc/*/loginuid less dependent on CONFIG_AUDIT,
@@ -301,6 +328,8 @@ Features:
 * figure out whether we should leave dbus around during shutdown
 
 * dbus: in fedora, make the machine a symlink to /etc/machine-id
+
+* dbus: on fedora, move dbus to early boot
 
 * journald: reuse XZ context
 
@@ -398,8 +427,6 @@ Features:
 * add support for /bin/mount -s
 
 * GC unreferenced jobs (such as .device jobs)
-
-* when failing to start a service due to ratelimiting, try again later, if restart=always is set
 
 * write blog stories about:
   - enabling dbus services
