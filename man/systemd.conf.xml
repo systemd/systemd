@@ -118,7 +118,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>JoinControllers=cpu,cpuacct</varname></term>
+                                <term><varname>JoinControllers=cpu,cpuacct,cpuset net_cls,netprio</varname></term>
 
                                 <listitem><para>Configures controllers
                                 that shall be mounted in a single

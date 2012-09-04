@@ -1305,12 +1305,13 @@ int main(int argc, char *argv[]) {
         }
 
         /* By default, mount "cpu" and "cpuacct" together */
-        arg_join_controllers = new(char**, 2);
+        arg_join_controllers = new(char**, 3);
         if (!arg_join_controllers)
                 goto finish;
 
-        arg_join_controllers[0] = strv_new("cpu", "cpuacct", NULL);
-        arg_join_controllers[1] = NULL;
+        arg_join_controllers[0] = strv_new("cpu", "cpuacct", "cpuset", NULL);
+        arg_join_controllers[1] = strv_new("net_cls", "netprio", NULL);
+        arg_join_controllers[2] = NULL;
 
         if (!arg_join_controllers[0])
                 goto finish;
