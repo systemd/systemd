@@ -263,7 +263,8 @@ int seat_set_active(Seat *s, Session *session) {
 
         if (old_active) {
                 session_save(old_active);
-                user_save(old_active->user);
+                if (!session || session->user != old_active->user)
+                        user_save(old_active->user);
         }
 
         return 0;
