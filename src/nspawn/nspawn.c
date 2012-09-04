@@ -306,6 +306,9 @@ static int mount_all(const char *dest) {
                         continue;
                 }
 
+                if (t > 0)
+                        continue;
+
                 mkdir_p_label(where, 0755);
 
                 if (mount(mount_table[k].what,
