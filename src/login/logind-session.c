@@ -714,9 +714,11 @@ int session_stop(Session *s) {
                         seat_set_active(s->seat, NULL);
 
                 seat_send_changed(s->seat, "Sessions\0");
+                seat_save(s->seat);
         }
 
         user_send_changed(s->user, "Sessions\0");
+        user_save(s->user);
 
         s->started = false;
 
@@ -870,6 +872,9 @@ void session_remove_fifo(Session *s) {
                 assert_se(epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_DEL, s->fifo_fd, NULL) == 0);
                 close_nointr_nofail(s->fifo_fd);
                 s->fifo_fd = -1;
+
+                session_save(s);
+                user_save(s->user);
         }
 
         if (s->fifo_path) {
