@@ -93,7 +93,7 @@
                                 <listitem>
                                         <para>Parameters understood by
                                         the system and service manager
-                                        to control system behaviour. For details see
+                                        to control system behavior. For details see
                                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
                                 </listitem>
                         </varlistentry>

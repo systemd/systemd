@@ -1124,7 +1124,7 @@ _public_ const char *udev_device_get_sysname(struct udev_device *udev_device)
  *
  * Get the instance number of the device.
  *
- * Returns: the trailing number string of of the device name
+ * Returns: the trailing number string of the device name
  **/
 _public_ const char *udev_device_get_sysnum(struct udev_device *udev_device)
 {

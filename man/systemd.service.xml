@@ -160,7 +160,7 @@
                                 complete and all communication
                                 channels set up. The child continues
                                 to run as the main daemon
-                                process. This is the behaviour of
+                                process. This is the behavior of
                                 traditional UNIX daemons. If this
                                 setting is used, it is recommended to
                                 also use the
@@ -171,7 +171,7 @@
                                 soon as the parent process
                                 exits.</para>
 
-                                <para>Behaviour of
+                                <para>Behavior of
                                 <option>oneshot</option> is similar
                                 to <option>simple</option>, however
                                 it is expected that the process has to
@@ -180,7 +180,7 @@
                                 is particularly useful for this type
                                 of service.</para>
 
-                                <para>Behaviour of
+                                <para>Behavior of
                                 <option>dbus</option> is similar to
                                 <option>simple</option>, however it is
                                 expected that the daemon acquires a
@@ -197,7 +197,7 @@
                                 <varname>BusName=</varname> is
                                 specified.</para>
 
-                                <para>Behaviour of
+                                <para>Behavior of
                                 <option>notify</option> is similar to
                                 <option>simple</option>, however it is
                                 expected that the daemon sends a
@@ -216,7 +216,7 @@
                                 not set, it will be implicitly set to
                                 <option>main</option>.</para>
 
-                                <para>Behaviour of
+                                <para>Behavior of
                                 <option>idle</option> is very similar
                                 to <option>simple</option>, however
                                 actual execution of a the service
@@ -599,7 +599,7 @@
                                 SIGTERM and SIGPIPE. Exit status
                                 definitions can either be numeric exit
                                 codes or termination signal names, and
-                                are are separated by spaces. Example:
+                                are separated by spaces. Example:
                                 "<literal>SuccessExitStatus=1 2 8
                                 SIGKILL</literal>", ensures that exit
                                 codes 1, 2, 8 and the termination

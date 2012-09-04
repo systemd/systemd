@@ -131,7 +131,7 @@
                                 to 1 the device will be considered
                                 plugged the moment it shows up in the
                                 udev tree. This property has no
-                                influence on the behaviour when a
+                                influence on the behavior when a
                                 device disappears from the udev
                                 tree. This option is useful to support
                                 devices that initially show up in an

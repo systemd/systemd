@@ -285,7 +285,7 @@ struct UnitVTable {
          * UNIT_STUB if no configuration could be found. */
         int (*load)(Unit *u);
 
-        /* If a a lot of units got created via enumerate(), this is
+        /* If a lot of units got created via enumerate(), this is
          * where to actually set the state and call unit_notify(). */
         int (*coldplug)(Unit *u);
 

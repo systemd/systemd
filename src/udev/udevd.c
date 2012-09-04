@@ -1177,7 +1177,7 @@ int main(int argc, char *argv[])
         }
 
         if (systemd_fds(udev, &fd_ctrl, &fd_netlink) >= 0) {
-                /* get control and netlink socket from from systemd */
+                /* get control and netlink socket from systemd */
                 udev_ctrl = udev_ctrl_new_from_fd(udev, fd_ctrl);
                 if (udev_ctrl == NULL) {
                         log_error("error taking over udev control socket");

@@ -392,7 +392,7 @@ static int mmap_cache_put(
 
         if (st) {
                 /* Memory maps that are larger then the files
-                   underneath have undefined behaviour. Hence, clamp
+                   underneath have undefined behavior. Hence, clamp
                    things to the file size if we know it */
 
                 if (woffset >= (uint64_t) st->st_size)

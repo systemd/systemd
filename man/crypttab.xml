@@ -175,7 +175,7 @@
                         <varlistentry>
                                 <term><varname>verify</varname></term>
 
-                                <listitem><para> If the the encryption
+                                <listitem><para> If the encryption
                                 password is read from console, it has
                                 to be entered twice (to prevent
                                 typos). </para></listitem>
@@ -217,9 +217,9 @@
                                 <term><varname>timeout=</varname></term>
 
                                 <listitem><para>Specify the timeout
-                                for querying for a password. If not
-                                unit is specified in
-                                seconds. Supported units are s, ms,
+                                for querying for a password. If no
+                                unit is specified seconds is used.
+                                Supported units are s, ms,
                                 us, min, h, d.</para></listitem>
                         </varlistentry>
 

@@ -392,7 +392,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
         j->marker = from ? from : j;
         j->generation = generation;
 
-        /* We assume that the the dependencies are bidirectional, and
+        /* We assume that the dependencies are bidirectional, and
          * hence can ignore UNIT_AFTER */
         SET_FOREACH(u, j->unit->dependencies[UNIT_BEFORE], i) {
                 Job *o;

@@ -111,7 +111,7 @@
                 target units are available, as listed on
                 <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
-                <para>The follow chart is a structural overview of
+                <para>The following chart is a structural overview of
                 these well-known units and their position in the
                 boot-up logic. The arrows describe which units are
                 pulled in and ordered before which other units. Units

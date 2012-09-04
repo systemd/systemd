@@ -440,7 +440,7 @@
                                 <listitem><para>Configures requirement
                                 dependencies, very similar in style to
                                 <varname>Requires=</varname>, however
-                                in addition to this behaviour it also
+                                in addition to this behavior it also
                                 declares that this unit is stopped
                                 when any of the units listed suddenly
                                 disappears. Units can suddenly,

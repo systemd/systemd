@@ -181,11 +181,11 @@
                                 <function>exit()</function> in the
                                 original process. The process that
                                 invoked the daemon must be able to
-                                rely that this
+                                rely on that this
                                 <function>exit()</function> happens
                                 after initialization is complete and
                                 all external communication channels
-                                established and
+                                are established and
                                 accessible.</para></listitem>
                         </orderedlist>
 
@@ -196,7 +196,7 @@
                         compatibility with SysV systems should
                         implement the scheme pointed out
                         above. However, it is recommended to make this
-                        behaviour optional and configurable via a
+                        behavior optional and configurable via a
                         command line argument, to ease debugging as
                         well as to simplify integration into systems
                         using systemd.</para>
@@ -271,7 +271,7 @@
                                 for details.</para></listitem>
 
                                 <listitem><para>As much as possible,
-                                rely on the init systemd's
+                                rely on the init system's
                                 functionality to limit the access of
                                 the daemon to files, services and
                                 other resources. i.e. in the case of
@@ -462,7 +462,7 @@
 
                         <para>New-style daemons which support socket
                         activation must be able to receive their
-                        sockets from the init system, instead of of
+                        sockets from the init system, instead of
                         creating and binding them themselves. For
                         details about the programming interfaces for
                         this scheme provided by systemd see

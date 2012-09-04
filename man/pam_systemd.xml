@@ -157,7 +157,7 @@
                                 listed in this argument will not be
                                 subject to the effect of
                                 <option>kill-session-processes=</option>.  Note
-                                that that this option takes precedence
+                                that this option takes precedence
                                 over
                                 <option>kill-only-users=</option>, and
                                 hence whatever is listed for
@@ -272,7 +272,7 @@
                                 in again, the directory contents will
                                 have been lost in between, but
                                 applications should not rely on this
-                                behaviour and must be able to deal with
+                                behavior and must be able to deal with
                                 stale files. To store session-private
                                 data in this directory the user should
                                 include the value of <varname>$XDG_SESSION_ID</varname>

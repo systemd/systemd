@@ -117,7 +117,7 @@
                 <varname>LC_TELEPHONE=</varname>,
                 <varname>LC_MEASUREMENT=</varname>,
                 <varname>LC_IDENTIFICATION=</varname>. Note that
-                <varname>LC_ALL</varname> may not be be configured in
+                <varname>LC_ALL</varname> may not be configured in
                 this file. For details about the meaning and semantics
                 of these settings, refer to
                 <citerefentry><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>

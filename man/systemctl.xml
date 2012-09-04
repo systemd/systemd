@@ -1107,7 +1107,7 @@
                                 mounted read-only, immediately
                                 followed by the system halt.  If
                                 <option>--force</option> is specified
-                                twice the the operation is immediately
+                                twice the operation is immediately
                                 executed without terminating any
                                 processes or unmounting any file
                                 systems. This may result in data
@@ -1128,7 +1128,7 @@
                                 unmounted or mounted read-only,
                                 immediately followed by the powering
                                 off. If <option>--force</option> is
-                                specified twice the the operation is
+                                specified twice the operation is
                                 immediately executed without
                                 terminating any processes or
                                 unmounting any file systems. This may
@@ -1149,7 +1149,7 @@
                                 unmounted or mounted read-only,
                                 immediately followed by the reboot. If
                                 <option>--force</option> is specified
-                                twice the the operation is immediately
+                                twice the operation is immediately
                                 executed without terminating any
                                 processes or unmounting any file
                                 systems. This may result in data

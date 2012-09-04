@@ -123,7 +123,7 @@
                 object of type <literal>va_list</literal> (see
                 <citerefentry><refentrytitle>stdarg</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for more information) instead of the format string. It
-                is otherwise equivalent in behaviour.</para>
+                is otherwise equivalent in behavior.</para>
 
                 <para><function>sd_journal_send()</function> may be
                 used to submit structured log entries to the system

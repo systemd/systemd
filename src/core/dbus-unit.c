@@ -682,7 +682,7 @@ void bus_unit_send_change_signal(Unit *u) {
                 /* Send a properties changed signal. First for the
                  * specific type, then for the generic unit. The
                  * clients may rely on this order to get atomic
-                 * behaviour if needed. */
+                 * behavior if needed. */
 
                 if (UNIT_VTABLE(u)->bus_invalidating_properties) {
 

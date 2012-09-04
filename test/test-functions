@@ -620,7 +620,7 @@ for_each_kmod_dep() {
 # $1 = search only in subdirectory of /kernel/$1
 # $2 = function to call with module name to filter.
 #      This function will be passed the full path to the module to test.
-# The behaviour of this function can vary depending on whether $hostonly is set.
+# The behavior of this function can vary depending on whether $hostonly is set.
 # If it is, we will only look at modules that are already in memory.
 # If it is not, we will look at all kernel modules
 # This function returns the full filenames of modules that match $1

@@ -471,7 +471,7 @@
                         </varlistentry>
                         <varlistentry>
                                 <term><varname>TTYVTDisallocate=</varname></term>
-                                <listitem><para>If the the terminal
+                                <listitem><para>If the terminal
                                 device specified with
                                 <varname>TTYPath=</varname> is a
                                 virtual console terminal try to
@@ -806,7 +806,7 @@
 
                                 <listitem><para>Set a specific control
                                 group attribute for executed
-                                processes, and (if needed) add the the
+                                processes, and (if needed) add the
                                 executed processes to a cgroup in the
                                 hierarchy of the controller the
                                 attribute belongs to. Takes two
@@ -1055,7 +1055,7 @@
                         <varlistentry>
                                 <term><varname>UtmpIdentifier=</varname></term>
 
-                                <listitem><para>Takes a a four
+                                <listitem><para>Takes a four
                                 character identifier string for an
                                 utmp/wtmp entry for this service. This
                                 should only be set for services such

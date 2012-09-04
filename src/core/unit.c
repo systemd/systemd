@@ -1327,7 +1327,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         /* Note that this is called for all low-level state changes,
          * even if they might map to the same high-level
          * UnitActiveState! That means that ns == os is OK an expected
-         * behaviour here. For example: if a mount point is remounted
+         * behavior here. For example: if a mount point is remounted
          * this function will be called too! */
 
         if (u->manager->n_reloading <= 0) {

@@ -1051,7 +1051,7 @@ void journal_file_post_change(JournalFile *f) {
         __sync_synchronize();
 
         if (ftruncate(f->fd, f->last_stat.st_size) < 0)
-                log_error("Failed to to truncate file to its own size: %m");
+                log_error("Failed to truncate file to its own size: %m");
 }
 
 int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqnum, Object **ret, uint64_t *offset) {

@@ -217,7 +217,7 @@
                                 <listitem><para>Specifies a file
                                 system FIFO to listen on. This expects
                                 an absolute file system path as
-                                argument. Behaviour otherwise is very
+                                argument. Behavior otherwise is very
                                 similar to the
                                 <varname>ListenDatagram=</varname>
                                 directive above.</para></listitem>
@@ -228,7 +228,7 @@
                                 <listitem><para>Specifies a special
                                 file in the file system to listen
                                 on. This expects an absolute file
-                                system path as argument. Behaviour
+                                system path as argument. Behavior
                                 otherwise is very similar to the
                                 <varname>ListenFIFO=</varname>
                                 directive above. Use this to open
@@ -248,7 +248,7 @@
                                 or <varname>kobject-uevent</varname>)
                                 as argument, optionally suffixed by a
                                 whitespace followed by a multicast
-                                group integer. Behaviour otherwise is
+                                group integer. Behavior otherwise is
                                 very similar to the
                                 <varname>ListenDatagram=</varname>
                                 directive above.</para></listitem>
@@ -259,7 +259,7 @@
                                 <listitem><para>Specifies a POSIX
                                 message queue name to listen on. This
                                 expects a valid message queue name
-                                (i.e. beginning with /). Behaviour
+                                (i.e. beginning with /). Behavior
                                 otherwise is very similar to the
                                 <varname>ListenFIFO=</varname>
                                 directive above. On Linux message
