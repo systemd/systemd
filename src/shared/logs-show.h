@@ -33,6 +33,7 @@ typedef enum OutputMode {
         OUTPUT_VERBOSE,
         OUTPUT_EXPORT,
         OUTPUT_JSON,
+        OUTPUT_JSON_PRETTY,
         OUTPUT_CAT,
         _OUTPUT_MODE_MAX,
         _OUTPUT_MODE_INVALID = -1
@@ -40,11 +41,10 @@ typedef enum OutputMode {
 
 typedef enum OutputFlags {
         OUTPUT_SHOW_ALL       = 1 << 0,
-        OUTPUT_MONOTONIC_MODE = 1 << 1,
-        OUTPUT_FOLLOW         = 1 << 2,
-        OUTPUT_WARN_CUTOFF    = 1 << 3,
-        OUTPUT_FULL_WIDTH     = 1 << 4,
-        OUTPUT_COLOR          = 1 << 5
+        OUTPUT_FOLLOW         = 1 << 1,
+        OUTPUT_WARN_CUTOFF    = 1 << 2,
+        OUTPUT_FULL_WIDTH     = 1 << 3,
+        OUTPUT_COLOR          = 1 << 4
 } OutputFlags;
 
 int output_journal(sd_journal *j, OutputMode mode, unsigned line,

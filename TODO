@@ -49,6 +49,8 @@ Bugfixes:
 
 Features:
 
+* log fewer journal internal messages to the kernel kmsg
+
 * move keymaps to /usr/lib/... rather than /usr/lib/udev/...
 
 * journald: check whether it is OK if the client can still modify delivered journal entries
@@ -72,7 +74,7 @@ Features:
 
 * securityfs: don't mount in container
 
-* slave/shared remount root fs in container
+* slave/shared remount root fs in container might clash with CAP_SYS_MOUNTS
 
 * ability to pass fds into systemd
 
@@ -327,7 +329,7 @@ Features:
 
 * dbus: in fedora, make the machine a symlink to /etc/machine-id
 
-* dbus: on fedora, move dbus to early boot
+* dbus: move dbus to early boot
 
 * journald: reuse XZ context
 

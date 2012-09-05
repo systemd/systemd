@@ -76,7 +76,7 @@ static bool shall_print(bool show_all, char *p, size_t l) {
         return true;
 }
 
-static int output_short(sd_journal *j, unsigned line, unsigned n_columns,
+static int output_short(sd_journal *j, OutputMode mode, unsigned line, unsigned n_columns,
                         OutputFlags flags) {
         int r;
         const void *data;
@@ -152,7 +152,7 @@ static int output_short(sd_journal *j, unsigned line, unsigned n_columns,
         if (priority_len == 1 && *priority >= '0' && *priority <= '7')
                 p = *priority - '0';
 
-        if (flags & OUTPUT_MONOTONIC_MODE) {
+        if (mode == OUTPUT_SHORT_MONOTONIC) {
                 uint64_t t;
                 sd_id128_t boot_id;
 
@@ -278,17 +278,7 @@ finish:
         return r;
 }
 
-static int output_short_realtime(sd_journal *j, unsigned line,
-                                 unsigned n_columns, OutputFlags flags) {
-        return output_short(j, line, n_columns, flags & ~OUTPUT_MONOTONIC_MODE);
-}
-
-static int output_short_monotonic(sd_journal *j, unsigned line,
-                                  unsigned n_columns, OutputFlags flags) {
-        return output_short(j, line, n_columns, flags | OUTPUT_MONOTONIC_MODE);
-}
-
-static int output_verbose(sd_journal *j, unsigned line,
+static int output_verbose(sd_journal *j, OutputMode mode, unsigned line,
                           unsigned n_columns, OutputFlags flags) {
         const void *data;
         size_t length;
@@ -340,7 +330,7 @@ static int output_verbose(sd_journal *j, unsigned line,
         return 0;
 }
 
-static int output_export(sd_journal *j, unsigned line,
+static int output_export(sd_journal *j, OutputMode mode, unsigned line,
                          unsigned n_columns, OutputFlags flags) {
         sd_id128_t boot_id;
         char sid[33];
@@ -452,7 +442,7 @@ static void json_escape(const char* p, size_t l) {
         }
 }
 
-static int output_json(sd_journal *j, unsigned line,
+static int output_json(sd_journal *j, OutputMode mode, unsigned line,
                        unsigned n_columns, OutputFlags flags) {
         uint64_t realtime, monotonic;
         char *cursor;
@@ -482,21 +472,25 @@ static int output_json(sd_journal *j, unsigned line,
                 return r;
         }
 
-        if (line == 1)
-                fputc('\n', stdout);
+        if (mode == OUTPUT_JSON_PRETTY)
+                printf("{\n"
+                       "\t\"__CURSOR\" : \"%s\",\n"
+                       "\t\"__REALTIME_TIMESTAMP\" : \"%llu\",\n"
+                       "\t\"__MONOTONIC_TIMESTAMP\" : \"%llu\",\n"
+                       "\t\"_BOOT_ID\" : \"%s\"",
+                       cursor,
+                       (unsigned long long) realtime,
+                       (unsigned long long) monotonic,
+                       sd_id128_to_string(boot_id, sid));
         else
-                fputs(",\n", stdout);
-
-        printf("{\n"
-               "\t\"__CURSOR\" : \"%s\",\n"
-               "\t\"__REALTIME_TIMESTAMP\" : \"%llu\",\n"
-               "\t\"__MONOTONIC_TIMESTAMP\" : \"%llu\",\n"
-               "\t\"_BOOT_ID\" : \"%s\"",
-               cursor,
-               (unsigned long long) realtime,
-               (unsigned long long) monotonic,
-               sd_id128_to_string(boot_id, sid));
-
+                printf("{ \"__CURSOR\" : \"%s\", "
+                       "\"__REALTIME_TIMESTAMP\" : \"%llu\", "
+                       "\"__MONOTONIC_TIMESTAMP\" : \"%llu\", "
+                       "\"_BOOT_ID\" : \"%s\"",
+                       cursor,
+                       (unsigned long long) realtime,
+                       (unsigned long long) monotonic,
+                       sd_id128_to_string(boot_id, sid));
         free(cursor);
 
         SD_JOURNAL_FOREACH_DATA(j, data, length) {
@@ -514,18 +508,25 @@ static int output_json(sd_journal *j, unsigned line,
                         return -EINVAL;
                 }
 
-                fputs(",\n\t", stdout);
+                if (mode == OUTPUT_JSON_PRETTY)
+                        fputs(",\n\t", stdout);
+                else
+                        fputs(", ", stdout);
+
                 json_escape(data, c - (const char*) data);
                 fputs(" : ", stdout);
                 json_escape(c + 1, length - (c - (const char*) data) - 1);
         }
 
-        fputs("\n}", stdout);
+        if (mode == OUTPUT_JSON_PRETTY)
+                fputs("\n}\n", stdout);
+        else
+                fputs(" }\n", stdout);
 
         return 0;
 }
 
-static int output_cat(sd_journal *j, unsigned line,
+static int output_cat(sd_journal *j, OutputMode mode, unsigned line,
                       unsigned n_columns, OutputFlags flags) {
         const void *data;
         size_t l;
@@ -547,13 +548,14 @@ static int output_cat(sd_journal *j, unsigned line,
         return 0;
 }
 
-static int (*output_funcs[_OUTPUT_MODE_MAX])(sd_journal*j, unsigned line,
+static int (*output_funcs[_OUTPUT_MODE_MAX])(sd_journal*j, OutputMode mode, unsigned line,
                                              unsigned n_columns, OutputFlags flags) = {
-        [OUTPUT_SHORT] = output_short_realtime,
-        [OUTPUT_SHORT_MONOTONIC] = output_short_monotonic,
+        [OUTPUT_SHORT] = output_short,
+        [OUTPUT_SHORT_MONOTONIC] = output_short,
         [OUTPUT_VERBOSE] = output_verbose,
         [OUTPUT_EXPORT] = output_export,
         [OUTPUT_JSON] = output_json,
+        [OUTPUT_JSON_PRETTY] = output_json,
         [OUTPUT_CAT] = output_cat
 };
 
@@ -566,7 +568,7 @@ int output_journal(sd_journal *j, OutputMode mode, unsigned line,
         if (n_columns <= 0)
                 n_columns = columns();
 
-        ret = output_funcs[mode](j, line, n_columns, flags);
+        ret = output_funcs[mode](j, mode, line, n_columns, flags);
         fflush(stdout);
         return ret;
 }
@@ -736,6 +738,7 @@ static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
         [OUTPUT_VERBOSE] = "verbose",
         [OUTPUT_EXPORT] = "export",
         [OUTPUT_JSON] = "json",
+        [OUTPUT_JSON_PRETTY] = "json-pretty",
         [OUTPUT_CAT] = "cat"
 };
 

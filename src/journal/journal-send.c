@@ -439,7 +439,7 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
 
         memcpy(header, identifier, l);
         header[l++] = '\n';
-        header[l++] = '\n';
+        header[l++] = '\n'; /* unit id */
         header[l++] = '0' + priority;
         header[l++] = '\n';
         header[l++] = '0' + !!level_prefix;

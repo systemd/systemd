@@ -3871,7 +3871,7 @@ static int systemctl_help(void) {
                "  -n --lines=INTEGER  Journal entries to show\n"
                "     --follow         Follow journal\n"
                "  -o --output=STRING  Change journal output mode (short, short-monotonic,\n"
-               "                      verbose, export, json, cat)\n\n"
+               "                      verbose, export, json, json-pretty, cat)\n\n"
                "Unit Commands:\n"
                "  list-units                      List loaded units\n"
                "  start [NAME...]                 Start (activate) one or more units\n"

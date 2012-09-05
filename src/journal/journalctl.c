@@ -87,7 +87,7 @@ static int help(void) {
                "  -n --lines=INTEGER     Journal entries to show\n"
                "     --no-tail           Show all lines, even in follow mode\n"
                "  -o --output=STRING     Change journal output mode (short, short-monotonic,\n"
-               "                         verbose, export, json, cat)\n"
+               "                         verbose, export, json, json-pretty, cat)\n"
                "  -q --quiet             Don't show privilege warning\n"
                "  -l --local             Only local entries\n"
                "  -b --this-boot         Show data only from current boot\n"
@@ -821,11 +821,6 @@ int main(int argc, char *argv[]) {
         on_tty();
         have_pager = !arg_no_pager && !arg_follow && pager_open();
 
-        if (arg_output == OUTPUT_JSON) {
-                fputc('[', stdout);
-                fflush(stdout);
-        }
-
         for (;;) {
                 for (;;) {
                         sd_id128_t boot_id;
@@ -873,9 +868,6 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
         }
-
-        if (arg_output == OUTPUT_JSON)
-                fputs("\n]\n", stdout);
 
 finish:
         if (j)

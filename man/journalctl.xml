@@ -189,6 +189,7 @@
                                 <literal>verbose</literal>,
                                 <literal>export</literal>,
                                 <literal>json</literal>,
+                                <literal>json-pretty</literal>,
                                 <literal>cat</literal>. <literal>short</literal>
                                 is the default and generates an output
                                 that is mostly identical to the
@@ -209,7 +210,13 @@
                                 Export Format</ulink> for more
                                 information). <literal>json</literal>
                                 formats entries as JSON data
-                                structures. <literal>cat</literal>
+                                structures, one per
+                                line. <literal>json-pretty</literal>
+                                also formats entries as JSON data
+                                structures, but formats them in
+                                multiple lines in order to make them
+                                more readable for
+                                humans. <literal>cat</literal>
                                 generates a very terse output only
                                 showing the actual message of each
                                 journal entry with no meta data, not
