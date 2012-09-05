@@ -4011,7 +4011,8 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
         assert(name);
         assert(pid > 1);
 
-        if ((r = wait_for_terminate(pid, &status)) < 0) {
+        r = wait_for_terminate(pid, &status);
+        if (r < 0) {
                 log_warning("Failed to wait for %s: %s", name, strerror(-r));
                 return r;
         }
@@ -4034,7 +4035,6 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
 
         log_warning("%s failed due to unknown reason.", name);
         return -EPROTO;
-
 }
 
 _noreturn_ void freeze(void) {

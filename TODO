@@ -49,15 +49,16 @@ Bugfixes:
 
 Features:
 
+* Query Paul Moore about relabelling socket fds while they are open
+
 * log fewer journal internal messages to the kernel kmsg
 
 * move keymaps to /usr/lib/... rather than /usr/lib/udev/...
 
 * journald: check whether it is OK if the client can still modify delivered journal entries
 
-* json: use yajl
-* json: don't add wrapping array, just put entries on one line each
-* json: add -o json-pretty in addition to -o json, make the latter output one line per entry
+* json: use jensson
+
 * json: properly serialize multiple fields with the same name per entry
 
 * journalctl: make -l the default

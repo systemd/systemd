@@ -232,7 +232,7 @@
                                 CAP_SETUID, CAP_SYS_ADMIN,
                                 CAP_SYS_CHROOT, CAP_SYS_NICE,
                                 CAP_SYS_PTRACE, CAP_SYS_TTY_CONFIG,
-                                CAP_SYS_RESOURCE.</para></listitem>
+                                CAP_SYS_RESOURCE, CAP_SYS_BOOT.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

@@ -92,7 +92,8 @@ static uint64_t arg_retain =
         (1ULL << CAP_SYS_NICE) |
         (1ULL << CAP_SYS_PTRACE) |
         (1ULL << CAP_SYS_TTY_CONFIG) |
-        (1ULL << CAP_SYS_RESOURCE);
+        (1ULL << CAP_SYS_RESOURCE) |
+        (1ULL << CAP_SYS_BOOT);
 
 static int help(void) {
 
@@ -1167,11 +1168,6 @@ int main(int argc, char *argv[]) {
         cfmakeraw(&raw_attr);
         raw_attr.c_lflag &= ~ECHO;
 
-        if (tcsetattr(STDIN_FILENO, TCSANOW, &raw_attr) < 0) {
-                log_error("Failed to set terminal attributes: %m");
-                goto finish;
-        }
-
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
                 log_error("Failed to create kmsg socket pair");
                 goto finish;
@@ -1181,232 +1177,271 @@ int main(int argc, char *argv[]) {
         sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
 
-        pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_private_network ? CLONE_NEWNET : 0), NULL);
-        if (pid < 0) {
-                if (errno == EINVAL)
-                        log_error("clone() failed, do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in): %m");
-                else
-                        log_error("clone() failed: %m");
+        for (;;) {
+                siginfo_t status;
 
-                goto finish;
-        }
-
-        if (pid == 0) {
-                /* child */
-
-                const char *home = NULL;
-                uid_t uid = (uid_t) -1;
-                gid_t gid = (gid_t) -1;
-                const char *envp[] = {
-                        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-                        "container=systemd-nspawn", /* LXC sets container=lxc, so follow the scheme here */
-                        NULL, /* TERM */
-                        NULL, /* HOME */
-                        NULL, /* USER */
-                        NULL, /* LOGNAME */
-                        NULL, /* container_uuid */
-                        NULL
-                };
-
-                envp[2] = strv_find_prefix(environ, "TERM=");
-
-                close_nointr_nofail(master);
-
-                close_nointr(STDIN_FILENO);
-                close_nointr(STDOUT_FILENO);
-                close_nointr(STDERR_FILENO);
-
-                close_all_fds(&kmsg_socket_pair[1], 1);
-
-                reset_all_signal_handlers();
-
-                assert_se(sigemptyset(&mask) == 0);
-                assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
-
-                if (open_terminal(console, O_RDWR) != STDIN_FILENO ||
-                    dup2(STDIN_FILENO, STDOUT_FILENO) != STDOUT_FILENO ||
-                    dup2(STDIN_FILENO, STDERR_FILENO) != STDERR_FILENO)
-                        goto child_fail;
-
-                if (setsid() < 0) {
-                        log_error("setsid() failed: %m");
-                        goto child_fail;
+                if (tcsetattr(STDIN_FILENO, TCSANOW, &raw_attr) < 0) {
+                        log_error("Failed to set terminal attributes: %m");
+                        goto finish;
                 }
 
-                if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
-                        log_error("PR_SET_PDEATHSIG failed: %m");
-                        goto child_fail;
+                pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_private_network ? CLONE_NEWNET : 0), NULL);
+                if (pid < 0) {
+                        if (errno == EINVAL)
+                                log_error("clone() failed, do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in): %m");
+                        else
+                                log_error("clone() failed: %m");
+
+                        goto finish;
                 }
 
-                /* Mark everything as slave, so that we still
-                 * receive mounts from the real root, but don't
-                 * propagate mounts to the real root. */
-                if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
-                        log_error("MS_SLAVE|MS_REC failed: %m");
-                        goto child_fail;
-                }
+                if (pid == 0) {
+                        /* child */
 
-                /* Turn directory into bind mount */
-                if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REC, NULL) < 0) {
-                        log_error("Failed to make bind mount.");
-                        goto child_fail;
-                }
+                        const char *home = NULL;
+                        uid_t uid = (uid_t) -1;
+                        gid_t gid = (gid_t) -1;
+                        const char *envp[] = {
+                                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                                "container=systemd-nspawn", /* LXC sets container=lxc, so follow the scheme here */
+                                NULL, /* TERM */
+                                NULL, /* HOME */
+                                NULL, /* USER */
+                                NULL, /* LOGNAME */
+                                NULL, /* container_uuid */
+                                NULL
+                        };
 
-                if (arg_read_only)
-                        if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY|MS_REC, NULL) < 0) {
-                                log_error("Failed to make read-only.");
+                        envp[2] = strv_find_prefix(environ, "TERM=");
+
+                        close_nointr_nofail(master);
+
+                        close_nointr(STDIN_FILENO);
+                        close_nointr(STDOUT_FILENO);
+                        close_nointr(STDERR_FILENO);
+
+                        close_all_fds(&kmsg_socket_pair[1], 1);
+
+                        reset_all_signal_handlers();
+
+                        assert_se(sigemptyset(&mask) == 0);
+                        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+
+                        if (open_terminal(console, O_RDWR) != STDIN_FILENO ||
+                            dup2(STDIN_FILENO, STDOUT_FILENO) != STDOUT_FILENO ||
+                            dup2(STDIN_FILENO, STDERR_FILENO) != STDERR_FILENO)
+                                goto child_fail;
+
+                        if (setsid() < 0) {
+                                log_error("setsid() failed: %m");
                                 goto child_fail;
                         }
 
-                if (mount_all(arg_directory) < 0)
-                        goto child_fail;
-
-                if (copy_devnodes(arg_directory) < 0)
-                        goto child_fail;
-
-                dev_setup(arg_directory);
-
-                if (setup_dev_console(arg_directory, console) < 0)
-                        goto child_fail;
-
-                if (setup_kmsg(arg_directory, kmsg_socket_pair[1]) < 0)
-                        goto child_fail;
-
-                close_nointr_nofail(kmsg_socket_pair[1]);
-
-                if (setup_boot_id(arg_directory) < 0)
-                        goto child_fail;
-
-                if (setup_timezone(arg_directory) < 0)
-                        goto child_fail;
-
-                if (setup_resolv_conf(arg_directory) < 0)
-                        goto child_fail;
-
-                if (setup_journal(arg_directory) < 0)
-                        goto child_fail;
-
-                if (chdir(arg_directory) < 0) {
-                        log_error("chdir(%s) failed: %m", arg_directory);
-                        goto child_fail;
-                }
-
-                if (mount(arg_directory, "/", NULL, MS_MOVE, NULL) < 0) {
-                        log_error("mount(MS_MOVE) failed: %m");
-                        goto child_fail;
-                }
-
-                if (chroot(".") < 0) {
-                        log_error("chroot() failed: %m");
-                        goto child_fail;
-                }
-
-                if (chdir("/") < 0) {
-                        log_error("chdir() failed: %m");
-                        goto child_fail;
-                }
-
-                umask(0022);
-
-                loopback_setup();
-
-                if (drop_capabilities() < 0) {
-                        log_error("drop_capabilities() failed: %m");
-                        goto child_fail;
-                }
-
-                if (arg_user) {
-
-                        if (get_user_creds((const char**)&arg_user, &uid, &gid, &home, NULL) < 0) {
-                                log_error("get_user_creds() failed: %m");
+                        if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
+                                log_error("PR_SET_PDEATHSIG failed: %m");
                                 goto child_fail;
                         }
 
-                        if (mkdir_parents_label(home, 0775) < 0) {
-                                log_error("mkdir_parents_label() failed: %m");
+                        /* Mark everything as slave, so that we still
+                         * receive mounts from the real root, but don't
+                         * propagate mounts to the real root. */
+                        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
+                                log_error("MS_SLAVE|MS_REC failed: %m");
                                 goto child_fail;
                         }
 
-                        if (mkdir_safe_label(home, 0775, uid, gid) < 0) {
-                                log_error("mkdir_safe_label() failed: %m");
+                        /* Turn directory into bind mount */
+                        if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REC, NULL) < 0) {
+                                log_error("Failed to make bind mount.");
                                 goto child_fail;
                         }
 
-                        if (initgroups((const char*)arg_user, gid) < 0) {
-                                log_error("initgroups() failed: %m");
+                        if (arg_read_only)
+                                if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY|MS_REC, NULL) < 0) {
+                                        log_error("Failed to make read-only.");
+                                        goto child_fail;
+                                }
+
+                        if (mount_all(arg_directory) < 0)
+                                goto child_fail;
+
+                        if (copy_devnodes(arg_directory) < 0)
+                                goto child_fail;
+
+                        dev_setup(arg_directory);
+
+                        if (setup_dev_console(arg_directory, console) < 0)
+                                goto child_fail;
+
+                        if (setup_kmsg(arg_directory, kmsg_socket_pair[1]) < 0)
+                                goto child_fail;
+
+                        close_nointr_nofail(kmsg_socket_pair[1]);
+
+                        if (setup_boot_id(arg_directory) < 0)
+                                goto child_fail;
+
+                        if (setup_timezone(arg_directory) < 0)
+                                goto child_fail;
+
+                        if (setup_resolv_conf(arg_directory) < 0)
+                                goto child_fail;
+
+                        if (setup_journal(arg_directory) < 0)
+                                goto child_fail;
+
+                        if (chdir(arg_directory) < 0) {
+                                log_error("chdir(%s) failed: %m", arg_directory);
                                 goto child_fail;
                         }
 
-                        if (setresgid(gid, gid, gid) < 0) {
-                                log_error("setregid() failed: %m");
+                        if (mount(arg_directory, "/", NULL, MS_MOVE, NULL) < 0) {
+                                log_error("mount(MS_MOVE) failed: %m");
                                 goto child_fail;
                         }
 
-                        if (setresuid(uid, uid, uid) < 0) {
-                                log_error("setreuid() failed: %m");
+                        if (chroot(".") < 0) {
+                                log_error("chroot() failed: %m");
                                 goto child_fail;
                         }
-                }
 
-                if ((asprintf((char**)(envp + 3), "HOME=%s", home ? home: "/root") < 0) ||
-                    (asprintf((char**)(envp + 4), "USER=%s", arg_user ? arg_user : "root") < 0) ||
-                    (asprintf((char**)(envp + 5), "LOGNAME=%s", arg_user ? arg_user : "root") < 0)) {
-                    log_oom();
-                    goto child_fail;
-                }
+                        if (chdir("/") < 0) {
+                                log_error("chdir() failed: %m");
+                                goto child_fail;
+                        }
 
-                if (arg_uuid) {
-                        if (asprintf((char**)(envp + 6), "container_uuid=%s", arg_uuid) < 0) {
+                        umask(0022);
+
+                        loopback_setup();
+
+                        if (drop_capabilities() < 0) {
+                                log_error("drop_capabilities() failed: %m");
+                                goto child_fail;
+                        }
+
+                        if (arg_user) {
+
+                                if (get_user_creds((const char**)&arg_user, &uid, &gid, &home, NULL) < 0) {
+                                        log_error("get_user_creds() failed: %m");
+                                        goto child_fail;
+                                }
+
+                                if (mkdir_parents_label(home, 0775) < 0) {
+                                        log_error("mkdir_parents_label() failed: %m");
+                                        goto child_fail;
+                                }
+
+                                if (mkdir_safe_label(home, 0775, uid, gid) < 0) {
+                                        log_error("mkdir_safe_label() failed: %m");
+                                        goto child_fail;
+                                }
+
+                                if (initgroups((const char*)arg_user, gid) < 0) {
+                                        log_error("initgroups() failed: %m");
+                                        goto child_fail;
+                                }
+
+                                if (setresgid(gid, gid, gid) < 0) {
+                                        log_error("setregid() failed: %m");
+                                        goto child_fail;
+                                }
+
+                                if (setresuid(uid, uid, uid) < 0) {
+                                        log_error("setreuid() failed: %m");
+                                        goto child_fail;
+                                }
+                        }
+
+                        if ((asprintf((char**)(envp + 3), "HOME=%s", home ? home: "/root") < 0) ||
+                            (asprintf((char**)(envp + 4), "USER=%s", arg_user ? arg_user : "root") < 0) ||
+                            (asprintf((char**)(envp + 5), "LOGNAME=%s", arg_user ? arg_user : "root") < 0)) {
                                 log_oom();
                                 goto child_fail;
                         }
+
+                        if (arg_uuid) {
+                                if (asprintf((char**)(envp + 6), "container_uuid=%s", arg_uuid) < 0) {
+                                        log_oom();
+                                        goto child_fail;
+                                }
+                        }
+
+                        setup_hostname();
+
+                        if (arg_boot) {
+                                char **a;
+                                size_t l;
+
+                                /* Automatically search for the init system */
+
+                                l = 1 + argc - optind;
+                                a = newa(char*, l + 1);
+                                memcpy(a + 1, argv + optind, l * sizeof(char*));
+
+                                a[0] = (char*) "/usr/lib/systemd/systemd";
+                                execve(a[0], a, (char**) envp);
+
+                                a[0] = (char*) "/lib/systemd/systemd";
+                                execve(a[0], a, (char**) envp);
+
+                                a[0] = (char*) "/sbin/init";
+                                execve(a[0], a, (char**) envp);
+                        } else if (argc > optind)
+                                execvpe(argv[optind], argv + optind, (char**) envp);
+                        else {
+                                chdir(home ? home : "/root");
+                                execle("/bin/bash", "-bash", NULL, (char**) envp);
+                        }
+
+                        log_error("execv() failed: %m");
+
+                child_fail:
+                        _exit(EXIT_FAILURE);
                 }
 
-                setup_hostname();
+                if (process_pty(master, &mask) < 0)
+                        goto finish;
 
-                if (arg_boot) {
-                        char **a;
-                        size_t l;
 
-                        /* Automatically search for the init system */
+                if (saved_attr_valid)
+                        tcsetattr(STDIN_FILENO, TCSANOW, &saved_attr);
 
-                        l = 1 + argc - optind;
-                        a = newa(char*, l + 1);
-                        memcpy(a + 1, argv + optind, l * sizeof(char*));
-
-                        a[0] = (char*) "/usr/lib/systemd/systemd";
-                        execve(a[0], a, (char**) envp);
-
-                        a[0] = (char*) "/lib/systemd/systemd";
-                        execve(a[0], a, (char**) envp);
-
-                        a[0] = (char*) "/sbin/init";
-                        execve(a[0], a, (char**) envp);
-                } else if (argc > optind)
-                        execvpe(argv[optind], argv + optind, (char**) envp);
-                else {
-                        chdir(home ? home : "/root");
-                        execle("/bin/bash", "-bash", NULL, (char**) envp);
+                r = wait_for_terminate(pid, &status);
+                if (r < 0) {
+                        r = EXIT_FAILURE;
+                        break;
                 }
 
-                log_error("execv() failed: %m");
+                if (status.si_code == CLD_EXITED) {
+                        if (status.si_status != 0) {
+                                log_error("Container failed with error code %i.", status.si_status);
+                                r = status.si_status;
+                                break;
+                        }
 
-        child_fail:
-                _exit(EXIT_FAILURE);
+                        log_debug("Container exited successfully.");
+                        break;
+                } else if (status.si_code == CLD_KILLED &&
+                           status.si_status == SIGINT) {
+                        log_info("Container has been shut down.");
+                        r = 0;
+                        break;
+                } else if (status.si_code == CLD_KILLED &&
+                           status.si_status == SIGHUP) {
+                        log_info("Container is being rebooted.");
+                        continue;
+                } else if (status.si_code == CLD_KILLED ||
+                           status.si_code == CLD_DUMPED) {
+
+                        log_error("Container terminated by signal %s.", signal_to_string(status.si_status));
+                        r = EXIT_FAILURE;
+                        break;
+                } else {
+                        log_error("Container failed due to unknown reason.");
+                        r = EXIT_FAILURE;
+                        break;
+                }
         }
-
-        if (process_pty(master, &mask) < 0)
-                goto finish;
-
-        if (saved_attr_valid) {
-                tcsetattr(STDIN_FILENO, TCSANOW, &saved_attr);
-                saved_attr_valid = false;
-        }
-
-        r = wait_for_terminate_and_warn(argc > optind ? argv[optind] : "bash", pid);
-
-        if (r < 0)
-                r = EXIT_FAILURE;
 
 finish:
         if (saved_attr_valid)
