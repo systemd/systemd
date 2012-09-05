@@ -263,14 +263,8 @@ int main(int argc, char *argv[]) {
         arguments[2] = NULL;
         execute_directory(SYSTEM_SHUTDOWN_PATH, NULL, arguments);
 
-        /* If we are in a container, just exit, this will kill our
-         * container for good. */
-        if (in_container) {
-                log_error("Exiting container.");
-                exit(0);
-        }
-
-        if (access("/run/initramfs/shutdown", X_OK) == 0) {
+        if (!in_container &&
+            access("/run/initramfs/shutdown", X_OK) == 0) {
 
                 if (prepare_new_root() >= 0 &&
                     pivot_to_new_root() >= 0) {
@@ -280,25 +274,37 @@ int main(int argc, char *argv[]) {
         }
 
         if (cmd == LINUX_REBOOT_CMD_KEXEC) {
-                /* We cheat and exec kexec to avoid doing all its work */
-                pid_t pid = fork();
 
-                if (pid < 0)
-                        log_error("Could not fork: %m. Falling back to normal reboot.");
-                else if (pid > 0) {
-                        wait_for_terminate_and_warn("kexec", pid);
-                        log_warning("kexec failed. Falling back to normal reboot.");
-                } else {
-                        /* Child */
-                        const char *args[3] = { "/sbin/kexec", "-e", NULL };
-                        execv(args[0], (char * const *) args);
-                        return EXIT_FAILURE;
+                if (!in_container) {
+                        /* We cheat and exec kexec to avoid doing all its work */
+                        pid_t pid = fork();
+
+                        if (pid < 0)
+                                log_error("Could not fork: %m. Falling back to normal reboot.");
+                        else if (pid > 0) {
+                                wait_for_terminate_and_warn("kexec", pid);
+                                log_warning("kexec failed. Falling back to normal reboot.");
+                        } else {
+                                /* Child */
+                                const char *args[3] = { "/sbin/kexec", "-e", NULL };
+                                execv(args[0], (char * const *) args);
+                                return EXIT_FAILURE;
+                        }
                 }
 
                 cmd = RB_AUTOBOOT;
         }
 
         reboot(cmd);
+
+        if (errno == EPERM && in_container) {
+                /* If we are in a container, and we lacked
+                 * CAP_SYS_BOOT just exit, this will kill our
+                 * container for good. */
+                log_error("Exiting container.");
+                exit(0);
+        }
+
         log_error("Failed to invoke reboot(): %m");
         r = -errno;
 
