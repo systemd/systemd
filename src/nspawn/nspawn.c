@@ -337,7 +337,8 @@ static int setup_timezone(const char *dest) {
         assert(dest);
 
         /* Fix the timezone, if possible */
-        if (asprintf(&where, "%s/etc/localtime", dest) < 0)
+        where = strappend(dest, "/etc/localtime");
+        if (!where)
                 return log_oom();
 
         if (mount("/etc/localtime", where, "bind", MS_BIND, NULL) >= 0)
@@ -345,7 +346,8 @@ static int setup_timezone(const char *dest) {
 
         free(where);
 
-        if (asprintf(&where, "%s/etc/timezone", dest) < 0)
+        where = strappend(dest, "/etc/timezone");
+        if (!where)
                 return log_oom();
 
         if (mount("/etc/timezone", where, "bind", MS_BIND, NULL) >= 0)
@@ -365,9 +367,9 @@ static int setup_resolv_conf(const char *dest) {
                 return 0;
 
         /* Fix resolv.conf, if possible */
-        if (asprintf(&where, "%s/etc/resolv.conf", dest) < 0) {
+        where = strappend(dest, "/etc/resolv.conf");
+        if (!where)
                 return log_oom();
-        }
 
         if (mount("/etc/resolv.conf", where, "bind", MS_BIND, NULL) >= 0)
                 mount("/etc/resolv.conf", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
@@ -375,6 +377,61 @@ static int setup_resolv_conf(const char *dest) {
         free(where);
 
         return 0;
+}
+
+static int setup_boot_id(const char *dest) {
+        char *from = NULL, *to = NULL;
+        sd_id128_t rnd;
+        char as_uuid[37];
+        int r;
+
+        assert(dest);
+
+        /* Generate a new randomized boot ID, so that each boot-up of
+         * the container gets a new one */
+
+        from = strappend(dest, "/dev/proc-sys-kernel-random-boot-id");
+        if (!from) {
+                r = log_oom();
+                goto finish;
+        }
+
+        to = strappend(dest, "/proc/sys/kernel/random/boot_id");
+        if (!to) {
+                r = log_oom();
+                goto finish;
+        }
+
+        r = sd_id128_randomize(&rnd);
+        if (r < 0) {
+                log_error("Failed to generate random boot id: %s", strerror(-r));
+                goto finish;
+        }
+
+        snprintf(as_uuid, sizeof(as_uuid),
+                 "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+                 SD_ID128_FORMAT_VAL(rnd));
+        char_array_0(as_uuid);
+
+        r = write_one_line_file(from, as_uuid);
+        if (r < 0) {
+                log_error("Failed to write boot id: %s", strerror(-r));
+                goto finish;
+        }
+
+        if (mount(from, to, "bind", MS_BIND, NULL) < 0) {
+                log_error("Failed to bind mount boot id: %m");
+                r = -errno;
+        } else
+                mount(from, to, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+
+        unlink(from);
+
+finish:
+        free(from);
+        free(to);
+
+        return r;
 }
 
 static int copy_devnodes(const char *dest) {
@@ -1217,6 +1274,9 @@ int main(int argc, char *argv[]) {
                         goto child_fail;
 
                 close_nointr_nofail(kmsg_socket_pair[1]);
+
+                if (setup_boot_id(arg_directory) < 0)
+                        goto child_fail;
 
                 if (setup_timezone(arg_directory) < 0)
                         goto child_fail;

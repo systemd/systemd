@@ -80,15 +80,11 @@ Features:
 
 * tmpfiles: skip mknod if CAP_MKNOD is missing
 
-* fake boot id
-
 * bind mount read-only the cgroup tree higher than than nspawn
 
 * currently system services appear not to generate core dumps...
 
 * introduce /run/kmsg in containers?
-
-* introduce $container_boot_id?
 
 * wall messages for shutdown should move to logind
 
