@@ -823,7 +823,6 @@ int main(int argc, char *argv[]) {
 
         for (;;) {
                 for (;;) {
-                        sd_id128_t boot_id;
                         int flags =
                                 arg_show_all * OUTPUT_SHOW_ALL |
                                 have_pager * OUTPUT_FULL_WIDTH |
@@ -840,14 +839,18 @@ int main(int argc, char *argv[]) {
                         if (r == 0)
                                 break;
 
-                        r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
-                        if (r >= 0) {
-                                if (previous_boot_id_valid &&
-                                    !sd_id128_equal(boot_id, previous_boot_id))
-                                        printf(ANSI_HIGHLIGHT_ON "----- Reboot -----" ANSI_HIGHLIGHT_OFF "\n");
+                        if (!arg_merge) {
+                                sd_id128_t boot_id;
 
-                                previous_boot_id = boot_id;
-                                previous_boot_id_valid = true;
+                                r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
+                                if (r >= 0) {
+                                        if (previous_boot_id_valid &&
+                                            !sd_id128_equal(boot_id, previous_boot_id))
+                                                printf(ANSI_HIGHLIGHT_ON "----- Reboot -----" ANSI_HIGHLIGHT_OFF "\n");
+
+                                        previous_boot_id = boot_id;
+                                        previous_boot_id_valid = true;
+                                }
                         }
 
                         line ++;
