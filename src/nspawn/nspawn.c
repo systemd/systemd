@@ -306,7 +306,8 @@ static int mount_all(const char *dest) {
                         continue;
                 }
 
-                if (t > 0)
+                /* Skip this entry if it is not a remount. */
+                if (mount_table[k].what && t > 0)
                         continue;
 
                 mkdir_p_label(where, 0755);
