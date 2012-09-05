@@ -443,8 +443,7 @@ static int copy_devnodes(const char *dest) {
                 "random\0"
                 "urandom\0"
                 "tty\0"
-                "ptmx\0"
-                "rtc0\0";
+                "ptmx\0";
 
         const char *d;
         int r = 0;
