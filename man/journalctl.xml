@@ -234,11 +234,13 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--local</option></term>
-                                <term><option>-l</option></term>
+                                <term><option>--merge</option></term>
+                                <term><option>-m</option></term>
 
-                                <listitem><para>Show only locally
-                                generated messages.</para></listitem>
+                                <listitem><para>Show entries
+                                interleaved from all available
+                                journals, including remote
+                                ones.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

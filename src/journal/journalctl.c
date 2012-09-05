@@ -58,7 +58,7 @@ static bool arg_no_pager = false;
 static int arg_lines = -1;
 static bool arg_no_tail = false;
 static bool arg_quiet = false;
-static bool arg_local = false;
+static bool arg_merge = false;
 static bool arg_this_boot = false;
 static const char *arg_directory = NULL;
 static int arg_priorities = 0xFF;
@@ -89,7 +89,7 @@ static int help(void) {
                "  -o --output=STRING     Change journal output mode (short, short-monotonic,\n"
                "                         verbose, export, json, json-pretty, cat)\n"
                "  -q --quiet             Don't show privilege warning\n"
-               "  -l --local             Only local entries\n"
+               "  -m --merge             Show entries from all available journals\n"
                "  -b --this-boot         Show data only from current boot\n"
                "  -D --directory=PATH    Show journal files from directory\n"
                "  -p --priority=RANGE    Show only messages within the specified priority range\n\n"
@@ -132,7 +132,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-tail",      no_argument,       NULL, ARG_NO_TAIL      },
                 { "new-id128",    no_argument,       NULL, ARG_NEW_ID128    },
                 { "quiet",        no_argument,       NULL, 'q'              },
-                { "local",        no_argument,       NULL, 'l'              },
+                { "merge",        no_argument,       NULL, 'm'              },
                 { "this-boot",    no_argument,       NULL, 'b'              },
                 { "directory",    required_argument, NULL, 'D'              },
                 { "header",       no_argument,       NULL, ARG_HEADER       },
@@ -149,7 +149,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hfo:an:qlbD:p:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hfo:an:qmbD:p:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -204,8 +204,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_quiet = true;
                         break;
 
-                case 'l':
-                        arg_local = true;
+                case 'm':
+                        arg_merge = true;
                         break;
 
                 case 'b':
@@ -233,7 +233,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERIFY_KEY:
                         arg_action = ACTION_VERIFY;
                         arg_verify_key = optarg;
-                        arg_local = true;
+                        arg_merge = false;
                         break;
 
                 case ARG_INTERVAL:
@@ -728,7 +728,7 @@ int main(int argc, char *argv[]) {
         if (arg_directory)
                 r = sd_journal_open_directory(&j, arg_directory, 0);
         else
-                r = sd_journal_open(&j, arg_local ? SD_JOURNAL_LOCAL_ONLY : 0);
+                r = sd_journal_open(&j, arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY);
 
         if (r < 0) {
                 log_error("Failed to open journal: %s", strerror(-r));
