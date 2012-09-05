@@ -385,7 +385,7 @@ fallback:
         if (allow_symlink)
                 r = stat(t, &a);
         else
-                r = lstat(t, &b);
+                r = lstat(t, &a);
 
         if (r < 0)
                 return -errno;
