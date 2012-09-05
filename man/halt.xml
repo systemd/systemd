@@ -88,7 +88,7 @@
                                 <term><option>--halt</option></term>
 
                                 <listitem><para>Halt the machine,
-                                regardless which one of the three
+                                regardless of which one of the three
                                 commands is invoked.</para></listitem>
                         </varlistentry>
 
@@ -97,7 +97,7 @@
                                 <term><option>--poweroff</option></term>
 
                                 <listitem><para>Power-off the machine,
-                                regardless which one of the three
+                                regardless of which one of the three
                                 commands is invoked.</para></listitem>
                         </varlistentry>
 
@@ -105,7 +105,7 @@
                                 <term><option>--reboot</option></term>
 
                                 <listitem><para>Reboot the machine,
-                                regardless which one of the three
+                                regardless of which one of the three
                                 commands is invoked.</para></listitem>
                         </varlistentry>
 

@@ -62,7 +62,7 @@
                 journal as written by
                 <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
-                <para>If called without parameter will show the full
+                <para>If called without parameter it will show the full
                 contents of the journal, starting with the oldest
                 entry collected.</para>
 
@@ -149,7 +149,7 @@
                                 <term><option>--follow</option></term>
                                 <term><option>-f</option></term>
 
-                                <listitem><para>Show only most recent
+                                <listitem><para>Show only the most recent
                                 journal entries, and continuously print
                                 new entries as they are appended to
                                 the journal.</para></listitem>
@@ -257,7 +257,7 @@
 
                                 <listitem><para>Takes an absolute
                                 directory path as argument. If
-                                specified will operate on the
+                                specified journalctl will operate on the
                                 specified journal directory instead of
                                 the default runtime and system journal
                                 paths.</para></listitem>
@@ -287,7 +287,7 @@
                                 <literal>info</literal> (6),
                                 <literal>debug</literal> (7). If a
                                 single log level is specified all
-                                messages with this log levels or a
+                                messages with this log level or a
                                 lower (hence more important) log level
                                 are shown. If a range is specified all
                                 messages within the range are shown,
@@ -316,7 +316,7 @@
 
                                 <listitem><para>Instead of showing
                                 journal contents show internal header
-                                information of the journal fiels
+                                information of the journal fields
                                 accessed.</para></listitem>
                         </varlistentry>
 
@@ -425,7 +425,7 @@
                 <programlisting>journalctl _SYSTEMD_UNIT=avahi-daemon.service _SYSTEMD_UNIT=dbus.service</programlisting>
 
                 <para>If the separator "<literal>+</literal>" is used
-                two expression may be combined in a logical OR. The
+                two expressions may be combined in a logical OR. The
                 following will show all messages from the Avahi
                 service process with the PID 28097 plus all messages
                 from the D-Bus service (from any of its
