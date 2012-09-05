@@ -279,8 +279,6 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        sync();
-
         if (cmd == LINUX_REBOOT_CMD_KEXEC) {
                 /* We cheat and exec kexec to avoid doing all its work */
                 pid_t pid = fork();

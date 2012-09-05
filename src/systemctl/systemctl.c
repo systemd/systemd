@@ -74,7 +74,6 @@ static bool arg_no_block = false;
 static bool arg_no_legend = false;
 static bool arg_no_pager = false;
 static bool arg_no_wtmp = false;
-static bool arg_no_sync = false;
 static bool arg_no_wall = false;
 static bool arg_no_reload = false;
 static bool arg_dry = false;
@@ -3949,7 +3948,6 @@ static int halt_help(void) {
                "  -f --force     Force immediate halt/power-off/reboot\n"
                "  -w --wtmp-only Don't halt/power-off/reboot, just write wtmp record\n"
                "  -d --no-wtmp   Don't write wtmp record\n"
-               "  -n --no-sync   Don't sync before halt/power-off/reboot\n"
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n",
                program_invocation_short_name,
                arg_action == ACTION_REBOOT   ? "Reboot" :
@@ -4271,7 +4269,6 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 { "force",     no_argument,       NULL, 'f'         },
                 { "wtmp-only", no_argument,       NULL, 'w'         },
                 { "no-wtmp",   no_argument,       NULL, 'd'         },
-                { "no-sync",   no_argument,       NULL, 'n'         },
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
                 { NULL,        0,                 NULL, 0           }
         };
@@ -4317,16 +4314,13 @@ static int halt_parse_argv(int argc, char *argv[]) {
                         arg_no_wtmp = true;
                         break;
 
-                case 'n':
-                        arg_no_sync = true;
-                        break;
-
                 case ARG_NO_WALL:
                         arg_no_wall = true;
                         break;
 
                 case 'i':
                 case 'h':
+                case 'n':
                         /* Compatibility nops */
                         break;
 
@@ -5167,9 +5161,6 @@ static int halt_main(DBusConnection *bus) {
                                 log_warning("Failed to write utmp record: %s", strerror(-r));
                 }
         }
-
-        if (!arg_no_sync)
-                sync();
 
         if (arg_dry)
                 return 0;
