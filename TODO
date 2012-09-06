@@ -83,13 +83,9 @@ Features:
 
 * currently system services appear not to generate core dumps...
 
-* introduce /run/kmsg in containers?
-
 * wall messages for shutdown should move to logind
 
 * allow writing multiple conditions in unit files on one line
-
-* journal: json output needs to be able to deal with multiple assignments of the same field
 
 * There's something wrong with escaping unit names: http://lists.freedesktop.org/archives/systemd-devel/2012-August/006292.html
 
@@ -102,8 +98,6 @@ Features:
 * testing tool for socket activation: some binary that listens on a socket and passes it on using the usual socket activation protocol to some server.
 
 * maybe make systemd-detect-virt suid? or use fscaps?
-
-* man: document in ExecStart= explicitly that we don't take shell command lines, only executable names with arguments
 
 * shutdown: don't read-only mount anything when running in container
 

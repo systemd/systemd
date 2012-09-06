@@ -356,7 +356,16 @@
                                 argument (i.e. the program to execute)
                                 may not be a variable, and must be a
                                 literal and absolute path
-                                name.</para></listitem>
+                                name.</para>
+
+                                <para>Note that this setting does not
+                                directly support shell command
+                                lines. If shell command lines are to
+                                be used they need to be passed
+                                explicitly to a shell implementation
+                                of some kind. Example:
+                                <literal>ExecStart=/bin/sh -c 'dmesg | tac'</literal></para>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>
