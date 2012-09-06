@@ -30,6 +30,7 @@
 #include "build.h"
 #include "dbus-common.h"
 #include "install.h"
+#include "selinux-access.h"
 #include "watchdog.h"
 #include "hwclock.h"
 #include "path-util.h"
@@ -578,6 +579,9 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         dbus_error_init(&error);
 
         member = dbus_message_get_member(message);
+        r = selinux_manager_access_check(connection, message, m, &error);
+        if (r)
+                return bus_send_error_reply(connection, message, &error, r);
 
         if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnit")) {
                 const char *name;

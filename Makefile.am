@@ -977,6 +977,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/dbus-path.h \
 	src/core/cgroup.c \
 	src/core/cgroup.h \
+	src/core/selinux-access.c \
+	src/core/selinux-access.h \
 	src/core/selinux-setup.c \
 	src/core/selinux-setup.h \
 	src/core/ima-setup.c \

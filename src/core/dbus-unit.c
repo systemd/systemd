@@ -26,6 +26,7 @@
 #include "dbus-unit.h"
 #include "bus-errors.h"
 #include "dbus-common.h"
+#include "selinux-access.h"
 
 const char bus_unit_interface[] _introspect_("Unit") = BUS_UNIT_INTERFACE;
 
@@ -411,8 +412,18 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
         JobType job_type = _JOB_TYPE_INVALID;
         char *path = NULL;
         bool reload_if_possible = false;
+        int r;
 
         dbus_error_init(&error);
+
+        r = selinux_unit_access_check(
+                connection,
+                message,
+                m,
+                (u->fragment_path ? u->fragment_path: u->source_path),
+                &error);
+        if (r)
+                return bus_send_error_reply(connection, message, &error, r);
 
         if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "Start"))
                 job_type = JOB_START;
@@ -434,7 +445,6 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 const char *swho;
                 int32_t signo;
                 KillWho who;
-                int r;
 
                 if (!dbus_message_get_args(
                                     message,
@@ -479,7 +489,6 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 const char *smode;
                 JobMode mode;
                 Job *j;
-                int r;
 
                 if ((job_type == JOB_START && u->refuse_manual_start) ||
                     (job_type == JOB_STOP && u->refuse_manual_stop) ||
