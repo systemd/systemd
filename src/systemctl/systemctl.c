@@ -2259,7 +2259,7 @@ static void print_status_info(UnitStatusInfo *i) {
 
         if (i->id && arg_transport != TRANSPORT_SSH) {
                 int flags =
-                        arg_lines * OUTPUT_SHOW_ALL |
+                        arg_all * OUTPUT_SHOW_ALL |
                         arg_follow * OUTPUT_FOLLOW |
                         !arg_quiet * OUTPUT_WARN_CUTOFF |
                         on_tty() * OUTPUT_COLOR;
