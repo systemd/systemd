@@ -61,11 +61,9 @@ Features:
 
 * json: properly serialize multiple fields with the same name per entry
 
-* journalctl: make -l the default
-
 * journald: add option to choose between "split up nothing", "split up login user journals", "split up all user journals"
 
-* journal live copy, bsaed on libneon (client) and libmicrohttpd
+* journal live copy, based on libneon (client) and libmicrohttpd
 
 * document in wiki json serialization
 
@@ -80,8 +78,6 @@ Features:
 * ability to pass fds into systemd
 
 * system.conf should have controls for cgroups
-
-* tmpfiles: skip mknod if CAP_MKNOD is missing
 
 * bind mount read-only the cgroup tree higher than than nspawn
 

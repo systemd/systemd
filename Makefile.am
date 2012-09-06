@@ -1296,7 +1296,8 @@ systemd_tmpfiles_SOURCES = \
 
 systemd_tmpfiles_LDADD = \
 	libsystemd-label.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-capability.la
 
 # ------------------------------------------------------------------------------
 systemd_machine_id_setup_SOURCES = \

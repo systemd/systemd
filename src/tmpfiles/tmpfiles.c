@@ -38,6 +38,7 @@
 #include <sys/param.h>
 #include <glob.h>
 #include <fnmatch.h>
+#include <sys/capability.h>
 
 #include "log.h"
 #include "util.h"
@@ -47,6 +48,7 @@
 #include "label.h"
 #include "set.h"
 #include "conf-files.h"
+#include "capability.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
@@ -764,7 +766,19 @@ static int create_item(Item *i) {
 
         case CREATE_BLOCK_DEVICE:
         case CREATE_CHAR_DEVICE: {
-                mode_t file_type = (i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR);
+                mode_t file_type;
+
+                if (have_effective_cap(CAP_MKNOD) == 0) {
+                        /* In a container we lack CAP_MKNOD. We
+                        shouldnt attempt to create the device node in
+                        that case to avoid noise, and we don't support
+                        virtualized devices in containers anyway. */
+
+                        log_debug("We lack CAP_MKNOD, skipping creation of device node %s.", i->path);
+                        return 0;
+                }
+
+                file_type = (i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR);
 
                 u = umask(0);
                 label_context_set(i->path, file_type);
