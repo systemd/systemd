@@ -271,24 +271,8 @@ static int read_data_x11(void) {
         free_data_x11();
 
         f = fopen("/etc/X11/xorg.conf.d/00-keyboard.conf", "re");
-        if (!f) {
-                if (errno == ENOENT) {
-
-#ifdef TARGET_FEDORA
-                        f = fopen("/etc/X11/xorg.conf.d/00-system-setup-keyboard.conf", "re");
-                        if (!f) {
-                                if (errno == ENOENT)
-                                        return 0;
-                                else
-                                        return -errno;
-                        }
-#else
-                        return 0;
-#endif
-
-                } else
-                          return -errno;
-        }
+        if (!f)
+                return errno == ENOENT ? 0 : -errno;
 
         while (fgets(line, sizeof(line), f)) {
                 char *l;
@@ -577,14 +561,6 @@ static int write_data_x11(void) {
             isempty(state.x11_variant) &&
             isempty(state.x11_options)) {
 
-#ifdef TARGET_FEDORA
-                unlink("/etc/X11/xorg.conf.d/00-system-setup-keyboard.conf");
-
-                /* Symlink this to /dev/null, so that s-s-k (if it is
-                 * still running) doesn't recreate this. */
-                symlink("/dev/null", "/etc/X11/xorg.conf.d/00-system-setup-keyboard.conf");
-#endif
-
                 if (unlink("/etc/X11/xorg.conf.d/00-keyboard.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
 
@@ -624,18 +600,8 @@ static int write_data_x11(void) {
                 r = -errno;
                 unlink("/etc/X11/xorg.conf.d/00-keyboard.conf");
                 unlink(temp_path);
-        } else {
-
-#ifdef TARGET_FEDORA
-                unlink("/etc/X11/xorg.conf.d/00-system-setup-keyboard.conf");
-
-                /* Symlink this to /dev/null, so that s-s-k (if it is
-                 * still running) doesn't recreate this. */
-                symlink("/dev/null", "/etc/X11/xorg.conf.d/00-system-setup-keyboard.conf");
-#endif
-
+        } else
                 r = 0;
-        }
 
         fclose(f);
         free(temp_path);

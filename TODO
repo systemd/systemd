@@ -128,9 +128,6 @@ Features:
 
 * add _SYSTEMD_USER_UNIT= field to journal entries
 
-* remove Fedora /dev/null logic from localed.c, now that system-config-keyboard is gone
-  delete /etc/X11/xorg.conf.d/00-system-setup-keyboard.conf from spec file
-
 * journal: expose current disk usage
 
 * dracut-shutdown needs to be ordered before unmounting /boot
