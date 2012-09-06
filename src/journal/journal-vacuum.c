@@ -211,7 +211,7 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                         break;
 
                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
-                        log_info("Deleted archived journal %s/%s.", directory, list[i].filename);
+                        log_debug("Deleted archived journal %s/%s.", directory, list[i].filename);
                         sum -= list[i].usage;
                 } else if (errno != ENOENT)
                         log_warning("Failed to delete %s/%s: %m", directory, list[i].filename);

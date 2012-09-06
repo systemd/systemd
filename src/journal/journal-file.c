@@ -490,7 +490,7 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
         if (s < DEFAULT_DATA_HASH_TABLE_SIZE)
                 s = DEFAULT_DATA_HASH_TABLE_SIZE;
 
-        log_info("Reserving %llu entries in hash table.", (unsigned long long) (s / sizeof(HashItem)));
+        log_debug("Reserving %llu entries in hash table.", (unsigned long long) (s / sizeof(HashItem)));
 
         r = journal_file_append_object(f,
                                        OBJECT_DATA_HASH_TABLE,
@@ -2386,11 +2386,11 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
                         m->keep_free = DEFAULT_KEEP_FREE;
         }
 
-        log_info("Fixed max_use=%s max_size=%s min_size=%s keep_free=%s",
-                 format_bytes(a, sizeof(a), m->max_use),
-                 format_bytes(b, sizeof(b), m->max_size),
-                 format_bytes(c, sizeof(c), m->min_size),
-                 format_bytes(d, sizeof(d), m->keep_free));
+        log_debug("Fixed max_use=%s max_size=%s min_size=%s keep_free=%s",
+                  format_bytes(a, sizeof(a), m->max_use),
+                  format_bytes(b, sizeof(b), m->max_size),
+                  format_bytes(c, sizeof(c), m->min_size),
+                  format_bytes(d, sizeof(d), m->keep_free));
 }
 
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *to) {

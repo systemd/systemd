@@ -51,8 +51,6 @@ Features:
 
 * Query Paul Moore about relabelling socket fds while they are open
 
-* log fewer journal internal messages to the kernel kmsg
-
 * move keymaps to /usr/lib/... rather than /usr/lib/udev/...
 
 * journald: check whether it is OK if the client can still modify delivered journal entries
@@ -209,8 +207,6 @@ Features:
 
 * journal: hook up with EFI firmware log
 
-* handle C-A-Del in logind, like the power/suspend buttons?
-
 * nspawn: make use of device cgroup contrller by default
 
 * drop accountsservice's StandardOutput=syslog and Type=dbus fields
@@ -336,8 +332,6 @@ Features:
 * systemctl journal command
 
 * journalctl: --cursor support
-
-* systemctl status: show coredumps
 
 * save coredump in Windows/Mozilla minidump format
 

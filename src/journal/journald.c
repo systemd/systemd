@@ -304,7 +304,7 @@ static void server_rotate(Server *s) {
         Iterator i;
         int r;
 
-        log_info("Rotating...");
+        log_debug("Rotating...");
 
         if (s->runtime_journal) {
                 r = journal_file_rotate(&s->runtime_journal, s->compress, false);
@@ -349,7 +349,7 @@ static void server_vacuum(Server *s) {
         sd_id128_t machine;
         int r;
 
-        log_info("Vacuuming...");
+        log_debug("Vacuuming...");
 
         r = sd_id128_get_machine(&machine);
         if (r < 0) {
@@ -444,7 +444,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 return;
 
         if (journal_file_rotate_suggested(f)) {
-                log_info("Journal header limits reached or header out-of-date, rotating.");
+                log_debug("Journal header limits reached or header out-of-date, rotating.");
                 server_rotate(s);
                 server_vacuum(s);
                 vacuumed = true;
@@ -475,11 +475,11 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 }
 
                 if (r == -E2BIG || r == -EFBIG || r == EDQUOT || r == ENOSPC)
-                        log_info("Allocation limit reached, rotating.");
+                        log_debug("Allocation limit reached, rotating.");
                 else if (r == -EHOSTDOWN)
                         log_info("Journal file from other machine, rotating.");
                 else if (r == -EBUSY)
-                        log_info("Unlcean shutdown, rotating.");
+                        log_info("Unclean shutdown, rotating.");
                 else
                         log_warning("Journal file corrupted, rotating.");
 
@@ -491,7 +491,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 if (!f)
                         return;
 
-                log_info("Retrying write.");
+                log_debug("Retrying write.");
         }
 }
 
@@ -890,7 +890,7 @@ static int server_flush_to_var(Server *s) {
         if (!s->system_journal)
                 return 0;
 
-        log_info("Flushing to /var...");
+        log_debug("Flushing to /var...");
 
         r = sd_id128_get_machine(&machine);
         if (r < 0) {
@@ -918,7 +918,7 @@ static int server_flush_to_var(Server *s) {
 
                 r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
                 if (r == -E2BIG) {
-                        log_info("Allocation limit reached.");
+                        log_debug("Allocation limit reached.");
 
                         journal_file_post_change(s->system_journal);
                         server_rotate(s);
@@ -954,7 +954,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
                 ssize_t n;
 
                 if (ev->events != EPOLLIN) {
-                        log_info("Got invalid event from epoll.");
+                        log_error("Got invalid event from epoll.");
                         return -EIO;
                 }
 
@@ -990,7 +990,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
                 int r;
 
                 if (ev->events != EPOLLIN) {
-                        log_info("Got invalid event from epoll.");
+                        log_error("Got invalid event from epoll.");
                         return -EIO;
                 }
 
@@ -1004,7 +1004,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
                    ev->data.fd == s->syslog_fd) {
 
                 if (ev->events != EPOLLIN) {
-                        log_info("Got invalid event from epoll.");
+                        log_error("Got invalid event from epoll.");
                         return -EIO;
                 }
 
@@ -1132,7 +1132,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
         } else if (ev->data.fd == s->stdout_fd) {
 
                 if (ev->events != EPOLLIN) {
-                        log_info("Got invalid event from epoll.");
+                        log_error("Got invalid event from epoll.");
                         return -EIO;
                 }
 
@@ -1143,7 +1143,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
                 StdoutStream *stream;
 
                 if ((ev->events|EPOLLIN|EPOLLHUP) != (EPOLLIN|EPOLLHUP)) {
-                        log_info("Got invalid event from epoll.");
+                        log_error("Got invalid event from epoll.");
                         return -EIO;
                 }
 

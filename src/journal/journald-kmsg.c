@@ -359,7 +359,7 @@ int server_flush_dev_kmsg(Server *s) {
         if (!s->dev_kmsg_readable)
                 return 0;
 
-        log_info("Flushing /dev/kmsg...");
+        log_debug("Flushing /dev/kmsg...");
 
         for (;;) {
                 r = server_read_dev_kmsg(s);
