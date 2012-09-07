@@ -1310,7 +1310,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         arg_join_controllers[0] = strv_new("cpu", "cpuacct", "cpuset", NULL);
-        arg_join_controllers[1] = strv_new("net_cls", "netprio", NULL);
+        arg_join_controllers[1] = strv_new("net_cls", "net_prio", NULL);
         arg_join_controllers[2] = NULL;
 
         if (!arg_join_controllers[0])
