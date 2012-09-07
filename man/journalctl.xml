@@ -321,6 +321,14 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--disk-usage</option></term>
+
+                                <listitem><para>Shows the current disk
+                                usage of all
+                                journal files.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--setup-keys</option></term>
 
                                 <listitem><para>Instead of showing

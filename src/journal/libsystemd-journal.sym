@@ -70,3 +70,8 @@ global:
         sd_journal_perror;
         sd_journal_perror_with_location;
 } LIBSYSTEMD_JOURNAL_187;
+
+LIBSYSTEMD_JOURNAL_190 {
+global:
+        sd_journal_get_usage;
+} LIBSYSTEMD_JOURNAL_188;

@@ -126,8 +126,6 @@ Features:
 
 * add _SYSTEMD_USER_UNIT= field to journal entries
 
-* journal: expose current disk usage
-
 * dracut-shutdown needs to be ordered before unmounting /boot
 
 * wiki: document new logind LockSessions() call

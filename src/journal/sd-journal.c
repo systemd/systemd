@@ -2062,6 +2062,29 @@ void journal_print_header(sd_journal *j) {
         }
 }
 
+_public_ int sd_journal_get_usage(sd_journal *j, uint64_t *bytes) {
+        Iterator i;
+        JournalFile *f;
+        uint64_t sum = 0;
+
+        if (!j)
+                return -EINVAL;
+        if (!bytes)
+                return -EINVAL;
+
+        HASHMAP_FOREACH(f, j->files, i) {
+                struct stat st;
+
+                if (fstat(f->fd, &st) < 0)
+                        return -errno;
+
+                sum += (uint64_t) st.st_blocks * 512ULL;
+        }
+
+        *bytes = sum;
+        return 0;
+}
+
 /* _public_ int sd_journal_query_unique(sd_journal *j, const char *field) { */
 /*         if (!j) */
 /*                 return -EINVAL; */

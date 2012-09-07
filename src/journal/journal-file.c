@@ -1906,6 +1906,8 @@ fail:
 void journal_file_print_header(JournalFile *f) {
         char a[33], b[33], c[33];
         char x[FORMAT_TIMESTAMP_MAX], y[FORMAT_TIMESTAMP_MAX];
+        struct stat st;
+        char bytes[FORMAT_BYTES_MAX];
 
         assert(f);
 
@@ -1970,6 +1972,9 @@ void journal_file_print_header(JournalFile *f) {
         if (JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
                 printf("Entry Array Objects: %llu\n",
                        (unsigned long long) le64toh(f->header->n_entry_arrays));
+
+        if (fstat(f->fd, &st) >= 0)
+                printf("Disk usage: %s\n", format_bytes(bytes, sizeof(bytes), (off_t) st.st_blocks * 512ULL));
 }
 
 int journal_file_open(

@@ -72,7 +72,8 @@ static enum {
         ACTION_NEW_ID128,
         ACTION_PRINT_HEADER,
         ACTION_SETUP_KEYS,
-        ACTION_VERIFY
+        ACTION_VERIFY,
+        ACTION_DISK_USAGE,
 } arg_action = ACTION_SHOW;
 
 static int help(void) {
@@ -96,6 +97,7 @@ static int help(void) {
                "Commands:\n"
                "     --new-id128         Generate a new 128 Bit ID\n"
                "     --header            Show journal header information\n"
+               "     --disk-usage        Show total disk usage\n"
 #ifdef HAVE_GCRYPT
                "     --setup-keys        Generate new FSS key pair\n"
                "       --interval=TIME   Time interval for changing the FSS sealing key\n"
@@ -118,7 +120,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SETUP_KEYS,
                 ARG_INTERVAL,
                 ARG_VERIFY,
-                ARG_VERIFY_KEY
+                ARG_VERIFY_KEY,
+                ARG_DISK_USAGE
         };
 
         static const struct option options[] = {
@@ -141,6 +144,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "interval",     required_argument, NULL, ARG_INTERVAL     },
                 { "verify",       no_argument,       NULL, ARG_VERIFY       },
                 { "verify-key",   required_argument, NULL, ARG_VERIFY_KEY   },
+                { "disk-usage",   no_argument,       NULL, ARG_DISK_USAGE   },
                 { NULL,           0,                 NULL, 0                }
         };
 
@@ -222,6 +226,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERIFY:
                         arg_action = ACTION_VERIFY;
+                        break;
+
+                case ARG_DISK_USAGE:
+                        arg_action = ACTION_DISK_USAGE;
                         break;
 
 #ifdef HAVE_GCRYPT
@@ -742,6 +750,19 @@ int main(int argc, char *argv[]) {
 
         if (arg_action == ACTION_PRINT_HEADER) {
                 journal_print_header(j);
+                r = 0;
+                goto finish;
+        }
+
+        if (arg_action == ACTION_DISK_USAGE) {
+                uint64_t bytes;
+                char sbytes[FORMAT_BYTES_MAX];
+
+                r = sd_journal_get_usage(j, &bytes);
+                if (r < 0)
+                        goto finish;
+
+                printf("Journals take up %s on disk.\n", format_bytes(sbytes, sizeof(sbytes), bytes));
                 r = 0;
                 goto finish;
         }
