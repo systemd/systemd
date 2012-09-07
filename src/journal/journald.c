@@ -87,6 +87,15 @@ static const char* const storage_table[] = {
 DEFINE_STRING_TABLE_LOOKUP(storage, Storage);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_storage, storage, Storage, "Failed to parse storage setting");
 
+static const char* const split_mode_table[] = {
+        [SPLIT_NONE] = "none",
+        [SPLIT_UID] = "uid",
+        [SPLIT_LOGIN] = "login"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(split_mode, SplitMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode, split_mode, SplitMode, "Failed to parse split mode setting");
+
 static uint64_t available_space(Server *s) {
         char ids[33], *p;
         const char *f;
@@ -659,7 +668,10 @@ static void dispatch_message_real(
 
         assert(n <= m);
 
-        write_to_journal(s, realuid == 0 ? 0 : loginuid, iovec, n);
+        write_to_journal(s,
+                         s->split_mode == SPLIT_NONE ? 0 :
+                         (s->split_mode == SPLIT_UID ? realuid :
+                          (realuid == 0 ? 0 : loginuid)), iovec, n);
 
         free(pid);
         free(uid);

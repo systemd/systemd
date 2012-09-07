@@ -41,6 +41,14 @@ typedef enum Storage {
         _STORAGE_INVALID = -1
 } Storage;
 
+typedef enum SplitMode {
+        SPLIT_LOGIN,
+        SPLIT_UID,
+        SPLIT_NONE,
+        _SPLIT_MAX,
+        _SPLIT_INVALID = -1
+} SplitMode;
+
 typedef struct StdoutStream StdoutStream;
 
 typedef struct Server {
@@ -93,6 +101,7 @@ typedef struct Server {
         int max_level_console;
 
         Storage storage;
+        SplitMode split_mode;
 
         MMapCache *mmap;
 
@@ -117,3 +126,8 @@ int config_parse_storage(const char *filename, unsigned line, const char *sectio
 
 const char *storage_to_string(Storage s);
 Storage storage_from_string(const char *s);
+
+int config_parse_split_mode(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+
+const char *split_mode_to_string(SplitMode s);
+SplitMode split_mode_from_string(const char *s);

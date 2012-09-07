@@ -136,6 +136,36 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>SplitMode=</varname></term>
+
+                                <listitem><para>Controls whether to
+                                split up journal files per user. One
+                                of <literal>login</literal>,
+                                <literal>uid</literal> and
+                                <literal>none</literal>. If
+                                <literal>login</literal> each logged
+                                in user will get his own journal
+                                files, but systemd user IDs will log
+                                into the system journal. If
+                                <literal>uid</literal> any user ID
+                                will get his own journal files
+                                regardless whether it belongs to a
+                                system service or refers to a real
+                                logged in user. If
+                                <literal>none</literal> journal files
+                                are not split up per-user and all
+                                messages are stored in the single
+                                system journal. Note that splitting
+                                up journal files per-user is only
+                                available of journals are stored
+                                persistently. If journals are stored
+                                on volatile storage (see above) only a
+                                single journal file for all user IDs
+                                is kept. Defaults to
+                                <literal>login</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>RateLimitInterval=</varname></term>
                                 <term><varname>RateLimitBurst=</varname></term>
 
