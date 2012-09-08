@@ -86,9 +86,10 @@ static int print_inhibitors(DBusConnection *bus, DBusError *error) {
                         &reply,
                         NULL,
                         DBUS_TYPE_INVALID);
-        if (r)
-                return -ENOMEM;
+        if (r) {
+                r = -ENOMEM;
                 goto finish;
+        }
 
         if (!dbus_message_iter_init(reply, &iter)) {
                 r = -ENOMEM;
