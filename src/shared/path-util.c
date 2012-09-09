@@ -387,8 +387,12 @@ fallback:
         else
                 r = lstat(t, &a);
 
-        if (r < 0)
+        if (r < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
                 return -errno;
+        }
 
         r = path_get_parent(t, &parent);
         if (r < 0)
