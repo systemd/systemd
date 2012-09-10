@@ -49,6 +49,8 @@ Bugfixes:
 
 Features:
 
+* merge: github.com/systemd/python-systemd
+
 * when writing journal entries order field items by their address to improve speed on rotating media
 
 * create /sbin/init symlinks from the build system
