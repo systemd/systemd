@@ -221,10 +221,16 @@ static int journal_file_verify_header(JournalFile *f) {
         if (le64toh(f->header->tail_object_offset) > (le64toh(f->header->header_size) + le64toh(f->header->arena_size)))
                 return -ENODATA;
 
-        if (!VALID64(f->header->data_hash_table_offset) ||
-            !VALID64(f->header->field_hash_table_offset) ||
-            !VALID64(f->header->tail_object_offset) ||
-            !VALID64(f->header->entry_array_offset))
+        if (!VALID64(le64toh(f->header->data_hash_table_offset)) ||
+            !VALID64(le64toh(f->header->field_hash_table_offset)) ||
+            !VALID64(le64toh(f->header->tail_object_offset)) ||
+            !VALID64(le64toh(f->header->entry_array_offset)))
+                return -ENODATA;
+
+        if (le64toh(f->header->data_hash_table_offset) < le64toh(f->header->header_size) ||
+            le64toh(f->header->field_hash_table_offset) < le64toh(f->header->header_size) ||
+            le64toh(f->header->tail_object_offset) < le64toh(f->header->header_size) ||
+            le64toh(f->header->entry_array_offset) < le64toh(f->header->header_size))
                 return -ENODATA;
 
         if (f->writable) {
@@ -322,6 +328,9 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
 static int journal_file_move_to(JournalFile *f, int context, bool keep_always, uint64_t offset, uint64_t size, void **ret) {
         assert(f);
         assert(ret);
+
+        if (size <= 0)
+                return -EINVAL;
 
         /* Avoid SIGBUS on invalid accesses */
         if (offset + size > (uint64_t) f->last_stat.st_size) {
