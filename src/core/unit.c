@@ -258,6 +258,9 @@ bool unit_check_gc(Unit *u) {
         if (unit_active_state(u) != UNIT_INACTIVE)
                 return true;
 
+        if (u->refs)
+                return true;
+
         if (UNIT_VTABLE(u)->check_gc)
                 if (UNIT_VTABLE(u)->check_gc(u))
                         return true;
