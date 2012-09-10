@@ -49,6 +49,10 @@ Bugfixes:
 
 Features:
 
+* when writing journal entries order field items by their address to improve speed on rotating media
+
+* create /sbin/init symlinks from the build system
+
 * Query Paul Moore about relabelling socket fds while they are open
 
 * move keymaps to /usr/lib/... rather than /usr/lib/udev/...
@@ -444,7 +448,8 @@ Features:
 
 * timer events with system resume
 
-* timer events on calendar time
+* timer events on calendar time:
+        maybe use this time syntax? http://ohse.de/uwe/uschedule/uschedule.html
 
 * dot output for --test showing the 'initial transaction'
 
