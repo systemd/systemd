@@ -261,6 +261,15 @@ bool condition_test(Condition *c) {
                 return !(k == -ENOENT || k > 0) == !c->negate;
         }
 
+        case CONDITION_FILE_NOT_EMPTY: {
+                struct stat st;
+
+                if (stat(c->parameter, &st) < 0)
+                        return c->negate;
+
+                return (S_ISREG(st.st_mode) && st.st_size > 0) == !c->negate;
+        }
+
         case CONDITION_FILE_IS_EXECUTABLE: {
                 struct stat st;
 
@@ -350,6 +359,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_PATH_IS_MOUNT_POINT] = "ConditionPathIsMountPoint",
         [CONDITION_PATH_IS_READ_WRITE] = "ConditionPathIsReadWrite",
         [CONDITION_DIRECTORY_NOT_EMPTY] = "ConditionDirectoryNotEmpty",
+        [CONDITION_FILE_NOT_EMPTY] = "ConditionFileNotEmpty",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
         [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",
         [CONDITION_SECURITY] = "ConditionSecurity",

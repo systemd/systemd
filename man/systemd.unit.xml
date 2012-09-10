@@ -755,6 +755,7 @@
                                 <term><varname>ConditionPathIsMountPoint=</varname></term>
                                 <term><varname>ConditionPathIsReadWrite=</varname></term>
                                 <term><varname>ConditionDirectoryNotEmpty=</varname></term>
+                                <term><varname>ConditionFileNotEmpty=</varname></term>
                                 <term><varname>ConditionFileIsExecutable=</varname></term>
                                 <term><varname>ConditionKernelCommandLine=</varname></term>
                                 <term><varname>ConditionVirtualization=</varname></term>
@@ -825,13 +826,6 @@
                                 (i.e. not mounted
                                 read-only).</para>
 
-                                <para><varname>ConditionFileIsExecutable=</varname>
-                                is similar to
-                                <varname>ConditionPathExists=</varname>
-                                but verifies whether a certain path
-                                exists, is a regular file and marked
-                                executable.</para>
-
                                 <para><varname>ConditionDirectoryNotEmpty=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
@@ -839,7 +833,21 @@
                                 exists and is a non-empty
                                 directory.</para>
 
-                                <para>Similarly,
+                                <para><varname>ConditionFileNotEmpty=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether a certain path
+                                exists and refers to a regular file
+                                with a non-zero size.</para>
+
+                                <para><varname>ConditionFileIsExecutable=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether a certain path
+                                exists, is a regular file and marked
+                                executable.</para>
+
+                                <para>Similar,
                                 <varname>ConditionKernelCommandLine=</varname>
                                 may be used to check whether a
                                 specific kernel command line option is
