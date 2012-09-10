@@ -328,7 +328,9 @@ int journal_file_fss_load(JournalFile *f) {
 
         fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
         if (fd < 0) {
-                log_error("Failed to open %s: %m", p);
+                if (errno != ENOENT)
+                        log_error("Failed to open %s: %m", p);
+
                 r = -errno;
                 goto finish;
         }
