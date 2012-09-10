@@ -2003,25 +2003,24 @@ int unit_file_get_list(
                                 free(f->path);
                                 free(f);
                                 goto finish;
-                        } else if (r > 0)
-                                goto found;
-
-                        r = unit_file_can_install(&paths, root_dir, f->path, true);
-                        if (r < 0) {
-                                free(f->path);
-                                free(f);
-                                goto finish;
                         } else if (r > 0) {
-                                f->state = UNIT_FILE_DISABLED;
-                                goto found;
-                        } else {
-                                f->state = UNIT_FILE_STATIC;
+                                f->state = UNIT_FILE_ENABLED;
                                 goto found;
                         }
 
-                        free(f->path);
-                        free(f);
-                        continue;
+                        r = unit_file_can_install(&paths, root_dir, f->path, true);
+                        if (r == -EINVAL ||  /* Invalid setting? */
+                            r == -EBADMSG || /* Invalid format? */
+                            r == -ENOENT     /* Included file not found? */)
+                                f->state = UNIT_FILE_INVALID;
+                        else if (r < 0) {
+                                free(f->path);
+                                free(f);
+                                goto finish;
+                        } else if (r > 0)
+                                f->state = UNIT_FILE_DISABLED;
+                        else
+                                f->state = UNIT_FILE_STATIC;
 
                 found:
                         r = hashmap_put(h, path_get_file_name(f->path), f);
@@ -2051,7 +2050,8 @@ static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
         [UNIT_FILE_MASKED] = "masked",
         [UNIT_FILE_MASKED_RUNTIME] = "masked-runtime",
         [UNIT_FILE_STATIC] = "static",
-        [UNIT_FILE_DISABLED] = "disabled"
+        [UNIT_FILE_DISABLED] = "disabled",
+        [UNIT_FILE_INVALID] = "invalid",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_state, UnitFileState);

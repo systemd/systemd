@@ -1120,13 +1120,15 @@ noinst_PROGRAMS += \
 	test-install \
 	test-watchdog \
 	test-unit-name \
-	test-log
+	test-log \
+	test-unit-file
 
 TESTS += \
 	test-job-type \
 	test-env-replace \
 	test-strv \
-	test-unit-name
+	test-unit-name \
+	test-unit-file
 
 test_engine_SOURCES = \
 	src/test/test-engine.c
@@ -1174,6 +1176,12 @@ test_unit_name_SOURCES = \
 	src/test/test-unit-name.c
 
 test_unit_name_LDADD = \
+	libsystemd-core.la
+
+test_unit_file_SOURCES = \
+	src/test/test-unit-file.c
+
+test_unit_file_LDADD = \
 	libsystemd-core.la
 
 test_log_SOURCES = \

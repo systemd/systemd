@@ -585,7 +585,8 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
 
                 if (u->state == UNIT_FILE_MASKED ||
                     u->state == UNIT_FILE_MASKED_RUNTIME ||
-                    u->state == UNIT_FILE_DISABLED) {
+                    u->state == UNIT_FILE_DISABLED ||
+                    u->state == UNIT_FILE_INVALID) {
                         on  = ansi_highlight_red(true);
                         off = ansi_highlight_red(false);
                 } else if (u->state == UNIT_FILE_ENABLED) {
