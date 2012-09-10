@@ -397,12 +397,12 @@
                         <varlistentry>
                                 <term><command>attach [NAME] [DEVICE...]</command></term>
 
-                                <listitem><para>Attach one or more
-                                devices to a seat. The devices should
-                                be specified via device paths in the
-                                <filename>/sys</filename> file
-                                system. To create a new seat attach at
-                                least one graphics card to a
+                                <listitem><para>Persistently attach
+                                one or more devices to a seat. The
+                                devices should be specified via device
+                                paths in the <filename>/sys</filename>
+                                file system. To create a new seat
+                                attach at least one graphics card to a
                                 previously unused seat names. seat
                                 names may consist only of a-z, A-Z,
                                 0-9, "-" and "_" and must be prefixed
