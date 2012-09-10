@@ -43,9 +43,9 @@ static enum {
 
 static int inhibit(DBusConnection *bus, DBusError *error) {
         DBusMessage *reply = NULL;
-        int fd;
+        int r;
 
-        fd = bus_method_call_with_reply (
+        r = bus_method_call_with_reply(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
@@ -58,17 +58,17 @@ static int inhibit(DBusConnection *bus, DBusError *error) {
                         DBUS_TYPE_STRING, &arg_why,
                         DBUS_TYPE_STRING, &arg_mode,
                         DBUS_TYPE_INVALID);
-        if (fd)
-                return fd;
+        if (r < 0)
+                return r;
 
         if (!dbus_message_get_args(reply, error,
-                                   DBUS_TYPE_UNIX_FD, &fd,
+                                   DBUS_TYPE_UNIX_FD, &r,
                                    DBUS_TYPE_INVALID))
-                fd = -EIO;
+                r = -EIO;
 
         dbus_message_unref(reply);
 
-        return fd;
+        return r;
 }
 
 static int print_inhibitors(DBusConnection *bus, DBusError *error) {
@@ -77,7 +77,7 @@ static int print_inhibitors(DBusConnection *bus, DBusError *error) {
         DBusMessageIter iter, sub, sub2;
         int r;
 
-        r = bus_method_call_with_reply (
+        r = bus_method_call_with_reply(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
@@ -86,10 +86,8 @@ static int print_inhibitors(DBusConnection *bus, DBusError *error) {
                         &reply,
                         NULL,
                         DBUS_TYPE_INVALID);
-        if (r) {
-                r = -ENOMEM;
+        if (r < 0)
                 goto finish;
-        }
 
         if (!dbus_message_iter_init(reply, &iter)) {
                 r = -ENOMEM;
@@ -109,7 +107,6 @@ static int print_inhibitors(DBusConnection *bus, DBusError *error) {
                "MODE",
                "UID",
                "PID");
-
 
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                 const char *what, *who, *why, *mode;

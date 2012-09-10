@@ -1278,14 +1278,12 @@ int bus_method_call_with_reply(DBusConnection *bus,
         va_start(ap, first_arg_type);
         if (!dbus_message_append_args_valist(m, first_arg_type, ap)) {
                 va_end(ap);
-                dbus_message_unref(m);
                 r = log_oom();
                 goto finish;
         }
         va_end(ap);
 
         reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        dbus_message_unref(m);
         if (!reply) {
                 if (!return_error)
                         log_error("Failed to issue method call: %s", bus_error_message(&error));
@@ -1299,13 +1297,18 @@ int bus_method_call_with_reply(DBusConnection *bus,
                         r = -EIO;
                 goto finish;
         }
+
         if (return_reply)
                 *return_reply = reply;
         else
                 dbus_message_unref(reply);
+
 finish:
-        if(return_error)
-                *return_error=error;
+        if (m)
+                dbus_message_unref(m);
+
+        if (return_error)
+                *return_error = error;
         else
                 dbus_error_free(&error);
 
