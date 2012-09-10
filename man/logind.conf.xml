@@ -54,7 +54,7 @@
         <refsect1>
                 <title>Description</title>
 
-                <para>This files configures various parameters of the systemd login manager <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                <para>This file configures various parameters of the systemd login manager <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         </refsect1>
 
@@ -133,7 +133,7 @@
 
                                 <listitem><para>These settings control
                                 the default control group hierarchies
-                                users logging are added to. When
+                                users logging in are added to. When
                                 logging in users will get private
                                 control groups in all hierarchies
                                 listed in
@@ -180,7 +180,7 @@
                                 <literal>no-session</literal> logind
                                 will handle these keys when no user is
                                 logged in and no inhibitor lock is
-                                taken, and trigger a warnig beep
+                                taken, and trigger a warning beep
                                 otherwise. If set to
                                 <literal>tty-session</literal> logind
                                 will handle these keys if no inhibitor
