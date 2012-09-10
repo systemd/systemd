@@ -72,7 +72,7 @@ static int inhibit(DBusConnection *bus, DBusError *error) {
 }
 
 static int print_inhibitors(DBusConnection *bus, DBusError *error) {
-        DBusMessage *reply;
+        DBusMessage *reply = NULL;
         unsigned n = 0;
         DBusMessageIter iter, sub, sub2;
         int r;
@@ -98,7 +98,6 @@ static int print_inhibitors(DBusConnection *bus, DBusError *error) {
                 r = -EIO;
                 goto finish;
         }
-        dbus_message_iter_recurse(&iter, &sub);
 
         printf("%-21s %-20s %-20s %-5s %6s %6s\n",
                "WHAT",
@@ -108,6 +107,7 @@ static int print_inhibitors(DBusConnection *bus, DBusError *error) {
                "UID",
                "PID");
 
+        dbus_message_iter_recurse(&iter, &sub);
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                 const char *what, *who, *why, *mode;
                 char *ewho, *ewhy;
@@ -303,6 +303,8 @@ int main(int argc, char *argv[]) {
                         /* Child */
 
                         close_nointr_nofail(fd);
+                        close_all_fds(NULL, 0);
+
                         execvp(argv[optind], argv + optind);
                         log_error("Failed to execute %s: %m", argv[optind]);
                         _exit(EXIT_FAILURE);
