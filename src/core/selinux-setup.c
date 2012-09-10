@@ -79,7 +79,6 @@ int selinux_setup(bool *loaded_policy) {
        /* Now load the policy */
        before_load = now(CLOCK_MONOTONIC);
        r = selinux_init_load_policy(&enforce);
-
        if (r == 0) {
                char timespan[FORMAT_TIMESPAN_MAX];
                char *label;

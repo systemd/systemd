@@ -1266,6 +1266,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 arg_running_as = MANAGER_SYSTEM;
+
+                make_null_stdio();
                 log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_JOURNAL : LOG_TARGET_JOURNAL_OR_KMSG);
 
                 if (!skip_setup) {
@@ -1439,10 +1441,8 @@ int main(int argc, char *argv[]) {
 
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
-        if (arg_running_as == MANAGER_SYSTEM && arg_action == ACTION_RUN) {
+        if (arg_running_as == MANAGER_SYSTEM && arg_action == ACTION_RUN)
                 console_setup(getpid() == 1 && !skip_setup);
-                make_null_stdio();
-        }
 
         /* Open the logging devices, if possible and necessary */
         log_open();
