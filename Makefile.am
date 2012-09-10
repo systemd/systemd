@@ -1004,6 +1004,7 @@ libsystemd_core_la_LIBADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-dbus.la \
+	libsystemd-id128-internal.la \
 	libudev.la \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
