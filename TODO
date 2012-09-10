@@ -49,6 +49,8 @@ Bugfixes:
 
 Features:
 
+* move PID 1 segfaults to /var/lib/systemd/coredump?
+
 * Document word splitting syntax for ExecStart= and friends
 
 * merge: github.com/systemd/python-systemd
