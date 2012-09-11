@@ -99,7 +99,7 @@
                         control group are killed and the control group
                         is removed.</para></listitem>
 
-                        <listitem><para>If last subgroup of the
+                        <listitem><para>If the last subgroup of the
                         <filename>/user/$USER</filename> control group
                         was removed the
                         <varname>$XDG_RUNTIME_DIR</varname> directory
