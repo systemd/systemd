@@ -2024,7 +2024,9 @@ int journal_file_open(
 #ifdef HAVE_XZ
         f->compress = compress;
 #endif
+#ifdef HAVE_GCRYPT
         f->seal = seal;
+#endif
 
         if (mmap_cache)
                 f->mmap = mmap_cache_ref(mmap_cache);
@@ -2059,9 +2061,11 @@ int journal_file_open(
 #ifdef HAVE_GCRYPT
                 /* Try to load the FSPRG state, and if we can't, then
                  * just don't do sealing */
-                r = journal_file_fss_load(f);
-                if (r < 0)
-                        f->seal = false;
+                if (f->seal) {
+                        r = journal_file_fss_load(f);
+                        if (r < 0)
+                                f->seal = false;
+                }
 #endif
 
                 r = journal_file_init_header(f, template);
