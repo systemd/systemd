@@ -29,6 +29,30 @@
 int main(int argc, char* argv[]) {
         char *t, *k;
 
+        t = unit_name_replace_instance("foo@.service", "waldo");
+        puts(t);
+        free(t);
+
+        t = unit_name_replace_instance("foo@xyz.service", "waldo");
+        puts(t);
+        free(t);
+
+        t = unit_name_replace_instance("xyz", "waldo");
+        puts(t);
+        free(t);
+
+        t = unit_name_replace_instance("", "waldo");
+        puts(t);
+        free(t);
+
+        t = unit_name_replace_instance("", "");
+        puts(t);
+        free(t);
+
+        t = unit_name_replace_instance("foo.service", "waldo");
+        puts(t);
+        free(t);
+
         t = unit_name_from_path("/waldo", ".mount");
         puts(t);
         k = unit_name_to_path(t);

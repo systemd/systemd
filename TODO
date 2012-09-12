@@ -49,6 +49,18 @@ Bugfixes:
 
 Features:
 
+* perfomance messages for selinux are gone from debug log?
+
+* http://lists.freedesktop.org/archives/systemd-devel/2012-September/006502.html
+
+* don't use writev() in tmpfiles for sake of compat with sysfs?
+
+* come up with a nice way to write queue/read_ahead_kb for a block device without interfering with readahead
+
+* journald: add kernel cmdline option to disable ratelimiting for debug purposes
+
+* Add a way to reference the machine/boot ID from ExecStart= and similar command lines
+
 * move PID 1 segfaults to /var/lib/systemd/coredump?
 
 * Document word splitting syntax for ExecStart= and friends

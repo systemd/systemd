@@ -357,36 +357,29 @@ bool unit_name_is_instance(const char *n) {
 char *unit_name_replace_instance(const char *f, const char *i) {
         const char *p, *e;
         char *r, *k;
-        size_t a;
+        size_t a, b;
 
         assert(f);
 
         p = strchr(f, '@');
-        assert_se(e = strrchr(f, '.'));
+        if (!p)
+                return strdup(f);
+
+        e = strrchr(f, '.');
+        if (!e)
+                assert_se(e = strchr(f, 0));
 
         a = p - f;
+        b = strlen(i);
 
-        if (p) {
-                size_t b;
+        r = new(char, a + 1 + b + strlen(e) + 1);
+        if (!r)
+                return NULL;
 
-                b = strlen(i);
-
-                r = new(char, a + 1 + b + strlen(e) + 1);
-                if (!r)
-                        return NULL;
-
-                k = mempcpy(r, f, a + 1);
-                k = mempcpy(k, i, b);
-        } else {
-
-                r = new(char, a + strlen(e) + 1);
-                if (!r)
-                        return NULL;
-
-                k = mempcpy(r, f, a);
-        }
-
+        k = mempcpy(r, f, a + 1);
+        k = mempcpy(k, i, b);
         strcpy(k, e);
+
         return r;
 }
 
