@@ -425,9 +425,11 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                        "JOB    = Pending job for the unit.\n");
 
                 if (arg_all)
-                        printf("\n%u units listed.\n", n_shown);
+                        printf("\n%u loaded units listed.\n"
+                               "To show all installed unit files use 'systemctl list-unit-files'.\n", n_shown);
                 else
-                        printf("\n%u units listed. Pass --all to see inactive units, too.\n", n_shown);
+                        printf("\n%u loaded units listed. Pass --all to see loaded but inactive units, too.\n"
+                               "To show all installed unit files use 'systemctl list-unit-files'.\n", n_shown);
         }
 }
 
