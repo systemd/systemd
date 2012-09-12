@@ -53,6 +53,8 @@ Bugfixes:
 
 Features:
 
++ refuse automount triggers when automount is queued for stop, much like we refuse socket triggers when sockets are queued for stop
+
 * perfomance messages for selinux are gone from debug log?
 
 * http://lists.freedesktop.org/archives/systemd-devel/2012-September/006502.html

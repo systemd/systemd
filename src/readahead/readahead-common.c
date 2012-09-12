@@ -214,7 +214,11 @@ finish:
         return m;
 }
 
-#define BUMP_REQUEST_NR (16*1024)
+/* We use 20K instead of the more human digestable 16K here. Why?
+   Simply so that it is more unlikely that users end up picking this
+   value too so that we can recognize better whether the user changed
+   the value while we had it temporarily bumped. */
+#define BUMP_REQUEST_NR (20*1024)
 
 int block_bump_request_nr(const char *p) {
         struct stat st;
