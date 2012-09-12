@@ -1,4 +1,6 @@
 Bugfixes:
+* Fedora: rename /usr/lib/systemd/system-preset/99-default.preset to 90-default.preset
+
 * there is nothing to warn about here :)
   $ systemctl stop systemd-udevd.service systemd-udevd-kernel.socket systemd-udevd-control.socket
   Warning: Stopping systemd-udevd.service, but it can still be activated by:
