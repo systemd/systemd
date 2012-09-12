@@ -528,6 +528,8 @@ static int write_one_file(Item *i, const char *path) {
                 }
         }
 
+        close_nointr_nofail(fd);
+
         if (stat(path, &st) < 0) {
                 log_error("stat(%s) failed: %m", path);
                 return -errno;
