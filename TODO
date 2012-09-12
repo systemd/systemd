@@ -1,4 +1,6 @@
 Bugfixes:
+* always open() tty6 to keep X from using it; move debug shell to tty6
+
 * Fedora: rename /usr/lib/systemd/system-preset/99-default.preset to 90-default.preset
 
 * there is nothing to warn about here :)
