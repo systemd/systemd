@@ -32,6 +32,8 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <linux/fs.h>
+#include <locale.h>
+#include <langinfo.h>
 
 #include <systemd/sd-journal.h>
 
@@ -634,8 +636,13 @@ static int setup_keys(void) {
                         fprintf(stderr, "\nThe keys have been generated for host " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(machine));
 
 #ifdef HAVE_QRENCODE
-                fprintf(stderr, "\nTo transfer the verification key to your phone please scan the QR code below:\n\n");
-                print_qr_code(stderr, seed, seed_size, n, arg_interval, hn, machine);
+                /* If this is not an UTF-8 system don't print any QR codes */
+                setlocale(LC_CTYPE, "");
+
+                if (streq_ptr(nl_langinfo(CODESET), "UTF-8")) {
+                        fputs("\nTo transfer the verification key to your phone please scan the QR code below:\n\n", stderr);
+                        print_qr_code(stderr, seed, seed_size, n, arg_interval, hn, machine);
+                }
 #endif
                 free(hn);
         }
