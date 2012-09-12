@@ -111,7 +111,7 @@
                 or active on a specific seat. Accepts a Unix user
                 identifier and a seat identifier string as
                 parameters. The <parameter>require_active</parameter>
-                parameter is a boolean. If non-zero (true) this
+                parameter is a boolean value. If non-zero (true) this
                 function will test if the user is active (i.e. has a
                 session that is in the foreground and accepting user
                 input) on the specified seat, otherwise (false) only
@@ -122,13 +122,14 @@
                 be used to determine the current sessions of the
                 specified user. Acceptes a Unix user identifier as
                 parameter. The <parameter>require_active</parameter>
-                boolean parameter controls whether the returned list
-                shall consist of only those sessions where the user is
-                currently active (true) or where the user is currently
-                logged in at all, possibly inactive (false). The call
-                returns a NULL terminated string array of session
-                identifiers in <parameter>sessions</parameter> which
-                needs to be freed by the caller with the libc
+                parameter controls whether the returned list shall
+                consist of only those sessions where the user is
+                currently active (&gt; 0), where the user is currently
+                online but possibly inactive (= 0), or
+                logged in at all but possibly closing the session (&lt; 0). The call returns a
+                NULL terminated string array of session identifiers in
+                <parameter>sessions</parameter> which needs to be
+                freed by the caller with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use, including all the strings
                 referenced. If the string array parameter is passed as
