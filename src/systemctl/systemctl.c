@@ -3552,23 +3552,25 @@ finish:
 }
 
 static int mangle_names(char **original_names, char ***mangled_names) {
-        char **names_it = NULL;
-        char **name = NULL;
+        char **i, **l, **name;
 
-        (*mangled_names) = new(char*, strv_length(original_names)+1);
-        if(!(*mangled_names))
+        l = new(char*, strv_length(original_names) + 1);
+        if (!l)
                 return log_oom();
 
-        names_it = *mangled_names;
-
+        i = l;
         STRV_FOREACH(name, original_names) {
-                char *n = unit_name_mangle(*name);
-                (*names_it) = n ? n : strdup(*name);
-                if(!(*names_it))
+                *i = unit_name_mangle(*name);
+                if (!*i) {
+                        strv_free(l);
                         return log_oom();
-                names_it++;
+                }
+
+                i++;
         }
-        *names_it = NULL;
+
+        *i = NULL;
+        *mangled_names = l;
 
         return 0;
 }
