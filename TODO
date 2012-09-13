@@ -53,6 +53,17 @@ Bugfixes:
 
 Features:
 
+* does vasprintf advance the struct vaargs? http://pastie.org/pastes/4712773/text
+
+* do shutdown audit/utmp msgs inside of PID 1, get rid of systemd-update-utmp-runlevel
+
+* make use of macros like this:
+
+        #define _cleanup_free_ __attribute__((cleanup(freep)))
+        #define _cleanup_fclose_ __attribute__((cleanup(fclosep)))
+
+* make timer units go away after they elapsed
+
 + refuse automount triggers when automount is queued for stop, much like we refuse socket triggers when sockets are queued for stop
 
 * perfomance messages for selinux are gone from debug log?
