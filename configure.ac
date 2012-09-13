@@ -80,16 +80,31 @@ m4_ifdef([GOBJECT_INTROSPECTION_CHECK], [
 GOBJECT_INTROSPECTION_CHECK([1.31.1])
 ], [AM_CONDITIONAL([HAVE_INTROSPECTION], [false])])
 
-AC_CHECK_TOOL(OBJCOPY, objcopy)
-AC_CHECK_TOOL(STRINGS, strings)
-AC_CHECK_TOOL(GPERF, gperf)
+AC_PATH_TOOL(OBJCOPY, objcopy)
+AC_PATH_TOOL(STRINGS, strings)
+AC_PATH_TOOL(GPERF, gperf)
 if test -z "$GPERF" ; then
         AC_MSG_ERROR([*** gperf not found])
 fi
 
-# we use python only to build the man page index
+# we use python to build the man page index, and for systemd-python
+have_python=no
+have_python_devel=no
 AM_PATH_PYTHON(,, [:])
-AM_CONDITIONAL([HAVE_PYTHON], [test "$PYTHON" != :])
+if test "$PYTHON" != : ; then
+        have_python=yes
+        AC_PATH_PROG([PYTHON_CONFIG], python-config)
+
+        if test -n "$PYTHON_CONFIG" ; then
+                have_python_devel=yes
+                PYTHON_CFLAGS="`$PYTHON_CONFIG --cflags`"
+                PYTHON_LIBS="`$PYTHON_CONFIG --libs`"
+                AC_SUBST(PYTHON_CFLAGS)
+                AC_SUBST(PYTHON_LIBS)
+        fi
+fi
+AM_CONDITIONAL([HAVE_PYTHON], [test "$have_python" = "yes"])
+AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
 
 CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -pipe \
@@ -803,6 +818,8 @@ AC_MSG_RESULT([
         gudev:                   ${enable_gudev}
         gintrospection:          ${enable_introspection}
         keymap:                  ${enable_keymap}
+        Python:                  ${have_python}
+        Python Headers:          ${have_python_devel}
 
         prefix:                  ${prefix}
         rootprefix:              ${with_rootprefix}
