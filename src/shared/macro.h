@@ -187,4 +187,7 @@ static inline size_t IOVEC_INCREMENT(struct iovec *i, unsigned n, size_t k) {
         return k;
 }
 
+#define _cleanup_free_ __attribute__((cleanup(freep)))
+#define _cleanup_fclose_ __attribute__((cleanup(fclosep)))
+
 #include "log.h"

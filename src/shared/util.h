@@ -528,3 +528,6 @@ void warn_melody(void);
 
 int get_shell(char **ret);
 int get_home_dir(char **ret);
+
+void freep(void *p);
+void fclosep(FILE **f);

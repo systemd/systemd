@@ -489,7 +489,7 @@ char *split_quoted(const char *c, size_t *l, char **state) {
 
 int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         int r;
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
         char fn[PATH_MAX], line[LINE_MAX], *p;
         long unsigned ppid;
 
@@ -499,22 +499,22 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
         char_array_0(fn);
 
-        if (!(f = fopen(fn, "re")))
+        f = fopen(fn, "re");
+        if (!f)
                 return -errno;
 
-        if (!(fgets(line, sizeof(line), f))) {
+        if (!fgets(line, sizeof(line), f)) {
                 r = feof(f) ? -EIO : -errno;
                 fclose(f);
                 return r;
         }
 
-        fclose(f);
-
         /* Let's skip the pid and comm fields. The latter is enclosed
          * in () but does not escape any () in its value, so let's
          * skip over it manually */
 
-        if (!(p = strrchr(line, ')')))
+        p = strrchr(line, ')');
+        if (!p)
                 return -EIO;
 
         p++;
@@ -685,8 +685,7 @@ finish:
 }
 
 int read_one_line_file(const char *fn, char **line) {
-        FILE *f;
-        int r;
+        _cleanup_fclose_ FILE *f = NULL;
         char t[LINE_MAX], *c;
 
         assert(fn);
@@ -698,50 +697,37 @@ int read_one_line_file(const char *fn, char **line) {
 
         if (!fgets(t, sizeof(t), f)) {
 
-                if (ferror(f)) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (ferror(f))
+                        return -errno;
 
                 t[0] = 0;
         }
 
         c = strdup(t);
-        if (!c) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
+        if (!c)
+                return -ENOMEM;
         truncate_nl(c);
 
         *line = c;
-        r = 0;
-
-finish:
-        fclose(f);
-        return r;
+        return 0;
 }
 
 int read_full_file(const char *fn, char **contents, size_t *size) {
-        FILE *f;
-        int r;
+        _cleanup_fclose_ FILE *f = NULL;
         size_t n, l;
-        char *buf = NULL;
+        _cleanup_free_ char *buf = NULL;
         struct stat st;
 
-        if (!(f = fopen(fn, "re")))
+        f = fopen(fn, "re");
+        if (!f)
                 return -errno;
 
-        if (fstat(fileno(f), &st) < 0) {
-                r = -errno;
-                goto finish;
-        }
+        if (fstat(fileno(f), &st) < 0)
+                return -errno;
 
         /* Safety check */
-        if (st.st_size > 4*1024*1024) {
-                r = -E2BIG;
-                goto finish;
-        }
+        if (st.st_size > 4*1024*1024)
+                return -E2BIG;
 
         n = st.st_size > 0 ? st.st_size : LINE_MAX;
         l = 0;
@@ -750,19 +736,16 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
                 char *t;
                 size_t k;
 
-                if (!(t = realloc(buf, n+1))) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                t = realloc(buf, n+1);
+                if (!t)
+                        return -ENOMEM;
 
                 buf = t;
                 k = fread(buf + l, 1, n - l, f);
 
                 if (k <= 0) {
-                        if (ferror(f)) {
-                                r = -errno;
-                                goto finish;
-                        }
+                        if (ferror(f))
+                                return -errno;
 
                         break;
                 }
@@ -771,10 +754,8 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
                 n *= 2;
 
                 /* Safety check */
-                if (n > 4*1024*1024) {
-                        r = -E2BIG;
-                        goto finish;
-                }
+                if (n > 4*1024*1024)
+                        return -E2BIG;
         }
 
         buf[l] = 0;
@@ -784,13 +765,7 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
         if (size)
                 *size = l;
 
-        r = 0;
-
-finish:
-        fclose(f);
-        free(buf);
-
-        return r;
+        return 0;
 }
 
 int parse_env_file(
@@ -5902,4 +5877,13 @@ int get_shell(char **_sh) {
 
         *_sh = sh;
         return 0;
+}
+
+void freep(void *p) {
+        free(*(void**) p);
+}
+
+void fclosep(FILE **f) {
+        if (*f)
+                fclose(*f);
 }

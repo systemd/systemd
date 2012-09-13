@@ -67,7 +67,7 @@ static int read_distro_hostname(char **hn) {
 
 #if defined(TARGET_FEDORA) || defined(TARGET_ARCH) || defined(TARGET_GENTOO) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
         int r;
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
 
         assert(hn);
 
@@ -114,7 +114,6 @@ static int read_distro_hostname(char **hn) {
         r = -ENOENT;
 
 finish:
-        fclose(f);
         return r;
 
 #elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE)

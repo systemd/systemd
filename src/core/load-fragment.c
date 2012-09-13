@@ -1469,7 +1469,7 @@ int config_parse_unit_condition_path(
         Unit *u = data;
         bool trigger, negate;
         Condition *c;
-        char *p;
+        _cleanup_free_ char *p = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -1496,7 +1496,6 @@ int config_parse_unit_condition_path(
         c = condition_new(cond, p, trigger, negate);
         if (!c)
                 return -ENOMEM;
-        free(p);
 
         LIST_PREPEND(Condition, conditions, u->conditions, c);
         return 0;
@@ -1516,7 +1515,7 @@ int config_parse_unit_condition_string(
         Unit *u = data;
         bool trigger, negate;
         Condition *c;
-        char *s;
+        _cleanup_free_ char *s = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -1538,7 +1537,6 @@ int config_parse_unit_condition_string(
         c = condition_new(cond, s, trigger, negate);
         if (!c)
                 return log_oom();
-        free(s);
 
         LIST_PREPEND(Condition, conditions, u->conditions, c);
         return 0;
