@@ -301,8 +301,10 @@ static int on_runlevel(Context *c) {
 #endif
 
         if ((q = utmp_put_runlevel(runlevel, previous)) < 0) {
-                log_error("Failed to write utmp record: %s", strerror(-q));
-                r = q;
+                if (q != -ESRCH && q != -ENOENT) {
+                        log_error("Failed to write utmp record: %s", strerror(-q));
+                        r = q;
+                }
         }
 
         return r;
