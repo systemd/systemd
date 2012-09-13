@@ -88,7 +88,7 @@
                                 <term><option>-p</option></term>
 
                                 <listitem><para>When showing
-                                session/user/ properties, limit
+                                session/user properties, limit
                                 display to certain properties as
                                 specified as argument. If not
                                 specified all set properties are
@@ -403,7 +403,7 @@
                                 paths in the <filename>/sys</filename>
                                 file system. To create a new seat
                                 attach at least one graphics card to a
-                                previously unused seat names. seat
+                                previously unused seat name. seat
                                 names may consist only of a-z, A-Z,
                                 0-9, "-" and "_" and must be prefixed
                                 with "seat". To drop assignment of a
