@@ -55,8 +55,8 @@ extern "C" {
 #define SD_MESSAGE_UNIT_STOPPING    SD_ID128_MAKE(de,5b,42,6a,63,be,47,a7,b6,ac,3e,aa,c8,2e,2f,6f)
 #define SD_MESSAGE_UNIT_STOPPED     SD_ID128_MAKE(9d,1a,aa,27,d6,01,40,bd,96,36,54,38,aa,d2,02,86)
 #define SD_MESSAGE_UNIT_FAILED      SD_ID128_MAKE(be,02,cf,68,55,d2,42,8b,a4,0d,f7,e9,d0,22,f0,3d)
-#define SD_MESSAGE_UNIT_RELOADING   SD_ID128_MAKE(be,02,cf,68,55,d2,42,8b,a4,0d,f7,e9,d0,22,f0,3d)
-#define SD_MESSAGE_UNIT_RELOADED    SD_ID128_MAKE(be,02,cf,68,55,d2,42,8b,a4,0d,f7,e9,d0,22,f0,3d)
+#define SD_MESSAGE_UNIT_RELOADING   SD_ID128_MAKE(d3,4d,03,7f,ff,18,47,e6,ae,66,9a,37,0e,69,47,25)
+#define SD_MESSAGE_UNIT_RELOADED    SD_ID128_MAKE(7b,05,eb,c6,68,38,42,22,ba,a8,88,11,79,cf,da,54)
 
 #ifdef __cplusplus
 }
