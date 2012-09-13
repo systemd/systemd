@@ -1,7 +1,7 @@
 #!/bin/bash
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
-TEST_DESCRIPTION="Basic systemd setup"
+TEST_DESCRIPTION="cryptsetup systemd setup"
 
 KVERSION=${KVERSION-$(uname -r)}
 KERNEL_VER=$(uname -r)
@@ -23,21 +23,12 @@ run_qemu() {
     mount ${LOOPDEV}p1 $TESTDIR/root
     [[ -e $TESTDIR/root/testok ]] && ret=0
     cp -a $TESTDIR/root/failed $TESTDIR
+    cryptsetup luksOpen ${LOOPDEV}p2 varcrypt <$TESTDIR/keyfile
+    mount /dev/mapper/varcrypt $TESTDIR/root/var
     cp -a $TESTDIR/root/var/log/journal $TESTDIR
+    umount $TESTDIR/root/var
     umount $TESTDIR/root
-    cat $TESTDIR/failed
-    ls -l $TESTDIR/journal/*/*.journal
-    test -s $TESTDIR/failed && ret=$(($ret+1))
-    return $ret
-}
-
-
-run_nspawn() {
-    systemd-nspawn -b -D $TESTDIR/nspawn-root --capability=CAP_AUDIT_CONTROL,CAP_AUDIT_WRITE /usr/lib/systemd/systemd
-    ret=1
-    [[ -e $TESTDIR/nspawn-root/testok ]] && ret=0
-    cp -a $TESTDIR/nspawn-root/failed $TESTDIR
-    cp -a $TESTDIR/nspawn-root/var/log/journal $TESTDIR
+    cryptsetup luksClose /dev/mapper/varcrypt
     cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
@@ -50,11 +41,6 @@ test_run() {
         run_qemu || return 1
     else
         dwarn "can't run qemu-kvm, skipping"
-    fi
-    if check_nspawn; then
-        run_nspawn || return 1
-    else
-        dwarn "can't run systemd-nspawn, skipping"
     fi
     return 0
 }
@@ -73,9 +59,14 @@ EOF
 
     mkfs.ext3 -L systemd ${LOOPDEV}p1
     echo -n test >$TESTDIR/keyfile
+    cryptsetup -q luksFormat ${LOOPDEV}p2 $TESTDIR/keyfile
+    cryptsetup luksOpen ${LOOPDEV}p2 varcrypt <$TESTDIR/keyfile
+    mkfs.ext3 -L var /dev/mapper/varcrypt
     mkdir -p $TESTDIR/root
     mount ${LOOPDEV}p1 $TESTDIR/root
     mkdir -p $TESTDIR/root/run
+    mkdir -p $TESTDIR/root/var
+    mount /dev/mapper/varcrypt $TESTDIR/root/var
 
     # Create what will eventually be our root filesystem onto an overlay
     (
@@ -117,10 +108,18 @@ EOF
         # set the hostname
         echo  systemd-testsuite > $initdir/etc/hostname
 
+        eval $(udevadm info --export --query=env --name=/dev/mapper/varcrypt)
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
+
+        cat >$initdir/etc/crypttab <<EOF
+$DM_NAME UUID=$ID_FS_UUID /etc/varkey
+EOF
+        echo -n test > $initdir/etc/varkey
+        cat $initdir/etc/crypttab | ddebug
 
         cat >$initdir/etc/fstab <<EOF
 LABEL=systemd           /       ext3    rw 0 1
+/dev/mapper/varcrypt    /var    ext3    defaults 0 1
 EOF
 
         # setup the testsuite target
@@ -140,7 +139,7 @@ Description=Testsuite service
 After=multi-user.target
 
 [Service]
-ExecStart=/bin/bash -c 'set -x; systemctl --failed --no-legend --no-pager > /failed ; echo OK > /testok; while : ;do echo "testsuite service waiting for journal to move to /var/log/journal" > /dev/console ; for i in /var/log/journal/*;do [ -d "\$i" ] && echo "\$i" && break 2; done; sleep 1; done; sleep 1; exit 0;'
+ExecStart=/bin/bash -c 'set -x; systemctl --failed --no-legend --no-pager > /failed ; echo OK > /testok; while : ;do systemd-cat echo "testsuite service waiting for /var/log/journal" ; echo "testsuite service waiting for journal to move to /var/log/journal" > /dev/console ; for i in /var/log/journal/*;do [ -d "\$i" ] && echo "\$i" && break 2; done; sleep 1; done; sleep 1; exit 0;'
 ExecStopPost=/usr/bin/systemctl poweroff
 Type=oneshot
 EOF
@@ -159,6 +158,14 @@ EOF
         dracut_install sh bash setsid loadkeys setfont \
             login sushell sulogin gzip sleep echo mount umount cryptsetup
         dracut_install dmsetup modprobe
+
+        instmods dm_crypt =crypto
+
+        type -P dmeventd >/dev/null && dracut_install dmeventd
+
+        inst_libdir_file "libdevmapper-event.so*"
+
+        inst_rules 10-dm.rules 13-dm-disk.rules 95-dm-notify.rules
 
         # install libnss_files for login
         inst_libdir_file "libnss_files*"
@@ -238,11 +245,16 @@ EOF
     # we don't mount in the nspawn root
     rm -fr $TESTDIR/nspawn-root/etc/fstab
 
+    ddebug "umount $TESTDIR/root/var"
+    umount $TESTDIR/root/var
+    cryptsetup luksClose /dev/mapper/varcrypt
     ddebug "umount $TESTDIR/root"
     umount $TESTDIR/root
 }
 
 test_cleanup() {
+    umount $TESTDIR/root/var 2>/dev/null
+    [[ -b /dev/mapper/varcrypt ]] && cryptsetup luksClose /dev/mapper/varcrypt
     umount $TESTDIR/root 2>/dev/null
     [[ $LOOPDEV ]] && losetup -d $LOOPDEV
     return 0
