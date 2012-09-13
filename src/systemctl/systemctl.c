@@ -3551,6 +3551,28 @@ finish:
         return r;
 }
 
+static int mangle_names(char **original_names, char ***mangled_names) {
+        char **names_it = NULL;
+        char **name = NULL;
+
+        (*mangled_names) = new(char*, strv_length(original_names)+1);
+        if(!(*mangled_names))
+                return log_oom();
+
+        names_it = *mangled_names;
+
+        STRV_FOREACH(name, original_names) {
+                char *n = unit_name_mangle(*name);
+                (*names_it) = n ? n : strdup(*name);
+                if(!(*names_it))
+                        return log_oom();
+                names_it++;
+        }
+        *names_it = NULL;
+
+        return 0;
+}
+
 static int enable_unit(DBusConnection *bus, char **args) {
         const char *verb = args[0];
         UnitFileChange *changes = NULL;
@@ -3559,6 +3581,7 @@ static int enable_unit(DBusConnection *bus, char **args) {
         DBusMessage *m = NULL, *reply = NULL;
         int r;
         DBusError error;
+        char **mangled_names = NULL;
 
         r = enable_sysv_units(args);
         if (r < 0)
@@ -3644,7 +3667,11 @@ static int enable_unit(DBusConnection *bus, char **args) {
 
                 dbus_message_iter_init_append(m, &iter);
 
-                r = bus_append_strv_iter(&iter, args+1);
+                r = mangle_names(args+1, &mangled_names);
+                if(r < 0)
+                        goto finish;
+
+                r = bus_append_strv_iter(&iter, mangled_names);
                 if (r < 0) {
                         log_error("Failed to append unit files.");
                         goto finish;
@@ -3744,6 +3771,9 @@ finish:
         unit_file_changes_free(changes, n_changes);
 
         dbus_error_free(&error);
+
+        strv_free(mangled_names);
+
         return r;
 }
 
