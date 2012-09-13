@@ -70,12 +70,13 @@
                                 <term><varname>NAutoVTs=</varname></term>
 
                                 <listitem><para>Takes a positive
-                                integer. How many virtual terminals to
-                                allocate by default and when switched
-                                to autospawn <literal>autovt</literal>
-                                services on (if they are otherwise
-                                unused). These services are
-                                instantiated from a template of
+                                integer. Configures how many virtual
+                                terminals to allocate by default that
+                                -- when switched to --
+                                <literal>autovt</literal> services are
+                                automatically spawned on. These
+                                services are instantiated from the
+                                template
                                 <filename>autovt@.service</filename>
                                 with the virtual terminal TTY name,
                                 e.g. <filename>autovt@tty4.service</filename>. By
@@ -85,7 +86,7 @@
                                 <filename>getty@.service</filename>,
                                 i.e. login prompts are started
                                 dynamically as the user switches to
-                                unused virtual terminals, and this
+                                unused virtual terminals. This
                                 parameter hence controls how many
                                 gettys are available on the virtual
                                 terminals. Defaults to 6. When set to
@@ -154,8 +155,8 @@
                                 time a system shutdown or sleep
                                 request is delayed due to an inhibitor
                                 lock of type <literal>delay</literal>
-                                being taken before it is ignored and
-                                the operation executed
+                                being active -- before it is ignored
+                                and the operation executed
                                 anyway. Defaults to
                                 5s.</para></listitem>
                         </varlistentry>
