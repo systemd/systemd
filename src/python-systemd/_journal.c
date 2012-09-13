@@ -21,6 +21,8 @@
 
 #include <Python.h>
 
+#include <alloca.h>
+
 #define SD_JOURNAL_SUPPRESS_LOCATION
 #include <systemd/sd-journal.h>
 
@@ -36,20 +38,13 @@ static PyObject *journal_sendv(PyObject *self, PyObject *args) {
         PyObject *ret = NULL;
         PyObject **encoded;
 
+        /* Allocate an array for the argument strings */
         argc = PyTuple_Size(args);
-
-        encoded = calloc(argc, sizeof(PyObject*));
-        if (!encoded) {
-                ret = PyErr_NoMemory();
-                goto out1;
-        }
+        encoded = alloca(argc * sizeof(PyObject*));
+        memset(encoded, 0, argc * sizeof(PyObject*));
 
         /* Allocate sufficient iovector space for the arguments. */
-        iov = malloc(argc * sizeof(struct iovec));
-        if (!iov) {
-                ret = PyErr_NoMemory();
-                goto out;
-        }
+        iov = alloca(argc * sizeof(struct iovec));
 
         /* Iterate through the Python arguments and fill the iovector. */
         for (i = 0; i < argc; ++i) {
@@ -70,17 +65,11 @@ static PyObject *journal_sendv(PyObject *self, PyObject *args) {
                 iov[i].iov_len = length;
         }
 
-        /* Clear errno, because sd_journal_sendv will not set it by
-           itself, unless an error occurs in one of the system calls. */
-        errno = 0;
-
         /* Send the iovector to the journal. */
         r = sd_journal_sendv(iov, argc);
-        if (r) {
-                if (errno)
-                        PyErr_SetFromErrno(PyExc_IOError);
-                else
-                        PyErr_SetString(PyExc_ValueError, "invalid message format");
+        if (r < 0) {
+                errno = -r;
+                PyErr_SetFromErrno(PyExc_IOError);
                 goto out;
         }
 
@@ -91,13 +80,6 @@ static PyObject *journal_sendv(PyObject *self, PyObject *args) {
 out:
         for (i = 0; i < argc; ++i)
                 Py_XDECREF(encoded[i]);
-
-        free(encoded);
-
-out1:
-        /* Free the iovector. The actual strings
-           are already managed by Python. */
-        free(iov);
 
         return ret;
 }
@@ -117,8 +99,10 @@ static PyObject* journal_stream_fd(PyObject *self, PyObject *args) {
                 return NULL;
 
         fd = sd_journal_stream_fd(identifier, priority, level_prefix);
-        if (fd < 0)
+        if (fd < 0) {
+                errno = -fd;
                 return PyErr_SetFromErrno(PyExc_IOError);
+        }
 
         return PyLong_FromLong(fd);
 }
