@@ -590,7 +590,9 @@ static int journal_file_link_data(JournalFile *f, Object *o, uint64_t offset, ui
         assert(f);
         assert(o);
         assert(offset > 0);
-        assert(o->object.type == OBJECT_DATA);
+
+        if (o->object.type != OBJECT_DATA)
+                return -EINVAL;
 
         /* This might alter the window we are looking at */
 
@@ -798,22 +800,28 @@ static int journal_file_append_data(
 
 uint64_t journal_file_entry_n_items(Object *o) {
         assert(o);
-        assert(o->object.type == OBJECT_ENTRY);
+
+        if (o->object.type != OBJECT_ENTRY)
+                return 0;
 
         return (le64toh(o->object.size) - offsetof(Object, entry.items)) / sizeof(EntryItem);
 }
 
 uint64_t journal_file_entry_array_n_items(Object *o) {
         assert(o);
-        assert(o->object.type == OBJECT_ENTRY_ARRAY);
+
+        if (o->object.type != OBJECT_ENTRY_ARRAY)
+                return 0;
 
         return (le64toh(o->object.size) - offsetof(Object, entry_array.items)) / sizeof(uint64_t);
 }
 
 uint64_t journal_file_hash_table_n_items(Object *o) {
         assert(o);
-        assert(o->object.type == OBJECT_DATA_HASH_TABLE ||
-               o->object.type == OBJECT_FIELD_HASH_TABLE);
+
+        if (o->object.type != OBJECT_DATA_HASH_TABLE &&
+            o->object.type != OBJECT_FIELD_HASH_TABLE)
+                return 0;
 
         return (le64toh(o->object.size) - offsetof(Object, hash_table.items)) / sizeof(HashItem);
 }
@@ -949,7 +957,9 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         assert(f);
         assert(o);
         assert(offset > 0);
-        assert(o->object.type == OBJECT_ENTRY);
+
+        if (o->object.type != OBJECT_ENTRY)
+                return -EINVAL;
 
         __sync_synchronize();
 
