@@ -959,7 +959,7 @@ int journal_file_verify(
                                         if (r < 0)
                                                 goto fail;
 
-                                        r = journal_file_hmac_put_object(f, -1, q);
+                                        r = journal_file_hmac_put_object(f, -1, o, q);
                                         if (r < 0)
                                                 goto fail;
 

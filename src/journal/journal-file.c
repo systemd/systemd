@@ -775,17 +775,17 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
-#ifdef HAVE_GCRYPT
-        r = journal_file_hmac_put_object(f, OBJECT_DATA, p);
-        if (r < 0)
-                return r;
-#endif
-
         /* The linking might have altered the window, so let's
          * refresh our pointer */
         r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
         if (r < 0)
                 return r;
+
+#ifdef HAVE_GCRYPT
+        r = journal_file_hmac_put_object(f, OBJECT_DATA, o, p);
+        if (r < 0)
+                return r;
+#endif
 
         if (ret)
                 *ret = o;
@@ -866,7 +866,7 @@ static int link_entry_into_array(JournalFile *f,
                 return r;
 
 #ifdef HAVE_GCRYPT
-        r = journal_file_hmac_put_object(f, OBJECT_ENTRY_ARRAY, q);
+        r = journal_file_hmac_put_object(f, OBJECT_ENTRY_ARRAY, o, q);
         if (r < 0)
                 return r;
 #endif
@@ -1012,7 +1012,7 @@ static int journal_file_append_entry_internal(
         o->entry.boot_id = f->header->boot_id;
 
 #ifdef HAVE_GCRYPT
-        r = journal_file_hmac_put_object(f, OBJECT_ENTRY, np);
+        r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
         if (r < 0)
                 return r;
 #endif

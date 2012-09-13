@@ -66,7 +66,7 @@ int journal_file_append_tag(JournalFile *f) {
 
         /* Add the tag object itself, so that we can protect its
          * header. This will exclude the actual hash value in it */
-        r = journal_file_hmac_put_object(f, OBJECT_TAG, p);
+        r = journal_file_hmac_put_object(f, OBJECT_TAG, o, p);
         if (r < 0)
                 return r;
 
@@ -229,9 +229,8 @@ int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
         return 0;
 }
 
-int journal_file_hmac_put_object(JournalFile *f, int type, uint64_t p) {
+int journal_file_hmac_put_object(JournalFile *f, int type, Object *o, uint64_t p) {
         int r;
-        Object *o;
 
         assert(f);
 
@@ -242,9 +241,14 @@ int journal_file_hmac_put_object(JournalFile *f, int type, uint64_t p) {
         if (r < 0)
                 return r;
 
-        r = journal_file_move_to_object(f, type, p, &o);
-        if (r < 0)
-                return r;
+        if (!o) {
+                r = journal_file_move_to_object(f, type, p, &o);
+                if (r < 0)
+                        return r;
+        } else {
+                if (type >= 0 && o->object.type != type)
+                        return -EBADMSG;
+        }
 
         gcry_md_write(f->hmac, o, offsetof(ObjectHeader, payload));
 
@@ -460,7 +464,7 @@ int journal_file_append_first_tag(JournalFile *f) {
                 return -EINVAL;
         p -= offsetof(Object, hash_table.items);
 
-        r = journal_file_hmac_put_object(f, OBJECT_FIELD_HASH_TABLE, p);
+        r = journal_file_hmac_put_object(f, OBJECT_FIELD_HASH_TABLE, NULL, p);
         if (r < 0)
                 return r;
 
@@ -469,7 +473,7 @@ int journal_file_append_first_tag(JournalFile *f) {
                 return -EINVAL;
         p -= offsetof(Object, hash_table.items);
 
-        r = journal_file_hmac_put_object(f, OBJECT_DATA_HASH_TABLE, p);
+        r = journal_file_hmac_put_object(f, OBJECT_DATA_HASH_TABLE, NULL, p);
         if (r < 0)
                 return r;
 
