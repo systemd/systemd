@@ -214,6 +214,8 @@
         "   <arg name=\"result\" type=\"s\"/>\n"                        \
         "  </signal>"                                                   \
         "  <signal name=\"StartupFinished\">\n"                         \
+        "   <arg name=\"firmware\" type=\"t\"/>\n"                      \
+        "   <arg name=\"loader\" type=\"t\"/>\n"                        \
         "   <arg name=\"kernel\" type=\"t\"/>\n"                        \
         "   <arg name=\"initrd\" type=\"t\"/>\n"                        \
         "   <arg name=\"userspace\" type=\"t\"/>\n"                     \
@@ -226,10 +228,16 @@
         "  <property name=\"Distribution\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Features\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"Tainted\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"FirmwareTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"FirmwareTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"LoaderTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"LoaderTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"KernelTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"KernelTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"InitRDTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"InitRDTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"StartupTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"StartupTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"UserspaceTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"UserspaceTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"FinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"FinishTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"LogLevel\" type=\"s\" access=\"readwrite\"/>\n"  \
@@ -520,10 +528,16 @@ static const BusProperty bus_systemd_properties[] = {
 
 static const BusProperty bus_manager_properties[] = {
         { "Tainted",       bus_manager_append_tainted,             "s", 0                                              },
+        { "FirmwareTimestamp", bus_property_append_uint64,         "t", offsetof(Manager, firmware_timestamp.realtime) },
+        { "FirmwareTimestampMonotonic", bus_property_append_uint64,"t", offsetof(Manager, firmware_timestamp.monotonic)},
+        { "LoaderTimestamp", bus_property_append_uint64,           "t", offsetof(Manager, loader_timestamp.realtime)   },
+        { "LoaderTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, loader_timestamp.monotonic)  },
+        { "KernelTimestamp", bus_property_append_uint64,           "t", offsetof(Manager, kernel_timestamp.realtime)   },
+        { "KernelTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, kernel_timestamp.monotonic)  },
         { "InitRDTimestamp", bus_property_append_uint64,           "t", offsetof(Manager, initrd_timestamp.realtime)   },
         { "InitRDTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, initrd_timestamp.monotonic)  },
-        { "StartupTimestamp", bus_property_append_uint64,          "t", offsetof(Manager, startup_timestamp.realtime)  },
-        { "StartupTimestampMonotonic", bus_property_append_uint64, "t", offsetof(Manager, startup_timestamp.monotonic) },
+        { "UserspaceTimestamp", bus_property_append_uint64,        "t", offsetof(Manager, userspace_timestamp.realtime)},
+        { "UserspaceTimestampMonotonic", bus_property_append_uint64,"t",offsetof(Manager, userspace_timestamp.monotonic)},
         { "FinishTimestamp", bus_property_append_uint64,           "t", offsetof(Manager, finish_timestamp.realtime)   },
         { "FinishTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, finish_timestamp.monotonic)  },
         { "LogLevel",      bus_manager_append_log_level,           "s", 0,                                             false, bus_manager_set_log_level },

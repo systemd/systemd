@@ -244,10 +244,11 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         assert(running_as >= 0);
         assert(running_as < _MANAGER_RUNNING_AS_MAX);
 
-        if (!(m = new0(Manager, 1)))
+        m = new0(Manager, 1);
+        if (!m)
                 return -ENOMEM;
 
-        dual_timestamp_get(&m->startup_timestamp);
+        dual_timestamp_get(&m->userspace_timestamp);
 
         m->running_as = running_as;
         m->name_data_slot = m->conn_data_slot = m->subscribed_data_slot = -1;
@@ -1741,10 +1742,13 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool serialize_jobs) {
         fprintf(f, "n-installed-jobs=%u\n", m->n_installed_jobs);
         fprintf(f, "n-failed-jobs=%u\n", m->n_failed_jobs);
 
+        dual_timestamp_serialize(f, "firmware-timestamp", &m->firmware_timestamp);
+        dual_timestamp_serialize(f, "kernel-timestamp", &m->kernel_timestamp);
+        dual_timestamp_serialize(f, "loader-timestamp", &m->loader_timestamp);
         dual_timestamp_serialize(f, "initrd-timestamp", &m->initrd_timestamp);
 
         if (!in_initrd()) {
-                dual_timestamp_serialize(f, "startup-timestamp", &m->startup_timestamp);
+                dual_timestamp_serialize(f, "userspace-timestamp", &m->userspace_timestamp);
                 dual_timestamp_serialize(f, "finish-timestamp", &m->finish_timestamp);
         }
 
@@ -1836,10 +1840,16 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_debug("Failed to parse taint /usr flag %s", l+10);
                         else
                                 m->taint_usr = m->taint_usr || b;
-                } else if (startswith(l, "initrd-timestamp="))
+                } else if (startswith(l, "firmware-timestamp="))
+                        dual_timestamp_deserialize(l+19, &m->firmware_timestamp);
+                else if (startswith(l, "loader-timestamp="))
+                        dual_timestamp_deserialize(l+17, &m->loader_timestamp);
+                else if (startswith(l, "kernel-timestamp="))
+                        dual_timestamp_deserialize(l+17, &m->kernel_timestamp);
+                else if (startswith(l, "initrd-timestamp="))
                         dual_timestamp_deserialize(l+17, &m->initrd_timestamp);
-                else if (startswith(l, "startup-timestamp="))
-                        dual_timestamp_deserialize(l+18, &m->startup_timestamp);
+                else if (startswith(l, "userspace-timestamp="))
+                        dual_timestamp_deserialize(l+20, &m->userspace_timestamp);
                 else if (startswith(l, "finish-timestamp="))
                         dual_timestamp_deserialize(l+17, &m->finish_timestamp);
                 else
@@ -2003,8 +2013,8 @@ bool manager_unit_pending_inactive(Manager *m, const char *name) {
 }
 
 void manager_check_finished(Manager *m) {
-        char userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
-        usec_t kernel_usec, initrd_usec, userspace_usec, total_usec;
+        char firmware[FORMAT_TIMESPAN_MAX], loader[FORMAT_TIMESPAN_MAX], userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
+        usec_t firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec;
 
         assert(m);
 
@@ -2024,13 +2034,20 @@ void manager_check_finished(Manager *m) {
 
         if (m->running_as == MANAGER_SYSTEM && detect_container(NULL) <= 0) {
 
-                userspace_usec = m->finish_timestamp.monotonic - m->startup_timestamp.monotonic;
-                total_usec = m->finish_timestamp.monotonic;
+                /* Note that m->kernel_usec.monotonic is always at 0,
+                 * and m->firmware_usec.monotonic and
+                 * m->loader_usec.monotonic should be considered
+                 * negative values. */
+
+                firmware_usec = m->firmware_usec.monotonic - m->loader_timestamp.monotonic;
+                loader_usec = m->loader_usec.monotonic - m->kernel_usec.monotonic;
+                userspace_usec = m->finish_timestamp.monotonic - m->userspace_timestamp.monotonic;
+                total_usec = m->firmware_usec.monotonic + m->finish_timestamp.monotonic;
 
                 if (dual_timestamp_is_set(&m->initrd_timestamp)) {
 
-                        kernel_usec = m->initrd_timestamp.monotonic;
-                        initrd_usec = m->startup_timestamp.monotonic - m->initrd_timestamp.monotonic;
+                        kernel_usec = m->initrd_timestamp.monotonic - m->kernel_timestamp.monotonic;
+                        initrd_usec = m->userspace_timestamp.monotonic - m->initrd_timestamp.monotonic;
 
                         if (!log_on_console())
                                 log_struct(LOG_INFO,
@@ -2045,7 +2062,7 @@ void manager_check_finished(Manager *m) {
                                            format_timespan(sum, sizeof(sum), total_usec),
                                            NULL);
                 } else {
-                        kernel_usec = m->startup_timestamp.monotonic;
+                        kernel_usec = m->userspace_timestamp.monotonic - m->kernel_timestamp.monotonic;
                         initrd_usec = 0;
 
                         if (!log_on_console())
@@ -2060,8 +2077,8 @@ void manager_check_finished(Manager *m) {
                                            NULL);
                 }
         } else {
-                initrd_usec = kernel_usec = 0;
-                total_usec = userspace_usec = m->finish_timestamp.monotonic - m->startup_timestamp.monotonic;
+                firmware_usec = loader_usec = initrd_usec = kernel_usec = 0;
+                total_usec = userspace_usec = m->finish_timestamp.monotonic - m->userspace_timestamp.monotonic;
 
                 if (!log_on_console())
                         log_struct(LOG_INFO,
@@ -2072,7 +2089,7 @@ void manager_check_finished(Manager *m) {
                                    NULL);
         }
 
-        bus_broadcast_finished(m, kernel_usec, initrd_usec, userspace_usec, total_usec);
+        bus_broadcast_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);
 
         sd_notifyf(false,
                    "READY=1\nSTATUS=Startup finished in %s.",

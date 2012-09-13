@@ -146,8 +146,11 @@ struct Manager {
         usec_t runtime_watchdog;
         usec_t shutdown_watchdog;
 
+        dual_timestamp firmware_timestamp;
+        dual_timestamp loader_timestamp;
+        dual_timestamp kernel_timestamp;
         dual_timestamp initrd_timestamp;
-        dual_timestamp startup_timestamp;
+        dual_timestamp userspace_timestamp;
         dual_timestamp finish_timestamp;
 
         char *generator_unit_path;

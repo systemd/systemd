@@ -222,7 +222,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                         break;
 
                 case TIMER_STARTUP:
-                        base = UNIT(t)->manager->startup_timestamp.monotonic;
+                        base = UNIT(t)->manager->userspace_timestamp.monotonic;
                         break;
 
                 case TIMER_UNIT_ACTIVE:

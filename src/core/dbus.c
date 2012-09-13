@@ -1436,6 +1436,8 @@ int bus_fdset_add_all(Manager *m, FDSet *fds) {
 
 void bus_broadcast_finished(
                 Manager *m,
+                usec_t firmware_usec,
+                usec_t loader_usec,
                 usec_t kernel_usec,
                 usec_t initrd_usec,
                 usec_t userspace_usec,
@@ -1453,6 +1455,8 @@ void bus_broadcast_finished(
 
         assert_cc(sizeof(usec_t) == sizeof(uint64_t));
         if (!dbus_message_append_args(message,
+                                      DBUS_TYPE_UINT64, &firmware_usec,
+                                      DBUS_TYPE_UINT64, &loader_usec,
                                       DBUS_TYPE_UINT64, &kernel_usec,
                                       DBUS_TYPE_UINT64, &initrd_usec,
                                       DBUS_TYPE_UINT64, &userspace_usec,
