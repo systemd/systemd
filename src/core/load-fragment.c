@@ -1469,6 +1469,7 @@ int config_parse_unit_condition_path(
         Unit *u = data;
         bool trigger, negate;
         Condition *c;
+        char *p;
 
         assert(filename);
         assert(lvalue);
@@ -1483,14 +1484,19 @@ int config_parse_unit_condition_path(
         if (negate)
                 rvalue++;
 
-        if (!path_is_absolute(rvalue)) {
-                log_error("[%s:%u] Path in condition not absolute, ignoring: %s", filename, line, rvalue);
+        p = unit_full_printf(u, rvalue);
+        if (!p)
+                return -ENOMEM;
+
+        if (!path_is_absolute(p)) {
+                log_error("[%s:%u] Path in condition not absolute, ignoring: %s", filename, line, p);
                 return 0;
         }
 
-        c = condition_new(cond, rvalue, trigger, negate);
+        c = condition_new(cond, p, trigger, negate);
         if (!c)
                 return -ENOMEM;
+        free(p);
 
         LIST_PREPEND(Condition, conditions, u->conditions, c);
         return 0;
@@ -1510,6 +1516,7 @@ int config_parse_unit_condition_string(
         Unit *u = data;
         bool trigger, negate;
         Condition *c;
+        char *s;
 
         assert(filename);
         assert(lvalue);
@@ -1524,9 +1531,14 @@ int config_parse_unit_condition_string(
         if (negate)
                 rvalue++;
 
-        c = condition_new(cond, rvalue, trigger, negate);
+        s = unit_full_printf(u, rvalue);
+        if (!s)
+                return -ENOMEM;
+
+        c = condition_new(cond, s, trigger, negate);
         if (!c)
                 return log_oom();
+        free(s);
 
         LIST_PREPEND(Condition, conditions, u->conditions, c);
         return 0;
