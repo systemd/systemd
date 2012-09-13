@@ -3419,7 +3419,6 @@ _journal_la_SOURCES = \
 _journal_la_CFLAGS = \
 	$(AM_CFLAGS) \
         -fvisibility=default \
-	-Wno-missing-prototypes \
 	$(PYTHON_CFLAGS)
 
 _journal_la_LDFLAGS = \

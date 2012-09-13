@@ -113,6 +113,9 @@ static PyMethodDef methods[] = {
         { NULL, NULL, 0, NULL }        /* Sentinel */
 };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+
 #if PY_MAJOR_VERSION < 3
 
 PyMODINIT_FUNC init_journal(void) {
@@ -132,5 +135,7 @@ static struct PyModuleDef module = {
 PyMODINIT_FUNC PyInit__journal(void) {
         return PyModule_Create(&module);
 }
+
+#pragma GCC diagnostic pop
 
 #endif
