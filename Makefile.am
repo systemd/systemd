@@ -65,6 +65,7 @@ rpmmacrosdir=$(sysconfdir)/rpm
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
 userunitdir=$(prefix)/lib/systemd/user
+userpresetdir=$(prefix)/lib/systemd/user-preset
 tmpfilesdir=$(prefix)/lib/tmpfiles.d
 sysctldir=$(prefix)/lib/sysctl.d
 usergeneratordir=$(prefix)/lib/systemd/user-generators
@@ -73,6 +74,7 @@ systemgeneratordir=$(rootlibexecdir)/system-generators
 systemshutdowndir=$(rootlibexecdir)/system-shutdown
 systemsleepdir=$(rootlibexecdir)/system-sleep
 systemunitdir=$(rootprefix)/lib/systemd/system
+systempresetdir=$(rootprefix)/lib/systemd/system-preset
 udevlibexecdir=$(rootprefix)/lib/udev
 udevhomedir = $(udevlibexecdir)
 udevrulesdir = $(udevlibexecdir)/rules.d
@@ -3450,6 +3452,8 @@ SED_PROCESS = \
 		-e 's,@pkgdatadir\@,$(pkgdatadir),g' \
 		-e 's,@systemunitdir\@,$(systemunitdir),g' \
 		-e 's,@userunitdir\@,$(userunitdir),g' \
+		-e 's,@systempresetdir\@,$(systempresetdir),g' \
+		-e 's,@userpresetdir\@,$(userpresetdir),g' \
 		-e 's,@PACKAGE_VERSION\@,$(PACKAGE_VERSION),g' \
 		-e 's,@PACKAGE_NAME\@,$(PACKAGE_NAME),g' \
 		-e 's,@PACKAGE_URL\@,$(PACKAGE_URL),g' \

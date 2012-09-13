@@ -20,6 +20,7 @@
 # RPM macros for packages installing systemd unit files
 
 %_unitdir @systemunitdir@
+%_presetdir @systempresetdir@
 
 %systemd_requires \
 Requires(post): systemd \
