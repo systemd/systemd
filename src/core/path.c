@@ -73,14 +73,16 @@ int path_spec_watch(PathSpec *s, Unit *u) {
                 goto fail;
         }
 
-        if ((s->primary_wd = inotify_add_watch(s->inotify_fd, k, flags_table[s->type])) >= 0)
+        s->primary_wd = inotify_add_watch(s->inotify_fd, k, flags_table[s->type]);
+        if (s->primary_wd >= 0)
                 exists = true;
 
         do {
                 int flags;
 
                 /* This assumes the path was passed through path_kill_slashes()! */
-                if (!(slash = strrchr(k, '/')))
+                slash = strrchr(k, '/');
+                if (!slash)
                         break;
 
                 /* Trim the path at the last slash. Keep the slash if it's the root dir. */

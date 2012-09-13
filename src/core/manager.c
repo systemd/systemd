@@ -2013,7 +2013,7 @@ bool manager_unit_pending_inactive(Manager *m, const char *name) {
 }
 
 void manager_check_finished(Manager *m) {
-        char firmware[FORMAT_TIMESPAN_MAX], loader[FORMAT_TIMESPAN_MAX], userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
+        char userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
         usec_t firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec;
 
         assert(m);
@@ -2039,10 +2039,10 @@ void manager_check_finished(Manager *m) {
                  * m->loader_usec.monotonic should be considered
                  * negative values. */
 
-                firmware_usec = m->firmware_usec.monotonic - m->loader_timestamp.monotonic;
-                loader_usec = m->loader_usec.monotonic - m->kernel_usec.monotonic;
+                firmware_usec = m->firmware_timestamp.monotonic - m->loader_timestamp.monotonic;
+                loader_usec = m->loader_timestamp.monotonic - m->kernel_timestamp.monotonic;
                 userspace_usec = m->finish_timestamp.monotonic - m->userspace_timestamp.monotonic;
-                total_usec = m->firmware_usec.monotonic + m->finish_timestamp.monotonic;
+                total_usec = m->firmware_timestamp.monotonic + m->finish_timestamp.monotonic;
 
                 if (dual_timestamp_is_set(&m->initrd_timestamp)) {
 
