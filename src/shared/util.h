@@ -430,8 +430,8 @@ int terminal_vhangup(const char *name);
 int vt_disallocate(const char *name);
 
 int copy_file(const char *from, const char *to);
-int symlink_or_copy(const char *from, const char *to);
-int symlink_or_copy_atomic(const char *from, const char *to);
+
+int symlink_atomic(const char *from, const char *to);
 
 int fchmod_umask(int fd, mode_t mode);
 

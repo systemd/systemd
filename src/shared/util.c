@@ -4644,49 +4644,9 @@ int copy_file(const char *from, const char *to) {
         return 0;
 }
 
-int symlink_or_copy(const char *from, const char *to) {
-        char *pf = NULL, *pt = NULL;
-        struct stat a, b;
-        int r;
-
-        assert(from);
-        assert(to);
-
-        if (path_get_parent(from, &pf) < 0 ||
-            path_get_parent(to, &pt) < 0) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (stat(pf, &a) < 0 ||
-            stat(pt, &b) < 0) {
-                r = -errno;
-                goto finish;
-        }
-
-        if (a.st_dev != b.st_dev) {
-                free(pf);
-                free(pt);
-
-                return copy_file(from, to);
-        }
-
-        if (symlink(from, to) < 0) {
-                r = -errno;
-                goto finish;
-        }
-
-        r = 0;
-
-finish:
-        free(pf);
-        free(pt);
-
-        return r;
-}
-
-int symlink_or_copy_atomic(const char *from, const char *to) {
-        char *t, *x;
+int symlink_atomic(const char *from, const char *to) {
+        char *x;
+        _cleanup_free_ char *t;
         const char *fn;
         size_t k;
         unsigned long long ull;
@@ -4714,22 +4674,16 @@ int symlink_or_copy_atomic(const char *from, const char *to) {
 
         *x = 0;
 
-        r = symlink_or_copy(from, t);
-        if (r < 0) {
-                unlink(t);
-                free(t);
-                return r;
-        }
+        if (symlink(from, t) < 0)
+                return -errno;
 
         if (rename(t, to) < 0) {
                 r = -errno;
                 unlink(t);
-                free(t);
                 return r;
         }
 
-        free(t);
-        return r;
+        return 0;
 }
 
 bool display_is_local(const char *display) {

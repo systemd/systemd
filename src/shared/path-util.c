@@ -264,12 +264,12 @@ char *path_kill_slashes(char *path) {
         return path;
 }
 
-bool path_startswith(const char *path, const char *prefix) {
+char* path_startswith(const char *path, const char *prefix) {
         assert(path);
         assert(prefix);
 
         if ((path[0] == '/') != (prefix[0] == '/'))
-                return false;
+                return NULL;
 
         for (;;) {
                 size_t a, b;
@@ -278,19 +278,19 @@ bool path_startswith(const char *path, const char *prefix) {
                 prefix += strspn(prefix, "/");
 
                 if (*prefix == 0)
-                        return true;
+                        return (char*) path;
 
                 if (*path == 0)
-                        return false;
+                        return NULL;
 
                 a = strcspn(path, "/");
                 b = strcspn(prefix, "/");
 
                 if (a != b)
-                        return false;
+                        return NULL;
 
                 if (memcmp(path, prefix, a) != 0)
-                        return false;
+                        return NULL;
 
                 path += a;
                 prefix += b;

@@ -53,6 +53,10 @@ Bugfixes:
 
 Features:
 
+* hw watchdog: optionally try to use the preset watchdog timeout instead of always overriding it
+
+* after deserializing sockets in socket.c we should reapply sockopts and things
+
 * journald: warn if we drop messages we forward to the syslog socket
 
 * does vasprintf advance the struct vaargs? http://pastie.org/pastes/4712773/text
