@@ -2050,7 +2050,7 @@ bool fstype_is_network(const char *fstype) {
                 "nfs\0"
                 "nfs4\0"
                 "gfs\0"
-                "gfs2";
+                "gfs2\0";
 
         return nulstr_contains(table, fstype);
 }
@@ -2904,9 +2904,9 @@ int make_stdio(int fd) {
 
         assert(fd >= 0);
 
-        r = dup2(fd, STDIN_FILENO);
-        s = dup2(fd, STDOUT_FILENO);
-        t = dup2(fd, STDERR_FILENO);
+        r = dup3(fd, STDIN_FILENO, 0);
+        s = dup3(fd, STDOUT_FILENO, 0);
+        t = dup3(fd, STDERR_FILENO, 0);
 
         if (fd >= 3)
                 close_nointr_nofail(fd);
@@ -2914,9 +2914,7 @@ int make_stdio(int fd) {
         if (r < 0 || s < 0 || t < 0)
                 return -errno;
 
-        fd_cloexec(STDIN_FILENO, false);
-        fd_cloexec(STDOUT_FILENO, false);
-        fd_cloexec(STDERR_FILENO, false);
+        /* We rely here that the new fd has O_CLOEXEC not set */
 
         return 0;
 }
@@ -3870,7 +3868,12 @@ int touch(const char *path) {
 
         assert(path);
 
-        if ((fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0644)) < 0)
+        /* This just opens the file for writing, ensuring it
+         * exists. It doesn't call utimensat() the way /usr/bin/touch
+         * does it. */
+
+        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0644);
+        if (fd < 0)
                 return -errno;
 
         close_nointr_nofail(fd);
@@ -3880,6 +3883,10 @@ int touch(const char *path) {
 char *unquote(const char *s, const char* quotes) {
         size_t l;
         assert(s);
+
+        /* This is rather stupid, simply removes the heading and
+         * trailing quotes if there is one. Doesn't care about
+         * escaping or anything. */
 
         l = strlen(s);
         if (l < 2)
@@ -4022,10 +4029,12 @@ DIR *xopendirat(int fd, const char *name, int flags) {
         int nfd;
         DIR *d;
 
-        if ((nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags)) < 0)
+        nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags);
+        if (nfd < 0)
                 return NULL;
 
-        if (!(d = fdopendir(nfd))) {
+        d = fdopendir(nfd);
+        if (!d) {
                 close_nointr_nofail(nfd);
                 return NULL;
         }
@@ -4037,7 +4046,8 @@ int signal_from_string_try_harder(const char *s) {
         int signo;
         assert(s);
 
-        if ((signo = signal_from_string(s)) <= 0)
+        signo = signal_from_string(s);
+        if (signo <= 0)
                 if (startswith(s, "SIG"))
                         return signal_from_string(s+3);
 
