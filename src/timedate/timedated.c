@@ -176,20 +176,20 @@ static int read_data(void) {
                 }
         }
 
-#ifdef HAVE_SYSV_COMPAT
+#ifdef TARGET_FEDORA
+        r = parse_env_file("/etc/sysconfig/clock", NEWLINE,
+                           "ZONE", &tz.zone,
+                           NULL);
+
+        if (r < 0 && r != -ENOENT)
+                log_warning("Failed to read /etc/sysconfig/clock: %s", strerror(-r));
+#endif
+
+#ifdef HAVE_DEBIAN
         r = read_one_line_file("/etc/timezone", &tz.zone);
         if (r < 0) {
                 if (r != -ENOENT)
                         log_warning("Failed to read /etc/timezone: %s", strerror(-r));
-
-#ifdef TARGET_FEDORA
-                r = parse_env_file("/etc/sysconfig/clock", NEWLINE,
-                                   "ZONE", &tz.zone,
-                                   NULL);
-
-                if (r < 0 && r != -ENOENT)
-                        log_warning("Failed to read /etc/sysconfig/clock: %s", strerror(-r));
-#endif
         }
 #endif
 
@@ -207,13 +207,16 @@ have_timezone:
 static int write_data_timezone(void) {
         int r = 0;
         _cleanup_free_ char *p = NULL;
+
+#ifdef TARGET_DEBIAN
         struct stat st;
+#endif
 
         if (!tz.zone) {
                 if (unlink("/etc/localtime") < 0 && errno != ENOENT)
                         r = -errno;
 
-#ifdef HAVE_SYSV_COMPAT
+#ifdef TARGET_DEBIAN
                 if (unlink("/etc/timezone") < 0 && errno != ENOENT)
                         r = -errno;
 #endif
@@ -229,7 +232,7 @@ static int write_data_timezone(void) {
         if (r < 0)
                 return r;
 
-#ifdef HAVE_SYSV_COMPAT
+#ifdef TARGET_DEBIAN
         if (stat("/etc/timezone", &st) == 0 && S_ISREG(st.st_mode)) {
                 r = write_one_line_file_atomic("/etc/timezone", tz.zone);
                 if (r < 0)
