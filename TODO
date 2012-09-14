@@ -43,6 +43,8 @@ Bugfixes:
 
 Features:
 
+* make nspawn work without terminal
+
 * hw watchdog: optionally try to use the preset watchdog timeout instead of always overriding it
 
 * after deserializing sockets in socket.c we should reapply sockopts and things
