@@ -1253,14 +1253,16 @@ bool bus_error_is_no_service(const DBusError *error) {
         return startswith(error->name, "org.freedesktop.DBus.Error.Spawn.");
 }
 
-int bus_method_call_with_reply(DBusConnection *bus,
-                                       const char *destination,
-                                       const char *path,
-                                       const char *interface,
-                                       const char *method,
-                                       DBusMessage **return_reply,
-                                       DBusError *return_error,
-                                       int first_arg_type, ...) {
+int bus_method_call_with_reply(
+                DBusConnection *bus,
+                const char *destination,
+                const char *path,
+                const char *interface,
+                const char *method,
+                DBusMessage **return_reply,
+                DBusError *return_error,
+                int first_arg_type, ...) {
+
         DBusError error;
         DBusMessage *m, *reply;
         va_list ap;
@@ -1287,6 +1289,7 @@ int bus_method_call_with_reply(DBusConnection *bus,
         if (!reply) {
                 if (!return_error)
                         log_error("Failed to issue method call: %s", bus_error_message(&error));
+
                 if (bus_error_is_no_service(&error))
                         r = -ENOENT;
                 else if (dbus_error_has_name(&error, DBUS_ERROR_ACCESS_DENIED))

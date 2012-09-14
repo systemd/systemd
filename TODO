@@ -53,6 +53,8 @@ Bugfixes:
 
 Features:
 
+* journald: warn if we drop messages we forward to the syslog socket
+
 * does vasprintf advance the struct vaargs? http://pastie.org/pastes/4712773/text
 
 * do shutdown audit/utmp msgs inside of PID 1, get rid of systemd-update-utmp-runlevel

@@ -265,6 +265,8 @@ static void remove_entry(Hashmap *h, struct hashmap_entry *e) {
 
 void hashmap_free(Hashmap*h) {
 
+        /* Free the hashmap, but nothing in it */
+
         if (!h)
                 return;
 
@@ -277,6 +279,10 @@ void hashmap_free(Hashmap*h) {
 }
 
 void hashmap_free_free(Hashmap *h) {
+
+        /* Free the hashmap and all data objects in it, but not the
+         * keys */
+
         if (!h)
                 return;
 
@@ -371,8 +377,8 @@ void* hashmap_get(Hashmap *h, const void *key) {
                 return NULL;
 
         hash = h->hash_func(key) % NBUCKETS;
-
-        if (!(e = hash_scan(h, hash, key)))
+        e = hash_scan(h, hash, key);
+        if (!e)
                 return NULL;
 
         return e->value;

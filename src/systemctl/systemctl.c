@@ -1175,6 +1175,8 @@ finish:
 
 typedef struct WaitData {
         Set *set;
+
+        char *name;
         char *result;
 } WaitData;
 
@@ -1213,8 +1215,11 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
                         p = set_remove(d->set, (char*) path);
                         free(p);
 
-                        if (*result)
+                        if (!isempty(result))
                                 d->result = strdup(result);
+
+                        if (!isempty(unit))
+                                d->name = strdup(unit);
 
                         goto finish;
                 }
@@ -1297,7 +1302,7 @@ static int enable_wait_for_jobs(DBusConnection *bus) {
 }
 
 static int wait_for_jobs(DBusConnection *bus, Set *s) {
-        int r;
+        int r = 0;
         WaitData d;
 
         assert(bus);
@@ -1306,41 +1311,42 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
         zero(d);
         d.set = s;
 
-        if (!dbus_connection_add_filter(bus, wait_filter, &d, NULL)) {
-                log_error("Failed to add filter.");
-                r = -ENOMEM;
-                goto finish;
+        if (!dbus_connection_add_filter(bus, wait_filter, &d, NULL))
+                return log_oom();
+
+        while (!set_isempty(s)) {
+
+                if (!dbus_connection_read_write_dispatch(bus, -1)) {
+                        log_error("Disconnected from bus.");
+                        return -ECONNREFUSED;
+                }
+
+                if (!arg_quiet && d.result) {
+                        if (streq(d.result, "timeout"))
+                                log_error("Job for %s timed out.", strna(d.name));
+                        else if (streq(d.result, "canceled"))
+                                log_error("Job for %s canceled.", strna(d.name));
+                        else if (streq(d.result, "dependency"))
+                                log_error("A dependency job for %s failed. See 'journalctl' for details.", strna(d.name));
+                        else if (!streq(d.result, "done") && !streq(d.result, "skipped"))
+                                log_error("Job for %s failed. See 'systemctl status %s' and 'journalctl' for details.", strna(d.name), strna(d.name));
+                }
+
+                if (streq_ptr(d.result, "timeout"))
+                        r = -ETIME;
+                else if (streq_ptr(d.result, "canceled"))
+                        r = -ECANCELED;
+                else if (!streq_ptr(d.result, "done") && !streq_ptr(d.result, "skipped"))
+                        r = -EIO;
+
+                free(d.result);
+                d.result = NULL;
+
+                free(d.name);
+                d.name = NULL;
         }
 
-        while (!set_isempty(s) &&
-               dbus_connection_read_write_dispatch(bus, -1))
-                ;
-
-        if (!arg_quiet && d.result) {
-                if (streq(d.result, "timeout"))
-                        log_error("Job timed out.");
-                else if (streq(d.result, "canceled"))
-                        log_error("Job canceled.");
-                else if (streq(d.result, "dependency"))
-                        log_error("A dependency job failed. See system journal for details.");
-                else if (!streq(d.result, "done") && !streq(d.result, "skipped"))
-                        log_error("Job failed. See system journal and 'systemctl status' for details.");
-        }
-
-        if (streq_ptr(d.result, "timeout"))
-                r = -ETIME;
-        else if (streq_ptr(d.result, "canceled"))
-                r = -ECANCELED;
-        else if (!streq_ptr(d.result, "done") && !streq_ptr(d.result, "skipped"))
-                r = -EIO;
-        else
-                r = 0;
-
-        free(d.result);
-
-finish:
         /* This is slightly dirty, since we don't undo the filter registration. */
-
         return r;
 }
 
@@ -1517,16 +1523,18 @@ static int start_unit_one(
         DBusMessage *reply = NULL;
         const char *path;
         int r;
-        char *n;
+        _cleanup_free_ char *n, *p = NULL;
 
         assert(method);
         assert(name);
         assert(mode);
         assert(error);
-        assert(arg_no_block || s);
 
         n = unit_name_mangle(name);
-        r = bus_method_call_with_reply (
+        if (!n)
+                return log_oom();
+
+        r = bus_method_call_with_reply(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
@@ -1534,17 +1542,17 @@ static int start_unit_one(
                         method,
                         &reply,
                         error,
-                        DBUS_TYPE_STRING, n ? (const char **) &n : &name,
+                        DBUS_TYPE_STRING, &n,
                         DBUS_TYPE_STRING, &mode,
                         DBUS_TYPE_INVALID);
-        free(n);
         if (r) {
-                if (r == -ENOENT && arg_action != ACTION_SYSTEMCTL )
+                if (r == -ENOENT && arg_action != ACTION_SYSTEMCTL)
                         /* There's always a fallback possible for
                          * legacy actions. */
                         r = -EADDRNOTAVAIL;
                 else
                         log_error("Failed to issue method call: %s", bus_error_message(error));
+
                 goto finish;
         }
 
@@ -1556,24 +1564,24 @@ static int start_unit_one(
                 goto finish;
         }
 
-        if (need_daemon_reload(bus, name))
-                log_warning("Warning: Unit file of created job changed on disk, 'systemctl %s daemon-reload' recommended.",
-                            arg_scope == UNIT_FILE_SYSTEM ? "--system" : "--user");
+        if (need_daemon_reload(bus, n))
+                log_warning("Warning: Unit file of %s changed on disk, 'systemctl %s daemon-reload' recommended.",
+                            n, arg_scope == UNIT_FILE_SYSTEM ? "--system" : "--user");
 
-        if (!arg_no_block) {
-                char *p;
-
-                if (!(p = strdup(path))) {
-                        log_error("Failed to duplicate path.");
-                        r = -ENOMEM;
+        if (s) {
+                p = strdup(path);
+                if (!p) {
+                        r = log_oom();
                         goto finish;
                 }
 
-                if ((r = set_put(s, p)) < 0) {
-                        free(p);
+                r = set_put(s, p);
+                if (r < 0) {
                         log_error("Failed to add path to set.");
                         goto finish;
                 }
+
+                p = NULL;
         }
 
         /* When stopping a unit warn if it can still be triggered by
@@ -1688,39 +1696,43 @@ static int start_unit(DBusConnection *bus, char **args) {
         }
 
         if (!arg_no_block) {
-                if ((ret = enable_wait_for_jobs(bus)) < 0) {
+                ret = enable_wait_for_jobs(bus);
+                if (ret < 0) {
                         log_error("Could not watch jobs: %s", strerror(-ret));
                         goto finish;
                 }
 
-                if (!(s = set_new(string_hash_func, string_compare_func))) {
-                        log_error("Failed to allocate set.");
-                        ret = -ENOMEM;
+                s = set_new(string_hash_func, string_compare_func);
+                if (!s) {
+                        ret = log_oom();
                         goto finish;
                 }
         }
 
         if (one_name) {
-                if ((ret = start_unit_one(bus, method, one_name, mode, &error, s)) <= 0)
-                        goto finish;
+                ret = start_unit_one(bus, method, one_name, mode, &error, s);
+                if (ret < 0)
+                        ret = translate_bus_error_to_exit_status(ret, &error);
         } else {
-                STRV_FOREACH(name, args+1)
-                        if ((r = start_unit_one(bus, method, *name, mode, &error, s)) != 0) {
+                STRV_FOREACH(name, args+1) {
+                        r = start_unit_one(bus, method, *name, mode, &error, s);
+                        if (r < 0) {
                                 ret = translate_bus_error_to_exit_status(r, &error);
                                 dbus_error_free(&error);
                         }
+                }
         }
 
-        if (!arg_no_block)
-                if ((r = wait_for_jobs(bus, s)) < 0) {
+        if (!arg_no_block) {
+                r = wait_for_jobs(bus, s);
+                if (r < 0) {
                         ret = r;
                         goto finish;
                 }
+        }
 
 finish:
-        if (s)
-                set_free_free(s);
-
+        set_free_free(s);
         dbus_error_free(&error);
 
         return ret;
