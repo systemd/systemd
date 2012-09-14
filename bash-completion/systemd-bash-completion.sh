@@ -279,3 +279,54 @@ _loginctl () {
         return 0
 }
 complete -F _loginctl loginctl
+
+_journalctl() {
+        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+        local -A OPTS=(
+                [STANDALONE]='-a --all -b --this-boot -f --follow --header
+                              -h --help -l --local --new-id128 --no-pager
+                              --no-tail -q --quiet --setup-keys --verify --version'
+                [ARG]='-D --directory --interval -n --lines -o --output
+                       -p --priority --verify-key'
+        )
+        local journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
+                              ERRNO SYSLOG_{FACILITY,IDENTIFIER,PID}
+                              _{P,U,G}ID _COMM _EXE _CMDLINE
+                              _AUDIT_{SESSION,LOGINUID}
+                              _SYSTEMD_{CGROUP,SESSION,UNIT,OWNER_UID}
+                              _SELINUX_CONTEXT _SOURCE_REALTIME_TIMESTAMP
+                              _{BOOT,MACHINE}_ID _HOSTNAME _TRANSPORT
+                              _KERNEL_{DEVICE,SUBSYSTEM}
+                              _UDEV_{SYSNAME,DEVNODE,DEVLINK}
+                              __CURSOR __{REALTIME,MONOTONIC}_TIMESTAMP)
+
+
+        if __contains_word "$prev" ${OPTS[ARG]}; then
+                case $prev in
+                        --directory|-D|--verify-key)
+                                comps=$(compgen -A file -- "$cur")
+                                compopt -o filenames
+                        ;;
+                        --output|-o)
+                                comps='short short-monotonic verbose export json cat'
+                        ;;
+                        *)
+                                return 0
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                return 0
+        fi
+
+        if [[ $cur = -* ]]; then
+                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+                return 0
+        else
+                # append an '=' to the end of the completed field
+                # TODO: would be nice to be able to tell readline here not to
+                # append an extra space after the completed word, if such an
+                # option exists.
+                COMPREPLY=( $(compgen -W '${journal_fields[*]/%/=}' -- "$cur") )
+        fi
+}
+complete -F _journalctl journalctl
