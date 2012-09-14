@@ -143,16 +143,16 @@ _systemctl () {
         elif __contains_word "$verb" ${VERBS[STARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property CanStart yes \
                       $( __get_inactive_units \
-		        | while read -r line; do \
-		                [[ "$line" =~ \.(device|snapshot)$ ]] || printf "%s\n" "$line"; \
-		        done ))
+                        | while read -r line; do \
+                                [[ "$line" =~ \.(device|snapshot)$ ]] || printf "%s\n" "$line"; \
+                        done ))
 
         elif __contains_word "$verb" ${VERBS[RESTARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property CanStart yes \
                       $( __get_all_units \
-		        | while read -r line; do \
-		                [[ "$line" =~ \.(device|snapshot|socket|timer)$ ]] || printf "%s\n" "$line"; \
-		        done ))
+                        | while read -r line; do \
+                                [[ "$line" =~ \.(device|snapshot|socket|timer)$ ]] || printf "%s\n" "$line"; \
+                        done ))
 
         elif __contains_word "$verb" ${VERBS[STOPPABLE_UNITS]}; then
                 comps=$( __filter_units_by_property CanStop yes \
