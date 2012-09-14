@@ -41,7 +41,7 @@ AC_DEFUN([CC_CHECK_FLAG_APPEND], [
   AC_CACHE_CHECK([if $CC supports flag $3 in envvar $2],
                  AS_TR_SH([cc_cv_$2_$3]),
 		 [eval "AS_TR_SH([cc_save_$2])='${$2}'"
-		  eval "AS_TR_SH([$2])='$3'"
+		  eval "AS_TR_SH([$2])='-Werror $3'"
 		  AC_COMPILE_IFELSE([AC_LANG_SOURCE([int a = 0; int main(void) { return a; } ])],
                                     [eval "AS_TR_SH([cc_cv_$2_$3])='yes'"],
                                     [eval "AS_TR_SH([cc_cv_$2_$3])='no'"])
