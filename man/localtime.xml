@@ -55,7 +55,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>/etc/localtime</filename> -> <filename>/usr/share/zoneinfo/…</filename></para>
+                <para><filename>/etc/localtime</filename> -> <filename>../usr/share/zoneinfo/…</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
@@ -64,17 +64,20 @@
                 <para>The <filename>/etc/localtime</filename> file
                 configures the system-wide time zone of the local
                 system that is used by applications for presentation
-                to the user. It should be an absolute symbolic link
-                with a destination of <filename>/usr/share/zoneinfo/</filename>,
-                fallowed by a time zone identifier such as
-                <literal>Europe/Berlin</literal> or <literal>Etc/UTC</literal>.
-                The resulting link should point to the corresponding binary
+                to the user. It should be an absolute or relative
+                symbolic link pointing to
+                <filename>/usr/share/zoneinfo/</filename>, followed by
+                a time zone identifier such as
+                <literal>Europe/Berlin</literal> or
+                <literal>Etc/UTC</literal>.  The resulting link should
+                lead to the corresponding binary
                 <citerefentry><refentrytitle>tzfile</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 time zone data for the configured time zone.</para>
 
-                <para>As the time zone identifier is extracted from the name of
-                the target of <filename>/etc/localtime</filename> this file may
-                not be a normal file or hardlink.</para>
+                <para>As the time zone identifier is extracted from
+                the symlink target name of
+                <filename>/etc/localtime</filename> this file may not
+                be a normal file or hardlink.</para>
 
                 <para>The time zone may be overridden for individual
                 programs by using the TZ environment variable. See

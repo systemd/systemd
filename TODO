@@ -1,21 +1,11 @@
 Bugfixes:
 * always open() tty6 to keep X from using it; move debug shell to tty6
 
-* Fedora: rename /usr/lib/systemd/system-preset/99-default.preset to 90-default.preset
-
 * there is nothing to warn about here :)
   $ systemctl stop systemd-udevd.service systemd-udevd-kernel.socket systemd-udevd-control.socket
   Warning: Stopping systemd-udevd.service, but it can still be activated by:
   systemd-udevd-control.socket
   systemd-udevd-kernel.socket
-
-* kill /etc/timezone handling entirely? What does it provide?
-  - /etc/localtime carries the same information already:
-      $ ls -l /etc/localtime; cat /etc/timezone
-      lrwxrwxrwx 1 root root 33 Jul 27 09:55 /etc/localtime -> /usr/share/zoneinfo/Europe/Berlin
-      Europe/Berlin
-  - systemd enforces /usr to be available at bootup, so we can
-    enforce the use of the symlink
 
 * check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
 
@@ -63,14 +53,9 @@ Features:
 
 * do shutdown audit/utmp msgs inside of PID 1, get rid of systemd-update-utmp-runlevel
 
-* make use of macros like this:
-
-        #define _cleanup_free_ __attribute__((cleanup(freep)))
-        #define _cleanup_fclose_ __attribute__((cleanup(fclosep)))
-
 * make timer units go away after they elapsed
 
-+ refuse automount triggers when automount is queued for stop, much like we refuse socket triggers when sockets are queued for stop
+* refuse automount triggers when automount is queued for stop, much like we refuse socket triggers when sockets are queued for stop
 
 * perfomance messages for selinux are gone from debug log?
 
@@ -88,8 +73,6 @@ Features:
 
 * Document word splitting syntax for ExecStart= and friends
 
-* merge: github.com/systemd/python-systemd
-
 * when writing journal entries order field items by their address to improve speed on rotating media
 
 * create /sbin/init symlinks from the build system
@@ -104,13 +87,9 @@ Features:
 
 * json: properly serialize multiple fields with the same name per entry
 
-* journald: add option to choose between "split up nothing", "split up login user journals", "split up all user journals"
-
 * journal live copy, based on libneon (client) and libmicrohttpd
 
 * document in wiki json serialization
-
-* python-journal merge
 
 * system-wide seccomp filter
 
@@ -196,8 +175,6 @@ Features:
 * syscall filter: port to libseccomp
 
 * logind: wakelock/opportunistic suspend support
-
-* switch-root: sockets need relabelling
 
 * systemd-analyze post-boot is broken for initrd
 
@@ -390,9 +367,6 @@ Features:
 
 * when an instanced service exits, remove its parent cgroup too if possible.
 
-* if we can not get user quota for tmpfs, mount a separate tmpfs instance
-  for every user in /run/user/$USER with a configured maximum size
-
 * default to actual 32bit PIDs, via /proc/sys/kernel/pid_max
 
 * be able to specify a forced restart of service A where service B depends on, in case B
@@ -511,8 +485,6 @@ Features:
    - libvirtd (/var/run/libvirt/libvirt-sock-ro)
    - bluetoothd (/var/run/sdp! @/org/bluez/audio!)
    - distccd
-
-* auditd service files
 
 * fingerprint.target, wireless.target, gps.target, netdevice.target
 
