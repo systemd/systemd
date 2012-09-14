@@ -78,10 +78,10 @@ size_t page_size(void) {
         if (_likely_(pgsz > 0))
                 return pgsz;
 
-        assert_se((r = sysconf(_SC_PAGESIZE)) > 0);
+        r = sysconf(_SC_PAGESIZE);
+        assert(r > 0);
 
         pgsz = (size_t) r;
-
         return pgsz;
 }
 
@@ -223,10 +223,9 @@ bool startswith_no_case(const char *s, const char *prefix) {
         if (sl < pl)
                 return false;
 
-        for(i = 0; i < pl; ++i) {
+        for(i = 0; i < pl; ++i)
                 if (tolower(s[i]) != tolower(prefix[i]))
                         return false;
-        }
 
         return true;
 }
@@ -305,7 +304,8 @@ int parse_pid(const char *s, pid_t* ret_pid) {
         assert(s);
         assert(ret_pid);
 
-        if ((r = safe_atolu(s, &ul)) < 0)
+        r = safe_atolu(s, &ul);
+        if (r < 0)
                 return r;
 
         pid = (pid_t) ul;
@@ -328,7 +328,8 @@ int parse_uid(const char *s, uid_t* ret_uid) {
         assert(s);
         assert(ret_uid);
 
-        if ((r = safe_atolu(s, &ul)) < 0)
+        r = safe_atolu(s, &ul);
+        if (r < 0)
                 return r;
 
         uid = (uid_t) ul;
@@ -534,8 +535,7 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
 }
 
 int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
-        int r;
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
         char fn[PATH_MAX], line[LINE_MAX], *p;
 
         assert(pid > 0);
@@ -544,22 +544,23 @@ int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
         assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
         char_array_0(fn);
 
-        if (!(f = fopen(fn, "re")))
+        f = fopen(fn, "re");
+        if (!f)
                 return -errno;
 
-        if (!(fgets(line, sizeof(line), f))) {
-                r = feof(f) ? -EIO : -errno;
-                fclose(f);
-                return r;
-        }
+        if (!fgets(line, sizeof(line), f)) {
+                if (ferror(f))
+                        return -errno;
 
-        fclose(f);
+                return -EIO;
+        }
 
         /* Let's skip the pid and comm fields. The latter is enclosed
          * in () but does not escape any () in its value, so let's
          * skip over it manually */
 
-        if (!(p = strrchr(line, ')')))
+        p = strrchr(line, ')');
+        if (!p)
                 return -EIO;
 
         p++;
@@ -592,8 +593,7 @@ int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
 }
 
 int write_one_line_file(const char *fn, const char *line) {
-        FILE *f;
-        int r;
+        _cleanup_fclose_ FILE *f = NULL;
 
         assert(fn);
         assert(line);
@@ -603,27 +603,18 @@ int write_one_line_file(const char *fn, const char *line) {
                 return -errno;
 
         errno = 0;
-        if (fputs(line, f) < 0) {
-                r = -errno;
-                goto finish;
-        }
+        if (fputs(line, f) < 0)
+                return errno ? -errno : -EIO;
 
         if (!endswith(line, "\n"))
                 fputc('\n', f);
 
         fflush(f);
 
-        if (ferror(f)) {
-                if (errno != 0)
-                        r = -errno;
-                else
-                        r = -EIO;
-        } else
-                r = 0;
+        if (ferror(f))
+                return errno ? -errno : -EIO;
 
-finish:
-        fclose(f);
-        return r;
+        return 0;
 }
 
 int fchmod_umask(int fd, mode_t m) {
@@ -698,7 +689,7 @@ int read_one_line_file(const char *fn, char **line) {
         if (!fgets(t, sizeof(t), f)) {
 
                 if (ferror(f))
-                        return -errno;
+                        return errno ? -errno : -EIO;
 
                 t[0] = 0;
         }
@@ -5674,10 +5665,10 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
 }
 
 int can_sleep(const char *type) {
-        char *p, *w, *state;
+        char *w, *state;
         size_t l, k;
-        bool found = false;
         int r;
+        _cleanup_free_ char *p = NULL;
 
         assert(type);
 
@@ -5686,16 +5677,11 @@ int can_sleep(const char *type) {
                 return r == -ENOENT ? 0 : r;
 
         k = strlen(type);
+        FOREACH_WORD_SEPARATOR(w, l, p, WHITESPACE, state)
+                if (l == k && memcmp(w, type, l) == 0)
+                        return true;
 
-        FOREACH_WORD_SEPARATOR(w, l, p, WHITESPACE, state) {
-                if (l == k && strncmp(w, type, l) == 0) {
-                        found = true;
-                        break;
-                }
-        }
-
-        free(p);
-        return found;
+        return false;
 }
 
 bool is_valid_documentation_url(const char *url) {
@@ -5744,7 +5730,7 @@ bool in_initrd(void) {
 }
 
 void warn_melody(void) {
-        int fd;
+        _cleanup_close_ int fd = -1;
 
         fd = open("/dev/console", O_WRONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
@@ -5762,7 +5748,6 @@ void warn_melody(void) {
         usleep(125*USEC_PER_MSEC);
 
         ioctl(fd, KIOCSOUND, 0);
-        close_nointr_nofail(fd);
 }
 
 int make_console_stdio(void) {
@@ -5819,7 +5804,7 @@ int get_home_dir(char **_h) {
         errno = 0;
         p = getpwuid(u);
         if (!p)
-                return errno ? -errno : -ENOENT;
+                return errno ? -errno : -ESRCH;
 
         if (!path_is_absolute(p->pw_dir))
                 return -EINVAL;
@@ -5886,4 +5871,9 @@ void freep(void *p) {
 void fclosep(FILE **f) {
         if (*f)
                 fclose(*f);
+}
+
+void closep(int *fd) {
+        if (*fd >= 0)
+                close_nointr_nofail(*fd);
 }
