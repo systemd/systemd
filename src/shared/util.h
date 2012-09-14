@@ -532,3 +532,4 @@ int get_home_dir(char **ret);
 void freep(void *p);
 void fclosep(FILE **f);
 void closep(int *fd);
+void closedirp(DIR **d);

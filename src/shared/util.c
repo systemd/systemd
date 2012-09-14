@@ -2043,29 +2043,23 @@ char *format_timespan(char *buf, size_t l, usec_t t) {
 }
 
 bool fstype_is_network(const char *fstype) {
-        static const char * const table[] = {
-                "cifs",
-                "smbfs",
-                "ncpfs",
-                "nfs",
-                "nfs4",
-                "gfs",
-                "gfs2"
-        };
+        static const char table[] =
+                "cifs\0"
+                "smbfs\0"
+                "ncpfs\0"
+                "nfs\0"
+                "nfs4\0"
+                "gfs\0"
+                "gfs2";
 
-        unsigned i;
-
-        for (i = 0; i < ELEMENTSOF(table); i++)
-                if (streq(table[i], fstype))
-                        return true;
-
-        return false;
+        return nulstr_contains(table, fstype);
 }
 
 int chvt(int vt) {
-        int fd, r = 0;
+        _cleanup_close_ int fd;
 
-        if ((fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC)) < 0)
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
                 return -errno;
 
         if (vt < 0) {
@@ -2074,20 +2068,16 @@ int chvt(int vt) {
                         0
                 };
 
-                if (ioctl(fd, TIOCLINUX, tiocl) < 0) {
-                        r = -errno;
-                        goto fail;
-                }
+                if (ioctl(fd, TIOCLINUX, tiocl) < 0)
+                        return -errno;
 
                 vt = tiocl[0] <= 0 ? 1 : tiocl[0];
         }
 
         if (ioctl(fd, VT_ACTIVATE, vt) < 0)
-                r = -errno;
+                return -errno;
 
-fail:
-        close_nointr_nofail(fd);
-        return r;
+        return 0;
 }
 
 int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
@@ -2952,36 +2942,30 @@ bool is_device_path(const char *path) {
 }
 
 int dir_is_empty(const char *path) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d;
         int r;
-        struct dirent buf, *de;
 
-        if (!(d = opendir(path)))
+        d = opendir(path);
+        if (!d)
                 return -errno;
 
         for (;;) {
-                if ((r = readdir_r(d, &buf, &de)) > 0) {
-                        r = -r;
-                        break;
-                }
+                struct dirent buf, *de;
 
-                if (!de) {
-                        r = 1;
-                        break;
-                }
+                r = readdir_r(d, &buf, &de);
+                if (r > 0)
+                        return -r;
 
-                if (!ignore_file(de->d_name)) {
-                        r = 0;
-                        break;
-                }
+                if (!de)
+                        return 1;
+
+                if (!ignore_file(de->d_name))
+                        return 0;
         }
-
-        closedir(d);
-        return r;
 }
 
 unsigned long long random_ull(void) {
-        int fd;
+        _cleanup_close_ int fd;
         uint64_t ull;
         ssize_t r;
 
@@ -2990,8 +2974,6 @@ unsigned long long random_ull(void) {
                 goto fallback;
 
         r = loop_read(fd, &ull, sizeof(ull), true);
-        close_nointr_nofail(fd);
-
         if (r != sizeof(ull))
                 goto fallback;
 
@@ -3065,7 +3047,8 @@ bool hostname_is_set(void) {
 
 static char *lookup_uid(uid_t uid) {
         long bufsize;
-        char *buf, *name;
+        char *name;
+        _cleanup_free_ char *buf = NULL;
         struct passwd pwbuf, *pw = NULL;
 
         /* Shortcut things to avoid NSS lookups */
@@ -3080,13 +3063,8 @@ static char *lookup_uid(uid_t uid) {
         if (!buf)
                 return NULL;
 
-        if (getpwuid_r(uid, &pwbuf, buf, bufsize, &pw) == 0 && pw) {
-                name = strdup(pw->pw_name);
-                free(buf);
-                return name;
-        }
-
-        free(buf);
+        if (getpwuid_r(uid, &pwbuf, buf, bufsize, &pw) == 0 && pw)
+                return strdup(pw->pw_name);
 
         if (asprintf(&name, "%lu", (unsigned long) uid) < 0)
                 return NULL;
@@ -3122,12 +3100,14 @@ int getttyname_malloc(int fd, char **r) {
 
         assert(r);
 
-        if ((k = ttyname_r(fd, path, sizeof(path))) != 0)
+        k = ttyname_r(fd, path, sizeof(path));
+        if (k != 0)
                 return -k;
 
         char_array_0(path);
 
-        if (!(c = strdup(startswith(path, "/dev/") ? path + 5 : path)))
+        c = strdup(startswith(path, "/dev/") ? path + 5 : path);
+        if (!c)
                 return -ENOMEM;
 
         *r = c;
@@ -3138,7 +3118,8 @@ int getttyname_harder(int fd, char **r) {
         int k;
         char *s;
 
-        if ((k = getttyname_malloc(fd, &s)) < 0)
+        k = getttyname_malloc(fd, &s);
+        if (k < 0)
                 return k;
 
         if (streq(s, "tty")) {
@@ -5706,7 +5687,7 @@ bool is_valid_documentation_url(const char *url) {
 }
 
 bool in_initrd(void) {
-        static int saved = -1;
+        static __thread int saved = -1;
         struct statfs s;
 
         if (saved >= 0)
@@ -5876,4 +5857,9 @@ void fclosep(FILE **f) {
 void closep(int *fd) {
         if (*fd >= 0)
                 close_nointr_nofail(*fd);
+}
+
+void closedirp(DIR **d) {
+        if (*d)
+                closedir(*d);
 }

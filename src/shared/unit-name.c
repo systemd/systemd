@@ -477,8 +477,7 @@ char *unit_name_mangle(const char *name) {
         /* Try to turn a string that might not be a unit name into a
          * sensible unit name. */
 
-        if (path_startswith(name, "/dev/") ||
-            path_startswith(name, "/sys/"))
+        if (is_device_path(name))
                 return unit_name_from_path(name, ".device");
 
         if (path_is_absolute(name))
