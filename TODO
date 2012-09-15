@@ -41,6 +41,26 @@ Bugfixes:
   by rpm, the resume path might fail, the for resume needed kernel might even be uninstalled, and
   the whole situation leads directly to data loss.
 
+F18:
+
+* journald: warn if we drop messages we forward to the syslog socket
+
+* refuse automount triggers when automount is queued for stop, much like we refuse socket triggers when sockets are queued for stop
+
+* perfomance messages for selinux are gone from debug log?
+
+* There's something wrong with escaping unit names: http://lists.freedesktop.org/archives/systemd-devel/2012-August/006292.html
+
+* wiki: document new logind LockSessions() call
+
+* wiki: document new Finished signal params
+
+* logind: different policy actions for idle, suspend, shutdown blockers: allow idle blockers by default, don't allow suspend blockers by default
+
+* selinux: merge systemd selinux access controls (dwalsh)
+
+* make logind reserve tty6 or so for text logins, so that gdm never picks it up
+
 Features:
 
 * make nspawn work without terminal
@@ -49,17 +69,11 @@ Features:
 
 * after deserializing sockets in socket.c we should reapply sockopts and things
 
-* journald: warn if we drop messages we forward to the syslog socket
-
 * does vasprintf advance the struct vaargs? http://pastie.org/pastes/4712773/text
 
 * do shutdown audit/utmp msgs inside of PID 1, get rid of systemd-update-utmp-runlevel
 
 * make timer units go away after they elapsed
-
-* refuse automount triggers when automount is queued for stop, much like we refuse socket triggers when sockets are queued for stop
-
-* perfomance messages for selinux are gone from debug log?
 
 * http://lists.freedesktop.org/archives/systemd-devel/2012-September/006502.html
 
@@ -111,8 +125,6 @@ Features:
 
 * allow writing multiple conditions in unit files on one line
 
-* There's something wrong with escaping unit names: http://lists.freedesktop.org/archives/systemd-devel/2012-August/006292.html
-
 * cleanup ellipsation for log output in journalctl and systemctl status: have a sane way to disable ellipsation, and disable it by default when invoked in less/more
 
 * enforce limits on fds openened by socket units
@@ -154,11 +166,7 @@ Features:
 
 * dracut-shutdown needs to be ordered before unmounting /boot
 
-* wiki: document new logind LockSessions() call
-
 * initialize the hostname from the fs label of /, if /etc/hostname does not exist?
-
-* logind: different policy actions for idle, suspend, shutdown blockers: allow idle blockers by default, don't allow suspend blockers by default
 
 * install README to /etc/rc.d/init.d (if support for that is enabled) helping people who use "ls" there to figure out which services exist.
 
@@ -276,8 +284,6 @@ Features:
 
 * Add pretty name for seats in logind
 
-* selinux: merge systemd selinux access controls (dwalsh)
-
 * ConditionSecurity= should learn about IMA
 
 * Auke: merge Auke's bootchart
@@ -322,8 +328,6 @@ Features:
 * journal: sanely deal with entries which are larger than the individual file size, but where the componets would fit
 
 * add command to systemctl to plot dependency graph as tree (see rhbz 795365)
-
-* make logind reserve tty9 or so for text logins, so that gdm never picks it up
 
 * add option to sockets to avoid activation. Instead just drop packets/connections, see http://cyberelk.net/tim/2012/02/15/portreserve-systemd-solution/
 
