@@ -584,7 +584,7 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
         }
 
         case AF_INET6: {
-                static const char ipv4_prefix[] = {
+                static const unsigned char ipv4_prefix[] = {
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF
                 };
 
