@@ -51,10 +51,6 @@ F18:
 
 * There's something wrong with escaping unit names: http://lists.freedesktop.org/archives/systemd-devel/2012-August/006292.html
 
-* wiki: document new logind LockSessions() call
-
-* wiki: document new Finished signal params
-
 * logind: different policy actions for idle, suspend, shutdown blockers: allow idle blockers by default, don't allow suspend blockers by default
 
 * selinux: merge systemd selinux access controls (dwalsh)
