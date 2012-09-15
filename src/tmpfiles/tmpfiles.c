@@ -42,6 +42,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "strv.h"
@@ -503,24 +504,15 @@ static int write_one_file(Item *i, const char *path) {
         if (i->argument) {
                 ssize_t n;
                 size_t l;
-                struct iovec iovec[2];
-                static const char new_line = '\n';
+                _cleanup_free_ char *unescaped;
 
-                l = strlen(i->argument);
+                unescaped = cunescape(i->argument);
+                if (unescaped == NULL)
+                        return log_oom();
 
-                zero(iovec);
-                iovec[0].iov_base = i->argument;
-                iovec[0].iov_len = l;
+                l = strlen(unescaped);
+                n = write(fd, unescaped, l);
 
-                iovec[1].iov_base = (void*) &new_line;
-                iovec[1].iov_len = 1;
-
-                n = writev(fd, iovec, 2);
-
-                /* It's OK if we don't write the trailing
-                 * newline, hence we check for l, instead of
-                 * l+1 here. Files in /sys often refuse
-                 * writing of the trailing newline. */
                 if (n < 0 || (size_t) n < l) {
                         log_error("Failed to write file %s: %s", path, n < 0 ? strerror(-n) : "Short write");
                         close_nointr_nofail(fd);

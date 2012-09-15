@@ -114,7 +114,10 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                                 <varlistentry>
                                         <term><varname>w</varname></term>
-                                        <listitem><para>Write the argument parameter to a file, if it exists. Lines of this type accept shell-style globs in place of normal path names.</para></listitem>
+                                        <listitem><para>Write the argument parameter to a file, if the file exists.
+                                            Lines of this type accept shell-style globs in place of normal path
+                                            names. The argument parameter will be written without a trailing
+                                            newline. C-style backslash escapes are interpreted.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
