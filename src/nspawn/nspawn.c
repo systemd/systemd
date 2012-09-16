@@ -46,6 +46,7 @@
 #include "log.h"
 #include "util.h"
 #include "mkdir.h"
+#include "macro.h"
 #include "audit.h"
 #include "missing.h"
 #include "cgroup-util.h"
@@ -283,7 +284,7 @@ static int mount_all(const char *dest) {
 
         unsigned k;
         int r = 0;
-        char *where;
+        char _cleanup_free_ *where = NULL;
 
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
                 int t;
@@ -300,7 +301,6 @@ static int mount_all(const char *dest) {
                 t = path_is_mount_point(where, true);
                 if (t < 0) {
                         log_error("Failed to detect whether %s is a mount point: %s", where, strerror(-t));
-                        free(where);
 
                         if (r == 0)
                                 r = t;
@@ -326,8 +326,6 @@ static int mount_all(const char *dest) {
                         if (r == 0)
                                 r = -errno;
                 }
-
-                free(where);
         }
 
         return r;
