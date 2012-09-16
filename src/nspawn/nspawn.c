@@ -273,6 +273,7 @@ static int mount_all(const char *dest) {
                 { "sysfs",     "/sys",      "sysfs", NULL,       MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, true  },
                 { "tmpfs",     "/dev",      "tmpfs", "mode=755", MS_NOSUID|MS_STRICTATIME,     true  },
                 { "/dev/pts",  "/dev/pts",  NULL,    NULL,       MS_BIND,                      true  },
+                { "tmpfs",     "/dev/shm",  "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME, true  },
                 { "tmpfs",     "/run",      "tmpfs", "mode=755", MS_NOSUID|MS_NODEV|MS_STRICTATIME, true  },
 #ifdef HAVE_SELINUX
                 { "/sys/fs/selinux", "/sys/fs/selinux", NULL, NULL, MS_BIND,                      false },  /* Bind mount first */
