@@ -541,7 +541,7 @@ static int find_symlinks_in_scope(
                 UnitFileState *state) {
 
         int r;
-        char *path;
+        char _cleanup_free_ *path = NULL;
         bool same_name_link_runtime = false, same_name_link = false;
 
         assert(scope >= 0);
@@ -556,8 +556,6 @@ static int find_symlinks_in_scope(
                         return r;
 
                 r = find_symlinks(name, path, &same_name_link_runtime);
-                free(path);
-
                 if (r < 0)
                         return r;
                 else if (r > 0) {
@@ -572,8 +570,6 @@ static int find_symlinks_in_scope(
                 return r;
 
         r = find_symlinks(name, path, &same_name_link);
-        free(path);
-
         if (r < 0)
                 return r;
         else if (r > 0) {
@@ -603,7 +599,8 @@ int unit_file_mask(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        char **i, *prefix;
+        char **i;
+        char _cleanup_free_ *prefix;
         int r;
 
         assert(scope >= 0);
@@ -614,7 +611,7 @@ int unit_file_mask(
                 return r;
 
         STRV_FOREACH(i, files) {
-                char *path;
+                char _cleanup_free_ *path = NULL;
 
                 if (!unit_name_is_valid(*i, true)) {
                         if (r == 0)
@@ -631,16 +628,13 @@ int unit_file_mask(
                 if (symlink("/dev/null", path) >= 0) {
                         add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, path, "/dev/null");
 
-                        free(path);
                         continue;
                 }
 
                 if (errno == EEXIST) {
 
-                        if (null_or_empty_path(path) > 0) {
-                                free(path);
+                        if (null_or_empty_path(path) > 0)
                                 continue;
-                        }
 
                         if (force) {
                                 unlink(path);
@@ -650,7 +644,6 @@ int unit_file_mask(
                                         add_file_change(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
                                         add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, path, "/dev/null");
 
-                                        free(path);
                                         continue;
                                 }
                         }
@@ -661,11 +654,7 @@ int unit_file_mask(
                         if (r == 0)
                                 r = -errno;
                 }
-
-                free(path);
         }
-
-        free(prefix);
 
         return r;
 }
