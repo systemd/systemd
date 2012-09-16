@@ -380,7 +380,7 @@ static int setup_resolv_conf(const char *dest) {
 }
 
 static int setup_boot_id(const char *dest) {
-        char *from = NULL, *to = NULL;
+        char _cleanup_free_ *from = NULL, *to = NULL;
         sd_id128_t rnd;
         char as_uuid[37];
         int r;
@@ -391,21 +391,14 @@ static int setup_boot_id(const char *dest) {
          * the container gets a new one */
 
         from = strappend(dest, "/dev/proc-sys-kernel-random-boot-id");
-        if (!from) {
-                r = log_oom();
-                goto finish;
-        }
-
         to = strappend(dest, "/proc/sys/kernel/random/boot_id");
-        if (!to) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!from || !to)
+                return log_oom();
 
         r = sd_id128_randomize(&rnd);
         if (r < 0) {
                 log_error("Failed to generate random boot id: %s", strerror(-r));
-                goto finish;
+                return r;
         }
 
         snprintf(as_uuid, sizeof(as_uuid),
@@ -416,7 +409,7 @@ static int setup_boot_id(const char *dest) {
         r = write_one_line_file(from, as_uuid);
         if (r < 0) {
                 log_error("Failed to write boot id: %s", strerror(-r));
-                goto finish;
+                return r;
         }
 
         if (mount(from, to, "bind", MS_BIND, NULL) < 0) {
@@ -426,11 +419,6 @@ static int setup_boot_id(const char *dest) {
                 mount(from, to, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
 
         unlink(from);
-
-finish:
-        free(from);
-        free(to);
-
         return r;
 }
 
@@ -455,18 +443,13 @@ static int copy_devnodes(const char *dest) {
 
         NULSTR_FOREACH(d, devnodes) {
                 struct stat st;
-                char *from = NULL, *to = NULL;
+                char _cleanup_free_ *from = NULL, *to = NULL;
 
                 asprintf(&from, "/dev/%s", d);
                 asprintf(&to, "%s/dev/%s", dest, d);
 
                 if (!from || !to) {
-                        log_error("Failed to allocate devnode path");
-
-                        free(from);
-                        free(to);
-
-                        from = to = NULL;
+                        log_oom();
 
                         if (r == 0)
                                 r = -ENOMEM;
@@ -484,7 +467,7 @@ static int copy_devnodes(const char *dest) {
 
                 } else if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
 
-                        log_error("%s is not a char or block device, cannot copy.", from);
+                        log_error("%s is not a char or block device, cannot copy", from);
                         if (r == 0)
                                 r = -EIO;
 
@@ -494,9 +477,6 @@ static int copy_devnodes(const char *dest) {
                         if (r == 0)
                                 r = -errno;
                 }
-
-                free(from);
-                free(to);
         }
 
         umask(u);
@@ -506,7 +486,7 @@ static int copy_devnodes(const char *dest) {
 
 static int setup_dev_console(const char *dest, const char *console) {
         struct stat st;
-        char *to = NULL;
+        char _cleanup_free_ *to = NULL;
         int r;
         mode_t u;
 
@@ -557,14 +537,13 @@ static int setup_dev_console(const char *dest, const char *console) {
         }
 
 finish:
-        free(to);
         umask(u);
 
         return r;
 }
 
 static int setup_kmsg(const char *dest, int kmsg_socket) {
-        char *from = NULL, *to = NULL;
+        char _cleanup_free_ *from = NULL, *to = NULL;
         int r, fd, k;
         mode_t u;
         union {
@@ -650,8 +629,6 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
         unlink(from);
 
 finish:
-        free(from);
-        free(to);
         umask(u);
 
         return r;
