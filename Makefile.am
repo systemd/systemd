@@ -1737,6 +1737,7 @@ dist_udevrules_DATA += \
 	rules/60-persistent-input.rules \
 	rules/60-persistent-alsa.rules \
 	rules/60-persistent-storage.rules \
+	rules/64-btrfs.rules \
 	rules/75-net-description.rules \
 	rules/75-tty-description.rules \
 	rules/78-sound-card.rules \
@@ -1797,6 +1798,7 @@ libudev_core_la_SOURCES = \
 	src/udev/udev-ctrl.c \
 	src/udev/udev-builtin.c \
 	src/udev/udev-builtin-blkid.c \
+	src/udev/udev-builtin-btrfs.c \
 	src/udev/udev-builtin-firmware.c \
 	src/udev/udev-builtin-hwdb.c \
 	src/udev/udev-builtin-input_id.c \

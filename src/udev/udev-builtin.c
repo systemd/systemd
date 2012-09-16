@@ -29,6 +29,7 @@ static bool initialized;
 
 static const struct udev_builtin *builtins[] = {
         [UDEV_BUILTIN_BLKID] = &udev_builtin_blkid,
+        [UDEV_BUILTIN_BTRFS] = &udev_builtin_btrfs,
         [UDEV_BUILTIN_FIRMWARE] = &udev_builtin_firmware,
         [UDEV_BUILTIN_INPUT_ID] = &udev_builtin_input_id,
         [UDEV_BUILTIN_KMOD] = &udev_builtin_kmod,
@@ -142,7 +143,6 @@ int udev_builtin_add_property(struct udev_device *dev, bool test, const char *ke
         if (key[0] != '.')
                 udev_list_entry_set_num(entry, true);
 
-        log_debug("%s=%s\n", key, val);
         if (test)
                 printf("%s=%s\n", key, val);
         return 0;

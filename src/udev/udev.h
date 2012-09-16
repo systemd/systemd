@@ -135,6 +135,7 @@ int udev_ctrl_get_set_children_max(struct udev_ctrl_msg *ctrl_msg);
 /* built-in commands */
 enum udev_builtin_cmd {
         UDEV_BUILTIN_BLKID,
+        UDEV_BUILTIN_BTRFS,
         UDEV_BUILTIN_FIRMWARE,
         UDEV_BUILTIN_INPUT_ID,
         UDEV_BUILTIN_KMOD,
@@ -157,6 +158,7 @@ struct udev_builtin {
         bool run_once;
 };
 extern const struct udev_builtin udev_builtin_blkid;
+extern const struct udev_builtin udev_builtin_btrfs;
 extern const struct udev_builtin udev_builtin_firmware;
 extern const struct udev_builtin udev_builtin_input_id;
 extern const struct udev_builtin udev_builtin_kmod;
