@@ -524,8 +524,11 @@ static int find_symlinks(
         assert(same_name_link);
 
         fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-        if (fd < 0)
+        if (fd < 0) {
+                if (errno == ENOENT)
+                        return 0;
                 return -errno;
+        }
 
         /* This takes possession of fd and closes it */
         return find_symlinks_fd(name, fd, config_path, config_path, same_name_link);

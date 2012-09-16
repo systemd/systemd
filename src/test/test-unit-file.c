@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
         assert(h);
 
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h);
-        log_info("%s", strerror(-r));
+        log_info("unit_file_get_list: %s", strerror(-r));
         assert(r >= 0);
 
         HASHMAP_FOREACH(p, h, i)
