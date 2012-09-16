@@ -96,7 +96,7 @@
                 database (which is recommended). The following udev
                 properties are understood by systemd:</para>
 
-                <variablelist>
+                <variablelist class='udev-directives'>
                         <varlistentry>
                                 <term><varname>SYSTEMD_WANTS=</varname></term>
                                 <listitem><para>Adds dependencies of
