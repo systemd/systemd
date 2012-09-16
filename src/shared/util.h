@@ -31,6 +31,7 @@
 #include <signal.h>
 #include <sched.h>
 #include <limits.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <sys/resource.h>
@@ -533,3 +534,4 @@ void freep(void *p);
 void fclosep(FILE **f);
 void closep(int *fd);
 void closedirp(DIR **d);
+void umaskp(mode_t *u);

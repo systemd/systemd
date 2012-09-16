@@ -5827,3 +5827,7 @@ void closedirp(DIR **d) {
         if (*d)
                 closedir(*d);
 }
+
+void umaskp(mode_t *u) {
+        umask(*u);
+}

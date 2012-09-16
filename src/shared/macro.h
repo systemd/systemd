@@ -191,5 +191,6 @@ static inline size_t IOVEC_INCREMENT(struct iovec *i, unsigned n, size_t k) {
 #define _cleanup_fclose_ __attribute__((cleanup(fclosep)))
 #define _cleanup_close_ __attribute__((cleanup(closep)))
 #define _cleanup_closedir_ __attribute__((cleanup(closedirp)))
+#define _cleanup_umask_ __attribute__((cleanup(umaskp)))
 
 #include "log.h"

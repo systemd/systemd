@@ -435,7 +435,7 @@ static int copy_devnodes(const char *dest) {
 
         const char *d;
         int r = 0;
-        mode_t u;
+        mode_t _cleanup_umask_ u;
 
         assert(dest);
 
@@ -479,8 +479,6 @@ static int copy_devnodes(const char *dest) {
                 }
         }
 
-        umask(u);
-
         return r;
 }
 
@@ -488,7 +486,7 @@ static int setup_dev_console(const char *dest, const char *console) {
         struct stat st;
         char _cleanup_free_ *to = NULL;
         int r;
-        mode_t u;
+        mode_t _cleanup_umask_ u;
 
         assert(dest);
         assert(console);
@@ -497,25 +495,21 @@ static int setup_dev_console(const char *dest, const char *console) {
 
         if (stat(console, &st) < 0) {
                 log_error("Failed to stat %s: %m", console);
-                r = -errno;
-                goto finish;
+                return -errno;
 
         } else if (!S_ISCHR(st.st_mode)) {
-                log_error("/dev/console is not a char device.");
-                r = -EIO;
-                goto finish;
+                log_error("/dev/console is not a char device");
+                return -EIO;
         }
 
         r = chmod_and_chown(console, 0600, 0, 0);
         if (r < 0) {
                 log_error("Failed to correct access mode for TTY: %s", strerror(-r));
-                goto finish;
+                return r;
         }
 
-        if (asprintf(&to, "%s/dev/console", dest) < 0) {
-                r = log_oom();
-                goto finish;
-        }
+        if (asprintf(&to, "%s/dev/console", dest) < 0)
+                return log_oom();
 
         /* We need to bind mount the right tty to /dev/console since
          * ptys can only exist on pts file systems. To have something
@@ -526,26 +520,21 @@ static int setup_dev_console(const char *dest, const char *console) {
 
         if (mknod(to, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0) {
                 log_error("mknod() for /dev/console failed: %m");
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
         if (mount(console, to, "bind", MS_BIND, NULL) < 0) {
                 log_error("Bind mount for /dev/console failed: %m");
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
-finish:
-        umask(u);
-
-        return r;
+        return 0;
 }
 
 static int setup_kmsg(const char *dest, int kmsg_socket) {
         char _cleanup_free_ *from = NULL, *to = NULL;
         int r, fd, k;
-        mode_t u;
+        mode_t _cleanup_umask_ u;
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
@@ -565,39 +554,30 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
          * that writing blocks when nothing is reading. In order to
          * avoid any problems with containers deadlocking due to this
          * we simply make /dev/kmsg unavailable to the container. */
-        if (asprintf(&from, "%s/dev/kmsg", dest) < 0) {
-                r = log_oom();
-                goto finish;
-        }
-
-        if (asprintf(&to, "%s/proc/kmsg", dest) < 0) {
-                r = log_oom();
-                goto finish;
-        }
+        if (asprintf(&from, "%s/dev/kmsg", dest) < 0 ||
+            asprintf(&to, "%s/proc/kmsg", dest) < 0)
+                return log_oom();
 
         if (mkfifo(from, 0600) < 0) {
                 log_error("mkfifo() for /dev/kmsg failed: %m");
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
         r = chmod_and_chown(from, 0600, 0, 0);
         if (r < 0) {
                 log_error("Failed to correct access mode for /dev/kmsg: %s", strerror(-r));
-                goto finish;
+                return r;
         }
 
         if (mount(from, to, "bind", MS_BIND, NULL) < 0) {
                 log_error("Bind mount for /proc/kmsg failed: %m");
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
         fd = open(from, O_RDWR|O_NDELAY|O_CLOEXEC);
         if (fd < 0) {
                 log_error("Failed to open fifo: %m");
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
         zero(mh);
@@ -621,17 +601,12 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
 
         if (k < 0) {
                 log_error("Failed to send FIFO fd: %m");
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
         /* And now make the FIFO unavailable as /dev/kmsg... */
         unlink(from);
-
-finish:
-        umask(u);
-
-        return r;
+        return 0;
 }
 
 static int setup_hostname(void) {
