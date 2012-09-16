@@ -30,6 +30,7 @@
 #include "strv.h"
 #include "cgroup.h"
 #include "mkdir.h"
+#include "missing.h"
 #include "dbus-unit.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
@@ -955,12 +956,12 @@ static DBusConnection* manager_bus_connect_private(Manager *m, DBusBusType type)
 
         switch (type) {
         case DBUS_BUS_SYSTEM:
-                address = __secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
+                address = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
                 if (!address || !address[0])
                         address = DBUS_SYSTEM_BUS_DEFAULT_ADDRESS;
                 break;
         case DBUS_BUS_SESSION:
-                address = __secure_getenv("DBUS_SESSION_BUS_ADDRESS");
+                address = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
                 if (!address || !address[0])
                         address = DBUS_SESSION_BUS_DEFAULT_ADDRESS;
                 break;
@@ -1077,7 +1078,7 @@ static int bus_init_private(Manager *m) {
                 const char *e;
                 char *p;
 
-                e = __secure_getenv("XDG_RUNTIME_DIR");
+                e = secure_getenv("XDG_RUNTIME_DIR");
                 if (!e)
                         return 0;
 

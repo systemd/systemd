@@ -32,6 +32,7 @@
 #include "log.h"
 #include "dbus-common.h"
 #include "util.h"
+#include "missing.h"
 #include "def.h"
 #include "strv.h"
 
@@ -121,7 +122,7 @@ int bus_connect(DBusBusType t, DBusConnection **_bus, bool *_private, DBusError 
                          * try via XDG_RUNTIME_DIR first, then
                          * fallback to normal bus access */
 
-                        e = __secure_getenv("XDG_RUNTIME_DIR");
+                        e = secure_getenv("XDG_RUNTIME_DIR");
                         if (e) {
                                 char *p;
 

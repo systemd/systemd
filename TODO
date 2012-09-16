@@ -538,7 +538,7 @@ Regularly:
 
 * set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
 
-* use __secure_getenv() instead of getenv() where appropriate
+* use secure_getenv() instead of getenv() where appropriate
 
 Scheduled for removal (or fixing):
 

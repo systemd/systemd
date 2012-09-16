@@ -26,6 +26,7 @@
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <linux/oom.h>
 
@@ -218,7 +219,6 @@ static inline pid_t gettid(void) {
 #endif
 
 #ifndef HAVE_NAME_TO_HANDLE_AT
-
 struct file_handle {
         unsigned int handle_bytes;
         int handle_type;
@@ -228,4 +228,12 @@ struct file_handle {
 static inline int name_to_handle_at(int fd, const char *name, struct file_handle *handle, int *mnt_id, int flags) {
         return syscall(__NR_name_to_handle_at, fd, name, handle, mnt_id, flags);
 }
+#endif
+
+#ifndef HAVE_SECURE_GETENV
+#  ifdef HAVE___SECURE_GETENV
+#    define secure_getenv __secure_getenv
+#  else
+#    error neither secure_getenv nor __secure_getenv are available
+#  endif
 #endif

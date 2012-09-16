@@ -173,6 +173,7 @@ LIBS="$save_LIBS"
 AC_SUBST(CAP_LIBS)
 
 AC_CHECK_FUNCS([fanotify_init fanotify_mark name_to_handle_at])
+AC_CHECK_FUNCS([__secure_getenv secure_getenv])
 AC_CHECK_DECLS([gettid, pivot_root], [], [], [[#include <sys/types.h>
 #include <unistd.h>
 #include <sys/mount.h>]])
