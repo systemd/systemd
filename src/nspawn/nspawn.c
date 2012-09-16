@@ -284,9 +284,9 @@ static int mount_all(const char *dest) {
 
         unsigned k;
         int r = 0;
-        char _cleanup_free_ *where = NULL;
 
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
+                char _cleanup_free_ *where = NULL;
                 int t;
 
                 if (asprintf(&where, "%s/%s", dest, mount_table[k].where) < 0) {
