@@ -138,8 +138,9 @@ static int enable_special_signals(Manager *m) {
         assert(m);
 
         /* Enable that we get SIGINT on control-alt-del. In containers
-         * this will fail with EPERM, so ignore that. */
-        if (reboot(RB_DISABLE_CAD) < 0 && errno != EPERM)
+         * this will fail with EPERM (older) or EINVAL (newer), so
+         * ignore that. */
+        if (reboot(RB_DISABLE_CAD) < 0 && errno != EPERM && errno != EINVAL)
                 log_warning("Failed to enable ctrl-alt-del handling: %m");
 
         fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
