@@ -73,14 +73,9 @@ static int log_open_console(void) {
                 return 0;
 
         if (getpid() == 1) {
-
                 console_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
-                if (console_fd < 0) {
-                        log_error("Failed to open /dev/console for logging: %s", strerror(-console_fd));
+                if (console_fd < 0)
                         return console_fd;
-                }
-
-                log_debug("Successfully opened /dev/console for logging.");
         } else
                 console_fd = STDERR_FILENO;
 
@@ -102,12 +97,8 @@ static int log_open_kmsg(void) {
                 return 0;
 
         kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC);
-        if (kmsg_fd < 0) {
-                log_error("Failed to open /dev/kmsg for logging: %s", strerror(errno));
+        if (kmsg_fd < 0)
                 return -errno;
-        }
-
-        log_debug("Successfully opened /dev/kmsg for logging.");
 
         return 0;
 }
@@ -174,13 +165,10 @@ static int log_open_syslog(void) {
         } else
                 syslog_is_stream = false;
 
-        log_debug("Successfully opened syslog for logging.");
-
         return 0;
 
 fail:
         log_close_syslog();
-        log_debug("Failed to open syslog for logging: %s", strerror(-r));
         return r;
 }
 
@@ -215,13 +203,10 @@ static int log_open_journal(void) {
                 goto fail;
         }
 
-        log_debug("Successfully opened journal for logging.");
-
         return 0;
 
 fail:
         log_close_journal();
-        log_debug("Failed to open journal for logging: %s", strerror(-r));
         return r;
 }
 
