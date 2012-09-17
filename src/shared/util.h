@@ -370,9 +370,9 @@ int pipe_eof(int fd);
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
-void status_vprintf(const char *status, bool ellipse, const char *format, va_list ap);
-void status_printf(const char *status, bool ellipse, const char *format, ...);
-void status_welcome(void);
+int status_vprintf(const char *status, bool ellipse, const char *format, va_list ap);
+int status_printf(const char *status, bool ellipse, const char *format, ...);
+int status_welcome(void);
 
 int fd_columns(int fd);
 unsigned columns(void);

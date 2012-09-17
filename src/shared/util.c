@@ -3488,10 +3488,10 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         }
 }
 
-void status_vprintf(const char *status, bool ellipse, const char *format, va_list ap) {
-        char *s = NULL;
+int status_vprintf(const char *status, bool ellipse, const char *format, va_list ap) {
         static const char status_indent[] = "         "; /* "[" STATUS "] " */
-        int fd = -1;
+        _cleanup_free_ char *s = NULL;
+        _cleanup_close_ int fd = -1;
         struct iovec iovec[5];
         int n = 0;
 
@@ -3501,11 +3501,11 @@ void status_vprintf(const char *status, bool ellipse, const char *format, va_lis
          * optional and go exclusively to the console. */
 
         if (vasprintf(&s, format, ap) < 0)
-                goto finish;
+                return log_oom();
 
         fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
-                goto finish;
+                return fd;
 
         if (ellipse) {
                 char *e;
@@ -3516,7 +3516,7 @@ void status_vprintf(const char *status, bool ellipse, const char *format, va_lis
                 if (c <= 0)
                         c = 80;
 
-                sl = status ? strlen(status_indent) : 0;
+                sl = status ? sizeof(status_indent)-1 : 0;
 
                 emax = c - sl - 1;
                 if (emax < 3)
@@ -3543,53 +3543,40 @@ void status_vprintf(const char *status, bool ellipse, const char *format, va_lis
         IOVEC_SET_STRING(iovec[n++], s);
         IOVEC_SET_STRING(iovec[n++], "\n");
 
-        writev(fd, iovec, n);
+        if (writev(fd, iovec, n) < 0)
+                return -errno;
 
-finish:
-        free(s);
-
-        if (fd >= 0)
-                close_nointr_nofail(fd);
+        return 0;
 }
 
-void status_printf(const char *status, bool ellipse, const char *format, ...) {
+int status_printf(const char *status, bool ellipse, const char *format, ...) {
         va_list ap;
+        int r;
 
         assert(format);
 
         va_start(ap, format);
-        status_vprintf(status, ellipse, format, ap);
+        r = status_vprintf(status, ellipse, format, ap);
         va_end(ap);
+
+        return r;
 }
 
-void status_welcome(void) {
-        char *pretty_name = NULL, *ansi_color = NULL;
-        const char *const_pretty = NULL, *const_color = NULL;
+int status_welcome(void) {
         int r;
+        _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
 
-        if ((r = parse_env_file("/etc/os-release", NEWLINE,
-                                "PRETTY_NAME", &pretty_name,
-                                "ANSI_COLOR", &ansi_color,
-                                NULL)) < 0) {
+        r = parse_env_file("/etc/os-release", NEWLINE,
+                           "PRETTY_NAME", &pretty_name,
+                           "ANSI_COLOR", &ansi_color,
+                           NULL);
+        if (r < 0 && r != -ENOENT)
+                log_warning("Failed to read /etc/os-release: %s", strerror(-r));
 
-                if (r != -ENOENT)
-                        log_warning("Failed to read /etc/os-release: %s", strerror(-r));
-        }
-
-        if (!pretty_name && !const_pretty)
-                const_pretty = "Linux";
-
-        if (!ansi_color && !const_color)
-                const_color = "1";
-
-        status_printf(NULL,
-                      false,
-                      "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
-                      const_color ? const_color : ansi_color,
-                      const_pretty ? const_pretty : pretty_name);
-
-        free(ansi_color);
-        free(pretty_name);
+        return status_printf(NULL, false,
+                             "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
+                             isempty(ansi_color) ? "1" : ansi_color,
+                             isempty(pretty_name) ? "Linux" : pretty_name);
 }
 
 char *replace_env(const char *format, char **env) {
