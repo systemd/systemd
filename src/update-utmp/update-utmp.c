@@ -48,7 +48,7 @@ typedef struct Context {
 static usec_t get_startup_time(Context *c) {
         const char
                 *interface = "org.freedesktop.systemd1.Manager",
-                *property = "StartupTimestamp";
+                *property = "UserspaceTimestamp";
 
         usec_t t = 0;
         DBusMessage *reply = NULL;
