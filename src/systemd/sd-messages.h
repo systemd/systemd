@@ -58,6 +58,8 @@ extern "C" {
 #define SD_MESSAGE_UNIT_RELOADING   SD_ID128_MAKE(d3,4d,03,7f,ff,18,47,e6,ae,66,9a,37,0e,69,47,25)
 #define SD_MESSAGE_UNIT_RELOADED    SD_ID128_MAKE(7b,05,eb,c6,68,38,42,22,ba,a8,88,11,79,cf,da,54)
 
+#define SD_MESSAGE_FORWARD_SYSLOG_MISSED SD_ID128_MAKE(00,27,22,9c,a0,64,41,81,a7,6c,4e,92,45,8a,fa,2e)
+
 #ifdef __cplusplus
 }
 #endif

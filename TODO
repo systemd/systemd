@@ -24,17 +24,15 @@ Bugfixes:
 
 F18:
 
-* journald: warn if we drop messages we forward to the syslog socket
-
 * refuse automount triggers when automount is queued for stop, much like we refuse socket triggers when sockets are queued for stop
-
-* There's something wrong with escaping unit names: http://lists.freedesktop.org/archives/systemd-devel/2012-August/006292.html
 
 * logind: different policy actions for idle, suspend, shutdown blockers: allow idle blockers by default, don't allow suspend blockers by default
 
 * selinux: merge systemd selinux access controls (dwalsh)
 
 Features:
+
+* instantiated target units
 
 * support *static* (/run) hibernate inhibitors. All rpm -i actions should completely prevent any
   sort of hibernate action until the next reboot. If the kernel or any other base tool is replaced

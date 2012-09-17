@@ -1553,6 +1553,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 server_maybe_append_tags(&server);
+                server_maybe_warn_forward_syslog_missed(&server);
         }
 
         log_debug("systemd-journald stopped as pid %lu", (unsigned long) getpid());
