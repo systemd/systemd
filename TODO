@@ -26,6 +26,8 @@ F18:
 
 * https://bugzilla.gnome.org/show_bug.cgi?id=680689
 
+* Retest multi-seat
+
 * selinux: merge systemd selinux access controls (dwalsh)
 
 Features:

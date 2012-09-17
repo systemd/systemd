@@ -1,4 +1,3 @@
-
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
@@ -31,6 +30,7 @@
 #include "dbus-unit.h"
 #include "bus-errors.h"
 #include "dbus-common.h"
+#include "audit.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -212,49 +212,6 @@ finish:
         return r;
 }
 
-static int get_cmdline(pid_t pid, char **cmdline) {
-        char buf[PATH_MAX];
-        FILE *f;
-        int count;
-        int n;
-
-        snprintf(buf, sizeof(buf), "/proc/%lu/cmdline", (unsigned long) pid);
-        f = fopen(buf, "re");
-        if (!f) {
-                return -errno;
-        }
-        count = fread(buf, 1, sizeof(buf), f);
-        fclose(f);
-        if (! count) {
-                return -errno;
-        }
-        for (n = 0; n < count - 1; n++)
-        {
-                if (buf[n] == '\0')
-                        buf[n] = ' ';
-        }
-        (*cmdline) = strdup(buf);
-        if (! (*cmdline)) {
-                return -errno;
-        }
-        return 0;
-}
-
-static int get_pid_id(pid_t pid, const char *file, uid_t *id) {
-        char buf[PATH_MAX];
-        int r = 0;
-        FILE *f;
-        snprintf(buf, sizeof(buf), "/proc/%lu/%s", (unsigned long) pid, file);
-        f = fopen(buf, "re");
-        if (!f)
-                return -errno;
-        fscanf(f, "%d", id);
-        if (ferror(f))
-                r = -errno;
-        fclose(f);
-        return r;
-}
-
 /* This mimics dbus_bus_get_unix_user() */
 static int bus_get_audit_data(
                 DBusConnection *connection,
@@ -263,74 +220,29 @@ static int bus_get_audit_data(
                 DBusError *error) {
 
         pid_t pid;
-        DBusMessage *m = NULL, *reply = NULL;
-        int r = -1;
+        int r;
 
-        m = dbus_message_new_method_call(
-                        DBUS_SERVICE_DBUS,
-                        DBUS_PATH_DBUS,
-                        DBUS_INTERFACE_DBUS,
-                        "GetConnectionUnixProcessID");
-        if (!m) {
-                r = -errno;
-                dbus_set_error_const(error, DBUS_ERROR_NO_MEMORY, NULL);
-                goto finish;
-        }
+        pid = bus_get_unix_process_id(connection, name, error);
+        if (pid <= 0)
+                return -EINVAL;
 
-        r = dbus_message_append_args(
-                m,
-                DBUS_TYPE_STRING, &name,
-                DBUS_TYPE_INVALID);
-        if (!r) {
-                r = -errno;
-                dbus_set_error_const(error, DBUS_ERROR_NO_MEMORY, NULL);
-                goto finish;
-        }
+        r = audit_loginuid_from_pid(pid, &audit->loginuid);
+        if (r < 0)
+                return r;
 
-        reply = dbus_connection_send_with_reply_and_block(connection, m, -1, error);
-        if (!reply) {
-                r = -errno;
-                goto finish;
-        }
+        r = get_process_uid(pid, &audit->uid);
+        if (r < 0)
+                return r;
 
-        r = dbus_set_error_from_message(error, reply);
-        if (!r) {
-                r = -errno;
-                goto finish;
-        }
+        r = get_process_gid(pid, &audit->gid);
+        if (r < 0)
+                return r;
 
-        r = dbus_message_get_args(
-                reply, error,
-                DBUS_TYPE_UINT32, &pid,
-                DBUS_TYPE_INVALID);
-        if (!r) {
-                r = -errno;
-                goto finish;
-        }
+        r = get_process_cmdline(pid, LINE_MAX, true, &audit->cmdline);
+        if (r < 0)
+                return r;
 
-        r = get_pid_id(pid, "loginuid", &(audit->loginuid));
-        if (r)
-                goto finish;
-
-        r = get_pid_id(pid, "uid", &(audit->uid));
-        if (r)
-                goto finish;
-
-        r = get_pid_id(pid, "gid", &(audit->gid));
-        if (r)
-                goto finish;
-
-        r = get_cmdline(pid, &(audit->cmdline));
-        if (r)
-                goto finish;
-
-        r = 0;
-finish:
-        if (m)
-                dbus_message_unref(m);
-        if (reply)
-                dbus_message_unref(reply);
-        return r;
+        return 0;
 }
 
 /*
@@ -435,49 +347,38 @@ static int get_audit_data(
         DBusError *error) {
 
         const char *sender;
-        int r = -1;
+        int r;
 
         sender = dbus_message_get_sender(message);
-        if (sender) {
-                r = bus_get_audit_data(
-                        connection,
-                        sender,
-                        audit,
-                        error);
-                if (r)
-                        goto finish;
-        } else {
+        if (sender)
+                return bus_get_audit_data(connection, sender, audit, error);
+        else {
                 int fd;
                 struct ucred ucred;
                 socklen_t len;
-                r = dbus_connection_get_unix_fd(connection, &fd);
-                if (!r) {
-                        r = -EINVAL;
-                        goto finish;
-                }
+
+                if (!dbus_connection_get_unix_fd(connection, &fd))
+                        return -EINVAL;
 
                 r = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len);
                 if (r < 0) {
-                        r = -errno;
                         log_error("Failed to determine peer credentials: %m");
-                        goto finish;
+                        return -errno;
                 }
+
                 audit->uid = ucred.uid;
                 audit->gid = ucred.gid;
 
-                r = get_pid_id(ucred.pid, "loginuid", &(audit->loginuid));
-                if (r)
-                        goto finish;
+                r = audit_loginuid_from_pid(ucred.pid, &audit->loginuid);
+                if (r < 0)
+                        return r;
 
-                r = get_cmdline(ucred.pid, &(audit->cmdline));
-                if (r)
-                        goto finish;
+                r = get_process_cmdline(ucred.pid, LINE_MAX, true, &audit->cmdline);
+                if (r < 0)
+                        return r;
+
+                return 0;
         }
-
-        r = 0;
-
-finish:
-        return r;
 }
 
 /*
@@ -561,7 +462,9 @@ static int selinux_access_check(DBusConnection *connection, DBusMessage *message
         int r = 0;
         const char *tclass = NULL;
         struct auditstruct audit;
-        audit.uid = audit.loginuid = audit.gid = -1;
+
+        audit.uid = audit.loginuid = (uid_t) -1;
+        audit.gid = (gid_t) -1;
         audit.cmdline = NULL;
         audit.path = path;
 
@@ -589,9 +492,9 @@ static int selinux_access_check(DBusConnection *connection, DBusMessage *message
 
         (void) get_audit_data(connection, message, &audit, error);
 
-        errno=0;
+        errno= 0;
         r = selinux_check_access(scon, fcon, tclass, perm, &audit);
-        if ( r < 0) {
+        if (r < 0) {
                 r = -errno;
                 log_error("SELinux Denied \"%s\"", audit.cmdline);
 
@@ -622,21 +525,23 @@ void selinux_access_finish(void) {
 int selinux_unit_access_check(DBusConnection *connection, DBusMessage *message, Manager *m, const char *path, DBusError *error) {
         const char *perm;
         int require_unit;
-        const char *member = dbus_message_get_member(message);
+        const char *member;
         int r;
 
         r = selinux_init(m, error);
-        if (r)
+        if (r < 0)
                 return r;
 
         if (! selinux_enabled)
                 return 0;
 
+        member = dbus_message_get_member(message);
+
         selinux_perm_lookup(member, &perm, &require_unit);
         log_debug("SELinux dbus-unit Look %s up perm %s require_unit %d", member, perm, require_unit);
 
         r = selinux_access_check(connection, message, m, error, perm, path);
-        if ((r < 0) && (!selinux_enforcing)) {
+        if (r < 0 && !selinux_enforcing) {
                 dbus_error_init(error);
                 r = 0;
         }
@@ -652,7 +557,7 @@ int selinux_manager_access_check(DBusConnection *connection, DBusMessage *messag
         char *path = NULL;
 
         r = selinux_init(m, error);
-        if (r)
+        if (r < 0)
                 return r;
 
         if (! selinux_enabled)
@@ -667,21 +572,19 @@ int selinux_manager_access_check(DBusConnection *connection, DBusMessage *messag
                 const char *name;
                 Unit *u;
 
-                r = dbus_message_get_args(
+                if (!dbus_message_get_args(
                         message,
                         error,
                         DBUS_TYPE_STRING, &name,
-                        DBUS_TYPE_INVALID);
-                if (!r)
+                        DBUS_TYPE_INVALID)) {
+                        r = -EINVAL;
                         goto finish;
+                }
 
-                u = manager_get_unit(m, name);
-                if ( !u ) {
-                        if ((r = manager_load_unit(m, name, NULL, error, &u)) < 0) {
-                                r = -errno;
-                                dbus_set_error(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                                goto finish;
-                        }
+                r = manager_load_unit(m, name, NULL, error, &u);
+                if (r < 0) {
+                        dbus_set_error(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                        goto finish;
                 }
 
                 path = u->source_path ? u->source_path : u->fragment_path;
@@ -706,5 +609,6 @@ int selinux_manager_access_check(DBusConnection *connection, DBusMessage *messag
         return 0;
 }
 
-void selinux_access_finish(void) {}
+void selinux_access_finish(void) {
+}
 #endif

@@ -734,7 +734,8 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
         assert(name);
         assert(mode < _JOB_MODE_MAX);
 
-        if ((r = manager_load_unit(m, name, NULL, NULL, &unit)) < 0)
+        r = manager_load_unit(m, name, NULL, NULL, &unit);
+        if (r < 0)
                 return r;
 
         return manager_add_job(m, type, unit, mode, override, e, _ret);
@@ -846,7 +847,8 @@ int manager_load_unit(Manager *m, const char *name, const char *path, DBusError 
         /* This will load the service information files, but not actually
          * start any services or anything. */
 
-        if ((r = manager_load_unit_prepare(m, name, path, e, _ret)) != 0)
+        r = manager_load_unit_prepare(m, name, path, e, _ret);
+        if (r != 0)
                 return r;
 
         manager_dispatch_load_queue(m);

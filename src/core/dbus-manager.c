@@ -580,7 +580,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         member = dbus_message_get_member(message);
         r = selinux_manager_access_check(connection, message, m, &error);
-        if (r)
+        if (r < 0)
                 return bus_send_error_reply(connection, message, &error, r);
 
         if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnit")) {
