@@ -1006,7 +1006,10 @@ static int manager_reserve_vt(Manager *m) {
 
         m->reserve_vt_fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (m->reserve_vt_fd < 0) {
-                log_warning("Failed to pin reserved VT: %m");
+
+                /* Don't complain on VT-less systems */
+                if (errno != ENOENT)
+                        log_warning("Failed to pin reserved VT: %m");
                 return -errno;
         }
 
