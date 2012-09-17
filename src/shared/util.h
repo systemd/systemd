@@ -246,6 +246,7 @@ int get_process_comm(pid_t pid, char **name);
 int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line);
 int get_process_exe(pid_t pid, char **name);
 int get_process_uid(pid_t pid, uid_t *uid);
+int get_process_gid(pid_t pid, gid_t *gid);
 
 char hexchar(int x);
 int unhexchar(char c);

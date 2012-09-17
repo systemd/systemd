@@ -1108,7 +1108,7 @@ int get_process_exe(pid_t pid, char **name) {
         return r;
 }
 
-int get_process_uid(pid_t pid, uid_t *uid) {
+static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
         char *p;
         FILE *f;
         int r;
@@ -1140,8 +1140,8 @@ int get_process_uid(pid_t pid, uid_t *uid) {
 
                 l = strstrip(line);
 
-                if (startswith(l, "Uid:")) {
-                        l += 4;
+                if (startswith(l, field)) {
+                        l += strlen(field);
                         l += strspn(l, WHITESPACE);
 
                         l[strcspn(l, WHITESPACE)] = 0;
@@ -1157,6 +1157,14 @@ finish:
         fclose(f);
 
         return r;
+}
+
+int get_process_uid(pid_t pid, uid_t *uid) {
+        return get_process_id(pid, "Uid:", uid);
+}
+
+int get_process_gid(pid_t pid, gid_t *gid) {
+        return get_process_id(pid, "Gid:", gid);
 }
 
 char *strnappend(const char *s, const char *suffix, size_t b) {
