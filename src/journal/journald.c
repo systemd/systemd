@@ -347,7 +347,7 @@ static void server_rotate(Server *s) {
                                 log_error("Failed to create user journal: %s", strerror(-r));
                 else {
                         hashmap_replace(s->user_journals, k, f);
-                        server_fix_perms(s, s->system_journal, PTR_TO_UINT32(k));
+                        server_fix_perms(s, f, PTR_TO_UINT32(k));
                 }
         }
 }
