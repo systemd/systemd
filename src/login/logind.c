@@ -50,8 +50,10 @@ Manager *manager_new(void) {
         m->udev_vcsa_fd = -1;
         m->udev_button_fd = -1;
         m->epoll_fd = -1;
+        m->reserve_vt_fd = -1;
 
         m->n_autovts = 6;
+        m->reserve_vt = 6;
         m->inhibit_delay_max = 5 * USEC_PER_SEC;
         m->handle_power_key = HANDLE_NO_SESSION;
         m->handle_sleep_key = HANDLE_TTY_SESSION;
@@ -165,6 +167,9 @@ void manager_free(Manager *m) {
 
         if (m->epoll_fd >= 0)
                 close_nointr_nofail(m->epoll_fd);
+
+        if (m->reserve_vt_fd >= 0)
+                close_nointr_nofail(m->reserve_vt_fd);
 
         strv_free(m->controllers);
         strv_free(m->reset_controllers);
@@ -948,20 +953,28 @@ int manager_spawn_autovt(Manager *m, int vtnr) {
         assert(m);
         assert(vtnr >= 1);
 
-        if ((unsigned) vtnr > m->n_autovts)
+        if ((unsigned) vtnr > m->n_autovts &&
+            (unsigned) vtnr != m->reserve_vt)
                 return 0;
 
-        r = vt_is_busy(vtnr);
-        if (r < 0)
-                return r;
-        else if (r > 0)
-                return -EBUSY;
+        if ((unsigned) vtnr != m->reserve_vt) {
+                /* If this is the reserved TTY, we'll start the getty
+                 * on it in any case, but otherwise only if it is not
+                 * busy. */
+
+                r = vt_is_busy(vtnr);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        return -EBUSY;
+        }
 
         if (asprintf(&name, "autovt@tty%i.service", vtnr) < 0) {
                 log_error("Could not allocate service name.");
                 r = -ENOMEM;
                 goto finish;
         }
+
         r = bus_method_call_with_reply (
                         m->bus,
                         "org.freedesktop.systemd1",
@@ -978,6 +991,26 @@ finish:
         free(name);
 
         return r;
+}
+
+static int manager_reserve_vt(Manager *m) {
+        _cleanup_free_ char *p = NULL;
+
+        assert(m);
+
+        if (m->reserve_vt <= 0)
+                return 0;
+
+        if (asprintf(&p, "/dev/tty%u", m->reserve_vt) < 0)
+                return log_oom();
+
+        m->reserve_vt_fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        if (m->reserve_vt_fd < 0) {
+                log_warning("Failed to pin reserved VT: %m");
+                return -errno;
+        }
+
+        return 0;
 }
 
 int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **session) {
@@ -1449,6 +1482,9 @@ int manager_startup(Manager *m) {
 
         /* Remove stale objects before we start them */
         manager_gc(m, false);
+
+        /* Reserve the special reserved VT */
+        manager_reserve_vt(m);
 
         /* And start everything */
         HASHMAP_FOREACH(seat, m->seats, i)

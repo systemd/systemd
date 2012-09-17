@@ -55,9 +55,9 @@ F18:
 
 * selinux: merge systemd selinux access controls (dwalsh)
 
-* make logind reserve tty6 or so for text logins, so that gdm never picks it up
-
 Features:
+
+* move cryptsetup key caching into kernel keyctl?
 
 * make nspawn work without terminal
 

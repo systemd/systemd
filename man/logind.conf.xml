@@ -71,14 +71,15 @@
 
                                 <listitem><para>Takes a positive
                                 integer. Configures how many virtual
-                                terminals to allocate by default that
-                                -- when switched to --
+                                terminals (VTs) to allocate by default
+                                that -- when switched to and
+                                previously unused --
                                 <literal>autovt</literal> services are
                                 automatically spawned on. These
                                 services are instantiated from the
-                                template
+                                template unit
                                 <filename>autovt@.service</filename>
-                                with the virtual terminal TTY name,
+                                for the respective VT TTY name,
                                 e.g. <filename>autovt@tty4.service</filename>. By
                                 default
                                 <filename>autovt@.service</filename>
@@ -86,12 +87,46 @@
                                 <filename>getty@.service</filename>,
                                 i.e. login prompts are started
                                 dynamically as the user switches to
-                                unused virtual terminals. This
-                                parameter hence controls how many
-                                gettys are available on the virtual
-                                terminals. Defaults to 6. When set to
+                                unused virtual terminals. Hence, this
+                                parameter controls how many login
+                                <literal>gettys</literal> are
+                                available on the VTs. If a VT is
+                                already used by some other subsystem
+                                (for example a graphical login) this
+                                kind of activation will not be
+                                attempted. Note that the VT configured
+                                in <varname>ReserveVT=</varname> is
+                                always subject to this kind of
+                                activation, even if it is not one of
+                                VTs configured with the
+                                <varname>NAutoVTs=</varname>
+                                directive. Defaults to 6. When set to
                                 0, automatic spawning of
                                 <literal>autovt</literal> services is
+                                disabled. </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ReserveVT=</varname></term>
+
+                                <listitem><para>Takes a positive
+                                integer. Configures the number of one
+                                virtual terminal that shall
+                                unconditionally be reserved for
+                                <filename>autovt@.service</filename>
+                                activation (see above). The VT
+                                selected with this option will be
+                                marked busy unconditionally so that no
+                                other subsystem will allocate it. This
+                                functionality is useful to ensure that
+                                regardless how many VTs are allocated
+                                by other subsystems one login
+                                <literal>getty</literal> is always
+                                available. Defaults to 6 (with other
+                                words: there'll always be a
+                                <literal>getty</literal> available on
+                                Alt-F6.). When set to 0, VT
+                                reservation is
                                 disabled.</para></listitem>
                         </varlistentry>
 

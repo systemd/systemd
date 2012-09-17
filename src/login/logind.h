@@ -68,6 +68,9 @@ struct Manager {
 
         unsigned n_autovts;
 
+        unsigned reserve_vt;
+        int reserve_vt_fd;
+
         Seat *vtconsole;
 
         char *cgroup_path;
