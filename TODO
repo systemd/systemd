@@ -1,6 +1,4 @@
 Bugfixes:
-* always open() tty6 to keep X from using it; move debug shell to tty6
-
 * there is nothing to warn about here :)
   $ systemctl stop systemd-udevd.service systemd-udevd-kernel.socket systemd-udevd-control.socket
   Warning: Stopping systemd-udevd.service, but it can still be activated by:
@@ -56,6 +54,8 @@ F18:
 * selinux: merge systemd selinux access controls (dwalsh)
 
 Features:
+
+* move debug shell to tty6 and make sure this doesn't break the gettys on tty6
 
 * move cryptsetup key caching into kernel keyctl?
 
