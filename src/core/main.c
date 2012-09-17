@@ -1125,6 +1125,42 @@ fail:
         return r;
 }
 
+static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
+        struct rlimit nl;
+        int r;
+
+        assert(saved_rlimit);
+
+        /* Save the original RLIMIT_NOFILE so that we can reset it
+         * later when transitioning from the initrd to the main
+         * systemd or suchlike. */
+        if (getrlimit(RLIMIT_NOFILE, saved_rlimit) < 0) {
+                log_error("Reading RLIMIT_NOFILE failed: %m");
+                return -errno;
+        }
+
+        /* Make sure forked processes get the default kernel setting */
+        if (!arg_default_rlimit[RLIMIT_NOFILE]) {
+                struct rlimit *rl;
+
+                rl = newdup(struct rlimit, saved_rlimit, 1);
+                if (!rl)
+                        return log_oom();
+
+                arg_default_rlimit[RLIMIT_NOFILE] = rl;
+        }
+
+        /* Bump up the resource limit for ourselves substantially */
+        nl.rlim_cur = nl.rlim_max = 64*1024;
+        r = setrlimit_closest(RLIMIT_NOFILE, &nl);
+        if (r < 0) {
+                log_error("Setting RLIMIT_NOFILE failed: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
 static struct dual_timestamp* parse_initrd_timestamp(struct dual_timestamp *t) {
         const char *e;
         unsigned long long a, b;
@@ -1207,6 +1243,7 @@ int main(int argc, char *argv[]) {
         bool arm_reboot_watchdog = false;
         bool queue_default_job = false;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
+        static struct rlimit saved_rlimit_nofile = { 0, 0 };
 
 #ifdef HAVE_SYSV_COMPAT
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
@@ -1518,6 +1555,9 @@ int main(int argc, char *argv[]) {
                 }
         }
 
+        if (arg_running_as == MANAGER_SYSTEM)
+                bump_rlimit_nofile(&saved_rlimit_nofile);
+
         r = manager_new(arg_running_as, &m);
         if (r < 0) {
                 log_error("Failed to allocate manager object: %s", strerror(-r));
@@ -1696,7 +1736,7 @@ finish:
                 manager_free(m);
 
         for (j = 0; j < RLIMIT_NLIMITS; j++)
-                free (arg_default_rlimit[j]);
+                free(arg_default_rlimit[j]);
 
         free(arg_default_unit);
         strv_free(arg_default_controllers);
@@ -1713,6 +1753,12 @@ finish:
                  * instance can reinitialize it, but doesn't get
                  * rebooted while we do that */
                 watchdog_close(true);
+
+                /* Reset the RLIMIT_NOFILE to the kernel default, so
+                 * that the new systemd can pass the kernel default to
+                 * its child processes */
+                if (saved_rlimit_nofile.rlim_cur > 0)
+                        setrlimit(RLIMIT_NOFILE, &saved_rlimit_nofile);
 
                 if (switch_root_dir) {
                         /* Kill all remaining processes from the
