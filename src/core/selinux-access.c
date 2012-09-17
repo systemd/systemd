@@ -684,7 +684,7 @@ int selinux_manager_access_check(DBusConnection *connection, DBusMessage *messag
                         }
                 }
 
-                path = (u->fragment_path ? u->fragment_path: u->source_path);
+                path = u->source_path ? u->source_path : u->fragment_path;
         }
         r = selinux_access_check(connection, message, m, error, perm, path);
 

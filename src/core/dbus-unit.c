@@ -420,9 +420,9 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 connection,
                 message,
                 m,
-                (u->fragment_path ? u->fragment_path: u->source_path),
+                u->source_path ? u->source_path : u->fragment_path,
                 &error);
-        if (r)
+        if (r < 0)
                 return bus_send_error_reply(connection, message, &error, r);
 
         if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "Start"))
