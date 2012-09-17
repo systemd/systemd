@@ -28,8 +28,6 @@ F18:
 
 * refuse automount triggers when automount is queued for stop, much like we refuse socket triggers when sockets are queued for stop
 
-* perfomance messages for selinux are gone from debug log?
-
 * There's something wrong with escaping unit names: http://lists.freedesktop.org/archives/systemd-devel/2012-August/006292.html
 
 * logind: different policy actions for idle, suspend, shutdown blockers: allow idle blockers by default, don't allow suspend blockers by default

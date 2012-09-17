@@ -154,6 +154,7 @@ int hwclock_set_time(const struct tm *tm) {
 
         return err;
 }
+
 int hwclock_is_localtime(void) {
         FILE *f;
         bool local = false;

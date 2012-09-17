@@ -1285,10 +1285,15 @@ int main(int argc, char *argv[]) {
         saved_argc = argc;
 
         log_show_color(isatty(STDERR_FILENO) > 0);
-        log_show_location(false);
-        log_set_max_level(LOG_INFO);
 
-        if (getpid() == 1) {
+        if (getpid() == 1 && detect_container(NULL) <= 0) {
+
+                /* Running outside of a container as PID 1 */
+                arg_running_as = MANAGER_SYSTEM;
+                make_null_stdio();
+                log_set_target(LOG_TARGET_KMSG);
+                log_open();
+
                 if (in_initrd()) {
                         char *rd_timestamp = NULL;
 
@@ -1302,19 +1307,12 @@ int main(int argc, char *argv[]) {
                         }
                 }
 
-                arg_running_as = MANAGER_SYSTEM;
-
-                make_null_stdio();
-                log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_JOURNAL : LOG_TARGET_JOURNAL_OR_KMSG);
-
                 if (!skip_setup) {
                         if (selinux_setup(&loaded_policy) < 0)
                                 goto finish;
                         if (ima_setup() < 0)
                                 goto finish;
                 }
-
-                log_open();
 
                 if (label_init(NULL) < 0)
                         goto finish;
@@ -1339,7 +1337,28 @@ int main(int argc, char *argv[]) {
                                         log_error("Failed to set the kernel's time zone, ignoring: %s", strerror(-r));
                         }
                 }
+
+                /* Set the default for later on, but don't actually
+                 * open the logs like this for now. Note that if we
+                 * are transitioning from the initrd there might still
+                 * be journal fd open, and we shouldn't attempt
+                 * opening that before we parsed /proc/cmdline which
+                 * might redirect output elsewhere. */
+                log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
+
+        } else if (getpid() == 1) {
+
+                /* Running inside a container, as PID 1 */
+                arg_running_as = MANAGER_SYSTEM;
+                log_set_target(LOG_TARGET_CONSOLE);
+                log_open();
+
+                /* For the later on, see above... */
+                log_set_target(LOG_TARGET_JOURNAL);
+
         } else {
+
+                /* Running as user instance */
                 arg_running_as = MANAGER_USER;
                 log_set_target(LOG_TARGET_AUTO);
                 log_open();
