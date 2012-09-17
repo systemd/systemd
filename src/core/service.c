@@ -2961,11 +2961,9 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         else
                                                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
                                         break;
-                                } else {
-                                        assert(s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY);
-
-                                        /* Fall through */
                                 }
+
+                                /* Fall through */
 
                         case SERVICE_RUNNING:
                                 service_enter_running(s, f);
@@ -3036,7 +3034,9 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_START:
-                                assert(s->type == SERVICE_FORKING);
+                                if (s->type != SERVICE_FORKING)
+                                        /* Maybe spurious event due to a reload that changed the type? */
+                                        break;
 
                                 if (f != SERVICE_SUCCESS) {
                                         service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);

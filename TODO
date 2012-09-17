@@ -22,23 +22,6 @@ Bugfixes:
 * we pull src/core/manager.h into src/shared/src/shared/path-lookup.c which is the wrong direction
    rename enum "ManagerRunningAs" to "SystemdRunningAs" and move it to shared/
 
-* crash happens when running a service as forking and then changing it to simple and reloading.
-
-  Jul 09 18:20:57 mop systemd[1]: usbmuxd.service operation timed out. Terminating.
-  Jul 09 18:20:57 mop systemd[1]: Unit usbmuxd.service entered failed state.
-  Jul 09 18:22:24 mop systemd[1]: PID 21814 read from file /var/run/usbmuxd.pid does not exist.
-  Jul 09 18:22:24 mop systemd[1]: Unit usbmuxd.service entered failed state.
-  Jul 09 18:22:33 mop systemd[1]: Reloading.
-  Jul 09 18:22:37 mop systemd[1]: Assertion 's->type == SERVICE_FORKING' failed at src/core/service.c:3007, function service_sigchld_eve...Aborting.
-  Jul 09 18:22:37 mop systemd[1]: Caught <ABRT>, dumped core as pid 21865.
-  Jul 09 18:22:37 mop systemd[1]: Freezing execution.
-  Jul 09 18:22:37 mop [21866]: Process 21865 (systemd) dumped core.
-
-* support *static* (/run) hibernate inhibitors. All rpm -i actions should completely prevent any
-  sort of hibernate action until the next reboot. If the kernel or any other base tool is replaced
-  by rpm, the resume path might fail, the for resume needed kernel might even be uninstalled, and
-  the whole situation leads directly to data loss.
-
 F18:
 
 * journald: warn if we drop messages we forward to the syslog socket
@@ -54,6 +37,11 @@ F18:
 * selinux: merge systemd selinux access controls (dwalsh)
 
 Features:
+
+* support *static* (/run) hibernate inhibitors. All rpm -i actions should completely prevent any
+  sort of hibernate action until the next reboot. If the kernel or any other base tool is replaced
+  by rpm, the resume path might fail, the for resume needed kernel might even be uninstalled, and
+  the whole situation leads directly to data loss.
 
 * move debug shell to tty6 and make sure this doesn't break the gettys on tty6
 
