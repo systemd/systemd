@@ -24,7 +24,7 @@ Bugfixes:
 
 F18:
 
-* logind: different policy actions for idle, suspend, shutdown blockers: allow idle blockers by default, don't allow suspend blockers by default
+* https://bugzilla.gnome.org/show_bug.cgi?id=680689
 
 * selinux: merge systemd selinux access controls (dwalsh)
 
