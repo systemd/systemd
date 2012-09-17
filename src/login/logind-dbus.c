@@ -723,9 +723,10 @@ static int bus_manager_inhibit(Manager *m, DBusConnection *connection, DBusMessa
         }
 
         r = verify_polkit(connection, message,
-                          m == INHIBIT_BLOCK ?
-                          "org.freedesktop.login1.inhibit-block" :
-                          "org.freedesktop.login1.inhibit-delay", false, NULL, error);
+                          w == INHIBIT_SHUTDOWN ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
+                          w == INHIBIT_SLEEP    ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
+                                                  (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-idle"     : "org.freedesktop.login1.inhibit-delay-idle"),
+                          false, NULL, error);
         if (r < 0)
                 goto fail;
 

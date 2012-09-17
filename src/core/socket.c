@@ -1850,7 +1850,8 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         if (w->socket_accept) {
                 for (;;) {
 
-                        if ((cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK)) < 0) {
+                        cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK);
+                        if (cfd < 0) {
 
                                 if (errno == EINTR)
                                         continue;

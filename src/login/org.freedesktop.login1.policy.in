@@ -16,9 +16,9 @@
         <vendor>The systemd Project</vendor>
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
-        <action id="org.freedesktop.login1.inhibit-block">
-                <_description>Allow applications to inhibit system shutdown and suspend</_description>
-                <_message>Authentication is required to allow an application to inhibit system shutdown or suspend.</_message>
+        <action id="org.freedesktop.login1.inhibit-block-shutdown">
+                <_description>Allow applications to inhibit system shutdown</_description>
+                <_message>Authentication is required to allow an application to inhibit system shutdown.</_message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>yes</allow_inactive>
@@ -26,9 +26,49 @@
                 </defaults>
         </action>
 
-        <action id="org.freedesktop.login1.inhibit-delay">
-                <_description>Allow applications to delay system shutdown and suspend</_description>
-                <_message>Authentication is required to allow an application to delay system shutdown or suspend.</_message>
+        <action id="org.freedesktop.login1.inhibit-block-sleep">
+                <_description>Allow applications to inhibit system sleep</_description>
+                <_message>Authentication is required to allow an application to inhibit system sleep.</_message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.inhibit-block-idle">
+                <_description>Allow applications to inhibit automatic system suspend</_description>
+                <_message>Authentication is required to allow an application to inhibit automatic system suspend.</_message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.inhibit-delay-shutdown">
+                <_description>Allow applications to delay system shutdown</_description>
+                <_message>Authentication is required to allow an application to delay system shutdown.</_message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.inhibit-delay-sleep">
+                <_description>Allow applications to delay system sleep</_description>
+                <_message>Authentication is required to allow an application to delay system sleep.</_message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.inhibit-delay-idle">
+                <_description>Allow applications to delay automatic system suspend</_description>
+                <_message>Authentication is required to allow an application to delay automatic system suspend.</_message>
                 <defaults>
                         <allow_any>yes</allow_any>
                         <allow_inactive>yes</allow_inactive>
