@@ -696,12 +696,12 @@ static DBusHandlerResult timedate_message_handler(
                                 return bus_send_error_reply(connection, message, NULL, r);
                         }
 
+                        /* 2. Tell the kernel our time zone */
+                        hwclock_set_timezone(NULL);
+
                         if (tz.local_rtc) {
                                 struct timespec ts;
                                 struct tm *tm;
-
-                                /* 2. Teach kernel new timezone */
-                                hwclock_apply_localtime_delta(NULL);
 
                                 /* 3. Sync RTC from system clock, with the new delta */
                                 assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
@@ -753,11 +753,8 @@ static DBusHandlerResult timedate_message_handler(
                                 return bus_send_error_reply(connection, message, NULL, r);
                         }
 
-                        /* 2. Teach kernel new timezone */
-                        if (tz.local_rtc)
-                                hwclock_apply_localtime_delta(NULL);
-                        else
-                                hwclock_reset_localtime_delta();
+                        /* 2. Tell the kernel our time zone */
+                        hwclock_set_timezone(NULL);
 
                         /* 3. Synchronize clocks */
                         assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);

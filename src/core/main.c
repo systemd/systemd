@@ -1319,17 +1319,26 @@ int main(int argc, char *argv[]) {
                 if (label_init(NULL) < 0)
                         goto finish;
 
-                if (!skip_setup)
+                if (!skip_setup) {
                         if (hwclock_is_localtime() > 0) {
                                 int min;
 
-                                r = hwclock_apply_localtime_delta(&min);
+                                /* The first-time call to settimeofday() does a time warp in the kernel */
+                                r = hwclock_set_timezone(&min);
                                 if (r < 0)
                                         log_error("Failed to apply local time delta, ignoring: %s", strerror(-r));
                                 else
                                         log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
-                        }
+                        } else {
+                                /* Do dummy first-time call to seal the kernel's time warp magic */
+                                hwclock_reset_timezone();
 
+                                /* Tell the kernel our time zone */
+                                r = hwclock_set_timezone(NULL);
+                                if (r < 0)
+                                        log_error("Failed to set the kernel's time zone, ignoring: %s", strerror(-r));
+                        }
+                }
         } else {
                 arg_running_as = MANAGER_USER;
                 log_set_target(LOG_TARGET_AUTO);

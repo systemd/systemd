@@ -188,7 +188,7 @@ int hwclock_is_localtime(void) {
         return local;
 }
 
-int hwclock_apply_localtime_delta(int *min) {
+int hwclock_set_timezone(int *min) {
         const struct timeval *tv_null = NULL;
         struct timespec ts;
         struct tm *tm;
@@ -214,13 +214,18 @@ int hwclock_apply_localtime_delta(int *min) {
         return 0;
 }
 
-int hwclock_reset_localtime_delta(void) {
+int hwclock_reset_timezone(void) {
         const struct timeval *tv_null = NULL;
         struct timezone tz;
 
         tz.tz_minuteswest = 0;
         tz.tz_dsttime = 0; /* DST_NONE*/
 
+        /*
+         * The very first time we set the kernel's timezone, it will warp
+         * the clock. Do a dummy call here, so the time warping is sealed
+         * and we set only the time zone with next call.
+         */
         if (settimeofday(tv_null, &tz) < 0)
                 return -errno;
 
