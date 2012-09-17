@@ -4097,6 +4097,8 @@ static char *tag_to_udev_node(const char *tagvalue, const char *by) {
 }
 
 char *fstab_node_to_udev_node(const char *p) {
+        assert(p);
+
         if (startswith(p, "LABEL="))
                 return tag_to_udev_node(p+6, "label");
 

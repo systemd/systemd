@@ -932,7 +932,6 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 s->timeout_stop_usec = DEFAULT_SYSV_TIMEOUT_USEC;
         }
 
-
         /* Special setting for all SysV services */
         s->type = SERVICE_FORKING;
         s->remain_after_exit = !s->pid_file;

@@ -2675,16 +2675,18 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
 
         r = manager_load_unit(u->manager, e, NULL, NULL, &device);
         free(e);
-
         if (r < 0)
                 return r;
 
-        if ((r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_BINDS_TO, device, true)) < 0)
+        r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_BINDS_TO, device, true);
+        if (r < 0)
                 return r;
 
-        if (wants)
-                if ((r = unit_add_dependency(device, UNIT_WANTS, u, false)) < 0)
+        if (wants) {
+                r = unit_add_dependency(device, UNIT_WANTS, u, false);
+                if (r < 0)
                         return r;
+        }
 
         return 0;
 }

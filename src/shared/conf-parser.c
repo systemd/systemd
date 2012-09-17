@@ -593,7 +593,7 @@ int config_parse_string(
         assert(rvalue);
         assert(data);
 
-        n = cunescape(rvalue);
+        n = strdup(rvalue);
         if (!n)
                 return -ENOMEM;
 
