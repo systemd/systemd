@@ -2196,6 +2196,8 @@ DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult);
 
 const UnitVTable socket_vtable = {
         .object_size = sizeof(Socket),
+        .exec_context_offset = offsetof(Socket, exec_context),
+
         .sections =
                 "Unit\0"
                 "Socket\0"

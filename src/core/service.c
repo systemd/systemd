@@ -3837,6 +3837,8 @@ DEFINE_STRING_TABLE_LOOKUP(start_limit_action, StartLimitAction);
 
 const UnitVTable service_vtable = {
         .object_size = sizeof(Service),
+        .exec_context_offset = offsetof(Service, exec_context),
+
         .sections =
                 "Unit\0"
                 "Service\0"

@@ -266,6 +266,10 @@ struct UnitVTable {
         /* How much memory does an object of this unit type need */
         size_t object_size;
 
+        /* If greater than 0, the offset into the object where
+         * ExecContext is found, if the unit type has that */
+        size_t exec_context_offset;
+
         /* Config file sections this unit type understands, separated
          * by NUL chars */
         const char *sections;
@@ -537,6 +541,8 @@ int unit_add_one_mount_link(Unit *u, Mount *m);
 int unit_add_mount_links(Unit *u);
 
 int unit_exec_context_defaults(Unit *u, ExecContext *c);
+
+ExecContext *unit_get_exec_context(Unit *u);
 
 const char *unit_active_state_to_string(UnitActiveState i);
 UnitActiveState unit_active_state_from_string(const char *s);

@@ -119,16 +119,21 @@ static char *specifier_runtime(char specifier, void *data, void *userdata) {
 }
 
 static char *specifier_user_name(char specifier, void *data, void *userdata) {
-        Service *s = userdata;
+        Unit *u = userdata;
+        ExecContext *c;
         int r;
         const char *username;
 
+        c = unit_get_exec_context(u);
+        if (!c)
+                return NULL;
+
         /* get USER env from our own env if set */
-        if (!s->exec_context.user)
+        if (!c->user)
                 return getusername_malloc();
 
         /* fish username from passwd */
-        username = s->exec_context.user;
+        username = c->user;
         r = get_user_creds(&username, NULL, NULL, NULL, NULL);
         if (r < 0)
                 return NULL;
@@ -137,12 +142,17 @@ static char *specifier_user_name(char specifier, void *data, void *userdata) {
 }
 
 static char *specifier_user_home(char specifier, void *data, void *userdata) {
-        Service *s = userdata;
+        Unit *u = userdata;
+        ExecContext *c;
         int r;
         const char *username, *home;
 
+        c = unit_get_exec_context(u);
+        if (!c)
+                return NULL;
+
         /* return HOME if set, otherwise from passwd */
-        if (!s->exec_context.user) {
+        if (!c->user) {
                 char *h;
 
                 r = get_home_dir(&h);
@@ -152,7 +162,7 @@ static char *specifier_user_home(char specifier, void *data, void *userdata) {
                 return h;
         }
 
-        username = s->exec_context.user;
+        username = c->user;
         r = get_user_creds(&username, NULL, NULL, &home, NULL);
         if (r < 0)
                return NULL;
@@ -161,12 +171,17 @@ static char *specifier_user_home(char specifier, void *data, void *userdata) {
 }
 
 static char *specifier_user_shell(char specifier, void *data, void *userdata) {
-        Service *s = userdata;
+        Unit *u = userdata;
+        ExecContext *c;
         int r;
         const char *username, *shell;
 
+        c = unit_get_exec_context(u);
+        if (!c)
+                return NULL;
+
         /* return HOME if set, otherwise from passwd */
-        if (!s->exec_context.user) {
+        if (!c->user) {
                 char *sh;
 
                 r = get_shell(&sh);
@@ -176,7 +191,7 @@ static char *specifier_user_shell(char specifier, void *data, void *userdata) {
                 return sh;
         }
 
-        username = s->exec_context.user;
+        username = c->user;
         r = get_user_creds(&username, NULL, NULL, NULL, &shell);
         if (r < 0)
                 return strdup("/bin/sh");
