@@ -536,6 +536,10 @@ static int output_cat(sd_journal *j, OutputMode mode, unsigned line,
 
         r = sd_journal_get_data(j, "MESSAGE", &data, &l);
         if (r < 0) {
+                /* An entry without MESSAGE=? */
+                if (r == -ENOENT)
+                        return 0;
+
                 log_error("Failed to get data: %s", strerror(-r));
                 return r;
         }
