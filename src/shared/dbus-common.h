@@ -213,3 +213,6 @@ int bus_method_call_with_reply(DBusConnection *bus,
                                DBusMessage **return_reply,
                                DBusError *return_error,
                                int first_arg_type, ...);
+
+void dbus_message_unref_p(DBusMessage **reply);
+#define _cleanup_dbus_msg_unref_ __attribute__((cleanup(dbus_message_unref_p)))

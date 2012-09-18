@@ -1441,22 +1441,22 @@ static void check_triggering_units(
                 DBusConnection *bus,
                 const char *unit_name) {
 
-        DBusMessage *reply = NULL;
+        DBusMessage _cleanup_dbus_msg_unref_ *reply = NULL;
         DBusMessageIter iter, sub;
         char *service_trigger = NULL;
         const char *interface = "org.freedesktop.systemd1.Unit",
                    *triggered_by_property = "TriggeredBy";
 
-        char *unit_path = NULL, *n = NULL;
+        char _cleanup_free_ *unit_path = NULL, *n = NULL;
         bool print_warning_label = true;
         int r;
 
         n = unit_name_mangle(unit_name);
         unit_path = unit_dbus_path_from_name(n ? n : unit_name);
-        free(n);
+
         if (!unit_path) {
                 log_error("Could not allocate dbus path.");
-                goto finish;
+                return;
         }
 
         r = bus_method_call_with_reply (
@@ -1471,13 +1471,12 @@ static void check_triggering_units(
                         DBUS_TYPE_STRING, &triggered_by_property,
                         DBUS_TYPE_INVALID);
         if (r)
-                goto finish;
+                return;
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
                 log_error("Failed to parse reply.");
-                goto finish;
-
+                return;
         }
 
         dbus_message_iter_recurse(&iter, &sub);
@@ -1488,14 +1487,14 @@ static void check_triggering_units(
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
                         log_error("Failed to parse reply.");
-                        goto finish;
+                        return;
                 }
 
                 dbus_message_iter_get_basic(&sub, &service_trigger);
 
                 r = check_one_unit(bus, service_trigger, true);
                 if (r < 0)
-                        goto finish;
+                        return;
                 if (r == 0) {
                         if (print_warning_label) {
                                 log_warning("Warning: Stopping %s, but it can still be activated by:", unit_name);
@@ -1506,11 +1505,6 @@ static void check_triggering_units(
 
                 dbus_message_iter_next(&sub);
         }
-finish:
-        if (reply)
-                dbus_message_unref(reply);
-
-        free(unit_path);
 }
 
 static int start_unit_one(

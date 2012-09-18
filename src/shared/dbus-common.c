@@ -1318,3 +1318,9 @@ finish:
 
         return r;
 }
+
+
+void dbus_message_unref_p(DBusMessage **reply) {
+        if (*reply)
+                dbus_message_unref(*reply);
+}
