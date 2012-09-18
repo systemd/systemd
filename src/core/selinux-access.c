@@ -65,79 +65,77 @@ struct auditstruct {
    check will be called.
 */
 
-static const char * const unit_methods[][2] = {{ "DisableUnitFiles", "disable" },
-                                               { "EnableUnitFiles", "enable" },
-                                               { "GetUnit", "status" },
-                                               { "GetUnitFileState",  "status" },
-                                               { "Kill", "stop" },
-                                               { "KillUnit", "stop" },
-                                               { "LinkUnitFiles", "enable" },
-                                               { "MaskUnitFiles", "disable" },
-                                               { "PresetUnitFiles", "enable" },
-                                               { "ReenableUnitFiles", "enable" },
-                                               { "Reexecute", "start" },
-                                               { "ReloadOrRestart", "start" },
-                                               { "ReloadOrRestartUnit", "start" },
-                                               { "ReloadOrTryRestart", "start" },
-                                               { "ReloadOrTryRestartUnit", "start" },
-                                               { "ReloadUnit", "reload" },
-                                               { "ResetFailedUnit", "stop" },
-                                               { "Restart", "start" },
-                                               { "RestartUnit", "start" },
-                                               { "Start", "start" },
-                                               { "StartUnit", "start" },
-                                               { "StartUnitReplace", "start" },
-                                               { "Stop", "stop" },
-                                               { "StopUnit", "stop" },
-                                               { "TryRestart", "start" },
-                                               { "TryRestartUnit", "start" },
-                                               { "UnmaskUnitFiles", "enable" },
-                                               { NULL, NULL }
-};
+static const char unit_methods[] =
+        "DisableUnitFiles\0"       "disable\0"
+        "EnableUnitFiles\0"        "enable\0"
+        "GetUnit\0"                "status\0"
+        "GetUnitFileState\0"       "status\0"
+        "Kill\0"                   "stop\0"
+        "KillUnit\0"               "stop\0"
+        "LinkUnitFiles\0"          "enable\0"
+        "MaskUnitFiles\0"          "disable\0"
+        "PresetUnitFiles\0"        "enable\0"
+        "ReenableUnitFiles\0"      "enable\0"
+        "ReloadOrRestart\0"        "start\0"
+        "ReloadOrRestartUnit\0"    "start\0"
+        "ReloadOrTryRestart\0"     "start\0"
+        "ReloadOrTryRestartUnit\0" "start\0"
+        "Reload\0"                 "reload\0"
+        "ReloadUnit\0"             "reload\0"
+        "ResetFailedUnit\0"        "stop\0"
+        "Restart\0"                "start\0"
+        "RestartUnit\0"            "start\0"
+        "Start\0"                  "start\0"
+        "StartUnit\0"              "start\0"
+        "StartUnitReplace\0"       "start\0"
+        "Stop\0"                   "stop\0"
+        "StopUnit\0"               "stop\0"
+        "TryRestart\0"             "start\0"
+        "TryRestartUnit\0"         "start\0"
+        "UnmaskUnitFiles\0"        "enable\0";
 
-static const char * const system_methods[][2] = { { "ClearJobs", "reboot" },
-                                                  { "CreateSnapshot", "status" },
-                                                  { "Dump", "status" },
-                                                  { "Exit", "halt" },
-                                                  { "FlushDevices", "halt" },
-                                                  { "Get", "status" },
-                                                  { "GetAll", "status" },
-                                                  { "GetJob", "status" },
-                                                  { "GetSeat", "status" },
-                                                  { "GetSession", "status" },
-                                                  { "GetSessionByPID", "status" },
-                                                  { "GetUnitByPID", "status" },
-                                                  { "GetUser", "status" },
-                                                  { "Halt", "halt" },
-                                                  { "Introspect", "status" },
-                                                  { "KExec", "reboot" },
-                                                  { "KillSession", "halt" },
-                                                  { "KillUser", "halt" },
-                                                  { "LoadUnit", "reload" },
-                                                  { "ListJobs", "status" },
-                                                  { "ListSeats", "status" },
-                                                  { "ListSessions", "status" },
-                                                  { "ListUnits", "status" },
-                                                  { "ListUnitFiles", "status" },
-                                                  { "ListUsers", "status" },
-                                                  { "LockSession", "halt" },
-                                                  { "PowerOff", "halt" },
-                                                  { "Reboot", "reboot" },
-                                                  { "Reload", "reload" },
-                                                  { "Reexecute", "reload" },
-                                                  { "ResetFailed", "reload" },
-                                                  { "Subscribe", "status" },
-                                                  { "SwithcRoot", "reboot" },
-                                                  { "SetEnvironment", "status" },
-                                                  { "SetUserLinger", "halt" },
-                                                  { "TerminateSeat", "halt" },
-                                                  { "TerminateSession", "halt" },
-                                                  { "TerminateUser", "halt" },
-                                                  { "Unsubscribe", "status" },
-                                                  { "UnsetEnvironment", "status" },
-                                                  { "UnsetAndSetEnvironment", "status" },
-                                                  { NULL, NULL }
-};
+static const char system_methods[] =
+        "ClearJobs\0"              "reboot\0"
+        "CreateSnapshot\0"         "status\0"
+        "Dump\0"                   "status\0"
+        "Exit\0"                   "halt\0"
+        "FlushDevices\0"           "halt\0"
+        "Get\0"                    "status\0"
+        "GetAll\0"                 "status\0"
+        "GetJob\0"                 "status\0"
+        "GetSeat\0"                "status\0"
+        "GetSession\0"             "status\0"
+        "GetSessionByPID\0"        "status\0"
+        "GetUnitByPID\0"           "status\0"
+        "GetUser\0"                "status\0"
+        "Halt\0"                   "halt\0"
+        "Introspect\0"             "status\0"
+        "KExec\0"                  "reboot\0"
+        "KillSession\0"            "halt\0"
+        "KillUser\0"               "halt\0"
+        "LoadUnit\0"               "reload\0"
+        "ListJobs\0"               "status\0"
+        "ListSeats\0"              "status\0"
+        "ListSessions\0"           "status\0"
+        "ListUnits\0"              "status\0"
+        "ListUnitFiles\0"          "status\0"
+        "ListUsers\0"              "status\0"
+        "LockSession\0"            "halt\0"
+        "PowerOff\0"               "halt\0"
+        "Reboot\0"                 "reboot\0"
+        "Reload\0"                 "reload\0"
+        "Reexecute\0"              "reload\0"
+        "ResetFailed\0"            "reload\0"
+        "Subscribe\0"              "status\0"
+        "SwithcRoot\0"             "reboot\0"
+        "SetEnvironment\0"         "status\0"
+        "SetUserLinger\0"          "halt\0"
+        "TerminateSeat\0"          "halt\0"
+        "TerminateSession\0"       "halt\0"
+        "TerminateUser\0"          "halt\0"
+        "Unsubscribe\0"            "status\0"
+        "UnsetEnvironment\0"       "status\0"
+        "UnsetAndSetEnvironment\0" "status\0";
 
 /*
    If the admin toggles the selinux enforcment mode this callback
@@ -422,32 +420,25 @@ static int get_calling_context(
    This function returns the SELinux permission to check and whether or not the
    check requires a unit file.
 */
-static void selinux_perm_lookup(const char *method, const char **perm, int *require_unit)
-{
-        int i;
-        *require_unit = -1;
+static void selinux_perm_lookup(const char *method, const char **perm, bool *require_unit) {
+        const char *m, *p;
 
-        for (i = 0; unit_methods[i][0]; i++) {
-                if (streq(method, unit_methods[i][0])) {
-                        *perm = unit_methods[i][1];
-                        *require_unit = 1;
-                        break;
+        NULSTR_FOREACH_PAIR(m, p, unit_methods)
+                if (streq(method, m)) {
+                        *perm = p;
+                        *require_unit = true;
+                        return;
                 }
-        }
 
-        if (*require_unit < 0) {
-                for (i = 0; system_methods[i][0]; i++) {
-                        if (streq(method, system_methods[i][0])) {
-                                *perm = system_methods[i][1];
-                                *require_unit = 0;
-                                break;
-                        }
+        NULSTR_FOREACH_PAIR(m, p, system_methods)
+                if (streq(method, m)) {
+                        *perm = p;
+                        *require_unit = false;
+                        return;
                 }
-        }
-        if (*require_unit < 0) {
-                *require_unit = 0;
-                *perm = "undefined";
-        }
+
+        *require_unit = false;
+        *perm = "undefined";
 }
 
 /*
@@ -524,7 +515,7 @@ void selinux_access_finish(void) {
 
 int selinux_unit_access_check(DBusConnection *connection, DBusMessage *message, Manager *m, const char *path, DBusError *error) {
         const char *perm;
-        int require_unit;
+        bool require_unit;
         const char *member;
         int r;
 
@@ -552,7 +543,7 @@ int selinux_unit_access_check(DBusConnection *connection, DBusMessage *message, 
 int selinux_manager_access_check(DBusConnection *connection, DBusMessage *message, Manager *m, DBusError *error) {
         int r = -1;
         const char *member;
-        int require_unit;
+        bool require_unit;
         const char *perm;
         char *path = NULL;
 
