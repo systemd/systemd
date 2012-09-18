@@ -1452,10 +1452,14 @@ static void check_triggering_units(
         int r;
 
         n = unit_name_mangle(unit_name);
-        unit_path = unit_dbus_path_from_name(n ? n : unit_name);
+        if (!n) {
+                log_oom();
+                return;
+        }
 
+        unit_path = unit_dbus_path_from_name(n);
         if (!unit_path) {
-                log_error("Could not allocate dbus path.");
+                log_oom();
                 return;
         }
 
@@ -1515,7 +1519,7 @@ static int start_unit_one(
                 DBusError *error,
                 Set *s) {
 
-        DBusMessage *reply = NULL;
+        DBusMessage _cleanup_dbus_msg_unref_ *reply = NULL;
         const char *path;
         int r;
         _cleanup_free_ char *n, *p = NULL;
@@ -1548,15 +1552,14 @@ static int start_unit_one(
                 else
                         log_error("Failed to issue method call: %s", bus_error_message(error));
 
-                goto finish;
+                return r;
         }
 
         if (!dbus_message_get_args(reply, error,
                                    DBUS_TYPE_OBJECT_PATH, &path,
                                    DBUS_TYPE_INVALID)) {
                 log_error("Failed to parse reply: %s", bus_error_message(error));
-                r = -EIO;
-                goto finish;
+                return -EIO;
         }
 
         if (need_daemon_reload(bus, n))
@@ -1565,15 +1568,13 @@ static int start_unit_one(
 
         if (s) {
                 p = strdup(path);
-                if (!p) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!p)
+                        return log_oom();
 
                 r = set_put(s, p);
                 if (r < 0) {
                         log_error("Failed to add path to set.");
-                        goto finish;
+                        return r;
                 }
 
                 p = NULL;
@@ -1584,13 +1585,7 @@ static int start_unit_one(
         if (!arg_quiet && streq(method, "StopUnit"))
                 check_triggering_units(bus, name);
 
-        r = 0;
-
-finish:
-        if (reply)
-                dbus_message_unref(reply);
-
-        return r;
+        return 0;
 }
 
 static enum action verb_to_action(const char *verb) {
