@@ -959,6 +959,9 @@ static void mount_enter_mounting(Mount *m) {
 
         mkdir_p_label(m->where, m->directory_mode);
 
+        if (dir_is_empty(m->where) <= 0)
+                log_notice("%s: Directory %s to mount over is not empty, ignoring. (To see the over-mounted files, please manually mount the underlying file system to a secondary location.)", m->meta.id, m->where);
+
         /* Create the source directory for bind-mounts if needed */
         p = get_mount_parameters_fragment(m);
         if (p && mount_is_bind(p))
@@ -981,7 +984,8 @@ static void mount_enter_mounting(Mount *m) {
 
         mount_unwatch_control_pid(m);
 
-        if ((r = mount_spawn(m, m->control_command, &m->control_pid)) < 0)
+        r = mount_spawn(m, m->control_command, &m->control_pid);
+        if (r < 0)
                 goto fail;
 
         mount_set_state(m, MOUNT_MOUNTING);
