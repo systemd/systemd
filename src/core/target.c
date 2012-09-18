@@ -53,13 +53,15 @@ static void target_set_state(Target *t, TargetState state) {
 }
 
 static int target_add_default_dependencies(Target *t) {
+
         static const UnitDependency deps[] = {
                 UNIT_REQUIRES,
                 UNIT_REQUIRES_OVERRIDABLE,
                 UNIT_REQUISITE,
                 UNIT_REQUISITE_OVERRIDABLE,
                 UNIT_WANTS,
-                UNIT_BINDS_TO
+                UNIT_BINDS_TO,
+                UNIT_PART_OF
         };
 
         Iterator i;
@@ -75,9 +77,11 @@ static int target_add_default_dependencies(Target *t) {
          * sure we don't create a loop. */
 
         for (k = 0; k < ELEMENTSOF(deps); k++)
-                SET_FOREACH(other, UNIT(t)->dependencies[deps[k]], i)
-                        if ((r = unit_add_default_target_dependency(other, UNIT(t))) < 0)
+                SET_FOREACH(other, UNIT(t)->dependencies[deps[k]], i) {
+                        r = unit_add_default_target_dependency(other, UNIT(t));
+                        if (r < 0)
                                 return r;
+                }
 
         /* Make sure targets are unloaded on shutdown */
         return unit_add_dependency_by_name(UNIT(t), UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
@@ -89,14 +93,15 @@ static int target_load(Unit *u) {
 
         assert(t);
 
-        if ((r = unit_load_fragment_and_dropin(u)) < 0)
+        r = unit_load_fragment_and_dropin(u);
+        if (r < 0)
                 return r;
 
         /* This is a new unit? Then let's add in some extras */
-        if (u->load_state == UNIT_LOADED) {
-                if (u->default_dependencies)
-                        if ((r = target_add_default_dependencies(t)) < 0)
-                                return r;
+        if (u->load_state == UNIT_LOADED && u->default_dependencies) {
+                r = target_add_default_dependencies(t);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -167,7 +172,8 @@ static int target_deserialize_item(Unit *u, const char *key, const char *value, 
         if (streq(key, "state")) {
                 TargetState state;
 
-                if ((state = target_state_from_string(value)) < 0)
+                state = target_state_from_string(value);
+                if (state < 0)
                         log_debug("Failed to parse state value %s", value);
                 else
                         s->deserialized_state = state;
