@@ -1,10 +1,4 @@
 Bugfixes:
-* there is nothing to warn about here :)
-  $ systemctl stop systemd-udevd.service systemd-udevd-kernel.socket systemd-udevd-control.socket
-  Warning: Stopping systemd-udevd.service, but it can still be activated by:
-  systemd-udevd-control.socket
-  systemd-udevd-kernel.socket
-
 * check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken

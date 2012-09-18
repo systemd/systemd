@@ -1584,11 +1584,6 @@ static int start_unit_one(
                 p = NULL;
         }
 
-        /* When stopping a unit warn if it can still be triggered by
-         * another active unit (socket, path, timer) */
-        if (!arg_quiet && streq(method, "StopUnit"))
-                check_triggering_units(bus, name);
-
         return 0;
 }
 
@@ -1722,6 +1717,16 @@ static int start_unit(DBusConnection *bus, char **args) {
                 if (r < 0) {
                         ret = r;
                         goto finish;
+                }
+
+                /* When stopping units, warn if they can still be triggered by
+                 * another active unit (socket, path, timer) */
+                if (!arg_quiet && streq(method, "StopUnit")) {
+                        if (one_name)
+                                check_triggering_units(bus, one_name);
+                        else
+                                STRV_FOREACH(name, args+1)
+                                        check_triggering_units(bus, *name);
                 }
         }
 
