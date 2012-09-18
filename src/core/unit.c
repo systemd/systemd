@@ -2263,7 +2263,7 @@ static char *specifier_filename(char specifier, void *data, void *userdata) {
         if (u->instance)
                 return unit_name_path_unescape(u->instance);
 
-        return unit_name_to_path(u->instance);
+        return unit_name_to_path(u->id);
 }
 
 static char *specifier_cgroup(char specifier, void *data, void *userdata) {
@@ -2404,12 +2404,14 @@ char *unit_full_printf(Unit *u, const char *format) {
         /* This is similar to unit_name_printf() but also supports
          * unescaping. Also, adds a couple of additional codes:
          *
+         * %f the the instance if set, otherwise the id
          * %c cgroup path of unit
          * %r root cgroup path of this systemd instance (e.g. "/user/lennart/shared/systemd-4711")
          * %R parent of root cgroup path (e.g. "/usr/lennart/shared")
          * %t the runtime directory to place sockets in (e.g. "/run" or $XDG_RUNTIME_DIR)
-         * %u the username of the configured User or running user
-         * %h the homedir of the configured User or running user
+         * %u the username of the configured user or running user
+         * %h the homedir of the configured user or running user
+         * %s the shell of the configured user or running user
          */
 
         const Specifier table[] = {
@@ -2419,6 +2421,7 @@ char *unit_full_printf(Unit *u, const char *format) {
                 { 'P', specifier_prefix_unescaped,    NULL },
                 { 'i', specifier_string,              u->instance },
                 { 'I', specifier_instance_unescaped,  NULL },
+
                 { 'f', specifier_filename,            NULL },
                 { 'c', specifier_cgroup,              NULL },
                 { 'r', specifier_cgroup_root,         NULL },
