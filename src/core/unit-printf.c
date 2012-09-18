@@ -124,6 +124,8 @@ static char *specifier_user_name(char specifier, void *data, void *userdata) {
         int r;
         const char *username;
 
+        assert(u);
+
         c = unit_get_exec_context(u);
         if (!c)
                 return NULL;
@@ -146,6 +148,8 @@ static char *specifier_user_home(char specifier, void *data, void *userdata) {
         ExecContext *c;
         int r;
         const char *username, *home;
+
+        assert(u);
 
         c = unit_get_exec_context(u);
         if (!c)
@@ -176,6 +180,8 @@ static char *specifier_user_shell(char specifier, void *data, void *userdata) {
         int r;
         const char *username, *shell;
 
+        assert(u);
+
         c = unit_get_exec_context(u);
         if (!c)
                 return NULL;
@@ -197,6 +203,42 @@ static char *specifier_user_shell(char specifier, void *data, void *userdata) {
                 return strdup("/bin/sh");
 
         return strdup(shell);
+}
+
+static char *specifier_machine_id(char specifier, void *data, void *userdata) {
+        sd_id128_t id;
+        char *buf;
+        int r;
+
+        r = sd_id128_get_machine(&id);
+        if (r < 0)
+                return NULL;
+
+        buf = new(char, 33);
+        if (!buf)
+                return NULL;
+
+        return sd_id128_to_string(id, buf);
+}
+
+static char *specifier_boot_id(char specifier, void *data, void *userdata) {
+        sd_id128_t id;
+        char *buf;
+        int r;
+
+        r = sd_id128_get_boot(&id);
+        if (r < 0)
+                return NULL;
+
+        buf = new(char, 33);
+        if (!buf)
+                return NULL;
+
+        return sd_id128_to_string(id, buf);
+}
+
+static char *specifier_host_name(char specifier, void *data, void *userdata) {
+        return gethostname_malloc();
 }
 
 char *unit_name_printf(Unit *u, const char* format) {
@@ -238,6 +280,9 @@ char *unit_full_printf(Unit *u, const char *format) {
          * %u the username of the configured user or running user
          * %h the homedir of the configured user or running user
          * %s the shell of the configured user or running user
+         * %m the machine ID of the running system
+         * %b the boot ID of the running system
+         * %H the host name of the running system
          */
 
         const Specifier table[] = {
@@ -256,6 +301,10 @@ char *unit_full_printf(Unit *u, const char *format) {
                 { 'u', specifier_user_name,           NULL },
                 { 'h', specifier_user_home,           NULL },
                 { 's', specifier_user_shell,          NULL },
+
+                { 'm', specifier_machine_id,          NULL },
+                { 'H', specifier_host_name,           NULL },
+                { 'b', specifier_boot_id,             NULL },
                 { 0, NULL, NULL }
         };
 

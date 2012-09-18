@@ -62,8 +62,6 @@ Features:
 
 * journald: add kernel cmdline option to disable ratelimiting for debug purposes
 
-* Add a way to reference the machine/boot ID from ExecStart= and similar command lines
-
 * move PID 1 segfaults to /var/lib/systemd/coredump?
 
 * Document word splitting syntax for ExecStart= and friends

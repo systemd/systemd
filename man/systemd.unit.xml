@@ -273,6 +273,21 @@
                         <entry>User shell</entry>
                         <entry>This is the shell of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
                       </row>
+                      <row>
+                        <entry><literal>%m</literal></entry>
+                        <entry>Machine ID</entry>
+                        <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%b</literal></entry>
+                        <entry>Boot ID</entry>
+                        <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%H</literal></entry>
+                        <entry>Host name</entry>
+                        <entry>The host name of the running system.</entry>
+                      </row>
                     </tbody>
                   </tgroup>
                 </table>
