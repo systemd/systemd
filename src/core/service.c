@@ -33,6 +33,7 @@
 #include "log.h"
 #include "strv.h"
 #include "unit-name.h"
+#include "unit-printf.h"
 #include "dbus-service.h"
 #include "special.h"
 #include "bus-errors.h"

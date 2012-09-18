@@ -30,7 +30,8 @@ F18:
 
 Features:
 
-* instantiated target units
+* instantiated [Install] for target units
+  https://bugs.freedesktop.org/show_bug.cgi?id=54377
 
 * support *static* (/run) hibernate inhibitors. All rpm -i actions should completely prevent any
   sort of hibernate action until the next reboot. If the kernel or any other base tool is replaced
@@ -40,10 +41,12 @@ Features:
 * move debug shell to tty6 and make sure this doesn't break the gettys on tty6
 
 * move cryptsetup key caching into kernel keyctl?
+  https://bugs.freedesktop.org/show_bug.cgi?id=54982
 
 * make nspawn work without terminal
 
 * hw watchdog: optionally try to use the preset watchdog timeout instead of always overriding it
+  https://bugs.freedesktop.org/show_bug.cgi?id=54712
 
 * after deserializing sockets in socket.c we should reapply sockopts and things
 
@@ -54,8 +57,6 @@ Features:
 * make timer units go away after they elapsed
 
 * http://lists.freedesktop.org/archives/systemd-devel/2012-September/006502.html
-
-* don't use writev() in tmpfiles for sake of compat with sysfs?
 
 * come up with a nice way to write queue/read_ahead_kb for a block device without interfering with readahead
 

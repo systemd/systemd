@@ -495,10 +495,6 @@ char *unit_dbus_path(Unit *u);
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
 int unit_get_related_unit(Unit *u, const char *type, Unit **_found);
 
-char *unit_name_printf(Unit *u, const char* text);
-char *unit_full_printf(Unit *u, const char *text);
-char **unit_full_printf_strv(Unit *u, char **l);
-
 bool unit_can_serialize(Unit *u);
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs);
 void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *value, ...) _printf_attr_(4,5);
@@ -521,6 +517,8 @@ bool unit_pending_inactive(Unit *u);
 bool unit_pending_active(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
+
+char *unit_default_cgroup_path(Unit *u);
 
 int unit_following_set(Unit *u, Set **s);
 

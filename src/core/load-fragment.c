@@ -42,6 +42,7 @@
 #include "securebits.h"
 #include "missing.h"
 #include "unit-name.h"
+#include "unit-printf.h"
 #include "bus-errors.h"
 #include "utf8.h"
 #include "path-util.h"

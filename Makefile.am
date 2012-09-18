@@ -909,6 +909,8 @@ noinst_LTLIBRARIES += \
 libsystemd_core_la_SOURCES = \
 	src/core/unit.c \
 	src/core/unit.h \
+	src/core/unit-printf.c \
+	src/core/unit-printf.h \
 	src/core/job.c \
 	src/core/job.h \
 	src/core/manager.c \

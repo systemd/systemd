@@ -39,6 +39,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "unit-name.h"
+#include "unit-printf.h"
 #include "dbus-socket.h"
 #include "missing.h"
 #include "special.h"

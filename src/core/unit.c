@@ -40,7 +40,6 @@
 #include "load-dropin.h"
 #include "log.h"
 #include "unit-name.h"
-#include "specifier.h"
 #include "dbus-unit.h"
 #include "special.h"
 #include "cgroup-util.h"
@@ -1965,7 +1964,7 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
         return 0;
 }
 
-static char *default_cgroup_path(Unit *u) {
+char *unit_default_cgroup_path(Unit *u) {
         char *p;
 
         assert(u);
@@ -1998,7 +1997,7 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
                 return r;
 
         if (!path) {
-                path = default_cgroup_path(u);
+                path = unit_default_cgroup_path(u);
                 ours = true;
         }
 
@@ -2060,7 +2059,8 @@ static int unit_add_one_default_cgroup(Unit *u, const char *controller) {
         if (!(b->controller = strdup(controller)))
                 goto fail;
 
-        if (!(b->path = default_cgroup_path(u)))
+        b->path = unit_default_cgroup_path(u);
+        if (!b->path)
                 goto fail;
 
         b->ours = true;
@@ -2215,256 +2215,6 @@ int unit_get_related_unit(Unit *u, const char *type, Unit **_found) {
 
         *_found = found;
         return 0;
-}
-
-static char *specifier_prefix_and_instance(char specifier, void *data, void *userdata) {
-        Unit *u = userdata;
-        assert(u);
-
-        return unit_name_to_prefix_and_instance(u->id);
-}
-
-static char *specifier_prefix(char specifier, void *data, void *userdata) {
-        Unit *u = userdata;
-        assert(u);
-
-        return unit_name_to_prefix(u->id);
-}
-
-static char *specifier_prefix_unescaped(char specifier, void *data, void *userdata) {
-        Unit *u = userdata;
-        char *p, *r;
-
-        assert(u);
-
-        if (!(p = unit_name_to_prefix(u->id)))
-                return NULL;
-
-        r = unit_name_unescape(p);
-        free(p);
-
-        return r;
-}
-
-static char *specifier_instance_unescaped(char specifier, void *data, void *userdata) {
-        Unit *u = userdata;
-        assert(u);
-
-        if (u->instance)
-                return unit_name_unescape(u->instance);
-
-        return strdup("");
-}
-
-static char *specifier_filename(char specifier, void *data, void *userdata) {
-        Unit *u = userdata;
-        assert(u);
-
-        if (u->instance)
-                return unit_name_path_unescape(u->instance);
-
-        return unit_name_to_path(u->id);
-}
-
-static char *specifier_cgroup(char specifier, void *data, void *userdata) {
-        Unit *u = userdata;
-        assert(u);
-
-        return default_cgroup_path(u);
-}
-
-static char *specifier_cgroup_root(char specifier, void *data, void *userdata) {
-        Unit *u = userdata;
-        char *p;
-        assert(u);
-
-        if (specifier == 'r')
-                return strdup(u->manager->cgroup_hierarchy);
-
-        if (path_get_parent(u->manager->cgroup_hierarchy, &p) < 0)
-                return strdup("");
-
-        if (streq(p, "/")) {
-                free(p);
-                return strdup("");
-        }
-
-        return p;
-}
-
-static char *specifier_runtime(char specifier, void *data, void *userdata) {
-        Unit *u = userdata;
-        assert(u);
-
-        if (u->manager->running_as == MANAGER_USER) {
-                const char *e;
-
-                e = getenv("XDG_RUNTIME_DIR");
-                if (e)
-                        return strdup(e);
-        }
-
-        return strdup("/run");
-}
-
-static char *specifier_user_name(char specifier, void *data, void *userdata) {
-        Service *s = userdata;
-        int r;
-        const char *username;
-
-        /* get USER env from our own env if set */
-        if (!s->exec_context.user)
-                return getusername_malloc();
-
-        /* fish username from passwd */
-        username = s->exec_context.user;
-        r = get_user_creds(&username, NULL, NULL, NULL, NULL);
-        if (r < 0)
-                return NULL;
-
-        return strdup(username);
-}
-
-static char *specifier_user_home(char specifier, void *data, void *userdata) {
-        Service *s = userdata;
-        int r;
-        const char *username, *home;
-
-        /* return HOME if set, otherwise from passwd */
-        if (!s->exec_context.user) {
-                char *h;
-
-                r = get_home_dir(&h);
-                if (r < 0)
-                        return NULL;
-
-                return h;
-        }
-
-        username = s->exec_context.user;
-        r = get_user_creds(&username, NULL, NULL, &home, NULL);
-        if (r < 0)
-               return NULL;
-
-        return strdup(home);
-}
-
-static char *specifier_user_shell(char specifier, void *data, void *userdata) {
-        Service *s = userdata;
-        int r;
-        const char *username, *shell;
-
-        /* return HOME if set, otherwise from passwd */
-        if (!s->exec_context.user) {
-                char *sh;
-
-                r = get_shell(&sh);
-                if (r < 0)
-                        return strdup("/bin/sh");
-
-                return sh;
-        }
-
-        username = s->exec_context.user;
-        r = get_user_creds(&username, NULL, NULL, NULL, &shell);
-        if (r < 0)
-                return strdup("/bin/sh");
-
-        return strdup(shell);
-}
-
-char *unit_name_printf(Unit *u, const char* format) {
-
-        /*
-         * This will use the passed string as format string and
-         * replace the following specifiers:
-         *
-         * %n: the full id of the unit                 (foo@bar.waldo)
-         * %N: the id of the unit without the suffix   (foo@bar)
-         * %p: the prefix                              (foo)
-         * %i: the instance                            (bar)
-         */
-
-        const Specifier table[] = {
-                { 'n', specifier_string,              u->id },
-                { 'N', specifier_prefix_and_instance, NULL },
-                { 'p', specifier_prefix,              NULL },
-                { 'i', specifier_string,              u->instance },
-                { 0, NULL, NULL }
-        };
-
-        assert(u);
-        assert(format);
-
-        return specifier_printf(format, table, u);
-}
-
-char *unit_full_printf(Unit *u, const char *format) {
-
-        /* This is similar to unit_name_printf() but also supports
-         * unescaping. Also, adds a couple of additional codes:
-         *
-         * %f the the instance if set, otherwise the id
-         * %c cgroup path of unit
-         * %r root cgroup path of this systemd instance (e.g. "/user/lennart/shared/systemd-4711")
-         * %R parent of root cgroup path (e.g. "/usr/lennart/shared")
-         * %t the runtime directory to place sockets in (e.g. "/run" or $XDG_RUNTIME_DIR)
-         * %u the username of the configured user or running user
-         * %h the homedir of the configured user or running user
-         * %s the shell of the configured user or running user
-         */
-
-        const Specifier table[] = {
-                { 'n', specifier_string,              u->id },
-                { 'N', specifier_prefix_and_instance, NULL },
-                { 'p', specifier_prefix,              NULL },
-                { 'P', specifier_prefix_unescaped,    NULL },
-                { 'i', specifier_string,              u->instance },
-                { 'I', specifier_instance_unescaped,  NULL },
-
-                { 'f', specifier_filename,            NULL },
-                { 'c', specifier_cgroup,              NULL },
-                { 'r', specifier_cgroup_root,         NULL },
-                { 'R', specifier_cgroup_root,         NULL },
-                { 't', specifier_runtime,             NULL },
-                { 'u', specifier_user_name,           NULL },
-                { 'h', specifier_user_home,           NULL },
-                { 's', specifier_user_shell,          NULL },
-                { 0, NULL, NULL }
-        };
-
-        assert(u);
-        assert(format);
-
-        return specifier_printf(format, table, u);
-}
-
-char **unit_full_printf_strv(Unit *u, char **l) {
-        size_t n;
-        char **r, **i, **j;
-
-        /* Applies unit_full_printf to every entry in l */
-
-        assert(u);
-
-        n = strv_length(l);
-        if (!(r = new(char*, n+1)))
-                return NULL;
-
-        for (i = l, j = r; *i; i++, j++)
-                if (!(*j = unit_full_printf(u, *i)))
-                        goto fail;
-
-        *j = NULL;
-        return r;
-
-fail:
-        for (j--; j >= r; j--)
-                free(*j);
-
-        free(r);
-
-        return NULL;
 }
 
 int unit_watch_bus_name(Unit *u, const char *name) {
