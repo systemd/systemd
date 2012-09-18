@@ -86,10 +86,6 @@ Features:
 
 * system-wide seccomp filter
 
-* securityfs: don't mount in container
-
-* slave/shared remount root fs in container might clash with CAP_SYS_MOUNTS
-
 * ability to pass fds into systemd
 
 * system.conf should have controls for cgroups

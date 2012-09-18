@@ -40,6 +40,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "missing.h"
+#include "virt.h"
 
 #ifndef TTY_GID
 #define TTY_GID 5
@@ -52,6 +53,7 @@ typedef struct MountPoint {
         const char *options;
         unsigned long flags;
         bool fatal;
+        bool in_container;
 } MountPoint;
 
 /* The first three entries we might need before SELinux is up. The
@@ -60,15 +62,15 @@ typedef struct MountPoint {
 #define N_EARLY_MOUNT 4
 
 static const MountPoint mount_table[] = {
-        { "proc",     "/proc",                  "proc",     NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
-        { "sysfs",    "/sys",                   "sysfs",    NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
-        { "devtmpfs", "/dev",                   "devtmpfs", "mode=755",          MS_NOSUID|MS_STRICTATIME,     true },
-        { "securityfs", "/sys/kernel/security", "securityfs", NULL,              MS_NOSUID|MS_NOEXEC|MS_NODEV, false },
-        { "tmpfs",    "/dev/shm",               "tmpfs",    "mode=1777",         MS_NOSUID|MS_NODEV|MS_STRICTATIME, true },
-        { "devpts",   "/dev/pts",               "devpts",   "mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC, false },
-        { "tmpfs",    "/run",                   "tmpfs",    "mode=755",          MS_NOSUID|MS_NODEV|MS_STRICTATIME, true },
-        { "tmpfs",    "/sys/fs/cgroup",         "tmpfs",    "mode=755",          MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, false },
-        { "cgroup",   "/sys/fs/cgroup/systemd", "cgroup",   "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV, false },
+        { "proc",     "/proc",                  "proc",     NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV,                true,  true  },
+        { "sysfs",    "/sys",                   "sysfs",    NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV,                true,  true  },
+        { "devtmpfs", "/dev",                   "devtmpfs", "mode=755",          MS_NOSUID|MS_STRICTATIME,                    true,  true  },
+        { "securityfs", "/sys/kernel/security", "securityfs", NULL,              MS_NOSUID|MS_NOEXEC|MS_NODEV,                false, false },
+        { "tmpfs",    "/dev/shm",               "tmpfs",    "mode=1777",         MS_NOSUID|MS_NODEV|MS_STRICTATIME,           true,  true  },
+        { "devpts",   "/dev/pts",               "devpts",   "mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,          false, true  },
+        { "tmpfs",    "/run",                   "tmpfs",    "mode=755",          MS_NOSUID|MS_NODEV|MS_STRICTATIME,           true,  true  },
+        { "tmpfs",    "/sys/fs/cgroup",         "tmpfs",    "mode=755",          MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, false, true  },
+        { "cgroup",   "/sys/fs/cgroup/systemd", "cgroup",   "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV,                false, true  },
 };
 
 /* These are API file systems that might be mounted by other software,
@@ -86,10 +88,7 @@ static const char ignore_paths[] =
         /* Container bind mounts */
         "/proc/sys\0"
         "/dev/console\0"
-        "/proc/kmsg\0"
-        "/etc/localtime\0"
-        "/etc/timezone\0"
-        "/etc/machine-id\0";
+        "/proc/kmsg\0";
 
 bool mount_point_is_api(const char *path) {
         unsigned i;
@@ -123,10 +122,15 @@ static int mount_one(const MountPoint *p, bool relabel) {
         if (relabel)
                 label_fix(p->where, true, true);
 
-        if ((r = path_is_mount_point(p->where, true)) < 0)
+        r = path_is_mount_point(p->where, true);
+        if (r < 0)
                 return r;
 
         if (r > 0)
+                return 0;
+
+        /* Skip securityfs in a container */
+        if (!p->in_container && detect_container(NULL) > 0)
                 return 0;
 
         /* The access mode here doesn't really matter too much, since
@@ -406,8 +410,9 @@ int mount_setup(bool loaded_policy) {
          * nspawn and the container tools work out of the box. If
          * specific setups need other settings they can reset the
          * propagation mode to private if needed. */
-        if (mount(NULL, "/", NULL, MS_REC|MS_SHARED, NULL) < 0)
-                log_warning("Failed to set up the root directory for shared mount propagation: %m");
+        if (detect_container(NULL) <= 0)
+                if (mount(NULL, "/", NULL, MS_REC|MS_SHARED, NULL) < 0)
+                        log_warning("Failed to set up the root directory for shared mount propagation: %m");
 
         /* Create a few directories we always want around */
         mkdir_label("/run/systemd", 0755);
