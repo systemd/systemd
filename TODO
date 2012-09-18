@@ -100,8 +100,6 @@ Features:
 
 * cleanup ellipsation for log output in journalctl and systemctl status: have a sane way to disable ellipsation, and disable it by default when invoked in less/more
 
-* enforce limits on fds openened by socket units
-
 * explore multiple service instances per listening socket idea
 
 * testing tool for socket activation: some binary that listens on a socket and passes it on using the usual socket activation protocol to some server.
