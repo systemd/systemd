@@ -1283,7 +1283,7 @@ int exec_spawn(ExecCommand *command,
                 umask(context->umask);
 
 #ifdef HAVE_PAM
-                if (context->pam_name && username) {
+                if (apply_permissions && context->pam_name && username) {
                         err = setup_pam(context->pam_name, username, uid, context->tty_path, &pam_env, fds, n_fds);
                         if (err < 0) {
                                 r = EXIT_PAM;

@@ -28,8 +28,6 @@ F18:
 
 * Retest multi-seat
 
-* selinux: merge systemd selinux access controls (dwalsh)
-
 Features:
 
 * instantiated target units
