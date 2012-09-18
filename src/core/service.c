@@ -1192,12 +1192,12 @@ static int service_add_default_dependencies(Service *s) {
          * majority of services. */
 
         /* First, pull in base system */
-        if (UNIT(s)->manager->running_as == MANAGER_SYSTEM) {
+        if (UNIT(s)->manager->running_as == SYSTEMD_SYSTEM) {
 
                 if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         return r;
 
-        } else if (UNIT(s)->manager->running_as == MANAGER_USER) {
+        } else if (UNIT(s)->manager->running_as == SYSTEMD_USER) {
 
                 if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SOCKETS_TARGET, NULL, true)) < 0)
                         return r;
@@ -3429,7 +3429,7 @@ static int service_enumerate(Manager *m) {
 
         assert(m);
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (m->running_as != SYSTEMD_SYSTEM)
                 return 0;
 
         zero(runlevel_services);

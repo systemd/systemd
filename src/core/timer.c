@@ -80,7 +80,7 @@ static int timer_add_default_dependencies(Timer *t) {
 
         assert(t);
 
-        if (UNIT(t)->manager->running_as == MANAGER_SYSTEM) {
+        if (UNIT(t)->manager->running_as == SYSTEMD_SYSTEM) {
                 if ((r = unit_add_dependency_by_name(UNIT(t), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         return r;
 

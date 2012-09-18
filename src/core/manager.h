@@ -49,13 +49,6 @@ typedef enum ManagerExitCode {
         _MANAGER_EXIT_CODE_INVALID = -1
 } ManagerExitCode;
 
-typedef enum ManagerRunningAs {
-        MANAGER_SYSTEM,
-        MANAGER_USER,
-        _MANAGER_RUNNING_AS_MAX,
-        _MANAGER_RUNNING_AS_INVALID = -1
-} ManagerRunningAs;
-
 enum WatchType {
         WATCH_INVALID,
         WATCH_SIGNAL,
@@ -213,7 +206,7 @@ struct Manager {
 #endif
 
         /* Flags */
-        ManagerRunningAs running_as;
+        SystemdRunningAs running_as;
         ManagerExitCode exit_code:5;
 
         bool dispatching_load_queue:1;
@@ -242,7 +235,7 @@ struct Manager {
         char *switch_root_init;
 };
 
-int manager_new(ManagerRunningAs running_as, Manager **m);
+int manager_new(SystemdRunningAs running_as, Manager **m);
 void manager_free(Manager *m);
 
 int manager_enumerate(Manager *m);
@@ -303,6 +296,3 @@ void manager_recheck_journal(Manager *m);
 
 void manager_set_show_status(Manager *m, bool b);
 bool manager_get_show_status(Manager *m);
-
-const char *manager_running_as_to_string(ManagerRunningAs i);
-ManagerRunningAs manager_running_as_from_string(const char *s);

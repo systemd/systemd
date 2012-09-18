@@ -73,7 +73,7 @@ static enum {
 } arg_action = ACTION_RUN;
 
 static char *arg_default_unit = NULL;
-static ManagerRunningAs arg_running_as = _MANAGER_RUNNING_AS_INVALID;
+static SystemdRunningAs arg_running_as = _SYSTEMD_RUNNING_AS_INVALID;
 
 static bool arg_dump_core = true;
 static bool arg_crash_shell = false;
@@ -684,7 +684,7 @@ static int parse_config_file(void) {
         const char *fn;
         int r;
 
-        fn = arg_running_as == MANAGER_SYSTEM ? SYSTEM_CONFIG_FILE : USER_CONFIG_FILE;
+        fn = arg_running_as == SYSTEMD_SYSTEM ? SYSTEM_CONFIG_FILE : USER_CONFIG_FILE;
         f = fopen(fn, "re");
         if (!f) {
                 if (errno == ENOENT)
@@ -872,11 +872,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SYSTEM:
-                        arg_running_as = MANAGER_SYSTEM;
+                        arg_running_as = SYSTEMD_SYSTEM;
                         break;
 
                 case ARG_USER:
-                        arg_running_as = MANAGER_USER;
+                        arg_running_as = SYSTEMD_USER;
                         break;
 
                 case ARG_TEST:
@@ -1289,7 +1289,7 @@ int main(int argc, char *argv[]) {
         if (getpid() == 1 && detect_container(NULL) <= 0) {
 
                 /* Running outside of a container as PID 1 */
-                arg_running_as = MANAGER_SYSTEM;
+                arg_running_as = SYSTEMD_SYSTEM;
                 make_null_stdio();
                 log_set_target(LOG_TARGET_KMSG);
                 log_open();
@@ -1349,7 +1349,7 @@ int main(int argc, char *argv[]) {
         } else if (getpid() == 1) {
 
                 /* Running inside a container, as PID 1 */
-                arg_running_as = MANAGER_SYSTEM;
+                arg_running_as = SYSTEMD_SYSTEM;
                 log_set_target(LOG_TARGET_CONSOLE);
                 log_open();
 
@@ -1359,7 +1359,7 @@ int main(int argc, char *argv[]) {
         } else {
 
                 /* Running as user instance */
-                arg_running_as = MANAGER_USER;
+                arg_running_as = SYSTEMD_USER;
                 log_set_target(LOG_TARGET_AUTO);
                 log_open();
         }
@@ -1400,7 +1400,7 @@ int main(int argc, char *argv[]) {
         if (parse_config_file() < 0)
                 goto finish;
 
-        if (arg_running_as == MANAGER_SYSTEM)
+        if (arg_running_as == SYSTEMD_SYSTEM)
                 if (parse_proc_cmdline() < 0)
                         goto finish;
 
@@ -1414,7 +1414,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_running_as == MANAGER_SYSTEM &&
+        if (arg_running_as == SYSTEMD_SYSTEM &&
             arg_action == ACTION_RUN &&
             running_in_chroot() > 0) {
                 log_error("Cannot be run in a chroot() environment.");
@@ -1460,9 +1460,9 @@ int main(int argc, char *argv[]) {
 #else
                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin",
 #endif
-               arg_running_as == MANAGER_SYSTEM);
+               arg_running_as == SYSTEMD_SYSTEM);
 
-        if (arg_running_as == MANAGER_SYSTEM) {
+        if (arg_running_as == SYSTEMD_SYSTEM) {
                 /* Parse the data passed to us. We leave this
                  * variables set, but the manager later on will not
                  * pass them on to our children. */
@@ -1493,7 +1493,7 @@ int main(int argc, char *argv[]) {
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/")  == 0);
 
-        if (arg_running_as == MANAGER_SYSTEM) {
+        if (arg_running_as == SYSTEMD_SYSTEM) {
                 /* Become a session leader if we aren't one yet. */
                 setsid();
 
@@ -1506,7 +1506,7 @@ int main(int argc, char *argv[]) {
 
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
-        if (arg_running_as == MANAGER_SYSTEM && arg_action == ACTION_RUN)
+        if (arg_running_as == SYSTEMD_SYSTEM && arg_action == ACTION_RUN)
                 console_setup(getpid() == 1 && !skip_setup);
 
         /* Open the logging devices, if possible and necessary */
@@ -1523,7 +1523,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
         }
 
-        if (arg_running_as == MANAGER_SYSTEM) {
+        if (arg_running_as == SYSTEMD_SYSTEM) {
                 const char *virtualization = NULL;
 
                 log_info(PACKAGE_STRING " running in system mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")");
@@ -1538,7 +1538,7 @@ int main(int argc, char *argv[]) {
         } else
                 log_debug(PACKAGE_STRING " running in user mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")");
 
-        if (arg_running_as == MANAGER_SYSTEM && !skip_setup) {
+        if (arg_running_as == SYSTEMD_SYSTEM && !skip_setup) {
                 locale_setup();
 
                 if (arg_show_status || plymouth_running())
@@ -1554,7 +1554,7 @@ int main(int argc, char *argv[]) {
                 test_cgroups();
         }
 
-        if (arg_running_as == MANAGER_SYSTEM && arg_runtime_watchdog > 0)
+        if (arg_running_as == SYSTEMD_SYSTEM && arg_runtime_watchdog > 0)
                 watchdog_set_timeout(&arg_runtime_watchdog);
 
         if (arg_timer_slack_nsec != (nsec_t) -1)
@@ -1574,7 +1574,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_running_as == MANAGER_USER) {
+        if (arg_running_as == SYSTEMD_USER) {
                 /* Become reaper of our children */
                 if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
                         log_warning("Failed to make us a subreaper: %m");
@@ -1583,7 +1583,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_running_as == MANAGER_SYSTEM)
+        if (arg_running_as == SYSTEMD_SYSTEM)
                 bump_rlimit_nofile(&saved_rlimit_nofile);
 
         r = manager_new(arg_running_as, &m);
@@ -1822,7 +1822,7 @@ finish:
                         args[i++] = SYSTEMD_BINARY_PATH;
                         if (switch_root_dir)
                                 args[i++] = "--switched-root";
-                        args[i++] = arg_running_as == MANAGER_SYSTEM ? "--system" : "--user";
+                        args[i++] = arg_running_as == SYSTEMD_SYSTEM ? "--system" : "--user";
                         args[i++] = "--deserialize";
                         args[i++] = sfd;
                         args[i++] = NULL;

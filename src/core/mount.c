@@ -362,7 +362,7 @@ static int mount_add_device_links(Mount *m) {
         if (p->passno > 0 &&
             !mount_is_bind(p) &&
             !path_equal(m->where, "/") &&
-            UNIT(m)->manager->running_as == MANAGER_SYSTEM) {
+            UNIT(m)->manager->running_as == SYSTEMD_SYSTEM) {
                 char *name;
                 Unit *fsck;
                 /* Let's add in the fsck service */
@@ -396,7 +396,7 @@ static int mount_add_quota_links(Mount *m) {
 
         assert(m);
 
-        if (UNIT(m)->manager->running_as != MANAGER_SYSTEM)
+        if (UNIT(m)->manager->running_as != SYSTEMD_SYSTEM)
                 return 0;
 
         p = get_mount_parameters_fragment(m);
@@ -424,7 +424,7 @@ static int mount_add_default_dependencies(Mount *m) {
 
         assert(m);
 
-        if (UNIT(m)->manager->running_as != MANAGER_SYSTEM)
+        if (UNIT(m)->manager->running_as != SYSTEMD_SYSTEM)
                 return 0;
 
         p = get_mount_parameters_fragment(m);

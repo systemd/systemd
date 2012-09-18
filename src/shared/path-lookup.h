@@ -29,9 +29,17 @@ typedef struct LookupPaths {
 #endif
 } LookupPaths;
 
-#include "manager.h"
+typedef enum SystemdRunningAs {
+        SYSTEMD_SYSTEM,
+        SYSTEMD_USER,
+        _SYSTEMD_RUNNING_AS_MAX,
+        _SYSTEMD_RUNNING_AS_INVALID = -1
+} SystemdRunningAs;
+
+const char* systemd_running_as_to_string(SystemdRunningAs i);
+SystemdRunningAs systemd_running_as_from_string(const char *s);
 
 int user_config_home(char **config_home);
 
-int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal, const char *generator, const char *generator_early, const char *generator_late);
+int lookup_paths_init(LookupPaths *p, SystemdRunningAs running_as, bool personal, const char *generator, const char *generator_early, const char *generator_late);
 void lookup_paths_free(LookupPaths *p);

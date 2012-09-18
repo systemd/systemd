@@ -19,9 +19,6 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
-* we pull src/core/manager.h into src/shared/src/shared/path-lookup.c which is the wrong direction
-   rename enum "ManagerRunningAs" to "SystemdRunningAs" and move it to shared/
-
 F18:
 
 * https://bugzilla.gnome.org/show_bug.cgi?id=680689

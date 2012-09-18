@@ -313,7 +313,7 @@ int manager_setup_cgroup(Manager *m) {
                 goto finish;
         }
 
-        if (m->running_as == MANAGER_SYSTEM)
+        if (m->running_as == SYSTEMD_SYSTEM)
                 strcpy(suffix, "/system");
         else {
                 snprintf(suffix, sizeof(suffix), "/systemd-%lu", (unsigned long) getpid());

@@ -445,7 +445,7 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection *connection, D
                 log_debug("System D-Bus connection terminated.");
                 bus_done_system(m);
 
-        } else if (m->running_as != MANAGER_SYSTEM &&
+        } else if (m->running_as != SYSTEMD_SYSTEM &&
                    dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
 
                 const char *cgroup;
@@ -481,7 +481,7 @@ static DBusHandlerResult private_bus_message_filter(DBusConnection *connection, 
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected"))
                 shutdown_connection(m, connection);
-        else if (m->running_as == MANAGER_SYSTEM &&
+        else if (m->running_as == SYSTEMD_SYSTEM &&
                  dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
 
                 const char *cgroup;
@@ -776,7 +776,7 @@ static int init_registered_system_bus(Manager *m) {
         if (!dbus_connection_add_filter(m->system_bus, system_bus_message_filter, m, NULL))
                 return log_oom();
 
-        if (m->running_as != MANAGER_SYSTEM) {
+        if (m->running_as != SYSTEMD_SYSTEM) {
                 DBusError error;
 
                 dbus_error_init(&error);
@@ -838,7 +838,7 @@ static int init_registered_api_bus(Manager *m) {
         if (r < 0)
                 return r;
 
-        if (m->running_as == MANAGER_USER) {
+        if (m->running_as == SYSTEMD_USER) {
                 char *id;
                 log_debug("Successfully connected to API D-Bus bus %s as %s",
                          strnull((id = dbus_connection_get_server_id(m->api_bus))),
@@ -889,7 +889,7 @@ static void bus_register_cb(DBusPendingCall *pending, void *userdata) {
 
                 if (conn == &m->system_bus) {
                         r = init_registered_system_bus(m);
-                        if (r == 0 && m->running_as == MANAGER_SYSTEM)
+                        if (r == 0 && m->running_as == SYSTEMD_SYSTEM)
                                 r = init_registered_api_bus(m);
                 } else
                         r = init_registered_api_bus(m);
@@ -1019,7 +1019,7 @@ static int bus_init_api(Manager *m) {
         if (m->api_bus)
                 return 0;
 
-        if (m->running_as == MANAGER_SYSTEM) {
+        if (m->running_as == SYSTEMD_SYSTEM) {
                 m->api_bus = m->system_bus;
                 /* In this mode there is no distinct connection to the API bus,
                  * the API is published on the system bus.
@@ -1066,7 +1066,7 @@ static int bus_init_private(Manager *m) {
         if (m->private_bus)
                 return 0;
 
-        if (m->running_as == MANAGER_SYSTEM) {
+        if (m->running_as == SYSTEMD_SYSTEM) {
 
                 /* We want the private bus only when running as init */
                 if (getpid() != 1)
@@ -1190,7 +1190,7 @@ static void shutdown_connection(Manager *m, DBusConnection *c) {
 
         dbus_connection_set_dispatch_status_function(c, NULL, NULL, NULL);
         /* system manager cannot afford to block on DBus */
-        if (m->running_as != MANAGER_SYSTEM)
+        if (m->running_as != SYSTEMD_SYSTEM)
                 dbus_connection_flush(c);
         dbus_connection_close(c);
         dbus_connection_unref(c);
@@ -1200,7 +1200,7 @@ static void bus_done_api(Manager *m) {
         if (!m->api_bus)
                 return;
 
-        if (m->running_as == MANAGER_USER)
+        if (m->running_as == SYSTEMD_USER)
                 shutdown_connection(m, m->api_bus);
 
         m->api_bus = NULL;
@@ -1215,7 +1215,7 @@ static void bus_done_system(Manager *m) {
         if (!m->system_bus)
                 return;
 
-        if (m->running_as == MANAGER_SYSTEM)
+        if (m->running_as == SYSTEMD_SYSTEM)
                 bus_done_api(m);
 
         shutdown_connection(m, m->system_bus);
@@ -1362,11 +1362,11 @@ int bus_broadcast(Manager *m, DBusMessage *message) {
         assert(message);
 
         SET_FOREACH(c, m->bus_connections_for_dispatch, i)
-                if (c != m->system_bus || m->running_as == MANAGER_SYSTEM)
+                if (c != m->system_bus || m->running_as == SYSTEMD_SYSTEM)
                         oom = !dbus_connection_send(c, message, NULL);
 
         SET_FOREACH(c, m->bus_connections, i)
-                if (c != m->system_bus || m->running_as == MANAGER_SYSTEM)
+                if (c != m->system_bus || m->running_as == SYSTEMD_SYSTEM)
                         oom = !dbus_connection_send(c, message, NULL);
 
         return oom ? -ENOMEM : 0;

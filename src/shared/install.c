@@ -59,7 +59,7 @@ static int lookup_paths_init_from_scope(LookupPaths *paths, UnitFileScope scope)
         zero(*paths);
 
         return lookup_paths_init(paths,
-                                 scope == UNIT_FILE_SYSTEM ? MANAGER_SYSTEM : MANAGER_USER,
+                                 scope == UNIT_FILE_SYSTEM ? SYSTEMD_SYSTEM : SYSTEMD_USER,
                                  scope == UNIT_FILE_USER,
                                  NULL, NULL, NULL);
 }

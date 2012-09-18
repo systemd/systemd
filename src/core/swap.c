@@ -197,7 +197,7 @@ static int swap_add_device_links(Swap *s) {
         if (is_device_path(s->what))
                 return unit_add_node_link(UNIT(s), s->what,
                                           !p->noauto && p->nofail &&
-                                          UNIT(s)->manager->running_as == MANAGER_SYSTEM);
+                                          UNIT(s)->manager->running_as == SYSTEMD_SYSTEM);
         else
                 /* File based swap devices need to be ordered after
                  * systemd-remount-fs.service, since they might need a
@@ -210,7 +210,7 @@ static int swap_add_default_dependencies(Swap *s) {
 
         assert(s);
 
-        if (UNIT(s)->manager->running_as != MANAGER_SYSTEM)
+        if (UNIT(s)->manager->running_as != SYSTEMD_SYSTEM)
                 return 0;
 
         if (detect_container(NULL) > 0)

@@ -613,7 +613,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         /* If syslog or kernel logging is requested, make sure our own
          * logging daemon is run first. */
 
-        if (u->manager->running_as == MANAGER_SYSTEM)
+        if (u->manager->running_as == SYSTEMD_SYSTEM)
                 if ((r = unit_add_two_dependencies_by_name(u, UNIT_REQUIRES, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, NULL, true)) < 0)
                         return r;
 
@@ -2590,7 +2590,7 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
 
         if (u->unit_file_state < 0 && u->fragment_path)
                 u->unit_file_state = unit_file_get_state(
-                                u->manager->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
+                                u->manager->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
                                 NULL, path_get_file_name(u->fragment_path));
 
         return u->unit_file_state;
@@ -2673,7 +2673,7 @@ int unit_exec_context_defaults(Unit *u, ExecContext *c) {
                                 return -ENOMEM;
                 }
 
-        if (u->manager->running_as == MANAGER_USER &&
+        if (u->manager->running_as == SYSTEMD_USER &&
             !c->working_directory) {
 
                 r = get_home_dir(&c->working_directory);

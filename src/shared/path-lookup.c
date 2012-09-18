@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -30,6 +31,13 @@
 #include "strv.h"
 #include "path-util.h"
 #include "path-lookup.h"
+
+static const char* const systemd_running_as_table[_SYSTEMD_RUNNING_AS_MAX] = {
+        [SYSTEMD_SYSTEM] = "system",
+        [SYSTEMD_USER] = "user"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(systemd_running_as, SystemdRunningAs);
 
 int user_config_home(char **config_home) {
         const char *e;
@@ -224,7 +232,7 @@ fail:
 
 int lookup_paths_init(
                 LookupPaths *p,
-                ManagerRunningAs running_as,
+                SystemdRunningAs running_as,
                 bool personal,
                 const char *generator,
                 const char *generator_early,
@@ -256,7 +264,7 @@ int lookup_paths_init(
                  * for the system stuff but avoid it for user
                  * stuff. */
 
-                if (running_as == MANAGER_USER) {
+                if (running_as == SYSTEMD_USER) {
 
                         if (personal)
                                 p->unit_path = user_dirs(generator, generator_early, generator_late);
@@ -323,7 +331,7 @@ int lookup_paths_init(
                 p->unit_path = NULL;
         }
 
-        if (running_as == MANAGER_SYSTEM) {
+        if (running_as == SYSTEMD_SYSTEM) {
 #ifdef HAVE_SYSV_COMPAT
                 /* /etc/init.d/ compatibility does not matter to users */
 

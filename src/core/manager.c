@@ -216,7 +216,7 @@ static int manager_setup_signals(Manager *m) {
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->signal_watch.fd, &ev) < 0)
                 return -errno;
 
-        if (m->running_as == MANAGER_SYSTEM)
+        if (m->running_as == SYSTEMD_SYSTEM)
                 return enable_special_signals(m);
 
         return 0;
@@ -237,13 +237,13 @@ static void manager_strip_environment(Manager *m) {
         strv_remove_prefix(m->environment, "RD_");
 }
 
-int manager_new(ManagerRunningAs running_as, Manager **_m) {
+int manager_new(SystemdRunningAs running_as, Manager **_m) {
         Manager *m;
         int r = -ENOMEM;
 
         assert(_m);
         assert(running_as >= 0);
-        assert(running_as < _MANAGER_RUNNING_AS_MAX);
+        assert(running_as < _SYSTEMD_RUNNING_AS_MAX);
 
         m = new0(Manager, 1);
         if (!m)
@@ -270,7 +270,7 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
 
         manager_strip_environment(m);
 
-        if (running_as == MANAGER_SYSTEM) {
+        if (running_as == SYSTEMD_SYSTEM) {
                 m->default_controllers = strv_new("cpu", NULL);
                 if (!m->default_controllers)
                         goto fail;
@@ -304,7 +304,7 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
                 goto fail;
 
         /* Try to connect to the busses, if possible. */
-        if ((r = bus_init(m, running_as != MANAGER_SYSTEM)) < 0)
+        if ((r = bus_init(m, running_as != SYSTEMD_SYSTEM)) < 0)
                 goto fail;
 
 #ifdef HAVE_AUDIT
@@ -1145,7 +1145,7 @@ static int manager_process_signal_fd(Manager *m) {
                         break;
 
                 case SIGTERM:
-                        if (m->running_as == MANAGER_SYSTEM) {
+                        if (m->running_as == SYSTEMD_SYSTEM) {
                                 /* This is for compatibility with the
                                  * original sysvinit */
                                 m->exit_code = MANAGER_REEXECUTE;
@@ -1155,7 +1155,7 @@ static int manager_process_signal_fd(Manager *m) {
                         /* Fall through */
 
                 case SIGINT:
-                        if (m->running_as == MANAGER_SYSTEM) {
+                        if (m->running_as == SYSTEMD_SYSTEM) {
                                 manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE);
                                 break;
                         }
@@ -1169,14 +1169,14 @@ static int manager_process_signal_fd(Manager *m) {
                         break;
 
                 case SIGWINCH:
-                        if (m->running_as == MANAGER_SYSTEM)
+                        if (m->running_as == SYSTEMD_SYSTEM)
                                 manager_start_target(m, SPECIAL_KBREQUEST_TARGET, JOB_REPLACE);
 
                         /* This is a nop on non-init */
                         break;
 
                 case SIGPWR:
-                        if (m->running_as == MANAGER_SYSTEM)
+                        if (m->running_as == SYSTEMD_SYSTEM)
                                 manager_start_target(m, SPECIAL_SIGPWR_TARGET, JOB_REPLACE);
 
                         /* This is a nop on non-init */
@@ -1440,7 +1440,7 @@ int manager_loop(Manager *m) {
                 int n;
                 int wait_msec = -1;
 
-                if (m->runtime_watchdog > 0 && m->running_as == MANAGER_SYSTEM)
+                if (m->runtime_watchdog > 0 && m->running_as == SYSTEMD_SYSTEM)
                         watchdog_ping();
 
                 if (!ratelimit_test(&rl)) {
@@ -1472,7 +1472,7 @@ int manager_loop(Manager *m) {
                         continue;
 
                 /* Sleep for half the watchdog time */
-                if (m->runtime_watchdog > 0 && m->running_as == MANAGER_SYSTEM) {
+                if (m->runtime_watchdog > 0 && m->running_as == SYSTEMD_SYSTEM) {
                         wait_msec = (int) (m->runtime_watchdog / 2 / USEC_PER_MSEC);
                         if (wait_msec <= 0)
                                 wait_msec = 1;
@@ -1562,7 +1562,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         if (m->n_reloading > 0)
                 return;
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (m->running_as != SYSTEMD_SYSTEM)
                 return;
 
         if (u->type != UNIT_SERVICE)
@@ -1599,7 +1599,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         if (m->n_reloading > 0)
                 return;
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (m->running_as != SYSTEMD_SYSTEM)
                 return;
 
         if (u->type != UNIT_SERVICE &&
@@ -1698,7 +1698,7 @@ int manager_open_serialization(Manager *m, FILE **_f) {
 
         assert(_f);
 
-        if (m->running_as == MANAGER_SYSTEM)
+        if (m->running_as == SYSTEMD_SYSTEM)
                 asprintf(&path, "/run/systemd/dump-%lu-XXXXXX", (unsigned long) getpid());
         else
                 asprintf(&path, "/tmp/systemd-dump-%lu-XXXXXX", (unsigned long) getpid());
@@ -2035,7 +2035,7 @@ void manager_check_finished(Manager *m) {
 
         dual_timestamp_get(&m->finish_timestamp);
 
-        if (m->running_as == MANAGER_SYSTEM && detect_container(NULL) <= 0) {
+        if (m->running_as == SYSTEMD_SYSTEM && detect_container(NULL) <= 0) {
 
                 /* Note that m->kernel_usec.monotonic is always at 0,
                  * and m->firmware_usec.monotonic and
@@ -2110,7 +2110,7 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
         if (*generator)
                 return 0;
 
-        if (m->running_as == MANAGER_SYSTEM && getpid() == 1) {
+        if (m->running_as == SYSTEMD_SYSTEM && getpid() == 1) {
 
                 p = strappend("/run/systemd/", name);
                 if (!p)
@@ -2162,7 +2162,7 @@ void manager_run_generators(Manager *m) {
 
         assert(m);
 
-        generator_path = m->running_as == MANAGER_SYSTEM ? SYSTEM_GENERATOR_PATH : USER_GENERATOR_PATH;
+        generator_path = m->running_as == SYSTEMD_SYSTEM ? SYSTEM_GENERATOR_PATH : USER_GENERATOR_PATH;
         d = opendir(generator_path);
         if (!d) {
                 if (errno == ENOENT)
@@ -2264,7 +2264,7 @@ void manager_recheck_journal(Manager *m) {
 
         assert(m);
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (m->running_as != SYSTEMD_SYSTEM)
                 return;
 
         u = manager_get_unit(m, SPECIAL_JOURNALD_SOCKET);
@@ -2287,7 +2287,7 @@ void manager_recheck_journal(Manager *m) {
 void manager_set_show_status(Manager *m, bool b) {
         assert(m);
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (m->running_as != SYSTEMD_SYSTEM)
                 return;
 
         m->show_status = b;
@@ -2301,7 +2301,7 @@ void manager_set_show_status(Manager *m, bool b) {
 bool manager_get_show_status(Manager *m) {
         assert(m);
 
-        if (m->running_as != MANAGER_SYSTEM)
+        if (m->running_as != SYSTEMD_SYSTEM)
                 return false;
 
         if (m->show_status)
@@ -2312,10 +2312,3 @@ bool manager_get_show_status(Manager *m) {
 
         return plymouth_running();
 }
-
-static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {
-        [MANAGER_SYSTEM] = "system",
-        [MANAGER_USER] = "user"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(manager_running_as, ManagerRunningAs);

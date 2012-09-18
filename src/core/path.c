@@ -316,7 +316,7 @@ static int path_add_default_dependencies(Path *p) {
 
         assert(p);
 
-        if (UNIT(p)->manager->running_as == MANAGER_SYSTEM) {
+        if (UNIT(p)->manager->running_as == SYSTEMD_SYSTEM) {
                 if ((r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         return r;
 

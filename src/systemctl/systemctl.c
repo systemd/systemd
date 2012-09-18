@@ -63,6 +63,7 @@
 #include "install.h"
 #include "logs-show.h"
 #include "path-util.h"
+#include "socket-util.h"
 
 static const char *arg_type = NULL;
 static const char *arg_load_state = NULL;
@@ -3410,7 +3411,7 @@ static int enable_sysv_units(char **args) {
          * afterwards only the native units remain */
 
         zero(paths);
-        r = lookup_paths_init(&paths, MANAGER_SYSTEM, false, NULL, NULL, NULL);
+        r = lookup_paths_init(&paths, SYSTEMD_SYSTEM, false, NULL, NULL, NULL);
         if (r < 0)
                 return r;
 

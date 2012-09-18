@@ -107,7 +107,7 @@ static char *specifier_runtime(char specifier, void *data, void *userdata) {
         Unit *u = userdata;
         assert(u);
 
-        if (u->manager->running_as == MANAGER_USER) {
+        if (u->manager->running_as == SYSTEMD_USER) {
                 const char *e;
 
                 e = getenv("XDG_RUNTIME_DIR");

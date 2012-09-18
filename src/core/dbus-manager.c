@@ -1100,7 +1100,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Exit")) {
 
-                if (m->running_as == MANAGER_SYSTEM) {
+                if (m->running_as == SYSTEMD_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for user service managers.");
                         return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
@@ -1112,7 +1112,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reboot")) {
 
-                if (m->running_as != MANAGER_SYSTEM) {
+                if (m->running_as != SYSTEMD_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Reboot is only supported for system managers.");
                         return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
@@ -1124,7 +1124,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "PowerOff")) {
 
-                if (m->running_as != MANAGER_SYSTEM) {
+                if (m->running_as != SYSTEMD_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Powering off is only supported for system managers.");
                         return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
@@ -1136,7 +1136,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Halt")) {
 
-                if (m->running_as != MANAGER_SYSTEM) {
+                if (m->running_as != SYSTEMD_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Halting is only supported for system managers.");
                         return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
@@ -1148,7 +1148,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "KExec")) {
 
-                if (m->running_as != MANAGER_SYSTEM) {
+                if (m->running_as != SYSTEMD_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "kexec is only supported for system managers.");
                         return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
@@ -1177,7 +1177,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!isempty(switch_root_init) && !path_is_absolute(switch_root_init))
                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
 
-                if (m->running_as != MANAGER_SYSTEM) {
+                if (m->running_as != SYSTEMD_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Switching root is only supported for system managers.");
                         return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
@@ -1335,7 +1335,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!h)
                         goto oom;
 
-                r = unit_file_get_list(m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, h);
+                r = unit_file_get_list(m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, h);
                 if (r < 0) {
                         unit_file_list_free(h);
                         dbus_message_unref(reply);
@@ -1381,7 +1381,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                state = unit_file_get_state(m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, name);
+                state = unit_file_get_state(m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, name);
                 if (state < 0)
                         return bus_send_error_reply(connection, message, NULL, state);
 
@@ -1405,7 +1405,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 char **l = NULL;
                 DBusMessageIter iter;
-                UnitFileScope scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+                UnitFileScope scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
                 UnitFileChange *changes = NULL;
                 unsigned n_changes = 0;
                 dbus_bool_t runtime, force;
@@ -1464,7 +1464,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 char **l = NULL;
                 DBusMessageIter iter;
-                UnitFileScope scope = m->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+                UnitFileScope scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
                 UnitFileChange *changes = NULL;
                 unsigned n_changes = 0;
                 dbus_bool_t runtime;
