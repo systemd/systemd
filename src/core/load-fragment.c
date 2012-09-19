@@ -186,7 +186,7 @@ int config_parse_unit_path_printf(
 
         k = unit_full_printf(u, rvalue);
         if (!k)
-                return -ENOMEM;
+                return log_oom();
 
         r = config_parse_path(filename, line, section, lvalue, ltype, k, data, userdata);
         free(k);
@@ -1193,32 +1193,36 @@ int config_parse_path_spec(
         Path *p = data;
         PathSpec *s;
         PathType b;
+        char *k;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if ((b = path_type_from_string(lvalue)) < 0) {
+        b = path_type_from_string(lvalue);
+        if (b < 0) {
                 log_error("[%s:%u] Failed to parse path type, ignoring: %s", filename, line, lvalue);
                 return 0;
         }
 
-        if (!path_is_absolute(rvalue)) {
-                log_error("[%s:%u] Path is not absolute, ignoring: %s", filename, line, rvalue);
+        k = unit_full_printf(UNIT(p), rvalue);
+        if (!k)
+                return log_oom();
+
+        if (!path_is_absolute(k)) {
+                log_error("[%s:%u] Path is not absolute, ignoring: %s", filename, line, k);
+                free(k);
                 return 0;
         }
 
-        if (!(s = new0(PathSpec, 1)))
-                return -ENOMEM;
-
-        if (!(s->path = strdup(rvalue))) {
-                free(s);
-                return -ENOMEM;
+        s = new0(PathSpec, 1);
+        if (!s) {
+                free(k);
+                return log_oom();
         }
 
-        path_kill_slashes(s->path);
-
+        s->path = path_kill_slashes(k);
         s->type = b;
         s->inotify_fd = -1;
 
