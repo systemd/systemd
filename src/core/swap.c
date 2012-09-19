@@ -213,17 +213,16 @@ static int swap_add_default_dependencies(Swap *s) {
 
 static int swap_verify(Swap *s) {
         bool b;
-        char *e;
+        char _cleanup_free_ *e = NULL;
 
         if (UNIT(s)->load_state != UNIT_LOADED)
                   return 0;
 
-        if (!(e = unit_name_from_path(s->what, ".swap")))
-                  return -ENOMEM;
+        e = unit_name_from_path(s->what, ".swap");
+        if (e == NULL)
+                return log_oom();
 
         b = unit_has_name(UNIT(s), e);
-        free(e);
-
         if (!b) {
                 log_error("%s: Value of \"What\" and unit name do not match, not loading.\n", UNIT(s)->id);
                 return -EINVAL;
@@ -304,7 +303,8 @@ static int swap_add_one(
                 bool set_flags) {
 
         Unit *u = NULL;
-        char *e = NULL, *wp = NULL;
+        char _cleanup_free_ *e = NULL;
+        char *wp = NULL;
         bool delete = false;
         int r;
         SwapParameters *p;
@@ -316,7 +316,7 @@ static int swap_add_one(
 
         e = unit_name_from_path(what, ".swap");
         if (!e)
-                return -ENOMEM;
+                return log_oom();
 
         u = manager_get_unit(m, e);
 
@@ -329,10 +329,8 @@ static int swap_add_one(
                 delete = true;
 
                 u = unit_new(m, sizeof(Swap));
-                if (!u) {
-                        free(e);
-                        return -ENOMEM;
-                }
+                if (!u)
+                        return log_oom();
 
                 r = unit_add_name(u, e);
                 if (r < 0)
@@ -385,15 +383,12 @@ static int swap_add_one(
 
         unit_add_to_dbus_queue(u);
 
-        free(e);
-
         return 0;
 
 fail:
         log_warning("Failed to load swap unit: %s", strerror(-r));
 
         free(wp);
-        free(e);
 
         if (delete && u)
                 unit_free(u);
