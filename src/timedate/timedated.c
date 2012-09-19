@@ -1032,7 +1032,7 @@ int main(int argc, char *argv[]) {
 
                 if (!exiting && remain_until < now(CLOCK_MONOTONIC)) {
                         exiting = true;
-                        bus_async_unregister_and_exit(bus, "org.freedesktop.hostname1");
+                        bus_async_unregister_and_exit(bus, "org.freedesktop.timedated1");
                 }
         }
 
