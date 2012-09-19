@@ -442,7 +442,7 @@ InhibitWhat inhibit_what_from_string(const char *s) {
                         what |= INHIBIT_HANDLE_POWER_KEY;
                 else if (l == 16 && strncmp(w, "handle-sleep-key", l) == 0)
                         what |= INHIBIT_HANDLE_SLEEP_KEY;
-                else if (l == 16 && strncmp(w, "handle-lid-switch", l) == 0)
+                else if (l == 17 && strncmp(w, "handle-lid-switch", l) == 0)
                         what |= INHIBIT_HANDLE_LID_SWITCH;
                 else
                         return _INHIBIT_WHAT_INVALID;
