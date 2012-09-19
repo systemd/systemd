@@ -106,15 +106,17 @@
                                 operations to inhibit:
                                 <literal>shutdown</literal>,
                                 <literal>sleep</literal>,
-                                <literal>idle</literal>, for
-                                inhibiting
+                                <literal>idle</literal>,
+                                <literal>handle-power-key</literal>,
+                                <literal>handle-sleep-key</literal>,
+                                <literal>handle-lid-switch</literal>,
+                                for inhibiting
                                 reboot/power-off/halt/kexec,
-                                suspending/hibernating, resp. the
-                                automatic idle detection. If omitted
-                                defaults to
-                                <literal>idle:sleep:shutdown</literal>,
-                                i.e. takes all possible
-                                locks.</para></listitem>
+                                suspending/hibernating, the automatic
+                                idle detection, resp. the low-level
+                                handling of the power/sleep key and
+                                the lid switch. If omitted defaults to
+                                <literal>idle:sleep:shutdown</literal>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -154,7 +156,11 @@
                                 time elapses the lock is ignored and
                                 the operation executed. The time limit
                                 may be specified in
-                                <citerefentry><refentrytitle>systemd-logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+                                <citerefentry><refentrytitle>systemd-logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note
+                                that <literal>delay</literal> is only
+                                available or <literal>sleep</literal>
+                                and
+                                <literal>shutdown</literal>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
