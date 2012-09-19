@@ -30,7 +30,8 @@
 #include "journald-console.h"
 #include "journald-syslog.h"
 
-#define ENTRY_SIZE_MAX (1024*1024*32)
+#define ENTRY_SIZE_MAX (1024*1024*64)
+#define DATA_SIZE_MAX (1024*1024*64)
 
 static bool valid_user_field(const char *p, size_t l) {
         const char *a;
@@ -205,7 +206,12 @@ void server_process_native_message(
                         memcpy(&l_le, e + 1, sizeof(uint64_t));
                         l = le64toh(l_le);
 
-                        if (remaining < e - p + 1 + sizeof(uint64_t) + l + 1 ||
+                        if (l > DATA_SIZE_MAX) {
+                                log_debug("Received binary data block too large, ignoring.");
+                                break;
+                        }
+
+                        if ((uint64_t) remaining < e - p + 1 + sizeof(uint64_t) + l + 1 ||
                             e[1+sizeof(uint64_t)+l] != '\n') {
                                 log_debug("Failed to parse message, ignoring.");
                                 break;
