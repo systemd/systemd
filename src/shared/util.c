@@ -3881,7 +3881,8 @@ char *unquote(const char *s, const char* quotes) {
 
         /* This is rather stupid, simply removes the heading and
          * trailing quotes if there is one. Doesn't care about
-         * escaping or anything. */
+         * escaping or anything. We should make this smarter one
+         * day...*/
 
         l = strlen(s);
         if (l < 2)
@@ -3894,38 +3895,39 @@ char *unquote(const char *s, const char* quotes) {
 }
 
 char *normalize_env_assignment(const char *s) {
-        char *name, *value, *p, *r;
+        _cleanup_free_ char *name = NULL, *value = NULL, *p = NULL;
+        char *eq, *r;
 
-        p = strchr(s, '=');
+        eq = strchr(s, '=');
+        if (!eq) {
+                char *t;
 
-        if (!p) {
-                if (!(r = strdup(s)))
+                r = strdup(s);
+                if (!r)
                         return NULL;
 
-                return strstrip(r);
+                t = strstrip(r);
+                if (t == r)
+                        return r;
+
+                memmove(r, t, strlen(t) + 1);
+                return r;
         }
 
-        if (!(name = strndup(s, p - s)))
+        name = strndup(s, eq - s);
+        if (!name)
                 return NULL;
 
-        if (!(p = strdup(p+1))) {
-                free(name);
+        p = strdup(eq + 1);
+        if (!p)
                 return NULL;
-        }
 
         value = unquote(strstrip(p), QUOTES);
-        free(p);
-
-        if (!value) {
-                free(name);
+        if (!value)
                 return NULL;
-        }
 
-        if (asprintf(&r, "%s=%s", name, value) < 0)
+        if (asprintf(&r, "%s=%s", strstrip(name), value) < 0)
                 r = NULL;
-
-        free(value);
-        free(name);
 
         return r;
 }

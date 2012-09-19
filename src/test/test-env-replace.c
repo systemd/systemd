@@ -104,6 +104,22 @@ int main(int argc, char *argv[]) {
         printf("%s\n", t);
         free(t);
 
+        t = normalize_env_assignment(" xyz  ");
+        printf("<%s>\n", t);
+        free(t);
+
+        t = normalize_env_assignment(" xyz = bar  ");
+        printf("<%s>\n", t);
+        free(t);
+
+        t = normalize_env_assignment(" xyz = 'bar ' ");
+        printf("<%s>\n", t);
+        free(t);
+
+        t = normalize_env_assignment(" ' xyz' = 'bar ' ");
+        printf("<%s>\n", t);
+        free(t);
+
         a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF", NULL);
         b = strv_new("FOO=KKK", "FOO=", "PIEP=", "SCHLUMPF=SMURFF", "NANANANA=YES", NULL);
 
