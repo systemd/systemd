@@ -502,7 +502,7 @@ static void automount_enter_waiting(Automount *a) {
         mkdir_p_label(a->where, 0555);
 
         if (dir_is_empty(a->where) <= 0)
-                log_notice("%s: Directory %s to mount over is not empty, ignoring. (To see the over-mounted files, please manually mount the underlying file system to a secondary location.)", a->meta.id, a->where);
+                log_notice("%s: Directory %s to mount over is not empty, mounting anyway. (To see the over-mounted files, please manually mount the underlying file system to a secondary location.)", a->meta.id, a->where);
 
         if (pipe2(p, O_NONBLOCK|O_CLOEXEC) < 0) {
                 r = -errno;
