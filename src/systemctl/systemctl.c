@@ -1322,7 +1322,10 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
                         return -ECONNREFUSED;
                 }
 
-                if (!arg_quiet && d.result) {
+                if (!d.result)
+                        goto free_name;
+
+                if (!arg_quiet) {
                         if (streq(d.result, "timeout"))
                                 log_error("Job for %s timed out.", strna(d.name));
                         else if (streq(d.result, "canceled"))
@@ -1343,11 +1346,12 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
                 free(d.result);
                 d.result = NULL;
 
+        free_name:
                 free(d.name);
                 d.name = NULL;
         }
 
-        /* This is slightly dirty, since we don't undo the filter registration. */
+        dbus_connection_remove_filter(bus, wait_filter, &d);
         return r;
 }
 
