@@ -111,13 +111,13 @@ size_t page_size(void);
 
 bool streq_ptr(const char *a, const char *b);
 
-#define new(t, n) ((t*) malloc(sizeof(t)*(n)))
+#define new(t, n) ((t*) malloc_multiply(sizeof(t), (n)))
 
 #define new0(t, n) ((t*) calloc((n), sizeof(t)))
 
 #define newa(t, n) ((t*) alloca(sizeof(t)*(n)))
 
-#define newdup(t, p, n) ((t*) memdup(p, sizeof(t)*(n)))
+#define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
 
 #define malloc0(n) (calloc((n), 1))
 
@@ -514,7 +514,7 @@ char *format_bytes(char *buf, size_t l, off_t t);
 
 int fd_wait_for_event(int fd, int event, usec_t timeout);
 
-void* memdup(const void *p, size_t l);
+void* memdup(const void *p, size_t l) _malloc_;
 
 int is_kernel_thread(pid_t pid);
 
@@ -543,3 +543,17 @@ void fclosep(FILE **f);
 void closep(int *fd);
 void closedirp(DIR **d);
 void umaskp(mode_t *u);
+
+_malloc_  static inline void *malloc_multiply(size_t a, size_t b) {
+        if (_unlikely_(a > ((size_t) -1) / b))
+                return NULL;
+
+        return malloc(a * b);
+}
+
+static inline void *memdup_multiply(const void *p, size_t a, size_t b) {
+        if (_unlikely_(a > ((size_t) -1) / b))
+                return NULL;
+
+        return memdup(p, a * b);
+}
