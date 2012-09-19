@@ -149,7 +149,6 @@ ssize_t util_get_sys_core_link_value(struct udev *udev, const char *slink, const
 int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size);
 int util_log_priority(const char *priority);
 size_t util_path_encode(const char *src, char *dest, size_t size);
-size_t util_path_decode(char *s);
 void util_remove_trailing_chars(char *path, char c);
 size_t util_strpcpy(char **dest, size_t size, const char *src);
 size_t util_strpcpyl(char **dest, size_t size, const char *src, ...) __attribute__((sentinel));
