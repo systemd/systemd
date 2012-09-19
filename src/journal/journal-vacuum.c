@@ -86,7 +86,8 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
 
         for (;;) {
                 int k;
-                struct dirent buf, *de;
+                struct dirent *de;
+                union dirent_storage buf;
                 size_t q;
                 struct stat st;
                 char *p;
@@ -94,7 +95,7 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                 sd_id128_t seqnum_id;
                 bool have_seqnum;
 
-                k = readdir_r(d, &buf, &de);
+                k = readdir_r(d, &buf.de, &de);
                 if (k != 0) {
                         r = -k;
                         goto finish;

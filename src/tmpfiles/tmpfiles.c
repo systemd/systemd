@@ -551,12 +551,13 @@ static int recursive_relabel_children(Item *i, const char *path) {
                 return errno == ENOENT ? 0 : -errno;
 
         for (;;) {
-                struct dirent buf, *de;
+                struct dirent *de;
+                union dirent_storage buf;
                 bool is_dir;
                 int r;
                 char *entry_path;
 
-                r = readdir_r(d, &buf, &de);
+                r = readdir_r(d, &buf.de, &de);
                 if (r != 0) {
                         if (ret == 0)
                                 ret = -r;

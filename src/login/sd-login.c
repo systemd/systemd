@@ -651,11 +651,12 @@ _public_ int sd_get_uids(uid_t **users) {
                 return -errno;
 
         for (;;) {
-                struct dirent buffer, *de;
+                struct dirent *de;
+                union dirent_storage buf;
                 int k;
                 uid_t uid;
 
-                k = readdir_r(d, &buffer, &de);
+                k = readdir_r(d, &buf.de, &de);
                 if (k != 0) {
                         r = -k;
                         goto finish;

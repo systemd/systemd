@@ -2956,9 +2956,10 @@ int dir_is_empty(const char *path) {
                 return -errno;
 
         for (;;) {
-                struct dirent buf, *de;
+                struct dirent *de;
+                union dirent_storage buf;
 
-                r = readdir_r(d, &buf, &de);
+                r = readdir_r(d, &buf.de, &de);
                 if (r > 0)
                         return -r;
 
@@ -3260,12 +3261,13 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct 
         }
 
         for (;;) {
-                struct dirent buf, *de;
+                struct dirent *de;
+                union dirent_storage buf;
                 bool is_dir, keep_around;
                 struct stat st;
                 int r;
 
-                r = readdir_r(d, &buf, &de);
+                r = readdir_r(d, &buf.de, &de);
                 if (r != 0 && ret == 0) {
                         ret = -r;
                         break;
@@ -4942,10 +4944,11 @@ int get_files_in_directory(const char *path, char ***list) {
                 return -errno;
 
         for (;;) {
-                struct dirent buffer, *de;
+                struct dirent *de;
+                union dirent_storage buf;
                 int k;
 
-                k = readdir_r(d, &buffer, &de);
+                k = readdir_r(d, &buf.de, &de);
                 if (k != 0) {
                         r = -k;
                         goto finish;

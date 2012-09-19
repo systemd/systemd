@@ -1256,9 +1256,10 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
         }
 
         for (;;) {
-                struct dirent buf, *de;
+                struct dirent *de;
+                union dirent_storage buf;
 
-                r = readdir_r(d, &buf, &de);
+                r = readdir_r(d, &buf.de, &de);
                 if (r != 0 || !de)
                         break;
 
@@ -1334,10 +1335,11 @@ static int add_root_directory(sd_journal *j, const char *p) {
         }
 
         for (;;) {
-                struct dirent buf, *de;
+                struct dirent *de;
+                union dirent_storage buf;
                 sd_id128_t id;
 
-                r = readdir_r(d, &buf, &de);
+                r = readdir_r(d, &buf.de, &de);
                 if (r != 0 || !de)
                         break;
 

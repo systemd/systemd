@@ -39,7 +39,6 @@
 
 static int files_add(Hashmap *h, const char *path, const char *suffix) {
         DIR *dir;
-        struct dirent buffer, *de;
         int r = 0;
 
         dir = opendir(path);
@@ -50,10 +49,12 @@ static int files_add(Hashmap *h, const char *path, const char *suffix) {
         }
 
         for (;;) {
+                struct dirent *de;
+                union dirent_storage buf;
                 int k;
                 char *p;
 
-                k = readdir_r(dir, &buffer, &de);
+                k = readdir_r(dir, &buf.de, &de);
                 if (k != 0) {
                         r = -k;
                         goto finish;

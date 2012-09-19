@@ -61,10 +61,11 @@ static int rtc_open(int flags) {
 
         for (;;) {
                 char *p, *v;
-                struct dirent buf, *de;
+                struct dirent *de;
+                union dirent_storage buf;
                 int r;
 
-                r = readdir_r(d, &buf, &de);
+                r = readdir_r(d, &buf.de, &de);
                 if (r != 0)
                         goto fallback;
 

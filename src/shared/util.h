@@ -35,6 +35,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <sys/resource.h>
+#include <stddef.h>
 
 #include "macro.h"
 
@@ -45,6 +46,12 @@ typedef struct dual_timestamp {
         usec_t realtime;
         usec_t monotonic;
 } dual_timestamp;
+
+union dirent_storage {
+        struct dirent de;
+        uint8_t storage[offsetof(struct dirent, d_name) +
+                        ((NAME_MAX + 1 + sizeof(long)) & ~(sizeof(long) - 1))];
+};
 
 #define MSEC_PER_SEC  1000ULL
 #define USEC_PER_SEC  1000000ULL

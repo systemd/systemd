@@ -176,11 +176,12 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, const char *path) {
         }
 
         for (;;) {
-                struct dirent *de, buf;
+                struct dirent *de;
+                union dirent_storage buf;
                 int k;
                 char *p;
 
-                k = readdir_r(d, &buf, &de);
+                k = readdir_r(d, &buf.de, &de);
                 if (k != 0) {
                         r = -k;
                         goto finish;

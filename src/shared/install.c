@@ -201,7 +201,6 @@ static int remove_marked_symlinks_fd(
 
         int r = 0;
         DIR *d;
-        struct dirent buffer, *de;
 
         assert(remove_symlinks_to);
         assert(fd >= 0);
@@ -218,9 +217,11 @@ static int remove_marked_symlinks_fd(
         rewinddir(d);
 
         for (;;) {
+                struct dirent *de;
+                union dirent_storage buf;
                 int k;
 
-                k = readdir_r(d, &buffer, &de);
+                k = readdir_r(d, &buf.de, &de);
                 if (k != 0) {
                         r = -errno;
                         break;
@@ -375,7 +376,6 @@ static int find_symlinks_fd(
 
         int r = 0;
         DIR *d;
-        struct dirent buffer, *de;
 
         assert(name);
         assert(fd >= 0);
@@ -391,8 +391,10 @@ static int find_symlinks_fd(
 
         for (;;) {
                 int k;
+                struct dirent *de;
+                union dirent_storage buf;
 
-                k = readdir_r(d, &buffer, &de);
+                k = readdir_r(d, &buf.de, &de);
                 if (k != 0) {
                         r = -errno;
                         break;
@@ -1906,7 +1908,6 @@ int unit_file_get_list(
                 return r;
 
         STRV_FOREACH(i, paths.unit_path) {
-                struct dirent buffer, *de;
                 const char *units_dir;
 
                 free(buf);
@@ -1934,9 +1935,11 @@ int unit_file_get_list(
                 }
 
                 for (;;) {
+                        struct dirent *de;
+                        union dirent_storage buffer;
                         UnitFileList *f;
 
-                        r = readdir_r(d, &buffer, &de);
+                        r = readdir_r(d, &buffer.de, &de);
                         if (r != 0) {
                                 r = -r;
                                 goto finish;
