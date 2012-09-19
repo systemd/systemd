@@ -46,12 +46,15 @@ struct Button {
         char *name;
         char *seat;
         int fd;
+
+        bool lid_close_queued;
 };
 
 Button* button_new(Manager *m, const char *name);
 void button_free(Button*b);
 int button_open(Button *b);
 int button_process(Button *b);
+int button_recheck(Button *b);
 int button_set_seat(Button *b, const char *sn);
 
 const char* handle_button_to_string(HandleButton h);

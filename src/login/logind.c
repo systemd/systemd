@@ -1506,6 +1506,26 @@ int manager_startup(Manager *m) {
         return 0;
 }
 
+static int manager_recheck_buttons(Manager *m) {
+        Iterator i;
+        Button *b;
+        int r = 0;
+
+        assert(m);
+
+        HASHMAP_FOREACH(b, m->buttons, i) {
+                int q;
+
+                q = button_recheck(b);
+                if (q > 0)
+                        return 1;
+                if (q < 0)
+                        r = q;
+        }
+
+        return r;
+}
+
 int manager_run(Manager *m) {
         assert(m);
 
@@ -1517,6 +1537,9 @@ int manager_run(Manager *m) {
                 manager_gc(m, true);
 
                 if (manager_dispatch_delayed(m) > 0)
+                        continue;
+
+                if (manager_recheck_buttons(m) > 0)
                         continue;
 
                 if (dbus_connection_dispatch(m->bus) != DBUS_DISPATCH_COMPLETE)

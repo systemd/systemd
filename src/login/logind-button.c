@@ -150,7 +150,12 @@ fail:
         return r;
 }
 
-static int button_handle(Button *b, InhibitWhat inhibit_key, HandleButton handle, bool ignore_inhibited) {
+static int button_handle(
+                Button *b,
+                InhibitWhat inhibit_key,
+                HandleButton handle,
+                bool ignore_inhibited,
+                bool is_edge) {
 
         static const char * const message_table[_HANDLE_BUTTON_MAX] = {
                 [HANDLE_POWEROFF] = "Powering Off...",
@@ -193,6 +198,14 @@ static int button_handle(Button *b, InhibitWhat inhibit_key, HandleButton handle
         /* If the actual operation is inhibited, warn and fail */
         if (!ignore_inhibited &&
             manager_is_inhibited(b->manager, inhibit_operation, INHIBIT_BLOCK, NULL, false)) {
+
+
+                /* If this is just a recheck of the lid switch then don't warn about anything */
+                if (!is_edge) {
+                        log_debug("Refusing operation, %s is inhibited.", inhibit_what_to_string(inhibit_operation));
+                        return 0;
+                }
+
                 log_error("Refusing operation, %s is inhibited.", inhibit_what_to_string(inhibit_operation));
                 warn_melody();
                 return -EPERM;
@@ -200,14 +213,19 @@ static int button_handle(Button *b, InhibitWhat inhibit_key, HandleButton handle
 
         log_info("%s", message_table[handle]);
 
+        /* We are executing the operation, so make sure we don't
+         * execute another one until the lid is opened/closed again */
+        b->lid_close_queued = false;
+
         dbus_error_init(&error);
         r = bus_manager_shutdown_or_sleep_now_or_later(b->manager, target_table[handle], inhibit_operation, &error);
         if (r < 0) {
                 log_error("Failed to execute operation: %s", bus_error_message(&error));
                 dbus_error_free(&error);
+                return r;
         }
 
-        return r;
+        return 1;
 }
 
 int button_process(Button *b) {
@@ -229,12 +247,12 @@ int button_process(Button *b) {
                 case KEY_POWER:
                 case KEY_POWER2:
                         log_info("Power key pressed.");
-                        return button_handle(b, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited);
+                        return button_handle(b, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
 
                 case KEY_SLEEP:
                 case KEY_SUSPEND:
                         log_info("Sleep key pressed.");
-                        return button_handle(b, INHIBIT_HANDLE_SLEEP_KEY, b->manager->handle_sleep_key, b->manager->sleep_key_ignore_inhibited);
+                        return button_handle(b, INHIBIT_HANDLE_SLEEP_KEY, b->manager->handle_sleep_key, b->manager->sleep_key_ignore_inhibited, true);
 
                 }
         } else if (ev.type == EV_SW && ev.value > 0) {
@@ -243,11 +261,32 @@ int button_process(Button *b) {
 
                 case SW_LID:
                         log_info("Lid closed.");
-                        return button_handle(b, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited);
+                        b->lid_close_queued = true;
+
+                        return button_handle(b, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, true);
+                }
+
+        } else if (ev.type == EV_SW && ev.value == 0) {
+
+                switch (ev.code) {
+
+                case SW_LID:
+                        log_info("Lid opened.");
+                        b->lid_close_queued = false;
+                        break;
                 }
         }
 
         return 0;
+}
+
+int button_recheck(Button *b) {
+        assert(b);
+
+        if (!b->lid_close_queued)
+                return 0;
+
+        return button_handle(b, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, false);
 }
 
 static const char* const handle_button_table[_HANDLE_BUTTON_MAX] = {
