@@ -357,15 +357,27 @@ _public_ void sd_journal_flush_matches(sd_journal *j) {
         detach_location(j);
 }
 
-static int compare_order(JournalFile *af, Object *ao,
-                         JournalFile *bf, Object *bo) {
+static int compare_entry_order(JournalFile *af, Object *_ao,
+                         JournalFile *bf, uint64_t bp) {
 
         uint64_t a, b;
+        Object *ao, *bo;
+        int r;
 
         assert(af);
-        assert(ao);
         assert(bf);
-        assert(bo);
+        assert(_ao);
+
+        /* The mmap cache might invalidate the object from the first
+         * file if we look at the one from the second file. Hence
+         * temporarily copy the header of the first one, and look at
+         * that only. */
+        ao = alloca(offsetof(EntryObject, items));
+        memcpy(ao, _ao, offsetof(EntryObject, items));
+
+        r = journal_file_move_to_object(bf, OBJECT_ENTRY, bp, &bo);
+        if (r < 0)
+                return strcmp(af->path, bf->path);
 
         /* We operate on two different files here, hence we can access
          * two objects at the same time, which we normally can't.
@@ -808,18 +820,17 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
 }
 
 static int real_journal_next(sd_journal *j, direction_t direction) {
-        JournalFile *f, *new_current = NULL;
+        JournalFile *f, *new_file = NULL;
+        uint64_t new_offset = 0;
+        Object *o;
+        uint64_t p;
         Iterator i;
         int r;
-        uint64_t new_offset = 0;
-        Object *new_entry = NULL;
 
         if (!j)
                 return -EINVAL;
 
         HASHMAP_FOREACH(f, j->files, i) {
-                Object *o;
-                uint64_t p;
                 bool found;
 
                 r = next_beyond_location(j, f, direction, &o, &p);
@@ -829,12 +840,12 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                 } else if (r == 0)
                         continue;
 
-                if (!new_current)
+                if (!new_file)
                         found = true;
                 else {
                         int k;
 
-                        k = compare_order(f, o, new_current, new_entry);
+                        k = compare_entry_order(f, o, new_file, new_offset);
 
                         if (direction == DIRECTION_DOWN)
                                 found = k < 0;
@@ -843,16 +854,19 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                 }
 
                 if (found) {
-                        new_current = f;
-                        new_entry = o;
+                        new_file = f;
                         new_offset = p;
                 }
         }
 
-        if (!new_current)
+        if (!new_file)
                 return 0;
 
-        set_location(j, new_current, new_entry, new_offset);
+        r = journal_file_move_to_object(new_file, OBJECT_ENTRY, new_offset, &o);
+        if (r < 0)
+                return r;
+
+        set_location(j, new_file, o, new_offset);
 
         return 1;
 }
