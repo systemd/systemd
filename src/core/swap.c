@@ -55,6 +55,7 @@ static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
 
 static void swap_unset_proc_swaps(Swap *s) {
         Swap *first;
+        Hashmap *swaps;
 
         assert(s);
 
@@ -63,14 +64,17 @@ static void swap_unset_proc_swaps(Swap *s) {
 
         /* Remove this unit from the chain of swaps which share the
          * same kernel swap device. */
-
-        first = hashmap_get(UNIT(s)->manager->swaps_by_proc_swaps, s->parameters_proc_swaps.what);
+        swaps = UNIT(s)->manager->swaps_by_proc_swaps;
+        first = hashmap_get(swaps, s->parameters_proc_swaps.what);
         LIST_REMOVE(Swap, same_proc_swaps, first, s);
 
         if (first)
-                hashmap_remove_and_replace(UNIT(s)->manager->swaps_by_proc_swaps, s->parameters_proc_swaps.what, first->parameters_proc_swaps.what, first);
+                hashmap_remove_and_replace(swaps,
+                                           s->parameters_proc_swaps.what,
+                                           first->parameters_proc_swaps.what,
+                                           first);
         else
-                hashmap_remove(UNIT(s)->manager->swaps_by_proc_swaps, s->parameters_proc_swaps.what);
+                hashmap_remove(swaps, s->parameters_proc_swaps.what);
 
         free(s->parameters_proc_swaps.what);
         s->parameters_proc_swaps.what = NULL;
