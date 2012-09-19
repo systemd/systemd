@@ -31,7 +31,10 @@ typedef enum InhibitWhat {
         INHIBIT_SHUTDOWN = 1,
         INHIBIT_SLEEP = 2,
         INHIBIT_IDLE = 4,
-        _INHIBIT_WHAT_MAX = 8,
+        INHIBIT_HANDLE_POWER_KEY = 8,
+        INHIBIT_HANDLE_SLEEP_KEY = 16,
+        INHIBIT_HANDLE_LID_SWITCH = 32,
+        _INHIBIT_WHAT_MAX = 64,
         _INHIBIT_WHAT_INVALID = -1
 } InhibitWhat;
 
@@ -80,7 +83,7 @@ int inhibitor_create_fifo(Inhibitor *i);
 void inhibitor_remove_fifo(Inhibitor *i);
 
 InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm);
-bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since);
+bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since, bool only_active);
 
 const char *inhibit_what_to_string(InhibitWhat k);
 InhibitWhat inhibit_what_from_string(const char *s);

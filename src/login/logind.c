@@ -55,9 +55,10 @@ Manager *manager_new(void) {
         m->n_autovts = 6;
         m->reserve_vt = 6;
         m->inhibit_delay_max = 5 * USEC_PER_SEC;
-        m->handle_power_key = HANDLE_NO_SESSION;
-        m->handle_sleep_key = HANDLE_TTY_SESSION;
-        m->handle_lid_switch = HANDLE_OFF;
+        m->handle_power_key = HANDLE_POWEROFF;
+        m->handle_sleep_key = HANDLE_SUSPEND;
+        m->handle_lid_switch = HANDLE_SUSPEND;
+        m->lid_switch_ignore_inhibited = true;
 
         m->devices = hashmap_new(string_hash_func, string_compare_func);
         m->seats = hashmap_new(string_hash_func, string_compare_func);
@@ -494,9 +495,9 @@ int manager_enumerate_buttons(Manager *m) {
 
         /* Loads buttons from udev */
 
-        if (m->handle_power_key == HANDLE_OFF &&
-            m->handle_sleep_key == HANDLE_OFF &&
-            m->handle_lid_switch == HANDLE_OFF)
+        if (m->handle_power_key == HANDLE_IGNORE &&
+            m->handle_sleep_key == HANDLE_IGNORE &&
+            m->handle_lid_switch == HANDLE_IGNORE)
                 return 0;
 
         e = udev_enumerate_new(m->udev);
@@ -1304,9 +1305,9 @@ static int manager_connect_udev(Manager *m) {
                 return -errno;
 
         /* Don't watch keys if nobody cares */
-        if (m->handle_power_key != HANDLE_OFF ||
-            m->handle_sleep_key != HANDLE_OFF ||
-            m->handle_lid_switch != HANDLE_OFF) {
+        if (m->handle_power_key != HANDLE_IGNORE ||
+            m->handle_sleep_key != HANDLE_IGNORE ||
+            m->handle_lid_switch != HANDLE_IGNORE) {
 
                 m->udev_button_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
                 if (!m->udev_button_monitor)
@@ -1406,7 +1407,7 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
 
         assert(m);
 
-        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, INHIBIT_BLOCK, t);
+        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, INHIBIT_BLOCK, t, false);
 
         HASHMAP_FOREACH(s, m->sessions, i) {
                 dual_timestamp k;

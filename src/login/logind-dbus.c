@@ -722,10 +722,19 @@ static int bus_manager_inhibit(Manager *m, DBusConnection *connection, DBusMessa
                 goto fail;
         }
 
+        /* Delay is only supported for shutdown/sleep */
+        if (mm == INHIBIT_DELAY && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP))) {
+                r = -EINVAL;
+                goto fail;
+        }
+
         r = verify_polkit(connection, message,
-                          w == INHIBIT_SHUTDOWN ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
-                          w == INHIBIT_SLEEP    ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
-                                                  (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-idle"     : "org.freedesktop.login1.inhibit-delay-idle"),
+                          w == INHIBIT_SHUTDOWN         ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
+                          w == INHIBIT_SLEEP            ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
+                          w == INHIBIT_IDLE             ? "org.freedesktop.login1.inhibit-block-idle" :
+                          w == INHIBIT_HANDLE_POWER_KEY ? "org.freedesktop.login1.inhibit-handle-power-key" :
+                          w == INHIBIT_HANDLE_SLEEP_KEY ? "org.freedesktop.login1.inhibit-handle-sleep-key" :
+                                                          "org.freedesktop.login1.inhibit-handle-lid-switch",
                           false, NULL, error);
         if (r < 0)
                 goto fail;
@@ -1079,7 +1088,7 @@ static int bus_manager_can_shutdown_or_sleep(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL);
+        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false);
 
         if (multiple_sessions) {
                 r = verify_polkit(connection, message, action_multiple_sessions, false, &challenge, error);
@@ -1193,7 +1202,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
 
         delayed =
                 m->inhibit_delay_max > 0 &&
-                manager_is_inhibited(m, w, INHIBIT_DELAY, NULL);
+                manager_is_inhibited(m, w, INHIBIT_DELAY, NULL, false);
 
         if (delayed)
                 /* Shutdown is delayed, keep in mind what we
@@ -1261,7 +1270,7 @@ static int bus_manager_do_shutdown_or_sleep(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL);
+        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false);
 
         if (multiple_sessions) {
                 r = verify_polkit(connection, message, action_multiple_sessions, interactive, NULL, error);
@@ -2294,7 +2303,7 @@ int manager_dispatch_delayed(Manager *manager) {
         /* Continue delay? */
         delayed =
                 manager->delayed_timestamp + manager->inhibit_delay_max > now(CLOCK_MONOTONIC) &&
-                manager_is_inhibited(manager, manager->delayed_what, INHIBIT_DELAY, NULL);
+                manager_is_inhibited(manager, manager->delayed_what, INHIBIT_DELAY, NULL, false);
         if (delayed)
                 return 0;
 

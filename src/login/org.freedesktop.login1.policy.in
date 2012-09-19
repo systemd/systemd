@@ -20,27 +20,7 @@
                 <_description>Allow applications to inhibit system shutdown</_description>
                 <_message>Authentication is required to allow an application to inhibit system shutdown.</_message>
                 <defaults>
-                        <allow_any>auth_admin_keep</allow_any>
-                        <allow_inactive>yes</allow_inactive>
-                        <allow_active>yes</allow_active>
-                </defaults>
-        </action>
-
-        <action id="org.freedesktop.login1.inhibit-block-sleep">
-                <_description>Allow applications to inhibit system sleep</_description>
-                <_message>Authentication is required to allow an application to inhibit system sleep.</_message>
-                <defaults>
-                        <allow_any>auth_admin_keep</allow_any>
-                        <allow_inactive>yes</allow_inactive>
-                        <allow_active>yes</allow_active>
-                </defaults>
-        </action>
-
-        <action id="org.freedesktop.login1.inhibit-block-idle">
-                <_description>Allow applications to inhibit automatic system suspend</_description>
-                <_message>Authentication is required to allow an application to inhibit automatic system suspend.</_message>
-                <defaults>
-                        <allow_any>yes</allow_any>
+                        <allow_any>no</allow_any>
                         <allow_inactive>yes</allow_inactive>
                         <allow_active>yes</allow_active>
                 </defaults>
@@ -56,6 +36,16 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.login1.inhibit-block-sleep">
+                <_description>Allow applications to inhibit system sleep</_description>
+                <_message>Authentication is required to allow an application to inhibit system sleep.</_message>
+                <defaults>
+                        <allow_any>no</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
         <action id="org.freedesktop.login1.inhibit-delay-sleep">
                 <_description>Allow applications to delay system sleep</_description>
                 <_message>Authentication is required to allow an application to delay system sleep.</_message>
@@ -66,11 +56,41 @@
                 </defaults>
         </action>
 
-        <action id="org.freedesktop.login1.inhibit-delay-idle">
-                <_description>Allow applications to delay automatic system suspend</_description>
-                <_message>Authentication is required to allow an application to delay automatic system suspend.</_message>
+        <action id="org.freedesktop.login1.inhibit-block-idle">
+                <_description>Allow applications to inhibit automatic system suspend</_description>
+                <_message>Authentication is required to allow an application to inhibit automatic system suspend.</_message>
                 <defaults>
                         <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.inhibit-handle-power-key">
+                <_description>Allow applications to inhibit system handling of the power key</_description>
+                <_message>Authentication is required to allow an application to inhibit system handling of the power key.</_message>
+                <defaults>
+                        <allow_any>no</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.inhibit-handle-sleep-key">
+                <_description>Allow applications to inhibit system handling of the sleep key</_description>
+                <_message>Authentication is required to allow an application to inhibit system handling of the sleep key.</_message>
+                <defaults>
+                        <allow_any>no</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.inhibit-handle-lid-switch">
+                <_description>Allow applications to inhibit system handling of the lid switch</_description>
+                <_message>Authentication is required to allow an application to inhibit system handling of the lid switch.</_message>
+                <defaults>
+                        <allow_any>no</allow_any>
                         <allow_inactive>yes</allow_inactive>
                         <allow_active>yes</allow_active>
                 </defaults>

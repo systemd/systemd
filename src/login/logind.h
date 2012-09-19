@@ -102,6 +102,10 @@ struct Manager {
         HandleButton handle_power_key;
         HandleButton handle_sleep_key;
         HandleButton handle_lid_switch;
+
+        bool power_key_ignore_inhibited;
+        bool sleep_key_ignore_inhibited;
+        bool lid_switch_ignore_inhibited;
 };
 
 enum {

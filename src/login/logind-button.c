@@ -150,127 +150,60 @@ fail:
         return r;
 }
 
-static Session *button_get_session(Button *b) {
-        Seat *seat;
-        assert(b);
+static int button_handle(Button *b, InhibitWhat inhibit_key, HandleButton handle, bool ignore_inhibited) {
 
-        if (!b->seat)
-                return NULL;
+        static const char * const message_table[_HANDLE_BUTTON_MAX] = {
+                [HANDLE_POWEROFF] = "Powering Off...",
+                [HANDLE_REBOOT] = "Rebooting...",
+                [HANDLE_HALT] = "Halting...",
+                [HANDLE_KEXEC] = "Rebooting via kexec...",
+                [HANDLE_SUSPEND] = "Suspending...",
+                [HANDLE_HIBERNATE] = "Hibernating..."
+        };
 
-        seat = hashmap_get(b->manager->seats, b->seat);
-        if (!seat)
-                return NULL;
+        static const char * const target_table[_HANDLE_BUTTON_MAX] = {
+                [HANDLE_POWEROFF] = "poweroff.target",
+                [HANDLE_REBOOT] = "reboot.target",
+                [HANDLE_HALT] = "halt.target",
+                [HANDLE_KEXEC] = "kexec.target",
+                [HANDLE_SUSPEND] = "suspend.target",
+                [HANDLE_HIBERNATE] = "hibernate.target"
+        };
 
-        return seat->active;
-}
-
-static int button_power_off(Button *b, HandleButton handle) {
         DBusError error;
         int r;
+        InhibitWhat inhibit_operation;
 
         assert(b);
 
-        if (handle == HANDLE_OFF)
+        /* If the key handling is turned off, don't do anything */
+        if (handle == HANDLE_IGNORE) {
+                log_debug("Refusing key handling, as it is turned off.");
                 return 0;
-
-        if (handle == HANDLE_NO_SESSION) {
-                if (hashmap_size(b->manager->sessions) > 0) {
-                        log_error("Refusing power-off, user is logged in.");
-                        warn_melody();
-                        return -EPERM;
-                }
-
-        } else if (handle == HANDLE_TTY_SESSION ||
-                   handle == HANDLE_ANY_SESSION) {
-                unsigned n;
-                Session *s;
-
-                n = hashmap_size(b->manager->sessions);
-                s = button_get_session(b);
-
-                /* Silently ignore events of graphical sessions */
-                if (handle == HANDLE_TTY_SESSION &&
-                    s && s->type == SESSION_X11)
-                        return 0;
-
-                if (n > 1 || (n == 1 && !s)) {
-                        log_error("Refusing power-off, other user is logged in.");
-                        warn_melody();
-                        return -EPERM;
-                }
-
         }
 
-        if (handle != HANDLE_ALWAYS) {
-                if (manager_is_inhibited(b->manager, INHIBIT_SHUTDOWN, INHIBIT_BLOCK, NULL)) {
-                        log_error("Refusing power-off, shutdown is inhibited.");
-                        warn_melody();
-                        return -EPERM;
-                }
+        /* If the key handling is inhibited, don't do anything */
+        if (manager_is_inhibited(b->manager, inhibit_key, INHIBIT_BLOCK, NULL, true)) {
+                log_debug("Refusing key handling, %s is inhibited.", inhibit_what_to_string(inhibit_key));
+                return 0;
         }
 
-        log_info("Powering off...");
+        inhibit_operation = handle == HANDLE_SUSPEND || handle == HANDLE_HIBERNATE ? INHIBIT_SLEEP : INHIBIT_SHUTDOWN;
+
+        /* If the actual operation is inhibited, warn and fail */
+        if (!ignore_inhibited &&
+            manager_is_inhibited(b->manager, inhibit_operation, INHIBIT_BLOCK, NULL, false)) {
+                log_error("Refusing operation, %s is inhibited.", inhibit_what_to_string(inhibit_operation));
+                warn_melody();
+                return -EPERM;
+        }
+
+        log_info("%s", message_table[handle]);
 
         dbus_error_init(&error);
-        r = bus_manager_shutdown_or_sleep_now_or_later(b->manager, SPECIAL_POWEROFF_TARGET, INHIBIT_SHUTDOWN, &error);
+        r = bus_manager_shutdown_or_sleep_now_or_later(b->manager, target_table[handle], inhibit_operation, &error);
         if (r < 0) {
-                log_error("Failed to power off: %s", bus_error_message(&error));
-                dbus_error_free(&error);
-        }
-
-        return r;
-}
-
-static int button_suspend(Button *b, HandleButton handle) {
-        DBusError error;
-        int r;
-
-        assert(b);
-
-        if (handle == HANDLE_OFF)
-                return 0;
-
-        if (handle == HANDLE_NO_SESSION) {
-                if (hashmap_size(b->manager->sessions) > 0) {
-                        log_error("Refusing suspend, user is logged in.");
-                        warn_melody();
-                        return -EPERM;
-                }
-
-        } else if (handle == HANDLE_TTY_SESSION ||
-                   handle == HANDLE_ANY_SESSION) {
-                unsigned n;
-                Session *s;
-
-                n = hashmap_size(b->manager->sessions);
-                s = button_get_session(b);
-
-                /* Silently ignore events of graphical sessions */
-                if (handle == HANDLE_TTY_SESSION &&
-                    s && s->type == SESSION_X11)
-                        return 0;
-
-                if (n > 1 || (n == 1 && !s)) {
-                        log_error("Refusing suspend, other user is logged in.");
-                        warn_melody();
-                        return -EPERM;
-                }
-        }
-
-        if (handle != HANDLE_ALWAYS) {
-                if (manager_is_inhibited(b->manager, INHIBIT_SLEEP, INHIBIT_BLOCK, NULL)) {
-                        log_error("Refusing suspend, sleeping is inhibited.");
-                        warn_melody();
-                        return -EPERM;
-                }
-        }
-
-        log_info("Suspending...");
-
-        dbus_error_init(&error);
-        r = bus_manager_shutdown_or_sleep_now_or_later(b->manager, SPECIAL_SUSPEND_TARGET, INHIBIT_SLEEP, &error);
-        if (r < 0) {
-                log_error("Failed to suspend: %s", bus_error_message(&error));
+                log_error("Failed to execute operation: %s", bus_error_message(&error));
                 dbus_error_free(&error);
         }
 
@@ -296,12 +229,12 @@ int button_process(Button *b) {
                 case KEY_POWER:
                 case KEY_POWER2:
                         log_info("Power key pressed.");
-                        return button_power_off(b, b->manager->handle_power_key);
+                        return button_handle(b, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited);
 
                 case KEY_SLEEP:
                 case KEY_SUSPEND:
                         log_info("Sleep key pressed.");
-                        return button_suspend(b, b->manager->handle_sleep_key);
+                        return button_handle(b, INHIBIT_HANDLE_SLEEP_KEY, b->manager->handle_sleep_key, b->manager->sleep_key_ignore_inhibited);
 
                 }
         } else if (ev.type == EV_SW && ev.value > 0) {
@@ -310,7 +243,7 @@ int button_process(Button *b) {
 
                 case SW_LID:
                         log_info("Lid closed.");
-                        return button_suspend(b, b->manager->handle_lid_switch);
+                        return button_handle(b, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited);
                 }
         }
 
@@ -318,11 +251,13 @@ int button_process(Button *b) {
 }
 
 static const char* const handle_button_table[_HANDLE_BUTTON_MAX] = {
-        [HANDLE_OFF] = "off",
-        [HANDLE_NO_SESSION] = "no-session",
-        [HANDLE_TTY_SESSION] = "tty-session",
-        [HANDLE_ANY_SESSION] = "any-session",
-        [HANDLE_ALWAYS] = "always"
+        [HANDLE_IGNORE] = "ignore",
+        [HANDLE_POWEROFF] = "poweroff",
+        [HANDLE_REBOOT] = "reboot",
+        [HANDLE_HALT] = "halt",
+        [HANDLE_KEXEC] = "kexec",
+        [HANDLE_SUSPEND] = "suspend",
+        [HANDLE_HIBERNATE] = "hibernate"
 };
 DEFINE_STRING_TABLE_LOOKUP(handle_button, HandleButton);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_handle_button, handle_button, HandleButton, "Failed to parse handle button setting");

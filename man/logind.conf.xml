@@ -204,49 +204,57 @@
                                 <listitem><para>Controls whether
                                 logind shall handle the system power
                                 and sleep keys and the lid switch to
-                                trigger system power-off or
-                                suspend. Can be one of
-                                <literal>off</literal>,
-                                <literal>no-session</literal>,
-                                <literal>tty-session</literal>,
-                                <literal>any-session</literal> and
-                                <literal>always</literal>. If
-                                <literal>off</literal> logind will
-                                never handle these keys. If
-                                <literal>no-session</literal> logind
-                                will handle these keys when no user is
-                                logged in and no inhibitor lock is
-                                taken, and trigger a warning beep
-                                otherwise. If set to
-                                <literal>tty-session</literal> logind
-                                will handle these keys if no inhibitor
-                                lock is taken, and either no user is
-                                logged in or the foreground session is
-                                a text login and the only one
-                                existing. If
-                                <literal>any-session</literal> is set
-                                logind will handle these keys if no
-                                inhibitor lock is taken, and either no
-                                user is logged in or the foreground
-                                session is the only one existing
-                                (regardless whether graphical or
-                                text). If set to
-                                <literal>always</literal> logind will
-                                handle these keys in any case, even if
-                                one or more users are logged in or an
-                                inhibitor lock is taken. Only input
-                                devices with the
+                                trigger actions such as system
+                                power-off or suspend. Can be one of
+                                <literal>ignore</literal>,
+                                <literal>poweroff</literal>,
+                                <literal>reboot</literal>,
+                                <literal>halt</literal>,
+                                <literal>kexec</literal> and
+                                <literal>hibernate</literal>. If
+                                <literal>ignore</literal> logind will
+                                never handle these keys. Otherwise the
+                                specified action will be taken in the
+                                respective event. Only input devices
+                                with the
                                 <literal>power-switch</literal> udev
-                                tag will be watched for key
+                                tag will be watched for key/lid switch
                                 events. <varname>HandlePowerKey=</varname>
                                 defaults to
-                                <literal>no-session</literal>.
-                                <varname>HandleSleepKey=</varname>
-                                defaults to
-                                <literal>tty-session</literal>,
+                                <literal>poweroff</literal>.
+                                <varname>HandleSleepKey=</varname> and
                                 <varname>HandleLidSwitch=</varname>
+                                default to
+                                <literal>suspend</literal>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>PowerKeyIgnoreInhibited=</varname></term>
+                                <term><varname>SleepKeyIgnoreInhibited=</varname></term>
+                                <term><varname>LidSwitchIgnoreInhibited=</varname></term>
+
+                                <listitem><para>Controls whether
+                                actions triggered by the power and
+                                sleep keys and the lid switch are
+                                subject to inhibitor locks. These
+                                settings take boolean arguments. If
+                                <literal>off</literal> the inhibitor
+                                locks taken by applications in order
+                                to block the requested operation are
+                                respected, if <literal>on</literal>
+                                the requested operation is executed in
+                                any
+                                case. <varname>PowerKeyIgnoreInhibited=</varname>
+                                and
+                                <varname>SleepKeyIgnoreInhibited=</varname>
+                                defaults to <literal>off</literal>,
+                                <varname>LidSwitchIgnoreInhibited=</varname>
                                 defaults to
-                                <literal>off</literal>.</para></listitem>
+                                <literal>yes</literal>. This means
+                                that the lid switch does not respect
+                                suspend blockers by default, but the
+                                power and sleep keys do.
+                                </para></listitem>
                         </varlistentry>
 
                 </variablelist>

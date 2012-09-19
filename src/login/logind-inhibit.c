@@ -348,7 +348,24 @@ InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm) {
         return what;
 }
 
-bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since) {
+static int pid_is_active(Manager *m, pid_t pid) {
+        Session *s;
+        int r;
+
+        r = manager_get_session_by_pid(m, pid, &s);
+        if (r <= 0)
+                return r;
+
+        return session_is_active(s);
+}
+
+bool manager_is_inhibited(
+                Manager *m,
+                InhibitWhat w,
+                InhibitMode mm,
+                dual_timestamp *since,
+                bool only_active) {
+
         Inhibitor *i;
         Iterator j;
         struct dual_timestamp ts = { 0, 0 };
@@ -362,6 +379,9 @@ bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timest
                         continue;
 
                 if (i->mode != mm)
+                        continue;
+
+                if (only_active && pid_is_active(m, i->pid) <= 0)
                         continue;
 
                 if (!inhibited ||
@@ -378,22 +398,32 @@ bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timest
 }
 
 const char *inhibit_what_to_string(InhibitWhat w) {
-
-        static const char* const table[_INHIBIT_WHAT_MAX] = {
-                [0] = "",
-                [INHIBIT_SHUTDOWN] = "shutdown",
-                [INHIBIT_SLEEP] = "sleep",
-                [INHIBIT_IDLE] = "idle",
-                [INHIBIT_SHUTDOWN|INHIBIT_SLEEP] = "shutdown:sleep",
-                [INHIBIT_SHUTDOWN|INHIBIT_IDLE] = "shutdown:idle",
-                [INHIBIT_SHUTDOWN|INHIBIT_SLEEP|INHIBIT_IDLE] = "shutdown:sleep:idle",
-                [INHIBIT_SLEEP|INHIBIT_IDLE] = "sleep:idle"
-        };
+        static __thread char buffer[73];
+        char *p;
 
         if (w < 0 || w >= _INHIBIT_WHAT_MAX)
                 return NULL;
 
-        return table[w];
+        p = buffer;
+        if (w & INHIBIT_SHUTDOWN)
+                p = stpcpy(p, "shutdown:");
+        if (w & INHIBIT_SLEEP)
+                p = stpcpy(p, "sleep:");
+        if (w & INHIBIT_IDLE)
+                p = stpcpy(p, "idle:");
+        if (w & INHIBIT_HANDLE_POWER_KEY)
+                p = stpcpy(p, "handle-power-key:");
+        if (w & INHIBIT_HANDLE_SLEEP_KEY)
+                p = stpcpy(p, "handle-sleep-key:");
+        if (w & INHIBIT_HANDLE_LID_SWITCH)
+                p = stpcpy(p, "handle-lid-switch:");
+
+        if (p > buffer)
+                *(p-1) = 0;
+        else
+                *p = 0;
+
+        return buffer;
 }
 
 InhibitWhat inhibit_what_from_string(const char *s) {
@@ -408,12 +438,17 @@ InhibitWhat inhibit_what_from_string(const char *s) {
                         what |= INHIBIT_SLEEP;
                 else if (l == 4 && strncmp(w, "idle", l) == 0)
                         what |= INHIBIT_IDLE;
+                else if (l == 16 && strncmp(w, "handle-power-key", l) == 0)
+                        what |= INHIBIT_HANDLE_POWER_KEY;
+                else if (l == 16 && strncmp(w, "handle-sleep-key", l) == 0)
+                        what |= INHIBIT_HANDLE_SLEEP_KEY;
+                else if (l == 16 && strncmp(w, "handle-lid-switch", l) == 0)
+                        what |= INHIBIT_HANDLE_LID_SWITCH;
                 else
                         return _INHIBIT_WHAT_INVALID;
         }
 
         return what;
-
 }
 
 static const char* const inhibit_mode_table[_INHIBIT_MODE_MAX] = {
