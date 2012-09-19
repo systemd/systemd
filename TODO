@@ -15,8 +15,6 @@ Bugfixes:
 
 F18:
 
-* https://bugzilla.gnome.org/show_bug.cgi?id=680689
-
 * Retest multi-seat
 
 Features:
@@ -132,8 +130,6 @@ Features:
 
 * install README to /etc/rc.d/init.d (if support for that is enabled) helping people who use "ls" there to figure out which services exist.
 
-* logind: ignore inactive login screens when checking whether power key should be handled
-
 * rename "userspace" to "core-os"
 
 * systemctl: "Journal has been rotated since unit was started." message is misleading
@@ -196,8 +192,6 @@ Features:
 * support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
 
 * systemctl: when stopping a service which has triggres and warning about it actually check the TriggeredBy= deps fields
-
-* journal: hook up with EFI firmware log
 
 * nspawn: make use of device cgroup contrller by default
 
