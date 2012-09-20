@@ -81,7 +81,7 @@ CHANGES WITH 190:
           and hence the information in /etc/timezone is not necessary
           anymore.
 
-        * logind will now always resolve one VT for a text getty (VT6
+        * logind will now always reserve one VT for a text getty (VT6
           by default). Previously if more than 6 X sessions where
           started they took up all the VTs with auto-spawned gettys,
           so that no text gettys were available anymore.
