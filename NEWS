@@ -112,6 +112,13 @@ CHANGES WITH 190:
         * Access to unit operations is now checked via SELinux taking
           the unit file label and client process label into account.
 
+        * systemd will now notify the administrator in the journal
+          when he over-mounts a non-empty directory.
+
+        * There are new specifiers that are resolved in unit files,
+          for the host name (%H), the machine ID (%m) and the boot ID
+          (%b).
+
         Contributions from Allin Cottrell, Auke Kok, Brandon Philips,
         Colin Guthrie, Colin Walters, Daniel J Walsh, Dave Reisner,
         Eelco Dolstra, Jan Engelhardt, Kay Sievers, Lennart
