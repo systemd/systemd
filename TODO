@@ -502,6 +502,8 @@ Regularly:
 
 * use secure_getenv() instead of getenv() where appropriate
 
-Scheduled for removal (or fixing):
+Scheduled for removal or fixing:
 
-* xxxOverridable dependencies
+* xxxOverridable dependencies (probably: fix)
+
+* support for early-boot SysV services (definitely: remove)
