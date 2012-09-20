@@ -8,7 +8,7 @@ CHANGES WITH 190:
 
         * ConditionPathIsMountPoint= can now properly detect bind
           mount points too. (Previously, a bind mount of one file
-          system to another place in the file system could not be
+          system to another place in the same file system could not be
           detected as mount, since they shared struct stat's st_dev
           field.)
 
