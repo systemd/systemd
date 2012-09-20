@@ -545,14 +545,14 @@ void closedirp(DIR **d);
 void umaskp(mode_t *u);
 
 _malloc_  static inline void *malloc_multiply(size_t a, size_t b) {
-        if (_unlikely_(a > ((size_t) -1) / b))
+        if (_unlikely_(b == 0 || a > ((size_t) -1) / b))
                 return NULL;
 
         return malloc(a * b);
 }
 
 _malloc_ static inline void *memdup_multiply(const void *p, size_t a, size_t b) {
-        if (_unlikely_(a > ((size_t) -1) / b))
+        if (_unlikely_(b == 0 || a > ((size_t) -1) / b))
                 return NULL;
 
         return memdup(p, a * b);
