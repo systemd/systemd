@@ -65,9 +65,9 @@ CHANGES WITH 190:
           various projects outside of systemd that provide bindings
           for languages such as PHP or Lua.
 
-        * Many conditions will not resolve specifiers such as %i. They
-          are also available in PathChanged= and related directives of
-          .path units.
+        * Many conditions will now resolve specifiers such as %i. In
+          addition, PathChanged= and related directives of .path units
+          now support specifiers as well.
 
         * There's now a new RPM macro definition for the system preset
           dir: %_presetdir.
