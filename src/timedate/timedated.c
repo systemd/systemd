@@ -176,15 +176,6 @@ static int read_data(void) {
                 }
         }
 
-#ifdef TARGET_FEDORA
-        r = parse_env_file("/etc/sysconfig/clock", NEWLINE,
-                           "ZONE", &tz.zone,
-                           NULL);
-
-        if (r < 0 && r != -ENOENT)
-                log_warning("Failed to read /etc/sysconfig/clock: %s", strerror(-r));
-#endif
-
 #ifdef HAVE_DEBIAN
         r = read_one_line_file("/etc/timezone", &tz.zone);
         if (r < 0) {
