@@ -1184,8 +1184,11 @@ char *strnappend(const char *s, const char *suffix, size_t b) {
         assert(suffix);
 
         a = strlen(s);
+        if ((size_t) -1 - a > b)
+                return NULL;
 
-        if (!(r = new(char, a+b+1)))
+        r = new(char, a+b+1);
+        if (!r)
                 return NULL;
 
         memcpy(r, s, a);
@@ -5014,12 +5017,17 @@ char *strjoin(const char *x, ...) {
 
                 for (;;) {
                         const char *t;
+                        size_t n;
 
                         t = va_arg(ap, const char *);
                         if (!t)
                                 break;
 
-                        l += strlen(t);
+                        n = strlen(t);
+                        if (n > ((size_t) -1) - l)
+                                return NULL;
+
+                        l += n;
                 }
         } else
                 l = 0;
@@ -5291,7 +5299,7 @@ int signal_from_string(const char *s) {
         int offset = 0;
         unsigned u;
 
-        signo =__signal_from_string(s);
+        signo = __signal_from_string(s);
         if (signo > 0)
                 return signo;
 
@@ -5683,7 +5691,7 @@ void warn_melody(void) {
         if (fd < 0)
                 return;
 
-        /* Yeah, this is synchronous. Kinda sucks. Bute well... */
+        /* Yeah, this is synchronous. Kinda sucks. But well... */
 
         ioctl(fd, KIOCSOUND, (int)(1193180/440));
         usleep(125*USEC_PER_MSEC);

@@ -551,7 +551,7 @@ _malloc_  static inline void *malloc_multiply(size_t a, size_t b) {
         return malloc(a * b);
 }
 
-static inline void *memdup_multiply(const void *p, size_t a, size_t b) {
+_malloc_ static inline void *memdup_multiply(const void *p, size_t a, size_t b) {
         if (_unlikely_(a > ((size_t) -1) / b))
                 return NULL;
 
