@@ -1,5 +1,125 @@
 systemd System and Service Manager
 
+CHANGES WITH 190:
+
+        * Whenever a unit changes state we'll now log this to the
+          journal and show along the unit's own log output in
+          "systemctl status".
+
+        * ConditionPathIsMountPoint= can now properly detect bind
+          mount points too. (Previously, a bind mount of one file
+          system to another place in the file system could not be
+          detected as mount, since they shared struct stat's st_dev
+          field.)
+
+        * We will now mount the cgroup controllers cpu, cpuacct,
+          cpuset and the controllers net_cls, net_prio together by
+          default.
+
+        * nspawn containers will now have a virtualized boot
+          ID. (i.e. /proc/sys/kernel/random/boot_id is now mounted
+          over with a randomized ID at container initialization). This
+          has the effect of making "journalctl -b" do the right thing
+          in a container.
+
+        * The JSON output journal serialization has been updated not
+          to generate "endless" list objects anymore, but rather one
+          JSON object per line. This is more in line how most JSON
+          parsers expect JSON objects. The new output mode
+          "json-pretty" has been added to provide similar output, but
+          neatly aligned for readability by humans.
+
+        * We dropped all explicit sync() invocations in the shutdown
+          code. The kernel does this implicitly anyway in the kernel
+          reboot() syscall. halt(8)'s -n option is now a compatibility
+          no-op.
+
+        * We now support virtualized reboot() in containers, as
+          supported by newer kernels. We will fall back to exit() if
+          CAP_SYS_REBOOT is not available to the container. Also,
+          nspawn makes use of this now and will actually reboot the
+          container if the containerized OS asks for that.
+
+        * journalctl will only show local log output by default
+          now. Use --merge (-m) to show remote log output, too.
+
+        * libsystemd-journal gained the new sd_journal_get_usage()
+          call to determine the current disk usage of all journal
+          files. This is exposed in the new "journalctl --disk-usage"
+          command.
+
+        * journald gained a new configuration setting SplitMode= in
+          journald.conf which may be used to control how user journals
+          are split off. See journald.conf(5) for details.
+
+        * A new condition type ConditionFileNotEmpty= has been added.
+
+        * tmpfiles' "w" lines now support file globbing, to write
+          multiple files at once.
+
+        * We added Python bindings for the journal submission
+          APIs. More Python APIs for a number of selected APIs will
+          likely follow. Note that we intend to add native bindings
+          only for the Python language, as we consider it common
+          enough to deserve bindings shipped within systemd. There are
+          various projects outside of systemd that provide bindings
+          for languages such as PHP or Lua.
+
+        * Many conditions will not resolve specifiers such as %i. They
+          are also available in PathChanged= and related directives of
+          .path units.
+
+        * There's now a new RPM macro definition for the system preset
+          dir: %_presetdir.
+
+        * journald will now warn if it can't foward a message to the
+          syslog daemon because it's socket is full.
+
+        * timedated will no longer write or process /etc/timezone,
+          except on Debian. As we do not support late mounted /usr
+          anymore /etc/localtime always being a symlink is now safe,
+          and hence the information in /etc/timezone is not necessary
+          anymore.
+
+        * logind will now always resolve one VT for a text getty (VT6
+          by default). Previously if more than 6 X sessions where
+          started they took up all the VTs with auto-spawned gettys,
+          so that no text gettys were available anymore.
+
+        * udev will now automatically inform the btrfs kernel logic
+          about btrfs RAID components showing up. This should make
+          simple hotplug based btrfs RAID assembly work.
+
+        * PID 1 will now increase its RLIMIT_NOFILE to 64K by default
+          (but not for its children which will stay at the kernel
+          default). This should allow setups with a lot more listening
+          sockets.
+
+        * systemd will now always pass the configured timezone to the
+          kernel at boot. timedated will do the same when the timezone
+          is changed.
+
+        * logind's inhibition logic has been updated. By default,
+          logind will now handle the lid switch, the power and sleep
+          keys all the time, even in graphical sessions. If DEs want
+          to handle these events on their own they should take the new
+          handle-power-key, handle-sleep-key and handle-lid-switch
+          inhibitors during their runtime. A simple way to achiveve
+          that is to invoke the DE wrapped in an invocation of:
+
+          systemd-inhibit --what=handle-power-key:handle-sleep-key:handle-lid-switch ...
+
+        * Access to unit operations is now checked via SELinux taking
+          the unit file label and client process label into account.
+
+        Contributions from Allin Cottrell, Auke Kok, Brandon Philips,
+        Colin Guthrie, Colin Walters, Daniel J Walsh, Dave Reisner,
+        Eelco Dolstra, Jan Engelhardt, Kay Sievers, Lennart
+        Poettering, Lucas De Marchi, Lukas Nykryn, Mantas Mikulėnas,
+        Martin Pitt, Matthias Clasen, Michael Olbrich, Pierre Schmitz,
+        Shawn Landden, Thomas Hindoe Paaboel Andersen, Tom Gundersen,
+        Václav Pavlín, Yin Kangkai, Zbigniew Jędrzejewski-Szmek
+
 CHANGES WITH 189:
 
         * Support for reading structured kernel messages from
