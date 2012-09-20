@@ -203,7 +203,7 @@ fi
 have_selinux=no
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [Disable optional SELINUX support]))
 if test "x$enable_selinux" != "xno"; then
-        PKG_CHECK_MODULES(SELINUX, [ libselinux ],
+        PKG_CHECK_MODULES([SELINUX], [libselinux >= 2.1.9],
                 [AC_DEFINE(HAVE_SELINUX, 1, [Define if SELinux is available]) have_selinux=yes], have_selinux=no)
         if test "x$have_selinux" = xno -a "x$enable_selinux" = xyes; then
                 AC_MSG_ERROR([*** SELinux support requested but libraries not found])
