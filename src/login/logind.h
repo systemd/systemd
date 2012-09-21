@@ -100,11 +100,13 @@ struct Manager {
         usec_t inhibit_delay_max;
 
         HandleButton handle_power_key;
-        HandleButton handle_sleep_key;
+        HandleButton handle_suspend_key;
+        HandleButton handle_hibernate_key;
         HandleButton handle_lid_switch;
 
         bool power_key_ignore_inhibited;
-        bool sleep_key_ignore_inhibited;
+        bool suspend_key_ignore_inhibited;
+        bool hibernate_key_ignore_inhibited;
         bool lid_switch_ignore_inhibited;
 };
 

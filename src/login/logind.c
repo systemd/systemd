@@ -56,7 +56,8 @@ Manager *manager_new(void) {
         m->reserve_vt = 6;
         m->inhibit_delay_max = 5 * USEC_PER_SEC;
         m->handle_power_key = HANDLE_POWEROFF;
-        m->handle_sleep_key = HANDLE_SUSPEND;
+        m->handle_suspend_key = HANDLE_SUSPEND;
+        m->handle_hibernate_key = HANDLE_HIBERNATE;
         m->handle_lid_switch = HANDLE_SUSPEND;
         m->lid_switch_ignore_inhibited = true;
 
@@ -496,7 +497,8 @@ int manager_enumerate_buttons(Manager *m) {
         /* Loads buttons from udev */
 
         if (m->handle_power_key == HANDLE_IGNORE &&
-            m->handle_sleep_key == HANDLE_IGNORE &&
+            m->handle_suspend_key == HANDLE_IGNORE &&
+            m->handle_hibernate_key == HANDLE_IGNORE &&
             m->handle_lid_switch == HANDLE_IGNORE)
                 return 0;
 
@@ -1306,7 +1308,8 @@ static int manager_connect_udev(Manager *m) {
 
         /* Don't watch keys if nobody cares */
         if (m->handle_power_key != HANDLE_IGNORE ||
-            m->handle_sleep_key != HANDLE_IGNORE ||
+            m->handle_suspend_key != HANDLE_IGNORE ||
+            m->handle_hibernate_key != HANDLE_IGNORE ||
             m->handle_lid_switch != HANDLE_IGNORE) {
 
                 m->udev_button_monitor = udev_monitor_new_from_netlink(m->udev, "udev");

@@ -32,9 +32,10 @@ typedef enum InhibitWhat {
         INHIBIT_SLEEP = 2,
         INHIBIT_IDLE = 4,
         INHIBIT_HANDLE_POWER_KEY = 8,
-        INHIBIT_HANDLE_SLEEP_KEY = 16,
-        INHIBIT_HANDLE_LID_SWITCH = 32,
-        _INHIBIT_WHAT_MAX = 64,
+        INHIBIT_HANDLE_SUSPEND_KEY = 16,
+        INHIBIT_HANDLE_HIBERNATE_KEY = 32,
+        INHIBIT_HANDLE_LID_SWITCH = 64,
+        _INHIBIT_WHAT_MAX = 128,
         _INHIBIT_WHAT_INVALID = -1
 } InhibitWhat;
 

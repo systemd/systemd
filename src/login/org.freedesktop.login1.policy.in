@@ -76,9 +76,19 @@
                 </defaults>
         </action>
 
-        <action id="org.freedesktop.login1.inhibit-handle-sleep-key">
-                <_description>Allow applications to inhibit system handling of the sleep key</_description>
-                <_message>Authentication is required to allow an application to inhibit system handling of the sleep key.</_message>
+        <action id="org.freedesktop.login1.inhibit-handle-suspend-key">
+                <_description>Allow applications to inhibit system handling of the suspend key</_description>
+                <_message>Authentication is required to allow an application to inhibit system handling of the suspend key.</_message>
+                <defaults>
+                        <allow_any>no</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.login1.inhibit-handle-hibernate-key">
+                <_description>Allow applications to inhibit system handling of the hibernate key</_description>
+                <_message>Authentication is required to allow an application to inhibit system handling of the hibernate key.</_message>
                 <defaults>
                         <allow_any>no</allow_any>
                         <allow_inactive>yes</allow_inactive>

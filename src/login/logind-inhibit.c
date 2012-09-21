@@ -403,7 +403,7 @@ bool manager_is_inhibited(
 }
 
 const char *inhibit_what_to_string(InhibitWhat w) {
-        static __thread char buffer[73];
+        static __thread char buffer[97];
         char *p;
 
         if (w < 0 || w >= _INHIBIT_WHAT_MAX)
@@ -418,8 +418,10 @@ const char *inhibit_what_to_string(InhibitWhat w) {
                 p = stpcpy(p, "idle:");
         if (w & INHIBIT_HANDLE_POWER_KEY)
                 p = stpcpy(p, "handle-power-key:");
-        if (w & INHIBIT_HANDLE_SLEEP_KEY)
-                p = stpcpy(p, "handle-sleep-key:");
+        if (w & INHIBIT_HANDLE_SUSPEND_KEY)
+                p = stpcpy(p, "handle-suspend-key:");
+        if (w & INHIBIT_HANDLE_HIBERNATE_KEY)
+                p = stpcpy(p, "handle-hibernate-key:");
         if (w & INHIBIT_HANDLE_LID_SWITCH)
                 p = stpcpy(p, "handle-lid-switch:");
 
@@ -445,8 +447,10 @@ InhibitWhat inhibit_what_from_string(const char *s) {
                         what |= INHIBIT_IDLE;
                 else if (l == 16 && strncmp(w, "handle-power-key", l) == 0)
                         what |= INHIBIT_HANDLE_POWER_KEY;
-                else if (l == 16 && strncmp(w, "handle-sleep-key", l) == 0)
-                        what |= INHIBIT_HANDLE_SLEEP_KEY;
+                else if (l == 18 && strncmp(w, "handle-suspend-key", l) == 0)
+                        what |= INHIBIT_HANDLE_SUSPEND_KEY;
+                else if (l == 20 && strncmp(w, "handle-hibernate-key", l) == 0)
+                        what |= INHIBIT_HANDLE_HIBERNATE_KEY;
                 else if (l == 17 && strncmp(w, "handle-lid-switch", l) == 0)
                         what |= INHIBIT_HANDLE_LID_SWITCH;
                 else

@@ -249,12 +249,21 @@ int button_process(Button *b) {
                         log_info("Power key pressed.");
                         return button_handle(b, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
 
-                case KEY_SLEEP:
-                case KEY_SUSPEND:
-                        log_info("Sleep key pressed.");
-                        return button_handle(b, INHIBIT_HANDLE_SLEEP_KEY, b->manager->handle_sleep_key, b->manager->sleep_key_ignore_inhibited, true);
+                /* The kernel is a bit confused here:
 
+                   KEY_SLEEP   = suspend-to-ram, which everybody else calls "suspend"
+                   KEY_SUSPEND = suspend-to-disk, which everybody else calls "hibernate"
+                */
+
+                case KEY_SLEEP:
+                        log_info("Suspend key pressed.");
+                        return button_handle(b, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, true);
+
+                case KEY_SUSPEND:
+                        log_info("Hibernate key pressed.");
+                        return button_handle(b, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
                 }
+
         } else if (ev.type == EV_SW && ev.value > 0) {
 
                 switch (ev.code) {

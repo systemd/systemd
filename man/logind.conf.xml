@@ -198,7 +198,8 @@
 
                         <varlistentry>
                                 <term><varname>HandlePowerKey=</varname></term>
-                                <term><varname>HandleSleepKey=</varname></term>
+                                <term><varname>HandleSuspendKey=</varname></term>
+                                <term><varname>HandleHibernateKey=</varname></term>
                                 <term><varname>HandleLidSwitch=</varname></term>
 
                                 <listitem><para>Controls whether
@@ -222,15 +223,19 @@
                                 events. <varname>HandlePowerKey=</varname>
                                 defaults to
                                 <literal>poweroff</literal>.
-                                <varname>HandleSleepKey=</varname> and
+                                <varname>HandleSuspendKey=</varname>
+                                and
                                 <varname>HandleLidSwitch=</varname>
-                                default to
-                                <literal>suspend</literal>.</para></listitem>
+                                default to <literal>suspend</literal>.
+                                <varname>HandleHibernateKey=</varname>
+                                defaults to
+                                <literal>hibernate</literal>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>PowerKeyIgnoreInhibited=</varname></term>
-                                <term><varname>SleepKeyIgnoreInhibited=</varname></term>
+                                <term><varname>SuspendKeyIgnoreInhibited=</varname></term>
+                                <term><varname>HibernateKeyIgnoreInhibited=</varname></term>
                                 <term><varname>LidSwitchIgnoreInhibited=</varname></term>
 
                                 <listitem><para>Controls whether
@@ -244,9 +249,10 @@
                                 respected, if <literal>on</literal>
                                 the requested operation is executed in
                                 any
-                                case. <varname>PowerKeyIgnoreInhibited=</varname>
+                                case. <varname>PowerKeyIgnoreInhibited=</varname>,
+                                <varname>SuspendKeyIgnoreInhibited=</varname>
                                 and
-                                <varname>SleepKeyIgnoreInhibited=</varname>
+                                <varname>HibernateKeyIgnoreInhibited=</varname>
                                 defaults to <literal>off</literal>,
                                 <varname>LidSwitchIgnoreInhibited=</varname>
                                 defaults to

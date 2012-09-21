@@ -210,7 +210,8 @@
         "  <property name=\"DelayInhibited\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"InhibitDelayMaxUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"HandlePowerKey\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"HandleSleepKey\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"HandleSuspendKey\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"HandleHibernateKey\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"HandleLidSwitch\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"PreparingForShutdown\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"PreparingForSleep\" type=\"b\" access=\"read\"/>\n" \
@@ -729,12 +730,13 @@ static int bus_manager_inhibit(Manager *m, DBusConnection *connection, DBusMessa
         }
 
         r = verify_polkit(connection, message,
-                          w == INHIBIT_SHUTDOWN         ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
-                          w == INHIBIT_SLEEP            ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
-                          w == INHIBIT_IDLE             ? "org.freedesktop.login1.inhibit-block-idle" :
-                          w == INHIBIT_HANDLE_POWER_KEY ? "org.freedesktop.login1.inhibit-handle-power-key" :
-                          w == INHIBIT_HANDLE_SLEEP_KEY ? "org.freedesktop.login1.inhibit-handle-sleep-key" :
-                                                          "org.freedesktop.login1.inhibit-handle-lid-switch",
+                          w == INHIBIT_SHUTDOWN             ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
+                          w == INHIBIT_SLEEP                ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
+                          w == INHIBIT_IDLE                 ? "org.freedesktop.login1.inhibit-block-idle" :
+                          w == INHIBIT_HANDLE_POWER_KEY     ? "org.freedesktop.login1.inhibit-handle-power-key" :
+                          w == INHIBIT_HANDLE_SUSPEND_KEY   ? "org.freedesktop.login1.inhibit-handle-suspend-key" :
+                          w == INHIBIT_HANDLE_HIBERNATE_KEY ? "org.freedesktop.login1.inhibit-handle-hibernate-key" :
+                                                              "org.freedesktop.login1.inhibit-handle-lid-switch",
                           false, NULL, error);
         if (r < 0)
                 goto fail;
@@ -1322,7 +1324,8 @@ static const BusProperty bus_login_manager_properties[] = {
         { "DelayInhibited",         bus_manager_append_inhibited,       "s",  0 },
         { "InhibitDelayMaxUSec",    bus_property_append_usec,           "t",  offsetof(Manager, inhibit_delay_max)   },
         { "HandlePowerKey",         bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_power_key)    },
-        { "HandleSleepKey",         bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_sleep_key)    },
+        { "HandleSuspendKey",       bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_suspend_key)  },
+        { "HandleHibernateKey",     bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_hibernate_key)},
         { "HandleLidSwitch",        bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_lid_switch)   },
         { "PreparingForShutdown",   bus_manager_append_preparing,       "b",  0 },
         { "PreparingForSleep",      bus_manager_append_preparing,       "b",  0 },
