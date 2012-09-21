@@ -276,6 +276,7 @@ static int log_callback(int type, const char *fmt, ...)
                 vsnprintf(buf, sizeof(buf), fmt, ap);
                 audit_log_user_avc_message(audit_fd, AUDIT_USER_AVC,
                                            buf, NULL, NULL, NULL, 0);
+                va_end(ap);
                 return 0;
         }
 #endif
