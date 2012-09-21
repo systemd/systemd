@@ -5024,8 +5024,10 @@ char *strjoin(const char *x, ...) {
                                 break;
 
                         n = strlen(t);
-                        if (n > ((size_t) -1) - l)
+                        if (n > ((size_t) -1) - l) {
+                                va_end(ap);
                                 return NULL;
+                        }
 
                         l += n;
                 }

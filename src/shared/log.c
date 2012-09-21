@@ -719,7 +719,6 @@ int log_struct_internal(
 
                         format = va_arg(ap, char *);
                 }
-                va_end(ap);
 
                 zero(mh);
                 mh.msg_iov = iovec;
@@ -731,6 +730,7 @@ int log_struct_internal(
                         r = 1;
 
         finish:
+                va_end(ap);
                 for (i = 1; i < n; i += 2)
                         free(iovec[i].iov_base);
 
