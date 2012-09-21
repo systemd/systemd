@@ -252,15 +252,13 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        int r = 0;
+        int r = 0, k;
         char *property, *value;
         Iterator it;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-
-        r = 0;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -274,19 +272,18 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        r = 0;
+
         if (argc > optind) {
                 int i;
 
                 for (i = optind; i < argc; i++) {
-                        int k;
-
                         k = parse_file(argv[i], false);
-                        if (k < 0 && r == 0)
+                        if (k < 0)
                                 r = k;
                 }
         } else {
                 char **files, **f;
-                int k;
 
                 r = conf_files_list(&files, ".conf",
                                     "/etc/sysctl.d",
@@ -310,14 +307,17 @@ int main(int argc, char *argv[]) {
                 f = files + strv_length(files) - 1;
                 STRV_FOREACH_BACKWARDS(f, files) {
                         k = parse_file(*f, true);
-                        if (k < 0 && r == 0)
+                        if (k < 0)
                                 r = k;
                 }
 
                 strv_free(files);
         }
 
-        r = apply_all();
+        k = apply_all();
+        if (k < 0)
+                r = k;
+
 finish:
         HASHMAP_FOREACH_KEY(value, property, sysctl_options, it) {
                 hashmap_remove(sysctl_options, property);
