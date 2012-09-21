@@ -2012,6 +2012,7 @@ int journal_file_open(
         bool newly_created = false;
 
         assert(fname);
+        assert(ret);
 
         if ((flags & O_ACCMODE) != O_RDONLY &&
             (flags & O_ACCMODE) != O_RDWR)
@@ -2156,9 +2157,7 @@ int journal_file_open(
         if (r < 0)
                 goto fail;
 
-        if (ret)
-                *ret = f;
-
+        *ret = f;
         return 0;
 
 fail:
