@@ -3347,6 +3347,17 @@ logind-install-data-hook:
 INSTALL_DATA_HOOKS += \
 	logind-install-data-hook
 
+systemd_multi_seat_x_SOURCES = \
+	src/login/multi-seat-x.c
+
+systemd_multi_seat_x_LDADD = \
+	libsystemd-label.la \
+	libsystemd-shared.la \
+	libudev.la
+
+rootlibexec_PROGRAMS += \
+	systemd-multi-seat-x
+
 dist_udevrules_DATA += \
 	src/login/70-uaccess.rules \
 	src/login/70-power-switch.rules
