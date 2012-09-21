@@ -19,6 +19,10 @@ F18:
 
 Features:
 
+* allow users from "wheel" to start/stop services
+
+* systemctl: when powering down/suspending check for inhibitors, and warn.
+
 * instantiated [Install] for target units
   https://bugs.freedesktop.org/show_bug.cgi?id=54377
 

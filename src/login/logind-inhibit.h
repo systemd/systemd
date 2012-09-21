@@ -83,7 +83,7 @@ int inhibitor_create_fifo(Inhibitor *i);
 void inhibitor_remove_fifo(Inhibitor *i);
 
 InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm);
-bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since, bool only_active);
+bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since, bool ignore_inactive, bool ignore_uid, uid_t uid);
 
 const char *inhibit_what_to_string(InhibitWhat k);
 InhibitWhat inhibit_what_from_string(const char *s);

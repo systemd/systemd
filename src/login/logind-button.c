@@ -188,7 +188,7 @@ static int button_handle(
         }
 
         /* If the key handling is inhibited, don't do anything */
-        if (manager_is_inhibited(b->manager, inhibit_key, INHIBIT_BLOCK, NULL, true)) {
+        if (manager_is_inhibited(b->manager, inhibit_key, INHIBIT_BLOCK, NULL, true, false, 0)) {
                 log_debug("Refusing key handling, %s is inhibited.", inhibit_what_to_string(inhibit_key));
                 return 0;
         }
@@ -197,7 +197,7 @@ static int button_handle(
 
         /* If the actual operation is inhibited, warn and fail */
         if (!ignore_inhibited &&
-            manager_is_inhibited(b->manager, inhibit_operation, INHIBIT_BLOCK, NULL, false)) {
+            manager_is_inhibited(b->manager, inhibit_operation, INHIBIT_BLOCK, NULL, false, false, 0)) {
 
 
                 /* If this is just a recheck of the lid switch then don't warn about anything */

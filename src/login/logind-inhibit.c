@@ -364,7 +364,9 @@ bool manager_is_inhibited(
                 InhibitWhat w,
                 InhibitMode mm,
                 dual_timestamp *since,
-                bool only_active) {
+                bool ignore_inactive,
+                bool ignore_uid,
+                uid_t uid) {
 
         Inhibitor *i;
         Iterator j;
@@ -381,7 +383,10 @@ bool manager_is_inhibited(
                 if (i->mode != mm)
                         continue;
 
-                if (only_active && pid_is_active(m, i->pid) <= 0)
+                if (ignore_inactive && pid_is_active(m, i->pid) <= 0)
+                        continue;
+
+                if (ignore_uid && i->uid == uid)
                         continue;
 
                 if (!inhibited ||

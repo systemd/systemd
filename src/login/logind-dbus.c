@@ -956,24 +956,17 @@ static int flush_devices(Manager *m) {
 }
 
 static int have_multiple_sessions(
-                DBusConnection *connection,
                 Manager *m,
-                DBusMessage *message,
-                DBusError *error) {
+                uid_t uid) {
 
         Session *session;
         Iterator i;
-        unsigned long ul;
 
         assert(m);
 
-        ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), error);
-        if (ul == (unsigned long) -1)
-                return -EIO;
-
         /* Check for other users' sessions. Greeter sessions do not count. */
         HASHMAP_FOREACH(session, m->sessions, i)
-                if (session->class == SESSION_USER && session->user->uid != ul)
+                if (session->class == SESSION_USER && session->user->uid != uid)
                         return true;
 
         return false;
@@ -1060,6 +1053,7 @@ static int bus_manager_can_shutdown_or_sleep(
         const char *result;
         DBusMessage *reply = NULL;
         int r;
+        unsigned long ul;
 
         assert(m);
         assert(connection);
@@ -1083,12 +1077,16 @@ static int bus_manager_can_shutdown_or_sleep(
                 }
         }
 
-        r = have_multiple_sessions(connection, m, message, error);
+        ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), error);
+        if (ul == (unsigned long) -1)
+                return -EIO;
+
+        r = have_multiple_sessions(m, (uid_t) ul);
         if (r < 0)
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false);
+        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, (uid_t) ul);
 
         if (multiple_sessions) {
                 r = verify_polkit(connection, message, action_multiple_sessions, false, &challenge, error);
@@ -1202,7 +1200,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
 
         delayed =
                 m->inhibit_delay_max > 0 &&
-                manager_is_inhibited(m, w, INHIBIT_DELAY, NULL, false);
+                manager_is_inhibited(m, w, INHIBIT_DELAY, NULL, false, false, 0);
 
         if (delayed)
                 /* Shutdown is delayed, keep in mind what we
@@ -1236,6 +1234,7 @@ static int bus_manager_do_shutdown_or_sleep(
         bool multiple_sessions, blocked;
         DBusMessage *reply = NULL;
         int r;
+        unsigned long ul;
 
         assert(m);
         assert(connection);
@@ -1265,12 +1264,16 @@ static int bus_manager_do_shutdown_or_sleep(
                         return -ENOTSUP;
         }
 
-        r = have_multiple_sessions(connection, m, message, error);
+        ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), error);
+        if (ul == (unsigned long) -1)
+                return -EIO;
+
+        r = have_multiple_sessions(m, (uid_t) ul);
         if (r < 0)
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false);
+        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, (uid_t) ul);
 
         if (multiple_sessions) {
                 r = verify_polkit(connection, message, action_multiple_sessions, interactive, NULL, error);
@@ -2303,7 +2306,7 @@ int manager_dispatch_delayed(Manager *manager) {
         /* Continue delay? */
         delayed =
                 manager->delayed_timestamp + manager->inhibit_delay_max > now(CLOCK_MONOTONIC) &&
-                manager_is_inhibited(manager, manager->delayed_what, INHIBIT_DELAY, NULL, false);
+                manager_is_inhibited(manager, manager->delayed_what, INHIBIT_DELAY, NULL, false, false, 0);
         if (delayed)
                 return 0;
 
