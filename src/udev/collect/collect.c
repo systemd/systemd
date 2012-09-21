@@ -142,7 +142,7 @@ static int checkout(int fd)
         buf = calloc(1,bufsize + 1);
         if (!buf) {
                 fprintf(stderr, "Out of memory.\n");
-                return -1;
+                return log_oom();
         }
         memset(buf, ' ', bufsize);
         ptr = buf + len;
@@ -167,7 +167,16 @@ static int checkout(int fd)
                                 if (debug)
                                         fprintf(stderr, "Found word %s\n", word);
                                 him = malloc(sizeof (struct _mate));
+                                if (!him) {
+                                        free(buf);
+                                        return log_oom();
+                                }
                                 him->name = strdup(word);
+                                if (!him->name) {
+                                        free(buf);
+                                        free(him);
+                                        return log_oom();
+                                }
                                 him->state = STATE_OLD;
                                 udev_list_node_append(&him->node, &bunch);
                                 word = NULL;
@@ -276,7 +285,7 @@ static int missing(int fd)
 
         buf = malloc(bufsize);
         if (!buf)
-                return -1;
+                return log_oom();
 
         udev_list_node_foreach(him_node, &bunch) {
                 struct _mate *him = node_to_mate(him_node);
@@ -291,7 +300,7 @@ static int missing(int fd)
                                 tmpbuf = realloc(buf, bufsize);
                                 if (!tmpbuf) {
                                         free(buf);
-                                        return -1;
+                                        return log_oom();
                                 }
                                 buf = tmpbuf;
                         }
@@ -431,7 +440,17 @@ int main(int argc, char **argv)
                         if (debug)
                                 fprintf(stderr, "ID %s: not in database\n", argv[i]);
                         him = malloc(sizeof (struct _mate));
+                        if (!him) {
+                                ret = ENOMEM;
+                                goto out;
+                        }
+
                         him->name = malloc(strlen(argv[i]) + 1);
+                        if (!him->name) {
+                                ret = ENOMEM;
+                                goto out;
+                        }
+
                         strcpy(him->name, argv[i]);
                         him->state = STATE_NONE;
                         udev_list_node_append(&him->node, &bunch);
