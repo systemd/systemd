@@ -94,6 +94,11 @@ static int rtc_open(int flags) {
                         continue;
 
                 p = strappend("/dev/", de->d_name);
+                if (!p) {
+                        closedir(d);
+                        return -ENOMEM;
+                }
+
                 fd = open(p, flags);
                 free(p);
 
