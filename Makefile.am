@@ -3352,8 +3352,7 @@ systemd_multi_seat_x_SOURCES = \
 
 systemd_multi_seat_x_LDADD = \
 	libsystemd-label.la \
-	libsystemd-shared.la \
-	libudev.la
+	libsystemd-shared.la
 
 rootlibexec_PROGRAMS += \
 	systemd-multi-seat-x
