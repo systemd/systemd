@@ -305,7 +305,10 @@ static int missing(int fd)
                                 buf = tmpbuf;
                         }
                         snprintf(buf, strlen(him->name)+2, "%s ", him->name);
-                        write(fd, buf, strlen(buf));
+                        if (write(fd, buf, strlen(buf)) < 0) {
+                                free(buf);
+                                return -1;
+                        }
                 }
         }
 
