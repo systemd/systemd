@@ -183,12 +183,16 @@ static int bus_session_append_idle_hint_since(DBusMessageIter *i, const char *pr
         Session *s = data;
         dual_timestamp t;
         uint64_t u;
+        int r;
 
         assert(i);
         assert(property);
         assert(s);
 
-        session_get_idle_hint(s, &t);
+        r = session_get_idle_hint(s, &t);
+        if (r < 0)
+                return r;
+
         u = streq(property, "IdleSinceHint") ? t.realtime : t.monotonic;
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT64, &u))
