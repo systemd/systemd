@@ -171,7 +171,7 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
 
 int main(int argc, char *argv[]) {
         int r = EXIT_FAILURE, k;
-        char **files, **fn, **i;
+        char **files = NULL, **fn, **i;
         struct kmod_ctx *ctx;
 
         if (argc > 1) {
