@@ -452,6 +452,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 tty = "";
         }
 
+        /* If this fails vtnr will be 0, that's intended */
         if (!isempty(cvtnr))
                 safe_atou32(cvtnr, &vtnr);
 
