@@ -714,9 +714,11 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         char_array_0(buffer);
         IOVEC_SET_STRING(iovec[n++], buffer);
 
-        snprintf(mid, sizeof(mid), "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(message_id));
-        char_array_0(mid);
-        IOVEC_SET_STRING(iovec[n++], mid);
+        if (!sd_id128_equal(message_id, SD_ID128_NULL)) {
+                snprintf(mid, sizeof(mid), "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(message_id));
+                char_array_0(mid);
+                IOVEC_SET_STRING(iovec[n++], mid);
+        }
 
         zero(ucred);
         ucred.pid = getpid();
@@ -827,9 +829,14 @@ static int system_journal_open(Server *s) {
                 r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &s->system_journal);
                 free(fn);
 
-                if (r >= 0)
+                if (r >= 0) {
+                        char fb[FORMAT_BYTES_MAX];
+
                         server_fix_perms(s, s->system_journal, 0);
-                else if (r < 0) {
+                        server_driver_message(s, SD_ID128_NULL, "Allowing system journal files to grow to %s.",
+                                              format_bytes(fb, sizeof(fb), s->system_metrics.max_use));
+
+                } else if (r < 0) {
 
                         if (r != -ENOENT && r != -EROFS)
                                 log_warning("Failed to open system journal: %s", strerror(-r));
@@ -876,8 +883,13 @@ static int system_journal_open(Server *s) {
                         }
                 }
 
-                if (s->runtime_journal)
+                if (s->runtime_journal) {
+                        char fb[FORMAT_BYTES_MAX];
+
                         server_fix_perms(s, s->runtime_journal, 0);
+                        server_driver_message(s, SD_ID128_NULL, "Allowing runtime journal files to grow to %s.",
+                                              format_bytes(fb, sizeof(fb), s->runtime_metrics.max_use));
+                }
         }
 
         return r;

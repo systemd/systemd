@@ -64,6 +64,8 @@ static inline int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
         return memcmp(&a, &b, 16) == 0;
 }
 
+#define SD_ID128_NULL ((sd_id128_t) { .qwords = { 0, 0 }})
+
 #ifdef __cplusplus
 }
 #endif
