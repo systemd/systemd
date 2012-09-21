@@ -205,8 +205,10 @@ static void test_orientation(struct udev *udev,
 
                 r = read(fd, ev, sizeof(struct input_event) * 64);
 
-                if (r < (int) sizeof(struct input_event))
+                if (r < (int) sizeof(struct input_event)) {
+                        close(fd);
                         return;
+                }
 
                 for (i = 0; i < r / (int) sizeof(struct input_event); i++) {
                         if (got_syn == 1) {
