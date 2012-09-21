@@ -19,6 +19,11 @@ F18:
 
 Features:
 
+* document that deps in [Unit] sections ignore Alias= fileds in
+  [Install] units of other units, unless those units are disabled
+
+* need to update LGPL2.1 text to newest version (with updated FSF address)
+
 * allow users from "wheel" to start/stop services
 
 * systemctl: when powering down/suspending check for inhibitors, and warn.

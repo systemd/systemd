@@ -1829,7 +1829,6 @@ static int service_spawn(
         if (r < 0)
                 goto fail;
 
-
         if ((r = unit_watch_pid(UNIT(s), pid)) < 0)
                 /* FIXME: we need to do something here */
                 goto fail;

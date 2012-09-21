@@ -2473,6 +2473,13 @@ test_journal_verify_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la
 
+test_mmap_cache_SOURCES = \
+	src/journal/test-mmap-cache.c
+
+test_mmap_cache_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-journal-internal.la
+
 libsystemd_journal_la_SOURCES = \
 	src/journal/sd-journal.c \
 	src/systemd/sd-journal.h \
@@ -2577,13 +2584,15 @@ noinst_PROGRAMS += \
 	test-journal-send \
 	test-journal-match \
 	test-journal-stream \
-	test-journal-verify
+	test-journal-verify \
+	test-mmap-cache
 
 TESTS += \
 	test-journal \
 	test-journal-match \
 	test-journal-stream \
-	test-journal-verify
+	test-journal-verify \
+	test-mmap-cache
 
 pkginclude_HEADERS += \
 	src/systemd/sd-journal.h \
