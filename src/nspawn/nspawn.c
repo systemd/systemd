@@ -332,28 +332,61 @@ static int mount_all(const char *dest) {
 }
 
 static int setup_timezone(const char *dest) {
-        char *where;
+        _cleanup_free_ char *where = NULL, *p = NULL, *q = NULL, *check = NULL, *what = NULL;
+        char *z, *y;
+        int r;
 
         assert(dest);
 
         /* Fix the timezone, if possible */
+        r = readlink_malloc("/etc/localtime", &p);
+        if (r < 0) {
+                log_warning("/etc/localtime is not a symlink, not updating container timezone.");
+                return 0;
+        }
+
+        z = path_startswith(p, "../usr/share/zoneinfo/");
+        if (!z)
+                z = path_startswith(p, "/usr/share/zoneinfo/");
+        if (!z) {
+                log_warning("/etc/localtime does not point into /usr/share/zoneinfo/, not updating container timezone.");
+                return 0;
+        }
+
         where = strappend(dest, "/etc/localtime");
         if (!where)
                 return log_oom();
 
-        if (mount("/etc/localtime", where, "bind", MS_BIND, NULL) >= 0)
-                mount("/etc/localtime", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+        r = readlink_malloc(where, &q);
+        if (r >= 0) {
+                y = path_startswith(q, "../usr/share/zoneinfo/");
+                if (!y)
+                        y = path_startswith(q, "/usr/share/zoneinfo/");
 
-        free(where);
 
-        where = strappend(dest, "/etc/timezone");
-        if (!where)
+                /* Already pointing to the right place? Then do nothing .. */
+                if (y && streq(y, z))
+                        return 0;
+        }
+
+        check = strjoin(dest, "/usr/share/zoneinfo/", z, NULL);
+        if (!check)
                 return log_oom();
 
-        if (mount("/etc/timezone", where, "bind", MS_BIND, NULL) >= 0)
-                mount("/etc/timezone", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+        if (access(check, F_OK) < 0) {
+                log_warning("Timezone %s does not exist in container, not updating container timezone.", z);
+                return 0;
+        }
 
-        free(where);
+        what = strappend("../usr/share/zoneinfo/", z);
+        if (!what)
+                return log_oom();
+
+        unlink(where);
+        if (symlink(what, where) < 0) {
+                log_error("Failed to correct timezone of container: %m");
+                return 0;
+        }
 
         return 0;
 }
