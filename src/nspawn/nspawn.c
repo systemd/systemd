@@ -404,6 +404,8 @@ static int setup_resolv_conf(const char *dest) {
         if (!where)
                 return log_oom();
 
+        /* We don't really care for the results of this really. If it
+         * fails, it fails, but meh... */
         if (mount("/etc/resolv.conf", where, "bind", MS_BIND, NULL) >= 0)
                 mount("/etc/resolv.conf", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
 
