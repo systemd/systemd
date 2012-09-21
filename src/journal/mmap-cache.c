@@ -181,7 +181,7 @@ static void context_detach_window(Context *c) {
         c->window = NULL;
         LIST_REMOVE(Context, by_window, w->contexts, c);
 
-        if (!w->contexts) {
+        if (!w->contexts && !w->keep_always) {
                 /* Not used anymore? */
                 LIST_PREPEND(Window, unused, c->cache->unused, w);
                 if (!c->cache->last_unused)
@@ -200,7 +200,7 @@ static void context_attach_window(Context *c, Window *w) {
 
         context_detach_window(c);
 
-        if (!w->contexts) {
+        if (w->in_unused) {
                 /* Used again? */
                 LIST_REMOVE(Window, unused, c->cache->unused, w);
                 if (!c->cache->last_unused)
