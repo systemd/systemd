@@ -1123,7 +1123,9 @@ static DBusHandlerResult locale_message_handler(
                                         "Locale\0");
                         if (!changed)
                                 goto oom;
-                }
+                } else
+                        strv_free(l);
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.locale1", "SetVConsoleKeyboard")) {
 
                 const char *keymap, *keymap_toggle;
