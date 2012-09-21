@@ -87,7 +87,7 @@ static int help(void) {
                "     --no-pager          Do not pipe output into a pager\n"
                "  -a --all               Show all fields, including long and unprintable\n"
                "  -f --follow            Follow journal\n"
-               "  -n --lines=INTEGER     Journal entries to show\n"
+               "  -n --lines[=INTEGER]   Number of journal entries to show\n"
                "     --no-tail           Show all lines, even in follow mode\n"
                "  -o --output=STRING     Change journal output mode (short, short-monotonic,\n"
                "                         verbose, export, json, json-pretty, cat)\n"
@@ -133,7 +133,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "follow",       no_argument,       NULL, 'f'              },
                 { "output",       required_argument, NULL, 'o'              },
                 { "all",          no_argument,       NULL, 'a'              },
-                { "lines",        required_argument, NULL, 'n'              },
+                { "lines",        optional_argument, NULL, 'n'              },
                 { "no-tail",      no_argument,       NULL, ARG_NO_TAIL      },
                 { "new-id128",    no_argument,       NULL, ARG_NEW_ID128    },
                 { "quiet",        no_argument,       NULL, 'q'              },
@@ -155,7 +155,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hfo:an:qmbD:p:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hfo:an::qmbD:p:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -178,7 +178,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
-                        arg_output =  output_mode_from_string(optarg);
+                        arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0) {
                                 log_error("Unknown output '%s'.", optarg);
                                 return -EINVAL;
@@ -191,11 +191,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'n':
-                        r = safe_atoi(optarg, &arg_lines);
-                        if (r < 0 || arg_lines < 0) {
-                                log_error("Failed to parse lines '%s'", optarg);
-                                return -EINVAL;
-                        }
+                        if (optarg) {
+                                r = safe_atoi(optarg, &arg_lines);
+                                if (r < 0 || arg_lines < 0) {
+                                        log_error("Failed to parse lines '%s'", optarg);
+                                        return -EINVAL;
+                                }
+                        } else
+                                arg_lines = 10;
+
                         break;
 
                 case ARG_NO_TAIL:
