@@ -1,5 +1,40 @@
 systemd System and Service Manager
 
+CHANGES WITH 191:
+
+        * nspawn will now create a symlink /etc/localtime in the
+          container environment, copying the host's timezone
+          setting. Previously this has been done via a bind mount, but
+          since symlinks cannot be bind mounted this has now been
+          changed to create/update the appropriate symlink.
+
+        * journalctl -n's line number argument is now optional, and
+          will default to 10 if omitted.
+
+        * journald will now log the maximum size the journal files may
+          take up on disk. This is particularly useful if the default
+          built-in logic of determining this parameter from the file
+          system size is used. Use "systemctl status
+          systemd-journald.service" to see this information
+
+        * The multi-seat X wrapper tool has been stripped down. As X
+          is now capable of enumerating graphics devices via udev in a
+          seat-aware way the wrapper is not strictly necessary
+          anymore. A stripped down temporary stop-gap is still shipped
+          until the upstream display managers have been updated to
+          fully support the new X logic. Expect this wrapper to be
+          removed entirely in one the next releases.
+
+        * HandleSleepKey= in logind.conf has been split up into
+          HandleSuspendKey= and HandleHibernateKey=. The old setting
+          is not available anymore. The kernel and X11 is
+          distuingishing between these keys and we should too. This
+          also means the inhibition lock for these keys has been split
+          into two.
+
+        Changes from: Dave Airlie, Eelco Dolstra, Lennart Poettering,
+        Lukas Nykryn, Václav Pavlín
+
 CHANGES WITH 190:
 
         * Whenever a unit changes state we'll now log this to the
@@ -119,7 +154,7 @@ CHANGES WITH 190:
           for the host name (%H), the machine ID (%m) and the boot ID
           (%b).
 
-        Contributions from Allin Cottrell, Auke Kok, Brandon Philips,
+        Contributions from: Allin Cottrell, Auke Kok, Brandon Philips,
         Colin Guthrie, Colin Walters, Daniel J Walsh, Dave Reisner,
         Eelco Dolstra, Jan Engelhardt, Kay Sievers, Lennart
         Poettering, Lucas De Marchi, Lukas Nykryn, Mantas Mikulėnas,
@@ -183,7 +218,7 @@ CHANGES WITH 189:
         * Services which hit the restart limit will now be placed in a
           failure state.
 
-        Contributions from Bertram Poettering, Dave Reisner, Huang
+        Contributions from: Bertram Poettering, Dave Reisner, Huang
         Hang, Kay Sievers, Lennart Poettering, Lukas Nykryn, Martin
         Pitt, Simon Peeters, Zbigniew Jędrzejewski-Szmek
 
@@ -462,6 +497,7 @@ CHANGES WITH 186:
         Shawn Landden, Tom Gundersen
 
 CHANGES WITH 185:
+
         * "systemctl help <unit>" now shows the man page if one is
           available.
 
@@ -480,6 +516,7 @@ CHANGES WITH 185:
         Matthias Clasen
 
 CHANGES WITH 184:
+
         * logind is now capable of (optionally) handling power and
           sleep keys as well as the lid switch.
 
@@ -496,6 +533,7 @@ CHANGES WITH 184:
         Menzel, Shawn Landden, Tero Roponen, Tom Gundersen
 
 CHANGES WITH 183:
+
         * Note that we skipped 139 releases here in order to set the
           new version to something that is greater than both udev's
           and systemd's most recent version number.
@@ -683,6 +721,7 @@ CHANGES WITH 183:
         Gundersen
 
 CHANGES WITH 44:
+
         * This is mostly a bugfix release
 
         * Support optional initialization of the machine ID from the
@@ -728,6 +767,7 @@ CHANGES WITH 44:
         Reding
 
 CHANGES WITH 43:
+
         * This is mostly a bugfix release
 
         * systems lacking /etc/os-release  are no longer supported.
@@ -741,6 +781,7 @@ CHANGES WITH 43:
         Biebl
 
 CHANGES WITH 42:
+
         * This is an important bugfix release for v41.
 
         * Building man pages is now optional which should be useful
@@ -762,6 +803,7 @@ CHANGES WITH 42:
         Schmidt, Michał Górny, Piotr Drąg
 
 CHANGES WITH 41:
+
         * The systemd binary is installed /usr/lib/systemd/systemd now;
           An existing /sbin/init symlink needs to be adapted with the
           package update.
@@ -789,6 +831,7 @@ CHANGES WITH 41:
         William Douglas
 
 CHANGES WITH 40:
+
         * This is mostly a bugfix release
 
         * We now expose the reason why a service failed in the
@@ -807,6 +850,7 @@ CHANGES WITH 40:
         Mike Kazantsev, Ray Strode
 
 CHANGES WITH 39:
+
         * This is mostly a test release, but incorporates many
           bugfixes.
 
@@ -864,6 +908,7 @@ CHANGES WITH 39:
         Poettering, Michal Schmidt
 
 CHANGES WITH 38:
+
         * This is mostly a test release, but incorporates many
           bugfixes.
 
