@@ -209,12 +209,12 @@ static inline pid_t gettid(void) {
 #endif
 
 #ifdef __x86_64__
-#  ifndef __NR_name_to_handle
-#    define __NR_name_to_handle 303
+#  ifndef __NR_name_to_handle_at
+#    define __NR_name_to_handle_at 303
 #  endif
 #else
-#  ifndef __NR_name_to_handle
-#    define __NR_name_to_handle 341
+#  ifndef __NR_name_to_handle_at
+#    define __NR_name_to_handle_at 341
 #  endif
 #endif
 
