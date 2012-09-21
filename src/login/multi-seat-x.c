@@ -132,11 +132,6 @@ int main(int argc, char *argv[]) {
         }
 
         fprintf(f,
-                "Section \"Device\"\n"
-                "        Identifier \"udev\"\n"
-                "        Driver \"fbdev\"\n"
-                "        Option \"fbdev\" \"%s\"\n"
-                "EndSection\n"
                 "Section \"ServerFlags\"\n"
                 "        Option \"AutoAddDevices\" \"True\"\n"
                 "        Option \"AllowEmptyInput\" \"True\"\n"
@@ -145,8 +140,7 @@ int main(int argc, char *argv[]) {
                 "Section \"InputClass\"\n"
                 "        Identifier \"Force Input Devices to Seat\"\n"
                 "        Option \"GrabDevice\" \"True\"\n"
-                "EndSection\n",
-                device_node);
+                "EndSection\n");
 
         fflush(f);
 
