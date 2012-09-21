@@ -1728,30 +1728,24 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 
         /* init token array and string buffer */
         rules->tokens = malloc(PREALLOC_TOKEN * sizeof(struct token));
-        if (rules->tokens == NULL) {
-                free(rules);
-                return NULL;
-        }
+        if (rules->tokens == NULL)
+                return udev_rules_unref(rules);
+
         rules->token_max = PREALLOC_TOKEN;
 
         rules->buf = malloc(PREALLOC_STRBUF);
-        if (rules->buf == NULL) {
-                free(rules->tokens);
-                free(rules);
-                return NULL;
-        }
+        if (rules->buf == NULL)
+                return udev_rules_unref(rules);
+
         rules->buf_max = PREALLOC_STRBUF;
         /* offset 0 is always '\0' */
         rules->buf[0] = '\0';
         rules->buf_cur = 1;
 
         rules->trie_nodes = malloc(PREALLOC_TRIE * sizeof(struct trie_node));
-        if (rules->trie_nodes == NULL) {
-                free(rules->buf);
-                free(rules->tokens);
-                free(rules);
-                return NULL;
-        }
+        if (rules->trie_nodes == NULL)
+                return udev_rules_unref(rules);
+
         rules->trie_nodes_max = PREALLOC_TRIE;
         /* offset 0 is the trie root, with an empty string */
         memset(rules->trie_nodes, 0x00, sizeof(struct trie_node));
@@ -1763,21 +1757,23 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
                                NULL);
         if (!rules->dirs) {
                 log_error("failed to build config directory array");
-                return NULL;
+                return udev_rules_unref(rules);
         }
         if (!path_strv_canonicalize(rules->dirs)) {
                 log_error("failed to canonicalize config directories\n");
-                return NULL;
+                return udev_rules_unref(rules);
         }
         strv_uniq(rules->dirs);
 
         rules->dirs_ts_usec = calloc(strv_length(rules->dirs), sizeof(long long));
+        if(!rules->dirs_ts_usec)
+                return udev_rules_unref(rules);
         udev_rules_check_timestamp(rules);
 
         r = conf_files_list_strv(&files, ".rules", (const char **)rules->dirs);
         if (r < 0) {
                 log_error("failed to enumerate rules files: %s\n", strerror(-r));
-                return NULL;
+                return udev_rules_unref(rules);
         }
 
         /*
