@@ -300,7 +300,7 @@ static int refresh_one(
 
         r = cg_enumerate_subgroups(controller, path, &d);
         if (r < 0) {
-                if (r == ENOENT)
+                if (r == -ENOENT)
                         return 0;
 
                 return r;
