@@ -101,6 +101,7 @@ int udev_device_update_db(struct udev_device *udev_device)
         char filename[UTIL_PATH_SIZE];
         char filename_tmp[UTIL_PATH_SIZE];
         FILE *f;
+        int r;
 
         id = udev_device_get_id_filename(udev_device);
         if (id == NULL)
@@ -161,7 +162,9 @@ int udev_device_update_db(struct udev_device *udev_device)
         }
 
         fclose(f);
-        rename(filename_tmp, filename);
+        r = rename(filename_tmp, filename);
+        if (r < 0)
+                return -1;
         udev_dbg(udev, "created %s file '%s' for '%s'\n", has_info ? "db" : "empty",
              filename, udev_device_get_devpath(udev_device));
         return 0;
