@@ -339,7 +339,9 @@ static int user_create_cgroup(User *u) {
                         log_warning("Failed to create cgroup %s:%s: %s", *k, p, strerror(-r));
         }
 
-        hashmap_put(u->manager->user_cgroups, u->cgroup_path, u);
+        r = hashmap_put(u->manager->user_cgroups, u->cgroup_path, u);
+        if (r < 0)
+                log_warning("Failed to create mapping between cgroup and user");
 
         return 0;
 }

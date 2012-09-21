@@ -526,7 +526,9 @@ static int session_create_cgroup(Session *s) {
                 }
         }
 
-        hashmap_put(s->manager->session_cgroups, s->cgroup_path, s);
+        r = hashmap_put(s->manager->session_cgroups, s->cgroup_path, s);
+        if (r < 0)
+                log_warning("Failed to create mapping between cgroup and session");
 
         return 0;
 }
