@@ -1446,6 +1446,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_ASK_PASSWORD:
                         arg_ask_password = false;
+                        break;
 
                 case ARG_KILL_WHO:
                         arg_kill_who = optarg;
