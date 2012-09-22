@@ -260,8 +260,7 @@ static int journal_file_verify_header(JournalFile *f) {
 
         f->compress = JOURNAL_HEADER_COMPRESSED(f->header);
 
-        if (f->writable)
-                f->seal = JOURNAL_HEADER_SEALED(f->header);
+        f->seal = JOURNAL_HEADER_SEALED(f->header);
 
         return 0;
 }
