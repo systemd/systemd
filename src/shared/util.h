@@ -385,6 +385,7 @@ int status_welcome(void);
 int fd_columns(int fd);
 unsigned columns(void);
 unsigned columns_uncached(void);
+void columns_cache_reset(int _unused_ signum);
 
 int fd_lines(int fd);
 unsigned lines(void);

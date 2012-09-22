@@ -29,6 +29,7 @@
 #include <sys/poll.h>
 #include <time.h>
 #include <getopt.h>
+#include <signal.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <linux/fs.h>
@@ -175,6 +176,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'f':
                         arg_follow = true;
+                        signal(SIGWINCH, columns_cache_reset);
                         break;
 
                 case 'o':

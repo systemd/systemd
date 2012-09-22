@@ -70,6 +70,7 @@
 
 int saved_argc = 0;
 char **saved_argv = NULL;
+int parsed_columns = 0;
 
 size_t page_size(void) {
         static __thread size_t pgsz = 0;
@@ -3740,7 +3741,7 @@ int fd_columns(int fd) {
 }
 
 static unsigned columns_cached(bool cached) {
-        static __thread int parsed_columns = 0, env_columns = -1;
+        static __thread int env_columns = -1;
         const char *e;
 
         if (_likely_(parsed_columns > 0 && cached))
@@ -3774,6 +3775,11 @@ unsigned columns(void) {
 
 unsigned columns_uncached(void) {
         return columns_cached(false);
+}
+
+/* intended to be used as a SIGWINCH sighandler */
+void columns_cache_reset(int signum) {
+        parsed_columns = 0;
 }
 
 int fd_lines(int fd) {
