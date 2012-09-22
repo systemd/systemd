@@ -710,7 +710,7 @@ static int verify(sd_journal *j) {
                                                  format_timespan(c, sizeof(c), total > to ? total - to : 0));
                                 } else if (total > 0)
                                         log_info("=> No sealing yet, %s of entries not sealed.",
-                                                 format_timespan(c, sizeof(c), total));
+                                                 format_timespan(c, sizeof(c), total - f->header->head_entry_realtime));
                                 else
                                         log_info("=> No sealing yet, no entries in file.");
                         }
