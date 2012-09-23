@@ -15,7 +15,7 @@ CHANGES WITH 191:
           take up on disk. This is particularly useful if the default
           built-in logic of determining this parameter from the file
           system size is used. Use "systemctl status
-          systemd-journald.service" to see this information
+          systemd-journald.service" to see this information.
 
         * The multi-seat X wrapper tool has been stripped down. As X
           is now capable of enumerating graphics devices via udev in a
@@ -23,11 +23,11 @@ CHANGES WITH 191:
           anymore. A stripped down temporary stop-gap is still shipped
           until the upstream display managers have been updated to
           fully support the new X logic. Expect this wrapper to be
-          removed entirely in one the next releases.
+          removed entirely in one of the next releases.
 
         * HandleSleepKey= in logind.conf has been split up into
           HandleSuspendKey= and HandleHibernateKey=. The old setting
-          is not available anymore. The kernel and X11 is
+          is not available anymore. X11 and the kernel are
           distuingishing between these keys and we should too. This
           also means the inhibition lock for these keys has been split
           into two.
