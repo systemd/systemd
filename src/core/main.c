@@ -1227,6 +1227,28 @@ static void test_cgroups(void) {
         sleep(10);
 }
 
+static int initialize_join_controllers(void) {
+        /* By default, mount "cpu" + "cpuacct" together, and "net_cls"
+         * + "net_prio". We'd like to add "cpuset" to the mix, but
+         * "cpuset" does't really work for groups with no initialized
+         * attributes. */
+
+        arg_join_controllers = new(char**, 3);
+        if (!arg_join_controllers)
+                return -ENOMEM;
+
+        arg_join_controllers[0] = strv_new("cpu", "cpuacct", NULL);
+        if (!arg_join_controllers[0])
+                return -ENOMEM;
+
+        arg_join_controllers[1] = strv_new("net_cls", "net_prio", NULL);
+        if (!arg_join_controllers[1])
+                return -ENOMEM;
+
+        arg_join_controllers[2] = NULL;
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -1371,16 +1393,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        /* By default, mount "cpu" and "cpuacct" together */
-        arg_join_controllers = new(char**, 3);
-        if (!arg_join_controllers)
-                goto finish;
-
-        arg_join_controllers[0] = strv_new("cpu", "cpuacct", "cpuset", NULL);
-        arg_join_controllers[1] = strv_new("net_cls", "net_prio", NULL);
-        arg_join_controllers[2] = NULL;
-
-        if (!arg_join_controllers[0])
+        r = initialize_join_controllers();
+        if (r < 0)
                 goto finish;
 
         /* Mount /proc, /sys and friends, so that /proc/cmdline and

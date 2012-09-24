@@ -19,6 +19,12 @@ F18:
 
 Features:
 
+* cryptsetup-generator: warn if the password files are world-readable
+
+* cryptsetup-generator: add RequiresMountsFor= to cryptseup service files referencing a file, similar for devices
+
+* cryptsetup-generator: allow specification of passwords in crypttab itself
+
 * document that deps in [Unit] sections ignore Alias= fileds in
   [Install] units of other units, unless those units are disabled
 
