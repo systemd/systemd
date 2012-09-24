@@ -27,6 +27,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <stddef.h>
+#include <printf.h>
 
 #include "log.h"
 #include "util.h"
@@ -705,11 +706,23 @@ int log_struct_internal(
                 va_start(ap, format);
                 while (format && n + 1 < ELEMENTSOF(iovec)) {
                         char *buf;
+                        va_list aq;
 
-                        if (vasprintf(&buf, format, ap) < 0) {
+                        /* We need to copy the va_list structure,
+                         * since vasprintf() leaves it afterwards at
+                         * an undefined location */
+
+                        va_copy(aq, ap);
+                        if (vasprintf(&buf, format, aq) < 0) {
+                                va_end(aq);
                                 r = -ENOMEM;
                                 goto finish;
                         }
+                        va_end(aq);
+
+                        /* Now, jump enough ahead, so that we point to
+                         * the next format string */
+                        VA_FORMAT_ADVANCE(format, ap);
 
                         IOVEC_SET_STRING(iovec[n++], buf);
 
@@ -742,14 +755,19 @@ int log_struct_internal(
 
                 va_start(ap, format);
                 while (format) {
+                        va_list aq;
 
-                        vsnprintf(buf, sizeof(buf), format, ap);
+                        va_copy(aq, ap);
+                        vsnprintf(buf, sizeof(buf), format, aq);
+                        va_end(aq);
                         char_array_0(buf);
 
                         if (startswith(buf, "MESSAGE=")) {
                                 found = true;
                                 break;
                         }
+
+                        VA_FORMAT_ADVANCE(format, ap);
 
                         format = va_arg(ap, char *);
                 }

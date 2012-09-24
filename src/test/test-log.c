@@ -42,5 +42,12 @@ int main(int argc, char* argv[]) {
                    "SERVICE=foobar",
                    NULL);
 
+        log_struct(LOG_INFO,
+                   "MESSAGE=Foobar PID=%lu", (unsigned long) getpid(),
+                   "FORMAT_STR_TEST=1=%i A=%c 2=%hi 3=%li 4=%lli 1=%p foo=%s 2.5=%g 3.5=%g 4.5=%Lg",
+                   (int) 1, 'A', (short) 2, (long int) 3, (long long int) 4, (void*) 1, "foo", (float) 2.5f, (double) 3.5, (long double) 4.5,
+                   "SUFFIX=GOT IT",
+                   NULL);
+
         return 0;
 }

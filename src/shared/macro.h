@@ -193,4 +193,47 @@ static inline size_t IOVEC_INCREMENT(struct iovec *i, unsigned n, size_t k) {
 #define _cleanup_closedir_ __attribute__((cleanup(closedirp)))
 #define _cleanup_umask_ __attribute__((cleanup(umaskp)))
 
+#define VA_FORMAT_ADVANCE(format, ap) do {                              \
+        int _argtypes[64];                                              \
+        size_t _i, _k;                                                  \
+        _k = parse_printf_format((format), ELEMENTSOF(_argtypes), _argtypes); \
+        for (_i = 0; _i < _k; _i++) {                                   \
+                if (_argtypes[_i] & PA_FLAG_PTR)  {                     \
+                        (void) va_arg(ap, void*);                       \
+                        continue;                                       \
+                }                                                       \
+                                                                        \
+                switch (_argtypes[_i]) {                                \
+                case PA_INT:                                            \
+                case PA_INT|PA_FLAG_SHORT:                              \
+                case PA_CHAR:                                           \
+                        (void) va_arg(ap, int);                         \
+                        break;                                          \
+                case PA_INT|PA_FLAG_LONG:                               \
+                        (void) va_arg(ap, long int);                    \
+                        break;                                          \
+                case PA_INT|PA_FLAG_LONG_LONG:                          \
+                        (void) va_arg(ap, long long int);               \
+                        break;                                          \
+                case PA_WCHAR:                                          \
+                        (void) va_arg(ap, wchar_t);                     \
+                        break;                                          \
+                case PA_WSTRING:                                        \
+                case PA_STRING:                                         \
+                case PA_POINTER:                                        \
+                        (void) va_arg(ap, void*);                       \
+                        break;                                          \
+                case PA_FLOAT:                                          \
+                case PA_DOUBLE:                                         \
+                        (void) va_arg(ap, double);                      \
+                        break;                                          \
+                case PA_DOUBLE|PA_FLAG_LONG_DOUBLE:                     \
+                        (void) va_arg(ap, long double);                 \
+                        break;                                          \
+                default:                                                \
+                        assert_not_reached("Unknown format string argument."); \
+                }                                                       \
+        }                                                               \
+} while(false)
+
 #include "log.h"

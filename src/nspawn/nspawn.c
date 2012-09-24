@@ -1307,6 +1307,12 @@ int main(int argc, char *argv[]) {
 
                         if (arg_user) {
 
+                                /* Note that this resolves user names
+                                 * inside the container, and hence
+                                 * accesses the NSS modules from the
+                                 * container and not the host. This is
+                                 * a bit weird... */
+
                                 if (get_user_creds((const char**)&arg_user, &uid, &gid, &home, NULL) < 0) {
                                         log_error("get_user_creds() failed: %m");
                                         goto child_fail;
