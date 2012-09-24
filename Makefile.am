@@ -2584,15 +2584,15 @@ noinst_PROGRAMS += \
 	test-journal-send \
 	test-journal-match \
 	test-journal-stream \
-	test-journal-verify
-#	test-mmap-cache
+	test-journal-verify \
+	test-mmap-cache
 
 TESTS += \
 	test-journal \
 	test-journal-match \
 	test-journal-stream \
-	test-journal-verify
-#	test-mmap-cache
+	test-journal-verify \
+	test-mmap-cache
 
 pkginclude_HEADERS += \
 	src/systemd/sd-journal.h \
