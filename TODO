@@ -19,6 +19,16 @@ F18:
 
 Features:
 
+* WorkingDirectory: support env var replacements like in ExecStart= so that people can use $HOME
+
+* refuse boot if /etc/machine-id is not useful
+
+* nspawn: consider changing users for -u with su, so that NSS resolving works correctly
+
+* nspawn: implement personality changes a la linux32(8)
+
+* nspawn: reset all aux groups
+
 * cryptsetup-generator: warn if the password files are world-readable
 
 * cryptsetup-generator: add RequiresMountsFor= to cryptseup service files referencing a file, similar for devices
