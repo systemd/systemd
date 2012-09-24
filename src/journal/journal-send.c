@@ -25,6 +25,7 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <printf.h>
 
 #define SD_JOURNAL_SUPPRESS_LOCATION
 
@@ -121,6 +122,7 @@ static int fill_iovec_sprintf(const char *format, va_list ap, int extra, struct 
         while (format) {
                 struct iovec *c;
                 char *buffer;
+                va_list aq;
 
                 if (i >= n) {
                         n = MAX(i*2, 4);
@@ -133,10 +135,15 @@ static int fill_iovec_sprintf(const char *format, va_list ap, int extra, struct 
                         iov = c;
                 }
 
-                if (vasprintf(&buffer, format, ap) < 0) {
+                va_copy(aq, ap);
+                if (vasprintf(&buffer, format, aq) < 0) {
+                        va_end(aq);
                         r = -ENOMEM;
                         goto fail;
                 }
+                va_end(aq);
+
+                VA_FORMAT_ADVANCE(format, ap);
 
                 IOVEC_SET_STRING(iov[i++], buffer);
 
