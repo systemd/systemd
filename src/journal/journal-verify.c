@@ -666,7 +666,7 @@ static int verify_entry_array(
 int journal_file_verify(
                 JournalFile *f,
                 const char *key,
-                usec_t *first_validated, usec_t *last_validated, usec_t *last_contained,
+                usec_t *first_contained, usec_t *last_validated, usec_t *last_contained,
                 bool show_progress) {
         int r;
         Object *o;
@@ -1121,8 +1121,8 @@ int journal_file_verify(
         close_nointr_nofail(entry_fd);
         close_nointr_nofail(entry_array_fd);
 
-        if (first_validated)
-                *first_validated = last_sealed_realtime > 0 ? le64toh(f->header->head_entry_realtime) : 0;
+        if (first_contained)
+                *first_contained = le64toh(f->header->head_entry_realtime);
         if (last_validated)
                 *last_validated = last_sealed_realtime;
         if (last_contained)

@@ -684,14 +684,14 @@ static int verify(sd_journal *j) {
 
         HASHMAP_FOREACH(f, j->files, i) {
                 int k;
-                usec_t from, to, total;
+                usec_t first, validated, last;
 
 #ifdef HAVE_GCRYPT
                 if (!arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
                         log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
 #endif
 
-                k = journal_file_verify(f, arg_verify_key, &from, &to, &total, true);
+                k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, true);
                 if (k == -EINVAL) {
                         /* If the key was invalid give up right-away. */
                         return k;
@@ -703,14 +703,14 @@ static int verify(sd_journal *j) {
                         log_info("PASS: %s", f->path);
 
                         if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
-                                if (from > 0) {
+                                if (validated > 0) {
                                         log_info("=> Validated from %s to %s, final %s entries not sealed.",
-                                                 format_timestamp(a, sizeof(a), from),
-                                                 format_timestamp(b, sizeof(b), to),
-                                                 format_timespan(c, sizeof(c), total > to ? total - to : 0));
-                                } else if (total > 0)
+                                                 format_timestamp(a, sizeof(a), first),
+                                                 format_timestamp(b, sizeof(b), validated),
+                                                 format_timespan(c, sizeof(c), last > validated ? last - validated : 0));
+                                } else if (last > 0)
                                         log_info("=> No sealing yet, %s of entries not sealed.",
-                                                 format_timespan(c, sizeof(c), total - f->header->head_entry_realtime));
+                                                 format_timespan(c, sizeof(c), last - first));
                                 else
                                         log_info("=> No sealing yet, no entries in file.");
                         }
