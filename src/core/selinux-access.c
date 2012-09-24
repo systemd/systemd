@@ -329,7 +329,7 @@ static int selinux_init(Manager *m, DBusError *error) {
                 /* if not first time is not set, then initialize access */
                 r = access_init();
                 if (r < 0) {
-                        dbus_set_error(error, BUS_ERROR_ACCESS_DENIED, "Unable to initialize SELinux.");
+                        dbus_set_error(error, DBUS_ERROR_ACCESS_DENIED, "Unable to initialize SELinux.");
 
                         return r;
                 }
@@ -477,7 +477,7 @@ static int selinux_access_check(DBusConnection *connection, DBusMessage *message
                 tclass = "system";
                 r = getcon(&fcon);
                 if (r < 0) {
-                        dbus_set_error(error, BUS_ERROR_ACCESS_DENIED, "Unable to get current context, SELinux policy denies access.");
+                        dbus_set_error(error, DBUS_ERROR_ACCESS_DENIED, "Unable to get current context, SELinux policy denies access.");
                         goto finish;
                 }
         }
@@ -490,7 +490,7 @@ static int selinux_access_check(DBusConnection *connection, DBusMessage *message
                 r = -errno;
                 log_error("SELinux Denied \"%s\"", audit.cmdline);
 
-                dbus_set_error(error, BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
+                dbus_set_error(error, DBUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
         }
 
         log_debug("SELinux checkaccess scon %s tcon %s tclass %s perm %s path %s: %d", scon, fcon, tclass, perm, path, r);
