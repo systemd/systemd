@@ -353,7 +353,8 @@ static int mount_add_device_links(Mount *m) {
                 return 0;
 
         if (!mount_is_bind(p) &&
-            !path_equal(m->where, "/")) {
+            !path_equal(m->where, "/") &&
+            is_device_path(p->what)) {
                 r = unit_add_node_link(UNIT(m), p->what, false);
                 if (r < 0)
                         return r;
@@ -362,6 +363,7 @@ static int mount_add_device_links(Mount *m) {
         if (p->passno > 0 &&
             !mount_is_bind(p) &&
             !path_equal(m->where, "/") &&
+            is_device_path(p->what) &&
             UNIT(m)->manager->running_as == SYSTEMD_SYSTEM) {
                 char *name;
                 Unit *fsck;
