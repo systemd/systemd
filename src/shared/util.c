@@ -70,7 +70,8 @@
 
 int saved_argc = 0;
 char **saved_argv = NULL;
-int parsed_columns = 0;
+
+static int parsed_columns = 0;
 
 size_t page_size(void) {
         static __thread size_t pgsz = 0;
