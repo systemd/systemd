@@ -1,5 +1,22 @@
 systemd System and Service Manager
 
+CHANGES WITH 192:
+
+        * The bash completion logic is now available for journalctl
+          too.
+
+        * We don't mount the "cpuset" controller anymore together with
+          "cpu" and "cpuacct", as "cpuset" groups generally cannot be
+          started if no parameters are assigned to it. "cpuset" hence
+          broke code that assumed it it could create "cpu" groups and
+          just start them.
+
+        * journalctl -f will now subscribe to terminal size changes,
+          and line break accordingly.
+
+        Changes from: Dave Reisner, Kay Sievers, Lennart Poettering,
+        Lukas Nykrynm, Mirco Tischler, Václav Pavlín
+
 CHANGES WITH 191:
 
         * nspawn will now create a symlink /etc/localtime in the
