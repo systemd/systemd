@@ -112,9 +112,7 @@
 
                                 <listitem><para>Configures the console
                                 font, the console map and the unicode
-                                font map. <varname>FONT=</varname>
-                                defaults to
-                                <literal>latarcyrheb-sun16</literal>.</para></listitem>
+                                font map.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

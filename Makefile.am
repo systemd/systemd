@@ -160,43 +160,36 @@ AM_LDFLAGS = $(OUR_LDFLAGS)
 if TARGET_GENTOO
 AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/usr/bin/loadkeys\" \
-	-DKBD_SETFONT=\"/usr/bin/setfont\" \
-	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
+	-DKBD_SETFONT=\"/usr/bin/setfont\"
 else
 if TARGET_ARCH
 AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/usr/bin/loadkeys\" \
-	-DKBD_SETFONT=\"/usr/bin/setfont\" \
-	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
+	-DKBD_SETFONT=\"/usr/bin/setfont\"
 else
 if TARGET_FRUGALWARE
 AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/usr/bin/loadkeys\" \
-	-DKBD_SETFONT=\"/usr/bin/setfont\" \
-	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
+	-DKBD_SETFONT=\"/usr/bin/setfont\"
 else
 if TARGET_MANDRIVA
 AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
-	-DKBD_SETFONT=\"/bin/setfont\" \
-	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
+	-DKBD_SETFONT=\"/bin/setfont\"
 else
 if TARGET_ANGSTROM
 AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/usr/bin/loadkeys\" \
-	-DKBD_SETFONT=\"/usr/bin/setfont\" \
-	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
+	-DKBD_SETFONT=\"/usr/bin/setfont\"
 else
 if TARGET_MAGEIA
 AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
-	-DKBD_SETFONT=\"/bin/setfont\" \
-	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
+	-DKBD_SETFONT=\"/bin/setfont\"
 else
 AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
-	-DKBD_SETFONT=\"/bin/setfont\" \
-	-DDEFAULT_FONT=\"latarcyrheb-sun16\"
+	-DKBD_SETFONT=\"/bin/setfont\"
 endif
 endif
 endif

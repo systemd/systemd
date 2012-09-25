@@ -215,10 +215,9 @@ int main(int argc, char **argv) {
         utf8 = is_locale_utf8();
 
         vc_keymap = strdup("us");
-        vc_font = strdup(DEFAULT_FONT);
 
-        if (!vc_keymap || !vc_font) {
-                log_error("Failed to allocate strings.");
+        if (!vc_keymap) {
+                log_error("Failed to allocate string.");
                 goto finish;
         }
 
