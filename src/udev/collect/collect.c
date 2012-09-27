@@ -93,7 +93,7 @@ static int prepare(char *dir, char *filename)
         if (stat(dir, &statbuf) < 0)
                 mkdir(dir, 0700);
 
-        sprintf(buf, "%s/%s", dir, filename);
+        snprintf(buf, sizeof(buf), "%s/%s", dir, filename);
 
         fd = open(buf,O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
         if (fd < 0)
