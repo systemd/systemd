@@ -983,35 +983,35 @@ _public_ int sd_journal_seek_cursor(sd_journal *j, const char *cursor) {
 
                 case 's':
                         seqnum_id_set = true;
-                        k = sd_id128_from_string(w+2, &seqnum_id);
+                        k = sd_id128_from_string(item+2, &seqnum_id);
                         break;
 
                 case 'i':
                         seqnum_set = true;
-                        if (sscanf(w+2, "%llx", &seqnum) != 1)
+                        if (sscanf(item+2, "%llx", &seqnum) != 1)
                                 k = -EINVAL;
                         break;
 
                 case 'b':
                         boot_id_set = true;
-                        k = sd_id128_from_string(w+2, &boot_id);
+                        k = sd_id128_from_string(item+2, &boot_id);
                         break;
 
                 case 'm':
                         monotonic_set = true;
-                        if (sscanf(w+2, "%llx", &monotonic) != 1)
+                        if (sscanf(item+2, "%llx", &monotonic) != 1)
                                 k = -EINVAL;
                         break;
 
                 case 't':
                         realtime_set = true;
-                        if (sscanf(w+2, "%llx", &realtime) != 1)
+                        if (sscanf(item+2, "%llx", &realtime) != 1)
                                 k = -EINVAL;
                         break;
 
                 case 'x':
                         xor_hash_set = true;
-                        if (sscanf(w+2, "%llx", &xor_hash) != 1)
+                        if (sscanf(item+2, "%llx", &xor_hash) != 1)
                                 k = -EINVAL;
                         break;
                 }
