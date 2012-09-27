@@ -2279,9 +2279,13 @@ static void print_status_info(UnitStatusInfo *i) {
                         on_tty() * OUTPUT_COLOR;
 
                 printf("\n");
-                show_journal_by_unit(i->id, arg_output, 0,
+                show_journal_by_unit(stdout,
+                                     i->id,
+                                     arg_output,
+                                     0,
                                      i->inactive_exit_timestamp_monotonic,
-                                     arg_lines, flags);
+                                     arg_lines,
+                                     flags);
         }
 
         if (i->need_daemon_reload)

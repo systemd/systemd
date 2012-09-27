@@ -730,7 +730,6 @@ static int verify(sd_journal *j) {
 int main(int argc, char *argv[]) {
         int r;
         sd_journal *j = NULL;
-        unsigned line = 0;
         bool need_seek = false;
         sd_id128_t previous_boot_id;
         bool previous_boot_id_valid = false;
@@ -904,9 +903,7 @@ int main(int argc, char *argv[]) {
                                 }
                         }
 
-                        line ++;
-
-                        r = output_journal(j, arg_output, line, 0, flags);
+                        r = output_journal(stdout, j, arg_output, 0, flags);
                         if (r < 0)
                                 goto finish;
 

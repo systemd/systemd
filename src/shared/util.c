@@ -1688,7 +1688,8 @@ char *xescape(const char *s, const char *bad) {
          * chars, in \xFF style escaping. May be reversed with
          * cunescape. */
 
-        if (!(r = new(char, strlen(s)*4+1)))
+        r = new(char, strlen(s) * 4 + 1);
+        if (!r)
                 return NULL;
 
         for (f = s, t = r; *f; f++) {

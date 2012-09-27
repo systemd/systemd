@@ -47,10 +47,15 @@ typedef enum OutputFlags {
         OUTPUT_COLOR          = 1 << 4
 } OutputFlags;
 
-int output_journal(sd_journal *j, OutputMode mode, unsigned line,
-                   unsigned n_columns, OutputFlags flags);
+int output_journal(
+                FILE *f,
+                sd_journal *j,
+                OutputMode mode,
+                unsigned n_columns,
+                OutputFlags flags);
 
 int show_journal_by_unit(
+                FILE *f,
                 const char *unit,
                 OutputMode mode,
                 unsigned n_columns,
