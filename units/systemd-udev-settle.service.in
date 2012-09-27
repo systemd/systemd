@@ -29,6 +29,3 @@ Type=oneshot
 TimeoutSec=180
 RemainAfterExit=yes
 ExecStart=@bindir@/udevadm settle
-
-[Install]
-WantedBy=basic.target
