@@ -255,6 +255,15 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--cursor=</option></term>
+                                <term><option>-c</option></term>
+
+                                <listitem><para>Jump to the location
+                                in the journal specified by the passed
+                                cursor.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--directory=</option></term>
                                 <term><option>-D</option></term>
 
