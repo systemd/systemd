@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab isn't
+
 * WorkingDirectory: support env var replacements like in ExecStart= so that people can use $HOME
 
 * refuse boot if /etc/machine-id is not useful
