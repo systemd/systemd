@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+        <title>Journal</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        <style type="text/css">
+                div#logs {
+                        font-family: monospace;
+                        font-size: 8pt;
+                        background-color: #ffffff;
+                        padding: 1em;
+                        margin: 2em 0em;
+                        border-radius: 10px 10px 10px 10px;
+                        border: 1px solid threedshadow;
+                        white-space: nowrap;
+                        overflow-x: scroll;
+                }
+                body {
+                        background-color: #ededed;
+                        color: #313739;
+                        font: message-box;
+                        margin: 5em;
+                }
+
+                .log-error {
+                        color: red;
+                        font-weight: bold;
+                }
+                .log-highlight {
+                        font-weight: bold;
+                }
+        </style>
+</head>
+
+<body>
+        <!-- TODO:
+
+                - seek to back properly
+                - handle seek before front properly
+                - show red lines for reboots
+                - show contents of entries -->
+
+        <h1 id="title"></h1>
+
+        <div id="os"></div>
+        <div id="virtualization"></div>
+        <div id="cutoff"></div>
+        <div id="machine"></div>
+        <div id="usage"></div>
+        <div id="showing"></div>
+
+        <div id="logs"></div>
+
+        <form>
+                <input id="head" type="button" value="|&lt;" onclick="entriesLoadHead();"/>
+                <input id="previous" type="button" value="&lt;&lt;" onclick="entriesLoadPrevious();"/>
+                <input id="next" type="button" value="&gt;&gt;" onclick="entriesLoadNext();"/>
+                <input id="tail" type="button" value="&gt;|" onclick="entriesLoadTail();"/>
+                &nbsp;&nbsp;&nbsp;&nbsp;
+                <input id="more" type="button" value="More" onclick="entriesMore();"/>
+                <input id="less" type="button" value="Less" onclick="entriesLess();"/>
+        </form>
+
+        <script type="text/javascript">
+                var first_cursor = null;
+                var last_cursor = null;
+
+                function setCookie(name, value, msec) {
+                        var d = new Date();
+                        d.setMilliseconds(d.getMilliseconds() + msec);
+                        var v = escape(value) + "; expires=" + d.toUTCString();
+                        document.cookie = name + "=" + value;
+                }
+
+                function getCookie(name) {
+                        var i, l;
+                        l = document.cookie.split(";");
+                        for (i in l) {
+                                var x, y, j;
+                                j = l[i].indexOf("=");
+                                x = l[i].substr(0, j);
+                                y = l[i].substr(j+1);
+                                if (x == name)
+                                        return unescape(y);
+                        }
+                        return null;
+                }
+
+                function getNEntries() {
+                        var n;
+                        n = getCookie("n_entries");
+                        if (n == null)
+                                return 50;
+                        return parseInt(n);
+                }
+
+                function showNEntries(n) {
+                        var showing = document.getElementById("showing");
+                        showing.innerHTML = "Showing <b>" + n.toString() + "</b> entries.";
+                }
+
+                function setNEntries(n) {
+                        if (n < 10)
+                                n = 10;
+                        else if (n > 1000)
+                                n = 1000;
+
+                        setCookie("n_entries", n.toString(), 30*24*60*60*1000);
+                        showNEntries(n);
+                }
+
+                function machineLoad() {
+                        var request = new XMLHttpRequest();
+                        request.open("GET", "/machine");
+                        request.onreadystatechange = machineOnResult;
+                        request.setRequestHeader("Accept", "application/json");
+                        request.send(null);
+                }
+
+                function formatBytes(u) {
+                        if (u >= 1024*1024*1024*1024)
+                                return (u/1024/1024/1024/1024).toFixed(1) + " TiB";
+                        else if (u >= 1024*1024*1024)
+                                return (u/1024/1024/1024).toFixed(1) + " GiB";
+                        else if (u >= 1024*1024)
+                                return (u/1024/1024).toFixed(1) + " MiB";
+                        else if (u >= 1024)
+                                return (u/1024).toFixed(1) + " KiB";
+                        else
+                                return u.toString() + " B";
+                }
+
+                function machineOnResult(event) {
+                        if ((event.currentTarget.readyState != 4) ||
+                                (event.currentTarget.status != 200 && event.currentTarget.status != 0))
+                                return;
+
+                        var d = JSON.parse(event.currentTarget.responseText);
+
+                        var title = document.getElementById("title");
+                        title.innerHTML = 'Journal of ' + d.hostname;
+                        document.title = 'Journal of ' + d.hostname;
+
+                        var machine = document.getElementById("machine");
+                        machine.innerHTML = 'Machine ID is <b>' + d.machine_id + '</b>, current boot ID is <b>' + d.boot_id + '</b>.';
+
+                        var cutoff = document.getElementById("cutoff");
+                        var from = new Date(parseInt(d.cutoff_from_realtime) / 1000);
+                        var to = new Date(parseInt(d.cutoff_to_realtime) / 1000);
+                        cutoff.innerHTML = 'Journal begins at <b>' + from.toLocaleString() + '</b> and ends at <b>' + to.toLocaleString() + '</b>.';
+
+                        var usage = document.getElementById("usage");
+                        usage.innerHTML = 'Disk usage is <b>' + formatBytes(parseInt(d.usage)) + '</b>.';
+
+                        var os = document.getElementById("os");
+                        os.innerHTML = 'Operating system is <b>' + d.os_pretty_name + '</b>.';
+
+                        var virtualization = document.getElementById("virtualization");
+                        virtualization.innerHTML = d.virtualization == "bare" ? "Running on <b>bare metal</b>." : "Running on virtualization <b>" + d.virtualization + "</b>.";
+                }
+
+                function entriesLoad(range) {
+                        var request = new XMLHttpRequest();
+                        request.open("GET", "/entries");
+                        request.onreadystatechange = entriesOnResult;
+                        request.setRequestHeader("Accept", "application/json");
+                        request.setRequestHeader("Range", "entries=" + range + ":" + getNEntries().toString());
+                        request.send(null);
+                }
+
+                function entriesLoadNext() {
+                        if (last_cursor == null)
+                                entriesLoad("");
+                        else
+                                entriesLoad(last_cursor + ":1");
+                }
+
+                function entriesLoadPrevious() {
+                        if (first_cursor == null)
+                                entriesLoad("");
+                        else
+                                entriesLoad(first_cursor + ":-" + getNEntries().toString());
+                }
+
+                function entriesLoadHead() {
+                        entriesLoad("");
+                }
+
+                function entriesLoadTail() {
+                        entriesLoad(":-" + getNEntries().toString());
+                }
+
+                function entriesOnResult(event) {
+
+                        if ((event.currentTarget.readyState != 4) ||
+                                (event.currentTarget.status != 200 && event.currentTarget.status != 0))
+                                return;
+
+                        var logs = document.getElementById("logs");
+                        logs.innerHTML = "";
+
+                        var lc = null;
+                        var fc = null;
+
+                        var i;
+                        var l = event.currentTarget.responseText.split('\n');
+
+                        if (l.length <= 1) {
+                                logs.innerHTML = "<i>No further entries...</i>";
+                                return;
+                        }
+
+                        for (i in l) {
+
+                                if (l[i] == '')
+                                        continue;
+
+                                var d = JSON.parse(l[i]);
+                                if (d.MESSAGE == undefined || d.__CURSOR == undefined)
+                                        continue;
+
+                                if (fc == null)
+                                        fc = d.__CURSOR;
+                                lc = d.__CURSOR;
+
+                                var priority;
+                                if (d.PRIORITY != undefined)
+                                        priority = parseInt(d.PRIORITY);
+                                else
+                                        priority = 6;
+
+                                if (priority <= 3)
+                                        clazz = "log-error";
+                                else if (priority <= 5)
+                                        clazz = "log-highlight";
+                                else
+                                        clazz = "log-normal";
+
+                                var line = '<div class="' + clazz + '">';
+
+                                if (d.SYSLOG_IDENTIFIER != undefined)
+                                        line += d.SYSLOG_IDENTIFIER;
+                                else if (d._COMM != undefined)
+                                        line += d._COMM;
+
+                                if (d._PID != undefined)
+                                        line += "[" + d._PID + "]";
+                                else if (d.SYSLOG_PID != undefined)
+                                        line += "[" + d.SYSLOG_PID + "]";
+
+                                if (d.MESSAGE == null)
+                                        line += ": [blob data]</div>";
+                                else if (d.MESSAGE instanceof Array)
+                                        line += ": [" + formatBytes(d.MESSAGE.length) + " blob data]</div>";
+                                else
+                                        line += ": " + d.MESSAGE + "</div>";
+
+                                logs.innerHTML += line;
+                        }
+
+                        if (fc != null)
+                                first_cursor = fc;
+                        if (lc != null)
+                                last_cursor = lc;
+                }
+
+                function entriesMore() {
+                        setNEntries(getNEntries() + 10);
+                        entriesLoad("");
+                }
+
+                function entriesLess() {
+                        setNEntries(getNEntries() - 10);
+                        entriesLoad("");
+                }
+
+                machineLoad();
+                entriesLoad("");
+                showNEntries(getNEntries());
+        </script>
+</body>
+</html>
