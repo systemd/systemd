@@ -1,5 +1,41 @@
 systemd System and Service Manager
 
+CHANGES WITH 193:
+
+        * journalctl gained a new --cursor= switch to show entries
+          starting from the specified location in the journal.
+
+        * We now enforce a size limit on journal entry fields exported
+          with "-o json" in journalctl. Fields larger than 4K will be
+          assigned null. This can be turned off with --all.
+
+        * An (optional) journal gateway daemon is now available as
+          "systemd-journal-gatewayd.service". This service provides
+          access to the journal via HTTP and JSON. This functionality
+          will be used to implement live log synchronization in both
+          pull and push modes, but has various other users too, such
+          as easy log access for debugging of embedded devices. Right
+          now it is already useful to retrieve the journal via HTTP:
+
+          # systemctl start systemd-journal-gatewayd.service
+          # wget http://localhost:19531/entries
+
+          This will download the journal contents in a
+          /var/log/messages compatible format. The same as JSON:
+
+          # curl -H"Accept: application/json" http://localhost:19531/entries
+
+          This service is also accessible via a web browser where a
+          single static HTML5 app is served that uses the JSON logic
+          to enable the user to do some basic browsing of the
+          journal. This will be extended later on. Here's an example
+          screenshot of this app in its current state:
+
+          http://0pointer.de/public/journal-gatewayd
+
+        Contributions from: Kay Sievers, Lennart Poettering, Robert
+        Milasan, Tom Gundersen
+
 CHANGES WITH 192:
 
         * The bash completion logic is now available for journalctl
@@ -14,8 +50,8 @@ CHANGES WITH 192:
         * journalctl -f will now subscribe to terminal size changes,
           and line break accordingly.
 
-        Changes from: Dave Reisner, Kay Sievers, Lennart Poettering,
-        Lukas Nykrynm, Mirco Tischler, Václav Pavlín
+        Contributions from: Dave Reisner, Kay Sievers, Lennart
+        Poettering, Lukas Nykrynm, Mirco Tischler, Václav Pavlín
 
 CHANGES WITH 191:
 
@@ -49,8 +85,8 @@ CHANGES WITH 191:
           also means the inhibition lock for these keys has been split
           into two.
 
-        Changes from: Dave Airlie, Eelco Dolstra, Lennart Poettering,
-        Lukas Nykryn, Václav Pavlín
+        Contributions from: Dave Airlie, Eelco Dolstra, Lennart
+        Poettering, Lukas Nykryn, Václav Pavlín
 
 CHANGES WITH 190:
 
