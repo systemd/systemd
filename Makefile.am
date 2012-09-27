@@ -2651,6 +2651,43 @@ EXTRA_DIST += \
 CLEANFILES += \
 	src/journal/journald-gperf.c
 
+if HAVE_MICROHTTPD
+
+gatewayddocumentrootdir=$(pkgdatadir)/gatewayd
+
+rootlibexec_PROGRAMS += \
+	systemd-journal-gatewayd
+
+systemd_journal_gatewayd_SOURCES = \
+	src/journal/journal-gatewayd.c
+
+systemd_journal_gatewayd_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-logs.la \
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon.la \
+	$(MICROHTTPD_LIBS)
+
+systemd_journal_gatewayd_CFLAGS = \
+	-DDOCUMENT_ROOT=\"$(gatewayddocumentrootdir)\" \
+	$(AM_CFLAGS) \
+	$(MICROHTTPD_CFLAGS)
+
+EXTRA_DIST += \
+	units/systemd-journal-gatewayd.service.in
+
+dist_systemunit_DATA += \
+	units/systemd-journal-gatewayd.socket
+
+nodist_systemunit_DATA += \
+	units/systemd-journal-gatewayd.service
+
+dist_gatewayddocumentroot_DATA = \
+	src/journal/browse.html
+
+endif
+
 # ------------------------------------------------------------------------------
 if ENABLE_COREDUMP
 systemd_coredump_SOURCES = \

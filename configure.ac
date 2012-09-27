@@ -425,6 +425,18 @@ fi
 AM_CONDITIONAL(HAVE_QRENCODE, [test "$have_qrencode" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_microhttpd=no
+AC_ARG_ENABLE(microhttpd, AS_HELP_STRING([--disable-microhttpd], [disable microhttpd support]))
+if test "x$enable_microhttpd" != "xno"; then
+        PKG_CHECK_MODULES(MICROHTTPD, [ libmicrohttpd ],
+                [AC_DEFINE(HAVE_MICROHTTPD, 1, [Define if microhttpd is available]) have_microhttpd=yes], have_microhttpd=no)
+        if test "x$have_microhttpd" = xno -a "x$enable_microhttpd" = xyes; then
+                AC_MSG_ERROR([*** microhttpd support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_MICROHTTPD, [test "$have_microhttpd" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_binfmt=no
 AC_ARG_ENABLE(binfmt, AS_HELP_STRING([--disable-binfmt], [disable binfmt tool]))
 if test "x$enable_binfmt" != "xno"; then
@@ -803,6 +815,7 @@ AC_MSG_RESULT([
         ACL:                     ${have_acl}
         GCRYPT:                  ${have_gcrypt}
         QRENCODE:                ${have_qrencode}
+        MICROHTTPD:              ${have_microhttpd}
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}
         readahead:               ${have_readahead}

@@ -48,6 +48,9 @@ REQUIREMENTS:
         libselinux (optional)
         liblzma (optional)
         tcpwrappers (optional)
+        libgcrypt (optional)
+        libqrencode (optional)
+        libmicrohttpd (optional)
 
         When you build from git you need the following additional dependencies:
 
