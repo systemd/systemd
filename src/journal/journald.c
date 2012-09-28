@@ -440,6 +440,35 @@ static char *shortened_cgroup_path(pid_t pid) {
         return path;
 }
 
+static bool shall_try_append_again(JournalFile *f, int r) {
+
+        /* -E2BIG            Hit configured limit
+           -EFBIG            Hit fs limit
+           -EDQUOT           Quota limit hit
+           -ENOSPC           Disk full
+           -EHOSTDOWN        Other machine
+           -EBUSY            Unclean shutdown
+           -EPROTONOSUPPORT  Unsupported feature
+           -EBADMSG          Corrupted
+           -ENODATA          Truncated
+           -ESHUTDOWN        Already archived */
+
+        if (r == -E2BIG || r == -EFBIG || r == -EDQUOT || r == -ENOSPC)
+                log_debug("%s: Allocation limit reached, rotating.", f->path);
+        else if (r == -EHOSTDOWN)
+                log_info("%s: Journal file from other machine, rotating.", f->path);
+        else if (r == -EBUSY)
+                log_info("%s: Unclean shutdown, rotating.", f->path);
+        else if (r == -EPROTONOSUPPORT)
+                log_info("%s: Unsupported feature, rotating.", f->path);
+        else if (r == -EBADMSG || r == -ENODATA || r == ESHUTDOWN)
+                log_warning("%s: Journal file corrupted, rotating.", f->path);
+        else
+                return false;
+
+        return true;
+}
+
 static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned n) {
         JournalFile *f;
         bool vacuumed = false;
@@ -454,7 +483,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                 return;
 
         if (journal_file_rotate_suggested(f)) {
-                log_debug("Journal header limits reached or header out-of-date, rotating.");
+                log_debug("%s: Journal header limits reached or header out-of-date, rotating.", f->path);
                 server_rotate(s);
                 server_vacuum(s);
                 vacuumed = true;
@@ -464,45 +493,26 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                         return;
         }
 
-        for (;;) {
-                r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
-                if (r >= 0)
-                        return;
+        r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
+        if (r >= 0)
+                return;
 
-                if (vacuumed ||
-                    (r != -E2BIG && /* hit limit */
-                     r != -EFBIG && /* hit fs limit */
-                     r != -EDQUOT && /* quota hit */
-                     r != -ENOSPC && /* disk full */
-                     r != -EBADMSG && /* corrupted */
-                     r != -ENODATA && /* truncated */
-                     r != -EHOSTDOWN && /* other machine */
-                     r != -EPROTONOSUPPORT && /* unsupported feature */
-                     r != -EBUSY && /* unclean shutdown */
-                     r != -ESHUTDOWN /* already archived */)) {
-                        log_error("Failed to write entry, ignoring: %s", strerror(-r));
-                        return;
-                }
-
-                if (r == -E2BIG || r == -EFBIG || r == EDQUOT || r == ENOSPC)
-                        log_debug("Allocation limit reached, rotating.");
-                else if (r == -EHOSTDOWN)
-                        log_info("Journal file from other machine, rotating.");
-                else if (r == -EBUSY)
-                        log_info("Unclean shutdown, rotating.");
-                else
-                        log_warning("Journal file corrupted, rotating.");
-
-                server_rotate(s);
-                server_vacuum(s);
-                vacuumed = true;
-
-                f = find_journal(s, uid);
-                if (!f)
-                        return;
-
-                log_debug("Retrying write.");
+        if (vacuumed || !shall_try_append_again(f, r)) {
+                log_error("Failed to write entry, ignoring: %s", strerror(-r));
+                return;
         }
+
+        server_rotate(s);
+        server_vacuum(s);
+
+        f = find_journal(s, uid);
+        if (!f)
+                return;
+
+        log_debug("Retrying write.");
+        r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
+        if (r < 0)
+                log_error("Failed to write entry, ignoring: %s", strerror(-r));
 }
 
 static void dispatch_message_real(
@@ -942,16 +952,19 @@ static int server_flush_to_var(Server *s) {
                 }
 
                 r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
-                if (r == -E2BIG) {
-                        log_debug("Allocation limit reached.");
+                if (r >= 0)
+                        continue;
 
-                        journal_file_post_change(s->system_journal);
-                        server_rotate(s);
-                        server_vacuum(s);
-
-                        r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
+                if (!shall_try_append_again(s->system_journal, r)) {
+                        log_error("Can't write entry: %s", strerror(-r));
+                        goto finish;
                 }
 
+                server_rotate(s);
+                server_vacuum(s);
+
+                log_debug("Retrying write.");
+                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
                 if (r < 0) {
                         log_error("Can't write entry: %s", strerror(-r));
                         goto finish;
