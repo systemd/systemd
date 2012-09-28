@@ -252,9 +252,22 @@ static int audit_callback(void *auditdata, security_class_t cls,
 {
         struct auditstruct *audit = (struct auditstruct *) auditdata;
         snprintf(msgbuf, msgbufsize,
-                 "name=\"%s\" cmdline=\"%s\" auid=%d uid=%d gid=%d",
-                 audit->path, audit->cmdline, audit->loginuid,
+                 "auid=%d uid=%d gid=%d",
+                 audit->loginuid,
                  audit->uid, audit->gid);
+
+        if (audit->path) {
+		strncat(msgbuf," path=\"", msgbufsize);
+		strncat(msgbuf, audit->path, msgbufsize);
+		strncat(msgbuf,"\"", msgbufsize);
+        }
+
+        if (audit->cmdline) {
+		strncat(msgbuf," cmdline=\"", msgbufsize);
+		strncat(msgbuf, audit->cmdline, msgbufsize);
+		strncat(msgbuf,"\"", msgbufsize);
+        }
+
         return 0;
 }
 
@@ -295,7 +308,7 @@ static int access_init(void) {
         int r = -1;
 
         if (avc_open(NULL, 0)) {
-                log_full(LOG_ERR, "avc_open failed: %m\n");
+                log_error("avc_open failed: %m");
                 return -errno;
         }
 
@@ -329,13 +342,12 @@ static int selinux_init(Manager *m, DBusError *error) {
                 /* if not first time is not set, then initialize access */
                 r = access_init();
                 if (r < 0) {
-                        dbus_set_error(error, DBUS_ERROR_ACCESS_DENIED, "Unable to initialize SELinux.");
-
+                        dbus_set_error(error, DBUS_ERROR_ACCESS_DENIED, "Failed to initialize SELinux.");
                         return r;
                 }
-                first_time = 0;
         }
 
+        first_time = 0;
         return 0;
 }
 
@@ -392,6 +404,7 @@ static int get_calling_context(
 
         const char *sender;
         int r;
+        int fd;
 
         /*
            If sender exists then
@@ -401,17 +414,22 @@ static int get_calling_context(
         sender = dbus_message_get_sender(message);
         if (sender) {
                 r = bus_get_selinux_security_context(connection, sender, scon, error);
-                if (r < 0)
-                        return -EINVAL;
-        } else {
-                int fd;
-                r = dbus_connection_get_unix_fd(connection, &fd);
-                if (! r)
-                        return -EINVAL;
+                if (r == 0)
+                        return 0;
 
-                r = getpeercon(fd, scon);
-                if (r < 0)
-                        return -errno;
+                log_debug("bus_get_selinux_security_context failed %m");
+        }
+
+        r = dbus_connection_get_unix_fd(connection, &fd);
+        if (! r) {
+                log_error("bus_connection_get_unix_fd failed %m");
+                return -EINVAL;
+        }
+
+        r = getpeercon(fd, scon);
+        if (r < 0) {
+                log_error("getpeercon failed %m");
+                return -errno;
         }
 
         return 0;
@@ -461,15 +479,18 @@ static int selinux_access_check(DBusConnection *connection, DBusMessage *message
         audit.path = path;
 
         r = get_calling_context(connection, message, &scon, error);
-        if (r != 0)
+        if (r != 0) {
+                log_error("Failed to get caller's security context on: %m");
                 goto finish;
-
+        }
         if (path) {
                 tclass = "service";
                 /* get the file context of the unit file */
                 r = getfilecon(path, &fcon);
                 if (r < 0) {
-                        log_full(LOG_ERR, "Failed to get security context on: %s %m\n",path);
+                        dbus_set_error(error, DBUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
+                        r = -errno;
+                        log_error("Failed to get security context on: %s %m",path);
                         goto finish;
                 }
 
@@ -477,7 +498,9 @@ static int selinux_access_check(DBusConnection *connection, DBusMessage *message
                 tclass = "system";
                 r = getcon(&fcon);
                 if (r < 0) {
-                        dbus_set_error(error, DBUS_ERROR_ACCESS_DENIED, "Unable to get current context, SELinux policy denies access.");
+                        dbus_set_error(error, DBUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
+                        r = -errno;
+                        log_error("Failed to get current process context on: %m");
                         goto finish;
                 }
         }
@@ -488,16 +511,12 @@ static int selinux_access_check(DBusConnection *connection, DBusMessage *message
         r = selinux_check_access(scon, fcon, tclass, perm, &audit);
         if (r < 0) {
                 r = -errno;
-                log_error("SELinux Denied \"%s\"", audit.cmdline);
-
+                log_error("SELinux policy denies access.");
                 dbus_set_error(error, DBUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
         }
 
-        log_debug("SELinux checkaccess scon %s tcon %s tclass %s perm %s path %s: %d", scon, fcon, tclass, perm, path, r);
+        log_debug("SELinux checkaccess scon %s tcon %s tclass %s perm %s path %s cmdline %s: %d", scon, fcon, tclass, perm, path, audit.cmdline, r);
 finish:
-        if (r)
-                r = -errno;
-
         free(audit.cmdline);
         freecon(scon);
         freecon(fcon);
@@ -520,6 +539,7 @@ int selinux_unit_access_check(DBusConnection *connection, DBusMessage *message, 
         const char *member;
         int r;
 
+        log_debug("SELinux unit access check %s\n", path);
         r = selinux_init(m, error);
         if (r < 0)
                 return r;
@@ -533,7 +553,9 @@ int selinux_unit_access_check(DBusConnection *connection, DBusMessage *message, 
         log_debug("SELinux dbus-unit Look %s up perm %s require_unit %d", member, perm, require_unit);
 
         r = selinux_access_check(connection, message, m, error, perm, path);
-        if (r < 0 && !selinux_enforcing) {
+
+        /* if SELinux is in permissive mode return 0 */
+        if (r && (security_getenforce() != 1 )) {
                 dbus_error_init(error);
                 r = 0;
         }
@@ -548,6 +570,7 @@ int selinux_manager_access_check(DBusConnection *connection, DBusMessage *messag
         const char *perm;
         char *path = NULL;
 
+        log_debug("SELinux manager access check\n");
         r = selinux_init(m, error);
         if (r < 0)
                 return r;
@@ -561,31 +584,64 @@ int selinux_manager_access_check(DBusConnection *connection, DBusMessage *messag
         log_debug("SELinux dbus-manager Lookup %s perm %s require_unit %d", member, perm, require_unit);
 
         if (require_unit) {
-                const char *name;
+                const char *name, *smode, *old_name = NULL;
                 Unit *u;
 
-                if (!dbus_message_get_args(
-                        message,
-                        error,
-                        DBUS_TYPE_STRING, &name,
-                        DBUS_TYPE_INVALID)) {
-                        r = -EINVAL;
-                        goto finish;
+                if (! dbus_message_get_args(
+                            message,
+                            error,
+                            DBUS_TYPE_STRING, &old_name,
+                            DBUS_TYPE_STRING, &name,
+                            DBUS_TYPE_STRING, &smode,
+                            DBUS_TYPE_INVALID)) {
+                        dbus_error_init(error);
+                        if (!dbus_message_get_args(
+                                    message,
+                                    error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_STRING, &smode,
+                                    DBUS_TYPE_INVALID)) {
+                                dbus_error_init(error);
+                                if (!dbus_message_get_args(
+                                            message,
+                                            error,
+                                            DBUS_TYPE_STRING, &name,
+                                            DBUS_TYPE_INVALID)) {
+                                        r = -EINVAL;
+                                        /* This is broken for now, if I can not get a name
+                                           return success.
+                                        */
+                                        log_error("SELinux dbus-manager failed to find unit %m");
+                                        r = 0;
+                                        goto finish;
+                                }
+                        }
                 }
 
+                log_debug("SELinux dbus-manager load unit %s", name);
                 r = manager_load_unit(m, name, NULL, error, &u);
                 if (r < 0) {
-                        dbus_set_error(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                        log_error("Unit %s is not loaded.", name);
+                        /* This is broken for now, if I can not load a unit
+                           return success.
+                         */
+                        dbus_error_init(error);
+                        r = 0;
                         goto finish;
                 }
 
                 path = u->source_path ? u->source_path : u->fragment_path;
+                if (!path) {
+//                      r = -1;
+                        log_error("Unit %s does not have path.", name);
+                        goto finish;
+                }
         }
         r = selinux_access_check(connection, message, m, error, perm, path);
 
 finish:
         /* if SELinux is in permissive mode return 0 */
-        if (r && (!selinux_enforcing)) {
+        if (r && (security_getenforce() != 1 )) {
                 dbus_error_init(error);
                 r = 0;
         }
