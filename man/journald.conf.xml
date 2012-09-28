@@ -184,7 +184,7 @@
                                 limiting is applied per-service, so
                                 that two services which log do not
                                 interfere with each other's
-                                limit. Defaults to 100 messages in
+                                limit. Defaults to 200 messages in
                                 10s. The time specification for
                                 <varname>RateLimitInterval=</varname>
                                 may be specified in the following
