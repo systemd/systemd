@@ -673,6 +673,10 @@ static int create_item(Item *i) {
 
         case CREATE_FILE:
         case TRUNCATE_FILE:
+                r = write_one_file(i, i->path);
+                if (r < 0)
+                        return r;
+                break;
         case WRITE_FILE:
                 r = glob_item(i, write_one_file);
                 if (r < 0)
