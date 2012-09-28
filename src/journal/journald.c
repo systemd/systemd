@@ -896,10 +896,9 @@ static int system_journal_open(Server *s) {
 }
 
 static int server_flush_to_var(Server *s) {
-        Object *o = NULL;
         int r;
         sd_id128_t machine;
-        sd_journal *j;
+        sd_journal *j = NULL;
 
         assert(s);
 
@@ -930,6 +929,7 @@ static int server_flush_to_var(Server *s) {
         }
 
         SD_JOURNAL_FOREACH(j) {
+                Object *o = NULL;
                 JournalFile *f;
 
                 f = j->current_file;
@@ -966,6 +966,9 @@ finish:
 
         if (r >= 0)
                 rm_rf("/run/log/journal", false, true, false);
+
+        if (j)
+                sd_journal_close(j);
 
         return r;
 }
