@@ -428,8 +428,14 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         pam_get_item(handle, PAM_TTY, (const void**) &tty);
         pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
         pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
+
         seat = pam_getenv(handle, "XDG_SEAT");
+        if (isempty(seat))
+                seat = getenv("XDG_SEAT");
+
         cvtnr = pam_getenv(handle, "XDG_VTNR");
+        if (isempty(cvtnr))
+                cvtnr = getenv("XDG_VTNR");
 
         service = strempty(service);
         tty = strempty(tty);
@@ -467,6 +473,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                    !isempty(tty) ? "tty" : "unspecified";
 
         class = pam_getenv(handle, "XDG_SESSION_CLASS");
+        if (isempty(class))
+                class = getenv("XDG_SESSION_CLASS");
         if (isempty(class))
                 class = "user";
 
