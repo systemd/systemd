@@ -399,7 +399,7 @@ static int request_handler_redirect(
         int ret;
 
         assert(connection);
-        assert(page);
+        assert(target);
 
         if (asprintf(&page, "<html><body>Please continue to the <a href=\"%s\">journal browser</a>.</body></html>", target) < 0)
                 return respond_oom(connection);
