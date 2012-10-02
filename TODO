@@ -28,6 +28,18 @@ Features:
 * make repeated alt-ctrl-del presses printing a dump, or even force a reboot without
   waiting for the timeout
 
+* make sure that the journal output from the initrd is always merged into the journalctl output even if -m is not passed.
+
+* add time seeks to journalctl
+
+* high level net_prio setting in execution context
+
+* Introduce journalctl -b <nr> to show journal messages of a previous boot
+
+* systemctl should be able to show log messages from certain privileged 3rd party daemons such as setroubleshoot
+
+* hostnamed: before returning information from /etc/machine-info.conf check the modification data and reread. Similar for localed, ...
+
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab isn't
 
 * WorkingDirectory: support env var replacements like in ExecStart= so that people can use $HOME
