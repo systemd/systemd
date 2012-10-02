@@ -668,58 +668,58 @@ static int setup_hostname(void) {
 
 static int setup_journal(const char *directory) {
         sd_id128_t machine_id;
-        char *p = NULL, *b = NULL, *l, *q = NULL, *d = NULL;
+        char _cleanup_free_ *p = NULL, *b = NULL, *q = NULL, *d = NULL;
+        char *id;
         int r;
 
         if (arg_link_journal == LINK_NO)
                 return 0;
 
         p = strappend(directory, "/etc/machine-id");
-        if (!p) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!p)
+                return log_oom();
 
         r = read_one_line_file(p, &b);
-        if (r == -ENOENT && arg_link_journal == LINK_AUTO) {
-                r = 0;
-                goto finish;
-        } else if (r < 0) {
-                log_error("Failed to read machine ID: %s", strerror(-r));
+        if (r == -ENOENT && arg_link_journal == LINK_AUTO)
+                return 0;
+        else if (r < 0) {
+                log_error("Failed to read machine ID from %s: %s", p, strerror(-r));
                 return r;
         }
 
-        l = strstrip(b);
-        if (isempty(l) && arg_link_journal == LINK_AUTO) {
-                r = 0;
-                goto finish;
-        }
+        id = strstrip(b);
+        if (isempty(id) && arg_link_journal == LINK_AUTO)
+                return 0;
 
-        /* Verify validaty */
-        r = sd_id128_from_string(l, &machine_id);
+        /* Verify validity */
+        r = sd_id128_from_string(id, &machine_id);
         if (r < 0) {
-                log_error("Failed to parse machine ID: %s", strerror(-r));
-                goto finish;
+                log_error("Failed to parse machine ID from %s: %s", p, strerror(-r));
+                return r;
         }
 
         free(p);
-        p = strappend("/var/log/journal/", l);
-        q = strjoin(directory, "/var/log/journal/", l, NULL);
-        if (!p || !q) {
-                r = log_oom();
-                goto finish;
-        }
+        p = strappend("/var/log/journal/", id);
+        q = strjoin(directory, "/var/log/journal/", id, NULL);
+        if (!p || !q)
+                return log_oom();
 
-        if (path_is_mount_point(p, false) > 0 ||
-            path_is_mount_point(q, false) > 0) {
+        if (path_is_mount_point(p, false) > 0) {
                 if (arg_link_journal != LINK_AUTO) {
-                        log_error("Journal already a mount point, refusing.");
-                        r = -EEXIST;
-                        goto finish;
+                        log_error("%s: already a mount point, refusing to use for journal", p);
+                        return -EEXIST;
                 }
 
-                r = 0;
-                goto finish;
+                return 0;
+        }
+
+        if (path_is_mount_point(q, false) > 0) {
+                if (arg_link_journal != LINK_AUTO) {
+                        log_error("%s: already a mount point, refusing to use for journal", q);
+                        return -EEXIST;
+                }
+
+                return 0;
         }
 
         r = readlink_and_make_absolute(p, &d);
@@ -728,89 +728,74 @@ static int setup_journal(const char *directory) {
                      arg_link_journal == LINK_AUTO) &&
                     path_equal(d, q)) {
 
-                        mkdir_p(q, 0755);
-
-                        r = 0;
-                        goto finish;
+                        r = mkdir_p(q, 0755);
+                        if (r < 0)
+                                log_warning("failed to create directory %s: %m", q);
+                        return 0;
                 }
 
                 if (unlink(p) < 0) {
                         log_error("Failed to remove symlink %s: %m", p);
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
         } else if (r == -EINVAL) {
 
                 if (arg_link_journal == LINK_GUEST &&
                     rmdir(p) < 0) {
 
-                        if (errno == ENOTDIR)
-                                log_error("%s already exists and is neither symlink nor directory.", p);
-                        else {
+                        if (errno == ENOTDIR) {
+                                log_error("%s already exists and is neither a symlink nor a directory", p);
+                                return r;
+                        } else {
                                 log_error("Failed to remove %s: %m", p);
-                                r = -errno;
+                                return -errno;
                         }
-
-                        goto finish;
                 }
         } else if (r != -ENOENT) {
                 log_error("readlink(%s) failed: %m", p);
-                goto finish;
+                return r;
         }
 
         if (arg_link_journal == LINK_GUEST) {
 
                 if (symlink(q, p) < 0) {
                         log_error("Failed to symlink %s to %s: %m", q, p);
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
 
-                mkdir_p(q, 0755);
-
-                r = 0;
-                goto finish;
+                r = mkdir_p(q, 0755);
+                if (r < 0)
+                        log_warning("failed to create directory %s: %m", q);
+                return 0;
         }
 
         if (arg_link_journal == LINK_HOST) {
                 r = mkdir_p(p, 0755);
                 if (r < 0) {
                         log_error("Failed to create %s: %m", p);
-                        goto finish;
+                        return r;
                 }
 
-        } else if (access(p, F_OK) < 0) {
-                r = 0;
-                goto finish;
-        }
+        } else if (access(p, F_OK) < 0)
+                return 0;
 
         if (dir_is_empty(q) == 0) {
                 log_error("%s not empty.", q);
-                r = -ENOTEMPTY;
-                goto finish;
+                return -ENOTEMPTY;
         }
 
         r = mkdir_p(q, 0755);
         if (r < 0) {
                 log_error("Failed to create %s: %m", q);
-                goto finish;
+                return r;
         }
 
         if (mount(p, q, "bind", MS_BIND, NULL) < 0) {
                 log_error("Failed to bind mount journal from host into guest: %m");
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
-        r = 0;
-
-finish:
-        free(p);
-        free(q);
-        free(d);
-        free(b);
-        return r;
-
+        return 0;
 }
 
 static int drop_capabilities(void) {

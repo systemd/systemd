@@ -29,7 +29,6 @@
 #include "mkdir.h"
 #include "label.h"
 #include "util.h"
-#include "log.h"
 
 int mkdir_label(const char *path, mode_t mode) {
         return label_mkdir(path, mode, true);

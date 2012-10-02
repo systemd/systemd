@@ -248,31 +248,30 @@
                                 <literal>host</literal>,
                                 <literal>guest</literal>,
                                 <literal>auto</literal>. If
-                                <literal>no</literal> the journal is
-                                not linked. If <literal>host</literal>
+                                <literal>no</literal>, the journal is
+                                not linked. If <literal>host</literal>,
                                 the journal files are stored on the
-                                host file system (beneath the host's
-                                <filename>/var/log/journal</filename>)
-                                and a per-machine subdirectory of this
-                                directory is created and bind mounted
+                                host file system (beneath
+                                <filename>/var/log/journal/&lt;machine-id&gt;</filename>)
+                                and the subdirectory is bind-mounted
                                 into the container at the same
-                                location. If <literal>guest</literal>
+                                location. If <literal>guest</literal>,
                                 the journal files are stored on the
-                                guest file system (beneath the guest's
-                                <filename>/var/log/journal</filename>)
-                                and a per-machine subdirectory of this
-                                directory is symlinked into the host
+                                guest file system (beneath
+                                <filename>/var/log/journal/&lt;machine-id&gt;</filename>)
+                                and the subdirectory is symlinked into the host
                                 at the same location. If
-                                <literal>auto</literal> (the default)
-                                and the subdirectory of
+                                <literal>auto</literal> (the default),
+                                and the right subdirectory of
                                 <filename>/var/log/journal</filename>
-                                exists as directory it is bind mounted
-                                into the container, but nothing is
-                                done otherwise. Effectively, booting a
-                                container once with
+                                exists, it will be bind mounted
+                                into the container. If the
+                                subdirectory doesn't exist, no
+                                linking is performed. Effectively,
+                                booting a container once with
                                 <literal>guest</literal> or
                                 <literal>host</literal> will link the
-                                journal persistently if further one
+                                journal persistently if further on
                                 the default of <literal>auto</literal>
                                 is used.</para></listitem>
                         </varlistentry>
