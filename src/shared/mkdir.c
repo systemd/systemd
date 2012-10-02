@@ -115,6 +115,13 @@ int mkdir_parents_label(const char *path, mode_t mode) {
         return makedir_parents(path, mode, true);
 }
 
+static int is_dir(const char* path) {
+        struct stat st;
+        if (stat(path, &st) < 0)
+                return -errno;
+        return S_ISDIR(st.st_mode);
+}
+
 static int makedir_p(const char *path, mode_t mode, bool apply) {
         int r;
 
@@ -124,7 +131,8 @@ static int makedir_p(const char *path, mode_t mode, bool apply) {
         if (r < 0)
                 return r;
 
-        if (label_mkdir(path, mode, apply) < 0 && errno != EEXIST)
+        r = label_mkdir(path, mode, apply);
+        if (r < 0 && (errno != EEXIST || is_dir(path) <= 0))
                 return -errno;
 
         return 0;
