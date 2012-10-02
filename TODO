@@ -18,6 +18,13 @@ F18:
 * Retest multi-seat
 
 Features:
+* add "provisioning" instructions to setup an empty /etc + /var
+    - used to setup a new container from a shared /usr
+    - superset of tmpfiles model
+    - instructions shipped by packages and stored in /usr/lib/
+    - compose /etc/passwd and /etc/group, copy files
+    - able to create uid + gid used by packages, for file ownership
+
 * make repeated alt-ctrl-del presses printing a dump, or even force a reboot without
   waiting for the timeout
 
