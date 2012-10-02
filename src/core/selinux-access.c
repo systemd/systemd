@@ -32,6 +32,7 @@
 #include "dbus-common.h"
 #include "audit.h"
 #include "selinux-util.h"
+#include "audit-fd.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -44,7 +45,6 @@
 #include <limits.h>
 
 static bool initialized = false;
-static int audit_fd = -1;
 
 struct auditstruct {
         const char *path;
@@ -169,11 +169,11 @@ static int log_callback(int type, const char *fmt, ...) {
         va_start(ap, fmt);
 
 #ifdef HAVE_AUDIT
-        if (audit_fd >= 0) {
+        if (get_audit_fd() >= 0) {
                 char buf[LINE_MAX];
 
                 vsnprintf(buf, sizeof(buf), fmt, ap);
-                audit_log_user_avc_message(audit_fd, AUDIT_USER_AVC, buf, NULL, NULL, NULL, 0);
+                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_AVC, buf, NULL, NULL, NULL, 0);
                 va_end(ap);
 
                 return 0;
@@ -210,12 +210,9 @@ static int access_init(void) {
         return r;
 }
 
-static int selinux_init(Manager *m, DBusError *error) {
+static int selinux_init(DBusError *error) {
         int r;
 
-#ifdef HAVE_AUDIT
-        audit_fd = m->audit_fd;
-#endif
         if (initialized)
                 return 0;
 
@@ -318,7 +315,6 @@ static int get_calling_context(
    still be generated if the access would be denied in enforcing mode.
 */
 static int selinux_access_check(
-                Manager *m,
                 DBusConnection *connection,
                 DBusMessage *message,
                 const char *path,
@@ -330,13 +326,12 @@ static int selinux_access_check(
         const char *tclass = NULL;
         struct auditstruct audit;
 
-        assert(m);
         assert(connection);
         assert(message);
         assert(permission);
         assert(error);
 
-        r = selinux_init(m, error);
+        r = selinux_init(error);
         if (r < 0)
                 return r;
 
@@ -416,7 +411,7 @@ int selinux_unit_access_check(
         assert(permission);
         assert(error);
 
-        return selinux_access_check(u->manager, connection, message, u->source_path ? u->source_path : u->fragment_path, permission, error);
+        return selinux_access_check(connection, message, u->source_path ? u->source_path : u->fragment_path, permission, error);
 }
 
 int selinux_manager_access_check(
@@ -432,7 +427,7 @@ int selinux_manager_access_check(
         assert(permission);
         assert(error);
 
-        return selinux_access_check(m, connection, message, NULL, permission, error);
+        return selinux_access_check(connection, message, NULL, permission, error);
 }
 
 void selinux_access_finish(void) {

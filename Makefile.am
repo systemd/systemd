@@ -1020,7 +1020,9 @@ libsystemd_core_la_SOURCES = \
 	src/core/killall.h \
 	src/core/killall.c \
 	src/core/syscall-list.c \
-	src/core/syscall-list.h
+	src/core/syscall-list.h \
+	src/core/audit-fd.c \
+	src/core/audit-fd.h
 
 nodist_libsystemd_core_la_SOURCES = \
 	src/core/load-fragment-gperf.c \

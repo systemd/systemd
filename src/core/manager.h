@@ -200,11 +200,6 @@ struct Manager {
          * file system */
         int pin_cgroupfs_fd;
 
-        /* Audit fd */
-#ifdef HAVE_AUDIT
-        int audit_fd;
-#endif
-
         /* Flags */
         SystemdRunningAs running_as;
         ManagerExitCode exit_code:5;

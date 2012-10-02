@@ -68,6 +68,7 @@
 #include "watchdog.h"
 #include "cgroup-util.h"
 #include "path-util.h"
+#include "audit-fd.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -257,10 +258,6 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         m->pin_cgroupfs_fd = -1;
         m->idle_pipe[0] = m->idle_pipe[1] = -1;
 
-#ifdef HAVE_AUDIT
-        m->audit_fd = -1;
-#endif
-
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = m->dev_autofs_fd = m->swap_watch.fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
@@ -306,14 +303,6 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         /* Try to connect to the busses, if possible. */
         if ((r = bus_init(m, running_as != SYSTEMD_SYSTEM)) < 0)
                 goto fail;
-
-#ifdef HAVE_AUDIT
-        if ((m->audit_fd = audit_open()) < 0 &&
-            /* If the kernel lacks netlink or audit support,
-             * don't worry about it. */
-            errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
-                log_error("Failed to connect to audit log: %m");
-#endif
 
         m->taint_usr = dir_is_empty("/usr") > 0;
 
@@ -497,11 +486,6 @@ void manager_free(Manager *m) {
                 close_nointr_nofail(m->signal_watch.fd);
         if (m->notify_watch.fd >= 0)
                 close_nointr_nofail(m->notify_watch.fd);
-
-#ifdef HAVE_AUDIT
-        if (m->audit_fd >= 0)
-                audit_close(m->audit_fd);
-#endif
 
         free(m->notify_socket);
 
@@ -1553,8 +1537,10 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 
 #ifdef HAVE_AUDIT
         char *p;
+        int audit_fd;
 
-        if (m->audit_fd < 0)
+        audit_fd = get_audit_fd();
+        if (audit_fd < 0)
                 return;
 
         /* Don't generate audit events if the service was already
@@ -1573,12 +1559,11 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
                 return;
         }
 
-        if (audit_log_user_comm_message(m->audit_fd, type, "", p, NULL, NULL, NULL, success) < 0) {
+        if (audit_log_user_comm_message(audit_fd, type, "", p, NULL, NULL, NULL, success) < 0) {
                 if (errno == EPERM) {
                         /* We aren't allowed to send audit messages?
                          * Then let's not retry again. */
-                        audit_close(m->audit_fd);
-                        m->audit_fd = -1;
+                        close_audit_fd();
                 } else
                         log_warning("Failed to send audit message: %m");
         }
