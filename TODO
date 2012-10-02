@@ -18,6 +18,8 @@ F18:
 * Retest multi-seat
 
 Features:
+* make repeated alt-ctrl-del presses printing a dump, or even force a reboot without
+  waiting for the timeout
 
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab isn't
 
