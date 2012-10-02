@@ -133,6 +133,15 @@ extern const BusProperty bus_unit_properties[];
 void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_removed_signal(Unit *u);
 
+
+DBusHandlerResult bus_unit_queue_job(
+                DBusConnection *connection,
+                DBusMessage *message,
+                Unit *u,
+                JobType type,
+                JobMode mode,
+                bool reload_if_possible);
+
 extern const DBusObjectPathVTable bus_unit_vtable;
 
 extern const char bus_unit_interface[];

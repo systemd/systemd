@@ -829,6 +829,8 @@ libsystemd_label_la_SOURCES = \
 	src/shared/socket-label.c \
 	src/shared/label.c \
 	src/shared/label.h \
+	src/shared/selinux-util.c \
+	src/shared/selinux-util.h \
 	src/shared/mkdir.c \
 	src/shared/mkdir.h \
 	src/shared/ask-password-api.c \

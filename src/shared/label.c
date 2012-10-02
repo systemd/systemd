@@ -31,24 +31,11 @@
 #include "path-util.h"
 
 #ifdef HAVE_SELINUX
+#include "selinux-util.h"
 #include <selinux/selinux.h>
 #include <selinux/label.h>
 
 static struct selabel_handle *label_hnd = NULL;
-
-static int use_selinux_cached = -1;
-
-static inline bool use_selinux(void) {
-
-        if (use_selinux_cached < 0)
-                use_selinux_cached = is_selinux_enabled() > 0;
-
-        return use_selinux_cached;
-}
-
-void label_retest_selinux(void) {
-        use_selinux_cached = -1;
-}
 
 #endif
 

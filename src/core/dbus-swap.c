@@ -27,6 +27,7 @@
 #include "dbus-execute.h"
 #include "dbus-kill.h"
 #include "dbus-common.h"
+#include "selinux-access.h"
 
 #define BUS_SWAP_INTERFACE                                              \
         " <interface name=\"org.freedesktop.systemd1.Swap\">\n"         \
@@ -107,6 +108,8 @@ DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessa
                 { "org.freedesktop.systemd1.Swap", bus_kill_context_properties, &s->kill_context },
                 { NULL, }
         };
+
+        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
 
         return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
 }

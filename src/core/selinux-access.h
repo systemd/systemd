@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef selinuxaccesshfoo
-#define selinuxaccesshfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -23,6 +22,38 @@
 ***/
 
 void selinux_access_finish(void);
-int selinux_manager_access_check(DBusConnection *connection, DBusMessage *message, Manager *m, DBusError *error);
-int selinux_unit_access_check(DBusConnection *connection, DBusMessage *message, Manager *m, const char *path, DBusError *error);
+int selinux_manager_access_check(Manager *manager, DBusConnection *connection, DBusMessage *message, const char *permission, DBusError *error);
+int selinux_unit_access_check(Unit *unit, DBusConnection *connection, DBusMessage *message, const char *permission, DBusError *error);
+
+#ifdef HAVE_SELINUX
+
+#define SELINUX_MANAGER_ACCESS_CHECK(manager, connection, message, permission)   \
+        do {                                                            \
+                DBusError _error;                                       \
+                int _r;                                                 \
+                DBusConnection *_c = (connection);                      \
+                DBusMessage *_m = (message);                            \
+                dbus_error_init(&_error);                               \
+                _r = selinux_manager_access_check((manager), _c, _m, (permission), &_error); \
+                if (_r < 0)                                             \
+                        return bus_send_error_reply(_c, _m, &_error, _r); \
+        } while (false)
+
+#define SELINUX_UNIT_ACCESS_CHECK(unit, connection, message, permission) \
+        do {                                                            \
+                DBusError _error;                                       \
+                int _r;                                                 \
+                DBusConnection *_c = (connection);                      \
+                DBusMessage *_m = (message);                            \
+                dbus_error_init(&_error);                               \
+                _r = selinux_unit_access_check((unit), _c, _m, (permission), &_error); \
+                if (_r < 0)                                             \
+                        return bus_send_error_reply(_c, _m, &_error, _r); \
+        } while (false)
+
+#else
+
+#define SELINUX_MANAGER_ACCESS_CHECK(manager, connection, message, permission) do { } while (false)
+#define SELINUX_UNIT_ACCESS_CHECK(unit, connection, message, permission) do { } while (false)
+
 #endif

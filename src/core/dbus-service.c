@@ -26,6 +26,7 @@
 #include "dbus-kill.h"
 #include "dbus-service.h"
 #include "dbus-common.h"
+#include "selinux-access.h"
 
 #define BUS_SERVICE_INTERFACE                                           \
         " <interface name=\"org.freedesktop.systemd1.Service\">\n"      \
@@ -153,6 +154,8 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
                 { "org.freedesktop.systemd1.Service", bus_exec_main_status_properties, &s->main_exec_status },
                 { NULL, }
         };
+
+        SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
 
         return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
 }

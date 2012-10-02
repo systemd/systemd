@@ -30,11 +30,12 @@
 #endif
 
 #include "selinux-setup.h"
+#include "selinux-util.h"
+#include "label.h"
 #include "mount-setup.h"
 #include "macro.h"
 #include "util.h"
 #include "log.h"
-#include "label.h"
 
 #ifdef HAVE_SELINUX
 static int null_log(int type, const char *fmt, ...) {
@@ -83,7 +84,7 @@ int selinux_setup(bool *loaded_policy) {
                char timespan[FORMAT_TIMESPAN_MAX];
                char *label;
 
-               label_retest_selinux();
+               retest_selinux();
 
                /* Transition to the new context */
                r = label_get_create_label_from_exe(SYSTEMD_BINARY_PATH, &label);

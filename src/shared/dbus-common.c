@@ -229,7 +229,8 @@ int bus_connect_system_polkit(DBusConnection **_bus, DBusError *error) {
 
         dbus_connection_set_exit_on_disconnect(bus, FALSE);
 
-        if ((r = sync_auth(bus, error)) < 0) {
+        r = sync_auth(bus, error);
+        if (r < 0) {
                 dbus_connection_close(bus);
                 dbus_connection_unref(bus);
                 return r;
@@ -273,7 +274,7 @@ DBusHandlerResult bus_default_message_handler(
                 const BusBoundProperties *bound_properties) {
 
         DBusError error;
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r;
 
         assert(c);
@@ -283,7 +284,8 @@ DBusHandlerResult bus_default_message_handler(
 
         if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect") && introspection) {
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
                 if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &introspection, DBUS_TYPE_INVALID))
@@ -334,14 +336,12 @@ get_prop:
                 data = (char*)bp->base + p->offset;
                 if (p->indirect)
                         data = *(void**)data;
-                r = p->append(&sub, property, data);
-                if (r < 0) {
-                        if (r == -ENOMEM)
-                                goto oom;
 
-                        dbus_message_unref(reply);
+                r = p->append(&sub, property, data);
+                if (r == -ENOMEM)
+                        goto oom;
+                if (r < 0)
                         return bus_send_error_reply(c, message, NULL, r);
-                }
 
                 if (!dbus_message_iter_close_container(&iter, &sub))
                         goto oom;
@@ -364,7 +364,8 @@ get_prop:
                         return bus_send_error_reply(c, message, &error, -EINVAL);
                 }
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
                 dbus_message_iter_init_append(reply, &iter);
@@ -388,13 +389,10 @@ get_prop:
                                 if (p->indirect)
                                         data = *(void**)data;
                                 r = p->append(&sub3, p->property, data);
-                                if (r < 0) {
-                                        if (r == -ENOMEM)
-                                                goto oom;
-
-                                        dbus_message_unref(reply);
+                                if (r == -ENOMEM)
+                                        goto oom;
+                                if (r < 0)
                                         return bus_send_error_reply(c, message, NULL, r);
-                                }
 
                                 if (!dbus_message_iter_close_container(&sub2, &sub3) ||
                                     !dbus_message_iter_close_container(&sub, &sub2))
@@ -506,16 +504,12 @@ set_prop:
                 if (!dbus_connection_send(c, reply, NULL))
                         goto oom;
 
-                dbus_message_unref(reply);
                 return DBUS_HANDLER_RESULT_HANDLED;
         }
 
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
 oom:
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -720,7 +714,7 @@ const char *bus_errno_to_dbus(int error) {
 }
 
 DBusHandlerResult bus_send_error_reply(DBusConnection *c, DBusMessage *message, DBusError *berror, int error) {
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         const char *name, *text;
 
         if (berror && dbus_error_is_set(berror)) {
@@ -731,13 +725,12 @@ DBusHandlerResult bus_send_error_reply(DBusConnection *c, DBusMessage *message, 
                 text = strerror(-error);
         }
 
-        if (!(reply = dbus_message_new_error(message, name, text)))
+        reply = dbus_message_new_error(message, name, text);
+        if (!reply)
                 goto oom;
 
         if (!dbus_connection_send(c, reply, NULL))
                 goto oom;
-
-        dbus_message_unref(reply);
 
         if (berror)
                 dbus_error_free(berror);
@@ -896,7 +889,8 @@ int bus_parse_strv_iter(DBusMessageIter *iter, char ***_l) {
                 dbus_message_iter_next(&sub);
         }
 
-        if (!(l = new(char*, n+1)))
+        l = new(char*, n+1);
+        if (!l)
                 return -ENOMEM;
 
         dbus_message_iter_recurse(iter, &sub);
@@ -1126,7 +1120,7 @@ static void release_name_pending_cb(DBusPendingCall *pending, void *userdata) {
 }
 
 void bus_async_unregister_and_exit(DBusConnection *bus, const char *name) {
-        DBusMessage *m = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
         DBusPendingCall *pending = NULL;
 
         assert(bus);
@@ -1156,7 +1150,6 @@ void bus_async_unregister_and_exit(DBusConnection *bus, const char *name) {
         if (!dbus_pending_call_set_notify(pending, release_name_pending_cb, bus, NULL))
                 goto oom;
 
-        dbus_message_unref(m);
         dbus_pending_call_unref(pending);
 
         return;
@@ -1168,9 +1161,6 @@ oom:
                 dbus_pending_call_cancel(pending);
                 dbus_pending_call_unref(pending);
         }
-
-        if (m)
-                dbus_message_unref(m);
 }
 
 DBusHandlerResult bus_exit_idle_filter(DBusConnection *bus, DBusMessage *m, void *userdata) {
@@ -1195,7 +1185,7 @@ pid_t bus_get_unix_process_id(
                 const char *name,
                 DBusError *error) {
 
-        DBusMessage *m = NULL, *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
         uint32_t pid = 0;
 
         m = dbus_message_new_method_call(
@@ -1205,7 +1195,7 @@ pid_t bus_get_unix_process_id(
                         "GetConnectionUnixProcessID");
         if (!m) {
                 dbus_set_error_const(error, DBUS_ERROR_NO_MEMORY, NULL);
-                goto finish;
+                return 0;
         }
 
         if (!dbus_message_append_args(
@@ -1213,28 +1203,21 @@ pid_t bus_get_unix_process_id(
                             DBUS_TYPE_STRING, &name,
                             DBUS_TYPE_INVALID)) {
                 dbus_set_error_const(error, DBUS_ERROR_NO_MEMORY, NULL);
-                goto finish;
+                return 0;
         }
 
         reply = dbus_connection_send_with_reply_and_block(connection, m, -1, error);
         if (!reply)
-                goto finish;
+                return 0;
 
         if (dbus_set_error_from_message(error, reply))
-                goto finish;
+                return 0;
 
         if (!dbus_message_get_args(
                             reply, error,
                             DBUS_TYPE_UINT32, &pid,
                             DBUS_TYPE_INVALID))
-                goto finish;
-
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
+                return 0;
 
         return (pid_t) pid;
 }
@@ -1265,7 +1248,8 @@ int bus_method_call_with_reply(
                 int first_arg_type, ...) {
 
         DBusError error;
-        DBusMessage *m, *reply;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
+        DBusMessage *reply;
         va_list ap;
         int r = 0;
 
@@ -1308,9 +1292,6 @@ int bus_method_call_with_reply(
                 dbus_message_unref(reply);
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         if (return_error)
                 *return_error = error;
         else
@@ -1319,8 +1300,27 @@ finish:
         return r;
 }
 
+void bus_message_unrefp(DBusMessage **reply) {
+        if (!reply)
+                return;
 
-void dbus_message_unref_p(DBusMessage **reply) {
-        if (*reply)
-                dbus_message_unref(*reply);
+        if (!*reply)
+                return;
+
+        dbus_message_unref(*reply);
+}
+
+const char *bus_message_get_sender_with_fallback(DBusMessage *m) {
+        const char *s;
+
+        assert(m);
+
+        s = dbus_message_get_sender(m);
+        if (s)
+                return s;
+
+        /* When the message came in from a direct connection the
+         * message will have no sender. We fix that here. */
+
+        return ":no-sender";
 }

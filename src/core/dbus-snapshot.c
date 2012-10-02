@@ -22,6 +22,7 @@
 #include "dbus-unit.h"
 #include "dbus-snapshot.h"
 #include "dbus-common.h"
+#include "selinux-access.h"
 
 #define BUS_SNAPSHOT_INTERFACE                                          \
         " <interface name=\"org.freedesktop.systemd1.Snapshot\">\n"     \
@@ -52,17 +53,19 @@ static const BusProperty bus_snapshot_properties[] = {
 
 DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Snapshot *s = SNAPSHOT(u);
-
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         DBusError error;
 
         dbus_error_init(&error);
 
         if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Snapshot", "Remove")) {
 
+                SELINUX_UNIT_ACCESS_CHECK(u, c, message, "stop");
+
                 snapshot_remove(SNAPSHOT(u));
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
         } else {
@@ -71,22 +74,20 @@ DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusConnection *c, DBusM
                         { "org.freedesktop.systemd1.Snapshot", bus_snapshot_properties, s },
                         { NULL, }
                 };
+
+                SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
+
                 return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
         }
 
         if (reply) {
                 if (!dbus_connection_send(c, reply, NULL))
                         goto oom;
-
-                dbus_message_unref(reply);
         }
 
         return DBUS_HANDLER_RESULT_HANDLED;
 
 oom:
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;

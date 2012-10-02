@@ -25,6 +25,7 @@
 #include "dbus-timer.h"
 #include "dbus-execute.h"
 #include "dbus-common.h"
+#include "selinux-access.h"
 
 #define BUS_TIMER_INTERFACE                                             \
         " <interface name=\"org.freedesktop.systemd1.Timer\">\n"        \
@@ -132,6 +133,8 @@ DBusHandlerResult bus_timer_message_handler(Unit *u, DBusConnection *c, DBusMess
                 { "org.freedesktop.systemd1.Timer", bus_timer_properties, t },
                 { NULL, }
         };
+
+        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
 
         return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
 }

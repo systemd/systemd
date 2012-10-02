@@ -34,6 +34,7 @@
 #include "watchdog.h"
 #include "hwclock.h"
 #include "path-util.h"
+#include "dbus-unit.h"
 
 #define BUS_MANAGER_INTERFACE_BEGIN                                     \
         " <interface name=\"org.freedesktop.systemd1.Manager\">\n"
@@ -424,20 +425,6 @@ static int bus_manager_append_progress(DBusMessageIter *i, const char *property,
         return 0;
 }
 
-static const char *message_get_sender_with_fallback(DBusMessage *m) {
-        const char *s;
-
-        assert(m);
-
-        if ((s = dbus_message_get_sender(m)))
-                return s;
-
-        /* When the message came in from a direct connection the
-         * message will have no sender. We fix that here. */
-
-        return ":no-sender";
-}
-
 static DBusMessage *message_from_file_changes(
                 DBusMessage *m,
                 UnitFileChange *changes,
@@ -562,12 +549,11 @@ static const BusProperty bus_manager_properties[] = {
 };
 
 static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection, DBusMessage *message, void *data) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        _cleanup_free_ char * path = NULL;
         Manager *m = data;
-
         int r;
         DBusError error;
-        DBusMessage *reply = NULL;
-        char * path = NULL;
         JobType job_type = _JOB_TYPE_INVALID;
         bool reload_if_possible = false;
         const char *member;
@@ -579,9 +565,6 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         dbus_error_init(&error);
 
         member = dbus_message_get_member(message);
-        r = selinux_manager_access_check(connection, message, m, &error);
-        if (r < 0)
-                return bus_send_error_reply(connection, message, &error, r);
 
         if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnit")) {
                 const char *name;
@@ -594,15 +577,20 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if (!(u = manager_get_unit(m, name))) {
+                u = manager_get_unit(m, name);
+                if (!u) {
                         dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
                         return bus_send_error_reply(connection, message, &error, -ENOENT);
                 }
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
-                if (!(path = unit_dbus_path(u)))
+                path = unit_dbus_path(u);
+                if (!path)
                         goto oom;
 
                 if (!dbus_message_append_args(
@@ -621,15 +609,20 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if (!(u = cgroup_unit_by_pid(m, (pid_t) pid))) {
+                u = cgroup_unit_by_pid(m, (pid_t) pid);
+                if (!u) {
                         dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "No unit for PID %lu is loaded.", (unsigned long) pid);
                         return bus_send_error_reply(connection, message, &error, -ENOENT);
                 }
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
-                if (!(path = unit_dbus_path(u)))
+                path = unit_dbus_path(u);
+                if (!reply)
                         goto oom;
 
                 if (!dbus_message_append_args(
@@ -648,13 +641,18 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if ((r = manager_load_unit(m, name, NULL, &error, &u)) < 0)
+                r = manager_load_unit(m, name, NULL, &error, &u);
+                if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
-                if (!(path = unit_dbus_path(u)))
+                path = unit_dbus_path(u);
+                if (!path)
                         goto oom;
 
                 if (!dbus_message_append_args(
@@ -713,6 +711,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         return bus_send_error_reply(connection, message, &error, -ENOENT);
                 }
 
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
+
                 r = unit_kill(u, who, signo, &error);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -731,15 +731,20 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if (!(j = manager_get_job(m, id))) {
+                j = manager_get_job(m, id);
+                if (!j) {
                         dbus_set_error(&error, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
                         return bus_send_error_reply(connection, message, &error, -ENOENT);
                 }
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                SELINUX_UNIT_ACCESS_CHECK(j->unit, connection, message, "status");
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
-                if (!(path = job_dbus_path(j)))
+                path = job_dbus_path(j);
+                if (!path)
                         goto oom;
 
                 if (!dbus_message_append_args(
@@ -750,16 +755,22 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ClearJobs")) {
 
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "reboot");
+
                 manager_clear_jobs(m);
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetFailed")) {
 
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "reload");
+
                 manager_reset_failed(m);
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetFailedUnit")) {
@@ -773,14 +784,18 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if (!(u = manager_get_unit(m, name))) {
+                u = manager_get_unit(m, name);
+                if (!u) {
                         dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
                         return bus_send_error_reply(connection, message, &error, -ENOENT);
                 }
 
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "reload");
+
                 unit_reset_failed(u);
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ListUnits")) {
@@ -789,7 +804,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 Unit *u;
                 const char *k;
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "status");
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
                 dbus_message_iter_init_append(reply, &iter);
@@ -818,7 +836,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         f = unit_following(u);
                         following = f ? f->id : "";
 
-                        if (!(u_path = unit_dbus_path(u)))
+                        u_path = unit_dbus_path(u);
+                        if (!u_path)
                                 goto oom;
 
                         if (u->job) {
@@ -868,7 +887,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 Iterator i;
                 Job *j;
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "status");
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
                 dbus_message_iter_init_append(reply, &iter);
@@ -889,10 +911,12 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         state = job_state_to_string(j->state);
                         type = job_type_to_string(j->type);
 
-                        if (!(j_path = job_dbus_path(j)))
+                        j_path = job_dbus_path(j);
+                        if (!j_path)
                                 goto oom;
 
-                        if (!(u_path = unit_dbus_path(j->unit))) {
+                        u_path = unit_dbus_path(j->unit);
+                        if (!u_path) {
                                 free(j_path);
                                 goto oom;
                         }
@@ -922,38 +946,49 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 char *client;
                 Set *s;
 
-                if (!(s = BUS_CONNECTION_SUBSCRIBED(m, connection))) {
-                        if (!(s = set_new(string_hash_func, string_compare_func)))
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "status");
+
+                s = BUS_CONNECTION_SUBSCRIBED(m, connection);
+                if (!s) {
+                        s = set_new(string_hash_func, string_compare_func);
+                        if (!s)
                                 goto oom;
 
-                        if (!(dbus_connection_set_data(connection, m->subscribed_data_slot, s, NULL))) {
+                        if (!dbus_connection_set_data(connection, m->subscribed_data_slot, s, NULL)) {
                                 set_free(s);
                                 goto oom;
                         }
                 }
 
-                if (!(client = strdup(message_get_sender_with_fallback(message))))
+                client = strdup(bus_message_get_sender_with_fallback(message));
+                if (!client)
                         goto oom;
 
-                if ((r = set_put(s, client)) < 0) {
+                r = set_put(s, client);
+                if (r < 0) {
                         free(client);
                         return bus_send_error_reply(connection, message, NULL, r);
                 }
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Unsubscribe")) {
                 char *client;
 
-                if (!(client = set_remove(BUS_CONNECTION_SUBSCRIBED(m, connection), (char*) message_get_sender_with_fallback(message)))) {
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "status");
+
+                client = set_remove(BUS_CONNECTION_SUBSCRIBED(m, connection), (char*) bus_message_get_sender_with_fallback(message));
+                if (!client) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUBSCRIBED, "Client is not subscribed.");
                         return bus_send_error_reply(connection, message, &error, -ENOENT);
                 }
 
                 free(client);
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Dump")) {
@@ -961,10 +996,14 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 char *dump = NULL;
                 size_t size;
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "status");
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
-                if (!(f = open_memstream(&dump, &size)))
+                f = open_memstream(&dump, &size);
+                if (!f)
                         goto oom;
 
                 manager_dump_units(m, f, NULL);
@@ -989,6 +1028,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 dbus_bool_t cleanup;
                 Snapshot *s;
 
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "start");
+
                 if (!dbus_message_get_args(
                                     message,
                                     &error,
@@ -997,16 +1038,19 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if (name && name[0] == 0)
+                if (isempty(name))
                         name = NULL;
 
-                if ((r = snapshot_create(m, name, cleanup, &error, &s)) < 0)
+                r = snapshot_create(m, name, cleanup, &error, &s);
+                if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
-                if (!(path = unit_dbus_path(UNIT(s))))
+                path = unit_dbus_path(UNIT(s));
+                if (!path)
                         goto oom;
 
                 if (!dbus_message_append_args(
@@ -1024,7 +1068,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 const char *k;
                 size_t size;
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "status");
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
                 /* We roll our own introspection code here, instead of
@@ -1032,7 +1079,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                  * need to generate our introspection string
                  * dynamically. */
 
-                if (!(f = open_memstream(&introspection, &size)))
+                f = open_memstream(&introspection, &size);
+                if (!f)
                         goto oom;
 
                 fputs(INTROSPECTION_BEGIN, f);
@@ -1043,7 +1091,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         if (k != u->id)
                                 continue;
 
-                        if (!(p = bus_path_escape(k))) {
+                        p = bus_path_escape(k);
+                        if (!p) {
                                 fclose(f);
                                 free(introspection);
                                 goto oom;
@@ -1078,6 +1127,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reload")) {
 
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "reload");
+
                 assert(!m->queued_message);
 
                 /* Instead of sending the reply back right away, we
@@ -1085,13 +1136,16 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                  * after the reload is finished. That way the caller
                  * knows when the reload finished. */
 
-                if (!(m->queued_message = dbus_message_new_method_return(message)))
+                m->queued_message = dbus_message_new_method_return(message);
+                if (!m->queued_message)
                         goto oom;
 
                 m->queued_message_connection = connection;
                 m->exit_code = MANAGER_RELOAD;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reexecute")) {
+
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "reload");
 
                 /* We don't send a reply back here, the client should
                  * just wait for us disconnecting. */
@@ -1100,60 +1154,75 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Exit")) {
 
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "halt");
+
                 if (m->running_as == SYSTEMD_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for user service managers.");
                         return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
                 m->exit_code = MANAGER_EXIT;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reboot")) {
 
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "reboot");
+
                 if (m->running_as != SYSTEMD_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Reboot is only supported for system managers.");
                         return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
                 m->exit_code = MANAGER_REBOOT;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "PowerOff")) {
 
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "halt");
+
                 if (m->running_as != SYSTEMD_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Powering off is only supported for system managers.");
                         return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
                 m->exit_code = MANAGER_POWEROFF;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Halt")) {
 
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "halt");
+
                 if (m->running_as != SYSTEMD_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Halting is only supported for system managers.");
                         return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
                 m->exit_code = MANAGER_HALT;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "KExec")) {
 
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "reboot");
+
                 if (m->running_as != SYSTEMD_SYSTEM) {
                         dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "kexec is only supported for system managers.");
                         return bus_send_error_reply(connection, message, &error, -ENOTSUP);
                 }
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
                 m->exit_code = MANAGER_KEXEC;
@@ -1162,6 +1231,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 const char *switch_root, *switch_root_init;
                 char *u, *v;
                 int k;
+
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "reboot");
 
                 if (!dbus_message_get_args(
                                     message,
@@ -1225,20 +1296,21 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetEnvironment")) {
                 char **l = NULL, **e = NULL;
 
-                if ((r = bus_parse_strv(message, &l)) < 0) {
-                        if (r == -ENOMEM)
-                                goto oom;
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "reboot");
 
+                r = bus_parse_strv(message, &l);
+                if (r == -ENOMEM)
+                        goto oom;
+                if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
-                }
 
                 e = strv_env_merge(2, m->environment, l);
                 strv_free(l);
-
                 if (!e)
                         goto oom;
 
-                if (!(reply = dbus_message_new_method_return(message))) {
+                reply = dbus_message_new_method_return(message);
+                if (!reply) {
                         strv_free(e);
                         goto oom;
                 }
@@ -1249,12 +1321,13 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetEnvironment")) {
                 char **l = NULL, **e = NULL;
 
-                if ((r = bus_parse_strv(message, &l)) < 0) {
-                        if (r == -ENOMEM)
-                                goto oom;
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "reboot");
 
+                r = bus_parse_strv(message, &l);
+                if (r == -ENOMEM)
+                        goto oom;
+                if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
-                }
 
                 e = strv_env_delete(m->environment, 1, l);
                 strv_free(l);
@@ -1274,16 +1347,16 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 char **l_set = NULL, **l_unset = NULL, **e = NULL, **f = NULL;
                 DBusMessageIter iter;
 
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "reboot");
+
                 if (!dbus_message_iter_init(message, &iter))
                         goto oom;
 
                 r = bus_parse_strv_iter(&iter, &l_unset);
-                if (r < 0) {
-                        if (r == -ENOMEM)
-                                goto oom;
-
+                if (r == -ENOMEM)
+                        goto oom;
+                if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
-                }
 
                 if (!dbus_message_iter_next(&iter)) {
                         strv_free(l_unset);
@@ -1326,6 +1399,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 Hashmap *h;
                 Iterator i;
                 UnitFileList *item;
+
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "status");
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
@@ -1374,6 +1449,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 UnitFileState state;
                 const char *s;
 
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "status");
+
                 if (!dbus_message_get_args(
                                     message,
                                     &error,
@@ -1410,6 +1487,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 unsigned n_changes = 0;
                 dbus_bool_t runtime, force;
                 int carries_install_info = -1;
+
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, streq(member, "MaskUnitFiles") ? "disable" : "enable");
 
                 if (!dbus_message_iter_init(message, &iter))
                         goto oom;
@@ -1469,6 +1548,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 unsigned n_changes = 0;
                 dbus_bool_t runtime;
 
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, streq(member, "UnmaskUnitFiles") ? "enable" : "disable");
+
                 if (!dbus_message_iter_init(message, &iter))
                         goto oom;
 
@@ -1513,16 +1594,17 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         { "org.freedesktop.systemd1.Manager", bus_manager_properties, m },
                         { NULL, }
                 };
+
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "status");
+
                 return bus_default_message_handler(connection, message, NULL, INTERFACES_LIST, bps);
         }
 
         if (job_type != _JOB_TYPE_INVALID) {
                 const char *name, *smode, *old_name = NULL;
                 JobMode mode;
-                Job *j;
-                JobBusClient *cl;
                 Unit *u;
-                bool b;
+                dbus_bool_t b;
 
                 if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartUnitReplace"))
                         b = dbus_message_get_args(
@@ -1539,86 +1621,37 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                         DBUS_TYPE_STRING, &name,
                                         DBUS_TYPE_STRING, &smode,
                                         DBUS_TYPE_INVALID);
-
                 if (!b)
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if (old_name)
-                        if (!(u = manager_get_unit(m, old_name)) ||
-                            !u->job ||
-                            u->job->type != JOB_START) {
+                if (old_name) {
+                        u = manager_get_unit(m, old_name);
+                        if (!u || !u->job || u->job->type != JOB_START) {
                                 dbus_set_error(&error, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
                                 return bus_send_error_reply(connection, message, &error, -ENOENT);
                         }
+                }
 
-
-                if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID) {
+                mode = job_mode_from_string(smode);
+                if (mode < 0) {
                         dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
                 }
 
-                if ((r = manager_load_unit(m, name, NULL, &error, &u)) < 0)
+                r = manager_load_unit(m, name, NULL, &error, &u);
+                if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                if (reload_if_possible && unit_can_reload(u)) {
-                        if (job_type == JOB_RESTART)
-                                job_type = JOB_RELOAD_OR_START;
-                        else if (job_type == JOB_TRY_RESTART)
-                                job_type = JOB_RELOAD;
-                }
-
-                if (job_type == JOB_STOP && u->load_state == UNIT_ERROR && unit_active_state(u) == UNIT_INACTIVE) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -EPERM);
-                }
-
-                if ((job_type == JOB_START && u->refuse_manual_start) ||
-                    (job_type == JOB_STOP && u->refuse_manual_stop) ||
-                    ((job_type == JOB_RESTART || job_type == JOB_TRY_RESTART) &&
-                     (u->refuse_manual_start || u->refuse_manual_stop))) {
-                        dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, may be requested by dependency only.");
-                        return bus_send_error_reply(connection, message, &error, -EPERM);
-                }
-
-                if ((r = manager_add_job(m, job_type, u, mode, true, &error, &j)) < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                cl = job_bus_client_new(connection, message_get_sender_with_fallback(message));
-                if (!cl)
-                        goto oom;
-
-                LIST_PREPEND(JobBusClient, client, j->bus_client_list, cl);
-
-                if (!(reply = dbus_message_new_method_return(message)))
-                        goto oom;
-
-                if (!(path = job_dbus_path(j)))
-                        goto oom;
-
-                if (!dbus_message_append_args(
-                                    reply,
-                                    DBUS_TYPE_OBJECT_PATH, &path,
-                                    DBUS_TYPE_INVALID))
-                        goto oom;
+                return bus_unit_queue_job(connection, message, u, job_type, mode, reload_if_possible);
         }
 
-        if (reply) {
+        if (reply)
                 if (!dbus_connection_send(connection, reply, NULL))
                         goto oom;
-
-                dbus_message_unref(reply);
-        }
-
-        free(path);
 
         return DBUS_HANDLER_RESULT_HANDLED;
 
 oom:
-        free(path);
-
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;

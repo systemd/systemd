@@ -26,6 +26,7 @@
 #include "dbus-kill.h"
 #include "dbus-execute.h"
 #include "dbus-common.h"
+#include "selinux-access.h"
 
 #define BUS_MOUNT_INTERFACE                                             \
         " <interface name=\"org.freedesktop.systemd1.Mount\">\n"        \
@@ -160,6 +161,8 @@ DBusHandlerResult bus_mount_message_handler(Unit *u, DBusConnection *c, DBusMess
                 { "org.freedesktop.systemd1.Mount", bus_kill_context_properties, &m->kill_context },
                 { NULL, }
         };
+
+        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
 
         return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps );
 }

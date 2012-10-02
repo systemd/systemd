@@ -214,5 +214,8 @@ int bus_method_call_with_reply(DBusConnection *bus,
                                DBusError *return_error,
                                int first_arg_type, ...);
 
-void dbus_message_unref_p(DBusMessage **reply);
-#define _cleanup_dbus_msg_unref_ __attribute__((cleanup(dbus_message_unref_p)))
+const char *bus_message_get_sender_with_fallback(DBusMessage *m);
+
+void bus_message_unrefp(DBusMessage **reply);
+
+#define _cleanup_dbus_message_unref_ __attribute__((cleanup(bus_message_unrefp)))

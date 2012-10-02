@@ -25,6 +25,7 @@
 #include "log.h"
 #include "dbus-job.h"
 #include "dbus-common.h"
+#include "selinux-access.h"
 
 #define BUS_JOB_INTERFACE                                             \
         " <interface name=\"org.freedesktop.systemd1.Job\">\n"        \
@@ -68,7 +69,8 @@ static int bus_job_append_unit(DBusMessageIter *i, const char *property, void *d
         if (!dbus_message_iter_open_container(i, DBUS_TYPE_STRUCT, NULL, &sub))
                 return -ENOMEM;
 
-        if (!(p = unit_dbus_path(j->unit)))
+        p = unit_dbus_path(j->unit);
+        if (!p)
                 return -ENOMEM;
 
         if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &j->unit->id) ||
@@ -94,43 +96,39 @@ static const BusProperty bus_job_properties[] = {
 };
 
 static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusConnection *connection, DBusMessage *message) {
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
 
         if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Job", "Cancel")) {
-                if (!(reply = dbus_message_new_method_return(message)))
-                        goto oom;
+
+                SELINUX_UNIT_ACCESS_CHECK(j->unit, connection, message, "stop");
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
                 job_finish_and_invalidate(j, JOB_CANCELED, true);
-
         } else {
                 const BusBoundProperties bps[] = {
                         { "org.freedesktop.systemd1.Job", bus_job_properties, j },
                         { NULL, }
                 };
+
+                SELINUX_UNIT_ACCESS_CHECK(j->unit, connection, message, "status");
+
                 return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
         }
 
-        if (reply) {
-                if (!dbus_connection_send(connection, reply, NULL))
-                        goto oom;
-
-                dbus_message_unref(reply);
-        }
+        if (!dbus_connection_send(connection, reply, NULL))
+                return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
         return DBUS_HANDLER_RESULT_HANDLED;
-
-oom:
-        if (reply)
-                dbus_message_unref(reply);
-
-        return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
 static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBusMessage  *message, void *data) {
         Manager *m = data;
         Job *j;
         int r;
-        DBusMessage *reply;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
 
         assert(connection);
         assert(message);
@@ -145,7 +143,10 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBu
                         Iterator i;
                         size_t size;
 
-                        if (!(reply = dbus_message_new_method_return(message)))
+                        SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "status");
+
+                        reply = dbus_message_new_method_return(message);
+                        if (!reply)
                                 goto oom;
 
                         /* We roll our own introspection code here, instead of
@@ -153,7 +154,8 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBu
                          * need to generate our introspection string
                          * dynamically. */
 
-                        if (!(f = open_memstream(&introspection, &size)))
+                        f = open_memstream(&introspection, &size);
+                        if (!f)
                                 goto oom;
 
                         fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
@@ -188,36 +190,28 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBu
                         if (!dbus_connection_send(connection, reply, NULL))
                                 goto oom;
 
-                        dbus_message_unref(reply);
-
                         return DBUS_HANDLER_RESULT_HANDLED;
                 }
 
                 return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
         }
 
-        if ((r = manager_get_job_from_dbus_path(m, dbus_message_get_path(message), &j)) < 0) {
+        r = manager_get_job_from_dbus_path(m, dbus_message_get_path(message), &j);
+        if (r == -ENOMEM)
+                goto oom;
+        if (r == -ENOENT) {
+                DBusError e;
 
-                if (r == -ENOMEM)
-                        return DBUS_HANDLER_RESULT_NEED_MEMORY;
-
-                if (r == -ENOENT) {
-                        DBusError e;
-
-                        dbus_error_init(&e);
-                        dbus_set_error_const(&e, DBUS_ERROR_UNKNOWN_OBJECT, "Unknown job");
-                        return bus_send_error_reply(connection, message, &e, r);
-                }
-
-                return bus_send_error_reply(connection, message, NULL, r);
+                dbus_error_init(&e);
+                dbus_set_error_const(&e, DBUS_ERROR_UNKNOWN_OBJECT, "Unknown job");
+                return bus_send_error_reply(connection, message, &e, r);
         }
+        if (r < 0)
+                return bus_send_error_reply(connection, message, NULL, r);
 
         return bus_job_message_dispatch(j, connection, message);
 
 oom:
-        if (reply)
-                dbus_message_unref(reply);
-
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 

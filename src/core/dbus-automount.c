@@ -24,6 +24,7 @@
 #include "dbus-unit.h"
 #include "dbus-automount.h"
 #include "dbus-common.h"
+#include "selinux-access.h"
 
 #define BUS_AUTOMOUNT_INTERFACE                                      \
         " <interface name=\"org.freedesktop.systemd1.Automount\">\n" \
@@ -67,6 +68,8 @@ DBusHandlerResult bus_automount_message_handler(Unit *u, DBusConnection *c, DBus
                 { "org.freedesktop.systemd1.Automount", bus_automount_properties, am },
                 { NULL, }
         };
+
+        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
 
         return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
 }

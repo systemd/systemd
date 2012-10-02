@@ -22,6 +22,7 @@
 #include "dbus-unit.h"
 #include "dbus-device.h"
 #include "dbus-common.h"
+#include "selinux-access.h"
 
 #define BUS_DEVICE_INTERFACE                                            \
         " <interface name=\"org.freedesktop.systemd1.Device\">\n"       \
@@ -60,6 +61,8 @@ DBusHandlerResult bus_device_message_handler(Unit *u, DBusConnection *c, DBusMes
                 { "org.freedesktop.systemd1.Device", bus_device_properties, d },
                 { NULL, }
         };
+
+        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
 
         return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
 }

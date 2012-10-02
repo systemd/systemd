@@ -1445,7 +1445,7 @@ static void check_triggering_units(
                 DBusConnection *bus,
                 const char *unit_name) {
 
-        DBusMessage _cleanup_dbus_msg_unref_ *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         DBusMessageIter iter, sub;
         char *service_trigger = NULL;
         const char *interface = "org.freedesktop.systemd1.Unit",
@@ -1523,7 +1523,7 @@ static int start_unit_one(
                 DBusError *error,
                 Set *s) {
 
-        DBusMessage _cleanup_dbus_msg_unref_ *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         const char *path;
         int r;
         _cleanup_free_ char *n, *p = NULL;

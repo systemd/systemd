@@ -406,24 +406,13 @@ static int bus_unit_append_load_error(DBusMessageIter *i, const char *property, 
 }
 
 static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *connection, DBusMessage *message) {
-        DBusMessage *reply = NULL;
-        Manager *m = u->manager;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         DBusError error;
         JobType job_type = _JOB_TYPE_INVALID;
-        char *path = NULL;
         bool reload_if_possible = false;
         int r;
 
         dbus_error_init(&error);
-
-        r = selinux_unit_access_check(
-                connection,
-                message,
-                m,
-                u->source_path ? u->source_path : u->fragment_path,
-                &error);
-        if (r < 0)
-                return bus_send_error_reply(connection, message, &error, r);
 
         if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "Start"))
                 job_type = JOB_START;
@@ -465,6 +454,8 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 if (signo <= 0 || signo >= _NSIG)
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
+
                 r = unit_kill(u, who, signo, &error);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -475,9 +466,12 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ResetFailed")) {
 
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "reload");
+
                 unit_reset_failed(u);
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
         } else if (UNIT_VTABLE(u)->bus_message_handler)
@@ -488,15 +482,6 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
         if (job_type != _JOB_TYPE_INVALID) {
                 const char *smode;
                 JobMode mode;
-                Job *j;
-
-                if ((job_type == JOB_START && u->refuse_manual_start) ||
-                    (job_type == JOB_STOP && u->refuse_manual_stop) ||
-                    ((job_type == JOB_RESTART || job_type == JOB_TRY_RESTART) &&
-                     (u->refuse_manual_start || u->refuse_manual_stop))) {
-                        dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, may be requested by dependency only.");
-                        return bus_send_error_reply(connection, message, &error, -EPERM);
-                }
 
                 if (!dbus_message_get_args(
                                     message,
@@ -505,53 +490,23 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if (reload_if_possible && unit_can_reload(u)) {
-                        if (job_type == JOB_RESTART)
-                                job_type = JOB_RELOAD_OR_START;
-                        else if (job_type == JOB_TRY_RESTART)
-                                job_type = JOB_RELOAD;
-                }
-
-                if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID) {
+                mode = job_mode_from_string(smode);
+                if (mode < 0) {
                         dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
                 }
 
-                if ((r = manager_add_job(m, job_type, u, mode, true, &error, &j)) < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                if (!(reply = dbus_message_new_method_return(message)))
-                        goto oom;
-
-                if (!(path = job_dbus_path(j)))
-                        goto oom;
-
-                if (!dbus_message_append_args(
-                                    reply,
-                                    DBUS_TYPE_OBJECT_PATH, &path,
-                                    DBUS_TYPE_INVALID))
-                        goto oom;
+                return bus_unit_queue_job(connection, message, u, job_type, mode, reload_if_possible);
         }
 
-        if (reply) {
+        if (reply)
                 if (!dbus_connection_send(connection, reply, NULL))
                         goto oom;
-
-                dbus_message_unref(reply);
-        }
-
-        free(path);
 
         return DBUS_HANDLER_RESULT_HANDLED;
 
 oom:
-        free(path);
-
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
-
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
@@ -559,7 +514,7 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
         Manager *m = data;
         Unit *u;
         int r;
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         DBusError error;
 
         assert(connection);
@@ -571,6 +526,8 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
         if (streq(dbus_message_get_path(message), "/org/freedesktop/systemd1/unit")) {
                 /* Be nice to gdbus and return introspection data for our mid-level paths */
 
+                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "status");
+
                 if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
                         char *introspection = NULL;
                         FILE *f;
@@ -578,7 +535,8 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
                         const char *k;
                         size_t size;
 
-                        if (!(reply = dbus_message_new_method_return(message)))
+                        reply = dbus_message_new_method_return(message);
+                        if (!reply)
                                 goto oom;
 
                         /* We roll our own introspection code here, instead of
@@ -586,7 +544,8 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
                          * need to generate our introspection string
                          * dynamically. */
 
-                        if (!(f = open_memstream(&introspection, &size)))
+                        f = open_memstream(&introspection, &size);
+                        if (!f)
                                 goto oom;
 
                         fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
@@ -601,7 +560,8 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
                                 if (k != u->id)
                                         continue;
 
-                                if (!(p = bus_path_escape(k))) {
+                                p = bus_path_escape(k);
+                                if (!p) {
                                         fclose(f);
                                         free(introspection);
                                         goto oom;
@@ -634,8 +594,6 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
                         if (!dbus_connection_send(connection, reply, NULL))
                                 goto oom;
 
-                        dbus_message_unref(reply);
-
                         return DBUS_HANDLER_RESULT_HANDLED;
                 }
 
@@ -643,19 +601,14 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
         }
 
         r = manager_load_unit_from_dbus_path(m, dbus_message_get_path(message), &error, &u);
-        if (r < 0) {
-                if (r == -ENOMEM)
-                        goto oom;
-
+        if (r == -ENOMEM)
+                goto oom;
+        if (r < 0)
                 return bus_send_error_reply(connection, message, &error, r);
-        }
 
         return bus_unit_message_dispatch(u, connection, message);
 
 oom:
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -783,6 +736,87 @@ oom:
                 dbus_message_unref(m);
 
         log_error("Failed to allocate unit remove signal.");
+}
+
+DBusHandlerResult bus_unit_queue_job(
+                DBusConnection *connection,
+                DBusMessage *message,
+                Unit *u,
+                JobType type,
+                JobMode mode,
+                bool reload_if_possible) {
+
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        _cleanup_free_ char *path = NULL;
+        Job *j;
+        JobBusClient *cl;
+        DBusError error;
+        int r;
+
+        assert(connection);
+        assert(message);
+        assert(u);
+        assert(type >= 0 && type < _JOB_TYPE_MAX);
+        assert(mode >= 0 && mode < _JOB_MODE_MAX);
+
+        dbus_error_init(&error);
+
+        if (reload_if_possible && unit_can_reload(u)) {
+                if (type == JOB_RESTART)
+                        type = JOB_RELOAD_OR_START;
+                else if (type == JOB_TRY_RESTART)
+                        type = JOB_RELOAD;
+        }
+
+        SELINUX_UNIT_ACCESS_CHECK(u, connection, message,
+                                  (type == JOB_START || type == JOB_RESTART || type == JOB_TRY_RESTART) ? "start" :
+                                  type == JOB_STOP ? "stop" : "reload");
+
+        if (type == JOB_STOP && u->load_state == UNIT_ERROR && unit_active_state(u) == UNIT_INACTIVE) {
+                dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
+                return bus_send_error_reply(connection, message, &error, -EPERM);
+        }
+
+        if ((type == JOB_START && u->refuse_manual_start) ||
+            (type == JOB_STOP && u->refuse_manual_stop) ||
+            ((type == JOB_RESTART || type == JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop))) {
+                dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only.", u->id);
+                return bus_send_error_reply(connection, message, &error, -EPERM);
+        }
+
+        r = manager_add_job(u->manager, type, u, mode, true, &error, &j);
+        if (r < 0)
+                return bus_send_error_reply(connection, message, &error, r);
+
+        cl = job_bus_client_new(connection, bus_message_get_sender_with_fallback(message));
+        if (!cl)
+                goto oom;
+
+        LIST_PREPEND(JobBusClient, client, j->bus_client_list, cl);
+
+        reply = dbus_message_new_method_return(message);
+        if (!reply)
+                goto oom;
+
+        path = job_dbus_path(j);
+        if (!path)
+                goto oom;
+
+        if (!dbus_message_append_args(
+                            reply,
+                            DBUS_TYPE_OBJECT_PATH, &path,
+                            DBUS_TYPE_INVALID))
+                goto oom;
+
+        if (!dbus_connection_send(connection, reply, NULL))
+                goto oom;
+
+        return DBUS_HANDLER_RESULT_HANDLED;
+
+oom:
+        dbus_error_free(&error);
+
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
 const BusProperty bus_unit_properties[] = {
