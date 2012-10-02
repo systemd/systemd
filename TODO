@@ -452,13 +452,10 @@ Features:
 
 * timer events with system resume
 
-* timer events on calendar time:
-        maybe use this time syntax? http://ohse.de/uwe/uschedule/uschedule.html
-
 * dot output for --test showing the 'initial transaction'
 
-* calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
-    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=99ee5315dac6211e972fa3f23bcc9a0343ff58c4
+* calendar time support in timer:
+    https://docs.google.com/document/pub?id=1bAMyFAjWLpzR3GTDYdgj5FWRMxoZiWw5zmUHEtvdHKA
 
 * implicitly import "defaults" settings file into all types
 
