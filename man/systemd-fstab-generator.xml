@@ -71,7 +71,7 @@
 
                 <para><filename>systemd-fstab-generator</filename>
                 implements the <ulink
-                url="http://www.freedesktop.org/wiki/Software/systemd/Generator">generator
+                url="http://www.freedesktop.org/wiki/Software/systemd/Generators">generator
                 specification</ulink>.</para>
         </refsect1>
 
