@@ -272,7 +272,7 @@
                                 container once with
                                 <literal>guest</literal> or
                                 <literal>host</literal> will link the
-                                journal persistantly if further one
+                                journal persistently if further one
                                 the default of <literal>auto</literal>
                                 is used.</para></listitem>
                         </varlistentry>

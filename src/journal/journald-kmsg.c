@@ -411,7 +411,7 @@ int server_open_kernel_seqnum(Server *s) {
 
         /* We store the seqnum we last read in an mmaped file. That
          * way we can just use it like a variable, but it is
-         * persistant and automatically flushed at reboot. */
+         * persistent and automatically flushed at reboot. */
 
         fd = open("/run/systemd/journal/kernel-seqnum", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
         if (fd < 0) {
