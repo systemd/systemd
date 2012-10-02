@@ -143,7 +143,7 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBu
                         Iterator i;
                         size_t size;
 
-                        SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "status");
+                        SELINUX_ACCESS_CHECK(connection, message, "status");
 
                         reply = dbus_message_new_method_return(message);
                         if (!reply)

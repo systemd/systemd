@@ -526,7 +526,7 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
         if (streq(dbus_message_get_path(message), "/org/freedesktop/systemd1/unit")) {
                 /* Be nice to gdbus and return introspection data for our mid-level paths */
 
-                SELINUX_MANAGER_ACCESS_CHECK(m, connection, message, "status");
+                SELINUX_ACCESS_CHECK(connection, message, "status");
 
                 if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
                         char *introspection = NULL;

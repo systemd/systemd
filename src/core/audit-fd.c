@@ -19,15 +19,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-#include <errno.h>
 
+#include <errno.h>
 #include "audit-fd.h"
-#include "log.h"
 
 #ifdef HAVE_AUDIT
 
+#include <stdbool.h>
 #include <libaudit.h>
+
+#include "log.h"
+#include "util.h"
 
 static bool initialized = false;
 static int audit_fd;

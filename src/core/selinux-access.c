@@ -19,30 +19,28 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "util.h"
-#include "job.h"
-#include "manager.h"
 #include "selinux-access.h"
 
 #ifdef HAVE_SELINUX
-#include "dbus.h"
-#include "log.h"
-#include "dbus-unit.h"
-#include "bus-errors.h"
-#include "dbus-common.h"
-#include "audit.h"
-#include "selinux-util.h"
-#include "audit-fd.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
 #include <selinux/selinux.h>
 #include <selinux/avc.h>
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
 #endif
-#include <limits.h>
+#include <dbus.h>
+
+#include "util.h"
+#include "log.h"
+#include "bus-errors.h"
+#include "dbus-common.h"
+#include "audit.h"
+#include "selinux-util.h"
+#include "audit-fd.h"
 
 static bool initialized = false;
 
@@ -210,7 +208,7 @@ static int access_init(void) {
         return r;
 }
 
-static int selinux_init(DBusError *error) {
+static int selinux_access_init(DBusError *error) {
         int r;
 
         if (initialized)
@@ -226,6 +224,14 @@ static int selinux_init(DBusError *error) {
 
         initialized = true;
         return 0;
+}
+
+void selinux_access_free(void) {
+        if (!initialized)
+                return;
+
+        avc_destroy();
+        initialized = false;
 }
 
 static int get_audit_data(
@@ -314,7 +320,7 @@ static int get_calling_context(
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-static int selinux_access_check(
+int selinux_access_check(
                 DBusConnection *connection,
                 DBusMessage *message,
                 const char *path,
@@ -331,12 +337,12 @@ static int selinux_access_check(
         assert(permission);
         assert(error);
 
-        r = selinux_init(error);
-        if (r < 0)
-                return r;
-
         if (!use_selinux())
                 return 0;
+
+        r = selinux_access_init(error);
+        if (r < 0)
+                return r;
 
         log_debug("SELinux access check for path=%s permission=%s", strna(path), permission);
 
@@ -398,69 +404,19 @@ finish:
         return r;
 }
 
-int selinux_unit_access_check(
-                Unit *u,
-                DBusConnection *connection,
-                DBusMessage *message,
-                const char *permission,
-                DBusError *error) {
-
-        assert(u);
-        assert(connection);
-        assert(message);
-        assert(permission);
-        assert(error);
-
-        return selinux_access_check(connection, message, u->source_path ? u->source_path : u->fragment_path, permission, error);
-}
-
-int selinux_manager_access_check(
-                Manager *m,
-                DBusConnection *connection,
-                DBusMessage *message,
-                const char *permission,
-                DBusError *error) {
-
-        assert(m);
-        assert(connection);
-        assert(message);
-        assert(permission);
-        assert(error);
-
-        return selinux_access_check(connection, message, NULL, permission, error);
-}
-
-void selinux_access_finish(void) {
-        if (!initialized)
-                return;
-
-        avc_destroy();
-        initialized = false;
-}
-
 #else
 
-int selinux_unit_access_check(
-                Unit *u,
+int selinux_access_check(
                 DBusConnection *connection,
                 DBusMessage *message,
+                const char *path,
                 const char *permission,
                 DBusError *error) {
 
         return 0;
 }
 
-int selinux_manager_access_check(
-                Manager *m,
-                DBusConnection *connection,
-                DBusMessage *message,
-                const char *permission,
-                DBusError *error) {
-
-        return 0;
-}
-
-void selinux_access_finish(void) {
+void selinux_access_free(void) {
 }
 
 #endif
