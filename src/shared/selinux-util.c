@@ -19,9 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <selinux/selinux.h>
-
 #include "selinux-util.h"
+
+#ifdef HAVE_SELINUX
+
+#include <selinux/selinux.h>
 
 static int use_selinux_cached = -1;
 
@@ -36,3 +38,5 @@ bool use_selinux(void) {
 void retest_selinux(void) {
         use_selinux_cached = -1;
 }
+
+#endif
