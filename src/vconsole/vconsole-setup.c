@@ -214,13 +214,6 @@ int main(int argc, char **argv) {
 
         utf8 = is_locale_utf8();
 
-        vc_keymap = strdup("us");
-
-        if (!vc_keymap) {
-                log_error("Failed to allocate string.");
-                goto finish;
-        }
-
         r = 0;
 
         if (detect_container(NULL) <= 0) {
