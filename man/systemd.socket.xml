@@ -170,8 +170,13 @@
 
                                 <para>If the address string is a
                                 single number it is read as port
-                                number to listen on for both IPv4 and
-                                IPv6.</para>
+                                number to listen on via
+                                IPv6. Depending on the value of
+                                <varname>BindIPv6Only=</varname> (see below) this
+                                might result in the service being
+                                available via both IPv6 and IPv4 (default) or
+                                just via IPv6.
+                                </para>
 
                                 <para>If the address string is a
                                 string in the format v.w.x.y:z it is
@@ -181,7 +186,12 @@
 
                                 <para>If the address string is a
                                 string in the format [x]:y it is read
-                                as IPv6 address x on a port y.</para>
+                                as IPv6 address x on a port y. Note
+                                that this might make the service
+                                available via IPv4, too, depending on
+                                the <varname>BindIPv6Only=</varname>
+                                setting (see below).
+                                </para>
 
                                 <para>Note that SOCK_SEQPACKET
                                 (i.e. <varname>ListenSequentialPacket=</varname>)
@@ -286,7 +296,10 @@
                                 default, surprise!) the system wide
                                 default setting is used, as controlled
                                 by
-                                <filename>/proc/sys/net/ipv6/bindv6only</filename>.</para>
+                                <filename>/proc/sys/net/ipv6/bindv6only</filename>,
+                                which in turn defaults to the
+                                equivalent of
+                                <option>both</option>.</para>
                                 </listitem>
                         </varlistentry>
 

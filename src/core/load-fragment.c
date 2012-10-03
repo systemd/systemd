@@ -326,10 +326,12 @@ int config_parse_socket_bind(
 
         s = SOCKET(data);
 
-        if ((b = socket_address_bind_ipv6_only_from_string(rvalue)) < 0) {
+        b = socket_address_bind_ipv6_only_from_string(rvalue);
+        if (b < 0) {
                 int r;
 
-                if ((r = parse_boolean(rvalue)) < 0) {
+                r = parse_boolean(rvalue);
+                if (r < 0) {
                         log_error("[%s:%u] Failed to parse bind IPv6 only value, ignoring: %s", filename, line, rvalue);
                         return 0;
                 }

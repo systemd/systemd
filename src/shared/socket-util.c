@@ -167,7 +167,8 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 } else {
 
                         /* Just a port */
-                        if ((r = safe_atou(s, &u)) < 0)
+                        r = safe_atou(s, &u);
+                        if (r < 0)
                                 return r;
 
                         if (u <= 0 || u > 0xFFFF)
