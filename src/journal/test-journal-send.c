@@ -24,6 +24,8 @@
 #include "log.h"
 
 int main(int argc, char *argv[]) {
+        char huge[4096*1024];
+
         log_set_max_level(LOG_DEBUG);
 
         sd_journal_print(LOG_INFO, "piepapo");
@@ -36,6 +38,14 @@ int main(int argc, char *argv[]) {
         sd_journal_perror("Foobar");
 
         sd_journal_perror("");
+
+        memset(huge, 'x', sizeof(huge));
+        memcpy(huge, "HUGE=", 5);
+        char_array_0(huge);
+
+        sd_journal_send("MESSAGE=Huge field attached",
+                        huge,
+                        NULL);
 
         return 0;
 }

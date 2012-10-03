@@ -24,6 +24,7 @@
 #include <sys/epoll.h>
 
 #include "socket-util.h"
+#include "path-util.h"
 #include "journald.h"
 #include "journald-native.h"
 #include "journald-kmsg.h"
@@ -281,11 +282,43 @@ void server_process_native_file(
                 const char *label, size_t label_len) {
 
         struct stat st;
-        void *p;
+        _cleanup_free_ void *p = NULL;
         ssize_t n;
+        int r;
 
         assert(s);
         assert(fd >= 0);
+
+        if (!ucred || ucred->uid != 0) {
+                _cleanup_free_ char *sl = NULL, *k = NULL;
+                const char *e;
+
+                if (asprintf(&sl, "/proc/self/fd/%i", fd) < 0) {
+                        log_oom();
+                        return;
+                }
+
+                r = readlink_malloc(sl, &k);
+                if (r < 0) {
+                        log_error("readlink(%s) failed: %m", sl);
+                        return;
+                }
+
+                e = path_startswith(k, "/dev/shm/");
+                if (!e)
+                        e = path_startswith(k, "/tmp/");
+                if (!e)
+                        e = path_startswith(k, "/var/tmp/");
+                if (!e) {
+                        log_error("Received file outside of allowed directories. Refusing.");
+                        return;
+                }
+
+                if (strchr(e, '/')) {
+                        log_error("Received file in subdirectory of allowed directories. Refusing.");
+                        return;
+                }
+        }
 
         /* Data is in the passed file, since it didn't fit in a
          * datagram. We can't map the file here, since clients might
@@ -321,8 +354,6 @@ void server_process_native_file(
                 log_error("Failed to read file, ignoring: %s", strerror(-n));
         else if (n > 0)
                 server_process_native_message(s, p, n, ucred, tv, label, label_len);
-
-        free(p);
 }
 
 int server_open_native_socket(Server*s) {
