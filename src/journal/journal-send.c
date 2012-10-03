@@ -505,10 +505,10 @@ _public_ int sd_journal_printv_with_location(int priority, const char *file, con
         /* func is initialized from __func__ which is not a macro, but
          * a static const char[], hence cannot easily be prefixed with
          * CODE_FUNC=, hence let's do it manually here. */
-        fl = strlen(func);
+        fl = strlen(func) + 1;
         f = alloca(fl + 10);
         memcpy(f, "CODE_FUNC=", 10);
-        memcpy(f + 10, func, fl + 1);
+        memcpy(f + 10, func, fl);
 
         zero(iov);
         IOVEC_SET_STRING(iov[0], buffer);
@@ -536,10 +536,10 @@ _public_ int sd_journal_send_with_location(const char *file, const char *line, c
                 goto finish;
         }
 
-        fl = strlen(func);
+        fl = strlen(func) + 1;
         f = alloca(fl + 10);
         memcpy(f, "CODE_FUNC=", 10);
-        memcpy(f + 10, func, fl + 1);
+        memcpy(f + 10, func, fl);
 
         IOVEC_SET_STRING(iov[0], file);
         IOVEC_SET_STRING(iov[1], line);
@@ -574,10 +574,10 @@ _public_ int sd_journal_sendv_with_location(
         niov = alloca(sizeof(struct iovec) * (n + 3));
         memcpy(niov, iov, sizeof(struct iovec) * n);
 
-        fl = strlen(func);
+        fl = strlen(func) + 1;
         f = alloca(fl + 10);
         memcpy(f, "CODE_FUNC=", 10);
-        memcpy(f + 10, func, fl + 1);
+        memcpy(f + 10, func, fl);
 
         IOVEC_SET_STRING(niov[n++], file);
         IOVEC_SET_STRING(niov[n++], line);
@@ -595,10 +595,10 @@ _public_ int sd_journal_perror_with_location(
         size_t fl;
         char *f;
 
-        fl = strlen(func);
+        fl = strlen(func) + 1;
         f = alloca(fl + 10);
         memcpy(f, "CODE_FUNC=", 10);
-        memcpy(f + 10, func, fl + 1);
+        memcpy(f + 10, func, fl);
 
         IOVEC_SET_STRING(iov[0], file);
         IOVEC_SET_STRING(iov[1], line);
