@@ -298,6 +298,7 @@ static int get_calling_context(
                         return r;
 
                 log_debug("bus_get_selinux_security_context failed %m");
+                dbus_error_free(error);
         }
 
         if (!dbus_connection_get_unix_fd(connection, &fd)) {
