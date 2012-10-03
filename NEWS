@@ -1,5 +1,24 @@
 systemd System and Service Manager
 
+CHANGES WITH 194:
+
+        * If /etc/vconsole.conf is non-existent or empty we will no
+          longer load any console font or key map at boot by
+          default. Instead the kernel defaults will be left
+          intact. This is definitely the right thing to do, as no
+          configuration should mean no configuration, and hard-coding
+          font names that are different on all archs is probably a bad
+          idea. Also, the kernel default key map and font should be
+          good enough for most cases anyway, and mostly identical to
+          the userspace fonts/key maps we previously overloaded them
+          with. If distributions want to continue to default to a
+          non-kernel font or key map they should ship a default
+          /etc/vconsole.conf with the appropriate contents.
+
+        Contributions from: Colin Walters, Daniel J Walsh, Dave
+        Reisner, Kay Sievers, Lennart Poettering, Lukas Nykryn, Tollef
+        Fog Heen, Tom Gundersen, Zbigniew Jędrzejewski-Szmek
+
 CHANGES WITH 193:
 
         * journalctl gained a new --cursor= switch to show entries
