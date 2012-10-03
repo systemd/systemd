@@ -18,6 +18,9 @@ F18:
 * Retest multi-seat
 
 Features:
+
+* on shutdown: move utmp, wall, audit logic all into PID 1 itsel
+
 * add "provisioning" instructions to setup an empty /etc + /var
     - used to setup a new container from a shared /usr
     - superset of tmpfiles model
