@@ -108,7 +108,8 @@
                                 <literal>sleep</literal>,
                                 <literal>idle</literal>,
                                 <literal>handle-power-key</literal>,
-                                <literal>handle-sleep-key</literal>,
+                                <literal>handle-suspend-key</literal>,
+                                <literal>handle-hibernate-key</literal>,
                                 <literal>handle-lid-switch</literal>,
                                 for inhibiting
                                 reboot/power-off/halt/kexec,
