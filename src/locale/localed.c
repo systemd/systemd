@@ -1039,7 +1039,9 @@ static DBusHandlerResult locale_message_handler(
                                 size_t k;
 
                                 k = strlen(names[p]);
-                                if (startswith(*i, names[p]) && (*i)[k] == '=') {
+                                if (startswith(*i, names[p]) &&
+                                    (*i)[k] == '=' &&
+                                    string_is_safe((*i) + k + 1)) {
                                         valid = true;
                                         passed[p] = true;
 
@@ -1150,6 +1152,10 @@ static DBusHandlerResult locale_message_handler(
                 if (!streq_ptr(keymap, state.vc_keymap) ||
                     !streq_ptr(keymap_toggle, state.vc_keymap_toggle)) {
 
+                        if ((keymap && (!filename_is_safe(keymap) || !string_is_safe(keymap))) ||
+                            (keymap_toggle && (!filename_is_safe(keymap_toggle) || !string_is_safe(keymap_toggle))))
+                                return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
                         r = verify_polkit(connection, message, "org.freedesktop.locale1.set-keyboard", interactive, NULL, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
@@ -1219,6 +1225,12 @@ static DBusHandlerResult locale_message_handler(
                     !streq_ptr(model, state.x11_model) ||
                     !streq_ptr(variant, state.x11_variant) ||
                     !streq_ptr(options, state.x11_options)) {
+
+                        if ((layout && !string_is_safe(layout)) ||
+                            (model && !string_is_safe(model)) ||
+                            (variant && !string_is_safe(variant)) ||
+                            (options && !string_is_safe(options)))
+                                return bus_send_error_reply(connection, message, NULL, -EINVAL);
 
                         r = verify_polkit(connection, message, "org.freedesktop.locale1.set-keyboard", interactive, NULL, &error);
                         if (r < 0)

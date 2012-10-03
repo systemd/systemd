@@ -56,6 +56,7 @@
 #include <sys/mman.h>
 #include <sys/vfs.h>
 #include <linux/magic.h>
+#include <limits.h>
 
 #include "macro.h"
 #include "util.h"
@@ -5850,4 +5851,40 @@ void closedirp(DIR **d) {
 
 void umaskp(mode_t *u) {
         umask(*u);
+}
+
+bool filename_is_safe(const char *p) {
+
+        if (isempty(p))
+                return false;
+
+        if (strchr(p, '/'))
+                return false;
+
+        if (streq(p, "."))
+                return false;
+
+        if (streq(p, ".."))
+                return false;
+
+        if (strlen(p) > FILENAME_MAX)
+                return false;
+
+        return true;
+}
+
+bool string_is_safe(const char *p) {
+        const char *t;
+
+        assert(p);
+
+        for (t = p; *t; t++) {
+                if (*p < ' ')
+                        return false;
+
+                if (strchr("\\\"\'", *p))
+                        return false;
+        }
+
+        return true;
 }

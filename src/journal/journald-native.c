@@ -314,7 +314,7 @@ void server_process_native_file(
                         return;
                 }
 
-                if (strchr(e, '/')) {
+                if (!filename_is_safe(e)) {
                         log_error("Received file in subdirectory of allowed directories. Refusing.");
                         return;
                 }

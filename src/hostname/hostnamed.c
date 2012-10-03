@@ -451,6 +451,14 @@ static DBusHandlerResult hostname_message_handler(
                         } else {
                                 char *h;
 
+                                /* The icon name might ultimately be
+                                 * used as file name, so better be
+                                 * safe than sorry */
+                                if (k == PROP_ICON_NAME && !filename_is_safe(name))
+                                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+                                if (k == PROP_PRETTY_HOSTNAME && !string_is_safe(name))
+                                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
                                 h = strdup(name);
                                 if (!h)
                                         goto oom;

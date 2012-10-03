@@ -558,3 +558,6 @@ _malloc_ static inline void *memdup_multiply(const void *p, size_t a, size_t b) 
 
         return memdup(p, a * b);
 }
+
+bool filename_is_safe(const char *p);
+bool string_is_safe(const char *p);
