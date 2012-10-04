@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* introduce generic AUGMENT_PID=, AUGMENT_DEVICE= fields
+
 * deal with sendmail/postfix exclusivity
 
 * systemctl enable: improve the success messages
