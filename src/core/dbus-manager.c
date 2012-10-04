@@ -641,7 +641,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
 
                 path = unit_dbus_path(u);
-                if (!reply)
+                if (!path)
                         goto oom;
 
                 if (!dbus_message_append_args(
