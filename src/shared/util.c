@@ -5879,10 +5879,10 @@ bool string_is_safe(const char *p) {
         assert(p);
 
         for (t = p; *t; t++) {
-                if (*p < ' ')
+                if (*t < ' ')
                         return false;
 
-                if (strchr("\\\"\'", *p))
+                if (strchr("\\\"\'", *t))
                         return false;
         }
 
