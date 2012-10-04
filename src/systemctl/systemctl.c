@@ -186,6 +186,14 @@ static void polkit_agent_open_if_enabled(void) {
 }
 #endif
 
+static const char *ansi_highlight(bool b) {
+
+        if (!on_tty())
+                return "";
+
+        return b ? ANSI_HIGHLIGHT_ON : ANSI_HIGHLIGHT_OFF;
+}
+
 static const char *ansi_highlight_red(bool b) {
 
         if (!on_tty())
@@ -420,18 +428,28 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
         }
 
         if (!arg_no_legend) {
-                if (n_shown)
+                const char *on, *off;
+
+                if (n_shown) {
                         printf("\nLOAD   = Reflects whether the unit definition was properly loaded.\n"
                                "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
                                "SUB    = The low-level unit activation state, values depend on unit type.\n"
                                "JOB    = Pending job for the unit.\n\n");
+                        on = ansi_highlight(true);
+                        off = ansi_highlight(false);
+                } else {
+                        on = ansi_highlight_red(true);
+                        off = ansi_highlight_red(false);
+                }
 
                 if (arg_all)
-                        printf("%u loaded units listed.\n"
-                               "To show all installed unit files use 'systemctl list-unit-files'.\n", n_shown);
+                        printf("%s%u loaded units listed.%s\n"
+                               "To show all installed unit files use 'systemctl list-unit-files'.\n",
+                               on, n_shown, off);
                 else
-                        printf("%u loaded units listed. Pass --all to see loaded but inactive units, too.\n"
-                               "To show all installed unit files use 'systemctl list-unit-files'.\n", n_shown);
+                        printf("%s%u loaded units listed.%s Pass --all to see loaded but inactive units, too.\n"
+                               "To show all installed unit files use 'systemctl list-unit-files'.\n",
+                               on, n_shown, off);
         }
 }
 
