@@ -76,7 +76,7 @@
 
                 <para>When these services are run they ensure that PID
                 1 is replaced by the
-                <filename>/usr/lib/systemd/system-shutdown</filename>
+                <filename>/usr/lib/systemd/systemd-shutdown</filename>
                 tool which is then responsible for the actual
                 shutdown. Before shutting down this binary will try to
                 unmount all remaining file systems, disable all
