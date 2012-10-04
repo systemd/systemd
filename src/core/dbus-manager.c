@@ -35,6 +35,7 @@
 #include "hwclock.h"
 #include "path-util.h"
 #include "dbus-unit.h"
+#include "virt.h"
 
 #define BUS_MANAGER_INTERFACE_BEGIN                                     \
         " <interface name=\"org.freedesktop.systemd1.Manager\">\n"
@@ -258,7 +259,8 @@
         "  <property name=\"DefaultStandardOutput\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardError\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RuntimeWatchdogUSec\" type=\"s\" access=\"readwrite\"/>\n" \
-        "  <property name=\"ShutdownWatchdogUSec\" type=\"s\" access=\"readwrite\"/>\n"
+        "  <property name=\"ShutdownWatchdogUSec\" type=\"s\" access=\"readwrite\"/>\n" \
+        "  <property name=\"Virtualization\" type=\"s\" access=\"read\"/>\n"
 
 #define BUS_MANAGER_INTERFACE_END                                       \
         " </interface>\n"
@@ -425,6 +427,22 @@ static int bus_manager_append_progress(DBusMessageIter *i, const char *property,
         return 0;
 }
 
+static int bus_manager_append_virt(DBusMessageIter *i, const char *property, void *data) {
+        Manager *m = data;
+        const char *id = "";
+
+        assert(i);
+        assert(property);
+        assert(m);
+
+        detect_virtualization(&id);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &id))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static DBusMessage *message_from_file_changes(
                 DBusMessage *m,
                 UnitFileChange *changes,
@@ -515,36 +533,37 @@ static const BusProperty bus_systemd_properties[] = {
 };
 
 static const BusProperty bus_manager_properties[] = {
-        { "Tainted",       bus_manager_append_tainted,             "s", 0                                              },
-        { "FirmwareTimestamp", bus_property_append_uint64,         "t", offsetof(Manager, firmware_timestamp.realtime) },
-        { "FirmwareTimestampMonotonic", bus_property_append_uint64,"t", offsetof(Manager, firmware_timestamp.monotonic)},
-        { "LoaderTimestamp", bus_property_append_uint64,           "t", offsetof(Manager, loader_timestamp.realtime)   },
-        { "LoaderTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, loader_timestamp.monotonic)  },
-        { "KernelTimestamp", bus_property_append_uint64,           "t", offsetof(Manager, kernel_timestamp.realtime)   },
-        { "KernelTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, kernel_timestamp.monotonic)  },
-        { "InitRDTimestamp", bus_property_append_uint64,           "t", offsetof(Manager, initrd_timestamp.realtime)   },
-        { "InitRDTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, initrd_timestamp.monotonic)  },
-        { "UserspaceTimestamp", bus_property_append_uint64,        "t", offsetof(Manager, userspace_timestamp.realtime)},
-        { "UserspaceTimestampMonotonic", bus_property_append_uint64,"t",offsetof(Manager, userspace_timestamp.monotonic)},
-        { "FinishTimestamp", bus_property_append_uint64,           "t", offsetof(Manager, finish_timestamp.realtime)   },
-        { "FinishTimestampMonotonic", bus_property_append_uint64,  "t", offsetof(Manager, finish_timestamp.monotonic)  },
-        { "LogLevel",      bus_manager_append_log_level,           "s", 0,                                             false, bus_manager_set_log_level },
-        { "LogTarget",     bus_manager_append_log_target,          "s", 0,                                             false, bus_manager_set_log_target },
-        { "NNames",        bus_manager_append_n_names,             "u", 0                                              },
-        { "NJobs",         bus_manager_append_n_jobs,              "u", 0                                              },
-        { "NInstalledJobs",bus_property_append_uint32,             "u", offsetof(Manager, n_installed_jobs)            },
-        { "NFailedJobs",   bus_property_append_uint32,             "u", offsetof(Manager, n_failed_jobs)               },
-        { "Progress",      bus_manager_append_progress,            "d", 0                                              },
-        { "Environment",   bus_property_append_strv,              "as", offsetof(Manager, environment),                true },
-        { "ConfirmSpawn",  bus_property_append_bool,               "b", offsetof(Manager, confirm_spawn)               },
-        { "ShowStatus",    bus_property_append_bool,               "b", offsetof(Manager, show_status)                 },
-        { "UnitPath",      bus_property_append_strv,              "as", offsetof(Manager, lookup_paths.unit_path),     true },
-        { "ControlGroupHierarchy", bus_property_append_string,     "s", offsetof(Manager, cgroup_hierarchy),           true },
-        { "DefaultControllers", bus_property_append_strv,         "as", offsetof(Manager, default_controllers),        true },
-        { "DefaultStandardOutput", bus_manager_append_exec_output, "s", offsetof(Manager, default_std_output)          },
-        { "DefaultStandardError",  bus_manager_append_exec_output, "s", offsetof(Manager, default_std_error)           },
-        { "RuntimeWatchdogUSec", bus_property_append_usec,         "t", offsetof(Manager, runtime_watchdog),           false, bus_manager_set_runtime_watchdog_usec },
-        { "ShutdownWatchdogUSec", bus_property_append_usec,        "t", offsetof(Manager, shutdown_watchdog),          false, bus_property_set_usec },
+        { "Tainted",                     bus_manager_append_tainted,     "s",  0                                                },
+        { "FirmwareTimestamp",           bus_property_append_uint64,     "t",  offsetof(Manager, firmware_timestamp.realtime)   },
+        { "FirmwareTimestampMonotonic",  bus_property_append_uint64,     "t",  offsetof(Manager, firmware_timestamp.monotonic)  },
+        { "LoaderTimestamp",             bus_property_append_uint64,     "t",  offsetof(Manager, loader_timestamp.realtime)     },
+        { "LoaderTimestampMonotonic",    bus_property_append_uint64,     "t",  offsetof(Manager, loader_timestamp.monotonic)    },
+        { "KernelTimestamp",             bus_property_append_uint64,     "t",  offsetof(Manager, kernel_timestamp.realtime)     },
+        { "KernelTimestampMonotonic",    bus_property_append_uint64,     "t",  offsetof(Manager, kernel_timestamp.monotonic)    },
+        { "InitRDTimestamp",             bus_property_append_uint64,     "t",  offsetof(Manager, initrd_timestamp.realtime)     },
+        { "InitRDTimestampMonotonic",    bus_property_append_uint64,     "t",  offsetof(Manager, initrd_timestamp.monotonic)    },
+        { "UserspaceTimestamp",          bus_property_append_uint64,     "t",  offsetof(Manager, userspace_timestamp.realtime)  },
+        { "UserspaceTimestampMonotonic", bus_property_append_uint64,     "t",  offsetof(Manager, userspace_timestamp.monotonic) },
+        { "FinishTimestamp",             bus_property_append_uint64,     "t",  offsetof(Manager, finish_timestamp.realtime)     },
+        { "FinishTimestampMonotonic",    bus_property_append_uint64,     "t",  offsetof(Manager, finish_timestamp.monotonic)    },
+        { "LogLevel",                    bus_manager_append_log_level,   "s",  0,                                               false, bus_manager_set_log_level },
+        { "LogTarget",                   bus_manager_append_log_target,  "s",  0,                                               false, bus_manager_set_log_target },
+        { "NNames",                      bus_manager_append_n_names,     "u",  0                                                },
+        { "NJobs",                       bus_manager_append_n_jobs,      "u",  0                                                },
+        { "NInstalledJobs",              bus_property_append_uint32,     "u",  offsetof(Manager, n_installed_jobs)              },
+        { "NFailedJobs",                 bus_property_append_uint32,     "u",  offsetof(Manager, n_failed_jobs)                 },
+        { "Progress",                    bus_manager_append_progress,    "d",  0                                                },
+        { "Environment",                 bus_property_append_strv,       "as", offsetof(Manager, environment),                  true },
+        { "ConfirmSpawn",                bus_property_append_bool,       "b",  offsetof(Manager, confirm_spawn)                 },
+        { "ShowStatus",                  bus_property_append_bool,       "b",  offsetof(Manager, show_status)                   },
+        { "UnitPath",                    bus_property_append_strv,       "as", offsetof(Manager, lookup_paths.unit_path),       true },
+        { "ControlGroupHierarchy",       bus_property_append_string,     "s",  offsetof(Manager, cgroup_hierarchy),             true },
+        { "DefaultControllers",          bus_property_append_strv,       "as", offsetof(Manager, default_controllers),          true },
+        { "DefaultStandardOutput",       bus_manager_append_exec_output, "s",  offsetof(Manager, default_std_output)            },
+        { "DefaultStandardError",        bus_manager_append_exec_output, "s",  offsetof(Manager, default_std_error)             },
+        { "RuntimeWatchdogUSec",         bus_property_append_usec,       "t",  offsetof(Manager, runtime_watchdog),             false, bus_manager_set_runtime_watchdog_usec },
+        { "ShutdownWatchdogUSec",        bus_property_append_usec,       "t",  offsetof(Manager, shutdown_watchdog),            false, bus_property_set_usec },
+        { "Virtualization",              bus_manager_append_virt,        "s",  0,                                               },
         { NULL, }
 };
 
