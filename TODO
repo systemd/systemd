@@ -19,6 +19,12 @@ F18:
 
 Features:
 
+* deal with sendmail/postfix exclusivity
+
+* systemctl enable: improve the success messages
+
+* systemctl enable: fail if target to alias into doesn't exist? maybe show how many units are enabled afterwards?
+
 * on shutdown: move utmp, wall, audit logic all into PID 1 itsel
 
 * add "provisioning" instructions to setup an empty /etc + /var
