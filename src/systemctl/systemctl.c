@@ -372,15 +372,6 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
         } else
                 id_len = max_id_len;
 
-        if (!arg_no_legend) {
-                printf("%-*s %-6s %-*s %-*s %-*s ", id_len, "UNIT", "LOAD",
-                       active_len, "ACTIVE", sub_len, "SUB", job_len, "JOB");
-                if (!arg_full && arg_no_pager)
-                        printf("%.*s\n", desc_len, "DESCRIPTION");
-                else
-                        printf("%s\n", "DESCRIPTION");
-        }
-
         for (u = unit_infos; u < unit_infos + c; u++) {
                 char *e;
                 const char *on_loaded, *off_loaded;
@@ -388,6 +379,15 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 
                 if (!output_show_unit(u))
                         continue;
+
+                if (!n_shown && !arg_no_legend) {
+                        printf("%-*s %-6s %-*s %-*s %-*s ", id_len, "UNIT", "LOAD",
+                               active_len, "ACTIVE", sub_len, "SUB", job_len, "JOB");
+                        if (!arg_full && arg_no_pager)
+                                printf("%.*s\n", desc_len, "DESCRIPTION");
+                        else
+                                printf("%s\n", "DESCRIPTION");
+                }
 
                 n_shown++;
 
@@ -420,16 +420,17 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
         }
 
         if (!arg_no_legend) {
-                printf("\nLOAD   = Reflects whether the unit definition was properly loaded.\n"
-                       "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
-                       "SUB    = The low-level unit activation state, values depend on unit type.\n"
-                       "JOB    = Pending job for the unit.\n");
+                if (n_shown)
+                        printf("\nLOAD   = Reflects whether the unit definition was properly loaded.\n"
+                               "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
+                               "SUB    = The low-level unit activation state, values depend on unit type.\n"
+                               "JOB    = Pending job for the unit.\n\n");
 
                 if (arg_all)
-                        printf("\n%u loaded units listed.\n"
+                        printf("%u loaded units listed.\n"
                                "To show all installed unit files use 'systemctl list-unit-files'.\n", n_shown);
                 else
-                        printf("\n%u loaded units listed. Pass --all to see loaded but inactive units, too.\n"
+                        printf("%u loaded units listed. Pass --all to see loaded but inactive units, too.\n"
                                "To show all installed unit files use 'systemctl list-unit-files'.\n", n_shown);
         }
 }
