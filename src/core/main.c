@@ -62,6 +62,7 @@
 #include "hwclock.h"
 #include "selinux-setup.h"
 #include "ima-setup.h"
+#include "sd-daemon.h"
 
 static enum {
         ACTION_RUN,
@@ -1423,8 +1424,16 @@ int main(int argc, char *argv[]) {
         if (parse_argv(argc, argv) < 0)
                 goto finish;
 
-        if (arg_action == ACTION_TEST && geteuid() == 0) {
+        if (arg_action == ACTION_TEST &&
+            geteuid() == 0) {
                 log_error("Don't run test mode as root.");
+                goto finish;
+        }
+
+        if (arg_running_as == SYSTEMD_USER &&
+            arg_action == ACTION_RUN &&
+            sd_booted() <= 0) {
+                log_error("Trying to run as user instance, but the system has not been booted with systemd.");
                 goto finish;
         }
 
