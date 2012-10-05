@@ -165,22 +165,6 @@ static int swap_add_mount_links(Swap *s) {
         return 0;
 }
 
-static int swap_add_target_links(Swap *s) {
-        Unit *tu;
-        int r;
-
-        assert(s);
-
-        if (!s->from_fragment)
-                return 0;
-
-        r = manager_load_unit(UNIT(s)->manager, SPECIAL_SWAP_TARGET, NULL, NULL, &tu);
-        if (r < 0)
-                return r;
-
-        return unit_add_dependency(UNIT(s), UNIT_BEFORE, tu, true);
-}
-
 static int swap_add_device_links(Swap *s) {
         SwapParameters *p;
 
@@ -289,9 +273,6 @@ static int swap_load(Unit *u) {
                         return r;
 
                 if ((r = swap_add_mount_links(s)) < 0)
-                        return r;
-
-                if ((r = swap_add_target_links(s)) < 0)
                         return r;
 
                 if ((r = unit_add_default_cgroups(u)) < 0)
