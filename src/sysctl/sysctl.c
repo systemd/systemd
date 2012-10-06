@@ -167,9 +167,13 @@ static int parse_file(const char *path, bool ignore_enoent) {
 
                 r = hashmap_put(sysctl_options, property, new_value);
                 if (r < 0) {
-                        if (r == -EEXIST)
+                        if (r == -EEXIST) {
+                                /* ignore this "error" to avoid returning it
+                                 * for the function when this is the last key
+                                 * in the file being parsed. */
+                                r = 0;
                                 log_debug("Skipping previously assigned sysctl variable %s", property);
-                        else
+                        } else
                                 log_error("Failed to add sysctl variable %s to hashmap: %s", property, strerror(-r));
 
                         free(property);
