@@ -92,19 +92,26 @@ fi
 # we use python to build the man page index, and for systemd-python
 have_python=no
 have_python_devel=no
-AM_PATH_PYTHON(,, [:])
-if test "$PYTHON" != : ; then
-        have_python=yes
-        AC_PATH_PROG([PYTHON_CONFIG], python-config)
 
-        if test -n "$PYTHON_CONFIG" ; then
-                have_python_devel=yes
-                PYTHON_CFLAGS="`$PYTHON_CONFIG --cflags`"
-                PYTHON_LIBS="`$PYTHON_CONFIG --libs`"
-                AC_SUBST(PYTHON_CFLAGS)
-                AC_SUBST(PYTHON_LIBS)
+AC_ARG_WITH([python],
+        [AS_HELP_STRING([--without-python], [Disable building the man page index and systemd-python (default: test)])])
+
+AS_IF([test "x$with_python" != "xno"], [
+        AM_PATH_PYTHON(,, [:])
+        if test "$PYTHON" != : ; then
+                have_python=yes
+                AC_PATH_PROG([PYTHON_CONFIG], python-config)
+
+                if test -n "$PYTHON_CONFIG" ; then
+                        have_python_devel=yes
+                        PYTHON_CFLAGS="`$PYTHON_CONFIG --cflags`"
+                        PYTHON_LIBS="`$PYTHON_CONFIG --libs`"
+                        AC_SUBST(PYTHON_CFLAGS)
+                        AC_SUBST(PYTHON_LIBS)
+                fi
         fi
-fi
+])
+
 AM_CONDITIONAL([HAVE_PYTHON], [test "$have_python" = "yes"])
 AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
 
