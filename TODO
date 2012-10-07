@@ -98,8 +98,6 @@ Features:
 
 * after deserializing sockets in socket.c we should reapply sockopts and things
 
-* does vasprintf advance the struct vaargs? http://pastie.org/pastes/4712773/text
-
 * do shutdown audit/utmp msgs inside of PID 1, get rid of systemd-update-utmp-runlevel
 
 * make timer units go away after they elapsed
@@ -249,8 +247,6 @@ Features:
 * change Requires=basic.target to RequisiteOverride=basic.target
 
 * support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
-
-* systemctl: when stopping a service which has triggres and warning about it actually check the TriggeredBy= deps fields
 
 * nspawn: make use of device cgroup contrller by default
 
@@ -411,8 +407,6 @@ Features:
   https://bugzilla.redhat.com/show_bug.cgi?id=723942
 
 * move PAM code into its own binary
-
-* warn if the user stops a service but not its associated socket
 
 * logind: spawn user@..service on login
 
