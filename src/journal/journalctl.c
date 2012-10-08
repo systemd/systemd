@@ -915,7 +915,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_journal_wait(j, (uint64_t) -1);
                 if (r < 0) {
-                        log_error("Couldn't wait for log event: %s", strerror(-r));
+                        log_error("Couldn't wait for journal event: %s", strerror(-r));
                         goto finish;
                 }
         }

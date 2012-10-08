@@ -47,6 +47,8 @@ typedef struct RequestMeta {
         uint64_t delta, size;
 
         int argument_parse_error;
+
+        bool follow;
 } RequestMeta;
 
 static const char* const mime_types[_OUTPUT_MODE_MAX] = {
@@ -194,8 +196,20 @@ static ssize_t request_reader_entries(
                 if (r < 0) {
                         log_error("Failed to advance journal pointer: %s", strerror(-r));
                         return MHD_CONTENT_READER_END_WITH_ERROR;
-                } else if (r == 0)
+                } else if (r == 0) {
+
+                        if (m->follow) {
+                                r = sd_journal_wait(m->journal, (uint64_t) -1);
+                                if (r < 0) {
+                                        log_error("Couldn't wait for journal event: %s", strerror(-r));
+                                        return MHD_CONTENT_READER_END_WITH_ERROR;
+                                }
+
+                                continue;
+                        }
+
                         return MHD_CONTENT_READER_END_OF_STREAM;
+                }
 
                 pos -= m->size;
                 m->delta += m->size;
@@ -354,6 +368,22 @@ static int request_parse_arguments_iterator(
         if (isempty(key)) {
                 m->argument_parse_error = -EINVAL;
                 return MHD_NO;
+        }
+
+        if (streq(key, "follow")) {
+                if (isempty(value)) {
+                        m->follow = true;
+                        return MHD_YES;
+                }
+
+                r = parse_boolean(value);
+                if (r < 0) {
+                        m->argument_parse_error = r;
+                        return MHD_NO;
+                }
+
+                m->follow = r;
+                return MHD_YES;
         }
 
         p = strjoin(key, "=", strempty(value), NULL);
