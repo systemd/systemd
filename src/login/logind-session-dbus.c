@@ -40,6 +40,8 @@
         "   <arg name=\"who\" type=\"s\"/>\n"                           \
         "   <arg name=\"signal\" type=\"s\"/>\n"                        \
         "  </method>\n"                                                 \
+        "  <signal name=\"Lock\"/>\n"                                   \
+        "  <signal name=\"Unlock\"/>\n"                                 \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
         "  <property name=\"User\" type=\"(uo)\" access=\"read\"/>\n"   \
         "  <property name=\"Name\" type=\"s\" access=\"read\"/>\n"      \
