@@ -45,6 +45,8 @@ typedef struct RequestMeta {
 
         FILE *tmp;
         uint64_t delta, size;
+
+        int argument_parse_error;
 } RequestMeta;
 
 static const char* const mime_types[_OUTPUT_MODE_MAX] = {
@@ -337,6 +339,51 @@ static int request_parse_range(
         return 0;
 }
 
+static int request_parse_arguments_iterator(
+                void *cls,
+                enum MHD_ValueKind kind,
+                const char *key,
+                const char *value) {
+
+        RequestMeta *m = cls;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(m);
+
+        if (isempty(key)) {
+                m->argument_parse_error = -EINVAL;
+                return MHD_NO;
+        }
+
+        p = strjoin(key, "=", strempty(value), NULL);
+        if (!p) {
+                m->argument_parse_error = log_oom();
+                return MHD_NO;
+        }
+
+        r = sd_journal_add_match(m->journal, p, 0);
+        if (r < 0) {
+                m->argument_parse_error = r;
+                return MHD_NO;
+        }
+
+        return MHD_YES;
+}
+
+static int request_parse_arguments(
+                RequestMeta *m,
+                struct MHD_Connection *connection) {
+
+        assert(m);
+        assert(connection);
+
+        m->argument_parse_error = 0;
+        MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, request_parse_arguments_iterator, m);
+
+        return m->argument_parse_error;
+}
+
 static int request_handler_entries(
                 struct MHD_Connection *connection,
                 void **connection_cls) {
@@ -361,6 +408,9 @@ static int request_handler_entries(
 
         if (request_parse_range(m, connection) < 0)
                 return respond_error(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Range header.\n");
+
+        if (request_parse_arguments(m, connection) < 0)
+                return respond_error(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse URL arguments.\n");
 
         /* log_info("cursor = %s", m->cursor); */
         /* log_info("skip = %lli", m->n_skip); */
