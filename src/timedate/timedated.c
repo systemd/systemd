@@ -701,7 +701,7 @@ static DBusHandlerResult timedate_message_handler(
                         }
 
                         log_struct(LOG_INFO,
-                                   "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_TIMEZONE_CHANGE),
+                                   MESSAGE_ID(SD_MESSAGE_TIMEZONE_CHANGE),
                                    "TIMEZONE=%s", tz.zone,
                                    "MESSAGE=Changed timezone to '%s'.", tz.zone,
                                    NULL);
@@ -843,7 +843,7 @@ static DBusHandlerResult timedate_message_handler(
                         hwclock_set_time(tm);
 
                         log_struct(LOG_INFO,
-                                   "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_TIME_CHANGE),
+                                   MESSAGE_ID(SD_MESSAGE_TIME_CHANGE),
                                    "REALTIME=%llu", (unsigned long long) timespec_load(&ts),
                                    "MESSAGE=Changed local time to %s", ctime(&ts.tv_sec),
                                    NULL);

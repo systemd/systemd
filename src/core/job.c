@@ -705,7 +705,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
 
                 mid = result == JOB_DONE ? SD_MESSAGE_UNIT_STARTED : SD_MESSAGE_UNIT_FAILED;
                 log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
-                           "MESSSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(mid),
+                           MESSAGE_ID(mid),
                            "UNIT=%s", u->id,
                            "RESULT=%s", job_result_to_string(result),
                            "MESSAGE=%s", buf,
@@ -713,7 +713,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
 
         } else if (t == JOB_STOP)
                 log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
-                           "MESSSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_UNIT_STOPPED),
+                           MESSAGE_ID(SD_MESSAGE_UNIT_STOPPED),
                            "UNIT=%s", u->id,
                            "RESULT=%s", job_result_to_string(result),
                            "MESSAGE=%s", buf,
@@ -721,7 +721,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
 
         else if (t == JOB_RELOAD)
                 log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
-                           "MESSSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_UNIT_RELOADED),
+                           MESSAGE_ID(SD_MESSAGE_UNIT_RELOADED),
                            "UNIT=%s", u->id,
                            "RESULT=%s", job_result_to_string(result),
                            "MESSAGE=%s", buf,

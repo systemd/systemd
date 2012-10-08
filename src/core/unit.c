@@ -1023,7 +1023,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
                                SD_MESSAGE_UNIT_RELOADING;
 
         log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(mid),
+                   MESSAGE_ID(mid),
                    "UNIT=%s", u->id,
                    "MESSAGE=%s", buf,
                    NULL);

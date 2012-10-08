@@ -547,7 +547,7 @@ int session_start(Session *s) {
                 return r;
 
         log_struct(s->type == SESSION_TTY || s->type == SESSION_X11 ? LOG_INFO : LOG_DEBUG,
-                   "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SESSION_START),
+                   MESSAGE_ID(SD_MESSAGE_SESSION_START),
                    "SESSION_ID=%s", s->id,
                    "USER_ID=%s", s->user->name,
                    "LEADER=%lu", (unsigned long) s->leader,
@@ -689,7 +689,7 @@ int session_stop(Session *s) {
 
         if (s->started)
                 log_struct(s->type == SESSION_TTY || s->type == SESSION_X11 ? LOG_INFO : LOG_DEBUG,
-                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SESSION_STOP),
+                           MESSAGE_ID(SD_MESSAGE_SESSION_STOP),
                            "SESSION_ID=%s", s->id,
                            "USER_ID=%s", s->user->name,
                            "LEADER=%lu", (unsigned long) s->leader,

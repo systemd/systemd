@@ -69,13 +69,13 @@ int main(int argc, char *argv[]) {
 
         if (streq(argv[1], "suspend"))
                 log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SLEEP_START),
+                           MESSAGE_ID(SD_MESSAGE_SLEEP_START),
                            "MESSAGE=Suspending system...",
                            "SLEEP=suspend",
                            NULL);
         else
                 log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SLEEP_START),
+                           MESSAGE_ID(SD_MESSAGE_SLEEP_START),
                            "MESSAGE=Hibernating system...",
                            "SLEEP=hibernate",
                            NULL);
@@ -88,13 +88,13 @@ int main(int argc, char *argv[]) {
 
         if (streq(argv[1], "suspend"))
                 log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SLEEP_STOP),
+                           MESSAGE_ID(SD_MESSAGE_SLEEP_STOP),
                            "MESSAGE=System resumed.",
                            "SLEEP=suspend",
                            NULL);
         else
                 log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SLEEP_STOP),
+                           MESSAGE_ID(SD_MESSAGE_SLEEP_STOP),
                            "MESSAGE=System thawed.",
                            "SLEEP=hibernate",
                            NULL);

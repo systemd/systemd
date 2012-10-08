@@ -2039,7 +2039,7 @@ void manager_check_finished(Manager *m) {
 
                         if (!log_on_console())
                                 log_struct(LOG_INFO,
-                                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_STARTUP_FINISHED),
+                                           MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED),
                                            "KERNEL_USEC=%llu", (unsigned long long) kernel_usec,
                                            "INITRD_USEC=%llu", (unsigned long long) initrd_usec,
                                            "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
@@ -2055,7 +2055,7 @@ void manager_check_finished(Manager *m) {
 
                         if (!log_on_console())
                                 log_struct(LOG_INFO,
-                                           "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_STARTUP_FINISHED),
+                                           MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED),
                                            "KERNEL_USEC=%llu", (unsigned long long) kernel_usec,
                                            "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
                                            "MESSAGE=Startup finished in %s (kernel) + %s (userspace) = %s.",
@@ -2070,7 +2070,7 @@ void manager_check_finished(Manager *m) {
 
                 if (!log_on_console())
                         log_struct(LOG_INFO,
-                                   "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_STARTUP_FINISHED),
+                                   MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED),
                                    "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
                                    "MESSAGE=Startup finished in %s.",
                                    format_timespan(sum, sizeof(sum), total_usec),

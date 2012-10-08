@@ -1180,8 +1180,7 @@ static int bus_manager_log_shutdown(
                 q = NULL;
         }
 
-        return log_struct(LOG_NOTICE,
-                          "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(SD_MESSAGE_SHUTDOWN),
+        return log_struct(LOG_NOTICE, MESSAGE_ID(SD_MESSAGE_SHUTDOWN),
                           p,
                           q, NULL);
 }
