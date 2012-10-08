@@ -251,30 +251,49 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                  * interpret for the main object */
                 const char *wants, *alias;
 
-                if ((alias = udev_device_get_property_value(dev, "SYSTEMD_ALIAS"))) {
-                        if (!is_path(alias))
-                                log_warning("SYSTEMD_ALIAS for %s is not a path, ignoring: %s", sysfs, alias);
-                        else {
-                                if ((r = device_add_escaped_name(u, alias)) < 0)
+                alias = udev_device_get_property_value(dev, "SYSTEMD_ALIAS");
+                if (alias) {
+                        char *state, *w;
+                        size_t l;
+
+                        FOREACH_WORD_QUOTED(w, l, alias, state) {
+                                char *e;
+
+                                e = strndup(w, l);
+                                if (!e) {
+                                        r = -ENOMEM;
                                         goto fail;
+                                }
+
+                                if (!is_path(e)) {
+                                        log_warning("SYSTEMD_ALIAS for %s is not a path, ignoring: %s", sysfs, e);
+                                        free(e);
+                                } else {
+
+                                        r = device_add_escaped_name(u, e);
+                                        free(e);
+                                        if (r < 0)
+                                                goto fail;
+                                }
                         }
                 }
 
-                if ((wants = udev_device_get_property_value(dev, "SYSTEMD_WANTS"))) {
+                wants = udev_device_get_property_value(dev, "SYSTEMD_WANTS");
+                if (wants) {
                         char *state, *w;
                         size_t l;
 
                         FOREACH_WORD_QUOTED(w, l, wants, state) {
                                 char *e;
 
-                                if (!(e = strndup(w, l))) {
+                                e = strndup(w, l);
+                                if (!e) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
 
                                 r = unit_add_dependency_by_name(u, UNIT_WANTS, e, NULL, true);
                                 free(e);
-
                                 if (r < 0)
                                         goto fail;
                         }

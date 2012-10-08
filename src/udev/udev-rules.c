@@ -2471,19 +2471,32 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                 case TK_A_ENV: {
                         const char *name = &rules->buf[cur->key.attr_off];
                         char *value = &rules->buf[cur->key.value_off];
+                        char value_new[UTIL_NAME_SIZE];
+                        const char *value_old = NULL;
+                        struct udev_list_entry *entry;
 
-                        if (value[0] != '\0') {
-                                char temp_value[UTIL_NAME_SIZE];
-                                struct udev_list_entry *entry;
-
-                                udev_event_apply_format(event, value, temp_value, sizeof(temp_value));
-                                entry = udev_device_add_property(event->dev, name, temp_value);
-                                /* store in db, skip private keys */
-                                if (name[0] != '.')
-                                        udev_list_entry_set_num(entry, true);
-                        } else {
+                        if (value[0] == '\0') {
+                                if (cur->key.op == OP_ADD)
+                                        break;
                                 udev_device_add_property(event->dev, name, NULL);
+                                break;
                         }
+
+                        if (cur->key.op == OP_ADD)
+                                value_old = udev_device_get_property_value(event->dev, name);
+                        if (value_old) {
+                                char temp[UTIL_NAME_SIZE];
+
+                                /* append value separated by space */
+                                udev_event_apply_format(event, value, temp, sizeof(temp));
+                                util_strscpyl(value_new, sizeof(value_new), value_old, " ", temp, NULL);
+                        } else
+                                udev_event_apply_format(event, value, value_new, sizeof(value_new));
+
+                        entry = udev_device_add_property(event->dev, name, value_new);
+                        /* store in db, skip private keys */
+                        if (name[0] != '.')
+                                udev_list_entry_set_num(entry, true);
                         break;
                 }
                 case TK_A_TAG: {

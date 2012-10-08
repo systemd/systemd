@@ -36,16 +36,16 @@ ACTION=="add", SUBSYSTEM=="block", KERNEL=="nbd*", ENV{SYSTEMD_READY}="0"
 #
 # http://cgit.freedesktop.org/systemd/systemd/tree/src/libudev/libudev-enumerate.c#n922
 
-SUBSYSTEM=="net", KERNEL!="lo", TAG+="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/net/devices/$name"
-SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_ALIAS}="/sys/subsystem/bluetooth/devices/%k"
+SUBSYSTEM=="net", KERNEL!="lo", TAG+="systemd", ENV{SYSTEMD_ALIAS}+="/sys/subsystem/net/devices/$name"
+SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_ALIAS}+="/sys/subsystem/bluetooth/devices/%k"
 
-SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_WANTS}="bluetooth.target"
-ENV{ID_SMARTCARD_READER}=="*?", TAG+="systemd", ENV{SYSTEMD_WANTS}="smartcard.target"
-SUBSYSTEM=="sound", KERNEL=="card*", TAG+="systemd", ENV{SYSTEMD_WANTS}="sound.target"
+SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_WANTS}+="bluetooth.target"
+ENV{ID_SMARTCARD_READER}=="*?", TAG+="systemd", ENV{SYSTEMD_WANTS}+="smartcard.target"
+SUBSYSTEM=="sound", KERNEL=="card*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sound.target"
 
-SUBSYSTEM=="printer", TAG+="systemd", ENV{SYSTEMD_WANTS}="printer.target"
-SUBSYSTEM=="usb", KERNEL=="lp*", TAG+="systemd", ENV{SYSTEMD_WANTS}="printer.target"
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:*", TAG+="systemd", ENV{SYSTEMD_WANTS}="printer.target"
+SUBSYSTEM=="printer", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target"
+SUBSYSTEM=="usb", KERNEL=="lp*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target"
 
 # Apply sysctl variables to network devices (and only to those) as they appear.
 
@@ -54,7 +54,7 @@ SUBSYSTEM=="net", KERNEL!="lo", RUN+="@rootlibexecdir@/systemd-sysctl --prefix=/
 # Asynchronously mount file systems implemented by these modules as
 # soon as they are loaded.
 
-SUBSYSTEM=="module", KERNEL=="fuse", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}="sys-fs-fuse-connections.mount"
-SUBSYSTEM=="module", KERNEL=="configfs", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}="sys-kernel-config.mount"
+SUBSYSTEM=="module", KERNEL=="fuse", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-fs-fuse-connections.mount"
+SUBSYSTEM=="module", KERNEL=="configfs", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-kernel-config.mount"
 
 LABEL="systemd_end"
