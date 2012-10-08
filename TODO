@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* add new command to systemctl: "systemctl system-reexec" which reexecs as many daemons as virtually possible
+
 * introduce generic AUGMENT_PID=, AUGMENT_DEVICE= fields
 
 * deal with sendmail/postfix exclusivity
