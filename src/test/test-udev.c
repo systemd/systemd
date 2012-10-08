@@ -54,8 +54,14 @@ static int fake_filesystems(void) {
         err = unshare(CLONE_NEWNS);
         if (err < 0) {
                 err = -errno;
-                fprintf(stderr, "failed to call unshare() %m\n");
-                return err;
+                fprintf(stderr, "failed to call unshare(): %m\n");
+                goto out;
+        }
+
+        if (mount(NULL, "/", NULL, MS_PRIVATE|MS_REC, NULL) < 0) {
+                err = -errno;
+                fprintf(stderr, "failed to mount / as private: %m\n");
+                goto out;
         }
 
         for (i = 0; i < ELEMENTSOF(fakefss); i++) {
@@ -66,6 +72,7 @@ static int fake_filesystems(void) {
                         return err;
                 }
         }
+out:
         return err;
 }
 
