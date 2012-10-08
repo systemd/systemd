@@ -250,7 +250,7 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 
                 log_debug("update old name, '%s' no longer belonging to '%s'\n",
                      name, udev_device_get_devpath(dev));
-                link_update(dev, name, 0);
+                link_update(dev, name, false);
         }
 }
 
@@ -321,13 +321,8 @@ void udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
         node_symlink(udev, udev_device_get_devnode(dev), filename);
 
         /* create/update symlinks, add symlinks to name index */
-        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev)) {
-                if (udev_list_entry_get_num(list_entry))
-                        /* simple unmanaged link name */
-                        node_symlink(udev, udev_device_get_devnode(dev), udev_list_entry_get_name(list_entry));
-                else
-                        link_update(dev, udev_list_entry_get_name(list_entry), 1);
-        }
+        udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev))
+                        link_update(dev, udev_list_entry_get_name(list_entry), true);
 }
 
 void udev_node_remove(struct udev_device *dev)
@@ -337,7 +332,7 @@ void udev_node_remove(struct udev_device *dev)
 
         /* remove/update symlinks, remove symlinks from name index */
         udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev))
-                link_update(dev, udev_list_entry_get_name(list_entry), 0);
+                link_update(dev, udev_list_entry_get_name(list_entry), false);
 
         /* remove /dev/{block,char}/$major:$minor */
         snprintf(filename, sizeof(filename), "/dev/%s/%u:%u",

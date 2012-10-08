@@ -378,12 +378,12 @@ void udev_device_add_property_from_string_parse(struct udev_device *udev_device,
                 next = strchr(slink, ' ');
                 while (next != NULL) {
                         next[0] = '\0';
-                        udev_device_add_devlink(udev_device, slink, 0);
+                        udev_device_add_devlink(udev_device, slink);
                         slink = &next[1];
                         next = strchr(slink, ' ');
                 }
                 if (slink[0] != '\0')
-                        udev_device_add_devlink(udev_device, slink, 0);
+                        udev_device_add_devlink(udev_device, slink);
         } else if (startswith(property, "TAGS=")) {
                 char tags[UTIL_PATH_SIZE];
                 char *next;
@@ -503,7 +503,7 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
                 switch(line[0]) {
                 case 'S':
                         util_strscpyl(filename, sizeof(filename), "/dev/", val, NULL);
-                        udev_device_add_devlink(udev_device, filename, 0);
+                        udev_device_add_devlink(udev_device, filename);
                         break;
                 case 'L':
                         udev_device_set_devlink_priority(udev_device, atoi(val));
@@ -1505,7 +1505,7 @@ int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode
         return 0;
 }
 
-int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink, int unique)
+int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink)
 {
         struct udev_list_entry *list_entry;
 
@@ -1513,8 +1513,6 @@ int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink
         list_entry = udev_list_entry_add(&udev_device->devlinks_list, devlink, NULL);
         if (list_entry == NULL)
                 return -ENOMEM;
-        if (unique)
-                udev_list_entry_set_num(list_entry, true);
         return 0;
 }
 

@@ -935,15 +935,6 @@ KERNEL=="sda1", PROGRAM!="/bin/false", SYMLINK+="nonzero-program"
 EOF
         },
         {
-                desc            => "test for whitespace between the operator",
-                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                exp_name        => "true",
-                rules           => <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda1", SYMLINK+="before"
-KERNEL   ==   "sda1"     ,    SYMLINK+   =    "true"
-EOF
-        },
-        {
                 desc            => "ENV{} test",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
                 exp_name        => "true",

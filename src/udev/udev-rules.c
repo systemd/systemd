@@ -202,7 +202,6 @@ struct token {
                         unsigned int value_off;
                         union {
                                 unsigned int attr_off;
-                                int devlink_unique;
                                 unsigned int rule_goto;
                                 mode_t  mode;
                                 uid_t uid;
@@ -1020,6 +1019,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
         case TK_A_OWNER:
         case TK_A_GROUP:
         case TK_A_MODE:
+        case TK_A_DEVLINK:
         case TK_A_NAME:
         case TK_A_GOTO:
         case TK_M_TAG:
@@ -1038,10 +1038,6 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
                 attr = data;
                 token->key.value_off = add_string(rule_tmp->rules, value);
                 token->key.attr_off = add_string(rule_tmp->rules, attr);
-                break;
-        case TK_A_DEVLINK:
-                token->key.value_off = add_string(rule_tmp->rules, value);
-                token->key.devlink_unique = *(int *)data;
                 break;
         case TK_M_TEST:
                 token->key.value_off = add_string(rule_tmp->rules, value);
@@ -1496,17 +1492,11 @@ static int add_rule(struct udev_rules *rules, char *line,
                         continue;
                 }
 
-                if (startswith(key, "SYMLINK")) {
-                        if (op < OP_MATCH_MAX) {
+                if (streq(key, "SYMLINK")) {
+                        if (op < OP_MATCH_MAX)
                                 rule_add_key(&rule_tmp, TK_M_DEVLINK, op, value, NULL);
-                        } else {
-                                int flag = 0;
-
-                                attr = get_key_attribute(rules->udev, key + sizeof("SYMLINK")-1);
-                                if (attr != NULL && strstr(attr, "unique") != NULL)
-                                        flag = 1;
-                                rule_add_key(&rule_tmp, TK_A_DEVLINK, op, value, &flag);
-                        }
+                        else
+                                rule_add_key(&rule_tmp, TK_A_DEVLINK, op, value, NULL);
                         rule_tmp.rule.rule.can_set_name = true;
                         continue;
                 }
@@ -2578,7 +2568,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                 log_debug("LINK '%s' %s:%u\n", pos,
                                           &rules->buf[rule->rule.filename_off], rule->rule.filename_line);
                                 util_strscpyl(filename, sizeof(filename), "/dev/", pos, NULL);
-                                udev_device_add_devlink(event->dev, filename, cur->key.devlink_unique);
+                                udev_device_add_devlink(event->dev, filename);
                                 while (isspace(next[1]))
                                         next++;
                                 pos = &next[1];
@@ -2588,7 +2578,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                 log_debug("LINK '%s' %s:%u\n", pos,
                                           &rules->buf[rule->rule.filename_off], rule->rule.filename_line);
                                 util_strscpyl(filename, sizeof(filename), "/dev/", pos, NULL);
-                                udev_device_add_devlink(event->dev, filename, cur->key.devlink_unique);
+                                udev_device_add_devlink(event->dev, filename);
                         }
                         break;
                 }
