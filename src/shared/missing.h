@@ -218,7 +218,7 @@ static inline pid_t gettid(void) {
 #  endif
 #endif
 
-#ifndef HAVE_NAME_TO_HANDLE_AT
+#if !HAVE_DECL_NAME_TO_HANDLE_AT
 struct file_handle {
         unsigned int handle_bytes;
         int handle_type;

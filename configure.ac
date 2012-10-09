@@ -174,11 +174,12 @@ CAP_LIBS="$LIBS"
 LIBS="$save_LIBS"
 AC_SUBST(CAP_LIBS)
 
-AC_CHECK_FUNCS([fanotify_init fanotify_mark name_to_handle_at])
+AC_CHECK_FUNCS([fanotify_init fanotify_mark])
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
-AC_CHECK_DECLS([gettid, pivot_root], [], [], [[#include <sys/types.h>
+AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at], [], [], [[#include <sys/types.h>
 #include <unistd.h>
-#include <sys/mount.h>]])
+#include <sys/mount.h>
+#include <fcntl.h>]])
 
 # This makes sure pkg.m4 is available.
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
