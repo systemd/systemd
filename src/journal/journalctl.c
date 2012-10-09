@@ -150,7 +150,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "verify",       no_argument,       NULL, ARG_VERIFY       },
                 { "verify-key",   required_argument, NULL, ARG_VERIFY_KEY   },
                 { "disk-usage",   no_argument,       NULL, ARG_DISK_USAGE   },
-                { "cursor",       no_argument,       NULL, 'c'              },
+                { "cursor",       required_argument, NULL, 'c'              },
                 { NULL,           0,                 NULL, 0                }
         };
 
