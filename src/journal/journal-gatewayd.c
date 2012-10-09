@@ -180,15 +180,9 @@ static ssize_t request_reader_entries(
                     m->n_entries <= 0)
                         return MHD_CONTENT_READER_END_OF_STREAM;
 
-                if (m->n_skip < 0) {
-                        r = sd_journal_previous_skip(m->journal, (uint64_t) -m->n_skip);
-
-                        /* We couldn't seek this far backwards? Then
-                         * let's try to look forward... */
-                        if (r == 0)
-                                r = sd_journal_next(m->journal);
-
-                } else if (m->n_skip > 0)
+                if (m->n_skip < 0)
+                        r = sd_journal_previous_skip(m->journal, (uint64_t) -m->n_skip + 1);
+                else if (m->n_skip > 0)
                         r = sd_journal_next_skip(m->journal, (uint64_t) m->n_skip + 1);
                 else
                         r = sd_journal_next(m->journal);
@@ -442,13 +436,6 @@ static int request_handler_entries(
         if (request_parse_arguments(m, connection) < 0)
                 return respond_error(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse URL arguments.\n");
 
-        /* log_info("cursor = %s", m->cursor); */
-        /* log_info("skip = %lli", m->n_skip); */
-        /* if (!m->n_entries_set) */
-        /*         log_info("n_entries not set!"); */
-        /* else */
-        /*         log_info("n_entries = %llu", m->n_entries); */
-
         if (m->cursor)
                 r = sd_journal_seek_cursor(m->journal, m->cursor);
         else if (m->n_skip >= 0)
@@ -656,7 +643,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        log_set_target(LOG_TARGET_KMSG);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 
