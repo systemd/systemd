@@ -159,10 +159,10 @@ int detect_container(const char **id) {
         /* Unfortunately many of these operations require root access
          * in one way or another */
 
-        if (geteuid() != 0)
-                return -EPERM;
-
-        if (running_in_chroot() > 0) {
+        r = running_in_chroot();
+        if (r < 0)
+                return r;
+        if (r > 0) {
 
                 if (id)
                         *id = "chroot";
