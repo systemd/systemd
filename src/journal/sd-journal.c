@@ -58,12 +58,13 @@ static void reset_location(sd_journal *j) {
         zero(j->current_location);
 }
 
-static void init_location(Location *l, JournalFile *f, Object *o) {
+static void init_location(Location *l, LocationType type, JournalFile *f, Object *o) {
         assert(l);
+        assert(type == LOCATION_DISCRETE || type == LOCATION_SEEK);
         assert(f);
         assert(o->object.type == OBJECT_ENTRY);
 
-        l->type = LOCATION_DISCRETE;
+        l->type = type;
         l->seqnum = le64toh(o->entry.seqnum);
         l->seqnum_id = f->header->seqnum_id;
         l->realtime = le64toh(o->entry.realtime);
@@ -74,12 +75,13 @@ static void init_location(Location *l, JournalFile *f, Object *o) {
         l->seqnum_set = l->realtime_set = l->monotonic_set = l->xor_hash_set = true;
 }
 
-static void set_location(sd_journal *j, JournalFile *f, Object *o, uint64_t offset) {
+static void set_location(sd_journal *j, LocationType type, JournalFile *f, Object *o, uint64_t offset) {
         assert(j);
+        assert(type == LOCATION_DISCRETE || type == LOCATION_SEEK);
         assert(f);
         assert(o);
 
-        init_location(&j->current_location, f, o);
+        init_location(&j->current_location, type, f, o);
 
         j->current_file = f;
         j->current_field = 0;
@@ -447,7 +449,7 @@ static int compare_with_location(JournalFile *af, Object *ao, Location *l) {
         assert(af);
         assert(ao);
         assert(l);
-        assert(l->type == LOCATION_DISCRETE);
+        assert(l->type == LOCATION_DISCRETE || l->type == LOCATION_SEEK);
 
         if (l->monotonic_set &&
             sd_id128_equal(ao->entry.boot_id, l->boot_id) &&
@@ -866,7 +868,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
         if (r < 0)
                 return r;
 
-        set_location(j, new_file, o, new_offset);
+        set_location(j, LOCATION_DISCRETE, new_file, o, new_offset);
 
         return 1;
 }
@@ -1029,7 +1031,7 @@ _public_ int sd_journal_seek_cursor(sd_journal *j, const char *cursor) {
 
         reset_location(j);
 
-        j->current_location.type = LOCATION_DISCRETE;
+        j->current_location.type = LOCATION_SEEK;
 
         if (realtime_set) {
                 j->current_location.realtime = (uint64_t) realtime;
@@ -1061,7 +1063,7 @@ _public_ int sd_journal_seek_monotonic_usec(sd_journal *j, sd_id128_t boot_id, u
                 return -EINVAL;
 
         reset_location(j);
-        j->current_location.type = LOCATION_DISCRETE;
+        j->current_location.type = LOCATION_SEEK;
         j->current_location.boot_id = boot_id;
         j->current_location.monotonic = usec;
         j->current_location.monotonic_set = true;
@@ -1074,7 +1076,7 @@ _public_ int sd_journal_seek_realtime_usec(sd_journal *j, uint64_t usec) {
                 return -EINVAL;
 
         reset_location(j);
-        j->current_location.type = LOCATION_DISCRETE;
+        j->current_location.type = LOCATION_SEEK;
         j->current_location.realtime = usec;
         j->current_location.realtime_set = true;
 

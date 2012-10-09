@@ -59,7 +59,8 @@ struct Match {
 typedef enum LocationType {
         LOCATION_HEAD,
         LOCATION_TAIL,
-        LOCATION_DISCRETE
+        LOCATION_DISCRETE,
+        LOCATION_SEEK
 } LocationType;
 
 struct Location {
