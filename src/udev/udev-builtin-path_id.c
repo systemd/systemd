@@ -484,6 +484,9 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
                 } else if (strcmp(subsys, "virtio") == 0) {
                         path_prepend(&path, "virtio-pci-%s", udev_device_get_sysname(parent));
                         parent = skip_subsystem(parent, "virtio");
+                } else if (strcmp(subsys, "scm") == 0) {
+                        path_prepend(&path, "scm-%s", udev_device_get_sysname(parent));
+                        parent = skip_subsystem(parent, "scm");
                 }
 
                 parent = udev_device_get_parent(parent);
