@@ -76,13 +76,22 @@
                 td.data {
                         padding-left: 5px;
                 }
+                div#keynav {
+                        text-align: center;
+                        font-size: 7pt;
+                        color: #818789;
+                        padding-top: 50px;
+                }
+                .key {
+                        font-weight: bold;
+                        color: #313739;
+                }
         </style>
 </head>
 
 <body>
         <!-- TODO:
                 - live display
-                - keyboard navigation
                 - localstorage
                 - show red lines for reboots -->
 
@@ -108,6 +117,15 @@
                 <input id="more" type="button" value="More" onclick="entriesMore();"/>
                 <input id="less" type="button" value="Less" onclick="entriesLess();"/>
         </form>
+
+        <div id="keynav">
+                <span class="key">&#8594;, j, SPACE</span>: Next Page &nbsp;&nbsp;&nbsp;&nbsp;
+                <span class="key">&#8592;, k, BACKSPACE</span>: Previous Page &nbsp;&nbsp;&nbsp;&nbsp;
+                <span class="key">g</span>: First Page &nbsp;&nbsp;&nbsp;&nbsp;
+                <span class="key">G</span>: Last Page &nbsp;&nbsp;&nbsp;&nbsp;
+                <span class="key">+</span>: More entries &nbsp;&nbsp;&nbsp;&nbsp;
+                <span class="key">-</span>: Fewer entries
+        </div>
 
         <script type="text/javascript">
                 var first_cursor = null;
@@ -373,9 +391,38 @@
                         request.send(null);
                 }
 
+                function onKeyUp(event) {
+                        switch (event.keyCode) {
+                                case 8:
+                                case 37:
+                                case 75:
+                                        entriesLoadPrevious();
+                                        break;
+                                case 32:
+                                case 39:
+                                case 74:
+                                        entriesLoadNext();
+                                        break;
+
+                                case 71:
+                                        if (event.shiftKey)
+                                                entriesLoadTail();
+                                        else
+                                                entriesLoadHead();
+                                        break;
+                                case 171:
+                                        entriesMore();
+                                        break;
+                                case 173:
+                                        entriesLess();
+                                        break;
+                        }
+                }
+
                 machineLoad();
                 entriesLoad("");
                 showNEntries(getNEntries());
+                document.onkeyup = onKeyUp;
         </script>
 </body>
 </html>
