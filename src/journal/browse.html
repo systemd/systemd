@@ -419,10 +419,21 @@
                         }
                 }
 
+                function onMouseWheel(event) {
+                        if (event.detail < 0 || event.wheelDelta > 0)
+                                entriesLoadPrevious();
+                        else
+                                entriesLoadNext();
+                }
+
                 machineLoad();
                 entriesLoad("");
                 showNEntries(getNEntries());
                 document.onkeyup = onKeyUp;
+
+                logs = document.getElementById("tablelogs");
+                logs.addEventListener("mousewheel", onMouseWheel, false);
+                logs.addEventListener("DOMMouseScroll", onMouseWheel, false);
         </script>
 </body>
 </html>
