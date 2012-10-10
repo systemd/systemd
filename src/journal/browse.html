@@ -81,9 +81,10 @@
 
 <body>
         <!-- TODO:
-
-                - show red lines for reboots
-                - show contents of entries -->
+                - live display
+                - keyboard navigation
+                - localstorage
+                - show red lines for reboots -->
 
         <h1 id="title"></h1>
 
@@ -189,8 +190,8 @@
                         var d = JSON.parse(event.currentTarget.responseText);
 
                         var title = document.getElementById("title");
-                        title.innerHTML = 'Journal of ' + d.hostname;
-                        document.title = 'Journal of ' + d.hostname;
+                        title.innerHTML = 'Journal of ' + escapeHTML(d.hostname);
+                        document.title = 'Journal of ' + escapeHTML(d.hostname);
 
                         var machine = document.getElementById("machine");
                         machine.innerHTML = 'Machine ID is <b>' + d.machine_id + '</b>, current boot ID is <b>' + d.boot_id + '</b>.';
@@ -204,10 +205,10 @@
                         usage.innerHTML = 'Disk usage is <b>' + formatBytes(parseInt(d.usage)) + '</b>.';
 
                         var os = document.getElementById("os");
-                        os.innerHTML = 'Operating system is <b>' + d.os_pretty_name + '</b>.';
+                        os.innerHTML = 'Operating system is <b>' + escapeHTML(d.os_pretty_name) + '</b>.';
 
                         var virtualization = document.getElementById("virtualization");
-                        virtualization.innerHTML = d.virtualization == "bare" ? "Running on <b>bare metal</b>." : "Running on virtualization <b>" + d.virtualization + "</b>.";
+                        virtualization.innerHTML = d.virtualization == "bare" ? "Running on <b>bare metal</b>." : "Running on virtualization <b>" + escapeHTML(d.virtualization) + "</b>.";
                 }
 
                 function entriesLoad(range) {
@@ -298,14 +299,14 @@
                                 buf += '</td><td class="process">';
 
                                 if (d.SYSLOG_IDENTIFIER != undefined)
-                                        buf += d.SYSLOG_IDENTIFIER;
+                                        buf += escapeHTML(d.SYSLOG_IDENTIFIER);
                                 else if (d._COMM != undefined)
-                                        buf += d._COMM;
+                                        buf += escapeHTML(d._COMM);
 
                                 if (d._PID != undefined)
-                                        buf += "[" + d._PID + "]";
+                                        buf += "[" + escapeHTML(d._PID) + "]";
                                 else if (d.SYSLOG_PID != undefined)
-                                        buf += "[" + d.SYSLOG_PID + "]";
+                                        buf += "[" + escapeHTML(d.SYSLOG_PID) + "]";
 
                                 buf += '</td><td class="' + clazz + '"><a href="#entry" onclick="onMessageClick(\'' + lc + '\');">';
 
@@ -345,15 +346,21 @@
                         var d = JSON.parse(event.currentTarget.responseText);
 
                         document.getElementById("diventry").style.display = "block";
-
                         entry = document.getElementById("tableentry");
 
                         var buf = "";
-
                         for (var key in d){
-                                buf += '<tr><td class="field">' + key + '</td><td class="data">' + d[key] + '</td></tr>';
-                        }
+                                var data = d[key];
 
+                                if (data == null)
+                                        data = "[blob data]";
+                                else if (data instanceof Array)
+                                        data = "[" + formatBytes(data.length) + " blob data]";
+                                else
+                                        data = escapeHTML(data);
+
+                                buf += '<tr><td class="field">' + key + '</td><td class="data">' + data + '</td></tr>';
+                        }
                         entry.innerHTML = '<tbody>' + buf + '</tbody>';
                 }
 
