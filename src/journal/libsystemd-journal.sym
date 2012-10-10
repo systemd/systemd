@@ -75,3 +75,8 @@ LIBSYSTEMD_JOURNAL_190 {
 global:
         sd_journal_get_usage;
 } LIBSYSTEMD_JOURNAL_188;
+
+LIBSYSTEMD_JOURNAL_195 {
+global:
+        sd_journal_test_cursor;
+} LIBSYSTEMD_JOURNAL_190;

@@ -39,7 +39,7 @@ static void verify_contents(sd_journal *j, unsigned skip) {
         i = 0;
         SD_JOURNAL_FOREACH(j) {
                 const void *d;
-                char *k;
+                char *k, *c;
                 size_t l;
                 unsigned u;
 
@@ -61,6 +61,10 @@ static void verify_contents(sd_journal *j, unsigned skip) {
                 }
 
                 free(k);
+
+                assert_se(sd_journal_get_cursor(j, &c) >= 0);
+                assert_se(sd_journal_test_cursor(j, c) > 0);
+                free(c);
         }
 
         if (skip > 0)
@@ -122,17 +126,27 @@ int main(int argc, char *argv[]) {
         SD_JOURNAL_FOREACH_BACKWARDS(j) {
                 const void *d;
                 size_t l;
+                char *c;
 
                 assert_se(sd_journal_get_data(j, "NUMBER", &d, &l) >= 0);
                 printf("\t%.*s\n", (int) l, (const char*) d);
+
+                assert_se(sd_journal_get_cursor(j, &c) >= 0);
+                assert_se(sd_journal_test_cursor(j, c) > 0);
+                free(c);
         }
 
         SD_JOURNAL_FOREACH(j) {
                 const void *d;
                 size_t l;
+                char *c;
 
                 assert_se(sd_journal_get_data(j, "NUMBER", &d, &l) >= 0);
                 printf("\t%.*s\n", (int) l, (const char*) d);
+
+                assert_se(sd_journal_get_cursor(j, &c) >= 0);
+                assert_se(sd_journal_test_cursor(j, c) > 0);
+                free(c);
         }
 
         sd_journal_flush_matches(j);

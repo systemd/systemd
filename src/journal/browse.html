@@ -4,7 +4,7 @@
         <title>Journal</title>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
         <style type="text/css">
-                div#divlogs {
+                div#divlogs, div#diventry {
                         font-family: monospace;
                         font-size: 8pt;
                         background-color: #ffffff;
@@ -14,6 +14,12 @@
                         border: 1px solid threedshadow;
                         white-space: nowrap;
                         overflow-x: scroll;
+                }
+                div#diventry {
+                        display: none;
+                }
+                div#divlogs {
+                        display: block;
                 }
                 body {
                         background-color: #ededed;
@@ -34,17 +40,41 @@
                 td.message {
                         padding-left: 5px;
                 }
+                td.message > a:link, td.message > a:visited {
+                        text-decoration: none;
+                        color: #313739;
+                }
                 td.message-error {
                         padding-left: 5px;
                         color: red;
                         font-weight: bold;
                 }
+                td.message-error > a:link, td.message-error > a:visited {
+                        text-decoration: none;
+                        color: red;
+                }
                 td.message-highlight {
                         padding-left: 5px;
                         font-weight: bold;
                 }
-                table#tablelogs {
-                        border-collapse:collapse;
+                td.message-highlight > a:link, td.message-highlight > a:visited {
+                        text-decoration: none;
+                        color: #313739;
+                }
+                td > a:hover, td > a:active {
+                        text-decoration: underline;
+                        color: #c13739;
+                }
+                table#tablelogs, table#tableentry {
+                        border-collapse: collapse;
+                }
+                td.field {
+                        text-align: right;
+                        border-right: 1px dotted lightgrey;
+                        padding-right: 5px;
+                }
+                td.data {
+                        padding-left: 5px;
                 }
         </style>
 </head>
@@ -65,6 +95,8 @@
         <div id="showing"></div>
 
         <div id="divlogs"><table id="tablelogs"></table></div>
+        <a name="entry"></a>
+        <div id="diventry"><table id="tableentry"></table></div>
 
         <form>
                 <input id="head" type="button" value="|&lt;" onclick="entriesLoadHead();"/>
@@ -271,7 +303,7 @@
                                 else if (d.SYSLOG_PID != undefined)
                                         buf += "[" + d.SYSLOG_PID + "]";
 
-                                buf += '</td><td class="' + clazz + '">';
+                                buf += '</td><td class="' + clazz + '"><a href="#entry" onclick="onMessageClick(\'' + lc + '\');">';
 
                                 if (d.MESSAGE == null)
                                         buf += "[blob data]";
@@ -280,10 +312,10 @@
                                 else
                                         buf += d.MESSAGE;
 
-                                buf += '</td></tr>';
+                                buf += '</a></td></tr>';
                         }
 
-                        logs.innerHTML = buf + '</tbody>';
+                        logs.innerHTML = '<tbody>' + buf + '</tbody>';
 
                         if (fc != null)
                                 first_cursor = fc;
@@ -293,12 +325,41 @@
 
                 function entriesMore() {
                         setNEntries(getNEntries() + 10);
-                        entriesLoad("");
+                        entriesLoad(first_cursor);
                 }
 
                 function entriesLess() {
                         setNEntries(getNEntries() - 10);
-                        entriesLoad("");
+                        entriesLoad(first_cursor);
+                }
+
+                function onResultMessageClick(event) {
+                        if ((event.currentTarget.readyState != 4) ||
+                                (event.currentTarget.status != 200 && event.currentTarget.status != 0))
+                                return;
+
+                        var d = JSON.parse(event.currentTarget.responseText);
+
+                        document.getElementById("diventry").style.display = "block";
+
+                        entry = document.getElementById("tableentry");
+
+                        var buf = "";
+
+                        for (var key in d){
+                                buf += '<tr><td class="field">' + key + '</td><td class="data">' + d[key] + '</td></tr>';
+                        }
+
+                        entry.innerHTML = '<tbody>' + buf + '</tbody>';
+                }
+
+                function onMessageClick(t) {
+                        var request = new XMLHttpRequest();
+                        request.open("GET", "/entries?discrete");
+                        request.onreadystatechange = onResultMessageClick;
+                        request.setRequestHeader("Accept", "application/json");
+                        request.setRequestHeader("Range", "entries=" + t + ":0:1");
+                        request.send(null);
                 }
 
                 machineLoad();

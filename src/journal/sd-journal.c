@@ -951,9 +951,8 @@ _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
 }
 
 _public_ int sd_journal_seek_cursor(sd_journal *j, const char *cursor) {
-        char *w;
+        char *w, *state;
         size_t l;
-        char *state;
         unsigned long long seqnum, monotonic, realtime, xor_hash;
         bool
                 seqnum_id_set = false,
@@ -966,7 +965,7 @@ _public_ int sd_journal_seek_cursor(sd_journal *j, const char *cursor) {
 
         if (!j)
                 return -EINVAL;
-        if (!cursor)
+        if (isempty(cursor))
                 return -EINVAL;
 
         FOREACH_WORD_SEPARATOR(w, l, cursor, ";", state) {
@@ -1056,6 +1055,89 @@ _public_ int sd_journal_seek_cursor(sd_journal *j, const char *cursor) {
 
         return 0;
 }
+
+_public_ int sd_journal_test_cursor(sd_journal *j, const char *cursor) {
+        int r;
+        char *w, *state;
+        size_t l;
+        Object *o;
+
+        if (!j)
+                return -EINVAL;
+        if (isempty(cursor))
+                return -EINVAL;
+
+        if (!j->current_file || j->current_file->current_offset <= 0)
+                return -EADDRNOTAVAIL;
+
+        r = journal_file_move_to_object(j->current_file, OBJECT_ENTRY, j->current_file->current_offset, &o);
+        if (r < 0)
+                return r;
+
+        FOREACH_WORD_SEPARATOR(w, l, cursor, ";", state) {
+                _cleanup_free_ char *item = NULL;
+                sd_id128_t id;
+                unsigned long long ll;
+                int k = 0;
+
+                if (l < 2 || w[1] != '=')
+                        return -EINVAL;
+
+                item = strndup(w, l);
+                if (!item)
+                        return -ENOMEM;
+
+                switch (w[0]) {
+
+                case 's':
+                        k = sd_id128_from_string(item+2, &id);
+                        if (k < 0)
+                                return k;
+                        if (!sd_id128_equal(id, j->current_file->header->seqnum_id))
+                                return 0;
+                        break;
+
+                case 'i':
+                        if (sscanf(item+2, "%llx", &ll) != 1)
+                                return -EINVAL;
+                        if (ll != le64toh(o->entry.seqnum))
+                                return 0;
+                        break;
+
+                case 'b':
+                        k = sd_id128_from_string(item+2, &id);
+                        if (k < 0)
+                                return k;
+                        if (!sd_id128_equal(id, o->entry.boot_id))
+                                return 0;
+                        break;
+
+                case 'm':
+                        if (sscanf(item+2, "%llx", &ll) != 1)
+                                return -EINVAL;
+                        if (ll != le64toh(o->entry.monotonic))
+                                return 0;
+                        break;
+
+                case 't':
+                        if (sscanf(item+2, "%llx", &ll) != 1)
+                                return -EINVAL;
+                        if (ll != le64toh(o->entry.realtime))
+                                return 0;
+                        break;
+
+                case 'x':
+                        if (sscanf(item+2, "%llx", &ll) != 1)
+                                return -EINVAL;
+                        if (ll != le64toh(o->entry.xor_hash))
+                                return 0;
+                        break;
+                }
+        }
+
+        return 1;
+}
+
 
 _public_ int sd_journal_seek_monotonic_usec(sd_journal *j, sd_id128_t boot_id, uint64_t usec) {
         if (!j)

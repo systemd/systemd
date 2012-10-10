@@ -580,7 +580,8 @@ MANPAGES_ALIAS = \
 	man/sd_journal_seek_tail.3 \
 	man/sd_journal_seek_monotonic_usec.3 \
 	man/sd_journal_seek_realtime_usec.3 \
-	man/sd_journal_seek_cursor.3
+	man/sd_journal_seek_cursor.3 \
+	man/sd_journal_test_cursor.3
 
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
@@ -649,6 +650,7 @@ man/sd_journal_seek_tail.3: man/sd_journal_seek_head.3
 man/sd_journal_seek_monotonic_usec.3: man/sd_journal_seek_head.3
 man/sd_journal_seek_realtime_usec.3: man/sd_journal_seek_head.3
 man/sd_journal_seek_cursor.3: man/sd_journal_seek_head.3
+man/sd_journal_test_cursor.3: man/sd_journal_get_cursor.3
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}

@@ -104,6 +104,7 @@ int sd_journal_seek_realtime_usec(sd_journal *j, uint64_t usec);
 int sd_journal_seek_cursor(sd_journal *j, const char *cursor);
 
 int sd_journal_get_cursor(sd_journal *j, char **cursor);
+int sd_journal_test_cursor(sd_journal *j, const char *cursor);
 
 int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, uint64_t *to);
 int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, const sd_id128_t boot_id, uint64_t *from, uint64_t *to);

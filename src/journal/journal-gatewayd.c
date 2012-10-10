@@ -49,6 +49,7 @@ typedef struct RequestMeta {
         int argument_parse_error;
 
         bool follow;
+        bool discrete;
 } RequestMeta;
 
 static const char* const mime_types[_OUTPUT_MODE_MAX] = {
@@ -203,6 +204,19 @@ static ssize_t request_reader_entries(
                         }
 
                         return MHD_CONTENT_READER_END_OF_STREAM;
+                }
+
+                if (m->discrete) {
+                        assert(m->cursor);
+
+                        r = sd_journal_test_cursor(m->journal, m->cursor);
+                        if (r < 0) {
+                                log_error("Failed to test cursor: %s", strerror(-r));
+                                return MHD_CONTENT_READER_END_WITH_ERROR;
+                        }
+
+                        if (r == 0)
+                                return MHD_CONTENT_READER_END_OF_STREAM;
                 }
 
                 pos -= m->size;
@@ -380,6 +394,22 @@ static int request_parse_arguments_iterator(
                 return MHD_YES;
         }
 
+        if (streq(key, "discrete")) {
+                if (isempty(value)) {
+                        m->discrete = true;
+                        return MHD_YES;
+                }
+
+                r = parse_boolean(value);
+                if (r < 0) {
+                        m->argument_parse_error = r;
+                        return MHD_NO;
+                }
+
+                m->discrete = r;
+                return MHD_YES;
+        }
+
         p = strjoin(key, "=", strempty(value), NULL);
         if (!p) {
                 m->argument_parse_error = log_oom();
@@ -435,6 +465,14 @@ static int request_handler_entries(
 
         if (request_parse_arguments(m, connection) < 0)
                 return respond_error(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse URL arguments.\n");
+
+        if (m->discrete) {
+                if (!m->cursor)
+                        return respond_error(connection, MHD_HTTP_BAD_REQUEST, "Discrete seeks require a cursor specification.\n");
+
+                m->n_entries = 1;
+                m->n_entries_set = true;
+        }
 
         if (m->cursor)
                 r = sd_journal_seek_cursor(m->journal, m->cursor);
