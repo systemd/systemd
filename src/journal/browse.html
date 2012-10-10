@@ -90,7 +90,7 @@
                         text-align: center;
                 }
                 input {
-                        font-size: 10pt;
+                        font-size: 18pt;
                         font-weight: bold;
                 }
         </style>
@@ -115,13 +115,13 @@
         <div id="diventry"><table id="tableentry"></table></div>
 
         <form>
-                <input id="head" type="button" value="|&lt;" onclick="entriesLoadHead();"/>
-                <input id="previous" type="button" value="&lt;&lt;" onclick="entriesLoadPrevious();"/>
-                <input id="next" type="button" value="&gt;&gt;" onclick="entriesLoadNext();"/>
-                <input id="tail" type="button" value="&gt;|" onclick="entriesLoadTail();"/>
+                <input id="head" type="button" value="&#8676;" onclick="entriesLoadHead();" title="First Page"/>
+                <input id="previous" type="button" value="&#8592;" onclick="entriesLoadPrevious();" title="Previous Page"/>
+                <input id="next" type="button" value="&#8594;" onclick="entriesLoadNext();" title="Next Page"/>
+                <input id="tail" type="button" value="&#8677;" onclick="entriesLoadTail();" title="Last Page"/>
                 &nbsp;&nbsp;&nbsp;&nbsp;
-                <input id="more" type="button" value="More" onclick="entriesMore();"/>
-                <input id="less" type="button" value="Less" onclick="entriesLess();"/>
+                <input id="more" type="button" value="+" onclick="entriesMore();" title="More Entries"/>
+                <input id="less" type="button" value="-" onclick="entriesLess();" title="Fewer Entries"/>
         </form>
 
         <div id="keynav">
@@ -139,7 +139,7 @@
 
                 function getNEntries() {
                         var n;
-                        n = localStorage["n_entries"];
+                        n = window.localStorage["n_entries"];
                         if (n == null)
                                 return 50;
                         n = parseInt(n);
@@ -156,7 +156,11 @@
                 }
 
                 function setNEntries(n) {
-                        localStorage["n_entries"] = n.toString();
+                        if (n < 10)
+                                return 10;
+                        if (n > 1000)
+                                return 1000;
+                        window.localStorage["n_entries"] = n.toString();
                         showNEntries(n);
                 }
 
@@ -217,7 +221,7 @@
                 function entriesLoad(range) {
 
                         if (range == null)
-                                range = localStorage["cursor"];
+                                range = window.localStorage["cursor"] + ":0";
                         if (range == null)
                                 range = "";
 
@@ -333,7 +337,7 @@
 
                         if (fc != null) {
                                 first_cursor = fc;
-                                localStorage["cursor"] = fc;
+                                window.localStorage["cursor"] = fc;
                         }
                         if (lc != null)
                                 last_cursor = lc;
