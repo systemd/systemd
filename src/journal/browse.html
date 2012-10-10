@@ -4,7 +4,7 @@
         <title>Journal</title>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
         <style type="text/css">
-                div#logs {
+                div#divlogs {
                         font-family: monospace;
                         font-size: 8pt;
                         background-color: #ffffff;
@@ -21,13 +21,30 @@
                         font: message-box;
                         margin: 5em;
                 }
-
-                .log-error {
+                td.timestamp {
+                        text-align: right;
+                        border-right: 1px dotted lightgrey;
+                        padding-right: 5px;
+                }
+                td.process {
+                        border-right: 1px dotted lightgrey;
+                        padding-left: 5px;
+                        padding-right: 5px;
+                }
+                td.message {
+                        padding-left: 5px;
+                }
+                td.message-error {
+                        padding-left: 5px;
                         color: red;
                         font-weight: bold;
                 }
-                .log-highlight {
+                td.message-highlight {
+                        padding-left: 5px;
                         font-weight: bold;
+                }
+                table#tablelogs {
+                        border-collapse:collapse;
                 }
         </style>
 </head>
@@ -35,8 +52,6 @@
 <body>
         <!-- TODO:
 
-                - seek to back properly
-                - handle seek before front properly
                 - show red lines for reboots
                 - show contents of entries -->
 
@@ -49,7 +64,7 @@
         <div id="usage"></div>
         <div id="showing"></div>
 
-        <div id="logs"></div>
+        <div id="divlogs"><table id="tablelogs"></table></div>
 
         <form>
                 <input id="head" type="button" value="|&lt;" onclick="entriesLoadHead();"/>
@@ -196,8 +211,7 @@
                                 (event.currentTarget.status != 200 && event.currentTarget.status != 0))
                                 return;
 
-                        var logs = document.getElementById("logs");
-                        logs.innerHTML = "";
+                        var logs = document.getElementById("tablelogs");
 
                         var lc = null;
                         var fc = null;
@@ -206,9 +220,11 @@
                         var l = event.currentTarget.responseText.split('\n');
 
                         if (l.length <= 1) {
-                                logs.innerHTML = "<i>No further entries...</i>";
+                                logs.innerHTML = '<tbody><tr><td colspan="3"><i>No further entries...</i></td></tr></tbody>';
                                 return;
                         }
+
+                        var buf = '';
 
                         for (i in l) {
 
@@ -230,33 +246,44 @@
                                         priority = 6;
 
                                 if (priority <= 3)
-                                        clazz = "log-error";
+                                        clazz = "message-error";
                                 else if (priority <= 5)
-                                        clazz = "log-highlight";
+                                        clazz = "message-highlight";
                                 else
-                                        clazz = "log-normal";
+                                        clazz = "message";
 
-                                var line = '<div class="' + clazz + '">';
+                                buf += '<tr><td class="timestamp">';
+
+                                if (d.__REALTIME_TIMESTAMP != undefined) {
+                                        var timestamp = new Date(parseInt(d.__REALTIME_TIMESTAMP) / 1000);
+                                        buf += timestamp.toLocaleString();
+                                }
+
+                                buf += '</td><td class="process">';
 
                                 if (d.SYSLOG_IDENTIFIER != undefined)
-                                        line += d.SYSLOG_IDENTIFIER;
+                                        buf += d.SYSLOG_IDENTIFIER;
                                 else if (d._COMM != undefined)
-                                        line += d._COMM;
+                                        buf += d._COMM;
 
                                 if (d._PID != undefined)
-                                        line += "[" + d._PID + "]";
+                                        buf += "[" + d._PID + "]";
                                 else if (d.SYSLOG_PID != undefined)
-                                        line += "[" + d.SYSLOG_PID + "]";
+                                        buf += "[" + d.SYSLOG_PID + "]";
+
+                                buf += '</td><td class="' + clazz + '">';
 
                                 if (d.MESSAGE == null)
-                                        line += ": [blob data]</div>";
+                                        buf += "[blob data]";
                                 else if (d.MESSAGE instanceof Array)
-                                        line += ": [" + formatBytes(d.MESSAGE.length) + " blob data]</div>";
+                                        buf += "[" + formatBytes(d.MESSAGE.length) + " blob data]";
                                 else
-                                        line += ": " + d.MESSAGE + "</div>";
+                                        buf += d.MESSAGE;
 
-                                logs.innerHTML += line;
+                                buf += '</td></tr>';
                         }
+
+                        logs.innerHTML = buf + '</tbody>';
 
                         if (fc != null)
                                 first_cursor = fc;
