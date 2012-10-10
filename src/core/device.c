@@ -269,11 +269,8 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                                         log_warning("SYSTEMD_ALIAS for %s is not a path, ignoring: %s", sysfs, e);
                                         free(e);
                                 } else {
-
-                                        r = device_add_escaped_name(u, e);
+                                        device_update_unit(m, dev, e, false);
                                         free(e);
-                                        if (r < 0)
-                                                goto fail;
                                 }
                         }
                 }
