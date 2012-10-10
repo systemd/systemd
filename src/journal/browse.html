@@ -99,7 +99,6 @@
 <body>
         <!-- TODO:
                 - live display
-                - localstorage
                 - show red lines for reboots -->
 
         <h1 id="title"></h1>
@@ -138,33 +137,17 @@
                 var first_cursor = null;
                 var last_cursor = null;
 
-                function setCookie(name, value, msec) {
-                        var d = new Date();
-                        d.setMilliseconds(d.getMilliseconds() + msec);
-                        var v = escape(value) + "; expires=" + d.toUTCString();
-                        document.cookie = name + "=" + value;
-                }
-
-                function getCookie(name) {
-                        var i, l;
-                        l = document.cookie.split(";");
-                        for (i in l) {
-                                var x, y, j;
-                                j = l[i].indexOf("=");
-                                x = l[i].substr(0, j);
-                                y = l[i].substr(j+1);
-                                if (x == name)
-                                        return unescape(y);
-                        }
-                        return null;
-                }
-
                 function getNEntries() {
                         var n;
-                        n = getCookie("n_entries");
+                        n = localStorage["n_entries"];
                         if (n == null)
                                 return 50;
-                        return parseInt(n);
+                        n = parseInt(n);
+                        if (n < 10)
+                                return 10;
+                        if (n > 1000)
+                                return 1000;
+                        return n;
                 }
 
                 function showNEntries(n) {
@@ -173,12 +156,7 @@
                 }
 
                 function setNEntries(n) {
-                        if (n < 10)
-                                n = 10;
-                        else if (n > 1000)
-                                n = 1000;
-
-                        setCookie("n_entries", n.toString(), 30*24*60*60*1000);
+                        localStorage["n_entries"] = n.toString();
                         showNEntries(n);
                 }
 
@@ -237,6 +215,12 @@
                 }
 
                 function entriesLoad(range) {
+
+                        if (range == null)
+                                range = localStorage["cursor"];
+                        if (range == null)
+                                range = "";
+
                         var request = new XMLHttpRequest();
                         request.open("GET", "/entries");
                         request.onreadystatechange = entriesOnResult;
@@ -333,7 +317,7 @@
                                 else if (d.SYSLOG_PID != undefined)
                                         buf += "[" + escapeHTML(d.SYSLOG_PID) + "]";
 
-                                buf += '</td><td class="' + clazz + '"><a href="#entry" onclick="onMessageClick(\'' + lc + '\');">';
+                                buf += '</td><td class="' + clazz + '"><a href="#entry" onclick="onMessageClick(\'' + d.__CURSOR + '\');">';
 
                                 if (d.MESSAGE == null)
                                         buf += "[blob data]";
@@ -347,8 +331,10 @@
 
                         logs.innerHTML = '<tbody>' + buf + '</tbody>';
 
-                        if (fc != null)
+                        if (fc != null) {
                                 first_cursor = fc;
+                                localStorage["cursor"] = fc;
+                        }
                         if (lc != null)
                                 last_cursor = lc;
                 }
@@ -434,7 +420,7 @@
                 }
 
                 machineLoad();
-                entriesLoad("");
+                entriesLoad(null);
                 showNEntries(getNEntries());
                 document.onkeyup = onKeyUp;
 
