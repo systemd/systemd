@@ -62,6 +62,8 @@
 #include "loopback-setup.h"
 #include "path-util.h"
 #include "syscall-list.h"
+#include "sd-id128.h"
+#include "sd-messages.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 
@@ -1022,7 +1024,11 @@ int exec_spawn(ExecCommand *command,
 
         r = exec_context_load_environment(context, &files_env);
         if (r < 0) {
-                log_error("Failed to load environment files: %s", strerror(-r));
+                log_struct(LOG_ERR,
+                           "UNIT=%s", unit_id,
+                           "MESSAGE=Failed to load environment files: %s", strerror(-r),
+                           "ERRNO=%d", -r,
+                           NULL);
                 return r;
         }
 
@@ -1033,7 +1039,10 @@ int exec_spawn(ExecCommand *command,
         if (!line)
                 return log_oom();
 
-        log_debug("About to execute: %s", line);
+        log_struct(LOG_DEBUG,
+                   "UNIT=%s", unit_id,
+                   "MESSAGE=About to execute %s", line,
+                   NULL);
         free(line);
 
         r = cgroup_bonding_realize_list(cgroup_bondings);
@@ -1490,13 +1499,24 @@ int exec_spawn(ExecCommand *command,
         fail_child:
                 if (r != 0) {
                         log_open();
-                        log_warning("Failed at step %s spawning %s: %s",
-                                    exit_status_to_string(r, EXIT_STATUS_SYSTEMD),
-                                    command->path, strerror(-err));
+                        log_struct(LOG_ERR, MESSAGE_ID(SD_MESSAGE_SPAWN_FAILED),
+                                   "EXECUTABLE=%s", command->path,
+                                   "MESSAGE=Failed at step %s spawning %s: %s",
+                                          exit_status_to_string(r, EXIT_STATUS_SYSTEMD),
+                                          command->path, strerror(-err),
+                                   "ERRNO=%d", -err,
+                                   NULL);
+                        log_close();
                 }
 
                 _exit(r);
         }
+
+        log_struct(LOG_DEBUG,
+                   "UNIT=%s", unit_id,
+                   "MESSAGE=Forked %s as %lu",
+                          command->path, (unsigned long) pid,
+                   NULL);
 
         /* We add the new process to the cgroup both in the child (so
          * that we can be sure that no user code is ever executed
@@ -1505,8 +1525,6 @@ int exec_spawn(ExecCommand *command,
          * killed too). */
         if (cgroup_bondings)
                 cgroup_bonding_install_list(cgroup_bondings, pid, cgroup_suffix);
-
-        log_debug("Forked %s as %lu", command->path, (unsigned long) pid);
 
         exec_status_start(&command->exec_status, pid);
 

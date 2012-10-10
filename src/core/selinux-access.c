@@ -314,7 +314,7 @@ static int get_calling_context(
                 if (r >= 0)
                         return r;
 
-                log_error("bus_get_selinux_security_context failed %m");
+                log_error("bus_get_selinux_security_context failed: %m");
                 return r;
         }
 

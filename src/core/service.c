@@ -1614,7 +1614,12 @@ static void service_set_state(Service *s, ServiceState state) {
                 cgroup_bonding_trim_list(UNIT(s)->cgroup_bondings, true);
 
         if (old_state != state)
-                log_debug("%s changed %s -> %s", UNIT(s)->id, service_state_to_string(old_state), service_state_to_string(state));
+                log_struct(LOG_DEBUG,
+                           "UNIT=%s", UNIT(s)->id,
+                           "MESSAGE=%s changed %s -> %s", UNIT(s)->id,
+                                   service_state_to_string(old_state),
+                                   service_state_to_string(state),
+                           NULL);
 
         unit_notify(UNIT(s), table[old_state], table[state], s->reload_result == SERVICE_SUCCESS);
         s->reload_result = SERVICE_SUCCESS;
@@ -2948,8 +2953,16 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 f = SERVICE_SUCCESS;
                 }
 
-                log_full(f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
-                         "%s: main process exited, code=%s, status=%i", u->id, sigchld_code_to_string(code), status);
+                log_struct(f == SERVICE_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                           "MESSAGE=%s: main process exited, code=%s, status=%i/%s",
+                                  u->id, sigchld_code_to_string(code), status,
+                                  strna(code == CLD_EXITED
+                                        ? exit_status_to_string(status, EXIT_STATUS_FULL)
+                                        : signal_to_string(status)),
+                           "UNIT=%s", u->id,
+                           "EXIT_CODE=%s", sigchld_code_to_string(code),
+                           "EXIT_STATUS=%i", status,
+                           NULL);
 
                 if (f != SERVICE_SUCCESS)
                         s->result = f;
