@@ -62,9 +62,9 @@ static int evdev_open(const char *dev)
         return fd;
 }
 
-static int evdev_get_keycode(int fd, int scancode, int e)
+static int evdev_get_keycode(int fd, unsigned scancode, int e)
 {
-        int codes[2];
+        unsigned codes[2];
 
         codes[0] = scancode;
         if (ioctl(fd, EVIOCGKEYCODE, codes) < 0) {
@@ -78,12 +78,12 @@ static int evdev_get_keycode(int fd, int scancode, int e)
         return codes[1];
 }
 
-static int evdev_set_keycode(int fd, int scancode, int keycode)
+static int evdev_set_keycode(int fd, unsigned scancode, int keycode)
 {
-        int codes[2];
+        unsigned codes[2];
 
         codes[0] = scancode;
-        codes[1] = keycode;
+        codes[1] = (unsigned) keycode;
 
         if (ioctl(fd, EVIOCSKEYCODE, codes) < 0) {
                 fprintf(stderr, "EVIOCSKEYCODE: %m\n");
@@ -128,7 +128,8 @@ static const char* format_keyname(const char* key) {
 
 static int dump_table(int fd) {
         char version[256], name[256];
-        int scancode, r = -1;
+        unsigned scancode;
+        int r = -1;
 
         if (evdev_driver_version(fd, version, sizeof(version)) < 0)
                 goto fail;
@@ -192,7 +193,8 @@ static int merge_table(int fd, FILE *f) {
 
         while (!feof(f)) {
                 char s[256], *p;
-                int scancode, new_keycode, old_keycode;
+                unsigned scancode;
+                int new_keycode, old_keycode;
 
                 if (!fgets(s, sizeof(s), f))
                         break;
@@ -202,11 +204,11 @@ static int merge_table(int fd, FILE *f) {
                 if (*p == '#' || *p == '\n')
                         continue;
 
-                if (sscanf(p, "%i %i", &scancode, &new_keycode) != 2) {
+                if (sscanf(p, "%u %i", &scancode, &new_keycode) != 2) {
                         char t[105] = "KEY_UNKNOWN";
                         const struct key *k;
 
-                        if (sscanf(p, "%i %100s", &scancode, t+4) != 2) {
+                        if (sscanf(p, "%u %100s", &scancode, t+4) != 2) {
                                 fprintf(stderr, "WARNING: Parse failure at line %i, ignoring.\n", line);
                                 r = -1;
                                 continue;
@@ -260,7 +262,7 @@ static int read_event(int fd, struct input_event* ev)
         return 1;
 }
 
-static void print_key(uint32_t scancode, uint16_t keycode, int has_scan, int has_key)
+static void print_key(unsigned scancode, uint16_t keycode, int has_scan, int has_key)
 {
         const char *keyname;
 
@@ -289,7 +291,7 @@ static void print_key(uint32_t scancode, uint16_t keycode, int has_scan, int has
 static void interactive(int fd)
 {
         struct input_event ev;
-        uint32_t last_scan = 0;
+        unsigned last_scan = 0;
         uint16_t last_key = 0;
         int has_scan; /* boolean */
         int has_key; /* 0: none, 1: release, 2: press */
