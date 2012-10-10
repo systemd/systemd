@@ -177,6 +177,10 @@
                                 return u.toString() + " B";
                 }
 
+                function escapeHTML(s) {
+                        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                }
+
                 function machineOnResult(event) {
                         if ((event.currentTarget.readyState != 4) ||
                                 (event.currentTarget.status != 200 && event.currentTarget.status != 0))
@@ -310,7 +314,7 @@
                                 else if (d.MESSAGE instanceof Array)
                                         buf += "[" + formatBytes(d.MESSAGE.length) + " blob data]";
                                 else
-                                        buf += d.MESSAGE;
+                                        buf += escapeHTML(d.MESSAGE);
 
                                 buf += '</a></td></tr>';
                         }
