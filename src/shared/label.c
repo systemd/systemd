@@ -186,7 +186,7 @@ int label_context_set(const char *path, mode_t mode) {
                 return 0;
 
         r = selabel_lookup_raw(label_hnd, &filecon, path, mode);
-        if (r < 0)
+        if (r < 0 && errno != ENOENT)
                 r = -errno;
         else if (r == 0) {
                 r = setfscreatecon(filecon);
