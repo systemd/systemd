@@ -502,7 +502,10 @@ static int output_json(
                         (unsigned long long) realtime,
                         (unsigned long long) monotonic,
                         sd_id128_to_string(boot_id, sid));
-        else
+        else {
+                if (mode == OUTPUT_JSON_SSE)
+                        fputs("data: ", f);
+
                 fprintf(f,
                         "{ \"__CURSOR\" : \"%s\", "
                         "\"__REALTIME_TIMESTAMP\" : \"%llu\", "
@@ -512,6 +515,7 @@ static int output_json(
                         (unsigned long long) realtime,
                         (unsigned long long) monotonic,
                         sd_id128_to_string(boot_id, sid));
+        }
         free(cursor);
 
         SD_JOURNAL_FOREACH_DATA(j, data, length) {
@@ -541,6 +545,8 @@ static int output_json(
 
         if (mode == OUTPUT_JSON_PRETTY)
                 fputs("\n}\n", f);
+        else if (mode == OUTPUT_JSON_SSE)
+                fputs("}\n\n", f);
         else
                 fputs(" }\n", f);
 
@@ -592,6 +598,7 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
         [OUTPUT_EXPORT] = output_export,
         [OUTPUT_JSON] = output_json,
         [OUTPUT_JSON_PRETTY] = output_json,
+        [OUTPUT_JSON_SSE] = output_json,
         [OUTPUT_CAT] = output_cat
 };
 
@@ -769,6 +776,7 @@ static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
         [OUTPUT_EXPORT] = "export",
         [OUTPUT_JSON] = "json",
         [OUTPUT_JSON_PRETTY] = "json-pretty",
+        [OUTPUT_JSON_SSE] = "json-sse",
         [OUTPUT_CAT] = "cat"
 };
 

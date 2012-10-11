@@ -93,7 +93,7 @@ static int help(void) {
                "  -n --lines[=INTEGER]   Number of journal entries to show\n"
                "     --no-tail           Show all lines, even in follow mode\n"
                "  -o --output=STRING     Change journal output mode (short, short-monotonic,\n"
-               "                         verbose, export, json, json-pretty, cat)\n"
+               "                         verbose, export, json, json-pretty, json-sse, cat)\n"
                "  -q --quiet             Don't show privilege warning\n"
                "  -m --merge             Show entries from all available journals\n"
                "  -b --this-boot         Show data only from current boot\n"

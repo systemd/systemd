@@ -55,7 +55,8 @@ typedef struct RequestMeta {
 static const char* const mime_types[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT] = "text/plain",
         [OUTPUT_JSON] = "application/json",
-        [OUTPUT_EXPORT] = "application/vnd.fdo.journal"
+        [OUTPUT_JSON_SSE] = "text/event-stream",
+        [OUTPUT_EXPORT] = "application/vnd.fdo.journal",
 };
 
 static RequestMeta *request_meta(void **connection_cls) {
@@ -286,6 +287,8 @@ static int request_parse_accept(
 
         if (streq(accept, mime_types[OUTPUT_JSON]))
                 m->mode = OUTPUT_JSON;
+        else if (streq(accept, mime_types[OUTPUT_JSON_SSE]))
+                m->mode = OUTPUT_JSON_SSE;
         else if (streq(accept, mime_types[OUTPUT_EXPORT]))
                 m->mode = OUTPUT_EXPORT;
         else

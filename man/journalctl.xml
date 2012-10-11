@@ -193,6 +193,7 @@
                                 <literal>export</literal>,
                                 <literal>json</literal>,
                                 <literal>json-pretty</literal>,
+                                <literal>json-sse</literal>,
                                 <literal>cat</literal>. <literal>short</literal>
                                 is the default and generates an output
                                 that is mostly identical to the
@@ -219,7 +220,12 @@
                                 structures, but formats them in
                                 multiple lines in order to make them
                                 more readable for
-                                humans. <literal>cat</literal>
+                                humans. <literal>json-sse</literal>
+                                also formats entries as JSON data
+                                structures, but wraps them in a format
+                                suitable for <ulink
+                                url="https://developer.mozilla.org/en-US/docs/Server-sent_events/Using_server-sent_events">Server-Sent
+                                Events</ulink>. <literal>cat</literal>
                                 generates a very terse output only
                                 showing the actual message of each
                                 journal entry with no meta data, not
