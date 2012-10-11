@@ -59,6 +59,10 @@ static int bus_get_selinux_security_context(
                 DBusError *error) {
 
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
+        DBusMessageIter iter, sub;
+        const char *bytes;
+        char *b;
+        int nbytes;
 
         m = dbus_message_new_method_call(
                         DBUS_SERVICE_DBUS,
@@ -85,11 +89,22 @@ static int bus_get_selinux_security_context(
         if (dbus_set_error_from_message(error, reply))
                 return -EIO;
 
-        if (!dbus_message_get_args(
-                            reply, error,
-                            DBUS_TYPE_STRING, scon,
-                            DBUS_TYPE_INVALID))
+        if (!dbus_message_iter_init(reply, &iter))
                 return -EIO;
+
+        if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY)
+                return -EIO;
+
+        dbus_message_iter_recurse(&iter, &sub);
+        dbus_message_iter_get_fixed_array(&sub, &bytes, &nbytes);
+
+        b = strndup(bytes, nbytes);
+        if (!b)
+                return -ENOMEM;
+
+        *scon = b;
+
+        log_debug("GetConnectionSELinuxSecurityContext %s (pid %ld)", *scon, (long) bus_get_unix_process_id(connection, name, error));
 
         return 0;
 }
@@ -293,14 +308,17 @@ static int get_calling_context(
         */
         sender = dbus_message_get_sender(message);
         if (sender) {
+                log_error("SELinux Got Sender %s", sender);
+
                 r = bus_get_selinux_security_context(connection, sender, scon, error);
                 if (r >= 0)
                         return r;
 
-                log_debug("bus_get_selinux_security_context failed %m");
-                dbus_error_free(error);
+                log_error("bus_get_selinux_security_context failed %m");
+                return r;
         }
 
+        log_debug("SELinux No Sender");
         if (!dbus_connection_get_unix_fd(connection, &fd)) {
                 log_error("bus_connection_get_unix_fd failed %m");
                 return -EINVAL;
