@@ -1166,7 +1166,7 @@ TESTS += \
 	test-strv \
 	test-unit-name \
 	test-unit-file \
-	test-data
+	test-date
 
 test_engine_SOURCES = \
 	src/test/test-engine.c
