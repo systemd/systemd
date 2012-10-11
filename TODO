@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* _SOURCE_MONOTONIC_TIMESTAMP entries from the kernel seem to be off by 1000000
+
 * document unit_name_mangle()
 
 * add new command to systemctl: "systemctl system-reexec" which reexecs as many daemons as virtually possible

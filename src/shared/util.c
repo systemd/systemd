@@ -2733,16 +2733,31 @@ int parse_usec(const char *t, usec_t *usec) {
                 const char *suffix;
                 usec_t usec;
         } table[] = {
+                { "seconds", USEC_PER_SEC },
+                { "second", USEC_PER_SEC },
                 { "sec", USEC_PER_SEC },
                 { "s", USEC_PER_SEC },
+                { "minutes", USEC_PER_MINUTE },
+                { "minute", USEC_PER_MINUTE },
                 { "min", USEC_PER_MINUTE },
-                { "hr", USEC_PER_HOUR },
-                { "h", USEC_PER_HOUR },
-                { "d", USEC_PER_DAY },
-                { "w", USEC_PER_WEEK },
+                { "months", USEC_PER_MONTH },
+                { "month", USEC_PER_MONTH },
                 { "msec", USEC_PER_MSEC },
                 { "ms", USEC_PER_MSEC },
                 { "m", USEC_PER_MINUTE },
+                { "hours", USEC_PER_HOUR },
+                { "hour", USEC_PER_HOUR },
+                { "hr", USEC_PER_HOUR },
+                { "h", USEC_PER_HOUR },
+                { "days", USEC_PER_DAY },
+                { "day", USEC_PER_DAY },
+                { "d", USEC_PER_DAY },
+                { "weeks", USEC_PER_WEEK },
+                { "week", USEC_PER_WEEK },
+                { "w", USEC_PER_WEEK },
+                { "years", USEC_PER_YEAR },
+                { "year", USEC_PER_YEAR },
+                { "y", USEC_PER_YEAR },
                 { "usec", 1ULL },
                 { "us", 1ULL },
                 { "", USEC_PER_SEC }, /* default is sec */
@@ -2796,16 +2811,31 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                 const char *suffix;
                 nsec_t nsec;
         } table[] = {
+                { "seconds", NSEC_PER_SEC },
+                { "second", NSEC_PER_SEC },
                 { "sec", NSEC_PER_SEC },
                 { "s", NSEC_PER_SEC },
+                { "minutes", NSEC_PER_MINUTE },
+                { "minute", NSEC_PER_MINUTE },
                 { "min", NSEC_PER_MINUTE },
-                { "hr", NSEC_PER_HOUR },
-                { "h", NSEC_PER_HOUR },
-                { "d", NSEC_PER_DAY },
-                { "w", NSEC_PER_WEEK },
+                { "months", NSEC_PER_MONTH },
+                { "month", NSEC_PER_MONTH },
                 { "msec", NSEC_PER_MSEC },
                 { "ms", NSEC_PER_MSEC },
                 { "m", NSEC_PER_MINUTE },
+                { "hours", NSEC_PER_HOUR },
+                { "hour", NSEC_PER_HOUR },
+                { "hr", NSEC_PER_HOUR },
+                { "h", NSEC_PER_HOUR },
+                { "days", NSEC_PER_DAY },
+                { "day", NSEC_PER_DAY },
+                { "d", NSEC_PER_DAY },
+                { "weeks", NSEC_PER_WEEK },
+                { "week", NSEC_PER_WEEK },
+                { "w", NSEC_PER_WEEK },
+                { "years", NSEC_PER_YEAR },
+                { "year", NSEC_PER_YEAR },
+                { "y", NSEC_PER_YEAR },
                 { "usec", NSEC_PER_USEC },
                 { "us", NSEC_PER_USEC },
                 { "nsec", 1ULL },
@@ -5887,4 +5917,137 @@ bool string_is_safe(const char *p) {
         }
 
         return true;
+}
+
+int parse_timestamp(const char *t, usec_t *usec) {
+        const char *k;
+        struct tm tm, copy;
+        time_t x;
+        usec_t plus = 0, minus = 0, ret;
+        int r;
+
+        /*
+         * Allowed syntaxes:
+         *
+         *   2012-09-22 16:34:22
+         *   2012-09-22 16:34     (seconds will be set to 0)
+         *   2012-09-22           (time will be set to 00:00:00)
+         *   16:34:22             (date will be set to today)
+         *   16:34                (date will be set to today, seconds to 0)
+         *   now
+         *   yesterday            (time is set to 00:00:00)
+         *   today                (time is set to 00:00:00)
+         *   tomorrow             (time is set to 00:00:00)
+         *   +5min
+         *   -5days
+         *
+         */
+
+        assert(t);
+        assert(usec);
+
+        x = time(NULL);
+        assert_se(localtime_r(&x, &tm));
+
+        if (streq(t, "now"))
+                goto finish;
+
+        else if (streq(t, "today")) {
+                tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
+                goto finish;
+
+        } else if (streq(t, "yesterday")) {
+                tm.tm_mday --;
+                tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
+                goto finish;
+
+        } else if (streq(t, "tomorrow")) {
+                tm.tm_mday ++;
+                tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
+                goto finish;
+
+        } else if (t[0] == '+') {
+
+                r = parse_usec(t+1, &plus);
+                if (r < 0)
+                        return r;
+
+                goto finish;
+        } else if (t[0] == '-') {
+
+                r = parse_usec(t+1, &minus);
+                if (r < 0)
+                        return r;
+
+                goto finish;
+        }
+
+        copy = tm;
+        k = strptime(t, "%y-%m-%d %H:%M:%S", &tm);
+        if (k && *k == 0)
+                goto finish;
+
+        tm = copy;
+        k = strptime(t, "%Y-%m-%d %H:%M:%S", &tm);
+        if (k && *k == 0)
+                goto finish;
+
+        tm = copy;
+        k = strptime(t, "%y-%m-%d %H:%M", &tm);
+        if (k && *k == 0) {
+                tm.tm_sec = 0;
+                goto finish;
+        }
+
+        tm = copy;
+        k = strptime(t, "%Y-%m-%d %H:%M", &tm);
+        if (k && *k == 0) {
+                tm.tm_sec = 0;
+                goto finish;
+        }
+
+        tm = copy;
+        k = strptime(t, "%y-%m-%d", &tm);
+        if (k && *k == 0) {
+                tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
+                goto finish;
+        }
+
+        tm = copy;
+        k = strptime(t, "%Y-%m-%d", &tm);
+        if (k && *k == 0) {
+                tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
+                goto finish;
+        }
+
+        tm = copy;
+        k = strptime(t, "%H:%M:%S", &tm);
+        if (k && *k == 0)
+                goto finish;
+
+        tm = copy;
+        k = strptime(t, "%H:%M", &tm);
+        if (k && *k == 0) {
+                tm.tm_sec = 0;
+                goto finish;
+        }
+
+        return -EINVAL;
+
+finish:
+        x = mktime(&tm);
+        if (x == (time_t) -1)
+                return -EINVAL;
+
+        ret = (usec_t) x * USEC_PER_SEC;
+
+        ret += plus;
+        if (ret > minus)
+                ret -= minus;
+        else
+                ret = 0;
+
+        *usec = ret;
+
+        return 0;
 }

@@ -58,7 +58,7 @@ static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_follow = false;
 static bool arg_show_all = false;
 static bool arg_no_pager = false;
-static int arg_lines = -1;
+static unsigned arg_lines = 0;
 static bool arg_no_tail = false;
 static bool arg_quiet = false;
 static bool arg_merge = false;
@@ -70,6 +70,8 @@ static const char *arg_verify_key = NULL;
 #ifdef HAVE_GCRYPT
 static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
 #endif
+static usec_t arg_since, arg_until;
+static bool arg_since_set = false, arg_until_set = false;
 
 static enum {
         ACTION_SHOW,
@@ -88,7 +90,9 @@ static int help(void) {
                "     --version           Show package version\n"
                "     --no-pager          Do not pipe output into a pager\n"
                "  -a --all               Show all fields, including long and unprintable\n"
-               "  -c --cursor=CURSOR     Jump to the specified cursor\n"
+               "  -c --cursor=CURSOR     Start showing entries from specified cursor\n"
+               "     --since=DATE        Start showing entries newer or of the specified date\n"
+               "     --until=DATE        Stop showing entries older or of the specified date\n"
                "  -f --follow            Follow journal\n"
                "  -n --lines[=INTEGER]   Number of journal entries to show\n"
                "     --no-tail           Show all lines, even in follow mode\n"
@@ -126,7 +130,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_INTERVAL,
                 ARG_VERIFY,
                 ARG_VERIFY_KEY,
-                ARG_DISK_USAGE
+                ARG_DISK_USAGE,
+                ARG_SINCE,
+                ARG_UNTIL
         };
 
         static const struct option options[] = {
@@ -151,6 +157,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "verify-key",   required_argument, NULL, ARG_VERIFY_KEY   },
                 { "disk-usage",   no_argument,       NULL, ARG_DISK_USAGE   },
                 { "cursor",       required_argument, NULL, 'c'              },
+                { "since",        required_argument, NULL, ARG_SINCE        },
+                { "until",        required_argument, NULL, ARG_UNTIL        },
                 { NULL,           0,                 NULL, 0                }
         };
 
@@ -197,8 +205,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'n':
                         if (optarg) {
-                                r = safe_atoi(optarg, &arg_lines);
-                                if (r < 0 || arg_lines < 0) {
+                                r = safe_atou(optarg, &arg_lines);
+                                if (r < 0 || arg_lines <= 0) {
                                         log_error("Failed to parse lines '%s'", optarg);
                                         return -EINVAL;
                                 }
@@ -324,6 +332,24 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_SINCE:
+                        r = parse_timestamp(optarg, &arg_since);
+                        if (r < 0) {
+                                log_error("Failed to parse timestamp: %s", optarg);
+                                return -EINVAL;
+                        }
+                        arg_since_set = true;
+                        break;
+
+                case ARG_UNTIL:
+                        r = parse_timestamp(optarg, &arg_until);
+                        if (r < 0) {
+                                log_error("Failed to parse timestamp: %s", optarg);
+                                return -EINVAL;
+                        }
+                        arg_until_set = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -333,8 +359,18 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_follow && !arg_no_tail && arg_lines < 0)
+        if (arg_follow && !arg_no_tail && arg_lines <= 0)
                 arg_lines = 10;
+
+        if (arg_since_set && arg_until_set && arg_since_set > arg_until_set) {
+                log_error("--since= must be before --until=.");
+                return -EINVAL;
+        }
+
+        if (arg_cursor && arg_since_set) {
+                log_error("Please specify either --since= or --cursor=, not both.");
+                return -EINVAL;
+        }
 
         return 1;
 }
@@ -734,6 +770,7 @@ int main(int argc, char *argv[]) {
         sd_id128_t previous_boot_id;
         bool previous_boot_id_valid = false;
         bool have_pager;
+        unsigned n_shown = 0;
 
         log_parse_environment();
         log_open();
@@ -815,26 +852,6 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        if (!arg_quiet) {
-                usec_t start, end;
-                char start_buf[FORMAT_TIMESTAMP_MAX], end_buf[FORMAT_TIMESTAMP_MAX];
-
-                r = sd_journal_get_cutoff_realtime_usec(j, &start, &end);
-                if (r < 0) {
-                        log_error("Failed to get cutoff: %s", strerror(-r));
-                        goto finish;
-                }
-
-                if (r > 0) {
-                        if (arg_follow)
-                                printf("Logs begin at %s.\n", format_timestamp(start_buf, sizeof(start_buf), start));
-                        else
-                                printf("Logs begin at %s, end at %s.\n",
-                                       format_timestamp(start_buf, sizeof(start_buf), start),
-                                       format_timestamp(end_buf, sizeof(end_buf), end));
-                }
-        }
-
         if (arg_cursor) {
                 r = sd_journal_seek_cursor(j, arg_cursor);
                 if (r < 0) {
@@ -844,7 +861,15 @@ int main(int argc, char *argv[]) {
 
                 r = sd_journal_next(j);
 
-        } else if (arg_lines >= 0) {
+        } else if (arg_since_set) {
+                r = sd_journal_seek_realtime_usec(j, arg_since);
+                if (r < 0) {
+                        log_error("Failed to seek to date: %s", strerror(-r));
+                        goto finish;
+                }
+                r = sd_journal_next(j);
+
+        } else if (arg_lines > 0) {
                 r = sd_journal_seek_tail(j);
                 if (r < 0) {
                         log_error("Failed to seek to tail: %s", strerror(-r));
@@ -871,12 +896,34 @@ int main(int argc, char *argv[]) {
         on_tty();
         have_pager = !arg_no_pager && !arg_follow && pager_open();
 
+        if (!arg_quiet) {
+                usec_t start, end;
+                char start_buf[FORMAT_TIMESTAMP_MAX], end_buf[FORMAT_TIMESTAMP_MAX];
+
+                r = sd_journal_get_cutoff_realtime_usec(j, &start, &end);
+                if (r < 0) {
+                        log_error("Failed to get cutoff: %s", strerror(-r));
+                        goto finish;
+                }
+
+                if (r > 0) {
+                        if (arg_follow)
+                                printf("---- Logs begin at %s.\n", format_timestamp(start_buf, sizeof(start_buf), start));
+                        else
+                                printf("---- Logs begin at %s, end at %s.\n",
+                                       format_timestamp(start_buf, sizeof(start_buf), start),
+                                       format_timestamp(end_buf, sizeof(end_buf), end));
+                }
+        }
+
         for (;;) {
                 for (;;) {
-                        int flags =
-                                arg_show_all * OUTPUT_SHOW_ALL |
-                                have_pager * OUTPUT_FULL_WIDTH |
-                                on_tty() * OUTPUT_COLOR;
+                        int flags;
+
+                        if (arg_lines > 0 && n_shown >= arg_lines) {
+                                r = 0;
+                                goto finish;
+                        }
 
                         if (need_seek) {
                                 r = sd_journal_next(j);
@@ -889,6 +936,16 @@ int main(int argc, char *argv[]) {
                         if (r == 0)
                                 break;
 
+                        if (arg_until_set) {
+                                usec_t usec;
+
+                                r = sd_journal_get_realtime_usec(j, &usec);
+                                if (r < 0) {
+                                        log_error("Failed to determine timestamp: %s", strerror(-r));
+                                        goto finish;
+                                }
+                        }
+
                         if (!arg_merge) {
                                 sd_id128_t boot_id;
 
@@ -896,18 +953,24 @@ int main(int argc, char *argv[]) {
                                 if (r >= 0) {
                                         if (previous_boot_id_valid &&
                                             !sd_id128_equal(boot_id, previous_boot_id))
-                                                printf(ANSI_HIGHLIGHT_ON "----- Reboot -----" ANSI_HIGHLIGHT_OFF "\n");
+                                                printf(ANSI_HIGHLIGHT_ON "---- Reboot ----" ANSI_HIGHLIGHT_OFF "\n");
 
                                         previous_boot_id = boot_id;
                                         previous_boot_id_valid = true;
                                 }
                         }
 
+                        flags =
+                                arg_show_all * OUTPUT_SHOW_ALL |
+                                have_pager * OUTPUT_FULL_WIDTH |
+                                on_tty() * OUTPUT_COLOR;
+
                         r = output_journal(stdout, j, arg_output, 0, flags);
                         if (r < 0)
                                 goto finish;
 
                         need_seek = true;
+                        n_shown++;
                 }
 
                 if (!arg_follow)

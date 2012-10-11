@@ -561,3 +561,5 @@ _malloc_ static inline void *memdup_multiply(const void *p, size_t a, size_t b) 
 
 bool filename_is_safe(const char *p);
 bool string_is_safe(const char *p);
+
+int parse_timestamp(const char *t, usec_t *usec);
