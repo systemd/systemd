@@ -2217,6 +2217,8 @@ _public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, 
                 return -EINVAL;
         if (!from && !to)
                 return -EINVAL;
+        if (from == to)
+                return -EINVAL;
 
         HASHMAP_FOREACH(f, j->files, i) {
                 usec_t fr, t;
@@ -2255,6 +2257,8 @@ _public_ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot
         if (!j)
                 return -EINVAL;
         if (!from && !to)
+                return -EINVAL;
+        if (from == to)
                 return -EINVAL;
 
         HASHMAP_FOREACH(f, j->files, i) {
