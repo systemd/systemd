@@ -105,6 +105,11 @@ WARNINGS:
         For more information on this issue consult
         http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
 
+        To run systemd under valgrind, compile with VALGRIND defined
+        (e.g. ./configure CPPFLAGS='... -DVALGRIND=1'). Otherwise,
+        false positives will be triggered by code which violates
+        some rules but is actually safe.
+
 ENGINEERING AND CONSULTING SERVICES:
         ProFUSION <http://profusion.mobi> offers professional
         engineering and consulting services for systemd for embedded

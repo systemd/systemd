@@ -337,23 +337,25 @@ uint32_t jenkins_hashlittle( const void *key, size_t length, uint32_t initval)
     }
 
 #else /* make valgrind happy */
-
-    k8 = (const uint8_t *)k;
-    switch(length)
     {
-    case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
-    case 11: c+=((uint32_t)k8[10])<<16;  /* fall through */
-    case 10: c+=((uint32_t)k8[9])<<8;    /* fall through */
-    case 9 : c+=k8[8];                   /* fall through */
-    case 8 : b+=k[1]; a+=k[0]; break;
-    case 7 : b+=((uint32_t)k8[6])<<16;   /* fall through */
-    case 6 : b+=((uint32_t)k8[5])<<8;    /* fall through */
-    case 5 : b+=k8[4];                   /* fall through */
-    case 4 : a+=k[0]; break;
-    case 3 : a+=((uint32_t)k8[2])<<16;   /* fall through */
-    case 2 : a+=((uint32_t)k8[1])<<8;    /* fall through */
-    case 1 : a+=k8[0]; break;
-    case 0 : return c;
+      const uint8_t *k8 = (const uint8_t *) k;
+
+      switch(length)
+      {
+      case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
+      case 11: c+=((uint32_t)k8[10])<<16;  /* fall through */
+      case 10: c+=((uint32_t)k8[9])<<8;    /* fall through */
+      case 9 : c+=k8[8];                   /* fall through */
+      case 8 : b+=k[1]; a+=k[0]; break;
+      case 7 : b+=((uint32_t)k8[6])<<16;   /* fall through */
+      case 6 : b+=((uint32_t)k8[5])<<8;    /* fall through */
+      case 5 : b+=k8[4];                   /* fall through */
+      case 4 : a+=k[0]; break;
+      case 3 : a+=((uint32_t)k8[2])<<16;   /* fall through */
+      case 2 : a+=((uint32_t)k8[1])<<8;    /* fall through */
+      case 1 : a+=k8[0]; break;
+      case 0 : return c;
+      }
     }
 
 #endif /* !valgrind */
@@ -522,22 +524,24 @@ void jenkins_hashlittle2(
 
 #else /* make valgrind happy */
 
-    k8 = (const uint8_t *)k;
-    switch(length)
     {
-    case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
-    case 11: c+=((uint32_t)k8[10])<<16;  /* fall through */
-    case 10: c+=((uint32_t)k8[9])<<8;    /* fall through */
-    case 9 : c+=k8[8];                   /* fall through */
-    case 8 : b+=k[1]; a+=k[0]; break;
-    case 7 : b+=((uint32_t)k8[6])<<16;   /* fall through */
-    case 6 : b+=((uint32_t)k8[5])<<8;    /* fall through */
-    case 5 : b+=k8[4];                   /* fall through */
-    case 4 : a+=k[0]; break;
-    case 3 : a+=((uint32_t)k8[2])<<16;   /* fall through */
-    case 2 : a+=((uint32_t)k8[1])<<8;    /* fall through */
-    case 1 : a+=k8[0]; break;
-    case 0 : *pc=c; *pb=b; return;  /* zero length strings require no mixing */
+      const uint8_t *k8 = (const uint8_t *)k;
+      switch(length)
+      {
+      case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
+      case 11: c+=((uint32_t)k8[10])<<16;  /* fall through */
+      case 10: c+=((uint32_t)k8[9])<<8;    /* fall through */
+      case 9 : c+=k8[8];                   /* fall through */
+      case 8 : b+=k[1]; a+=k[0]; break;
+      case 7 : b+=((uint32_t)k8[6])<<16;   /* fall through */
+      case 6 : b+=((uint32_t)k8[5])<<8;    /* fall through */
+      case 5 : b+=k8[4];                   /* fall through */
+      case 4 : a+=k[0]; break;
+      case 3 : a+=((uint32_t)k8[2])<<16;   /* fall through */
+      case 2 : a+=((uint32_t)k8[1])<<8;    /* fall through */
+      case 1 : a+=k8[0]; break;
+      case 0 : *pc=c; *pb=b; return;  /* zero length strings require no mixing */
+      }
     }
 
 #endif /* !valgrind */
@@ -698,22 +702,24 @@ uint32_t jenkins_hashbig( const void *key, size_t length, uint32_t initval)
 
 #else  /* make valgrind happy */
 
-    k8 = (const uint8_t *)k;
-    switch(length)                   /* all the case statements fall through */
     {
-    case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
-    case 11: c+=((uint32_t)k8[10])<<8;  /* fall through */
-    case 10: c+=((uint32_t)k8[9])<<16;  /* fall through */
-    case 9 : c+=((uint32_t)k8[8])<<24;  /* fall through */
-    case 8 : b+=k[1]; a+=k[0]; break;
-    case 7 : b+=((uint32_t)k8[6])<<8;   /* fall through */
-    case 6 : b+=((uint32_t)k8[5])<<16;  /* fall through */
-    case 5 : b+=((uint32_t)k8[4])<<24;  /* fall through */
-    case 4 : a+=k[0]; break;
-    case 3 : a+=((uint32_t)k8[2])<<8;   /* fall through */
-    case 2 : a+=((uint32_t)k8[1])<<16;  /* fall through */
-    case 1 : a+=((uint32_t)k8[0])<<24; break;
-    case 0 : return c;
+      const uint8_t *k8 = (const uint8_t *)k;
+      switch(length)                   /* all the case statements fall through */
+      {
+      case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
+      case 11: c+=((uint32_t)k8[10])<<8;  /* fall through */
+      case 10: c+=((uint32_t)k8[9])<<16;  /* fall through */
+      case 9 : c+=((uint32_t)k8[8])<<24;  /* fall through */
+      case 8 : b+=k[1]; a+=k[0]; break;
+      case 7 : b+=((uint32_t)k8[6])<<8;   /* fall through */
+      case 6 : b+=((uint32_t)k8[5])<<16;  /* fall through */
+      case 5 : b+=((uint32_t)k8[4])<<24;  /* fall through */
+      case 4 : a+=k[0]; break;
+      case 3 : a+=((uint32_t)k8[2])<<8;   /* fall through */
+      case 2 : a+=((uint32_t)k8[1])<<16;  /* fall through */
+      case 1 : a+=((uint32_t)k8[0])<<24; break;
+      case 0 : return c;
+      }
     }
 
 #endif /* !VALGRIND */
