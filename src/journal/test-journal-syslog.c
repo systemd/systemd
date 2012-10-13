@@ -1,7 +1,5 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#pragma once
-
 /***
   This file is part of systemd.
 
@@ -21,16 +19,26 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "journald.h"
+#include "journald-syslog.h"
+#include "macro.h"
 
-int syslog_fixup_facility(int priority);
+static void test_syslog_parse_identifier(const char* str,
+                                         const char *ident, const char*pid, int ret) {
+        const char *buf = str;
+        char *ident2 = NULL, *pid2 = NULL;
+        int ret2;
 
-void syslog_parse_priority(char **p, int *priority);
-size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid);
+        ret2 = syslog_parse_identifier(&buf, &ident2, &pid2);
 
-void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred, struct timeval *tv);
+        assert(ret == ret2);
+        assert(ident==ident2 || !strcmp(ident, ident2));
+        assert(pid==pid2 || !strcmp(pid, pid2));
+}
 
-void server_process_syslog_message(Server *s, const char *buf, struct ucred *ucred, struct timeval *tv, const char *label, size_t label_len);
-int server_open_syslog_socket(Server *s);
+int main(void) {
+        test_syslog_parse_identifier("pidu[111]: xxx", "pidu", "111", 11);
+        test_syslog_parse_identifier("pidu: xxx", "pidu", NULL, 6);
+        test_syslog_parse_identifier("pidu xxx", NULL, NULL, 0);
 
-void server_maybe_warn_forward_syslog_missed(Server *s);
+        return 0;
+}

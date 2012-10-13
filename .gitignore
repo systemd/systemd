@@ -17,6 +17,7 @@
 /build-aux
 /test-watchdog
 /test-journal-send
+/test-journal-syslog
 /systemd-multi-seat-x
 /systemd-cgtop
 /systemd-coredump

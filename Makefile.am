@@ -2462,6 +2462,15 @@ test_journal_send_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la
 
+test_journal_syslog_SOURCES = \
+	src/journal/test-journal-syslog.c \
+	src/journal/journald-syslog.c
+
+test_journal_syslog_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la
+
 test_journal_match_SOURCES = \
 	src/journal/test-journal-match.c
 
@@ -2595,6 +2604,7 @@ UNINSTALL_EXEC_HOOKS += \
 noinst_PROGRAMS += \
 	test-journal \
 	test-journal-send \
+	test-journal-syslog \
 	test-journal-match \
 	test-journal-stream \
 	test-journal-verify \
@@ -2602,6 +2612,8 @@ noinst_PROGRAMS += \
 
 TESTS += \
 	test-journal \
+	test-journal-send \
+	test-journal-syslog \
 	test-journal-match \
 	test-journal-stream \
 	test-journal-verify \

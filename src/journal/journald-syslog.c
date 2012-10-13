@@ -185,7 +185,7 @@ int syslog_fixup_facility(int priority) {
         return priority;
 }
 
-void syslog_parse_identifier(const char **buf, char **identifier, char **pid) {
+size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) {
         const char *p;
         char *t;
         size_t l, e;
@@ -201,7 +201,7 @@ void syslog_parse_identifier(const char **buf, char **identifier, char **pid) {
 
         if (l <= 0 ||
             p[l-1] != ':')
-                return;
+                return 0;
 
         e = l;
         l--;
@@ -231,8 +231,9 @@ void syslog_parse_identifier(const char **buf, char **identifier, char **pid) {
         if (t)
                 *identifier = t;
 
+        e += strspn(p + e, WHITESPACE);
         *buf = p + e;
-        *buf += strspn(*buf, WHITESPACE);
+        return e;
 }
 
 void syslog_parse_priority(char **p, int *priority) {
