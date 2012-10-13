@@ -276,20 +276,20 @@ static int request_parse_accept(
                 RequestMeta *m,
                 struct MHD_Connection *connection) {
 
-        const char *accept;
+        const char *header;
 
         assert(m);
         assert(connection);
 
-        accept = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Accept");
-        if (!accept)
+        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Accept");
+        if (!header)
                 return 0;
 
-        if (streq(accept, mime_types[OUTPUT_JSON]))
+        if (streq(header, mime_types[OUTPUT_JSON]))
                 m->mode = OUTPUT_JSON;
-        else if (streq(accept, mime_types[OUTPUT_JSON_SSE]))
+        else if (streq(header, mime_types[OUTPUT_JSON_SSE]))
                 m->mode = OUTPUT_JSON_SSE;
-        else if (streq(accept, mime_types[OUTPUT_EXPORT]))
+        else if (streq(header, mime_types[OUTPUT_EXPORT]))
                 m->mode = OUTPUT_EXPORT;
         else
                 m->mode = OUTPUT_SHORT;
@@ -676,7 +676,7 @@ static int request_handler(
 }
 
 int main(int argc, char *argv[]) {
-        struct MHD_Daemon *daemon = NULL;
+        struct MHD_Daemon *d = NULL;
         int r = EXIT_FAILURE, n;
 
         if (argc > 1) {
@@ -696,7 +696,7 @@ int main(int argc, char *argv[]) {
                 log_error("Can't listen on more than one socket.");
                 goto finish;
         } else if (n > 0) {
-                daemon = MHD_start_daemon(
+                d = MHD_start_daemon(
                                 MHD_USE_THREAD_PER_CONNECTION|MHD_USE_POLL|MHD_USE_DEBUG,
                                 19531,
                                 NULL, NULL,
@@ -705,7 +705,7 @@ int main(int argc, char *argv[]) {
                                 MHD_OPTION_NOTIFY_COMPLETED, request_meta_free, NULL,
                                 MHD_OPTION_END);
         } else {
-                daemon = MHD_start_daemon(
+                d = MHD_start_daemon(
                                 MHD_USE_DEBUG|MHD_USE_THREAD_PER_CONNECTION|MHD_USE_POLL,
                                 19531,
                                 NULL, NULL,
@@ -714,7 +714,7 @@ int main(int argc, char *argv[]) {
                                 MHD_OPTION_END);
         }
 
-        if (!daemon) {
+        if (!d) {
                 log_error("Failed to start daemon!");
                 goto finish;
         }
@@ -724,8 +724,8 @@ int main(int argc, char *argv[]) {
         r = EXIT_SUCCESS;
 
 finish:
-        if (daemon)
-                MHD_stop_daemon(daemon);
+        if (d)
+                MHD_stop_daemon(d);
 
         return r;
 }
