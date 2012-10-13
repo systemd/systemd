@@ -917,13 +917,8 @@ int main(int argc, char *argv[]) {
         }
 
         for (;;) {
-                for (;;) {
+                while (arg_lines == 0 || n_shown < arg_lines) {
                         int flags;
-
-                        if (arg_lines > 0 && n_shown >= arg_lines) {
-                                r = 0;
-                                goto finish;
-                        }
 
                         if (need_seek) {
                                 r = sd_journal_next(j);
