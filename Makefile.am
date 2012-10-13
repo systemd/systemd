@@ -2699,9 +2699,6 @@ systemd_journal_gatewayd_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(MICROHTTPD_CFLAGS)
 
-EXTRA_DIST += \
-	units/systemd-journal-gatewayd.service.in
-
 dist_systemunit_DATA += \
 	units/systemd-journal-gatewayd.socket
 
@@ -2712,6 +2709,9 @@ dist_gatewayddocumentroot_DATA = \
 	src/journal/browse.html
 
 endif
+
+EXTRA_DIST += \
+	units/systemd-journal-gatewayd.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_COREDUMP
