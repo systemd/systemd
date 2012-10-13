@@ -427,7 +427,8 @@ static int swap_process_new_swap(Manager *m, const char *device, int prio, bool 
                         return log_oom();
 
                 dn = udev_device_get_devnode(d);
-                if (dn)
+                /* Skip dn==device, since that case will be handled below */
+                if (dn && !streq(dn, device))
                         r = swap_add_one(m, dn, device, prio, false, false, set_flags);
 
                 /* Add additional units for all symlinks */
