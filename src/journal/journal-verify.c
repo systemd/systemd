@@ -670,7 +670,8 @@ int journal_file_verify(
                 bool show_progress) {
         int r;
         Object *o;
-        uint64_t p = 0, last_tag = 0, last_epoch = 0, last_tag_realtime = 0, last_sealed_realtime = 0;
+        uint64_t p = 0, last_epoch = 0, last_tag_realtime = 0, last_sealed_realtime = 0;
+
         uint64_t entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
         sd_id128_t entry_boot_id;
         bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
@@ -682,7 +683,9 @@ int journal_file_verify(
                 entry_array_path[] = "/var/tmp/journal-entry-array-XXXXXX";
         unsigned i;
         bool found_last;
-
+#ifdef HAVE_GCRYPT
+        uint64_t last_tag = 0;
+#endif
         assert(f);
 
         if (key) {
@@ -981,9 +984,10 @@ int journal_file_verify(
                                 last_tag_realtime = rt;
                                 last_sealed_realtime = entry_realtime;
                         }
-#endif
 
                         last_tag = p + ALIGN64(le64toh(o->object.size));
+#endif
+
                         last_epoch = le64toh(o->tag.epoch);
 
                         n_tags ++;
