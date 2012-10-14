@@ -917,7 +917,7 @@ int main(int argc, char *argv[]) {
         }
 
         for (;;) {
-                while (arg_lines == 0 || n_shown < arg_lines) {
+                while (arg_lines == 0 || arg_follow || n_shown < arg_lines) {
                         int flags;
 
                         if (need_seek) {
