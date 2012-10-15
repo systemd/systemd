@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
+
 * _SOURCE_MONOTONIC_TIMESTAMP entries from the kernel seem to be off by 1000000
 
 * document unit_name_mangle()
