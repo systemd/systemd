@@ -193,9 +193,16 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'o':
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0) {
-                                log_error("Unknown output '%s'.", optarg);
+                                log_error("Unknown output format '%s'.", optarg);
                                 return -EINVAL;
                         }
+
+                        if (arg_output == OUTPUT_EXPORT ||
+                            arg_output == OUTPUT_JSON ||
+                            arg_output == OUTPUT_JSON_PRETTY ||
+                            arg_output == OUTPUT_JSON_SSE ||
+                            arg_output == OUTPUT_CAT)
+                                arg_quiet = true;
 
                         break;
 
