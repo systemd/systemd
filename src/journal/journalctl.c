@@ -915,9 +915,10 @@ int main(int argc, char *argv[]) {
 
                 if (r > 0) {
                         if (arg_follow)
-                                printf("---- Logs begin at %s.\n", format_timestamp(start_buf, sizeof(start_buf), start));
+                                printf("-- Logs begin at %s. --\n",
+                                       format_timestamp(start_buf, sizeof(start_buf), start));
                         else
-                                printf("---- Logs begin at %s, end at %s.\n",
+                                printf("-- Logs begin at %s, end at %s. --\n",
                                        format_timestamp(start_buf, sizeof(start_buf), start),
                                        format_timestamp(end_buf, sizeof(end_buf), end));
                 }
@@ -955,7 +956,7 @@ int main(int argc, char *argv[]) {
                                 if (r >= 0) {
                                         if (previous_boot_id_valid &&
                                             !sd_id128_equal(boot_id, previous_boot_id))
-                                                printf(ANSI_HIGHLIGHT_ON "---- Reboot ----" ANSI_HIGHLIGHT_OFF "\n");
+                                                printf(ANSI_HIGHLIGHT_ON "-- Reboot --" ANSI_HIGHLIGHT_OFF "\n");
 
                                         previous_boot_id = boot_id;
                                         previous_boot_id_valid = true;
