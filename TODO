@@ -21,6 +21,8 @@ Features:
 
 * clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
 
+* introduce hybrid-sleep.target
+
 * _SOURCE_MONOTONIC_TIMESTAMP entries from the kernel seem to be off by 1000000
 
 * document unit_name_mangle()
@@ -458,9 +460,8 @@ Features:
   - how to pass throw-away units to systemd, or dynamically change properties of existing units
   - how to integrate cgconfig and suchlike with systemd
   - resource control in systemd
-  - inhibiting
   - testing with Harald's awesome test kit
-  - restart
+  - auto-restart
 
 * allow port=0 in .socket units
 
