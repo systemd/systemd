@@ -3594,7 +3594,15 @@ static int mangle_names(char **original_names, char ***mangled_names) {
 
         i = l;
         STRV_FOREACH(name, original_names) {
-                *i = unit_name_mangle(*name);
+
+                /* When enabling units qualified path names are OK,
+                 * too, hence allow them explicitly. */
+
+                if (is_path(*name))
+                        *i = strdup(*name);
+                else
+                        *i = unit_name_mangle(*name);
+
                 if (!*i) {
                         strv_free(l);
                         return log_oom();
