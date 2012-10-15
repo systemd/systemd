@@ -143,6 +143,10 @@ dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u) {
 usec_t timespec_load(const struct timespec *ts) {
         assert(ts);
 
+        if (ts->tv_sec == (time_t) -1 &&
+            ts->tv_nsec == (long) -1)
+                return (usec_t) -1;
+
         return
                 (usec_t) ts->tv_sec * USEC_PER_SEC +
                 (usec_t) ts->tv_nsec / NSEC_PER_USEC;
@@ -150,6 +154,12 @@ usec_t timespec_load(const struct timespec *ts) {
 
 struct timespec *timespec_store(struct timespec *ts, usec_t u)  {
         assert(ts);
+
+        if (u == (usec_t) -1) {
+                ts->tv_sec = (time_t) -1;
+                ts->tv_nsec = (long) -1;
+                return ts;
+        }
 
         ts->tv_sec = (time_t) (u / USEC_PER_SEC);
         ts->tv_nsec = (long int) ((u % USEC_PER_SEC) * NSEC_PER_USEC);
@@ -160,6 +170,10 @@ struct timespec *timespec_store(struct timespec *ts, usec_t u)  {
 usec_t timeval_load(const struct timeval *tv) {
         assert(tv);
 
+        if (tv->tv_sec == (time_t) -1 &&
+            tv->tv_usec == (suseconds_t) -1)
+                return (usec_t) -1;
+
         return
                 (usec_t) tv->tv_sec * USEC_PER_SEC +
                 (usec_t) tv->tv_usec;
@@ -167,6 +181,12 @@ usec_t timeval_load(const struct timeval *tv) {
 
 struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         assert(tv);
+
+        if (u == (usec_t) -1) {
+                tv->tv_sec = (time_t) -1;
+                tv->tv_usec = (suseconds_t) -1;
+                return tv;
+        }
 
         tv->tv_sec = (time_t) (u / USEC_PER_SEC);
         tv->tv_usec = (suseconds_t) (u % USEC_PER_SEC);
