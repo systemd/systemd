@@ -75,7 +75,7 @@
                 for more information on the specific unit
                 configuration files. The execution specific
                 configuration options are configured in the [Service],
-                [Socket], [Mount] resp. [Swap] section, depending on the unit
+                [Socket], [Mount], or [Swap] sections, depending on the unit
                 type.</para>
         </refsect1>
 
@@ -117,10 +117,10 @@
                                 <term><varname>Group=</varname></term>
 
                                 <listitem><para>Sets the Unix user
-                                resp. group the processes are executed
-                                as. Takes a single user resp. group
+                                or group that the processes are executed
+                                as, respectively. Takes a single user or group
                                 name or ID as argument. If no group is
-                                set the default group of the user is
+                                set, the default group of the user is
                                 chosen.</para></listitem>
                         </varlistentry>
 
@@ -868,8 +868,8 @@
                                 the value is suffixed with K, M, G or
                                 T the specified memory size is parsed
                                 as Kilobytes, Megabytes, Gigabytes,
-                                resp. Terabytes (to the base
-                                1024). This controls the
+                                or Terabytes (to the base
+                                1024), respectively. This controls the
                                 <literal>memory.limit_in_bytes</literal>
                                 and
                                 <literal>memory.soft_limit_in_bytes</literal>
@@ -889,9 +889,9 @@
                                 path (such as
                                 <filename>/dev/null</filename>)
                                 followed by a combination of r, w, m
-                                to control reading, writing resp.
+                                to control reading, writing, or
                                 creating of the specific device node
-                                by the unit. This controls the
+                                by the unit, respectively. This controls the
                                 <literal>devices.allow</literal>
                                 and
                                 <literal>devices.deny</literal>
@@ -948,7 +948,7 @@
                                 If the bandwidth is suffixed with K, M,
                                 G, or T the specified bandwidth is
                                 parsed as Kilobytes, Megabytes,
-                                Gigabytes, resp. Terabytes (Example:
+                                Gigabytes, or Terabytes, respectively (Example:
                                 "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0
                                 5M"). This controls the
                                 <literal>blkio.read_bps_device</literal>

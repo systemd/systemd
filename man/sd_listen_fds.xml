@@ -142,7 +142,7 @@
                 <para>For details about the algorithm check the
                 liberally licensed reference implementation sources:
                 <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c"/>
-                resp. <ulink
+                and <ulink
                 url="http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h"/></para>
 
                 <para><function>sd_listen_fds()</function> is

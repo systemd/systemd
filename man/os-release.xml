@@ -279,8 +279,8 @@
                                 URLs are intended to be exposed in
                                 "About this system" UIs behind links
                                 with captions such as "About this
-                                Operating System", "Obtain Support"
-                                resp. "Report a Bug". The values should
+                                Operating System", "Obtain Support",
+                                and "Report a Bug". The values should
                                 be in <ulink
                                 url="https://tools.ietf.org/html/rfc3986">RFC3986
                                 format</ulink>, and should be

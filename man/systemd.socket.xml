@@ -150,9 +150,9 @@
                                 <term><varname>ListenSequentialPacket=</varname></term>
                                 <listitem><para>Specifies an address
                                 to listen on for a stream
-                                (SOCK_STREAM), datagram (SOCK_DGRAM)
-                                resp. sequential packet
-                                (SOCK_SEQPACKET) socket. The address
+                                (SOCK_STREAM), datagram (SOCK_DGRAM),
+                                or sequential packet
+                                (SOCK_SEQPACKET) socket, respectively. The address
                                 can be written in various formats:</para>
 
                                 <para>If the address starts with a
@@ -434,9 +434,9 @@
                                 <term><varname>SendBuffer=</varname></term>
                                 <listitem><para>Takes an integer
                                 argument controlling the receive
-                                resp. send buffer sizes of this
-                                socket. This controls the SO_RCVBUF
-                                resp. SO_SNDBUF socket options (see
+                                or send buffer sizes of this
+                                socket, respectively. This controls the SO_RCVBUF
+                                and SO_SNDBUF socket options (see
                                 <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for details.).</para></listitem>
                         </varlistentry>
@@ -499,7 +499,7 @@
                                 <varname>MessageQueueMessageSize=</varname></term>
                                 <listitem><para>These two settings
                                 take integer values and control the
-                                mq_maxmsg resp. mq_msgsize field when
+                                mq_maxmsg field or the mq_msgsize field, respectively, when
                                 creating the message queue. Note that
                                 either none or both of these variables
                                 need to be set. See
@@ -581,9 +581,9 @@
                                 <term><varname>ExecStartPost=</varname></term>
                                 <listitem><para>Takes one or more
                                 command lines, which are executed
-                                before (resp. after) the listening
+                                before or after the listening
                                 sockets/FIFOs are created and
-                                bound. The first token of the command
+                                bound, respectively. The first token of the command
                                 line must be an absolute file name,
                                 then followed by arguments for the
                                 process. Multiple command lines may be
@@ -597,9 +597,9 @@
                                 <term><varname>ExecStopPre=</varname></term>
                                 <term><varname>ExecStopPost=</varname></term>
                                 <listitem><para>Additional commands
-                                that are executed before (resp. after)
+                                that are executed before or after
                                 the listening sockets/FIFOs are closed
-                                and removed. Multiple command lines
+                                and removed, respectively. Multiple command lines
                                 may be specified following the same
                                 scheme as used for
                                 <varname>ExecStartPre=</varname> of

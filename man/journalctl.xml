@@ -275,9 +275,9 @@
                                 <term><option>--until=</option></term>
 
                                 <listitem><para>Start showing entries
-                                newer or of the specified date,
-                                resp. older or of the specified
-                                date. Date specifications should be of
+                                on or newer than the specified date,
+                                or on or older than the specified
+                                date, respectively. Date specifications should be of
                                 the format "2012-10-30 18:17:16". If
                                 the time part is omitted, 00:00:00 is
                                 assumed. If only the seconds component
@@ -290,14 +290,14 @@
                                 <literal>tomorrow</literal> are
                                 understood, which refer to 00:00:00 of
                                 the day before the current day, the
-                                current day, resp the day after the
-                                current day. <literal>now</literal>
+                                current day, or the day after the
+                                current day, respectively. <literal>now</literal>
                                 refers to the current time. Finally,
                                 relative times may be specified,
                                 prefixed with <literal>-</literal> or
                                 <literal>+</literal>, referring to
-                                times before resp. after the current
-                                time.</para></listitem>
+                                times before or after the current
+                                time, respectively.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

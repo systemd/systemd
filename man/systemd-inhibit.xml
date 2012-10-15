@@ -114,9 +114,10 @@
                                 for inhibiting
                                 reboot/power-off/halt/kexec,
                                 suspending/hibernating, the automatic
-                                idle detection, resp. the low-level
+                                idle detection, or the low-level
                                 handling of the power/sleep key and
-                                the lid switch. If omitted defaults to
+                                the lid switch, respectively. If omitted,
+                                defaults to
                                 <literal>idle:sleep:shutdown</literal>.</para></listitem>
                         </varlistentry>
 

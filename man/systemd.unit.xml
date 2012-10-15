@@ -77,8 +77,8 @@
 
                 <para>This man pages lists the common configuration
                 options of all the unit types. These options need to
-                be configured in the [Unit] resp. [Install]
-                section of the unit files.</para>
+                be configured in the [Unit] or [Install]
+                sections of the unit files.</para>
 
                 <para>In addition to the generic [Unit] and [Install]
                 sections described here, each unit should have a
@@ -418,7 +418,7 @@
 
                                 <listitem><para>Similar to
                                 <varname>Requires=</varname>
-                                resp. <varname>RequiresOverridable=</varname>. However,
+                                and <varname>RequiresOverridable=</varname>, respectively. However,
                                 if a unit listed here is not started
                                 already it will not be started and the
                                 transaction fails
@@ -566,7 +566,7 @@
                                 <varname>Before=</varname>. If two
                                 units have no ordering dependencies
                                 between them they are shut down
-                                resp. started up simultaneously, and
+                                or started up simultaneously, and
                                 no ordering takes
                                 place. </para></listitem>
                         </varlistentry>
@@ -672,13 +672,13 @@
                                 <listitem><para>Takes a boolean
                                 argument. If <option>true</option>
                                 this unit can only be activated
-                                (resp. deactivated) indirectly. In
+                                or deactivated indirectly. In
                                 this case explicit start-up
-                                (resp. termination) requested by the
+                                or termination requested by the
                                 user is denied, however if it is
-                                started (resp. stopped) as a
+                                started or stopped as a
                                 dependency of another unit, start-up
-                                (resp. termination) will succeed. This
+                                or termination will succeed. This
                                 is mostly a safety feature to ensure
                                 that the user does not accidentally
                                 activate units that are not intended
@@ -1023,8 +1023,8 @@
 
                                 <listitem><para>Installs a symlink in
                                 the <filename>.wants/</filename>
-                                resp. <filename>.requires/</filename>
-                                subdirectory for a unit. This has the
+                                or <filename>.requires/</filename>
+                                subdirectory for a unit, respectively. This has the
                                 effect that when the listed unit name
                                 is activated the unit listing it is
                                 activated

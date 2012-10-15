@@ -78,7 +78,7 @@
                 terminated.</para>
 
                 <para>Swap units must be named after the devices
-                (resp. files) they control. Example: the swap device
+                or files they control. Example: the swap device
                 <filename>/dev/sda5</filename> must be configured in a
                 unit file <filename>dev-sda5.swap</filename>. For
                 details about the escaping logic used to convert a
@@ -86,8 +86,8 @@
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
                 <para>All swap units automatically get the appropriate
-                dependencies on the devices (resp. on the mount points
-                of the files) they are activated from.</para>
+                dependencies on the devices or on the mount points
+                of the files they are activated from.</para>
 
                 <para>Swap units with
                 <varname>DefaultDependencies=</varname> enabled

@@ -75,7 +75,7 @@
                 for more information on the specific unit
                 configuration files. The execution specific
                 configuration options are configured in the [Service],
-                [Socket], [Mount] resp. [Swap] section, depending on the unit
+                [Socket], [Mount], or [Swap] section, depending on the unit
                 type.</para>
         </refsect1>
 

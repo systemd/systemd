@@ -238,19 +238,19 @@
                                 <term>m</term>
                                 <term>i</term>
 
-                                <listitem><para>Change ordering of control groups
+                                <listitem><para>Sort the control groups
                                 by path, number of tasks, CPU load,
-                                memory usage resp. IO
-                                load.</para></listitem>
+                                memory usage, or IO
+                                load, respectively.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term>+</term>
                                 <term>-</term>
 
-                                <listitem><para>Increase,
-                                resp. decrease refresh
-                                delay.</para></listitem>
+                                <listitem><para>Increase
+                                or decrease refresh
+                                delay, respectively.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

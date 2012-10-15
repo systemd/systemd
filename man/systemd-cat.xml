@@ -120,7 +120,7 @@
                                 <literal>warning</literal>,
                                 <literal>notice</literal>,
                                 <literal>info</literal>,
-                                <literal>debug</literal>, resp. a
+                                <literal>debug</literal>, or a
                                 value between 0 and 7 (corresponding
                                 to the same named levels). These
                                 priority values are the same as

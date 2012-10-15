@@ -372,9 +372,9 @@
                                 <term><varname>ExecStartPre=</varname></term>
                                 <term><varname>ExecStartPost=</varname></term>
                                 <listitem><para>Additional commands
-                                that are executed before (resp. after)
+                                that are executed before or after
                                 the command in
-                                <varname>ExecStart=</varname>. Multiple
+                                <varname>ExecStart=</varname>, respectively. Multiple
                                 command lines may be concatenated in a
                                 single directive, by separating them
                                 by semicolons (these semicolons must

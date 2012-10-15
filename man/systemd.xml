@@ -144,11 +144,13 @@
                                 <term><option>--system</option></term>
                                 <term><option>--user</option></term>
 
-                                <listitem><para>Tell systemd to run a
-                                system instance (resp. user
-                                instance), even if the process ID is
-                                not 1 (resp. is 1), i.e. systemd is
-                                not (resp. is) run as init process.
+                                <listitem><para>For <option>--system</option>,
+                                tell systemd to run a
+                                system instance, even if the process ID is
+                                not 1, i.e. systemd is not run as init process.
+                                <option>--user</option> does the opposite,
+                                running a user instance even if the process
+                                ID is 1.
                                 Normally it should not be necessary to
                                 pass these options, as systemd
                                 automatically detects the mode it is
@@ -251,11 +253,11 @@
                                 <term><option>--default-standard-error=</option></term>
 
                                 <listitem><para>Sets the default
-                                output resp. error output for all
-                                services and sockets, i.e. controls
+                                output or error output for all
+                                services and sockets, respectively. That is, controls
                                 the default for
                                 <option>StandardOutput=</option>
-                                resp. <option>StandardError=</option>
+                                and <option>StandardError=</option>
                                 (see
                                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details). Takes one of
@@ -495,12 +497,12 @@
                 Specification</ulink>.</para>
 
                 <para>Systems which invoke systemd in a container
-                resp. initrd environment should implement the
+                or initrd environment should implement the
                 <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
-                Interface</ulink> resp. <ulink
+                Interface</ulink> or <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd
-                Interface</ulink> specifications.</para>
+                Interface</ulink> specifications, respectively.</para>
         </refsect1>
 
         <refsect1>
@@ -825,11 +827,11 @@
 
                                 <listitem><para>Sets the log level to
                                 <literal>debug</literal>
-                                (resp. <literal>info</literal> on
+                                (or <literal>info</literal> on
                                 <literal>SIGRTMIN+23</literal>), as
                                 controlled via
                                 <varname>systemd.log_level=debug</varname>
-                                (resp. <varname>systemd.log_level=info</varname>
+                                (or <varname>systemd.log_level=info</varname>
                                 on <literal>SIGRTMIN+23</literal>) on
                                 the kernel command
                                 line.</para></listitem>
@@ -843,19 +845,19 @@
 
                                 <listitem><para>Sets the log level to
                                 <literal>journal-or-kmsg</literal>
-                                (resp. <literal>console</literal> on
-                                <literal>SIGRTMIN+27</literal>;
-                                resp. <literal>kmsg</literal> on
-                                <literal>SIGRTMIN+28</literal>;
-                                resp. <literal>syslog-or-kmsg</literal>
+                                (or <literal>console</literal> on
+                                <literal>SIGRTMIN+27</literal>,
+                                <literal>kmsg</literal> on
+                                <literal>SIGRTMIN+28</literal>,
+                                or <literal>syslog-or-kmsg</literal>
                                 on <literal>SIGRTMIN+29</literal>), as
                                 controlled via
                                 <varname>systemd.log_target=journal-or-kmsg</varname>
-                                (resp. <varname>systemd.log_target=console</varname>
-                                on <literal>SIGRTMIN+27</literal>;
-                                resp. <varname>systemd.log_target=kmsg</varname>
-                                on <literal>SIGRTMIN+28</literal>;
-                                resp
+                                (or <varname>systemd.log_target=console</varname>
+                                on <literal>SIGRTMIN+27</literal>,
+                                <varname>systemd.log_target=kmsg</varname>
+                                on <literal>SIGRTMIN+28</literal>,
+                                or
                                 <varname>systemd.log_target=syslog-or-kmsg</varname>
                                 on <literal>SIGRTMIN+29</literal>) on
                                 the kernel command
@@ -1073,12 +1075,12 @@
                                 <term><varname>systemd.default_standard_output=</varname></term>
                                 <term><varname>systemd.default_standard_error=</varname></term>
                                 <listitem><para>Controls default
-                                standard output/error output for
+                                standard output and error output for
                                 services, with the same effect as the
                                 <option>--default-standard-output=</option>
-                                resp. <option>--default-standard-error=</option>
+                                and <option>--default-standard-error=</option>
                                 command line arguments described
-                                above.</para></listitem>
+                                above, respectively.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -1143,12 +1145,12 @@
                                 <term><varname>5</varname></term>
 
                                 <listitem><para>Boot into the
-                                specified legacy SysV runlevel. This
-                                is equivalent to
+                                specified legacy SysV runlevel. These
+                                are equivalent to
                                 <varname>systemd.unit=runlevel2.target</varname>,
                                 <varname>systemd.unit=runlevel3.target</varname>,
                                 <varname>systemd.unit=runlevel4.target</varname>,
-                                resp. <varname>systemd.unit=runlevel5.target</varname>
+                                and <varname>systemd.unit=runlevel5.target</varname>, respectively,
                                 and provided for compatibility reasons
                                 and to be easier to
                                 type.</para></listitem>

@@ -298,8 +298,8 @@
                                         journal protocol, for the
                                         those read from a services'
                                         standard output or error
-                                        output, and for those read
-                                        from the kernel, resp.
+                                        output, or for those read
+                                        from the kernel, respectively.
                                         </para>
                                 </listitem>
                         </varlistentry>

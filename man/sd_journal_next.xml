@@ -140,8 +140,8 @@
 
                 <para>The four calls return the number of entries
                 advanced/set back on success or a negative errno-style
-                error code. When the end (resp. beginning) of the journal
-                is reached a number smaller than requested is
+                error code. When the end or beginning of the journal
+                is reached, a number smaller than requested is
                 returned. More specifically, if
                 <function>sd_journal_next()</function> or
                 <function>sd_journal_previous()</function> reach the

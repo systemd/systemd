@@ -740,7 +740,7 @@
                         directory returned by <command>pkg-config
                         systemd
                         --variable=systemdsystemunitdir</command> (for
-                        system services), resp. <command>pkg-config
+                        system services) or <command>pkg-config
                         systemd
                         --variable=systemduserunitdir</command>
                         (for user services). This will make the
