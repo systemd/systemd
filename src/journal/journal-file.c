@@ -1053,6 +1053,16 @@ void journal_file_post_change(JournalFile *f) {
                 log_error("Failed to truncate file to its own size: %m");
 }
 
+static int entry_item_cmp(const void *_a, const void *_b) {
+        const EntryItem *a = _a, *b = _b;
+
+        if (le64toh(a->object_offset) < le64toh(b->object_offset))
+                return -1;
+        if (le64toh(a->object_offset) > le64toh(b->object_offset))
+                return 1;
+        return 0;
+}
+
 int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqnum, Object **ret, uint64_t *offset) {
         unsigned i;
         EntryItem *items;
@@ -1096,6 +1106,10 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
                 items[i].object_offset = htole64(p);
                 items[i].hash = o->data.hash;
         }
+
+        /* Order by the position on disk, in order to improve seek
+         * times for rotating media. */
+        qsort(items, n_iovec, sizeof(EntryItem), entry_item_cmp);
 
         r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, seqnum, ret, offset);
 
