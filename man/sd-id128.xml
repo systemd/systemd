@@ -46,6 +46,7 @@
                 <refname>sd-id128</refname>
                 <refname>sd_id128_t</refname>
                 <refname>SD_ID128_MAKE</refname>
+                <refname>SD_ID128_CONST_STR</refname>
                 <refname>SD_ID128_FORMAT_STR</refname>
                 <refname>SD_ID128_FORMAT_VAL</refname>
                 <refname>sd_id128_equal</refname>
@@ -104,10 +105,20 @@
                 decode 128 bit IDs:</para>
 
                 <para><function>SD_ID128_MAKE()</function> may be used
-                to write a 128 bit ID in source code. A commonly used
-                idiom is to give 128 bit IDs names using this macro:</para>
+                to denote a constant 128 bit ID in source code. A
+                commonly used idiom is to assign a name to a 128 bit
+                ID using this macro:</para>
 
                 <programlisting>#define SD_MESSAGE_COREDUMP SD_ID128_MAKE(fc,2e,22,bc,6e,e6,47,b6,b9,07,29,ab,34,a2,50,b1)</programlisting>
+
+                <para><function>SD_ID128_CONST_STR()</function> may be
+                use to convert constant 128bit IDs into constant
+                strings for output. The following example code will
+                output the string
+                "fc2e22bc6ee647b6b90729ab34a250b1":</para>
+                <programlisting>int main(int argc, char *argv[]) {
+        puts(SD_ID128_CONST_STR(SD_MESSAGE_COREDUMP));
+}</programlisting>
 
                 <para><function>SD_ID128_FORMAT_STR</function> and
                 <function>SD_ID128_FORMAT_VAL()</function> may be used
