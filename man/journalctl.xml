@@ -257,7 +257,56 @@
                                 <term><option>-b</option></term>
 
                                 <listitem><para>Show data only from
-                                current boot.</para></listitem>
+                                current boot. This will add a match
+                                for <literal>_BOOT_ID=</literal> for
+                                the current boot ID of the
+                                kernel.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--unit=</option></term>
+                                <term><option>-u</option></term>
+
+                                <listitem><para>Show data only of the
+                                specified unit. This will add a match
+                                for <literal>_SYSTEMD_UNIT=</literal>
+                                for the specified
+                                unit.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-p</option></term>
+                                <term><option>--priority=</option></term>
+
+                                <listitem><para>Filter output by
+                                message priorities or priority
+                                ranges. Takes either a single numeric
+                                or textual log level (i.e. between
+                                0/<literal>emerg</literal> and
+                                7/<literal>debug</literal>), or a
+                                range of numeric/text log levels in
+                                the form FROM..TO. The log levels are
+                                the usual syslog log levels as
+                                documented in
+                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                                i.e. <literal>emerg</literal> (0),
+                                <literal>alert</literal> (1),
+                                <literal>crit</literal> (2),
+                                <literal>err</literal> (3),
+                                <literal>warning</literal> (4),
+                                <literal>notice</literal> (5),
+                                <literal>info</literal> (6),
+                                <literal>debug</literal> (7). If a
+                                single log level is specified all
+                                messages with this log level or a
+                                lower (hence more important) log level
+                                are shown. If a range is specified all
+                                messages within the range are shown,
+                                including both the start and the end
+                                value of the range. This will add
+                                <literal>PRIORITY=</literal> matches
+                                for the specified
+                                priorities.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -310,38 +359,6 @@
                                 specified journal directory instead of
                                 the default runtime and system journal
                                 paths.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-p</option></term>
-                                <term><option>--priority=</option></term>
-
-                                <listitem><para>Filter output by
-                                message priorities or priority
-                                ranges. Takes either a single numeric
-                                or textual log level (i.e. between
-                                0/<literal>emerg</literal> and
-                                7/<literal>debug</literal>), or a
-                                range of numeric/text log levels in
-                                the form FROM..TO. The log levels are
-                                the usual syslog log levels as
-                                documented in
-                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                                i.e. <literal>emerg</literal> (0),
-                                <literal>alert</literal> (1),
-                                <literal>crit</literal> (2),
-                                <literal>err</literal> (3),
-                                <literal>warning</literal> (4),
-                                <literal>notice</literal> (5),
-                                <literal>info</literal> (6),
-                                <literal>debug</literal> (7). If a
-                                single log level is specified all
-                                messages with this log level or a
-                                lower (hence more important) log level
-                                are shown. If a range is specified all
-                                messages within the range are shown,
-                                including both the start and the end
-                                value of the range.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

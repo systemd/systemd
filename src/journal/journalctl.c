@@ -51,6 +51,7 @@
 #include "journal-authenticate.h"
 #include "journal-qrcode.h"
 #include "fsprg.h"
+#include "unit-name.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
@@ -72,6 +73,7 @@ static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
 #endif
 static usec_t arg_since, arg_until;
 static bool arg_since_set = false, arg_until_set = false;
+static const char *arg_unit = NULL;
 
 static enum {
         ACTION_SHOW,
@@ -88,21 +90,22 @@ static int help(void) {
                "Send control commands to or query the journal.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "     --no-pager          Do not pipe output into a pager\n"
-               "  -a --all               Show all fields, including long and unprintable\n"
                "  -c --cursor=CURSOR     Start showing entries from specified cursor\n"
                "     --since=DATE        Start showing entries newer or of the specified date\n"
                "     --until=DATE        Stop showing entries older or of the specified date\n"
+               "  -b --this-boot         Show data only from current boot\n"
+               "  -u --unit=UNIT         Show data only from the specified unit\n"
+               "  -p --priority=RANGE    Show only messages within the specified priority range\n\n"
                "  -f --follow            Follow journal\n"
                "  -n --lines[=INTEGER]   Number of journal entries to show\n"
                "     --no-tail           Show all lines, even in follow mode\n"
                "  -o --output=STRING     Change journal output mode (short, short-monotonic,\n"
                "                         verbose, export, json, json-pretty, json-sse, cat)\n"
+               "  -a --all               Show all fields, including long and unprintable\n"
                "  -q --quiet             Don't show privilege warning\n"
+               "     --no-pager          Do not pipe output into a pager\n"
                "  -m --merge             Show entries from all available journals\n"
-               "  -b --this-boot         Show data only from current boot\n"
                "  -D --directory=PATH    Show journal files from directory\n"
-               "  -p --priority=RANGE    Show only messages within the specified priority range\n\n"
                "Commands:\n"
                "     --new-id128         Generate a new 128 Bit ID\n"
                "     --header            Show journal header information\n"
@@ -159,6 +162,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "cursor",       required_argument, NULL, 'c'              },
                 { "since",        required_argument, NULL, ARG_SINCE        },
                 { "until",        required_argument, NULL, ARG_UNTIL        },
+                { "unit",         required_argument, NULL, 'u'              },
                 { NULL,           0,                 NULL, 0                }
         };
 
@@ -167,7 +171,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hfo:an::qmbD:p:c:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hfo:an::qmbD:p:c:u:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -357,6 +361,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_until_set = true;
                         break;
 
+                case 'u':
+                        arg_unit = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -498,6 +506,32 @@ static int add_this_boot(sd_journal *j) {
 
         sd_id128_to_string(boot_id, match + 9);
         r = sd_journal_add_match(j, match, strlen(match));
+        if (r < 0) {
+                log_error("Failed to add match: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
+static int add_unit(sd_journal *j) {
+        _cleanup_free_ char *m = NULL, *u = NULL;
+        int r;
+
+        assert(j);
+
+        if (isempty(arg_unit))
+                return 0;
+
+        u = unit_name_mangle(arg_unit);
+        if (!u)
+                return log_oom();
+
+        m = strappend("_SYSTEMD_UNIT=", u);
+        if (!m)
+                return log_oom();
+
+        r = sd_journal_add_match(j, m, strlen(m));
         if (r < 0) {
                 log_error("Failed to add match: %s", strerror(-r));
                 return r;
@@ -848,6 +882,10 @@ int main(int argc, char *argv[]) {
 #endif
 
         r = add_this_boot(j);
+        if (r < 0)
+                goto finish;
+
+        r = add_unit(j);
         if (r < 0)
                 goto finish;
 
