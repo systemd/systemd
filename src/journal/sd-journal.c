@@ -1333,7 +1333,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
 
                 m->wd = inotify_add_watch(j->inotify_fd, m->path,
                                           IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB|IN_DELETE|
-                                          IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT|
+                                          IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT|IN_MOVED_FROM|
                                           IN_ONLYDIR);
 
                 if (m->wd > 0 && hashmap_put(j->directories_by_wd, INT_TO_PTR(m->wd), m) < 0)
@@ -1951,7 +1951,7 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                                 if (r < 0)
                                         log_debug("Failed to add file %s/%s: %s", d->path, e->name, strerror(-r));
 
-                        } else if (e->mask & (IN_DELETE|IN_UNMOUNT)) {
+                        } else if (e->mask & (IN_DELETE|IN_MOVED_FROM|IN_UNMOUNT)) {
 
                                 r = remove_file(j, d->path, e->name);
                                 if (r < 0)
