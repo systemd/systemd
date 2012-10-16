@@ -1408,6 +1408,7 @@ static int mount_add_one(
         bool delete;
         char *e, *w = NULL, *o = NULL, *f = NULL;
         MountParameters *p;
+        bool load_extras = false;
 
         assert(m);
         assert(what);
@@ -1461,9 +1462,10 @@ static int mount_add_one(
                 if (u->load_state == UNIT_ERROR) {
                         u->load_state = UNIT_LOADED;
                         u->load_error = 0;
-                        r = mount_add_extras(MOUNT(u));
-                        if (r < 0)
-                                goto fail;
+
+                        /* Load in the extras later on, after we
+                         * finished initialization of the unit */
+                        load_extras = true;
                 }
         }
 
@@ -1493,6 +1495,12 @@ static int mount_add_one(
         p->fstype = f;
 
         p->passno = passno;
+
+        if (load_extras) {
+                r = mount_add_extras(MOUNT(u));
+                if (r < 0)
+                        goto fail;
+        }
 
         unit_add_to_dbus_queue(u);
 

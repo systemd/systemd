@@ -265,7 +265,8 @@ int socket_add_one_mount_link(Socket *s, Mount *m) {
         if (!socket_needs_mount(s, m->where))
                 return 0;
 
-        if ((r = unit_add_two_dependencies(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true)) < 0)
+        r = unit_add_two_dependencies(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true);
+        if (r < 0)
                 return r;
 
         return 0;
@@ -277,9 +278,11 @@ static int socket_add_mount_links(Socket *s) {
 
         assert(s);
 
-        LIST_FOREACH(units_by_type, other, UNIT(s)->manager->units_by_type[UNIT_MOUNT])
-                if ((r = socket_add_one_mount_link(s, MOUNT(other))) < 0)
+        LIST_FOREACH(units_by_type, other, UNIT(s)->manager->units_by_type[UNIT_MOUNT]) {
+                r = socket_add_one_mount_link(s, MOUNT(other));
+                if (r < 0)
                         return r;
+        }
 
         return 0;
 }
