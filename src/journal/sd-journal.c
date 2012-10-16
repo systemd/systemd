@@ -1258,11 +1258,13 @@ static int remove_file(sd_journal *j, const char *prefix, const char *filename) 
                 return 0;
 
         hashmap_remove(j->files, f->path);
+
+        log_debug("File %s got removed.", f->path);
+
         journal_file_close(f);
 
         j->current_invalidate_counter ++;
 
-        log_debug("File %s got removed.", f->path);
         return 0;
 }
 
