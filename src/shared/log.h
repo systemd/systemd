@@ -135,3 +135,5 @@ bool log_on_console(void);
 
 const char *log_target_to_string(LogTarget target);
 LogTarget log_target_from_string(const char *s);
+
+#define MESSAGE_ID(x) "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(x)

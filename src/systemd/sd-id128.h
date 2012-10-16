@@ -65,7 +65,6 @@ static inline int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
 }
 
 #define SD_ID128_NULL ((sd_id128_t) { .qwords = { 0, 0 }})
-#define MESSAGE_ID(x) "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(x)
 
 #ifdef __cplusplus
 }
