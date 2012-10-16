@@ -331,7 +331,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         int session_fd = -1;
         DBusConnection *bus = NULL;
         DBusMessage *m = NULL, *reply = NULL;
-        dbus_bool_t remote;
+        dbus_bool_t remote, existing;
         int r;
         uint32_t vtnr = 0;
 
@@ -543,6 +543,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                    DBUS_TYPE_UNIX_FD, &session_fd,
                                    DBUS_TYPE_STRING, &seat,
                                    DBUS_TYPE_UINT32, &vtnr,
+                                   DBUS_TYPE_BOOLEAN, &existing,
                                    DBUS_TYPE_INVALID)) {
                 pam_syslog(handle, LOG_ERR, "Failed to parse message: %s", bus_error_message(&error));
                 r = PAM_SESSION_ERR;
@@ -584,6 +585,12 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         pam_syslog(handle, LOG_ERR, "Failed to set virtual terminal number.");
                         goto finish;
                 }
+        }
+
+        r = pam_set_data(handle, "systemd.existing", INT_TO_PTR(!!existing), NULL);
+        if (r != PAM_SUCCESS) {
+                pam_syslog(handle, LOG_ERR, "Failed to install existing flag.");
+                return r;
         }
 
         if (session_fd >= 0) {
@@ -628,7 +635,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 int flags,
                 int argc, const char **argv) {
 
-        const void *p = NULL;
+        const void *p = NULL, *existing = NULL;
         const char *id;
         DBusConnection *bus = NULL;
         DBusMessage *m = NULL, *reply = NULL;
@@ -639,8 +646,12 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         dbus_error_init(&error);
 
+        /* Only release session if it wasn't pre-existing when we
+         * tried to create it */
+        pam_get_data(handle, "systemd.existing", &existing);
+
         id = pam_getenv(handle, "XDG_SESSION_ID");
-        if (id) {
+        if (id && !existing) {
 
                 /* Before we go and close the FIFO we need to tell
                  * logind that this is a clean session shutdown, so

@@ -83,6 +83,7 @@
         "   <arg name=\"fd\" type=\"h\" direction=\"out\"/>\n"          \
         "   <arg name=\"seat\" type=\"s\" direction=\"out\"/>\n"        \
         "   <arg name=\"vtnr\" type=\"u\" direction=\"out\"/>\n"        \
+        "   <arg name=\"existing\" type=\"b\" direction=\"out\"/>\n"    \
         "  </method>\n"                                                 \
         "  <method name=\"ReleaseSession\">\n"                          \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
@@ -300,7 +301,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         User *user = NULL;
         const char *type, *class, *seat, *tty, *display, *remote_user, *remote_host, *service;
         uint32_t uid, leader, audit_id = 0;
-        dbus_bool_t remote, kill_processes;
+        dbus_bool_t remote, kill_processes, exists;
         char **controllers = NULL, **reset_controllers = NULL;
         SessionType t;
         SessionClass c;
@@ -518,6 +519,8 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
 
                         seat = session->seat ? session->seat->id : "";
                         vtnr = session->vtnr;
+                        exists = true;
+
                         b = dbus_message_append_args(
                                         reply,
                                         DBUS_TYPE_STRING, &session->id,
@@ -526,6 +529,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                                         DBUS_TYPE_UNIX_FD, &fifo_fd,
                                         DBUS_TYPE_STRING, &seat,
                                         DBUS_TYPE_UINT32, &vtnr,
+                                        DBUS_TYPE_BOOLEAN, &exists,
                                         DBUS_TYPE_INVALID);
                         free(p);
 
@@ -642,6 +646,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         }
 
         seat = s ? s->id : "";
+        exists = false;
         b = dbus_message_append_args(
                         reply,
                         DBUS_TYPE_STRING, &session->id,
@@ -650,6 +655,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                         DBUS_TYPE_UNIX_FD, &fifo_fd,
                         DBUS_TYPE_STRING, &seat,
                         DBUS_TYPE_UINT32, &vtnr,
+                        DBUS_TYPE_BOOLEAN, &exists,
                         DBUS_TYPE_INVALID);
         free(p);
 
