@@ -526,7 +526,7 @@ static ExecCommand *exec_command_new(const char *path, const char *arg1) {
         return c;
 }
 
-static int sysv_exec_commands(Service *s) {
+static int sysv_exec_commands(Service *s, const bool supports_reload) {
         ExecCommand *c;
 
         assert(s);
@@ -543,12 +543,23 @@ static int sysv_exec_commands(Service *s) {
                 return -ENOMEM;
         exec_command_append_list(s->exec_command+SERVICE_EXEC_STOP, c);
 
-        c = exec_command_new(UNIT(s)->source_path, "reload");
-        if (!c)
-                return -ENOMEM;
-        exec_command_append_list(s->exec_command+SERVICE_EXEC_RELOAD, c);
+        if (supports_reload) {
+                c = exec_command_new(UNIT(s)->source_path, "reload");
+                if (!c)
+                        return -ENOMEM;
+                exec_command_append_list(s->exec_command+SERVICE_EXEC_RELOAD, c);
+        }
 
         return 0;
+}
+
+static bool usage_contains_reload(const char *line) {
+        return (strcasestr(line, "{reload|") ||
+                strcasestr(line, "{reload}") ||
+                strcasestr(line, "{reload\"") ||
+                strcasestr(line, "|reload|") ||
+                strcasestr(line, "|reload}") ||
+                strcasestr(line, "|reload\""));
 }
 
 static int service_load_sysv_path(Service *s, const char *path) {
@@ -560,10 +571,12 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 NORMAL,
                 DESCRIPTION,
                 LSB,
-                LSB_DESCRIPTION
+                LSB_DESCRIPTION,
+                USAGE_CONTINUATION
         } state = NORMAL;
         char *short_description = NULL, *long_description = NULL, *chkconfig_description = NULL, *description;
         struct stat st;
+        bool supports_reload = false;
 
         assert(s);
         assert(path);
@@ -612,8 +625,23 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 line++;
 
                 t = strstrip(l);
-                if (*t != '#')
+                if (*t != '#') {
+                        /* Try to figure out whether this init script supports
+                         * the reload operation. This heuristic looks for
+                         * "Usage" lines which include the reload option. */
+                        if ( state == USAGE_CONTINUATION ||
+                            (state == NORMAL && strcasestr(t, "usage"))) {
+                                if (usage_contains_reload(t)) {
+                                        supports_reload = true;
+                                        state = NORMAL;
+                                } else if (t[strlen(t)-1] == '\\')
+                                        state = USAGE_CONTINUATION;
+                                else
+                                        state = NORMAL;
+                        }
+
                         continue;
+                }
 
                 if (state == NORMAL && streq(t, "### BEGIN INIT INFO")) {
                         state = LSB;
@@ -906,7 +934,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 }
         }
 
-        if ((r = sysv_exec_commands(s)) < 0)
+        if ((r = sysv_exec_commands(s, supports_reload)) < 0)
                 goto finish;
         if (s->sysv_runlevels &&
             chars_intersect(RUNLEVELS_BOOT, s->sysv_runlevels) &&
