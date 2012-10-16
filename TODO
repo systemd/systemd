@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* journald: don't make SystemMinFileSize= configurable
+
 * clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
 
 * introduce hybrid-sleep.target
