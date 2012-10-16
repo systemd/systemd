@@ -91,6 +91,10 @@ typedef struct Server {
 
         uint64_t var_available_timestamp;
 
+        usec_t max_retention_usec;
+        usec_t max_file_usec;
+        usec_t oldest_file_usec;
+
         gid_t file_gid;
         bool file_gid_valid;
 

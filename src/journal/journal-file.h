@@ -184,4 +184,4 @@ void journal_default_metrics(JournalMetrics *m, int fd);
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *to);
 int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot, usec_t *from, usec_t *to);
 
-bool journal_file_rotate_suggested(JournalFile *f);
+bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec);

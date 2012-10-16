@@ -1,4 +1,4 @@
-
+#
 #  This file is part of systemd.
 #
 #  Copyright 2010-2012 Lennart Poettering
@@ -339,6 +339,44 @@ else
 fi
 AC_SUBST(ACL_LIBS)
 AM_CONDITIONAL([HAVE_ACL], [test "x$have_acl" != xno])
+
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE([xattr],
+        AS_HELP_STRING([--disable-xattr],[Disable optional XATTR support]),
+                [case "${enableval}" in
+                        yes) have_xattr=yes ;;
+                        no) have_xattr=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --disable-xattr) ;;
+                esac],
+                [have_xattr=auto])
+
+if test "x${have_xattr}" != xno ; then
+        AC_CHECK_HEADERS(
+                [attr/xattr.h],
+                [have_xattr=yes],
+                [if test "x$have_xattr" = xyes ; then
+                        AC_MSG_ERROR([*** XATTR headers not found.])
+                fi])
+
+        AC_CHECK_LIB(
+                [attr],
+                [fsetxattr],
+                [have_xattr=yes],
+                [if test "x$have_xattr" = xyes ; then
+                        AC_MSG_ERROR([*** libattr not found.])
+                fi])
+
+        if test "x$have_xattr" = xyes ; then
+                XATTR_LIBS="-lattr"
+                AC_DEFINE(HAVE_XATTR, 1, [XATTR available])
+        else
+                have_xattr=no
+        fi
+else
+        XATTR_LIBS=
+fi
+AC_SUBST(XATTR_LIBS)
+AM_CONDITIONAL([HAVE_XATTR], [test "x$have_xattr" != xno])
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([gcrypt],
@@ -823,6 +861,7 @@ AC_MSG_RESULT([
         SELinux:                 ${have_selinux}
         XZ:                      ${have_xz}
         ACL:                     ${have_acl}
+        XATTR:                   ${have_xattr}
         GCRYPT:                  ${have_gcrypt}
         QRENCODE:                ${have_qrencode}
         MICROHTTPD:              ${have_microhttpd}

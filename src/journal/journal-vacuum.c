@@ -25,6 +25,10 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 
+#ifdef HAVE_XATTR
+#include <attr/xattr.h>
+#endif
+
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-vacuum.h"
@@ -68,17 +72,88 @@ static int vacuum_compare(const void *_a, const void *_b) {
                 return strcmp(a->filename, b->filename);
 }
 
-int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t min_free) {
+static void patch_realtime(
+                const char *dir,
+                const char *fn,
+                const struct stat *st,
+                unsigned long long *realtime) {
+
+        usec_t x;
+
+#ifdef HAVE_XATTR
+        uint64_t crtime;
+        _cleanup_free_ const char *path = NULL;
+#endif
+
+        /* The timestamp was determined by the file name, but let's
+         * see if the file might actually be older than the file name
+         * suggested... */
+
+        assert(dir);
+        assert(fn);
+        assert(st);
+        assert(realtime);
+
+        x = timespec_load(&st->st_ctim);
+        if (x > 0 && x != (usec_t) -1 && x < *realtime)
+                *realtime = x;
+
+        x = timespec_load(&st->st_atim);
+        if (x > 0 && x != (usec_t) -1 && x < *realtime)
+                *realtime = x;
+
+        x = timespec_load(&st->st_mtim);
+        if (x > 0 && x != (usec_t) -1 && x < *realtime)
+                *realtime = x;
+
+#ifdef HAVE_XATTR
+        /* Let's read the original creation time, if possible. Ideally
+         * we'd just query the creation time the FS might provide, but
+         * unfortunately there's currently no sane API to query
+         * it. Hence let's implement this manually... */
+
+        /* Unfortunately there is is not fgetxattrat(), so we need to
+         * go via path here. :-( */
+
+        path = strjoin(dir, "/", fn, NULL);
+        if (!path)
+                return;
+
+        if (getxattr(path, "user.crtime_usec", &crtime, sizeof(crtime)) == sizeof(crtime)) {
+                crtime = le64toh(crtime);
+
+                if (crtime > 0 && crtime != (uint64_t) -1 && crtime < *realtime)
+                        *realtime = crtime;
+        }
+#endif
+}
+
+int journal_directory_vacuum(
+                const char *directory,
+                uint64_t max_use,
+                uint64_t min_free,
+                usec_t max_retention_usec,
+                usec_t *oldest_usec) {
+
         DIR *d;
         int r = 0;
         struct vacuum_info *list = NULL;
         unsigned n_list = 0, n_allocated = 0, i;
         uint64_t sum = 0;
+        usec_t retention_limit = 0;
 
         assert(directory);
 
-        if (max_use <= 0)
+        if (max_use <= 0 && min_free <= 0 && max_retention_usec <= 0)
                 return 0;
+
+        if (max_retention_usec > 0) {
+                retention_limit = now(CLOCK_REALTIME);
+                if (retention_limit > max_retention_usec)
+                        retention_limit -= max_retention_usec;
+                else
+                        max_retention_usec = retention_limit = 0;
+        }
 
         d = opendir(directory);
         if (!d)
@@ -170,6 +245,8 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                 } else
                         continue;
 
+                patch_realtime(directory, de->d_name, &st, &realtime);
+
                 if (n_list >= n_allocated) {
                         struct vacuum_info *j;
 
@@ -199,7 +276,7 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
         if (n_list > 0)
                 qsort(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
 
-        for(i = 0; i < n_list; i++) {
+        for (i = 0; i < n_list; i++) {
                 struct statvfs ss;
 
                 if (fstatvfs(dirfd(d), &ss) < 0) {
@@ -207,8 +284,9 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                         goto finish;
                 }
 
-                if (sum <= max_use &&
-                    (uint64_t) ss.f_bavail * (uint64_t) ss.f_bsize >= min_free)
+                if ((max_retention_usec <= 0 || list[i].realtime >= retention_limit) &&
+                    (max_use <= 0 || sum <= max_use) &&
+                    (min_free <= 0 || (uint64_t) ss.f_bavail * (uint64_t) ss.f_bsize >= min_free))
                         break;
 
                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
@@ -217,6 +295,9 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                 } else if (errno != ENOENT)
                         log_warning("Failed to delete %s/%s: %m", directory, list[i].filename);
         }
+
+        if (oldest_usec && i < n_list && (*oldest_usec == 0 || list[i].realtime < *oldest_usec))
+                *oldest_usec = list[i].realtime;
 
 finish:
         for (i = 0; i < n_list; i++)

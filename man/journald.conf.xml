@@ -279,6 +279,57 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>MaxFileSec=</varname></term>
+
+                                <listitem><para>The maximum time to
+                                store entries in a single journal
+                                file, before rotating to the next
+                                one. Normally time-based rotation
+                                should not be required as size-based
+                                rotation with options such as
+                                <varname>SystemMaxFileSize=</varname>
+                                should be sufficient to ensure that
+                                journal files don't grow without
+                                bounds. However, to ensure that not
+                                too much data is lost at once when old
+                                journal files are deleted it might
+                                make sense to change this value from
+                                the default of one month. Set to 0 to
+                                turn off this feature. This setting
+                                takes time values which may be
+                                suffixed with the units year, month,
+                                week, day, h, m to override the
+                                default time unit of
+                                seconds.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>MaxRetentionSec=</varname></term>
+
+                                <listitem><para>The maximum time to
+                                store journal entries for. This
+                                controls whether journal files
+                                containing entries older then the
+                                specified time span are
+                                deleted. Normally time-based deletion
+                                of old journal files should not be
+                                required as size-based deletion with
+                                options such as
+                                <varname>SystemMaxUse=</varname>
+                                should be sufficient to ensure that
+                                journal files don't grow without
+                                bounds. However, to enforce data
+                                retention policies it might make sense
+                                to set change this value from the
+                                default of 0 (which turns off this
+                                feature). This settings also takes
+                                time values which may be suffixed with
+                                the units year, month, week, day, h, m
+                                to override the default time unit of
+                                seconds. </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>ForwardToSyslog=</varname></term>
                                 <term><varname>ForwardToKMsg=</varname></term>
                                 <term><varname>ForwardToConsole=</varname></term>

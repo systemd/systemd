@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
 
         journal_file_close(f);
 
-        journal_directory_vacuum(".", 3000000, 0);
+        journal_directory_vacuum(".", 3000000, 0, 0, NULL);
 
         log_error("Exiting...");
 

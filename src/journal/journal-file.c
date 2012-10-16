@@ -27,6 +27,10 @@
 #include <fcntl.h>
 #include <stddef.h>
 
+#ifdef HAVE_XATTR
+#include <attr/xattr.h>
+#endif
+
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-authenticate.h"
@@ -1978,7 +1982,7 @@ void journal_file_print_header(JournalFile *f) {
                (unsigned long long) le64toh(f->header->arena_size),
                (unsigned long long) le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
                (unsigned long long) le64toh(f->header->field_hash_table_size) / sizeof(HashItem),
-               yes_no(journal_file_rotate_suggested(f)),
+               yes_no(journal_file_rotate_suggested(f, 0)),
                (unsigned long long) le64toh(f->header->head_entry_seqnum),
                (unsigned long long) le64toh(f->header->tail_entry_seqnum),
                format_timestamp(x, sizeof(x), le64toh(f->header->head_entry_realtime)),
@@ -2080,7 +2084,22 @@ int journal_file_open(
         }
 
         if (f->last_stat.st_size == 0 && f->writable) {
-                newly_created = true;
+#ifdef HAVE_XATTR
+                uint64_t crtime;
+
+                /* Let's attach the creation time to the journal file,
+                 * so that the vacuuming code knows the age of this
+                 * file even if the file might end up corrupted one
+                 * day... Ideally we'd just use the creation time many
+                 * file systems maintain for each file, but there is
+                 * currently no usable API to query this, hence let's
+                 * emulate this via extended attributes. If extended
+                 * attributes are not supported we'll just skip this,
+                 * and rely solely on mtime/atime/ctime of the file.*/
+
+                crtime = htole64((uint64_t) now(CLOCK_REALTIME));
+                fsetxattr(f->fd, "user.crtime_usec", &crtime, sizeof(crtime), XATTR_CREATE);
+#endif
 
 #ifdef HAVE_GCRYPT
                 /* Try to load the FSPRG state, and if we can't, then
@@ -2100,6 +2119,8 @@ int journal_file_open(
                         r = -errno;
                         goto fail;
                 }
+
+                newly_created = true;
         }
 
         if (f->last_stat.st_size < (off_t) HEADER_SIZE_MIN) {
@@ -2207,8 +2228,8 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
         sd_id128_to_string(old_file->header->seqnum_id, p + l - 8 + 1);
         snprintf(p + l - 8 + 1 + 32, 1 + 16 + 1 + 16 + 8 + 1,
                  "-%016llx-%016llx.journal",
-                 (unsigned long long) le64toh((*f)->header->tail_entry_seqnum),
-                 (unsigned long long) le64toh((*f)->header->tail_entry_realtime));
+                 (unsigned long long) le64toh((*f)->header->head_entry_seqnum),
+                 (unsigned long long) le64toh((*f)->header->head_entry_realtime));
 
         r = rename(old_file->path, p);
         free(p);
@@ -2501,7 +2522,7 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, u
         return 1;
 }
 
-bool journal_file_rotate_suggested(JournalFile *f) {
+bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
         assert(f);
 
         /* If we gained new header fields we gained new features,
@@ -2538,6 +2559,16 @@ bool journal_file_rotate_suggested(JournalFile *f) {
                                   (unsigned long long) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)));
                         return true;
                 }
+
+        if (max_file_usec > 0) {
+                usec_t t, h;
+
+                h = le64toh(f->header->head_entry_realtime);
+                t = now(CLOCK_REALTIME);
+
+                if (h > 0 && t > h + max_file_usec)
+                        return true;
+        }
 
         return false;
 }

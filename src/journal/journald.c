@@ -361,6 +361,8 @@ static void server_vacuum(Server *s) {
 
         log_debug("Vacuuming...");
 
+        s->oldest_file_usec = 0;
+
         r = sd_id128_get_machine(&machine);
         if (r < 0) {
                 log_error("Failed to get machine ID: %s", strerror(-r));
@@ -376,7 +378,7 @@ static void server_vacuum(Server *s) {
                         return;
                 }
 
-                r = journal_directory_vacuum(p, s->system_metrics.max_use, s->system_metrics.keep_free);
+                r = journal_directory_vacuum(p, s->system_metrics.max_use, s->system_metrics.keep_free, s->max_retention_usec, &s->oldest_file_usec);
                 if (r < 0 && r != -ENOENT)
                         log_error("Failed to vacuum %s: %s", p, strerror(-r));
                 free(p);
@@ -389,7 +391,7 @@ static void server_vacuum(Server *s) {
                         return;
                 }
 
-                r = journal_directory_vacuum(p, s->runtime_metrics.max_use, s->runtime_metrics.keep_free);
+                r = journal_directory_vacuum(p, s->runtime_metrics.max_use, s->runtime_metrics.keep_free, s->max_retention_usec, &s->oldest_file_usec);
                 if (r < 0 && r != -ENOENT)
                         log_error("Failed to vacuum %s: %s", p, strerror(-r));
                 free(p);
@@ -482,7 +484,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
         if (!f)
                 return;
 
-        if (journal_file_rotate_suggested(f)) {
+        if (journal_file_rotate_suggested(f, s->max_file_usec)) {
                 log_debug("%s: Journal header limits reached or header out-of-date, rotating.", f->path);
                 server_rotate(s);
                 server_vacuum(s);
@@ -1543,24 +1545,38 @@ int main(int argc, char *argv[]) {
 
         for (;;) {
                 struct epoll_event event;
-                int t;
+                int t = -1;
+                usec_t n;
+
+                n = now(CLOCK_REALTIME);
+
+                if (server.max_retention_usec > 0 && server.oldest_file_usec > 0) {
+
+                        /* The retention time is reached, so let's vacuum! */
+                        if (server.oldest_file_usec + server.max_retention_usec < n) {
+                                log_info("Retention time reached.");
+                                server_rotate(&server);
+                                server_vacuum(&server);
+                                continue;
+                        }
+
+                        /* Calculate when to rotate the next time */
+                        t = (int) ((server.oldest_file_usec + server.max_retention_usec - n + USEC_PER_MSEC - 1) / USEC_PER_MSEC);
+                        log_info("Sleeping for %i ms", t);
+                }
 
 #ifdef HAVE_GCRYPT
-                usec_t u;
+                if (server.system_journal) {
+                        usec_t u;
 
-                if (server.system_journal &&
-                    journal_file_next_evolve_usec(server.system_journal, &u)) {
-                        usec_t n;
-
-                        n = now(CLOCK_REALTIME);
-
-                        if (n >= u)
-                                t = 0;
-                        else
-                                t = (int) ((u - n + USEC_PER_MSEC - 1) / USEC_PER_MSEC);
-                } else
+                        if (journal_file_next_evolve_usec(server.system_journal, &u)) {
+                                if (n >= u)
+                                        t = 0;
+                                else
+                                        t = MIN(t, (int) ((u - n + USEC_PER_MSEC - 1) / USEC_PER_MSEC));
+                        }
+                }
 #endif
-                        t = -1;
 
                 r = epoll_wait(server.epoll_fd, &event, 1, t);
                 if (r < 0) {
