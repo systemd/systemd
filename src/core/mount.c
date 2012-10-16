@@ -547,10 +547,6 @@ static int mount_add_extras(Mount *m) {
         Unit *u = UNIT(m);
         int r;
 
-        r = unit_add_exec_dependencies(u, &m->exec_context);
-        if (r < 0)
-                return r;
-
         if (UNIT(m)->fragment_path)
                 m->from_fragment = true;
 
@@ -561,6 +557,10 @@ static int mount_add_extras(Mount *m) {
         }
 
         path_kill_slashes(m->where);
+
+        r = unit_add_exec_dependencies(u, &m->exec_context);
+        if (r < 0)
+                return r;
 
         if (!UNIT(m)->description) {
                 r = unit_set_description(u, m->where);
@@ -1458,6 +1458,14 @@ static int mount_add_one(
         } else {
                 delete = false;
                 free(e);
+
+                if (!MOUNT(u)->where) {
+                        MOUNT(u)->where = strdup(where);
+                        if (!MOUNT(u)->where) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+                }
 
                 if (u->load_state == UNIT_ERROR) {
                         u->load_state = UNIT_LOADED;
