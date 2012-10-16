@@ -205,8 +205,8 @@ static void context_attach_window(Context *c, Window *w) {
         if (w->in_unused) {
                 /* Used again? */
                 LIST_REMOVE(Window, unused, c->cache->unused, w);
-                if (!c->cache->last_unused)
-                        c->cache->last_unused = w;
+                if (c->cache->last_unused == w)
+                        c->cache->last_unused = w->unused_prev;
 
                 w->in_unused = false;
         }
