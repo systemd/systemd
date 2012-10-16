@@ -130,6 +130,7 @@ static void window_free(Window *w) {
         assert(w);
 
         window_unlink(w);
+        w->cache->n_windows--;
         free(w);
 }
 
@@ -157,6 +158,7 @@ static Window *window_add(MMapCache *m) {
                 w = new0(Window, 1);
                 if (!w)
                         return NULL;
+                m->n_windows++;
         } else {
 
                 /* Reuse an existing one */
