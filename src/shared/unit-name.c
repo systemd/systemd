@@ -470,7 +470,6 @@ char *unit_dbus_path_from_name(const char *name) {
 char *unit_name_mangle(const char *name) {
         char *r, *t;
         const char *f;
-        bool dot = false;
 
         assert(name);
 
@@ -491,10 +490,6 @@ char *unit_name_mangle(const char *name) {
                 return NULL;
 
         for (f = name, t = r; *f; f++) {
-
-                if (*f == '.')
-                        dot = true;
-
                 if (*f == '/')
                         *(t++) = '-';
                 else if (!strchr("@" VALID_CHARS, *f))
@@ -503,7 +498,7 @@ char *unit_name_mangle(const char *name) {
                         *(t++) = *f;
         }
 
-        if (!dot)
+        if (unit_name_to_type(name) < 0)
                 strcpy(t, ".service");
         else
                 *t = 0;
