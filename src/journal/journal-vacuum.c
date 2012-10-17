@@ -243,6 +243,7 @@ int journal_directory_vacuum(
 
                         have_seqnum = false;
                 } else
+                        /* We do not vacuum active files or unknown files! */
                         continue;
 
                 patch_realtime(directory, de->d_name, &st, &realtime);
@@ -291,7 +292,12 @@ int journal_directory_vacuum(
 
                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
                         log_debug("Deleted archived journal %s/%s.", directory, list[i].filename);
-                        sum -= list[i].usage;
+
+                        if ((uint64_t) list[i].usage > sum)
+                                sum -= list[i].usage;
+                        else
+                                sum = 0;
+
                 } else if (errno != ENOENT)
                         log_warning("Failed to delete %s/%s: %m", directory, list[i].filename);
         }
