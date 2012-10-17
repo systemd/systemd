@@ -1,0 +1,228 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2012 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="hostnamectl">
+
+        <refentryinfo>
+                <title>hostnamectl</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>hostnamectl</refentrytitle>
+                <manvolnum>1</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>hostnamectl</refname>
+                <refpurpose>Control the system hostname</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>hostnamectl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg></command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>hostnamectl</command> may be used to
+                query and change the system hostname and related
+               settings.</para>
+
+                <para>This tool distuingishes three different host
+                names: the high-level "pretty" hostname which might
+                include all all kinds of special characters
+                (e.g. "Lennart's Laptop"), the static hostname which
+                is used to initialize the kernel hostname at boot
+                (e.g. "lennarts-laptop"), and the transient hostname
+                which might be assigned temporarily due to network
+                configuration and might revert back to the static
+                hostname if network connectivity is lost and is only
+                temporarily written to the kernel hostname
+                (e.g. "dhcp-47-11").</para>
+
+                <para>Note that the pretty hostname has little
+                restrictions on the characters used, while the static
+                and transient hostnames are limited to the usually
+                accepted characters of internet domain names.</para>
+
+                <para>The static host name is stored in
+                <filename>/etc/hostname</filename>, see
+                <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for more information. The pretty host name and icon
+                name are stored in
+                <filename>/etc/machine-info</filename>, see
+                <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>The following options are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>--help</option></term>
+                                <term><option>-h</option></term>
+
+                                <listitem><para>Prints a short help
+                                text and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Prints a short version
+                                string and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--no-ask-password</option></term>
+
+                                <listitem><para>Don't query the user
+                                for authentication for privileged
+                                operations.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-H</option></term>
+                                <term><option>--host</option></term>
+
+                                <listitem><para>Execute operation
+                                remotely. Specify a hostname, or
+                                username and hostname separated by @,
+                                to connect to. This will use SSH to
+                                talk to a remote
+                                system.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--static</option></term>
+                                <term><option>--transient</option></term>
+                                <term><option>--pretty</option></term>
+
+                                <listitem><para>If
+                                <command>set-hostname</command> is
+                                invoked and one or more of these
+                                options are passed only the selected
+                                hostnames is
+                                updated.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+                <para>The following commands are understood:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><command>status</command></term>
+
+                                <listitem><para>Show current system
+                                hostname and related
+                                information.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>set-hostname [NAME]</command></term>
+
+                                <listitem><para>Set the system
+                                hostname. By default this will alter
+                                the pretty, the static, and the
+                                transient hostname alike, however if
+                                one or more of
+                                <option>--static</option>,
+                                <option>--transient</option>,
+                                <option>--pretty</option> are used
+                                only the selected hostnames are
+                                changed. If the pretty hostname is
+                                being set, and static or transient are
+                                being set as well the specified host
+                                name will be simplified in regards to
+                                the character set used before the
+                                latter are updated. This is done by
+                                replacing spaces by "-" and removing
+                                special characters. This ensures that
+                                the pretty and the static hostname
+                                are always closely related while still
+                                following the validity rules of the
+                                specific name. This simplification of
+                                the hostname string is not done if
+                                only the transient and/or static host
+                                names are set, and the pretty host
+                                name is left untouched. Pass the empty
+                                string "" as hostname to reset the
+                                selected hostnames to their default
+                                (usually
+                                "localhost").</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>set-icon-name [NAME]</command></term>
+
+                                <listitem><para>Set the system icon
+                                name. The icon name is used by some
+                                graphical applications to visualize
+                                this host. The icon name should follow
+                                the <ulink
+                                url="http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">Icon
+                                Naming Specification</ulink>. Pass an
+                                empty string to this operatoin to
+                                reset the icon name to the default
+                                value which is determined from the
+                                system form factor and possibly other
+                                parameters.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Exit status</title>
+
+                <para>On success 0 is returned, a non-zero failure
+                code otherwise.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>

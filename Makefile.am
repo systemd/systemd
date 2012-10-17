@@ -3062,6 +3062,25 @@ MANPAGES_ALIAS += \
 	man/systemd-hostnamed.8
 
 man/systemd-hostnamed.8: man/systemd-hostnamed.service.8
+
+hostnamectl_SOURCES = \
+	src/hostname/hostnamectl.c
+
+hostnamectl_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+hostnamectl_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-dbus.la \
+	libsystemd-id128-internal.la
+
+bin_PROGRAMS += \
+	hostnamectl
+
+MANPAGES += \
+	man/hostnamectl.1
+
 endif
 
 polkitpolicy_in_files += \

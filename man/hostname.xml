@@ -70,6 +70,11 @@
                 <para>Depending on the operating system other
                 configuration files might be checked for configuration
                 of the host name as well, however only as fallback.</para>
+
+                <para>You may use
+                <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                to change the value of this file from the command
+                line.</para>
         </refsect1>
 
         <refsect1>
@@ -88,7 +93,9 @@
                           <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

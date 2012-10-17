@@ -82,14 +82,21 @@
                 <para>The time zone may be overridden for individual
                 programs by using the TZ environment variable. See
                 <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+                <para>You may use
+                <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                to change the settings of this file from the command
+                line.</para>
         </refsect1>
 
         <refsect1>
                   <title>See Also</title>
                   <para>
-                          <citerefentry><refentrytitle>tzset</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                          <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>tzset</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

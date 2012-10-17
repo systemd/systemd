@@ -154,7 +154,12 @@
                                 <command>list-timezones</command>. If
                                 the RTC is configured to be in the
                                 local time this will also update the
-                                RTC time.</para></listitem>
+                                RTC time. This call will alter the
+                                <filename>/etc/localtime</filename>
+                                symlink. See
+                                <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for more
+                                information.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -235,6 +240,7 @@
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>hwclock</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>date</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
