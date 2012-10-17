@@ -979,8 +979,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
 
         show_properties = !strstr(args[0], "status");
 
-        if (show_properties)
-                pager_open_if_enabled();
+        pager_open_if_enabled();
 
         if (show_properties && n <= 1) {
                 /* If not argument is specified inspect the manager
