@@ -838,6 +838,14 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term>SIGRTMIN+24</term>
+
+                                <listitem><para>Immediately exits the
+                                manager (only available for --user
+                                instances).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term>SIGRTMIN+26</term>
                                 <term>SIGRTMIN+27</term>
                                 <term>SIGRTMIN+28</term>

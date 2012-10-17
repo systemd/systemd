@@ -199,6 +199,7 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+21, /* systemd: disable status messages */
                         SIGRTMIN+22, /* systemd: set log level to LOG_DEBUG */
                         SIGRTMIN+23, /* systemd: set log level to LOG_INFO */
+                        SIGRTMIN+24, /* systemd: Immediate exit (--user only) */
                         SIGRTMIN+26, /* systemd: set log target to journal-or-kmsg */
                         SIGRTMIN+27, /* systemd: set log target to console */
                         SIGRTMIN+28, /* systemd: set log target to kmsg */
@@ -1270,6 +1271,15 @@ static int manager_process_signal_fd(Manager *m) {
                         case 23:
                                 log_set_max_level(LOG_INFO);
                                 log_notice("Setting log level to info.");
+                                break;
+
+                        case 24:
+                                if (m->running_as == SYSTEMD_USER) {
+                                        m->exit_code = MANAGER_EXIT;
+                                        return 0;
+                                }
+
+                                /* This is a nop on init */
                                 break;
 
                         case 26:
