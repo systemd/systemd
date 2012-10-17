@@ -3630,6 +3630,7 @@ static int enable_unit(DBusConnection *bus, char **args) {
                         }
                 }
 
+                r = 0;
         } else {
                 const char *method;
                 bool send_force = true, expect_carries_install_info = false;
