@@ -34,7 +34,7 @@
 #include "strv.h"
 #include "pager.h"
 
-static bool arg_fix_system = false;
+static bool arg_adjust_system_clock = false;
 static bool arg_no_pager = false;
 static enum transport {
         TRANSPORT_NORMAL,
@@ -302,7 +302,7 @@ static int set_local_rtc(DBusConnection *bus, char **args, unsigned n) {
         }
 
         b = r;
-        q = arg_fix_system;
+        q = arg_adjust_system_clock;
 
         return bus_method_call_with_reply(
                         bus,
@@ -434,7 +434,8 @@ static int help(void) {
                "Query or control system time and date settings.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "     --fix-system        Adjust system clock when changing local RTC mode\n"
+               "     --adjust-system-clock\n"
+               "                         Adjust system clock when changing local RTC mode\n"
                "     --no-pager          Do not pipe output into a pager\n"
                "     --no-ask-password   Do not prompt for password\n"
                "  -H --host=[USER@]HOST  Operate on remote host\n\n"
@@ -455,19 +456,19 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
-                ARG_FIX_SYSTEM,
+                ARG_ADJUST_SYSTEM_CLOCK,
                 ARG_NO_ASK_PASSWORD
         };
 
         static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
-                { "host",            required_argument, NULL, 'H'                 },
-                { "privileged",      no_argument,       NULL, 'P'                 },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { "fix-system",      no_argument,       NULL, ARG_FIX_SYSTEM      },
-                { NULL,              0,                 NULL, 0                   }
+                { "help",                no_argument,       NULL, 'h'                     },
+                { "version",             no_argument,       NULL, ARG_VERSION             },
+                { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
+                { "host",                required_argument, NULL, 'H'                     },
+                { "privileged",          no_argument,       NULL, 'P'                     },
+                { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
+                { "adjust-system-clock", no_argument,       NULL, ARG_ADJUST_SYSTEM_CLOCK },
+                { NULL,                  0,                 NULL, 0                       }
         };
 
         int c;
@@ -498,8 +499,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_host = optarg;
                         break;
 
-                case ARG_FIX_SYSTEM:
-                        arg_fix_system = true;
+                case ARG_ADJUST_SYSTEM_CLOCK:
+                        arg_adjust_system_clock = true;
                         break;
 
                 case ARG_NO_PAGER:

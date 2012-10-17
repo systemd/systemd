@@ -110,7 +110,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--fix-system</option></term>
+                                <term><option>--adjust-system-clock</option></term>
 
                                 <listitem><para>If
                                 <command>set-local-rtc</command> is
@@ -189,7 +189,7 @@
                                 RTC in UTC. Note that invoking this
                                 will also synchronize the RTC from the
                                 system clock, unless
-                                <option>--fix-system</option> is
+                                <option>--adjust-system-clock</option> is
                                 passed (see above). This command will
                                 change the 3rd line of
                                 <filename>/etc/adjtime</filename>, as
