@@ -69,11 +69,9 @@ typedef struct StatusInfo {
 } StatusInfo;
 
 static bool ntp_synced(void) {
-
         struct timex txc;
 
         zero(txc);
-
         if (adjtimex(&txc) < 0)
                 return false;
 
@@ -89,6 +87,8 @@ static void print_status_info(StatusInfo *i) {
         struct tm tm;
         time_t sec;
         int r;
+
+        assert(i);
 
         n = now(CLOCK_REALTIME);
         sec = (time_t) (n / USEC_PER_SEC);
@@ -191,6 +191,7 @@ static int show_status(DBusConnection *bus, char **args, unsigned n) {
                 return -EIO;
         }
 
+        zero(info);
         dbus_message_iter_recurse(&iter, &sub);
 
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
