@@ -358,7 +358,7 @@ static int zone_compare(const void *_a, const void *_b) {
 static int list_timezones(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
-        size_t n_zones;
+        size_t n_zones = 0;
         char **i;
 
         assert(args);
