@@ -365,6 +365,13 @@
                                 explicitly to a shell implementation
                                 of some kind. Example:
                                 <literal>ExecStart=/bin/sh -c 'dmesg | tac'</literal></para>
+
+                                <para>For services run by a user
+                                instance of systemd the special
+                                environment variable
+                                <literal>MANAGERPID</literal> is set
+                                to the PID of the systemd
+                                instance.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -407,12 +414,12 @@
                                 variable substitution is supported
                                 here following the same scheme as for
                                 <varname>ExecStart=</varname>. One
-                                special environment variable is set:
-                                if known <literal>$MAINPID</literal> is
-                                set to the main process of the
-                                daemon, and may be used for command
-                                lines like the following:
-                                <command>/bin/kill -HUP
+                                additional special environment
+                                variables is set: if known
+                                <literal>$MAINPID</literal> is set to
+                                the main process of the daemon, and
+                                may be used for command lines like the
+                                following: <command>/bin/kill -HUP
                                 $MAINPID</command>.</para></listitem>
                         </varlistentry>
 

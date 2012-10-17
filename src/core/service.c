@@ -1801,7 +1801,8 @@ static int service_spawn(
                 goto fail;
         }
 
-        if (!(our_env = new0(char*, 4))) {
+        our_env = new0(char*, 5);
+        if (!our_env) {
                 r = -ENOMEM;
                 goto fail;
         }
@@ -1824,10 +1825,14 @@ static int service_spawn(
                         goto fail;
                 }
 
-        if (!(final_env = strv_env_merge(2,
-                                         UNIT(s)->manager->environment,
-                                         our_env,
-                                         NULL))) {
+        if (s->meta.manager->running_as != SYSTEMD_SYSTEM)
+                if (asprintf(our_env + n_env++, "MANAGERPID=%lu", (unsigned long) getpid()) < 0) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+        final_env = strv_env_merge(2, UNIT(s)->manager->environment, our_env, NULL);
+        if (!final_env) {
                 r = -ENOMEM;
                 goto fail;
         }
