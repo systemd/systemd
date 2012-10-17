@@ -22,6 +22,7 @@
 ***/
 
 #include <dbus/dbus.h>
+#include <inttypes.h>
 
 #ifndef DBUS_ERROR_UNKNOWN_OBJECT
 #define DBUS_ERROR_UNKNOWN_OBJECT "org.freedesktop.DBus.Error.UnknownObject"

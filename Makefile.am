@@ -3194,6 +3194,24 @@ MANPAGES_ALIAS += \
 	man/systemd-timedated.8
 
 man/systemd-timedated.8: man/systemd-timedated.service.8
+
+timedatectl_SOURCES = \
+	src/timedate/timedatectl.c
+
+timedatectl_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+timedatectl_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-dbus.la
+
+bin_PROGRAMS += \
+	timedatectl
+
+MANPAGES += \
+	man/timedatectl.1
+
 endif
 
 polkitpolicy_in_files += \

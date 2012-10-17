@@ -862,7 +862,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 }
 
 static int show_one(const char *verb, DBusConnection *bus, const char *path, bool show_properties, bool *new_line) {
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         const char *interface = "";
         int r;
         DBusMessageIter iter, sub, sub2, sub3;
@@ -877,7 +877,7 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
         zero(user_info);
         zero(seat_info);
 
-        r = bus_method_call_with_reply (
+        r = bus_method_call_with_reply(
                         bus,
                         "org.freedesktop.login1",
                         path,
@@ -887,7 +887,7 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
                         NULL,
                         DBUS_TYPE_STRING, &interface,
                         DBUS_TYPE_INVALID);
-        if (r)
+        if (r < 0)
                 goto finish;
 
         if (!dbus_message_iter_init(reply, &iter) ||
@@ -941,7 +941,6 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
 
                 if (r < 0) {
                         log_error("Failed to parse reply.");
-                        r = -EIO;
                         goto finish;
                 }
 
@@ -957,14 +956,11 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
                         print_seat_status_info(&seat_info);
         }
 
-        strv_free(seat_info.sessions);
-        strv_free(user_info.sessions);
-
         r = 0;
 
 finish:
-        if (reply)
-                dbus_message_unref(reply);
+        strv_free(seat_info.sessions);
+        strv_free(user_info.sessions);
 
         return r;
 }
@@ -1339,16 +1335,16 @@ static int help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Send control commands to or query the login manager.\n\n"
-               "  -h --help           Show this help\n"
-               "     --version        Show package version\n"
-               "  -p --property=NAME  Show only properties by this name\n"
-               "  -a --all            Show all properties, including empty ones\n"
-               "     --kill-who=WHO   Who to send signal to\n"
-               "  -s --signal=SIGNAL  Which signal to send\n"
-               "  -H --host=[USER@]HOST\n"
-               "                      Show information for remote host\n"
-               "  -P --privileged     Acquire privileges before execution\n"
-               "     --no-pager       Do not pipe output into a pager\n\n"
+               "  -h --help              Show this help\n"
+               "     --version           Show package version\n"
+               "  -p --property=NAME     Show only properties by this name\n"
+               "  -a --all               Show all properties, including empty ones\n"
+               "     --kill-who=WHO      Who to send signal to\n"
+               "  -s --signal=SIGNAL     Which signal to send\n"
+               "     --no-ask-password   Don't prompt for password\n"
+               "  -H --host=[USER@]HOST  Show information for remote host\n"
+               "  -P --privileged        Acquire privileges before execution\n"
+               "     --no-pager          Do not pipe output into a pager\n\n"
                "Commands:\n"
                "  list-sessions                   List sessions\n"
                "  session-status [ID...]          Show session status\n"
@@ -1387,17 +1383,17 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "property",  required_argument, NULL, 'p'           },
-                { "all",       no_argument,       NULL, 'a'           },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
-                { "kill-who",  required_argument, NULL, ARG_KILL_WHO  },
-                { "signal",    required_argument, NULL, 's'           },
-                { "host",      required_argument, NULL, 'H'           },
-                { "privileged",no_argument,       NULL, 'P'           },
-                { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
-                { NULL,        0,                 NULL, 0             }
+                { "help",            no_argument,       NULL, 'h'                 },
+                { "version",         no_argument,       NULL, ARG_VERSION         },
+                { "property",        required_argument, NULL, 'p'                 },
+                { "all",             no_argument,       NULL, 'a'                 },
+                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
+                { "kill-who",        required_argument, NULL, ARG_KILL_WHO        },
+                { "signal",          required_argument, NULL, 's'                 },
+                { "host",            required_argument, NULL, 'H'                 },
+                { "privileged",      no_argument,       NULL, 'P'                 },
+                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
+                { NULL,              0,                 NULL, 0                   }
         };
 
         int c;

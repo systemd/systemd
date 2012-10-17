@@ -64,6 +64,10 @@
                 is automatically activated on request and terminates
                 itself when it is unused.</para>
 
+                <para>The tool
+                <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                is a command line client to this service.</para>
+
                 <para>See the <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/timedated">
                 developer documentation</ulink> for information about
@@ -75,6 +79,7 @@
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>hwclock</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>

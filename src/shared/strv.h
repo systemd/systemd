@@ -30,6 +30,7 @@ char *strv_find(char **l, const char *name);
 char *strv_find_prefix(char **l, const char *name);
 
 void strv_free(char **l);
+void strv_freep(char ***l);
 char **strv_copy(char **l) _malloc_;
 unsigned strv_length(char **l);
 

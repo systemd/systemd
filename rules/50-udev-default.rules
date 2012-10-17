@@ -83,6 +83,6 @@ KERNEL=="rfkill", MODE="0644"
 
 KERNEL=="fuse", ACTION=="add", MODE="0666", OPTIONS+="static_node=fuse"
 
-SUBSYSTEM=="rtc", ATTR{hctosys}=="1", SYMLINK+="rtc"
+SUBSYSTEM=="rtc", ATTR{hctosys}=="1", MODE="0644", SYMLINK+="rtc"
 
 SUBSYSTEM=="firmware", ACTION=="add", IMPORT{builtin}="firmware"
