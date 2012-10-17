@@ -1,0 +1,117 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2012 Intel Corporation
+
+  Authors:
+    Auke Kok <auke-jan.h.kok@intel.com>
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-bootchart">
+        <refentryinfo>
+                <title>systemd-bootchart</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Auke</firstname>
+                                <surname>Kok</surname>
+                                <email>auke-jan.h.kok@intel.com</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd-bootchart</refentrytitle>
+                <manvolnum>1</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd-bootchart</refname>
+                <refpurpose>Boot performance analysis graphing tool</refpurpose>
+        </refnamediv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>Systemd-bootchart is an boot time analysis tool. It represents
+                various aspects of the system as graph elements. These graph
+                elements allow the user to determine resource usage, efficiency
+                and performance issues.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Invocation</title>
+
+                <para>systemd-bootchart can be invoked in several different ways:</para>
+
+                <variablelist class='bootchart-invocation'>
+
+                        <varlistentry>
+                                <title>Kernel invocation</title>
+                                <listitem><para>The kernel can invoke systemd-bootchart
+                                instead of the init process. In itself, systemd-bootchart
+                                will invoke <filename>/sbin/init</filename> if invoked in
+                                this matter.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <title>Started as a standalone program</title>
+                                <listitem><para>One can execute systemd-bootchart as
+                                normal application from the commandline. In this mode
+                                it is highly recommended to pass the "-r" flag in order
+                                to not graph the time elapsed since boot and before
+                                systemd-bootchart was started, as it may result in
+                                extremely large graphs.
+                                </para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>Please read systemd-bootchart --help or the bootchart.conf manual
+                page for information about the various options that influence how
+                systemd-bootchart operates.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Output</title>
+
+                <para>Systemd-bootchart generates SVG graphs. In order to render these
+                on a graphica display any SVG capable viewer can be used. It should be
+                noted that the SVG render engines in most browsers (including Chrome
+                and Firefox) are many times faster than dedicated graphical applications
+                like Gimp and Inkscape.  Just point your browser at "file:///var/log"!
+                </para>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>

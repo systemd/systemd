@@ -3020,6 +3020,22 @@ EXTRA_DIST += \
 	units/systemd-readahead-done.service.in
 
 # ------------------------------------------------------------------------------
+if ENABLE_BOOTCHART
+systemd_bootchart_SOURCES = \
+	src/bootchart/bootchart.c \
+	src/bootchart/bootchart.h \
+	src/bootchart/log.c \
+	src/bootchart/svg.c
+
+MANPAGES += \
+	man/systemd-bootchart.1
+	man/bootchart.conf.5
+
+rootlibexec_PROGRAMS += \
+	systemd-bootchart
+endif
+
+# ------------------------------------------------------------------------------
 if ENABLE_QUOTACHECK
 rootlibexec_PROGRAMS += \
 	systemd-quotacheck

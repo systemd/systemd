@@ -1,0 +1,83 @@
+
+Bootchart - a 'startup' graphing tool
+
+--
+
+Bootchart is a tool, usually run at system startup, that collects and graphs
+the CPU and disk load of the system as it works. The output of bootchart is
+an SVG graph. Normally, bootchart is invoked as `bootchartd` by the kernel
+by passing "init=/sbin/bootchartd" to the kernel. Bootchart will then fork
+init off to resume normal system startup, while monitoring and logging
+startup information in the background.
+
+After collecting a certain amount of data (usually 15-30 seconds) the logging
+stops and a graph is generated from the logged information. This graph
+contains vital clues to which resources are being used, in which order, and
+where possible problems exist in the startup sequence of the system.
+
+Of course, bootchart can also be used at any moment in time to collect and
+graph some data for an amount of time. Bootchart does not even require root
+privileges to do so, and will happily run as a normal user. Bootchart graphs
+are by default written time-stamped in /var/log.
+
+--
+
+This version of bootchart was implemented from scratch and inspired by former
+incantations of bootchart:
+
+- The original bash/shell code implemented bootchart. This version logged all
+data into a compressed tarball for later processing, and did not create a graph
+on it's own.
+
+- The C-code implementation found in Ubuntu. This version replaced above shell
+code version with a faster and efficient data logger, but still did not graph
+code itself.
+
+- the original Java-based bootchart, the original graphing program that created
+a bootchart graph from logged data.
+
+- the pybootchartgui.py program, which created a graph based on the data logged
+by either standalone data logger.
+
+The version you are looking at combines these 2 parts into a single program,
+which makes running it and creating graphs a bit more efficient and simple.
+You can now run a single program at startup instead of 2. There are no timing
+problems (the graphing stage will never run if the logging stage didn't
+finish). The logged data isn't being written to disc first, then read again.
+Also, the data kept in memory is reduced to the absolute minimum needed to
+keep memory use low.
+
+--
+
+Requirements: glibc. Your kernel must have procfs support and several
+proc output options enabled:
+  CONFIG_PROC_FS
+  CONFIG_SCHEDSTATS
+  CONFIG_SCHED_DEBUG
+at a minimum. bootchartd itself does not require any graphics library
+to generate the SVG output file.
+
+--
+
+Configuration: please see bootchartd --help, as well as /etc/bootchartd.conf
+and/or /usr/share/doc/bootchart/bootchartd.conf.example for a list of
+configurable options.
+
+--
+
+Many thanks to those who contributed ideas and code:
+ - Ziga Mahkovec - Original bootchart author
+ - Anders Norgaard - PyBootchartgui
+ - Michael Meeks - bootchart2
+ - Scott James Remnant - Ubuntu C-based logger
+ - Arjan van der Ven - for the idea to merge bootgraph.pl functionality
+
+--
+
+For bugs, please contact the author or current maintainer:
+Auke Kok <auke-jan.h.kok@intel.com>
+
+--
+
+Download bootchart releases here: http://foo-projects.org/~sofar/bootchart/
+Source code is hosted here: git://github.com/sofar/bootchart

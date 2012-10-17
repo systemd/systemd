@@ -1,0 +1,158 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2012 Intel Corporation
+
+  Authors:
+    Auke Kok <auke-jan.h.kok@intel.com>
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="bootchart.conf">
+        <refentryinfo>
+                <title>bootchart.conf</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Auke</firstname>
+                                <surname>Kok</surname>
+                                <email>auke-jan.h.kok@intel.com</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>bootchart.conf</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>bootchart.conf</refname>
+                <refpurpose>Boot performance analysis graphing tool configuration file</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>/etc/systemd/bootchart.conf</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>When starting, systemd-bootchart will read the
+                configuration file <filename>bootchart.conf</filename>.
+                This configuration file determines logging parameters and
+                graph output.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <variablelist class='bootchart-directives'>
+
+                        <varlistentry>
+                                <term><varname>samples=500</varname></term>
+                                <listitem><para>Configure the amount of samples to
+                                record total before bootchart exits. Each sample will
+                                record at intervals defined by freq=.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>freq=25</varname></term>
+                                <listitem><para>Configure the sample log frequency.
+                                This can be a fractional number, but must be larger than
+                                0.0. Most systems can cope with values under 25-50 without
+                                impacting boot time severely.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>rel=0</varname></term>
+                                <listitem><para>Configures whether the left axis of the
+                                output graph equals time=0.0 (CLOCK_MONOTONIC start). This
+                                is useful for using bootchart at post-boot time to profile
+                                an already booted system, otherwise the graph would become
+                                extremely large. If set to a non-zero value, the horizontal
+                                axis starts at the first recorded sample instead of time=0.0.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>filter=0</varname></term>
+                                <listitem><para>Configures whether the resulting graph
+                                should omit tasks that did not contribute significantly
+                                to the boot. Processes that are too short-lived (only
+                                seen in one sample) or that do not consume any significant
+                                CPU time (less than 0.001sec) will not be displayed in
+                                the output graph.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>output=[path]</varname></term>
+                                <listitem><para>Configures the output folder for writing
+                                the graphs. By default, bootchart writes the graphs to
+                                <filename>/var/log</filename>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>init=[path]</varname></term>
+                                <listitem><para>Configures bootchart to run a non-standard
+                                binary instead of <filename>/sbin/init</filename>. This
+                                option is only relevant if bootchart was invoked from the
+                                kernel command line with
+                                init=/usr/lib/systemd/systemd-bootchart.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>pss=0</varname></term>
+                                <listitem><para>If set to 1, enables logging and graphing
+                                of processes PSS memory consumption.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>entropy=0</varname></term>
+                                <listitem><para>If set to 1, enables logging and graphing
+                                of the kernel random entropy pool size.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>scale_x=100</varname></term>
+                                <listitem><para>Horizontal scaling factor for all variable
+                                graph components.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>scale_y=20</varname></term>
+                                <listitem><para>Vertical scaling factor for all variable
+                                graph components.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd-bootchart</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>

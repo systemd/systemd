@@ -558,6 +558,14 @@ fi
 AM_CONDITIONAL(ENABLE_READAHEAD, [test "$have_readahead" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_bootchart=no
+AC_ARG_ENABLE(bootchart, AS_HELP_STRING([--disable-bootchart], [disable bootchart tool]))
+if test "x$enable_bootchart" != "xno"; then
+        have_bootchart=yes
+fi
+AM_CONDITIONAL(ENABLE_BOOTCHART, [test "$have_bootchart" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_quotacheck=no
 AC_ARG_ENABLE(quotacheck, AS_HELP_STRING([--disable-quotacheck], [disable quotacheck tools]))
 if test "x$enable_quotacheck" != "xno"; then
@@ -845,6 +853,7 @@ AC_MSG_RESULT([
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}
         readahead:               ${have_readahead}
+        bootchart:               ${have_bootchart}
         quotacheck:              ${have_quotacheck}
         randomseed:              ${have_randomseed}
         logind:                  ${have_logind}
