@@ -61,6 +61,8 @@ pkgconfiglibdir=$(libdir)/pkgconfig
 polkitpolicydir=$(datadir)/polkit-1/actions
 bashcompletiondir=$(sysconfdir)/bash_completion.d
 rpmmacrosdir=$(sysconfdir)/rpm
+sysvinitdir=$(SYSTEM_SYSVINIT_PATH)
+varlogdir=$(localstatedir)/log
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
@@ -3594,6 +3596,8 @@ SED_PROCESS = \
 		-e 's,@sushell\@,$(sushell),g' \
 		-e 's,@QUOTAON\@,$(QUOTAON),g' \
 		-e 's,@QUOTACHECK\@,$(QUOTACHECK),g' \
+		-e 's,@SYSTEM_SYSVINIT_PATH\@,$(sysvinitdir),g' \
+		-e 's,@VARLOGDIR\@,$(varlogdir),g' \
 		< $< > $@
 
 units/%: units/%.in Makefile
@@ -3703,6 +3707,26 @@ DBUS_PREPROCESS = $(CPP) -P $(CFLAGS) $(DBUS_CFLAGS) -imacros dbus/dbus-protocol
 
 CLEANFILES += \
 	$(dbusinterface_DATA)
+
+if HAVE_SYSV_COMPAT
+sysvinit_DATA = \
+	docs/sysvinit/README
+
+varlog_DATA = \
+	docs/var-log/README
+
+docs/sysvinit/README: docs/sysvinit/README.in
+	$(SED_PROCESS)
+
+docs/var-log/README: docs/var-log/README.in
+	$(SED_PROCESS)
+
+EXTRA_DIST += \
+	docs/sysvinit/README.in \
+	docs/var-log/README.in
+
+endif
+
 
 systemd-install-data-hook:
 	$(MKDIR_P) -m 0755 \
