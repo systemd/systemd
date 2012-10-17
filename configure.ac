@@ -64,10 +64,12 @@ AC_PROG_GCC_TRADITIONAL
 AC_PATH_PROG([M4], [m4])
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 
-AC_PATH_PROG([QUOTAON], [quotaon], [/sbin/quotaon])
-AC_PATH_PROG([QUOTACHECK], [quotacheck], [/sbin/quotacheck])
+AC_PATH_PROG([QUOTAON], [quotaon], [/usr/sbin/quotaon])
+AC_PATH_PROG([QUOTACHECK], [quotacheck], [/usr/sbin/quotacheck])
 
-AC_PATH_PROG([SETCAP], [setcap], [/sbin/setcap])
+AC_PATH_PROG([SETCAP], [setcap], [/usr/sbin/setcap])
+
+AC_PATH_PROG([KILL], [kill], [/usr/bin/cap])
 
 # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
 m4_ifdef([GTK_DOC_CHECK], [

@@ -3613,6 +3613,7 @@ SED_PROCESS = \
 		-e 's,@rootprefix\@,$(rootprefix),g' \
 		-e 's,@udevlibexecdir\@,$(udevlibexecdir),g' \
 		-e 's,@sushell\@,$(sushell),g' \
+		-e 's,@KILL\@,$(KILL),g' \
 		-e 's,@QUOTAON\@,$(QUOTAON),g' \
 		-e 's,@QUOTACHECK\@,$(QUOTACHECK),g' \
 		-e 's,@SYSTEM_SYSVINIT_PATH\@,$(sysvinitdir),g' \
