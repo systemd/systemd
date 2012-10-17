@@ -39,11 +39,11 @@ Features:
 
 * deal with sendmail/postfix exclusivity
 
-* systemctl enable: improve the success messages
+* systemctl enable: improve the success messages (i.e. more human readable, less shell-like)
 
 * systemctl enable: fail if target to alias into doesn't exist? maybe show how many units are enabled afterwards?
 
-* on shutdown: move utmp, wall, audit logic all into PID 1 itsel
+* on shutdown: move utmp, wall, audit logic all into PID 1 itself, get rid of systemd-update-utmp-runlevel
 
 * add "provisioning" instructions to setup an empty /etc + /var
     - used to setup a new container from a shared /usr
@@ -55,15 +55,9 @@ Features:
 * make repeated alt-ctrl-del presses printing a dump, or even force a reboot without
   waiting for the timeout
 
-* make sure that the journal output from the initrd is always merged into the journalctl output even if -m is not passed.
-
-* add time seeks to journalctl
-
 * high level net_prio setting in execution context
 
 * Introduce journalctl -b <nr> to show journal messages of a previous boot
-
-* systemctl should be able to show log messages from certain privileged 3rd party daemons such as setroubleshoot
 
 * hostnamed: before returning information from /etc/machine-info.conf check the modification data and reread. Similar for localed, ...
 
@@ -114,8 +108,6 @@ Features:
 
 * after deserializing sockets in socket.c we should reapply sockopts and things
 
-* do shutdown audit/utmp msgs inside of PID 1, get rid of systemd-update-utmp-runlevel
-
 * make timer units go away after they elapsed
 
 * http://lists.freedesktop.org/archives/systemd-devel/2012-September/006502.html
@@ -128,8 +120,6 @@ Features:
 
 * Document word splitting syntax for ExecStart= and friends
 
-* when writing journal entries order field items by their address to improve speed on rotating media
-
 * create /sbin/init symlinks from the build system
 
 * Query Paul Moore about relabelling socket fds while they are open
@@ -137,8 +127,6 @@ Features:
 * move keymaps to /usr/lib/... rather than /usr/lib/udev/...
 
 * journald: check whether it is OK if the client can still modify delivered journal entries
-
-* json: use jensson
 
 * json: properly serialize multiple fields with the same name per entry
 
@@ -156,8 +144,6 @@ Features:
 
 * currently system services appear not to generate core dumps...
 
-* wall messages for shutdown should move to logind
-
 * allow writing multiple conditions in unit files on one line
 
 * cleanup ellipsation for log output in journalctl and systemctl status: have a sane way to disable ellipsation, and disable it by default when invoked in less/more
@@ -165,8 +151,6 @@ Features:
 * explore multiple service instances per listening socket idea
 
 * testing tool for socket activation: some binary that listens on a socket and passes it on using the usual socket activation protocol to some server.
-
-* maybe make systemd-detect-virt suid? or use fscaps?
 
 * shutdown: don't read-only mount anything when running in container
 
@@ -201,8 +185,6 @@ Features:
 
 * initialize the hostname from the fs label of /, if /etc/hostname does not exist?
 
-* install README to /etc/rc.d/init.d (if support for that is enabled) helping people who use "ls" there to figure out which services exist.
-
 * rename "userspace" to "core-os"
 
 * systemctl: "Journal has been rotated since unit was started." message is misleading
@@ -234,8 +216,6 @@ Features:
         - PID 1 D-Bus API
 
 * introduce Type=pid-file
-
-* systemctl list-unit-files appears to be broken for symlinked units in /usr/lib
 
 * maybe allow services with ExecStop= set, but no ExecStart=?
 
@@ -360,8 +340,6 @@ Features:
 
 * default unix qlen is too small (10). bump sysctl? add sockopt?
 
-* Possibly, detect whether SysV init scripts can do reloading by looking for "echo Usage:" lines
-
 * figure out whether we should leave dbus around during shutdown
 
 * dbus: in fedora, make the machine a symlink to /etc/machine-id
@@ -381,10 +359,6 @@ Features:
 * journal: message catalog
 
 * document the exit codes when services fail before they are exec()ed
-
-* systemctl journal command
-
-* journalctl: --cursor support
 
 * save coredump in Windows/Mozilla minidump format
 
@@ -471,7 +445,7 @@ Features:
 
 * allow port=0 in .socket units
 
-* move readahead files into /var, look for them with .path units
+* move readahead files into /var (look for them with .path units?)
 
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 
@@ -498,11 +472,7 @@ Features:
 * calendar time support in timer:
     https://docs.google.com/document/pub?id=1bAMyFAjWLpzR3GTDYdgj5FWRMxoZiWw5zmUHEtvdHKA
 
-* implicitly import "defaults" settings file into all types
-
 * writable cgroups dbus properties for live changes
-
-* read config fragments for all units from /lib/systemd/system/foobar.service.d/ to override/extend specific settings
 
 * port over to LISTEN_FDS/LISTEN_PID:
    - rpcbind (/var/run/rpcbind.sock!) HAVEPATCH
