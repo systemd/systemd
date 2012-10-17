@@ -1515,7 +1515,7 @@ int unit_file_enable(
 
         /* This will return the number of symlink rules that were
         supposed to be created, not the ones actually created. This is
-        useful to determine whether the passed files hat any
+        useful to determine whether the passed files had any
         installation data at all. */
         r = install_context_apply(&c, &paths, config_path, root_dir, force, changes, n_changes);
 
