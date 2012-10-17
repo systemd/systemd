@@ -5929,7 +5929,7 @@ bool string_is_safe(const char *p) {
         assert(p);
 
         for (t = p; *t; t++) {
-                if (*t < ' ')
+                if (*t > 0 && *t < ' ')
                         return false;
 
                 if (strchr("\\\"\'", *t))
