@@ -2293,9 +2293,10 @@ static void print_status_info(UnitStatusInfo *i) {
         if (i->id && arg_transport != TRANSPORT_SSH) {
                 int flags =
                         arg_all * OUTPUT_SHOW_ALL |
+                        (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
+                        on_tty() * OUTPUT_COLOR |
                         arg_follow * OUTPUT_FOLLOW |
-                        !arg_quiet * OUTPUT_WARN_CUTOFF |
-                        on_tty() * OUTPUT_COLOR;
+                        !arg_quiet * OUTPUT_WARN_CUTOFF;
 
                 printf("\n");
                 show_journal_by_unit(stdout,

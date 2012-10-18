@@ -840,7 +840,6 @@ int main(int argc, char *argv[]) {
         bool need_seek = false;
         sd_id128_t previous_boot_id;
         bool previous_boot_id_valid = false;
-        bool have_pager;
         unsigned n_shown = 0;
 
         log_parse_environment();
@@ -984,7 +983,9 @@ int main(int argc, char *argv[]) {
         }
 
         on_tty();
-        have_pager = !arg_no_pager && !arg_follow && pager_open();
+
+        if (!arg_no_pager && !arg_follow)
+                pager_open();
 
         if (!arg_quiet) {
                 usec_t start, end;
@@ -1048,7 +1049,7 @@ int main(int argc, char *argv[]) {
 
                         flags =
                                 arg_all * OUTPUT_SHOW_ALL |
-                                (!on_tty() || have_pager) * OUTPUT_FULL_WIDTH |
+                                (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
                                 on_tty() * OUTPUT_COLOR;
 
                         r = output_journal(stdout, j, arg_output, 0, flags);
