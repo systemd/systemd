@@ -443,17 +443,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--follow</option></term>
-                                <term><option>-f</option></term>
-
-                                <listitem><para>When used with
-                                <command>status</command> continuously
-                                prints new journal entries as they are
-                                appended to the
-                                journal.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>--output=</option></term>
                                 <term><option>-o</option></term>
 

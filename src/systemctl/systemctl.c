@@ -123,7 +123,6 @@ static enum transport {
         TRANSPORT_POLKIT
 } arg_transport = TRANSPORT_NORMAL;
 static const char *arg_host = NULL;
-static bool arg_follow = false;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 
@@ -2277,7 +2276,6 @@ static void print_status_info(UnitStatusInfo *i) {
                         arg_all * OUTPUT_SHOW_ALL |
                         (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
                         on_tty() * OUTPUT_COLOR |
-                        arg_follow * OUTPUT_FOLLOW |
                         !arg_quiet * OUTPUT_WARN_CUTOFF;
 
                 printf("\n");
@@ -3928,7 +3926,6 @@ static int systemctl_help(void) {
                "     --root=PATH      Enable unit files in the specified root directory\n"
                "     --runtime        Enable unit files only temporarily until next reboot\n"
                "  -n --lines=INTEGER  Journal entries to show\n"
-               "     --follow         Follow journal\n"
                "  -o --output=STRING  Change journal output mode (short, short-monotonic,\n"
                "                      verbose, export, json, json-pretty, json-sse, cat)\n\n"
                "Unit Commands:\n"
@@ -4084,7 +4081,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_FAILED,
                 ARG_RUNTIME,
-                ARG_FOLLOW,
                 ARG_FORCE
         };
 
@@ -4118,7 +4114,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "privileged",no_argument,       NULL, 'P'           },
                 { "runtime",   no_argument,       NULL, ARG_RUNTIME   },
                 { "lines",     required_argument, NULL, 'n'           },
-                { "follow",    no_argument,       NULL, ARG_FOLLOW    },
                 { "output",    required_argument, NULL, 'o'           },
                 { NULL,        0,                 NULL, 0             }
         };
@@ -4238,14 +4233,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_force ++;
                         break;
 
-                case ARG_FOLLOW:
-                        arg_follow = true;
-                        break;
-
                 case 'f':
-                        /* -f is short for both --follow and --force! */
                         arg_force ++;
-                        arg_follow = true;
                         break;
 
                 case ARG_NO_RELOAD:
