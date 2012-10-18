@@ -2335,7 +2335,7 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
         }
 }
 
-void sd_journal_restart_unique(sd_journal *j) {
+_public_ void sd_journal_restart_unique(sd_journal *j) {
         if (!j)
                 return;
 
