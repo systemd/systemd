@@ -281,12 +281,12 @@ _loginctl () {
 complete -F _loginctl loginctl
 
 _journalctl() {
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+        local field_vals= cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local -A OPTS=(
                 [STANDALONE]='-a --all -b --this-boot -f --follow --header
                               -h --help -l --local --new-id128 --no-pager
                               --no-tail -q --quiet --setup-keys --verify --version'
-                [ARG]='-D --directory --interval -n --lines -o --output
+                [ARG]='-D --directory -F --field --interval -n --lines -o --output
                        -p --priority --verify-key'
         )
         local journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
@@ -310,6 +310,9 @@ _journalctl() {
                         --output|-o)
                                 comps='short short-monotonic verbose export json cat'
                         ;;
+                        --field|-F)
+                                comps=${journal_fields[*]}
+                        ;;
                         *)
                                 return 0
                         ;;
@@ -321,6 +324,12 @@ _journalctl() {
         if [[ $cur = -* ]]; then
                 COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
                 return 0
+        elif [[ $cur = *=* ]]; then
+                mapfile -t field_vals < <(journalctl -F "${prev%=}" 2>/dev/null)
+                COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur#=}") )
+        elif [[ $prev = '=' ]]; then
+                mapfile -t field_vals < <(journalctl -F "${COMP_WORDS[COMP_CWORD-2]}" 2>/dev/null)
+                COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "$cur") )
         else
                 # append an '=' to the end of the completed field
                 # TODO: would be nice to be able to tell readline here not to
