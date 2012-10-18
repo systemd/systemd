@@ -416,6 +416,38 @@ static int request_parse_arguments_iterator(
                 return MHD_YES;
         }
 
+        if (streq(key, "boot")) {
+                if (isempty(value))
+                        r = true;
+                else {
+                        r = parse_boolean(value);
+                        if (r < 0) {
+                                m->argument_parse_error = r;
+                                return MHD_NO;
+                        }
+                }
+
+                if (r) {
+                        char match[9 + 32 + 1] = "_BOOT_ID=";
+                        sd_id128_t bid;
+
+                        r = sd_id128_get_boot(&bid);
+                        if (r < 0) {
+                                log_error("Failed to get boot ID: %s", strerror(-r));
+                                return MHD_NO;
+                        }
+
+                        sd_id128_to_string(bid, match + 9);
+                        r = sd_journal_add_match(m->journal, match, sizeof(match)-1);
+                        if (r < 0) {
+                                m->argument_parse_error = r;
+                                return MHD_NO;
+                        }
+                }
+
+                return MHD_YES;
+        }
+
         p = strjoin(key, "=", strempty(value), NULL);
         if (!p) {
                 m->argument_parse_error = log_oom();
