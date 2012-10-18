@@ -201,11 +201,9 @@
                                 <term><varname>SystemMaxUse=</varname></term>
                                 <term><varname>SystemKeepFree=</varname></term>
                                 <term><varname>SystemMaxFileSize=</varname></term>
-                                <term><varname>SystemMinFileSize=</varname></term>
                                 <term><varname>RuntimeMaxUse=</varname></term>
                                 <term><varname>RuntimeKeepFree=</varname></term>
                                 <term><varname>RuntimeMaxFileSize=</varname></term>
-                                <term><varname>RuntimeMinFileSize=</varname></term>
 
                                 <listitem><para>Enforce size limits on
                                 the journal files stored. The options
@@ -263,16 +261,11 @@
                                 <varname>SystemMaxUse=</varname> and
                                 <varname>RuntimeMaxUse=</varname>, so
                                 that usually seven rotated journal
-                                files are kept as
-                                history. <varname>SystemMinFileSize=</varname>
-                                and
-                                <varname>RuntimeMinFileSize=</varname>
-                                control how large individual journal
-                                files grow at minimum. Defaults to
-                                64K. Specify values in bytes or use
-                                K, M, G, T, P, E as units for the
-                                specified sizes. Note that size limits
-                                are enforced synchronously to journal
+                                files are kept as history. Specify
+                                values in bytes or use K, M, G, T, P,
+                                E as units for the specified
+                                sizes. Note that size limits are
+                                enforced synchronously to journal
                                 files as they are extended, and need
                                 no explicit rotation step triggered by
                                 time.</para></listitem>
