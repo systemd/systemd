@@ -2175,13 +2175,10 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
 }
 
 int ask(char *ret, const char *replies, const char *text, ...) {
-        bool on_tty;
 
         assert(ret);
         assert(replies);
         assert(text);
-
-        on_tty = isatty(STDOUT_FILENO);
 
         for (;;) {
                 va_list ap;
@@ -2189,14 +2186,14 @@ int ask(char *ret, const char *replies, const char *text, ...) {
                 int r;
                 bool need_nl = true;
 
-                if (on_tty)
+                if (on_tty())
                         fputs(ANSI_HIGHLIGHT_ON, stdout);
 
                 va_start(ap, text);
                 vprintf(text, ap);
                 va_end(ap);
 
-                if (on_tty)
+                if (on_tty())
                         fputs(ANSI_HIGHLIGHT_OFF, stdout);
 
                 fflush(stdout);
@@ -3818,6 +3815,15 @@ unsigned columns(void) {
 /* intended to be used as a SIGWINCH sighandler */
 void columns_cache_reset(int signum) {
         cached_columns = 0;
+}
+
+bool on_tty(void) {
+        static int cached_on_tty = -1;
+
+        if (_unlikely_(cached_on_tty < 0))
+                cached_on_tty = isatty(STDOUT_FILENO) > 0;
+
+        return cached_on_tty;
 }
 
 int fd_lines(int fd) {

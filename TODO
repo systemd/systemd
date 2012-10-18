@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* drop --follow from systemctl
+
 * don't show cgroup in "systemctl status" if empty/non-existant, especially for foreign .mount units
 
 * timedated: export boolean that clarifies whether NTP is even available

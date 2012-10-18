@@ -132,25 +132,7 @@ static bool private_bus = false;
 static int daemon_reload(DBusConnection *bus, char **args);
 static void halt_now(enum action a);
 
-static bool on_tty(void) {
-        static int t = -1;
-
-        /* Note that this is invoked relatively early, before we start
-         * the pager. That means the value we return reflects whether
-         * we originally were started on a tty, not if we currently
-         * are. But this is intended, since we want colour and so on
-         * when run in our own pager. */
-
-        if (_unlikely_(t < 0))
-                t = isatty(STDOUT_FILENO) > 0;
-
-        return t;
-}
-
 static void pager_open_if_enabled(void) {
-
-        /* Cache result before we open the pager */
-        on_tty();
 
         if (arg_no_pager)
                 return;

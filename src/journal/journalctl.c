@@ -400,21 +400,6 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static bool on_tty(void) {
-        static int t = -1;
-
-        /* Note that this is invoked relatively early, before we start
-         * the pager. That means the value we return reflects whether
-         * we originally were started on a tty, not if we currently
-         * are. But this is intended, since we want colour and so on
-         * when run in our own pager. */
-
-        if (_unlikely_(t < 0))
-                t = isatty(STDOUT_FILENO) > 0;
-
-        return t;
-}
-
 static int generate_new_id128(void) {
         sd_id128_t id;
         int r;
@@ -697,7 +682,7 @@ static int setup_keys(void) {
                 goto finish;
         }
 
-        if (isatty(STDOUT_FILENO)) {
+        if (on_tty()) {
                 fprintf(stderr,
                         "\n"
                         "The new key pair has been generated. The " ANSI_HIGHLIGHT_ON "secret sealing key" ANSI_HIGHLIGHT_OFF " has been written to\n"
@@ -719,7 +704,7 @@ static int setup_keys(void) {
 
         printf("/%llx-%llx\n", (unsigned long long) n, (unsigned long long) arg_interval);
 
-        if (isatty(STDOUT_FILENO)) {
+        if (on_tty()) {
                 char tsb[FORMAT_TIMESPAN_MAX], *hn;
 
                 fprintf(stderr,
@@ -981,8 +966,6 @@ int main(int argc, char *argv[]) {
                 log_error("Failed to iterate through journal: %s", strerror(-r));
                 goto finish;
         }
-
-        on_tty();
 
         if (!arg_no_pager && !arg_follow)
                 pager_open();

@@ -178,7 +178,7 @@ static void draw_progress(uint64_t p, usec_t *last_usec) {
         unsigned n, i, j, k;
         usec_t z, x;
 
-        if (!isatty(STDOUT_FILENO))
+        if (!on_tty())
                 return;
 
         z = now(CLOCK_MONOTONIC);
@@ -212,7 +212,7 @@ static void draw_progress(uint64_t p, usec_t *last_usec) {
 static void flush_progress(void) {
         unsigned n, i;
 
-        if (!isatty(STDOUT_FILENO))
+        if (!on_tty())
                 return;
 
         n = (3 * columns()) / 4;

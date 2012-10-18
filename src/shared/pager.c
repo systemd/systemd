@@ -57,7 +57,7 @@ int pager_open(void) {
                 if (!*pager || streq(pager, "cat"))
                         return 0;
 
-        if (isatty(STDOUT_FILENO) <= 0)
+        if (!on_tty())
                 return 0;
 
         /* Determine and cache number of columns before we spawn the
