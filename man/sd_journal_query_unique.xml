@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
         SD_JOURNAL_FOREACH_UNIQUE(j, d, l)
-                printf("%.*s\n", (int) l, d);
+                printf("%.*s\n", (int) l, (const char*) d);
         sd_journal_close(j);
         return 0;
 }</programlisting>
