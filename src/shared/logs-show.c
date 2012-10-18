@@ -405,7 +405,7 @@ static int output_export(
         return 0;
 }
 
-static void json_escape(
+void json_escape(
                 FILE *f,
                 const char* p,
                 size_t l,

@@ -64,5 +64,11 @@ int show_journal_by_unit(
                 unsigned how_many,
                 OutputFlags flags);
 
+void json_escape(
+                FILE *f,
+                const char* p,
+                size_t l,
+                OutputFlags flags);
+
 const char* output_mode_to_string(OutputMode m);
 OutputMode output_mode_from_string(const char *s);
