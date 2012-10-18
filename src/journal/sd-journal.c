@@ -2214,6 +2214,8 @@ _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
                 return -EINVAL;
         if (isempty(field))
                 return -EINVAL;
+        if (!field_is_valid(field))
+                return -EINVAL;
 
         f = strdup(field);
         if (!f)
