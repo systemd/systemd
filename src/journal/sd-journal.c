@@ -2259,7 +2259,7 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                 size_t ol;
                 bool found;
 
-                /* Proceed to next data object in list the field's linked list */
+                /* Proceed to next data object in the field's linked list */
                 if (j->unique_offset == 0) {
                         r = journal_file_find_field_object(j->unique_file, j->unique_field, k, &o, NULL);
                         if (r < 0)
