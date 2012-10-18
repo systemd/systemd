@@ -57,7 +57,7 @@
 
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_follow = false;
-static bool arg_show_all = false;
+static bool arg_all = false;
 static bool arg_no_pager = false;
 static unsigned arg_lines = 0;
 static bool arg_no_tail = false;
@@ -87,15 +87,15 @@ static enum {
 
 static int help(void) {
 
-        printf("%s [OPTIONS...] [MATCH]\n\n"
+        printf("%s [OPTIONS...] [MATCHES...]\n\n"
                "Query the journal.\n\n"
                "Flags:\n"
-               "  -c --cursor=CURSOR     Start showing entries from specified cursor\n"
                "     --since=DATE        Start showing entries newer or of the specified date\n"
                "     --until=DATE        Stop showing entries older or of the specified date\n"
+               "  -c --cursor=CURSOR     Start showing entries from specified cursor\n"
                "  -b --this-boot         Show data only from current boot\n"
                "  -u --unit=UNIT         Show data only from the specified unit\n"
-               "  -p --priority=RANGE    Show only messages within the specified priority range\n\n"
+               "  -p --priority=RANGE    Show only messages within the specified priority range\n"
                "  -f --follow            Follow journal\n"
                "  -n --lines[=INTEGER]   Number of journal entries to show\n"
                "     --no-tail           Show all lines, even in follow mode\n"
@@ -217,7 +217,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'a':
-                        arg_show_all = true;
+                        arg_all = true;
                         break;
 
                 case 'n':
@@ -1047,8 +1047,8 @@ int main(int argc, char *argv[]) {
                         }
 
                         flags =
-                                arg_show_all * OUTPUT_SHOW_ALL |
-                                have_pager * OUTPUT_FULL_WIDTH |
+                                arg_all * OUTPUT_SHOW_ALL |
+                                (!on_tty() || have_pager) * OUTPUT_FULL_WIDTH |
                                 on_tty() * OUTPUT_COLOR;
 
                         r = output_journal(stdout, j, arg_output, 0, flags);

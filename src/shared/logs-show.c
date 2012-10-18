@@ -243,7 +243,7 @@ static int output_short(
                 }
         }
 
-        if (flags)
+        if (flags & OUTPUT_SHOW_ALL)
                 fprintf(f, ": %s%.*s%s\n", color_on, (int) message_len, message, color_off);
         else if (!utf8_is_printable_n(message, message_len)) {
                 char bytes[FORMAT_BYTES_MAX];
