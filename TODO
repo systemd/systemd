@@ -19,15 +19,11 @@ F18:
 
 Features:
 
-* drop --follow from systemctl
-
 * don't show cgroup in "systemctl status" if empty/non-existant, especially for foreign .mount units
 
 * timedated: export boolean that clarifies whether NTP is even available
 
 * timedated: refuse time changes when NTP is on
-
-* journald: don't make SystemMinFileSize= configurable
 
 * clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
 
