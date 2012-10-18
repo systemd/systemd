@@ -814,6 +814,26 @@ static int verify(sd_journal *j) {
         return r;
 }
 
+static int access_check(void) {
+
+#ifdef HAVE_ACL
+        if (access("/var/log/journal", F_OK) < 0 && geteuid() != 0 && in_group("adm") <= 0) {
+                log_error("Unprivileged users can't see messages unless persistent log storage is enabled. Users in the group 'adm' can always see messages.");
+                return -EACCES;
+        }
+
+        if (!arg_quiet && geteuid() != 0 && in_group("adm") <= 0)
+                log_warning("Showing user generated messages only. Users in the group 'adm' can see all messages. Pass -q to turn this notice off.");
+#else
+        if (geteuid() != 0 && in_group("adm") <= 0) {
+                log_error("No access to messages. Only users in the group 'adm' can see messages.");
+                return -EACCES;
+        }
+#endif
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         int r;
         sd_journal *j = NULL;
@@ -840,11 +860,14 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        r = access_check();
+        if (r < 0)
+                goto finish;
+
         if (arg_directory)
                 r = sd_journal_open_directory(&j, arg_directory, 0);
         else
                 r = sd_journal_open(&j, arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY);
-
         if (r < 0) {
                 log_error("Failed to open journal: %s", strerror(-r));
                 goto finish;
@@ -873,23 +896,6 @@ int main(int argc, char *argv[]) {
                 r = 0;
                 goto finish;
         }
-
-#ifdef HAVE_ACL
-        if (access("/var/log/journal", F_OK) < 0 && geteuid() != 0 && in_group("adm") <= 0) {
-                log_error("Unprivileged users can't see messages unless persistent log storage is enabled. Users in the group 'adm' can always see messages.");
-                r = -EACCES;
-                goto finish;
-        }
-
-        if (!arg_quiet && geteuid() != 0 && in_group("adm") <= 0)
-                log_warning("Showing user generated messages only. Users in the group 'adm' can see all messages. Pass -q to turn this notice off.");
-#else
-        if (geteuid() != 0 && in_group("adm") <= 0) {
-                log_error("No access to messages. Only users in the group 'adm' can see messages.");
-                r = -EACCES;
-                goto finish;
-        }
-#endif
 
         r = add_this_boot(j);
         if (r < 0)
