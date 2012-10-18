@@ -6,7 +6,7 @@
         <style type="text/css">
                 div#divlogs, div#diventry {
                         font-family: monospace;
-                        font-size: 8pt;
+                        font-size: 7pt;
                         background-color: #ffffff;
                         padding: 1em;
                         margin: 2em 0em;
@@ -25,7 +25,7 @@
                         background-color: #ededed;
                         color: #313739;
                         font: message-box;
-                        margin: 5em;
+                        margin: 3em;
                 }
                 td.timestamp {
                         text-align: right;
@@ -82,16 +82,24 @@
                         color: #818789;
                         padding-top: 2em;
                 }
-                .key {
+                span.key {
                         font-weight: bold;
                         color: #313739;
                 }
-                form {
+                div#buttonnav {
                         text-align: center;
                 }
-                input {
+                button {
                         font-size: 18pt;
                         font-weight: bold;
+                        width: 2em;
+                        height: 2em;
+                }
+                div#filternav {
+                        text-align: center;
+                }
+                select {
+                        width: 50em;
                 }
         </style>
 </head>
@@ -110,19 +118,27 @@
         <div id="usage"></div>
         <div id="showing"></div>
 
+        <div id="filternav">
+                <select id="filter" onchange="onFilterChange(this);" onfocus="onFilterFocus(this);">
+                        <option>No filter</option>
+                </select>
+                &nbsp;&nbsp;&nbsp;&nbsp;
+                <input id="boot" type="checkbox" onchange="onBootChange(this);">Only current boot</input>
+        </div>
+
         <div id="divlogs"><table id="tablelogs"></table></div>
         <a name="entry"></a>
         <div id="diventry"><table id="tableentry"></table></div>
 
-        <form>
-                <input id="head" type="button" value="&#8676;" onclick="entriesLoadHead();" title="First Page"/>
-                <input id="previous" type="button" value="&#8592;" onclick="entriesLoadPrevious();" title="Previous Page"/>
-                <input id="next" type="button" value="&#8594;" onclick="entriesLoadNext();" title="Next Page"/>
-                <input id="tail" type="button" value="&#8677;" onclick="entriesLoadTail();" title="Last Page"/>
+        <div id="buttonnav">
+                <button id="head" onclick="entriesLoadHead();" title="First Page">&#8676;</button>
+                <button id="previous" type="button" onclick="entriesLoadPrevious();" title="Previous Page"/>&#8592;</button>
+                <button id="next" type="button" onclick="entriesLoadNext();" title="Next Page"/>&#8594;</button>
+                <button id="tail" type="button" onclick="entriesLoadTail();" title="Last Page"/>&#8677;</button>
                 &nbsp;&nbsp;&nbsp;&nbsp;
-                <input id="more" type="button" value="+" onclick="entriesMore();" title="More Entries"/>
-                <input id="less" type="button" value="-" onclick="entriesLess();" title="Fewer Entries"/>
-        </form>
+                <button id="more" type="button" onclick="entriesMore();" title="More Entries"/>+</button>
+                <button id="less" type="button" onclick="entriesLess();" title="Fewer Entries"/>-</button>
+        </div>
 
         <div id="keynav">
                 <span class="key">g</span>: First Page &nbsp;&nbsp;&nbsp;&nbsp;
@@ -139,7 +155,7 @@
 
                 function getNEntries() {
                         var n;
-                        n = window.localStorage["n_entries"];
+                        n = localStorage["n_entries"];
                         if (n == null)
                                 return 50;
                         n = parseInt(n);
@@ -160,7 +176,7 @@
                                 return 10;
                         if (n > 1000)
                                 return 1000;
-                        window.localStorage["n_entries"] = n.toString();
+                        localStorage["n_entries"] = n.toString();
                         showNEntries(n);
                 }
 
@@ -221,12 +237,24 @@
                 function entriesLoad(range) {
 
                         if (range == null)
-                                range = window.localStorage["cursor"] + ":0";
+                                range = localStorage["cursor"] + ":0";
                         if (range == null)
                                 range = "";
 
+                        var url = "/entries";
+
+                        if (localStorage["filter"] != "" && localStorage["filter"] != null) {
+                                url += "?_SYSTEMD_UNIT=" + escape(localStorage["filter"]);
+
+                                if (localStorage["boot"] == "1")
+                                        url += "&boot";
+                        } else {
+                                if (localStorage["boot"] == "1")
+                                        url += "?boot";
+                        }
+
                         var request = new XMLHttpRequest();
-                        request.open("GET", "/entries");
+                        request.open("GET", url);
                         request.onreadystatechange = entriesOnResult;
                         request.setRequestHeader("Accept", "application/json");
                         request.setRequestHeader("Range", "entries=" + range + ":" + getNEntries().toString());
@@ -266,8 +294,7 @@
                         var lc = null;
                         var fc = null;
 
-                        var i;
-                        var l = event.currentTarget.responseText.split('\n');
+                        var i, l = event.currentTarget.responseText.split('\n');
 
                         if (l.length <= 1) {
                                 logs.innerHTML = '<tbody><tr><td colspan="3"><i>No further entries...</i></td></tr></tbody>';
@@ -337,7 +364,7 @@
 
                         if (fc != null) {
                                 first_cursor = fc;
-                                window.localStorage["cursor"] = fc;
+                                localStorage["cursor"] = fc;
                         }
                         if (lc != null)
                                 last_cursor = lc;
@@ -423,14 +450,95 @@
                                 entriesLoadNext();
                 }
 
+                function onResultFilterFocus(event) {
+                        if ((event.currentTarget.readyState != 4) ||
+                                (event.currentTarget.status != 200 && event.currentTarget.status != 0))
+                                return;
+
+                        f = document.getElementById("filter");
+
+                        var l = event.currentTarget.responseText.split('\n');
+                        var buf = '<option>No filter</option>';
+                        var j = -1;
+
+                        for (i in l) {
+
+                                if (l[i] == '')
+                                      continue;
+
+                                var d = JSON.parse(l[i]);
+                                if (d._SYSTEMD_UNIT == undefined)
+                                      continue;
+
+                                buf += '<option value="' + escape(d._SYSTEMD_UNIT) + '">' + escapeHTML(d._SYSTEMD_UNIT) + '</option>';
+
+                                if (d._SYSTEMD_UNIT == localStorage["filter"])
+                                        j = i;
+                        }
+
+                        if (j < 0) {
+                                if (localStorage["filter"] != null && localStorage["filter"] != "") {
+                                          buf += '<option value="' + escape(localStorage["filter"]) + '">' + escapeHTML(localStorage["filter"]) + '</option>';
+                                          j = i + 1;
+                                } else
+                                          j = 0;
+                        }
+
+                        f.innerHTML = buf;
+                        f.selectedIndex = j;
+                }
+
+                function onFilterFocus(w) {
+                        var request = new XMLHttpRequest();
+                        request.open("GET", "/fields/_SYSTEMD_UNIT");
+                        request.onreadystatechange = onResultFilterFocus;
+                        request.setRequestHeader("Accept", "application/json");
+                        request.send(null);
+                }
+
+                function onFilterChange(w) {
+                        if (w.selectedIndex <= 0)
+                                localStorage["filter"] = "";
+                        else
+                                localStorage["filter"] = unescape(w.options[w.selectedIndex].value);
+
+                        entriesLoadHead();
+                }
+
+                function onBootChange(w) {
+                        localStorage["boot"] = w.checked ? "1" : "0";
+                        entriesLoadHead();
+                }
+
+                function initFilter() {
+                        f = document.getElementById("filter");
+
+                        var buf = '<option>No filter</option>';
+
+                        var filter = localStorage["filter"];
+                        if (filter != null && filter != "") {
+                                buf += '<option value="' + escape(filter) + '">' + escapeHTML(filter) + '</option>';
+                                j = 1;
+                        } else
+                                j = 0;
+
+                        f.innerHTML = buf;
+                        f.selectedIndex = j;
+                }
+
+                function installHandlers() {
+                        document.onkeyup = onKeyUp;
+
+                        logs = document.getElementById("divlogs");
+                        logs.addEventListener("mousewheel", onMouseWheel, false);
+                        logs.addEventListener("DOMMouseScroll", onMouseWheel, false);
+                }
+
                 machineLoad();
                 entriesLoad(null);
                 showNEntries(getNEntries());
-                document.onkeyup = onKeyUp;
-
-                logs = document.getElementById("divlogs");
-                logs.addEventListener("mousewheel", onMouseWheel, false);
-                logs.addEventListener("DOMMouseScroll", onMouseWheel, false);
+                initFilter();
+                installHandlers();
         </script>
 </body>
 </html>
