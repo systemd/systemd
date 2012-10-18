@@ -384,11 +384,11 @@ int status_welcome(void);
 
 int fd_columns(int fd);
 unsigned columns(void);
-void columns_cache_reset(int _unused_ signum);
-bool on_tty(void);
-
 int fd_lines(int fd);
 unsigned lines(void);
+void columns_lines_cache_reset(int _unused_ signum);
+
+bool on_tty(void);
 
 int running_in_chroot(void);
 

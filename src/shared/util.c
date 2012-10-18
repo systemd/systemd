@@ -73,6 +73,7 @@ int saved_argc = 0;
 char **saved_argv = NULL;
 
 static volatile unsigned cached_columns = 0;
+static volatile unsigned cached_lines = 0;
 
 size_t page_size(void) {
         static __thread size_t pgsz = 0;
@@ -3812,20 +3813,6 @@ unsigned columns(void) {
         return c;
 }
 
-/* intended to be used as a SIGWINCH sighandler */
-void columns_cache_reset(int signum) {
-        cached_columns = 0;
-}
-
-bool on_tty(void) {
-        static int cached_on_tty = -1;
-
-        if (_unlikely_(cached_on_tty < 0))
-                cached_on_tty = isatty(STDOUT_FILENO) > 0;
-
-        return cached_on_tty;
-}
-
 int fd_lines(int fd) {
         struct winsize ws;
         zero(ws);
@@ -3840,23 +3827,40 @@ int fd_lines(int fd) {
 }
 
 unsigned lines(void) {
-        static __thread int parsed_lines = 0;
         const char *e;
+        unsigned l;
 
-        if (_likely_(parsed_lines > 0))
-                return parsed_lines;
+        if (_likely_(cached_lines > 0))
+                return cached_lines;
 
+        l = 0;
         e = getenv("LINES");
         if (e)
-                parsed_lines = atoi(e);
+                safe_atou(e, &l);
 
-        if (parsed_lines <= 0)
-                parsed_lines = fd_lines(STDOUT_FILENO);
+        if (l <= 0)
+                l = fd_lines(STDOUT_FILENO);
 
-        if (parsed_lines <= 0)
-                parsed_lines = 25;
+        if (l <= 0)
+                l = 24;
 
-        return parsed_lines;
+        cached_lines = l;
+        return cached_lines;
+}
+
+/* intended to be used as a SIGWINCH sighandler */
+void columns_lines_cache_reset(int signum) {
+        cached_columns = 0;
+        cached_lines = 0;
+}
+
+bool on_tty(void) {
+        static int cached_on_tty = -1;
+
+        if (_unlikely_(cached_on_tty < 0))
+                cached_on_tty = isatty(STDOUT_FILENO) > 0;
+
+        return cached_on_tty;
 }
 
 int running_in_chroot(void) {

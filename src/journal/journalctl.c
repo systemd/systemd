@@ -197,7 +197,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'f':
                         arg_follow = true;
-                        signal(SIGWINCH, columns_cache_reset);
                         break;
 
                 case 'o':
@@ -833,6 +832,8 @@ int main(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        signal(SIGWINCH, columns_lines_cache_reset);
 
         if (arg_action == ACTION_NEW_ID128) {
                 r = generate_new_id128();

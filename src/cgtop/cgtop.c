@@ -443,9 +443,9 @@ static int display(Hashmap *a) {
 
         qsort(array, n, sizeof(Group*), group_compare);
 
-        rows = fd_lines(STDOUT_FILENO);
-        if (rows <= 0)
-                rows = 25;
+        rows = lines();
+        if (rows <= 10)
+                rows = 10;
 
         path_columns = columns() - 42;
         if (path_columns < 10)
@@ -653,7 +653,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        signal(SIGWINCH, columns_cache_reset);
+        signal(SIGWINCH, columns_lines_cache_reset);
 
         while (!quit) {
                 Hashmap *c;
