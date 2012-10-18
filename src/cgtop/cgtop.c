@@ -447,7 +447,7 @@ static int display(Hashmap *a) {
         if (rows <= 0)
                 rows = 25;
 
-        path_columns = columns_uncached() - 42;
+        path_columns = columns() - 42;
         if (path_columns < 10)
                 path_columns = 10;
 
@@ -652,6 +652,8 @@ int main(int argc, char *argv[]) {
                 r = log_oom();
                 goto finish;
         }
+
+        signal(SIGWINCH, columns_cache_reset);
 
         while (!quit) {
                 Hashmap *c;
