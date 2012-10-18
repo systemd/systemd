@@ -260,6 +260,12 @@ int journal_file_hmac_put_object(JournalFile *f, int type, Object *o, uint64_t p
                 gcry_md_write(f->hmac, o->data.payload, le64toh(o->object.size) - offsetof(DataObject, payload));
                 break;
 
+        case OBJECT_FIELD:
+                /* Same here */
+                gcry_md_write(f->hmac, &o->field.hash, sizeof(o->field.hash));
+                gcry_md_write(f->hmac, o->field.payload, le64toh(o->object.size) - offsetof(FieldObject, payload));
+                break;
+
         case OBJECT_ENTRY:
                 /* All */
                 gcry_md_write(f->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(EntryObject, seqnum));
@@ -483,7 +489,6 @@ int journal_file_append_first_tag(JournalFile *f) {
 
         return 0;
 }
-
 
 int journal_file_parse_verification_key(JournalFile *f, const char *key) {
         uint8_t *seed;

@@ -1261,6 +1261,16 @@ static int remove_file(sd_journal *j, const char *prefix, const char *filename) 
 
         log_debug("File %s got removed.", f->path);
 
+        if (j->current_file == f) {
+                j->current_file = NULL;
+                j->current_field = 0;
+        }
+
+        if (j->unique_file == f) {
+                j->unique_file = NULL;
+                j->unique_offset = 0;
+        }
+
         journal_file_close(f);
 
         j->current_invalidate_counter ++;
@@ -1641,6 +1651,7 @@ _public_ void sd_journal_close(sd_journal *j) {
                 mmap_cache_unref(j->mmap);
 
         free(j->path);
+        free(j->unique_field);
         free(j);
 }
 
@@ -1828,13 +1839,43 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         return -ENOENT;
 }
 
+static int return_data(JournalFile *f, Object *o, const void **data, size_t *size) {
+        size_t t;
+        uint64_t l;
+
+        l = le64toh(o->object.size) - offsetof(Object, data.payload);
+        t = (size_t) l;
+
+        /* We can't read objects larger than 4G on a 32bit machine */
+        if ((uint64_t) t != l)
+                return -E2BIG;
+
+        if (o->object.flags & OBJECT_COMPRESSED) {
+#ifdef HAVE_XZ
+                uint64_t rsize;
+
+                if (!uncompress_blob(o->data.payload, l, &f->compress_buffer, &f->compress_buffer_size, &rsize))
+                        return -EBADMSG;
+
+                *data = f->compress_buffer;
+                *size = (size_t) rsize;
+#else
+                return -EPROTONOSUPPORT;
+#endif
+        } else {
+                *data = o->data.payload;
+                *size = t;
+        }
+
+        return 0;
+}
+
 _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *size) {
         JournalFile *f;
-        uint64_t p, l, n;
+        uint64_t p, n;
         le64_t le_hash;
         int r;
         Object *o;
-        size_t t;
 
         if (!j)
                 return -EINVAL;
@@ -1867,29 +1908,9 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
         if (le_hash != o->data.hash)
                 return -EBADMSG;
 
-        l = le64toh(o->object.size) - offsetof(Object, data.payload);
-        t = (size_t) l;
-
-        /* We can't read objects larger than 4G on a 32bit machine */
-        if ((uint64_t) t != l)
-                return -E2BIG;
-
-        if (o->object.flags & OBJECT_COMPRESSED) {
-#ifdef HAVE_XZ
-                uint64_t rsize;
-
-                if (!uncompress_blob(o->data.payload, l, &f->compress_buffer, &f->compress_buffer_size, &rsize))
-                        return -EBADMSG;
-
-                *data = f->compress_buffer;
-                *size = (size_t) rsize;
-#else
-                return -EPROTONOSUPPORT;
-#endif
-        } else {
-                *data = o->data.payload;
-                *size = t;
-        }
+        r = return_data(f, o, data, size);
+        if (r < 0)
+                return r;
 
         j->current_field ++;
 
@@ -2186,27 +2207,138 @@ _public_ int sd_journal_get_usage(sd_journal *j, uint64_t *bytes) {
         return 0;
 }
 
-/* _public_ int sd_journal_query_unique(sd_journal *j, const char *field) { */
-/*         if (!j) */
-/*                 return -EINVAL; */
-/*         if (!field) */
-/*                 return -EINVAL; */
+_public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
+        char *f;
 
-/*         return -ENOTSUP; */
-/* } */
+        if (!j)
+                return -EINVAL;
+        if (isempty(field))
+                return -EINVAL;
 
-/* _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_t *l) { */
-/*         if (!j) */
-/*                 return -EINVAL; */
-/*         if (!data) */
-/*                 return -EINVAL; */
-/*         if (!l) */
-/*                 return -EINVAL; */
+        f = strdup(field);
+        if (!f)
+                return -ENOMEM;
 
-/*         return -ENOTSUP; */
-/* } */
+        free(j->unique_field);
+        j->unique_field = f;
+        j->unique_file = NULL;
+        j->unique_offset = 0;
 
-/* _public_ void sd_journal_restart_unique(sd_journal *j) { */
-/*         if (!j) */
-/*                 return; */
-/* } */
+        return 0;
+}
+
+_public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_t *l) {
+        Object *o;
+        size_t k;
+        int r;
+
+        if (!j)
+                return -EINVAL;
+        if (!data)
+                return -EINVAL;
+        if (!l)
+                return -EINVAL;
+        if (!j->unique_field)
+                return -EINVAL;
+
+        k = strlen(j->unique_field);
+
+        if (!j->unique_file) {
+                j->unique_file = hashmap_first(j->files);
+                if (!j->unique_file)
+                        return 0;
+                j->unique_offset = 0;
+        }
+
+        for (;;) {
+                JournalFile *of;
+                Iterator i;
+                const void *odata;
+                size_t ol;
+                bool found;
+
+                /* Proceed to next data object in list the field's linked list */
+                if (j->unique_offset == 0) {
+                        r = journal_file_find_field_object(j->unique_file, j->unique_field, k, &o, NULL);
+                        if (r < 0)
+                                return r;
+
+                        j->unique_offset = r > 0 ? le64toh(o->field.head_data_offset) : 0;
+                } else {
+                        r = journal_file_move_to_object(j->unique_file, OBJECT_DATA, j->unique_offset, &o);
+                        if (r < 0)
+                                return r;
+
+                        j->unique_offset = le64toh(o->data.next_field_offset);
+                }
+
+                /* We reached the end of the list? Then start again, with the next file */
+                if (j->unique_offset == 0) {
+                        JournalFile *n;
+
+                        n = hashmap_next(j->files, j->unique_file->path);
+                        if (!n)
+                                return 0;
+
+                        j->unique_file = n;
+                        continue;
+                }
+
+                /* We do not use the type context here, but 0 instead,
+                 * so that we can look at this data object at the same
+                 * time as one on another file */
+                r = journal_file_move_to_object(j->unique_file, 0, j->unique_offset, &o);
+                if (r < 0)
+                        return r;
+
+                /* Let's do the type check by hand, since we used 0 context above. */
+                if (o->object.type != OBJECT_DATA)
+                        return -EBADMSG;
+
+                r = return_data(j->unique_file, o, &odata, &ol);
+                if (r < 0)
+                        return r;
+
+                /* OK, now let's see if we already returned this data
+                 * object by checking if it exists in the earlier
+                 * traversed files. */
+                found = false;
+                HASHMAP_FOREACH(of, j->files, i) {
+                        Object *oo;
+                        uint64_t op;
+
+                        if (of == j->unique_file)
+                                break;
+
+                        /* Skip this file it didn't have any fields
+                         * indexed */
+                        if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) &&
+                            le64toh(of->header->n_fields) <= 0)
+                                continue;
+
+                        r = journal_file_find_data_object_with_hash(of, odata, ol, le64toh(o->data.hash), &oo, &op);
+                        if (r < 0)
+                                return r;
+
+                        if (r > 0)
+                                found = true;
+                }
+
+                if (found)
+                        continue;
+
+                r = return_data(j->unique_file, o, data, l);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+}
+
+void sd_journal_restart_unique(sd_journal *j) {
+        if (!j)
+                return;
+
+        j->unique_file = NULL;
+        j->unique_offset = 0;
+}

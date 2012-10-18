@@ -77,6 +77,8 @@ int main(int argc, char *argv[]) {
         unsigned i;
         sd_journal *j;
         char *z;
+        const void *data;
+        size_t l;
 
         log_set_max_level(LOG_DEBUG);
 
@@ -124,12 +126,10 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_journal_add_match(j, "MAGIC=quux", 0) >= 0);
         SD_JOURNAL_FOREACH_BACKWARDS(j) {
-                const void *d;
-                size_t l;
                 char *c;
 
-                assert_se(sd_journal_get_data(j, "NUMBER", &d, &l) >= 0);
-                printf("\t%.*s\n", (int) l, (const char*) d);
+                assert_se(sd_journal_get_data(j, "NUMBER", &data, &l) >= 0);
+                printf("\t%.*s\n", (int) l, (const char*) data);
 
                 assert_se(sd_journal_get_cursor(j, &c) >= 0);
                 assert_se(sd_journal_test_cursor(j, c) > 0);
@@ -137,12 +137,10 @@ int main(int argc, char *argv[]) {
         }
 
         SD_JOURNAL_FOREACH(j) {
-                const void *d;
-                size_t l;
                 char *c;
 
-                assert_se(sd_journal_get_data(j, "NUMBER", &d, &l) >= 0);
-                printf("\t%.*s\n", (int) l, (const char*) d);
+                assert_se(sd_journal_get_data(j, "NUMBER", &data, &l) >= 0);
+                printf("\t%.*s\n", (int) l, (const char*) data);
 
                 assert_se(sd_journal_get_cursor(j, &c) >= 0);
                 assert_se(sd_journal_test_cursor(j, c) > 0);
@@ -174,6 +172,10 @@ int main(int argc, char *argv[]) {
         free(z);
 
         verify_contents(j, 0);
+
+        assert_se(sd_journal_query_unique(j, "NUMBER") >= 0);
+        SD_JOURNAL_FOREACH_UNIQUE(j, data, l)
+                printf("%.*s\n", (int) l, (const char*) data);
 
         sd_journal_close(j);
 

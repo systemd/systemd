@@ -399,7 +399,7 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
         if (s < minimum_header_size(o))
                 return -EBADMSG;
 
-        if (type >= 0 && o->object.type != type)
+        if (type > 0 && o->object.type != type)
                 return -EBADMSG;
 
         if (s > sizeof(ObjectHeader)) {
@@ -526,6 +526,9 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
 
         assert(f);
 
+        /* We use a fixed size hash table for the fields as this
+         * number should grow very slowly only */
+
         s = DEFAULT_FIELD_HASH_TABLE_SIZE;
         r = journal_file_append_object(f,
                                        OBJECT_FIELD_HASH_TABLE,
@@ -586,7 +589,52 @@ static int journal_file_map_field_hash_table(JournalFile *f) {
         return 0;
 }
 
-static int journal_file_link_data(JournalFile *f, Object *o, uint64_t offset, uint64_t hash) {
+static int journal_file_link_field(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t hash) {
+
+        uint64_t p, h;
+        int r;
+
+        assert(f);
+        assert(o);
+        assert(offset > 0);
+
+        if (o->object.type != OBJECT_FIELD)
+                return -EINVAL;
+
+        /* This might alter the window we are looking at */
+
+        o->field.next_hash_offset = o->field.head_data_offset = 0;
+
+        h = hash % (le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
+        p = le64toh(f->field_hash_table[h].tail_hash_offset);
+        if (p == 0)
+                f->field_hash_table[h].head_hash_offset = htole64(offset);
+        else {
+                r = journal_file_move_to_object(f, OBJECT_FIELD, p, &o);
+                if (r < 0)
+                        return r;
+
+                o->field.next_hash_offset = htole64(offset);
+        }
+
+        f->field_hash_table[h].tail_hash_offset = htole64(offset);
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
+                f->header->n_fields = htole64(le64toh(f->header->n_fields) + 1);
+
+        return 0;
+}
+
+static int journal_file_link_data(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t hash) {
+
         uint64_t p, h;
         int r;
 
@@ -605,10 +653,10 @@ static int journal_file_link_data(JournalFile *f, Object *o, uint64_t offset, ui
 
         h = hash % (le64toh(f->header->data_hash_table_size) / sizeof(HashItem));
         p = le64toh(f->data_hash_table[h].tail_hash_offset);
-        if (p == 0) {
+        if (p == 0)
                 /* Only entry in the hash table is easy */
                 f->data_hash_table[h].head_hash_offset = htole64(offset);
-        } else {
+        else {
                 /* Move back to the previous data object, to patch in
                  * pointer */
 
@@ -625,6 +673,67 @@ static int journal_file_link_data(JournalFile *f, Object *o, uint64_t offset, ui
                 f->header->n_data = htole64(le64toh(f->header->n_data) + 1);
 
         return 0;
+}
+
+int journal_file_find_field_object_with_hash(
+                JournalFile *f,
+                const void *field, uint64_t size, uint64_t hash,
+                Object **ret, uint64_t *offset) {
+
+        uint64_t p, osize, h;
+        int r;
+
+        assert(f);
+        assert(field && size > 0);
+
+        osize = offsetof(Object, field.payload) + size;
+
+        if (f->header->field_hash_table_size == 0)
+                return -EBADMSG;
+
+        h = hash % (le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
+        p = le64toh(f->field_hash_table[h].head_hash_offset);
+
+        while (p > 0) {
+                Object *o;
+
+                r = journal_file_move_to_object(f, OBJECT_FIELD, p, &o);
+                if (r < 0)
+                        return r;
+
+                if (le64toh(o->field.hash) == hash &&
+                    le64toh(o->object.size) == osize &&
+                    memcmp(o->field.payload, field, size) == 0) {
+
+                        if (ret)
+                                *ret = o;
+                        if (offset)
+                                *offset = p;
+
+                        return 1;
+                }
+
+                p = le64toh(o->field.next_hash_offset);
+        }
+
+        return 0;
+}
+
+int journal_file_find_field_object(
+                JournalFile *f,
+                const void *field, uint64_t size,
+                Object **ret, uint64_t *offset) {
+
+        uint64_t hash;
+
+        assert(f);
+        assert(field && size > 0);
+
+        hash = hash64(field, size);
+
+        return journal_file_find_field_object_with_hash(f,
+                                                        field, size, hash,
+                                                        ret, offset);
 }
 
 int journal_file_find_data_object_with_hash(
@@ -720,6 +829,66 @@ int journal_file_find_data_object(
                                                        ret, offset);
 }
 
+static int journal_file_append_field(
+                JournalFile *f,
+                const void *field, uint64_t size,
+                Object **ret, uint64_t *offset) {
+
+        uint64_t hash, p;
+        uint64_t osize;
+        Object *o;
+        int r;
+
+        assert(f);
+        assert(field && size > 0);
+
+        hash = hash64(field, size);
+
+        r = journal_file_find_field_object_with_hash(f, field, size, hash, &o, &p);
+        if (r < 0)
+                return r;
+        else if (r > 0) {
+
+                if (ret)
+                        *ret = o;
+
+                if (offset)
+                        *offset = p;
+
+                return 0;
+        }
+
+        osize = offsetof(Object, field.payload) + size;
+        r = journal_file_append_object(f, OBJECT_FIELD, osize, &o, &p);
+
+        o->field.hash = htole64(hash);
+        memcpy(o->field.payload, field, size);
+
+        r = journal_file_link_field(f, o, p, hash);
+        if (r < 0)
+                return r;
+
+        /* The linking might have altered the window, so let's
+         * refresh our pointer */
+        r = journal_file_move_to_object(f, OBJECT_FIELD, p, &o);
+        if (r < 0)
+                return r;
+
+#ifdef HAVE_GCRYPT
+        r = journal_file_hmac_put_object(f, OBJECT_FIELD, o, p);
+        if (r < 0)
+                return r;
+#endif
+
+        if (ret)
+                *ret = o;
+
+        if (offset)
+                *offset = p;
+
+        return 0;
+}
+
 static int journal_file_append_data(
                 JournalFile *f,
                 const void *data, uint64_t size,
@@ -730,6 +899,7 @@ static int journal_file_append_data(
         Object *o;
         int r;
         bool compressed = false;
+        const void *eq;
 
         assert(f);
         assert(data || size == 0);
@@ -785,6 +955,21 @@ static int journal_file_append_data(
         r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
         if (r < 0)
                 return r;
+
+        eq = memchr(data, '=', size);
+        if (eq && eq > data) {
+                uint64_t fp;
+                Object *fo;
+
+                /* Create field object ... */
+                r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, &fp);
+                if (r < 0)
+                        return r;
+
+                /* ... and link it in. */
+                o->data.next_field_offset = fo->field.head_data_offset;
+                fo->field.head_data_offset = le64toh(p);
+        }
 
 #ifdef HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_DATA, o, p);
@@ -1899,6 +2084,10 @@ void journal_file_dump(JournalFile *f) {
                         printf("Type: OBJECT_DATA\n");
                         break;
 
+                case OBJECT_FIELD:
+                        printf("Type: OBJECT_FIELD\n");
+                        break;
+
                 case OBJECT_ENTRY:
                         printf("Type: OBJECT_ENTRY seqnum=%llu monotonic=%llu realtime=%llu\n",
                                (unsigned long long) le64toh(o->entry.seqnum),
@@ -1922,6 +2111,10 @@ void journal_file_dump(JournalFile *f) {
                         printf("Type: OBJECT_TAG seqnum=%llu epoch=%llu\n",
                                (unsigned long long) le64toh(o->tag.seqnum),
                                (unsigned long long) le64toh(o->tag.epoch));
+                        break;
+
+                default:
+                        printf("Type: unknown (%u)\n", o->object.type);
                         break;
                 }
 

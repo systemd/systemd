@@ -70,7 +70,7 @@
                         </funcprototype>
 
                         <funcprototype>
-                                <funcdef>int <function>sd_journal_restart_data</function></funcdef>
+                                <funcdef>void <function>sd_journal_restart_data</function></funcdef>
                                 <paramdef>sd_journal* <parameter>j</parameter></paramdef>
                         </funcprototype>
 
@@ -120,7 +120,7 @@
 
                 <para>Note that the
                 <function>SD_JOURNAL_FOREACH_DATA()</function> macro
-                may be used as a wrapper around
+                may be used as a handy wrapper around
                 <function>sd_journal_restart_data()</function> and
                 <function>sd_journal_enumerate_data()</function>.</para>
 
@@ -193,7 +193,8 @@ int print_fields(sd_journal *j) {
                         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_journal_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>sd_journal_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_journal_query_unique</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

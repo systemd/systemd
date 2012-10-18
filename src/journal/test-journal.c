@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
         dual_timestamp ts;
         JournalFile *f;
         struct iovec iovec;
-        static const char test[] = "test", test2[] = "test2";
+        static const char test[] = "TEST1=1", test2[] = "TEST2=2";
         Object *o;
         uint64_t p;
         char t[] = "/tmp/journal-XXXXXX";

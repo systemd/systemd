@@ -758,3 +758,25 @@ char **hashmap_get_strv(Hashmap *h) {
 
         return sv;
 }
+
+void *hashmap_next(Hashmap *h, const void *key) {
+        unsigned hash;
+        struct hashmap_entry *e;
+
+        assert(h);
+        assert(key);
+
+        if (!h)
+                return NULL;
+
+        hash = h->hash_func(key) % NBUCKETS;
+        e = hash_scan(h, hash, key);
+        if (!e)
+                return NULL;
+
+        e = e->iterate_next;
+        if (!e)
+                return NULL;
+
+        return e->value;
+}

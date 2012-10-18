@@ -74,6 +74,7 @@ static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
 static usec_t arg_since, arg_until;
 static bool arg_since_set = false, arg_until_set = false;
 static const char *arg_unit = NULL;
+static const char *arg_field = NULL;
 
 static enum {
         ACTION_SHOW,

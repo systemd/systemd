@@ -70,10 +70,18 @@ int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix)
 
 typedef struct sd_journal sd_journal;
 
+/* Open flags */
 enum {
         SD_JOURNAL_LOCAL_ONLY = 1,
         SD_JOURNAL_RUNTIME_ONLY = 2,
         SD_JOURNAL_SYSTEM_ONLY = 4
+};
+
+/* Wakeup event types */
+enum {
+        SD_JOURNAL_NOP,
+        SD_JOURNAL_APPEND,
+        SD_JOURNAL_INVALIDATE
 };
 
 int sd_journal_open(sd_journal **ret, int flags);
@@ -111,15 +119,9 @@ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, const sd_id128_t boot_id
 
 int sd_journal_get_usage(sd_journal *j, uint64_t *bytes);
 
-/* int sd_journal_query_unique(sd_journal *j, const char *field);      /\* missing *\/ */
-/* int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_t *l); /\* missing *\/ */
-/* void sd_journal_restart_unique(sd_journal *j);                      /\* missing *\/ */
-
-enum {
-        SD_JOURNAL_NOP,
-        SD_JOURNAL_APPEND,
-        SD_JOURNAL_INVALIDATE
-};
+int sd_journal_query_unique(sd_journal *j, const char *field);
+int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_t *l);
+void sd_journal_restart_unique(sd_journal *j);
 
 int sd_journal_get_fd(sd_journal *j);
 int sd_journal_process(sd_journal *j);
@@ -136,8 +138,8 @@ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec);
 #define SD_JOURNAL_FOREACH_DATA(j, data, l)                             \
         for (sd_journal_restart_data(j); sd_journal_enumerate_data((j), &(data), &(l)) > 0; )
 
-/* #define SD_JOURNAL_FOREACH_UNIQUE(j, data, l)                           \ */
-/*         for (sd_journal_restart_unique(j); sd_journal_enumerate_data((j), &(data), &(l)) > 0; ) */
+#define SD_JOURNAL_FOREACH_UNIQUE(j, data, l)                           \
+        for (sd_journal_restart_unique(j); sd_journal_enumerate_unique((j), &(data), &(l)) > 0; )
 
 #ifdef __cplusplus
 }

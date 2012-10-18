@@ -79,6 +79,8 @@ void* hashmap_first(Hashmap *h);
 void* hashmap_first_key(Hashmap *h);
 void* hashmap_last(Hashmap *h);
 
+void *hashmap_next(Hashmap *h, const void *key);
+
 char **hashmap_get_strv(Hashmap *h);
 
 #define HASHMAP_FOREACH(e, h, i) \

@@ -115,6 +115,10 @@ struct sd_journal {
         Match *level0, *level1;
 
         unsigned current_invalidate_counter, last_invalidate_counter;
+
+        char *unique_field;
+        JournalFile *unique_file;
+        uint64_t unique_offset;
 };
 
 char *journal_make_match_string(sd_journal *j);
