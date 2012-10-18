@@ -350,6 +350,16 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--field=</option></term>
+                                <term><option>-f</option></term>
+
+                                <listitem><para>Print all possible
+                                data values the specified field can
+                                take in all entries of the
+                                journal.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--directory=</option></term>
                                 <term><option>-D</option></term>
 

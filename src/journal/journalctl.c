@@ -88,9 +88,8 @@ static enum {
 static int help(void) {
 
         printf("%s [OPTIONS...] [MATCH]\n\n"
-               "Send control commands to or query the journal.\n\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
+               "Query the journal.\n\n"
+               "Flags:\n"
                "  -c --cursor=CURSOR     Start showing entries from specified cursor\n"
                "     --since=DATE        Start showing entries newer or of the specified date\n"
                "     --until=DATE        Stop showing entries older or of the specified date\n"
@@ -107,15 +106,20 @@ static int help(void) {
                "     --no-pager          Do not pipe output into a pager\n"
                "  -m --merge             Show entries from all available journals\n"
                "  -D --directory=PATH    Show journal files from directory\n"
-               "Commands:\n"
+#ifdef HAVE_GCRYPT
+               "     --interval=TIME     Time interval for changing the FSS sealing key\n"
+               "     --verify-key=KEY    Specify FSS verification key\n"
+#endif
+               "\nCommands:\n"
+               "  -h --help              Show this help\n"
+               "     --version           Show package version\n"
                "     --new-id128         Generate a new 128 Bit ID\n"
                "     --header            Show journal header information\n"
                "     --disk-usage        Show total disk usage\n"
+               "  -F --field=FIELD       List all values a certain field takes\n"
 #ifdef HAVE_GCRYPT
                "     --setup-keys        Generate new FSS key pair\n"
-               "       --interval=TIME   Time interval for changing the FSS sealing key\n"
                "     --verify            Verify journal file consistency\n"
-               "       --verify-key=KEY  Specify FSS verification key\n"
 #endif
                , program_invocation_short_name);
 
@@ -164,6 +168,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "since",        required_argument, NULL, ARG_SINCE        },
                 { "until",        required_argument, NULL, ARG_UNTIL        },
                 { "unit",         required_argument, NULL, 'u'              },
+                { "field",        required_argument, NULL, 'F'              },
                 { NULL,           0,                 NULL, 0                }
         };
 
@@ -172,7 +177,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hfo:an::qmbD:p:c:u:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hfo:an::qmbD:p:c:u:F:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -368,6 +373,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case '?':
                         return -EINVAL;
+
+                case 'F':
+                        arg_field = optarg;
+                        break;
 
                 default:
                         log_error("Unknown option code %c", c);
@@ -897,6 +906,30 @@ int main(int argc, char *argv[]) {
         r = add_priorities(j);
         if (r < 0)
                 goto finish;
+
+        if (arg_field) {
+                const void *data;
+                size_t size;
+
+                r = sd_journal_query_unique(j, arg_field);
+                if (r < 0) {
+                        log_error("Failed to query unique data objects: %s", strerror(-r));
+                        goto finish;
+                }
+
+                SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
+                        const void *eq;
+
+                        eq = memchr(data, '=', size);
+                        if (eq)
+                                printf("%.*s\n", (int) (size - ((const uint8_t*) eq - (const uint8_t*) data + 1)), (const char*) eq + 1);
+                        else
+                                printf("%.*s\n", (int) size, (const char*) data);
+                }
+
+                r = 0;
+                goto finish;
+        }
 
         if (arg_cursor) {
                 r = sd_journal_seek_cursor(j, arg_cursor);
