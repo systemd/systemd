@@ -35,9 +35,6 @@ global:
         sd_journal_seek_realtime_usec;
         sd_journal_seek_cursor;
         sd_journal_get_cursor;
-        sd_journal_query_unique;
-        sd_journal_enumerate_unique;
-        sd_journal_restart_unique;
         sd_journal_get_fd;
         sd_journal_process;
 local:
