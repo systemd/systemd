@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* don't show cgroup in "systemctl status" if empty/non-existant, especially for foreign .mount units
+
 * timedated: export boolean that clarifies whether NTP is even available
 
 * timedated: refuse time changes when NTP is on
