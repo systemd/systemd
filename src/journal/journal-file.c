@@ -2753,6 +2753,13 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
                         return true;
                 }
 
+        /* Are the data objects properly indexed by field objects? */
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_data) &&
+            JOURNAL_HEADER_CONTAINS(f->header, n_fields) &&
+            le64toh(f->header->n_data) > 0 &&
+            le64toh(f->header->n_fields) == 0)
+                return true;
+
         if (max_file_usec > 0) {
                 usec_t t, h;
 
