@@ -926,11 +926,16 @@ int main(int argc, char *argv[]) {
                 SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
                         const void *eq;
 
+                        if (arg_lines > 0 && n_shown >= arg_lines)
+                                break;
+
                         eq = memchr(data, '=', size);
                         if (eq)
                                 printf("%.*s\n", (int) (size - ((const uint8_t*) eq - (const uint8_t*) data + 1)), (const char*) eq + 1);
                         else
                                 printf("%.*s\n", (int) size, (const char*) data);
+
+                        n_shown ++;
                 }
 
                 r = 0;
