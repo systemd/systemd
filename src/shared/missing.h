@@ -208,13 +208,25 @@ static inline pid_t gettid(void) {
 #define MAX_HANDLE_SZ 128
 #endif
 
-#ifdef __x86_64__
+#if defined __x86_64__
 #  ifndef __NR_name_to_handle_at
 #    define __NR_name_to_handle_at 303
 #  endif
-#else
+#elif defined __i386__
 #  ifndef __NR_name_to_handle_at
 #    define __NR_name_to_handle_at 341
+#  endif
+#elif defined __arm__
+#  ifndef __NR_name_to_handle_at
+#    define __NR_name_to_handle_at 370
+#  endif
+#elif defined __powerpc__
+#  ifndef __NR_name_to_handle_at
+#    define __NR_name_to_handle_at 345
+#  endif
+#else
+#  ifndef __NR_name_to_handle_at
+#    error __NR_name_to_handle_at is not defined
 #  endif
 #endif
 
