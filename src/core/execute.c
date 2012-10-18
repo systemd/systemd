@@ -999,7 +999,7 @@ int exec_spawn(ExecCommand *command,
         int r;
         char *line;
         int socket_fd;
-        char **files_env = NULL;
+        char _cleanup_strv_free_ **files_env = NULL;
 
         assert(command);
         assert(context);
@@ -1020,7 +1020,8 @@ int exec_spawn(ExecCommand *command,
         } else
                 socket_fd = -1;
 
-        if ((r = exec_context_load_environment(context, &files_env)) < 0) {
+        r = exec_context_load_environment(context, &files_env);
+        if (r < 0) {
                 log_error("Failed to load environment files: %s", strerror(-r));
                 return r;
         }
@@ -1029,24 +1030,21 @@ int exec_spawn(ExecCommand *command,
                 argv = command->argv;
 
         line = exec_command_line(argv);
-        if (!line) {
-                r = -ENOMEM;
-                goto fail_parent;
-        }
+        if (!line)
+                return log_oom();
 
         log_debug("About to execute: %s", line);
         free(line);
 
         r = cgroup_bonding_realize_list(cgroup_bondings);
         if (r < 0)
-                goto fail_parent;
+                return r;
 
         cgroup_attribute_apply_list(cgroup_attributes, cgroup_bondings);
 
-        if ((pid = fork()) < 0) {
-                r = -errno;
-                goto fail_parent;
-        }
+        pid = fork();
+        if (pid < 0)
+                return -errno;
 
         if (pid == 0) {
                 int i, err;
@@ -1054,7 +1052,8 @@ int exec_spawn(ExecCommand *command,
                 const char *username = NULL, *home = NULL;
                 uid_t uid = (uid_t) -1;
                 gid_t gid = (gid_t) -1;
-                char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
+                char _cleanup_strv_free_ **our_env = NULL, **pam_env = NULL,
+                        **final_env = NULL, **final_argv = NULL;
                 unsigned n_env = 0;
                 bool set_access = false;
 
@@ -1331,8 +1330,7 @@ int exec_spawn(ExecCommand *command,
                                 goto fail_child;
                         }
                 } else {
-
-                        char *d;
+                        char _cleanup_free_ *d = NULL;
 
                         if (asprintf(&d, "%s/%s",
                                      context->root_directory ? context->root_directory : "",
@@ -1344,12 +1342,9 @@ int exec_spawn(ExecCommand *command,
 
                         if (chdir(d) < 0) {
                                 err = -errno;
-                                free(d);
                                 r = EXIT_CHDIR;
                                 goto fail_child;
                         }
-
-                        free(d);
                 }
 
                 /* We repeat the fd closing here, to make sure that
@@ -1500,16 +1495,8 @@ int exec_spawn(ExecCommand *command,
                                     command->path, strerror(-err));
                 }
 
-                strv_free(our_env);
-                strv_free(final_env);
-                strv_free(pam_env);
-                strv_free(files_env);
-                strv_free(final_argv);
-
                 _exit(r);
         }
-
-        strv_free(files_env);
 
         /* We add the new process to the cgroup both in the child (so
          * that we can be sure that no user code is ever executed
@@ -1525,11 +1512,6 @@ int exec_spawn(ExecCommand *command,
 
         *ret = pid;
         return 0;
-
-fail_parent:
-        strv_free(files_env);
-
-        return r;
 }
 
 void exec_context_init(ExecContext *c) {
