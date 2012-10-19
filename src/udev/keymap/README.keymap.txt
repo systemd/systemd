@@ -33,10 +33,6 @@ udev-keymap consists of the following parts:
  findkeyboards:: display evdev input devices which belong to actual keyboards,
  i. e. those suitable for the keymap program
 
- fdi2rules.py:: convert hal keymap FDIs into udev rules and key map files
- (Please note that this is far from perfect, since the mapping between fdi and
-  udev rules is not straightforward, and impossible in some cases.)
-
 == Fixing broken keys ==
 
 In order to make a broken key work on your system and send it back to upstream
