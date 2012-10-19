@@ -3159,6 +3159,24 @@ dist_noinst_SCRIPT = \
 update-kbd-model-map:
 	src/locale/generate-kbd-model-map > src/locale/kbd-model-map
 
+localectl_SOURCES = \
+	src/locale/localectl.c
+
+localectl_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+localectl_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-dbus.la \
+	libsystemd-id128-internal.la
+
+bin_PROGRAMS += \
+	localectl
+
+#MANPAGES += \
+#	man/localectl.1
+
 endif
 
 polkitpolicy_in_files += \

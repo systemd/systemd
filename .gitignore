@@ -1,3 +1,4 @@
+/localectl
 /hostnamectl
 /timedatectl
 /test-date
