@@ -101,7 +101,8 @@ int main(int argc, char *argv[]) {
                         lseek(seed_fd, 0, SEEK_SET);
 
                         if ((r = loop_write(random_fd, buf, (size_t) r, false)) <= 0)
-                                log_error("Failed to write seed to /dev/random: %s", r < 0 ? strerror(errno) : "short write");
+                                log_error("Failed to write seed to /dev/urandom: %s",
+                                          r < 0 ? strerror(errno) : "short write");
                 }
 
         } else if (streq(argv[1], "save")) {
