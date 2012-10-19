@@ -124,3 +124,7 @@ void set_clear(Set *s) {
 void set_clear_free(Set *s) {
         hashmap_clear_free(MAKE_HASHMAP(s));
 }
+
+char **set_get_strv(Set *s) {
+        return hashmap_get_strv(MAKE_HASHMAP(s));
+}

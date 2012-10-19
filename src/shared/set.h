@@ -62,6 +62,8 @@ void *set_steal_first(Set *s);
 void* set_first(Set *s);
 void* set_last(Set *s);
 
+char **set_get_strv(Set *s);
+
 #define SET_FOREACH(e, s, i) \
         for ((i) = ITERATOR_FIRST, (e) = set_iterate((s), &(i)); (e); (e) = set_iterate((s), &(i)))
 
