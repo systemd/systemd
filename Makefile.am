@@ -482,6 +482,7 @@ MANPAGES = \
 	man/journald.conf.5 \
 	man/systemd-journald.service.8 \
 	man/journalctl.1 \
+	man/systemd-coredumpctl.1 \
 	man/systemd-inhibit.1 \
 	man/systemd-remount-fs.service.8 \
 	man/systemd-update-utmp-runlevel.service.8 \
@@ -2457,6 +2458,13 @@ journalctl_LDADD += \
 	$(QRENCODE_LIBS)
 endif
 
+systemd_coredumpctl_SOURCES = \
+	src/journal/coredumpctl.c
+
+systemd_coredumpctl_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-journal.la
+
 test_journal_SOURCES = \
 	src/journal/test-journal.c
 
@@ -2647,6 +2655,7 @@ rootbin_PROGRAMS += \
 	journalctl
 
 bin_PROGRAMS += \
+	systemd-coredumpctl \
 	systemd-cat
 
 dist_systemunit_DATA += \
