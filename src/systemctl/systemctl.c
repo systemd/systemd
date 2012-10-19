@@ -3329,12 +3329,13 @@ static int switch_root(DBusConnection *bus, char **args) {
 }
 
 static int set_environment(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
-        int r;
         const char *method;
-        DBusMessageIter iter, sub;
-        char **name;
+        DBusMessageIter iter;
+        int r;
+
+        assert(bus);
 
         dbus_error_init(&error);
 
@@ -3342,38 +3343,22 @@ static int set_environment(DBusConnection *bus, char **args) {
                 ? "SetEnvironment"
                 : "UnsetEnvironment";
 
-        if (!(m = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.systemd1.Manager",
-                              method))) {
-
-                log_error("Could not allocate message.");
-                return -ENOMEM;
-        }
+        m = dbus_message_new_method_call(
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        method);
+        if (!m)
+                return log_oom();
 
         dbus_message_iter_init_append(m, &iter);
 
-        if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "s", &sub)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
+        r = bus_append_strv_iter(&iter, args + 1);
+        if (r < 0)
+                return log_oom();
 
-        STRV_FOREACH(name, args+1)
-                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, name)) {
-                        log_error("Could not append arguments to message.");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-        if (!dbus_message_iter_close_container(&iter, &sub)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+        if (!reply) {
                 log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
@@ -3382,14 +3367,7 @@ static int set_environment(DBusConnection *bus, char **args) {
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
-
         return r;
 }
 
