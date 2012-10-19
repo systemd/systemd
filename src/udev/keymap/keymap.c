@@ -71,7 +71,7 @@ static int evdev_get_keycode(int fd, unsigned scancode, int e)
                 if (e && errno == EINVAL) {
                         return -2;
                 } else {
-                        fprintf(stderr, "EVIOCGKEYCODE: %m\n");
+                        fprintf(stderr, "EVIOCGKEYCODE for scan code 0x%x: %m\n", scancode);
                         return -1;
                 }
         }
@@ -226,19 +226,19 @@ static int merge_table(int fd, FILE *f) {
 
                 if ((old_keycode = evdev_get_keycode(fd, scancode, 0)) < 0) {
                         r = -1;
-                        goto fail;
+                        continue;
                 }
 
                 if (evdev_set_keycode(fd, scancode, new_keycode) < 0) {
                         r = -1;
-                        goto fail;
+                        continue;
                 }
 
                 if (new_keycode != old_keycode)
                         fprintf(stderr, "Remapped scancode 0x%02x to 0x%02x (prior: 0x%02x)\n",
                                 scancode, new_keycode, old_keycode);
         }
-fail:
+
         fclose(f);
         return r;
 }
