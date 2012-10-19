@@ -204,11 +204,11 @@ static int merge_table(int fd, FILE *f) {
                 if (*p == '#' || *p == '\n')
                         continue;
 
-                if (sscanf(p, "%u %i", &scancode, &new_keycode) != 2) {
+                if (sscanf(p, "%i %i", &scancode, &new_keycode) != 2) {
                         char t[105] = "KEY_UNKNOWN";
                         const struct key *k;
 
-                        if (sscanf(p, "%u %100s", &scancode, t+4) != 2) {
+                        if (sscanf(p, "%i %100s", &scancode, t+4) != 2) {
                                 fprintf(stderr, "WARNING: Parse failure at line %i, ignoring.\n", line);
                                 r = -1;
                                 continue;
