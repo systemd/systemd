@@ -430,8 +430,8 @@ static int list_timezones(DBusConnection *bus, char **args, unsigned n) {
 
 static int help(void) {
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Query or control system time and date settings.\n\n"
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "Query or change system time and date settings.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "     --adjust-system-clock\n"
@@ -440,12 +440,12 @@ static int help(void) {
                "     --no-ask-password   Do not prompt for password\n"
                "  -H --host=[USER@]HOST  Operate on remote host\n\n"
                "Commands:\n"
-               "  status                          Show current time settings\n"
-               "  set-time [TIME]                 Set system time\n"
-               "  set-timezone [ZONE]             Set system timezone\n"
-               "  list-timezones                  Show known timezones\n"
-               "  set-local-rtc [BOOL]            Control whether RTC is in local time\n"
-               "  set-ntp [BOOL]                  Control whether NTP is enabled\n",
+               "  status                 Show current time settings\n"
+               "  set-time TIME          Set system time\n"
+               "  set-timezone ZONE      Set system timezone\n"
+               "  list-timezones         Show known timezones\n"
+               "  set-local-rtc BOOL     Control whether RTC is in local time\n"
+               "  set-ntp BOOL           Control whether NTP is enabled\n",
                program_invocation_short_name);
 
         return 0;
@@ -476,7 +476,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hp:as:H:P", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hH:P", options, NULL)) >= 0) {
 
                 switch (c) {
 

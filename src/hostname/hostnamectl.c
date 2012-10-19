@@ -303,19 +303,19 @@ static int set_icon_name(DBusConnection *bus, char **args, unsigned n) {
 
 static int help(void) {
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Query or set system hostname.\n\n"
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "Query or change system hostname.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "     --no-ask-password   Do not prompt for password\n"
                "     --transient         Only set transient hostname\n"
                "     --static            Only set static hostname\n"
                "     --pretty            Only set pretty hostname\n"
+               "     --no-ask-password   Do not prompt for password\n"
                "  -H --host=[USER@]HOST  Operate on remote host\n\n"
                "Commands:\n"
-               "  status                          Show current hostname settings\n"
-               "  set-hostname [NAME]             Set system hostname\n"
-               "  set-icon-name [NAME]            Set icon name for host\n",
+               "  status                 Show current hostname settings\n"
+               "  set-hostname NAME      Set system hostname\n"
+               "  set-icon-name NAME     Set icon name for host\n",
                program_invocation_short_name);
 
         return 0;
@@ -348,7 +348,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:as:H:P", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hH:P", options, NULL)) >= 0) {
 
                 switch (c) {
 
