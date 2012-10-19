@@ -141,7 +141,7 @@ static inline bool isempty(const char *p) {
         return !p || !p[0];
 }
 
-bool endswith(const char *s, const char *postfix);
+char *endswith(const char *s, const char *postfix);
 bool startswith(const char *s, const char *prefix);
 bool startswith_no_case(const char *s, const char *prefix);
 

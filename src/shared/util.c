@@ -195,7 +195,7 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         return tv;
 }
 
-bool endswith(const char *s, const char *postfix) {
+char* endswith(const char *s, const char *postfix) {
         size_t sl, pl;
 
         assert(s);
@@ -205,12 +205,15 @@ bool endswith(const char *s, const char *postfix) {
         pl = strlen(postfix);
 
         if (pl == 0)
-                return true;
+                return (char*) s + sl;
 
         if (sl < pl)
-                return false;
+                return NULL;
 
-        return memcmp(s + sl - pl, postfix, pl) == 0;
+        if (memcmp(s + sl - pl, postfix, pl) != 0)
+                return NULL;
+
+        return (char*) s + sl - pl;
 }
 
 bool startswith(const char *s, const char *prefix) {
