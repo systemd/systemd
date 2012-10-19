@@ -349,12 +349,6 @@ static int set_ntp(DBusConnection *bus, char **args, unsigned n) {
                         DBUS_TYPE_INVALID);
 }
 
-static int zone_compare(const void *_a, const void *_b) {
-        const char **a = (const char**) _a, **b = (const char**) _b;
-
-        return strcmp(*a, *b);
-}
-
 static int list_timezones(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
@@ -416,12 +410,11 @@ static int list_timezones(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (zones)
-                zones[n_zones] = 0;
-
-        qsort(zones, n_zones, sizeof(char*), zone_compare);
+                zones[n_zones] = NULL;
 
         pager_open_if_enabled();
 
+        strv_sort(zones);
         STRV_FOREACH(i, zones)
                 puts(*i);
 

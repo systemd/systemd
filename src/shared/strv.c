@@ -735,3 +735,18 @@ bool strv_overlap(char **a, char **b) {
 
         return false;
 }
+
+static int str_compare(const void *_a, const void *_b) {
+        const char **a = (const char**) _a, **b = (const char**) _b;
+
+        return strcmp(*a, *b);
+}
+
+char **strv_sort(char **l) {
+
+        if (strv_isempty(l))
+                return l;
+
+        qsort(l, strv_length(l), sizeof(char*), str_compare);
+        return l;
+}

@@ -80,3 +80,5 @@ bool strv_overlap(char **a, char **b);
 
 #define STRV_FOREACH_BACKWARDS(s, l)            \
         for (; (l) && ((s) >= (l)); (s)--)
+
+char **strv_sort(char **l);
