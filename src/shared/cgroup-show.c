@@ -52,7 +52,7 @@ static unsigned ilog10(unsigned long ul) {
 }
 
 static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsigned n_columns, bool extra, bool more, bool kernel_threads) {
-        unsigned i, m;
+        unsigned i, m, pid_width;
         pid_t biggest = 0;
 
         /* Filter duplicates */
@@ -71,12 +71,13 @@ static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsi
                         pids[m++] = pids[i];
         }
         n_pids = m;
+        pid_width = ilog10(biggest);
 
         /* And sort */
         qsort(pids, n_pids, sizeof(pid_t), compare);
 
-        if (n_columns > 8)
-                n_columns -= 8;
+        if (n_columns > pid_width+2)
+                n_columns -= pid_width+2;
         else
                 n_columns = 20;
 
@@ -88,7 +89,7 @@ static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsi
                 printf("%s%s %*lu %s\n",
                        prefix,
                        extra ? "\342\200\243" : ((more || i < n_pids-1) ? "\342\224\234" : "\342\224\224"),
-                       (int) ilog10(biggest),
+                       pid_width,
                        (unsigned long) pids[i],
                        strna(t));
 
