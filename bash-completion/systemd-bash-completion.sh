@@ -55,7 +55,7 @@ __get_masked_units   () { __systemctl list-unit-files  \
 
 _systemctl () {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local verb comps
+        local i verb comps
 
         local -A OPTS=(
                [STANDALONE]='--all -a --defaults --fail --ignore-dependencies --failed --force -f --full --global
@@ -203,7 +203,7 @@ __get_all_seats    () { loginctl list-seats    | { while read -r a b; do printf 
 
 _loginctl () {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local verb comps
+        local i verb comps
 
         local -A OPTS=(
                [STANDALONE]='--all -a --help -h --no-pager --privileged -P --version'
@@ -341,7 +341,7 @@ _journalctl() {
 complete -F _journalctl journalctl
 
 _timedatectl() {
-        local verb comps
+        local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local OPTS='-h --help --version --adjust-system-clock --no-pager
                     --no-ask-password -H --host'
@@ -391,7 +391,7 @@ _timedatectl() {
 complete -F _timedatectl timedatectl
 
 _localectl() {
-        local verb comps
+        local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local OPTS='-h --help --version --no-convert --no-pager --no-ask-password
                     -H --host'
@@ -441,7 +441,7 @@ _localectl() {
 complete -F _localectl localectl
 
 _hostnamectl() {
-        local verb comps
+        local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local OPTS='-h --help --version --transient --static --pretty
                     --no-ask-password -H --host'
