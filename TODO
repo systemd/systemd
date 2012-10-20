@@ -19,6 +19,17 @@ F18:
 
 Features:
 
+* journal: When interleaving journal files cache binary search results so that
+  we can cheaply continue where we left off.
+
+* journal: When used on NFS, check payload hashes
+
+* journal: When used on NFS make sure wake up sd_journal_wait() every 2s, to handle missing inotify
+
+* "See journal for details" messages should include "journalctl -u" command line
+
+* document that people can use file system ACLs to manage access to journal files, with example
+
 * don't show cgroup in "systemctl status" if empty/non-existant, especially for foreign .mount units
 
 * timedated: export boolean that clarifies whether NTP is even available
@@ -349,8 +360,6 @@ Features:
 * journald: reuse XZ context
 
 * logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
-
-* journal: API for looking for retrieving "all values of this field"
 
 * journal: deal nicely with byte-by-byte copied files, especially regards header
 
