@@ -331,11 +331,8 @@ _journalctl() {
                 mapfile -t field_vals < <(journalctl -F "${COMP_WORDS[COMP_CWORD-2]}" 2>/dev/null)
                 COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "$cur") )
         else
-                # append an '=' to the end of the completed field
-                # TODO: would be nice to be able to tell readline here not to
-                # append an extra space after the completed word, if such an
-                # option exists.
-                COMPREPLY=( $(compgen -W '${journal_fields[*]/%/=}' -- "$cur") )
+                compopt -o nospace
+                COMPREPLY=( $(compgen -W '${journal_fields[*]}' -S= -- "$cur") )
         fi
 }
 complete -F _journalctl journalctl
