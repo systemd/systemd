@@ -339,3 +339,53 @@ _journalctl() {
         fi
 }
 complete -F _journalctl journalctl
+
+_timedatectl() {
+        local verb comps
+        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+        local OPTS='-h --help --version --adjust-system-clock --no-pager
+                    --no-ask-password -H --host'
+
+        if __contains_word "$prev" $OPTS; then
+                case $prev in
+                        --host|-H)
+                                comps=''
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                return 0
+        fi
+
+        if [[ $cur = -* ]]; then
+                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+                return 0
+        fi
+
+        local -A VERBS=(
+                  [BOOLEAN]='set-local-rtc set-ntp'
+               [STANDALONE]='status set-time list-timezones'
+                [TIMEZONES]='set-timezone'
+                     [TIME]='set-time'
+        )
+
+        for ((i=0; i <= COMP_CWORD; i++)); do
+                if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
+                        verb=${COMP_WORDS[i]}
+                        break
+                fi
+        done
+
+        if [[ -z $verb ]]; then
+                comps=${VERBS[*]}
+        elif __contains_word "$verb" ${VERBS[BOOLEAN]}; then
+                comps='true false'
+        elif __contains_word "$verb" ${VERBS[TIMEZONES]}; then
+                comps=$(command timedatectl list-timezones)
+        elif __contains_word "$verb" ${VERBS[STANDALONE]} ${VERBS[TIME]}; then
+                comps=''
+        fi
+
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+}
+complete -F _timedatectl timedatectl
