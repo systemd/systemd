@@ -131,8 +131,8 @@ _packed_ struct EntryArrayObject {
 
 _packed_ struct TagObject {
         ObjectHeader object;
-        uint64_t seqnum;
-        uint64_t epoch;
+        le64_t seqnum;
+        le64_t epoch;
         uint8_t tag[TAG_LENGTH]; /* SHA-256 HMAC */
 };
 
