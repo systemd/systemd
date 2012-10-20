@@ -389,3 +389,53 @@ _timedatectl() {
         return 0
 }
 complete -F _timedatectl timedatectl
+
+_localectl() {
+        local verb comps
+        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+        local OPTS='-h --help --version --no-convert --no-pager --no-ask-password
+                    -H --host'
+
+        if __contains_word "$prev" $OPTS; then
+                case $prev in
+                        --host|-H)
+                                comps=''
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                return 0
+        fi
+
+        if [[ $cur = -* ]]; then
+                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+                return 0
+        fi
+
+        local -A VERBS=(
+               [STANDALONE]='status list-locales list-keymaps'
+                  [LOCALES]='set-locale'
+                  [KEYMAPS]='set-keymap'
+                      [X11]='set-x11-keymap'
+        )
+
+        for ((i=0; i <= COMP_CWORD; i++)); do
+                if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
+                        verb=${COMP_WORDS[i]}
+                        break
+                fi
+        done
+
+        if [[ -z $verb ]]; then
+                comps=${VERBS[*]}
+        elif __contains_word "$verb" ${VERBS[LOCALES]}; then
+                comps=$(command localectl list-locales)
+        elif __contains_word "$verb" ${VERBS[KEYMAPS]}; then
+                comps=$(command localectl list-keymaps)
+        elif __contains_word "$verb" ${VERBS[STANDALONE]} ${VERBS[X11]}; then
+                comps=''
+        fi
+
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+}
+complete -F _localectl localectl
