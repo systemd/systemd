@@ -27,6 +27,13 @@
 
 #include "macro.h"
 
+/*
+ * If you change this file you probably should also change its documentation:
+ *
+ * http://www.freedesktop.org/wiki/Software/systemd/journal-files
+ *
+ */
+
 typedef struct Header Header;
 
 typedef struct ObjectHeader ObjectHeader;
@@ -47,12 +54,12 @@ typedef struct FSSHeader FSSHeader;
 /* Object types */
 enum {
         OBJECT_UNUSED,
-        OBJECT_DATA,               /* !!! */
+        OBJECT_DATA,
         OBJECT_FIELD,
         OBJECT_ENTRY,
         OBJECT_DATA_HASH_TABLE,
         OBJECT_FIELD_HASH_TABLE,
-        OBJECT_ENTRY_ARRAY,        /* !!! */
+        OBJECT_ENTRY_ARRAY,
         OBJECT_TAG,
         _OBJECT_TYPE_MAX
 };
@@ -169,9 +176,9 @@ _packed_ struct Header {
         sd_id128_t seqnum_id;
         le64_t header_size;
         le64_t arena_size;
-        le64_t data_hash_table_offset;     /* for looking up data objects */
+        le64_t data_hash_table_offset;
         le64_t data_hash_table_size;
-        le64_t field_hash_table_offset;     /* for looking up field objects */
+        le64_t field_hash_table_offset;
         le64_t field_hash_table_size;
         le64_t tail_object_offset;
         le64_t n_objects;
