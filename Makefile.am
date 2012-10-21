@@ -3183,8 +3183,8 @@ localectl_LDADD = \
 bin_PROGRAMS += \
 	localectl
 
-#MANPAGES += \
-#	man/localectl.1
+MANPAGES += \
+	man/localectl.1
 
 endif
 
