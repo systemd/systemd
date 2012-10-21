@@ -25,6 +25,7 @@
 #include <getopt.h>
 #include <string.h>
 #include <sys/timex.h>
+#include <sys/utsname.h>
 
 #include "dbus-common.h"
 #include "util.h"
@@ -66,7 +67,9 @@ typedef struct StatusInfo {
 static void print_status_info(StatusInfo *i) {
         sd_id128_t mid, bid;
         int r;
-        const char *id;
+        const char *id = NULL;
+        _cleanup_free_ char *pretty_name = NULL, *cpe_name = NULL;
+        struct utsname u;
 
         assert(i);
 
@@ -90,8 +93,24 @@ static void print_status_info(StatusInfo *i) {
         if (r >= 0)
                 printf("           Boot ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(bid));
 
-        if (detect_virtualization(&id) >= 0)
+        if (detect_virtualization(&id) > 0)
                 printf("    Virtualization: %s\n", id);
+
+        r = parse_env_file("/etc/os-release", NEWLINE,
+                           "PRETTY_NAME", &pretty_name,
+                           "CPE_NAME", &cpe_name,
+                           NULL);
+
+        if (!isempty(pretty_name))
+                printf("  Operating System: %s\n", pretty_name);
+
+        if (!isempty(cpe_name))
+                printf("       CPE OS Name: %s\n", cpe_name);
+
+        assert_se(uname(&u) >= 0);
+        printf("            Kernel: %s %s\n"
+               "      Architecture: %s\n", u.sysname, u.release, u.machine);
+
 }
 
 static int status_property(const char *name, DBusMessageIter *iter, StatusInfo *i) {
