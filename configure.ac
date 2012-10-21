@@ -69,7 +69,7 @@ AC_PATH_PROG([QUOTACHECK], [quotacheck], [/usr/sbin/quotacheck])
 
 AC_PATH_PROG([SETCAP], [setcap], [/usr/sbin/setcap])
 
-AC_PATH_PROG([KILL], [kill], [/usr/bin/cap])
+AC_PATH_PROG([KILL], [kill], [/usr/bin/kill])
 
 # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
 m4_ifdef([GTK_DOC_CHECK], [
