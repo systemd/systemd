@@ -284,10 +284,12 @@ _journalctl() {
         local field_vals= cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local -A OPTS=(
                 [STANDALONE]='-a --all -b --this-boot -f --follow --header
-                              -h --help -l --local --new-id128 --no-pager
-                              --no-tail -q --quiet --setup-keys --verify --version'
-                [ARG]='-D --directory -F --field --interval -n --lines -o --output
-                       -p --priority --verify-key'
+                              -h --help -l --local --new-id128 -m --merge --no-pager
+                              --no-tail -q --quiet --setup-keys --this-boot --verify
+                              --version'
+                       [ARG]='-D --directory -F --field -o --output -u --unit'
+                [ARGUNKNOWN]='-c --cursor --interval -n --lines -p --priority --since --until
+                              --verify-key'
         )
         local journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
                               ERRNO SYSLOG_{FACILITY,IDENTIFIER,PID}
@@ -301,10 +303,10 @@ _journalctl() {
                               __CURSOR __{REALTIME,MONOTONIC}_TIMESTAMP)
 
 
-        if __contains_word "$prev" ${OPTS[ARG]}; then
+        if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
                 case $prev in
-                        --directory|-D|--verify-key)
-                                comps=$(compgen -A file -- "$cur")
+                        --directory|-D)
+                                comps=$(compgen -d -- "$cur")
                                 compopt -o filenames
                         ;;
                         --output|-o)
@@ -312,6 +314,9 @@ _journalctl() {
                         ;;
                         --field|-F)
                                 comps=${journal_fields[*]}
+                        ;;
+                        --unit|-u)
+                                comps=$(journalctl -F '_SYSTEMD_UNIT')
                         ;;
                         *)
                                 return 0
