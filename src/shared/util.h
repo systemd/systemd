@@ -563,3 +563,7 @@ bool filename_is_safe(const char *p);
 bool string_is_safe(const char *p);
 
 int parse_timestamp(const char *t, usec_t *usec);
+
+void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
+                 int (*compar) (const void *, const void *, void *),
+                 void *arg);
