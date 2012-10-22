@@ -1,5 +1,85 @@
 systemd System and Service Manager
 
+CHANGES WITH 195:
+
+        * journalctl gained the new --since= and --until= switches to
+          filter by time. It also now supports nice filtering for
+          units via --unit=/-u.
+
+        * Type=oneshot services not may use ExecReload= and do the
+          right thing.
+
+        * The journal daemon now supports time-based rotation and
+          vacuuming, in addition to the usual disk-space based
+          rotation.
+
+        * The journal will now index the available field values for
+          each field name. This enables clients to show pretty drop
+          downs of available match values when filtering. The bash
+          completion of journalctl has been updated
+          accordingly. journalctl gained a new switch -F to list all
+          values a certain field takes in the journal database.
+
+        * More service events are now written as structured messages
+          to the journal, and made recognizable via message IDs.
+
+        * The timedated, localed and hostnamed mini-services which
+          previously only provided support for changing time, locale
+          and hostname settings from graphical DEs such as GNOME now
+          also have a minimal (but very useful) text-based client
+          utility each. This is probably the nicest way to changing
+          these settings from the command line now, especially since
+          it lists available options and is fully integrated with bash
+          completion.
+
+        * There's now a new tool "systemd-coredumpctl" to list and
+          extract coredumps from the journal.
+
+        * We now install a README each in /var/log/ and
+          /etc/rc.d/init.d explaining where the system logs and init
+          scripts went. This hopefully should help folks who go to
+          that dirs and look into the otherwise now empty void and
+          scratch their heads.
+
+        * When user-services are invoked (by systemd --user) the
+          $MANAGERPID env var is set to the PID of systemd.
+
+        * SIGRTMIN+24 when sent to a --user instance will now result
+          in immediate termination of systemd.
+
+        * gatewayd received numerous feature additions such as a
+          "follow" mode, for live syncing and filtering.
+
+        * browse.html now allows filtering and showing detailed
+          information on specific entries. Keyboard navigation and
+          mouse screen support has been added.
+
+        * gatewayd/journalctl now supports HTML5/JSON
+          Server-Sent-Events as output.
+
+        * The SysV init script compatibility logic will no
+          heuristically determine whether a script supports the
+          "reload" verb, and only then make this available as
+          "systemctl reload".
+
+        * "systemctl status --follow" has been removed, use "journal
+          -u" instead.
+
+        * journald.conf's RuntimeMinSize=, PersistentMinSize= settings
+          have been removed since they are hardly useful to be
+          configured.
+
+        * And I'd like to take the opportunity to specifically mention
+          Zbigniew for his great contributions. Zbigniew, you rock!
+
+        Contributions from: Andrew Eikum, Christian Hesse, Colin
+        Guthrie, Daniel J Walsh, Dave Reisner, Eelco Dolstra, Ferenc
+        Wágner, Kay Sievers, Lennart Poettering, Lukas Nykryn,
+        Mantas Mikulėnas, Martin Mikkelsen, Martin Pitt, Michael
+        Olbrich, Michael Stapelberg, Sebastian Ott, Thomas Bächler,
+        Umut Tezduyar, Wulf C. Krueger, Zbigniew Jędrzejewski-Szmek,
+        Сковорода Никита Андреевич
+
 CHANGES WITH 194:
 
         * If /etc/vconsole.conf is non-existent or empty we will no
