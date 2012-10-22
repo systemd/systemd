@@ -56,6 +56,7 @@ static const struct udevadm_cmd *udevadm_cmds[] = {
         &udevadm_settle,
         &udevadm_control,
         &udevadm_monitor,
+        &udevadm_hwdb,
         &udevadm_test,
         &udevadm_test_builtin,
         &udevadm_version,
@@ -133,7 +134,7 @@ int main(int argc, char *argv[])
                         if (strcmp(udevadm_cmds[i]->name, command) == 0) {
                                 argc -= optind;
                                 argv += optind;
-                                optind = 0;
+                                optind = 1;
                                 rc = run_command(udev, udevadm_cmds[i], argc, argv);
                                 goto out;
                         }

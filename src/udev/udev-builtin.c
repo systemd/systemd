@@ -31,11 +31,10 @@ static const struct udev_builtin *builtins[] = {
         [UDEV_BUILTIN_BLKID] = &udev_builtin_blkid,
         [UDEV_BUILTIN_BTRFS] = &udev_builtin_btrfs,
         [UDEV_BUILTIN_FIRMWARE] = &udev_builtin_firmware,
+        [UDEV_BUILTIN_HWDB] = &udev_builtin_hwdb,
         [UDEV_BUILTIN_INPUT_ID] = &udev_builtin_input_id,
         [UDEV_BUILTIN_KMOD] = &udev_builtin_kmod,
         [UDEV_BUILTIN_PATH_ID] = &udev_builtin_path_id,
-        [UDEV_BUILTIN_PCI_DB] = &udev_builtin_pci_db,
-        [UDEV_BUILTIN_USB_DB] = &udev_builtin_usb_db,
         [UDEV_BUILTIN_USB_ID] = &udev_builtin_usb_id,
 #ifdef HAVE_ACL
         [UDEV_BUILTIN_UACCESS] = &udev_builtin_uaccess,
@@ -128,7 +127,7 @@ int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const c
         int argc;
         char *argv[128];
 
-        optind = 0;
+        optind = 1;
         util_strscpy(arg, sizeof(arg), command);
         udev_build_argv(udev_device_get_udev(dev), arg, &argc, argv);
         return builtins[cmd]->cmd(dev, argc, argv, test);

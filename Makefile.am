@@ -80,6 +80,7 @@ systempresetdir=$(rootprefix)/lib/systemd/system-preset
 udevlibexecdir=$(rootprefix)/lib/udev
 udevhomedir = $(udevlibexecdir)
 udevrulesdir = $(udevlibexecdir)/rules.d
+udevhwdbdir = $(udevlibexecdir)/hwdb.d
 
 # And these are the special ones for /
 rootprefix=@rootprefix@
@@ -1758,6 +1759,7 @@ man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
 
 udev-confdirs:
 	-$(MKDIR_P) $(DESTDIR)$(sysconfdir)/udev/rules.d
+	-$(MKDIR_P) $(DESTDIR)$(sysconfdir)/udev/hwdb.d
 
 INSTALL_DATA_HOOKS += udev-confdirs
 
@@ -1776,6 +1778,10 @@ dist_udevrules_DATA += \
 	rules/78-sound-card.rules \
 	rules/80-drivers.rules \
 	rules/95-udev-late.rules
+
+dist_udevhwdb_DATA = \
+	hwdb/20-pci-vendor-product.hwdb \
+	hwdb/20-usb-vendor-product.hwdb
 
 udevconfdir = $(sysconfdir)/udev
 dist_udevconf_DATA = \
@@ -1824,6 +1830,7 @@ noinst_LTLIBRARIES += \
 
 libudev_core_la_SOURCES = \
 	src/udev/udev.h \
+	src/udev/udev-hwdb.h \
 	src/udev/udev-event.c \
 	src/udev/udev-watch.c \
 	src/udev/udev-node.c \
@@ -1854,8 +1861,7 @@ libudev_core_la_LIBADD = \
 
 libudev_core_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
-	-DFIRMWARE_PATH="$(FIRMWARE_PATH)" \
-	-DUSB_DATABASE=\"$(USB_DATABASE)\" -DPCI_DATABASE=\"$(PCI_DATABASE)\"
+	-DFIRMWARE_PATH="$(FIRMWARE_PATH)"
 
 if HAVE_ACL
 libudev_core_la_SOURCES += \
@@ -1878,6 +1884,7 @@ udevadm_SOURCES = \
 	src/udev/udevadm-info.c \
 	src/udev/udevadm-control.c \
 	src/udev/udevadm-monitor.c \
+	src/udev/udevadm-hwdb.c \
 	src/udev/udevadm-settle.c \
 	src/udev/udevadm-trigger.c \
 	src/udev/udevadm-test.c \
@@ -3951,6 +3958,7 @@ distclean-local: $(DISTCLEAN_LOCAL_HOOKS)
 
 clean-local:
 	rm -rf $(abs_srcdir)/install-tree
+	rm -f $(abs_srcdir)/hwdb/usb.ids $(abs_srcdir)/hwdb/pci.ids
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-sysvinit-path=$$dc_install_base/$(sysvinitdir) \
@@ -3966,6 +3974,12 @@ if ENABLE_GTK_DOC
 DISTCHECK_CONFIGURE_FLAGS += \
 	--enable-gtk-doc
 endif
+
+hwdb-update:
+	( cd hwdb && \
+	wget -N http://www.linux-usb.org/usb.ids && \
+	wget -N http://pciids.sourceforge.net/v2.2/pci.ids && \
+	./ids-update.pl )
 
 upload: all distcheck
 	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/

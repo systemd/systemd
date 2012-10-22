@@ -137,11 +137,10 @@ enum udev_builtin_cmd {
         UDEV_BUILTIN_BLKID,
         UDEV_BUILTIN_BTRFS,
         UDEV_BUILTIN_FIRMWARE,
+        UDEV_BUILTIN_HWDB,
         UDEV_BUILTIN_INPUT_ID,
         UDEV_BUILTIN_KMOD,
         UDEV_BUILTIN_PATH_ID,
-        UDEV_BUILTIN_PCI_DB,
-        UDEV_BUILTIN_USB_DB,
         UDEV_BUILTIN_USB_ID,
 #ifdef HAVE_ACL
         UDEV_BUILTIN_UACCESS,
@@ -160,11 +159,10 @@ struct udev_builtin {
 extern const struct udev_builtin udev_builtin_blkid;
 extern const struct udev_builtin udev_builtin_btrfs;
 extern const struct udev_builtin udev_builtin_firmware;
+extern const struct udev_builtin udev_builtin_hwdb;
 extern const struct udev_builtin udev_builtin_input_id;
 extern const struct udev_builtin udev_builtin_kmod;
 extern const struct udev_builtin udev_builtin_path_id;
-extern const struct udev_builtin udev_builtin_pci_db;
-extern const struct udev_builtin udev_builtin_usb_db;
 extern const struct udev_builtin udev_builtin_usb_id;
 extern const struct udev_builtin udev_builtin_uaccess;
 int udev_builtin_init(struct udev *udev);
@@ -194,6 +192,7 @@ extern const struct udevadm_cmd udevadm_trigger;
 extern const struct udevadm_cmd udevadm_settle;
 extern const struct udevadm_cmd udevadm_control;
 extern const struct udevadm_cmd udevadm_monitor;
+extern const struct udevadm_cmd udevadm_hwdb;
 extern const struct udevadm_cmd udevadm_test;
 extern const struct udevadm_cmd udevadm_test_builtin;
 #endif

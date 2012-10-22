@@ -43,7 +43,7 @@ SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", GROUP="video"
 
 # 'libusb' device nodes
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", MODE="0664"
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", IMPORT{builtin}="usb_id"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb"
 
 # printer
 KERNEL=="parport[0-9]*", GROUP="lp"

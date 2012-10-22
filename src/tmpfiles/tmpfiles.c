@@ -1365,7 +1365,7 @@ int main(int argc, char *argv[]) {
                 for (j = optind; j < argc; j++) {
                         char *fragment;
 
-                        fragment = resolve_fragment(argv[j], (const char**) conf_file_dirs);
+                        fragment = resolve_fragment(argv[j], (const char **)conf_file_dirs);
                         if (!fragment) {
                                 log_error("Failed to find a %s file: %m", argv[j]);
                                 r = EXIT_FAILURE;
@@ -1379,8 +1379,7 @@ int main(int argc, char *argv[]) {
         } else {
                 char **files, **f;
 
-                r = conf_files_list_strv(&files, ".conf",
-                                    (const char **) conf_file_dirs);
+                r = conf_files_list_strv(&files, ".conf", (const char **)conf_file_dirs);
                 if (r < 0) {
                         log_error("Failed to enumerate tmpfiles.d files: %s", strerror(-r));
                         r = EXIT_FAILURE;

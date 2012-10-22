@@ -448,6 +448,7 @@ Features:
 * GC unreferenced jobs (such as .device jobs)
 
 * write blog stories about:
+  - hwdb: what belongs into it, lsusb
   - enabling dbus services
   - status update
   - how to make changes to sysctl and sysfs attributes
