@@ -746,6 +746,7 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/list.h \
 	src/shared/macro.h \
 	src/shared/def.h \
+	src/shared/sparse-endian.h \
 	src/shared/util.c \
 	src/shared/util.h \
 	src/shared/virt.c \
@@ -2535,7 +2536,6 @@ libsystemd_journal_la_SOURCES = \
 	src/journal/lookup3.c \
 	src/journal/lookup3.h \
 	src/journal/journal-send.c \
-	src/journal/sparse-endian.h \
 	src/journal/journal-def.h \
 	src/journal/compress.h \
 	src/journal/mmap-cache.c \
