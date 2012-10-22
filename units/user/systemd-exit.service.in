@@ -14,4 +14,4 @@ After=shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=@KILL@ -s RTMAX-6 $MANAGERPID
+ExecStart=@KILL@ -s 58 $MANAGERPID
