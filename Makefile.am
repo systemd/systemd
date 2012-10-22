@@ -3781,6 +3781,10 @@ EXTRA_DIST += \
 	docs/sysvinit/README.in \
 	docs/var-log/README.in
 
+CLEANFILES += \
+	docs/sysvinit/README \
+	docs/var-log/README
+
 endif
 
 
@@ -3949,6 +3953,7 @@ clean-local:
 	rm -rf $(abs_srcdir)/install-tree
 
 DISTCHECK_CONFIGURE_FLAGS = \
+	--with-sysvinit-path=$$dc_install_base/$(sysvinitdir) \
 	--with-dbuspolicydir=$$dc_install_base/$(dbuspolicydir) \
 	--with-dbussessionservicedir=$$dc_install_base/$(dbussessionservicedir) \
 	--with-dbussystemservicedir=$$dc_install_base/$(dbussystemservicedir) \
