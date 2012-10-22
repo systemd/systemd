@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* add --unit to systemctl switch-root somehow
+
 * journalctl/gatewayd: GELF output
 
 * journal: find a way to allow dropping history early, based on priority, other rules
