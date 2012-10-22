@@ -27,11 +27,12 @@
 
 /*
  * Strbuf stores given strings in a single continous allocated memory
- * area. Identical strings are de-duplicated. If the tail of a string
- * already exist in the buffer, the tail is returned.
+ * area. Identical strings are de-duplicated and return the same offset
+ * as the first string stored. If the tail of a string already exists
+ * in the buffer, the tail is returned.
  *
- * A Particia Trie is used to maintain the information about the stored
- * strings.
+ * A trie (http://en.wikipedia.org/wiki/Trie) is used to maintain the
+ * information about the stored strings.
  *
  * Example of udev rules:
  *   $ ./udevadm test .
