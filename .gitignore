@@ -52,6 +52,7 @@
 /test-strv
 /systemd-ac-power
 /systemd-timestamp
+/systemd-coredumpctl
 /systemd-cryptsetup
 /systemd-cryptsetup-generator
 /systemd-tty-ask-password-agent
