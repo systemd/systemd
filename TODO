@@ -19,6 +19,10 @@ F18:
 
 Features:
 
+* journalctl/gatewayd: GELF output
+
+* journal: find a way to allow dropping history early, based on priority, other rules
+
 * journal: When interleaving journal files cache binary search results so that
   we can cheaply continue where we left off.
 
