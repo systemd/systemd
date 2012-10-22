@@ -460,7 +460,7 @@ static int collect(const char *root) {
                                 log_warning("readlink(%s) failed: %s", fn, strerror(-k));
 
                 next_iteration:
-                        if (m->fd)
+                        if (m->fd >= 0)
                                 close_nointr_nofail(m->fd);
                 }
         }
