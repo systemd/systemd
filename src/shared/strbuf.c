@@ -25,6 +25,23 @@
 #include "util.h"
 #include "strbuf.h"
 
+/*
+ * Strbuf stores given strings in a single continous allocated memory
+ * area. Identical strings are de-duplicated. If the tail of a string
+ * already exist in the buffer, the tail is returned.
+ *
+ * A Particia Trie is used to maintain the information about the stored
+ * strings.
+ *
+ * Example of udev rules:
+ *   $ ./udevadm test .
+ *   ...
+ *   read rules file: /usr/lib/udev/rules.d/99-systemd.rules
+ *   rules contain 196608 bytes tokens (16384 * 12 bytes), 39742 bytes strings
+ *   23939 strings (207859 bytes), 20404 de-duplicated (171653 bytes), 3536 trie nodes used
+ *   ...
+ */
+
 struct strbuf *strbuf_new(void) {
         struct strbuf *str;
 
@@ -58,6 +75,7 @@ static void strbuf_node_cleanup(struct strbuf_node *node) {
         free(node);
 }
 
+/* clean up trie data, leave only the string buffer */
 void strbuf_complete(struct strbuf *str) {
         if (!str)
                 return;
@@ -66,6 +84,7 @@ void strbuf_complete(struct strbuf *str) {
         str->root = NULL;
 }
 
+/* clean up everything */
 void strbuf_cleanup(struct strbuf *str) {
         if (!str)
                 return;
@@ -82,6 +101,7 @@ static int strbuf_children_cmp(const void *v1, const void *v2) {
         return n1->c - n2->c;
 }
 
+/* add string, return the index/offset into the buffer */
 ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         uint8_t c;
         struct strbuf_node *node;
