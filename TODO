@@ -19,6 +19,22 @@ F18:
 
 Features:
 
+* journactl: support negative filtering, i.e. FOOBAR!="waldo"
+
+* drop header/footer from systemctl --failed output if there are no entries shown, print nice message instead, and hook that into ExecStartPre of rescue.service/emergency.service
+
+* add libsystemd-password or so to query passwords during boot using the password agent logic
+
+* journal: when rotating, copy over old acls/access mode
+
+* journal: document why we do not give ownership to journal files to the user that created them but use FS ACLs for that
+
+* journal: send out marker messages every now and then, and immediately sync with fdatasync() afterwards, in order to have hourly guaranteed syncs.
+
+* journal: when we haven't written anything in a while, sync to disk and mark file as offline, in order to be more often than not in a clean state
+
+* journal-send.c, log.c: when the log socket is clogged, and we drop, count this and write a message about this when it gets unclogged again.
+
 * If we show an error about a unit (such as not showing up) and it has no Description string, then show a description string generated form the reverse of unit_name_mangle().
 
 * fedup: add --unit to systemctl switch-root somehow
@@ -462,6 +478,10 @@ Features:
   - resource control in systemd
   - testing with Harald's awesome test kit
   - auto-restart
+  - journalctl advanced usage
+  - how to make use of the journal submission APIs
+  - same for journal browsing
+  - the journal HTTP iface
 
 * allow port=0 in .socket units
 
