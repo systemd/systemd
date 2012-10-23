@@ -547,8 +547,6 @@ static int add_priorities(sd_journal *j) {
                 if (arg_priorities & (1 << i)) {
                         match[sizeof(match)-2] = '0' + i;
 
-                        log_info("adding match %s", match);
-
                         r = sd_journal_add_match(j, match, strlen(match));
                         if (r < 0) {
                                 log_error("Failed to add match: %s", strerror(-r));
