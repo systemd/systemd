@@ -265,7 +265,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         </variablelist>
 
                         <para>If multiple integers and units are specified the time
-                        values are summed up. If an integer is given witohut a unit,
+                        values are summed up. If an integer is given without a unit,
                         s is assumed.
                         </para>
 
