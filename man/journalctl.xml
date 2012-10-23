@@ -159,16 +159,13 @@
                                 <term><option>--lines=</option></term>
                                 <term><option>-n</option></term>
 
-                                <listitem><para>Controls the number of
-                                journal lines to show, counting from
-                                the most recent ones. The argument is
-                                optional, and if specified is a
-                                positive integer. If not specified and
-                                in follow mode defaults to 10. If this
-                                option is not passed and follow mode
-                                is not enabled, how many lines are
-                                shown is not
-                                limited.</para></listitem>
+                                <listitem><para>Show the most recent
+                                journal events and limit the number of
+                                events shown. If
+                                <option>--follow</option> is used,
+                                this option is implied. The argument,
+                                a positive integer, is optional, and
+                                defaults to 10. </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
