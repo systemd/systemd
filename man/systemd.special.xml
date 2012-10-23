@@ -553,7 +553,7 @@
                                         all SysV init script service
                                         units with an LSB header
                                         referring to the
-                                        <literal>$rpcbind</literal>
+                                        <literal>$portmap</literal>
                                         facility.</para>
                                 </listitem>
                         </varlistentry>
