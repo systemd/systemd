@@ -57,7 +57,7 @@ CHANGES WITH 195:
         * gatewayd/journalctl now supports HTML5/JSON
           Server-Sent-Events as output.
 
-        * The SysV init script compatibility logic will no
+        * The SysV init script compatibility logic will now
           heuristically determine whether a script supports the
           "reload" verb, and only then make this available as
           "systemctl reload".

@@ -19,7 +19,11 @@ F18:
 
 Features:
 
-* add --unit to systemctl switch-root somehow
+* If we show an error about a unit (such as not showing up) and it has no Description string, then show a description string generated form the reverse of unit_name_mangle().
+
+* fedup: add --unit to systemctl switch-root somehow
+* fedup: don't delete initrd on switch-root
+* fedup: generator
 
 * journalctl/gatewayd: GELF output
 
