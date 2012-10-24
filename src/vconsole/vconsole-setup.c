@@ -245,36 +245,7 @@ int main(int argc, char **argv) {
         }
 
         if (r <= 0) {
-#if defined(TARGET_FEDORA)
-                r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
-                                   "SYSFONT", &vc_font,
-                                   "SYSFONTACM", &vc_font_map,
-                                   "UNIMAP", &vc_font_unimap,
-                                   NULL);
-                if (r < 0 && r != -ENOENT)
-                        log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
-
-                r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
-                                   "KEYTABLE", &vc_keymap,
-                                   "KEYMAP", &vc_keymap,
-                                   NULL);
-                if (r < 0 && r != -ENOENT)
-                        log_warning("Failed to read /etc/sysconfig/keyboard: %s", strerror(-r));
-
-                if (access("/etc/sysconfig/console/default.kmap", F_OK) >= 0) {
-                        char *t;
-
-                        t = strdup("/etc/sysconfig/console/default.kmap");
-                        if (!t) {
-                                log_oom();
-                                goto finish;
-                        }
-
-                        free(vc_keymap);
-                        vc_keymap = t;
-                }
-
-#elif defined(TARGET_SUSE)
+#if defined(TARGET_SUSE)
                 r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
                                    "KEYTABLE", &vc_keymap,
                                    NULL);
