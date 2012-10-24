@@ -50,6 +50,9 @@
       <command>udevadm monitor <optional>options</optional></command>
     </cmdsynopsis>
     <cmdsynopsis>
+      <command>udevadm hwdb <optional>options</optional></command>
+    </cmdsynopsis>
+    <cmdsynopsis>
       <command>udevadm test <optional>options</optional> <replaceable>devpath</replaceable></command>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -415,6 +418,22 @@
           <term><option>--help</option></term>
           <listitem>
             <para>Print help text.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2><title>udevadm hwdb <optional>options</optional></title>
+      <para>Maintain the hardware database index in /etc/udev/hwdb.bin.</para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--update</option></term>
+          <listitem>
+            <para>Compile the hardware dabase information located in /usr/lib/udev/hwdb.d/,
+            /etc/udev/hwdb.d/ and store it in /etc/udev/hwdb.bin. This should be done with
+            any update to the source files, it will not be called automatically. The running
+            udev daemon will detect a new database on its own and does not need to be
+            notified about it.</para>
           </listitem>
         </varlistentry>
       </variablelist>
