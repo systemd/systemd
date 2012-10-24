@@ -91,12 +91,12 @@ enum JobMode {
 };
 
 enum JobResult {
-        JOB_DONE,
-        JOB_CANCELED,
-        JOB_TIMEOUT,
-        JOB_FAILED,
-        JOB_DEPENDENCY,
-        JOB_SKIPPED,
+        JOB_DONE,                /* Job completed successfully */
+        JOB_CANCELED,            /* Job canceled by a conflicting job installation or by explicit cancel request */
+        JOB_TIMEOUT,             /* JobTimeout elapsed */
+        JOB_FAILED,              /* Job failed */
+        JOB_DEPENDENCY,          /* A required dependency job did not result in JOB_DONE */
+        JOB_SKIPPED,             /* JOB_RELOAD of inactive unit; negative result of JOB_VERIFY_ACTIVE */
         _JOB_RESULT_MAX,
         _JOB_RESULT_INVALID = -1
 };
