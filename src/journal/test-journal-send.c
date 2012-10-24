@@ -47,5 +47,15 @@ int main(int argc, char *argv[]) {
                         huge,
                         NULL);
 
+        sd_journal_send("MESSAGE=uiui",
+                        "VALUE=A",
+                        "VALUE=B",
+                        "VALUE=C",
+                        "SINGLETON=1",
+                        "OTHERVALUE=X",
+                        "OTHERVALUE=Y",
+                        "WITH_BINARY=this is a binary value \a",
+                        NULL);
+
         return 0;
 }

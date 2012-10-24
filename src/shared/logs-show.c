@@ -29,6 +29,7 @@
 #include "log.h"
 #include "util.h"
 #include "utf8.h"
+#include "hashmap.h"
 
 #define PRINT_THRESHOLD 128
 #define JSON_THRESHOLD 4096
@@ -464,12 +465,14 @@ static int output_json(
                 OutputFlags flags) {
 
         uint64_t realtime, monotonic;
-        char *cursor;
+        char *cursor, *k;
         const void *data;
         size_t length;
         sd_id128_t boot_id;
         char sid[33];
         int r;
+        Hashmap *h = NULL;
+        bool done, separator;
 
         assert(j);
 
@@ -518,30 +521,140 @@ static int output_json(
         }
         free(cursor);
 
-        SD_JOURNAL_FOREACH_DATA(j, data, length) {
-                const char *c;
+        h = hashmap_new(string_hash_func, string_compare_func);
+        if (!h)
+                return -ENOMEM;
 
-                /* We already printed the boot id, from the data in
-                 * the header, hence let's suppress it here */
+        /* First round, iterate through the entry and count how often each field appears */
+        SD_JOURNAL_FOREACH_DATA(j, data, length) {
+                const char *eq;
+                char *n;
+                unsigned u;
+
                 if (length >= 9 &&
                     memcmp(data, "_BOOT_ID=", 9) == 0)
                         continue;
 
-                c = memchr(data, '=', length);
-                if (!c) {
-                        log_error("Invalid field.");
-                        return -EINVAL;
+                eq = memchr(data, '=', length);
+                if (!eq)
+                        continue;
+
+                n = strndup(data, eq - (const char*) data);
+                if (!n) {
+                        r = -ENOMEM;
+                        goto finish;
                 }
 
-                if (mode == OUTPUT_JSON_PRETTY)
-                        fputs(",\n\t", f);
-                else
-                        fputs(", ", f);
-
-                json_escape(f, data, c - (const char*) data, flags);
-                fputs(" : ", f);
-                json_escape(f, c + 1, length - (c - (const char*) data) - 1, flags);
+                u = PTR_TO_UINT(hashmap_get(h, n));
+                if (u == 0) {
+                        r = hashmap_put(h, n, UINT_TO_PTR(1));
+                        if (r < 0) {
+                                free(n);
+                                goto finish;
+                        }
+                } else {
+                        r = hashmap_update(h, n, UINT_TO_PTR(u + 1));
+                        free(n);
+                        if (r < 0)
+                                goto finish;
+                }
         }
+
+        separator = true;
+        do {
+                done = true;
+
+                SD_JOURNAL_FOREACH_DATA(j, data, length) {
+                        const char *eq;
+                        char *kk, *n;
+                        size_t m;
+                        unsigned u;
+
+                        /* We already printed the boot id, from the data in
+                         * the header, hence let's suppress it here */
+                        if (length >= 9 &&
+                            memcmp(data, "_BOOT_ID=", 9) == 0)
+                                continue;
+
+                        eq = memchr(data, '=', length);
+                        if (!eq)
+                                continue;
+
+                        if (separator) {
+                                if (mode == OUTPUT_JSON_PRETTY)
+                                        fputs(",\n\t", f);
+                                else
+                                        fputs(", ", f);
+                        }
+
+                        m = eq - (const char*) data;
+
+                        n = strndup(data, m);
+                        if (!n) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        u = PTR_TO_UINT(hashmap_get2(h, n, (void**) &kk));
+                        if (u == 0) {
+                                /* We already printed this, let's jump to the next */
+                                free(n);
+                                separator = false;
+
+                                continue;
+                        } else if (u == 1) {
+                                /* Field only appears once, output it directly */
+
+                                json_escape(f, data, m, flags);
+                                fputs(" : ", f);
+
+                                json_escape(f, eq + 1, length - m - 1, flags);
+
+                                hashmap_remove(h, n);
+                                free(kk);
+                                free(n);
+
+                                separator = true;
+
+                                continue;
+
+                        } else {
+                                /* Field appears multiple times, output it as array */
+                                json_escape(f, data, m, flags);
+                                fputs(" : [ ", f);
+                                json_escape(f, eq + 1, length - m - 1, flags);
+
+                                /* Iterate through the end of the list */
+
+                                while (sd_journal_enumerate_data(j, &data, &length) > 0) {
+                                        if (length < m + 1)
+                                                continue;
+
+                                        if (memcmp(data, n, m) != 0)
+                                                continue;
+
+                                        if (((const char*) data)[m] != '=')
+                                                continue;
+
+                                        fputs(", ", f);
+                                        json_escape(f, (const char*) data + m + 1, length - m - 1, flags);
+                                }
+
+                                fputs(" ]", f);
+
+                                hashmap_remove(h, n);
+                                free(kk);
+                                free(n);
+
+                                /* Iterate data fields form the beginning */
+                                done = false;
+                                separator = true;
+
+                                break;
+                        }
+                }
+
+        } while (!done);
 
         if (mode == OUTPUT_JSON_PRETTY)
                 fputs("\n}\n", f);
@@ -550,7 +663,15 @@ static int output_json(
         else
                 fputs(" }\n", f);
 
-        return 0;
+        r = 0;
+
+finish:
+        while ((k = hashmap_steal_first_key(h)))
+                free(k);
+
+        hashmap_free(h);
+
+        return r;
 }
 
 static int output_cat(

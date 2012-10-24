@@ -328,7 +328,8 @@ int hashmap_put(Hashmap *h, const void *key, void *value) {
 
         hash = h->hash_func(key) % NBUCKETS;
 
-        if ((e = hash_scan(h, hash, key))) {
+        e = hash_scan(h, hash, key);
+        if (e) {
 
                 if (e->value == value)
                         return 0;
@@ -359,14 +360,29 @@ int hashmap_replace(Hashmap *h, const void *key, void *value) {
         assert(h);
 
         hash = h->hash_func(key) % NBUCKETS;
-
-        if ((e = hash_scan(h, hash, key))) {
+        e = hash_scan(h, hash, key);
+        if (e) {
                 e->key = key;
                 e->value = value;
                 return 0;
         }
 
         return hashmap_put(h, key, value);
+}
+
+int hashmap_update(Hashmap *h, const void *key, void *value) {
+        struct hashmap_entry *e;
+        unsigned hash;
+
+        assert(h);
+
+        hash = h->hash_func(key) % NBUCKETS;
+        e = hash_scan(h, hash, key);
+        if (!e)
+                return -ENOENT;
+
+        e->value = value;
+        return 0;
 }
 
 void* hashmap_get(Hashmap *h, const void *key) {
@@ -380,6 +396,24 @@ void* hashmap_get(Hashmap *h, const void *key) {
         e = hash_scan(h, hash, key);
         if (!e)
                 return NULL;
+
+        return e->value;
+}
+
+void* hashmap_get2(Hashmap *h, const void *key, void **key2) {
+        unsigned hash;
+        struct hashmap_entry *e;
+
+        if (!h)
+                return NULL;
+
+        hash = h->hash_func(key) % NBUCKETS;
+        e = hash_scan(h, hash, key);
+        if (!e)
+                return NULL;
+
+        if (key2)
+                *key2 = (void*) e->key;
 
         return e->value;
 }

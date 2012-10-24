@@ -51,8 +51,10 @@ Hashmap *hashmap_copy(Hashmap *h);
 int hashmap_ensure_allocated(Hashmap **h, hash_func_t hash_func, compare_func_t compare_func);
 
 int hashmap_put(Hashmap *h, const void *key, void *value);
+int hashmap_update(Hashmap *h, const void *key, void *value);
 int hashmap_replace(Hashmap *h, const void *key, void *value);
 void* hashmap_get(Hashmap *h, const void *key);
+void* hashmap_get2(Hashmap *h, const void *key, void **rkey);
 bool hashmap_contains(Hashmap *h, const void *key);
 void* hashmap_remove(Hashmap *h, const void *key);
 void* hashmap_remove_value(Hashmap *h, const void *key, void *value);
