@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* link up selected blog stories from man pages?
+
 * journactl: support negative filtering, i.e. FOOBAR!="waldo"
 
 * drop header/footer from systemctl --failed output if there are no entries shown, print nice message instead, and hook that into ExecStartPre of rescue.service/emergency.service
@@ -475,13 +477,12 @@ Features:
   - remote access
   - how to pass throw-away units to systemd, or dynamically change properties of existing units
   - how to integrate cgconfig and suchlike with systemd
-  - resource control in systemd
   - testing with Harald's awesome test kit
   - auto-restart
-  - journalctl advanced usage
   - how to make use of the journal submission APIs
   - same for journal browsing
   - the journal HTTP iface
+  - non-cgroup resource management
 
 * allow port=0 in .socket units
 
