@@ -212,7 +212,8 @@
                                 <literal>reboot</literal>,
                                 <literal>halt</literal>,
                                 <literal>kexec</literal>,
-                                <literal>hibernate</literal> and
+                                <literal>suspend</literal>,
+                                <literal>hibernate</literal>, and
                                 <literal>hybrid-sleep</literal>. If
                                 <literal>ignore</literal> logind will
                                 never handle these keys. Otherwise the
