@@ -178,7 +178,7 @@ static int parse_file(const char *path, bool ignore_enoent) {
 
                         free(property);
                         free(new_value);
-                        if (r != -EEXIST)
+                        if (r != 0)
                                 goto finish;
                 }
         }
