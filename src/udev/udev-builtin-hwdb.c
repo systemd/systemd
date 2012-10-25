@@ -277,6 +277,9 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
         };
         const char *subsys = NULL;
 
+        if (!trie.f)
+                return EXIT_SUCCESS;
+
         for (;;) {
                 int option;
 
