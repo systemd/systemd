@@ -134,7 +134,8 @@ int main(int argc, char *argv[])
                         if (strcmp(udevadm_cmds[i]->name, command) == 0) {
                                 argc -= optind;
                                 argv += optind;
-                                optind = 1;
+                                /* we need '0' here to reset the internal state */
+                                optind = 0;
                                 rc = run_command(udev, udevadm_cmds[i], argc, argv);
                                 goto out;
                         }
