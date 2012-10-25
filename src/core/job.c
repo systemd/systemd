@@ -180,7 +180,7 @@ Job* job_install(Job *j) {
 
         if (uj) {
                 if (j->type != JOB_NOP && job_type_is_conflicting(uj->type, j->type))
-                        job_finish_and_invalidate(uj, JOB_CANCELED, true);
+                        job_finish_and_invalidate(uj, JOB_CANCELED, false);
                 else {
                         /* not conflicting, i.e. mergeable */
 
