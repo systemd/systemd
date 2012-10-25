@@ -39,8 +39,6 @@ static int load_module(struct udev *udev, const char *alias)
         struct kmod_list *l;
         int err;
 
-        assert(ctx);
-
         err = kmod_module_new_from_lookup(ctx, alias, &list);
         if (err < 0)
                 return err;
@@ -76,6 +74,9 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
 {
         struct udev *udev = udev_device_get_udev(dev);
         int i;
+
+        if (ctx)
+                return 0;
 
         if (argc < 3 || strcmp(argv[1], "load")) {
                 log_error("expect: %s load <module>\n", argv[0]);

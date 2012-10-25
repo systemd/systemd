@@ -307,6 +307,9 @@ static int builtin_hwdb_init(struct udev *udev)
         struct stat st;
         const char sig[] = HWDB_SIG;
 
+        if (trie.f)
+                return 0;
+
         trie.f = fopen(SYSCONFDIR "/udev/hwdb.bin", "re");
         if (!trie.f)
                 return -errno;
@@ -361,7 +364,7 @@ static bool builtin_hwdb_validate(struct udev *udev)
         struct stat st;
 
         if (!trie.f)
-                return true;
+                return false;
         if (fstat(fileno(trie.f), &st) < 0)
                 return true;
         if (trie.file_time_usec != ts_usec(&st.st_mtim))
