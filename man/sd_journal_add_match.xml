@@ -162,13 +162,13 @@
 
                 <programlisting>...
 int add_matches(sd_journal *j) {
-        sd_journal_add_match(j, "_SYSTEMD_UNIT=avahi-daemon.service");
-        sd_journal_add_match(j, "PRIORITY=0");
-        sd_journal_add_match(j, "PRIORITY=1");
-        sd_journal_add_match(j, "PRIORITY=2");
-        sd_journal_add_match(j, "PRIORITY=3");
+        sd_journal_add_match(j, "_SYSTEMD_UNIT=avahi-daemon.service", 0);
+        sd_journal_add_match(j, "PRIORITY=0", 0);
+        sd_journal_add_match(j, "PRIORITY=1", 0);
+        sd_journal_add_match(j, "PRIORITY=2", 0);
+        sd_journal_add_match(j, "PRIORITY=3", 0);
         sd_journal_add_disjunction(j);
-        sd_journal_add_match(j, "MESSAGE_ID=03bb1dab98ab4ecfbf6fff2738bdd964");
+        sd_journal_add_match(j, "MESSAGE_ID=03bb1dab98ab4ecfbf6fff2738bdd964", 0);
 }</programlisting>
 
         </refsect1>
