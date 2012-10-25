@@ -2121,7 +2121,7 @@ _public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, 
                         if (from)
                                 *from = MIN(fr, *from);
                         if (to)
-                                *to = MIN(t, *to);
+                                *to = MAX(t, *to);
                 }
         }
 
@@ -2160,7 +2160,7 @@ _public_ int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot
                         if (from)
                                 *from = MIN(fr, *from);
                         if (to)
-                                *to = MIN(t, *to);
+                                *to = MAX(t, *to);
                 }
         }
 
