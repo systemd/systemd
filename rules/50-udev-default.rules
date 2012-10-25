@@ -43,7 +43,7 @@ SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", GROUP="video"
 
 # 'libusb' device nodes
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", MODE="0664"
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb --subsystem=usb"
 
 # printer
 KERNEL=="parport[0-9]*", GROUP="lp"
@@ -86,3 +86,5 @@ KERNEL=="fuse", ACTION=="add", MODE="0666", OPTIONS+="static_node=fuse"
 SUBSYSTEM=="rtc", ATTR{hctosys}=="1", MODE="0644", SYMLINK+="rtc"
 
 SUBSYSTEM=="firmware", ACTION=="add", IMPORT{builtin}="firmware"
+
+ENV{MODALIAS}!="", IMPORT{builtin}="hwdb --subsystem=$env{SUBSYSTEM}"
