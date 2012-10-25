@@ -371,5 +371,4 @@ const struct udev_builtin udev_builtin_hwdb = {
         .exit = builtin_hwdb_exit,
         .validate = builtin_hwdb_validate,
         .help = "hardware database",
-        .run_once = true,
 };
