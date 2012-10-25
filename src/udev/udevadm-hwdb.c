@@ -135,19 +135,28 @@ static int trie_values_cmp(const void *v1, const void *v2, void *arg) {
 
 static int trie_node_add_value(struct trie *trie, struct trie_node *node,
                           const char *key, const char *value) {
-        size_t k, v;
+        ssize_t k, v;
         struct trie_value_entry *val;
-        struct trie_value_entry search;
 
         k = strbuf_add_string(trie->strings, key, strlen(key));
+        if (k < 0)
+                return k;
         v = strbuf_add_string(trie->strings, value, strlen(value));
+        if (v < 0)
+                return v;
 
-        /* replace existing earlier key with new value */
-        search.value_off = k;
-        val = xbsearch_r(&search, node->values, node->values_count, sizeof(struct trie_value_entry), trie_values_cmp, trie);
-        if (val) {
-                val->value_off = v;
-                return 0;
+        if (node->values_count) {
+                struct trie_value_entry search = {
+                        .key_off = k,
+                        .value_off = v,
+                };
+
+                val = xbsearch_r(&search, node->values, node->values_count, sizeof(struct trie_value_entry), trie_values_cmp, trie);
+                if (val) {
+                        /* replace existing earlier key with new value */
+                        val->value_off = v;
+                        return 0;
+                }
         }
 
         /* extend array, add new entry, sort for bisection */
