@@ -5,7 +5,7 @@ SUBSYSTEM!="tty", GOTO="tty_end"
 
 IMPORT{builtin}="hwdb"
 
-SUBSYSTEMS=="usb", ENV{ID_MODEL}=="", IMPORT{builtin}="usb_id"
+SUBSYSTEMS=="usb", ENV{ID_MODEL}=="", IMPORT{builtin}="usb_id --subsystem=usb"
 SUBSYSTEMS=="usb", ATTRS{idVendor}!="", ATTRS{idProduct}!="", ENV{ID_VENDOR_ID}="$attr{idVendor}", ENV{ID_MODEL_ID}="$attr{idProduct}"
 SUBSYSTEMS=="usb", GOTO="tty_end"
 
