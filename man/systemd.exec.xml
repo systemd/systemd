@@ -567,8 +567,9 @@
                                 argument. If true and
                                 <varname>StandardOutput=</varname> or
                                 <varname>StandardError=</varname> are
-                                set to <option>syslog</option> or
-                                <option>kmsg</option> log lines
+                                set to <option>syslog</option>,
+                                <option>kmsg</option> or
+                                <option>journal</option>, log lines
                                 written by the executed process that
                                 are prefixed with a log level will be
                                 passed on to syslog with this log
