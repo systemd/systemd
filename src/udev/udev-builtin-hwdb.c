@@ -357,6 +357,8 @@ static bool builtin_hwdb_validate(struct udev *udev)
 {
         struct stat st;
 
+        if (!trie.f)
+                return true;
         if (fstat(fileno(trie.f), &st) < 0)
                 return true;
         if (trie.file_time_usec != ts_usec(&st.st_mtim))
