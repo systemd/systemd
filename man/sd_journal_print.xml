@@ -194,7 +194,7 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
                 <filename>sd-journal.h</filename>.</para>
 
                 <para><citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                and and <function>sd_journal_print()</function> may
+                and <function>sd_journal_print()</function> may
                 largely be used interchangeably
                 functionality-wise. However, note that log messages
                 logged via the former take a different path to the

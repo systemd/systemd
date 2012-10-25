@@ -96,7 +96,7 @@
                 for more information.</para>
 
                 <para>It is recommended that applications log UTF-8
-                mesages only with this API, but this is not
+                messages only with this API, but this is not
                 enforced.</para>
 
         </refsect1>

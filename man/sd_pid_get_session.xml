@@ -114,7 +114,7 @@
                 and not being a shared process of a user this function
                 will fail.</para>
 
-                <para>If the <literal>pid</literal> paramater of any
+                <para>If the <literal>pid</literal> parameter of any
                 of these functions is passed as 0 the operation is
                 executed for the calling process.</para>
         </refsect1>

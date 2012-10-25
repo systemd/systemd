@@ -108,7 +108,7 @@
                 <para><function>sd_journal_seek_realtime_usec()</function>
                 seeks to the entry with the specified realtime
                 (wallclock) timestamp, i.e. CLOCK_REALTIME. Note that
-                the realtime clock is not necessary monotonic. If a
+                the realtime clock is not necessarily monotonic. If a
                 realtime timestamp is ambiguous it is not defined
                 which position is sought to.</para>
 

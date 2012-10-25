@@ -81,7 +81,7 @@
 
                 <para><function>sd_journal_get_fd()</function> returns
                 a file descriptor that may be asynchronously polled in
-                an external event loop and is signalled readable as
+                an external event loop and is signaled readable as
                 soon as the journal changes, for example because new
                 entries were added. The file descriptor is suitable
                 for usage in

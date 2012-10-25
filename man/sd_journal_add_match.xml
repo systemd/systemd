@@ -122,7 +122,7 @@
                 again.</para>
 
                 <para>Note that filtering via matches only applies to
-                way the journal is read, it has no effect on storage
+                the way the journal is read, it has no effect on storage
                 on disk.</para>
         </refsect1>
 

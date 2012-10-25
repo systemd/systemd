@@ -134,7 +134,7 @@
                 <title>Kernel Command Line</title>
 
                 <para>A few configuration parameters from
-                <filename>journald.conf</filename> may be overriden on
+                <filename>journald.conf</filename> may be overridden on
                 the kernel command line:</para>
 
                 <variablelist>

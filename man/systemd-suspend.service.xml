@@ -64,7 +64,7 @@
                 for the actual system suspend. Similar,
                 <filename>systemd-hibernate.service</filename> is
                 pulled in by <filename>hibernate.target</filename> to
-                executed the actual hibernation.</para>
+                execute the actual hibernation.</para>
 
                 <para>Immediately before entering system suspend and
                 hibernation

@@ -403,7 +403,7 @@
                                 paths in the <filename>/sys</filename>
                                 file system. To create a new seat
                                 attach at least one graphics card to a
-                                previously unused seat name. seat
+                                previously unused seat name. Seat
                                 names may consist only of a-z, A-Z,
                                 0-9, "-" and "_" and must be prefixed
                                 with "seat". To drop assignment of a

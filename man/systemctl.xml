@@ -178,7 +178,7 @@
                                 execute it immediately. If passed no
                                 required units of the unit passed will
                                 be pulled in, and no ordering
-                                dependencies will be honoured. This is
+                                dependencies will be honored. This is
                                 mostly a debugging and rescue tool for
                                 the administrator and should not be
                                 used by
@@ -766,7 +766,7 @@
                                 configuration after completing the
                                 disabling of the units. Note that this
                                 command does not implicitly stop the
-                                units that is being disabled. If this
+                                units that are being disabled. If this
                                 is desired an additional
                                 <command>stop</command> command should
                                 be executed afterwards.</para>
@@ -789,7 +789,7 @@
                                 <term><command>is-enabled [NAME...]</command></term>
 
                                 <listitem><para>Checks whether any of
-                                the specified unit files is enabled
+                                the specified unit files are enabled
                                 (as with
                                 <command>enable</command>). Returns an
                                 exit code of 0 if at least one is

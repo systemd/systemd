@@ -75,7 +75,7 @@
                 inspired by Microsoft Windows
                 <filename>.ini</filename> files.</para>
 
-                <para>This man pages lists the common configuration
+                <para>This man page lists the common configuration
                 options of all the unit types. These options need to
                 be configured in the [Unit] or [Install]
                 sections of the unit files.</para>

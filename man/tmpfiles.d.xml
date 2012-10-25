@@ -161,7 +161,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         effect of r or R lines. Lines
                                         of this type accept
                                         shell-style globs in place of
-                                        of normal path
+                                        normal path
                                         names.</para></listitem>
                                 </varlistentry>
 

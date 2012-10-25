@@ -77,7 +77,7 @@
 
                 <para><function>sd_id128_from_string()</function>
                 implements the reverse operation: it takes a 33
-                character array with 32 hexadecimial digits
+                character array with 32 hexadecimal digits
                 (terminated by NUL) and parses them back into an
                 128 bit ID returned in
                 <parameter>ret</parameter>.</para>
@@ -89,7 +89,7 @@
                 <para>When formatting a 128 bit ID into a string it is
                 often easier to use a format string for
                 <citerefentry><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
-                is easly done using the
+                is easily done using the
                 <function>SD_ID128_FORMAT_STR</function> and
                 <function>SD_ID128_FORMAT_VAL()</function> macros. For
                 more information see

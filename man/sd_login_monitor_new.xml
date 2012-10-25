@@ -83,20 +83,20 @@
                 <title>Description</title>
 
                 <para><function>sd_login_monitor_new()</function> may
-                be used to monitor login session, users and seats. Via
+                be used to monitor login sessions, users and seats. Via
                 a monitor object a file descriptor can be integrated
                 into an application defined event loop which is woken
                 up each time a user logs in, logs out or a seat is
                 added or removed, or a session, user, or seat changes
                 state otherwise. The first parameter takes a string
-                which can be either <literal>seat</literal> (to get
+                which can be <literal>seat</literal> (to get
                 only notifications about seats being added, removed or
                 changed), <literal>session</literal> (to get only
                 notifications about sessions being created or removed
                 or changed) or <literal>uid</literal> (to get only
                 notifications when a user changes state in respect to
                 logins). If notifications shall be generated in all
-                these conditions, NULL may be passed. Note that in
+                these conditions, NULL may be passed. Note that in the
                 future additional categories may be defined. The
                 second parameter returns a monitor object and needs to
                 be freed with the

@@ -73,7 +73,7 @@
                 <title>Kernel Command Line</title>
 
                 <para>A few configuration parameters from
-                <filename>vconsole.conf</filename> may be overriden on
+                <filename>vconsole.conf</filename> may be overridden on
                 the kernel command line:</para>
 
                 <variablelist>

@@ -120,7 +120,7 @@
 
                 <para><function>sd_uid_get_sessions()</function> may
                 be used to determine the current sessions of the
-                specified user. Acceptes a Unix user identifier as
+                specified user. Accepts a Unix user identifier as
                 parameter. The <parameter>require_active</parameter>
                 parameter controls whether the returned list shall
                 consist of only those sessions where the user is

@@ -107,7 +107,7 @@
 
                 <para><function>sd_is_socket()</function> may be
                 called to check whether the specified file descriptor
-                refers to a socket. It the
+                refers to a socket. If the
                 <parameter>family</parameter> parameter is not
                 AF_UNSPEC it is checked whether the socket is of the
                 specified family (AF_UNIX, AF_INET, ...). If the
@@ -129,7 +129,7 @@
                 optionally checks the IPv4 or IPv6 port number the
                 socket is bound to, unless <parameter>port</parameter>
                 is zero. For this call <parameter>family</parameter>
-                must be passed as either AF_UNSPEC, AF_INET or
+                must be passed as either AF_UNSPEC, AF_INET, or
                 AF_INET6.</para>
 
                 <para><function>sd_is_socket_unix()</function> is

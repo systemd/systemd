@@ -80,7 +80,7 @@
         <refsect1>
                 <title>Description</title>
 
-                <para><function>sd_journal_open()</function> opens the
+                <para><function>sd_journal_open()</function> opens
                 the log journal for reading. It will find all journal
                 files automatically and interleave them automatically
                 when reading. As first argument it takes a pointer to
@@ -120,7 +120,7 @@
                 <para>See
                 <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for an example how to iterate through the journal
-                after opening it it with
+                after opening it with
                 <function>sd_journal_open()</function>.</para>
 
                 <para>A journal context object returned by

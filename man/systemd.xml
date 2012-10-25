@@ -1002,7 +1002,7 @@
                                 <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for details about these units. The
                                 option prefixed with
-                                <literal>rd.</literal> is honoured
+                                <literal>rd.</literal> is honored
                                 only in the initial RAM disk (initrd),
                                 while the one that isn't prefixed only
                                 in the main system.</para></listitem>
@@ -1101,7 +1101,7 @@
                                 process and all its children at boot
                                 time. May be used more than once to
                                 set multiple variables. If the equal
-                                sign and variable are missing unsets
+                                sign and variable are missing it unsets
                                 an environment variable which might be
                                 passed in from the initial ram
                                 disk.</para></listitem>

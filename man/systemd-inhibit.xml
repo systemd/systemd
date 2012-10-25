@@ -160,7 +160,7 @@
                                 may be specified in
                                 <citerefentry><refentrytitle>systemd-logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note
                                 that <literal>delay</literal> is only
-                                available or <literal>sleep</literal>
+                                available for <literal>sleep</literal>
                                 and
                                 <literal>shutdown</literal>.</para></listitem>
                         </varlistentry>

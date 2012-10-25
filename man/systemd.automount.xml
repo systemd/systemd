@@ -130,7 +130,7 @@
                                 <listitem><para>Takes an absolute path
                                 of a directory of the automount
                                 point. If the automount point is not
-                                existing at time of the automount
+                                existing at time that the automount
                                 point is installed it is created. This
                                 string must be reflected in the unit
                                 file name. (See above.) This option is

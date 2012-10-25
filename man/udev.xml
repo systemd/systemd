@@ -94,7 +94,7 @@
       extensions are ignored.</para>
 
       <para>Every line in the rules file contains at least one key-value pair.
-      There are two kind of keys: match and assignment.
+      There are two kinds of keys: match and assignment.
       If all match keys are matching against its value, the rule gets applied and the
       assignment keys get the specified value assigned.</para>
 
@@ -327,7 +327,7 @@
           <term><option>NAME</option></term>
           <listitem>
             <para>The name to use for a network interface. The name of a device node
-            can not be changed by udev, only additional symlinks can be created.</para>
+            cannot be changed by udev, only additional symlinks can be created.</para>
           </listitem>
         </varlistentry>
 

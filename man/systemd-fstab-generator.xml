@@ -59,7 +59,7 @@
                 for details) into native systemd units early at boot
                 and when configuration of the system manager is
                 reloaded. This will instantiate mount and swap units
-                units as necessary.</para>
+                as necessary.</para>
 
                 <para>See
                 <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -94,10 +94,10 @@
                                 generator to ignore any mounts or swaps
                                 configured in
                                 <filename>/etc/fstab</filename>. <varname>rd.fstab=</varname>
-                                is honoured only be initial RAM disk
+                                is honored only by initial RAM disk
                                 (initrd) while
                                 <varname>luks.fstab=</varname> is
-                                honoured by both the main system and
+                                honored by both the main system and
                                 the initrd.  </para></listitem>
                         </varlistentry>
 

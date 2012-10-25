@@ -61,7 +61,7 @@
 
                 <para>The basic file format of the
                 <filename>vconsole.conf</filename> is a
-                newline-separated list environment-like
+                newline-separated list of environment-like
                 shell-compatible variable assignments. It is possible
                 to source the configuration from shell scripts,
                 however, beyond mere variable assignments no shell
@@ -100,7 +100,7 @@
                                 defaults to <literal>us</literal> if
                                 not set. The
                                 <varname>KEYMAP_TOGGLE=</varname> can
-                                be used to configured a second toggle
+                                be used to configure a second toggle
                                 keymap and is by default
                                 unset.</para></listitem>
                         </varlistentry>

@@ -215,7 +215,7 @@
                                 <term><varname>_SYSTEMD_OWNER_UID=</varname></term>
 
                                 <listitem>
-                                        <para>The contol group path in
+                                        <para>The control group path in
                                         the systemd hierarchy, the
                                         systemd session ID (if any),
                                         the systemd unit name (if any)

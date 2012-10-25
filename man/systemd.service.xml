@@ -100,7 +100,7 @@
                 script. This is useful for compatibility with
                 SysV. Note that this compatibility is quite
                 comprehensive but not 100%. For details about the
-                incomptibilities see the <ulink
+                incompatibilities see the <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/Incompatibilities">Incompatibilities
                 with SysV</ulink> document.
                 </para>
@@ -219,7 +219,7 @@
                                 <para>Behavior of
                                 <option>idle</option> is very similar
                                 to <option>simple</option>, however
-                                actual execution of a the service
+                                actual execution of the service
                                 binary is delayed until all jobs are
                                 dispatched. This may be used to avoid
                                 interleaving of output of shell
@@ -245,7 +245,7 @@
                                 <listitem><para>Takes a boolean value
                                 that specifies whether systemd should
                                 try to guess the main PID of a service
-                                should if it cannot be determined
+                                if it cannot be determined
                                 reliably. This option is ignored
                                 unless <option>Type=forking</option>
                                 is set and <option>PIDFile=</option>
@@ -283,7 +283,7 @@
                                 <term><varname>BusName=</varname></term>
 
                                 <listitem><para>Takes a D-Bus bus
-                                name, where this service is reachable
+                                name, that this service is reachable
                                 as. This option is mandatory for
                                 services where
                                 <varname>Type=</varname> is set to
@@ -341,7 +341,7 @@
                                 variable substitution is
                                 supported. Use
                                 <literal>${FOO}</literal> as part of a
-                                word, or as word of its own on the
+                                word, or as a word of its own on the
                                 command line, in which case it will be
                                 replaced by the value of the
                                 environment variable including all
@@ -578,7 +578,7 @@
                                 0. If set to
                                 <option>on-failure</option> it will be
                                 restarted only when it exited with an
-                                exit code not equalling 0, when
+                                exit code not equaling 0, when
                                 terminated by a signal (including on
                                 core dump), when an operation (such as
                                 service reload) times out or when the

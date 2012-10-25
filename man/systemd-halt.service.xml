@@ -85,7 +85,7 @@
 
                 <para>Immediately before executing the actual system
                 halt/poweroff/reboot/kexec
-                <filename>system-shutdown</filename> will run all
+                <filename>systemd-shutdown</filename> will run all
                 executables in
                 <filename>/usr/lib/systemd/system-shutdown/</filename>
                 and pass one arguments to them: either

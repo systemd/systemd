@@ -58,7 +58,7 @@
 
                 <para><command>systemd-detect-virt</command> detects
                 execution in a virtualized environment. It identifies
-                the virtualization technology and can distuingish full
+                the virtualization technology and can distinguish full
                 VM virtualization from container
                 virtualization.</para>
 

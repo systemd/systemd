@@ -83,9 +83,9 @@
                                 <literal>no</literal> disables the
                                 generator
                                 entirely. <varname>rd.luks=</varname>
-                                is honoured only be initial RAM disk
+                                is honored only by initial RAM disk
                                 (initrd) while
-                                <varname>luks=</varname> is honoured
+                                <varname>luks=</varname> is honored
                                 by both the main system and the
                                 initrd.  </para></listitem>
                         </varlistentry>
@@ -104,10 +104,10 @@
                                 (<varname>luks.uuid=</varname> will
                                 still work
                                 however). <varname>rd.luks.crypttab=</varname>
-                                is honoured only be initial RAM disk
+                                is honored only by initial RAM disk
                                 (initrd) while
                                 <varname>luks.crypttab=</varname> is
-                                honoured by both the main system and
+                                honored by both the main system and
                                 the initrd.  </para></listitem>
                         </varlistentry>
 
@@ -124,10 +124,10 @@
                                 option may be specified more than once
                                 in order to set up multiple
                                 devices. <varname>rd.luks.uuid=</varname>
-                                is honoured only be initial RAM disk
+                                is honored only by initial RAM disk
                                 (initrd) while
                                 <varname>luks.uuid=</varname> is
-                                honoured by both the main system and
+                                honored by both the main system and
                                 the initrd.</para></listitem>
                         </varlistentry>
                 </variablelist>

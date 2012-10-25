@@ -70,7 +70,7 @@
                 to. Otherwise the full systemd control group hierarchy
                 is shown.</para>
 
-                <para>By default empty control cgroups are not
+                <para>By default empty control groups are not
                 shown.</para>
         </refsect1>
 
@@ -107,7 +107,7 @@
 
                                 <listitem><para>Don't hide empty
                                 control groups in the
-                                outpout.</para></listitem>
+                                output.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

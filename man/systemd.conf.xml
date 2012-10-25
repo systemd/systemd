@@ -201,7 +201,7 @@
                                 capabilities will be included, the
                                 effect of the assignment
                                 inverted. Note that this option also
-                                effects the respective capabilities in
+                                affects the respective capabilities in
                                 the effective, permitted and
                                 inheritable capability sets. The
                                 capability bounding set may also be
@@ -220,7 +220,7 @@
                                 <listitem><para>Sets the timer slack
                                 in nanoseconds for PID 1 which is then
                                 inherited to all executed processes,
-                                unless overriden individually, for
+                                unless overridden individually, for
                                 example with the
                                 <varname>TimerSlackNSec=</varname>
                                 setting in service units (for details
@@ -264,7 +264,7 @@
                                 <varname>infinity</varname> to
                                 configure no limit on a specific
                                 resource. These settings may be
-                                overriden in individual units
+                                overridden in individual units
                                 using the corresponding LimitXXX=
                                 directives. Note that these resource
                                 limits are only defaults for units,
