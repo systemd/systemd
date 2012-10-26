@@ -576,6 +576,7 @@ MANPAGES_ALIAS = \
 	man/SD_JOURNAL_FOREACH_DATA.3 \
 	man/sd_journal_get_monotonic_usec.3 \
 	man/sd_journal_get_cutoff_monotonic_usec.3 \
+	man/sd_journal_reliable_fd.3 \
 	man/sd_journal_process.3 \
 	man/sd_journal_wait.3 \
 	man/SD_JOURNAL_NOP.3 \
@@ -649,6 +650,7 @@ man/sd_journal_restart_data.3: man/sd_journal_get_data.3
 man/SD_JOURNAL_FOREACH_DATA.3: man/sd_journal_get_data.3
 man/sd_journal_get_monotonic_usec.3: man/sd_journal_get_realtime_usec.3
 man/sd_journal_get_cutoff_monotonic_usec.3: man/sd_journal_get_cutoff_realtime_usec.3
+man/sd_journal_reliable_fd.3: man/sd_journal_get_fd.3
 man/sd_journal_process.3: man/sd_journal_get_fd.3
 man/sd_journal_wait.3: man/sd_journal_get_fd.3
 man/SD_JOURNAL_NOP.3: man/sd_journal_get_fd.3

@@ -124,6 +124,7 @@ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_t *l);
 void sd_journal_restart_unique(sd_journal *j);
 
 int sd_journal_get_fd(sd_journal *j);
+int sd_journal_reliable_fd(sd_journal *j);
 int sd_journal_process(sd_journal *j);
 int sd_journal_wait(sd_journal *j, uint64_t timeout_usec);
 

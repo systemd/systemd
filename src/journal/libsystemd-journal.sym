@@ -80,3 +80,8 @@ global:
         sd_journal_enumerate_unique;
         sd_journal_restart_unique;
 } LIBSYSTEMD_JOURNAL_190;
+
+LIBSYSTEMD_JOURNAL_196 {
+global:
+        sd_journal_fd_reliable;
+} LIBSYSTEMD_JOURNAL_195;

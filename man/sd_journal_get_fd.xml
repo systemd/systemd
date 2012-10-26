@@ -44,6 +44,7 @@
 
         <refnamediv>
                 <refname>sd_journal_get_fd</refname>
+                <refname>sd_journal_reliable_fd</refname>
                 <refname>sd_journal_process</refname>
                 <refname>sd_journal_wait</refname>
                 <refname>SD_JOURNAL_NOP</refname>
@@ -59,6 +60,11 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_get_fd</function></funcdef>
+                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_journal_reliable_fd</function></funcdef>
                                 <paramdef>sd_journal* <parameter>j</parameter></paramdef>
                         </funcprototype>
 
@@ -82,12 +88,36 @@
                 <para><function>sd_journal_get_fd()</function> returns
                 a file descriptor that may be asynchronously polled in
                 an external event loop and is signaled readable as
-                soon as the journal changes, for example because new
-                entries were added. The file descriptor is suitable
-                for usage in
+                soon as the journal changes, because new entries or
+                files were added, rotation took place, or files have
+                been deleted, and similar. The file descriptor is
+                suitable for usage in
                 <citerefentry><refentrytitle>poll</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                where it will yield POLLIN on all changes. The call
-                takes one argument: the journal context object.</para>
+                where it will yield POLLIN on changes. The call takes
+                one argument: the journal context object. Note that
+                not all file systems are capable of generating the
+                necessary events for wakeups from this file descriptor
+                to be enirely reliable. In particular network files
+                systems do not generate suitable file change events in
+                all cases. In such a case an application should not
+                rely alone on wake-ups from this file descriptor but
+                wake up and recheck the journal in regular time
+                intervals, for example every 2s. To detect
+                cases where this is necessary, use
+                <function>sd_journal_reliable_fd()</function>,
+                below.</para>
+
+                <para><function>sd_journal_reliable_fd()</function>
+                may be used to check whether the wakeup events from
+                the file descriptor returned by
+                <function>sd_journal_get_fd</function> are sufficient
+                to track changes to the journal. If this call returns
+                0, it is necessary to regularly recheck for journal
+                changes (suggestion: every 2s). If this call returns a
+                positive integer this is not necessary, and wakeups
+                from the file descriptor returned by
+                <function>sd_journal_get_fd()</function> are
+                sufficient as only source for wake-ups.</para>
 
                 <para>After each POLLIN wake-up
                 <function>sd_journal_process()</function> needs to be
@@ -97,14 +127,19 @@
                 that spurious wake-ups are possible).</para>
 
                 <para>A synchronous alternative for using
-                <function>sd_journal_get_fd()</function> and
+                <function>sd_journal_get_fd()</function>,
+                <function>sd_journal_reliable_fd()</function> and
                 <function>sd_journal_process()</function> is
                 <function>sd_journal_wait()</function>. It will
-                synchronously wait until the journal gets changed up
-                to a certain time-out as specified in its second
-                argument. Pass <literal>(uint64_t) -1</literal> to
-                wait indefinitely. Internally this call simply
-                combines <function>sd_journal_get_fd()</function>,
+                synchronously wait until the journal gets changed,
+                possibly using a 2s time-out if this is necessary (see
+                above). In either way the maximum time this call
+                sleeps may be controlled with the
+                <parameter>timeout_usec</parameter> parameter. Pass
+                <literal>(uint64_t) -1</literal> to wait
+                indefinitely. Internally this call simply combines
+                <function>sd_journal_get_fd()</function>,
+                <function>sd_journal_reliable_fd()</function>,
                 <function>poll()</function> and
                 <function>sd_journal_process()</function> into
                 one.</para>
@@ -116,6 +151,15 @@
 
                 <para><function>sd_journal_get_fd()</function> returns a valid file descriptor on success or a negative errno-style error
                 code.</para>
+
+                <para><function>sd_journal_reliable_fd()</function>
+                returns a positive integer if the file descriptor
+                returned by <function>sd_journal_get_fd()</function>
+                is sufficient as sole wake-up source for journal
+                change events. Returns 0 if it is not sufficient and
+                the journal needs to be checked manually in regular
+                time intervals for changes. Returns a negative
+                errno-style error code on failure.</para>
 
                 <para><function>sd_journal_process()</function> and
                 <function>sd_journal_wait()</function> return one of
@@ -140,6 +184,7 @@
                 <title>Notes</title>
 
                 <para>The <function>sd_journal_get_fd()</function>,
+                <function>sd_journal_reliable_fd()</function>,
                 <function>sd_journal_process()</function> and
                 <function>sd_journal_wait()</function> interfaces are
                 available as shared library, which can be compiled and
@@ -150,13 +195,77 @@
         </refsect1>
 
         <refsect1>
+                <title>Examples</title>
+
+                <para>Iterating through the journal, in a live view tracking all changes:</para>
+
+                <programlisting>#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include &lt;systemd/sd-journal.h&gt;
+
+int main(int argc, char *argv[]) {
+        int r;
+        sd_journal *j;
+        r = sd_journal_open(&amp;j, SD_JOURNAL_LOCAL_ONLY);
+        if (r &lt; 0) {
+                fprintf(stderr, "Failed to open journal: %s\n", strerror(-r));
+                return 1;
+        }
+        for (;;)  {
+                const char *d;
+                size_t l;
+                r = sd_journal_next(j);
+                if (r &lt; 0) {
+                        fprintf(stderr, "Failed to iterate to next entry: %s\n", strerror(-r));
+                        break;
+                }
+                if (r == 0) {
+                        /* Reached the end, let's wait for changes, and try again */
+                        r = sd_journal_wait(j, (uint64_t) -1);
+                        if (r &lt; 0) {
+                                fprintf(stderr, "Failed to wait for changes: %s\n", strerror(-r));
+                                break;
+                        }
+                        continue;
+                }
+                r = sd_journal_get_data(j, "MESSAGE", &amp;d, &amp;l);
+                if (r &lt; 0) {
+                        fprintf(stderr, "Failed to read message field: %s\n", strerror(-r));
+                        continue;
+                }
+                printf("%.*s\n", (int) l, d);
+        }
+        sd_journal_close(j);
+        return 0;
+}</programlisting>
+
+                <para>Waiting with <function>poll()</function> (this
+                example lacks all error checking for the sake of
+                simplicity):</para>
+
+                <programlisting>#include &lt;sys/poll.h&gt;
+#include &lt;systemd/sd-journal.h&gt;
+
+int wait_for_changes(sd_journal *j) {
+        struct pollfd pollfd;
+        pollfd.fd = sd_journal_get_fd();
+        pollfd.events = POLLIN;
+        poll(&amp;pollfd, 1, sd_journal_reliable_fd() &gt; 0 ? -1 : 2000);
+        return sd_journal_process(j);
+}
+                </programlisting>
+        </refsect1>
+
+
+        <refsect1>
                 <title>See Also</title>
 
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>poll</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

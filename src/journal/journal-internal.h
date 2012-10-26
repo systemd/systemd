@@ -119,6 +119,8 @@ struct sd_journal {
         char *unique_field;
         JournalFile *unique_file;
         uint64_t unique_offset;
+
+        bool on_network;
 };
 
 char *journal_make_match_string(sd_journal *j);

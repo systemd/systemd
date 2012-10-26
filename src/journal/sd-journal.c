@@ -25,6 +25,8 @@
 #include <unistd.h>
 #include <sys/inotify.h>
 #include <sys/poll.h>
+#include <sys/vfs.h>
+#include <linux/magic.h>
 
 #include "sd-journal.h"
 #include "journal-def.h"
@@ -35,8 +37,11 @@
 #include "lookup3.h"
 #include "compress.h"
 #include "journal-internal.h"
+#include "missing.h"
 
 #define JOURNAL_FILES_MAX 1024
+
+#define JOURNAL_FILES_RECHECK_USEC (2 * USEC_PER_SEC)
 
 static void detach_location(sd_journal *j) {
         Iterator i;
@@ -1184,6 +1189,25 @@ _public_ int sd_journal_seek_tail(sd_journal *j) {
         return 0;
 }
 
+static void check_network(sd_journal *j, int fd) {
+        struct statfs sfs;
+
+        assert(j);
+
+        if (j->on_network)
+                return;
+
+        if (fstatfs(fd, &sfs) < 0)
+                return;
+
+        j->on_network =
+                sfs.f_type == CIFS_MAGIC_NUMBER ||
+                sfs.f_type == CODA_SUPER_MAGIC ||
+                sfs.f_type == NCP_SUPER_MAGIC ||
+                sfs.f_type == NFS_SUPER_MAGIC ||
+                sfs.f_type == SMB_SUPER_MAGIC;
+}
+
 static int add_file(sd_journal *j, const char *prefix, const char *filename) {
         char *path;
         int r;
@@ -1232,6 +1256,8 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
                 journal_file_close(f);
                 return r;
         }
+
+        check_network(j, f->fd);
 
         j->current_invalidate_counter ++;
 
@@ -1366,6 +1392,8 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                 }
         }
 
+        check_network(j, dirfd(d));
+
         closedir(d);
 
         return 0;
@@ -1452,6 +1480,8 @@ static int add_root_directory(sd_journal *j, const char *p) {
                                 log_debug("Failed to add directory %s/%s: %s", m->path, de->d_name, strerror(-r));
                 }
         }
+
+        check_network(j, dirfd(d));
 
         closedir(d);
 
@@ -2079,6 +2109,14 @@ _public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {
                 return determine_change(j);
         }
 
+        if (j->on_network) {
+                /* If we are on the network we need to regularly check
+                 * for changes manually */
+
+                if (timeout_usec == (uint64_t) -1 || timeout_usec > JOURNAL_FILES_RECHECK_USEC)
+                        timeout_usec = JOURNAL_FILES_RECHECK_USEC;
+        }
+
         do {
                 r = fd_wait_for_event(j->inotify_fd, POLLIN, timeout_usec);
         } while (r == -EINTR);
@@ -2343,4 +2381,11 @@ _public_ void sd_journal_restart_unique(sd_journal *j) {
 
         j->unique_file = NULL;
         j->unique_offset = 0;
+}
+
+_public_ int sd_journal_reliable_fd(sd_journal *j) {
+        if (!j)
+                return -EINVAL;
+
+        return !j->on_network;
 }
