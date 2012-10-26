@@ -147,6 +147,25 @@ int trivial_compare_func(const void *a, const void *b) {
         return a < b ? -1 : (a > b ? 1 : 0);
 }
 
+unsigned uint64_hash_func(const void *p) {
+        uint64_t u;
+
+        assert_cc(sizeof(uint64_t) == 2*sizeof(unsigned));
+
+        u = *(const uint64_t*) p;
+
+        return (unsigned) ((u >> 32) ^ u);
+}
+
+int uint64_compare_func(const void *_a, const void *_b) {
+        uint64_t a, b;
+
+        a = *(const uint64_t*) _a;
+        b = *(const uint64_t*) _b;
+
+        return a < b ? -1 : (a > b ? 1 : 0);
+}
+
 Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func) {
         bool b;
         Hashmap *h;

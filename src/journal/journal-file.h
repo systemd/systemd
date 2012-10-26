@@ -33,6 +33,7 @@
 #include "journal-def.h"
 #include "util.h"
 #include "mmap-cache.h"
+#include "hashmap.h"
 
 typedef struct JournalMetrics {
         uint64_t max_use;
@@ -63,6 +64,8 @@ typedef struct JournalFile {
 
         JournalMetrics metrics;
         MMapCache *mmap;
+
+        Hashmap *chain_cache;
 
 #ifdef HAVE_XZ
         void *compress_buffer;

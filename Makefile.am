@@ -2509,6 +2509,14 @@ test_journal_match_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la
 
+test_journal_enum_SOURCES = \
+	src/journal/test-journal-enum.c
+
+test_journal_enum_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la
+
 test_journal_stream_SOURCES = \
 	src/journal/test-journal-stream.c
 
@@ -2635,6 +2643,7 @@ noinst_PROGRAMS += \
 	test-journal-send \
 	test-journal-syslog \
 	test-journal-match \
+	test-journal-enum \
 	test-journal-stream \
 	test-journal-verify \
 	test-mmap-cache

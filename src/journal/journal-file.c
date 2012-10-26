@@ -65,6 +65,9 @@
 /* n_data was the first entry we added after the initial file format design */
 #define HEADER_SIZE_MIN ALIGN64(offsetof(Header, n_data))
 
+/* How many entries to keep in the entry array chain cache at max */
+#define CHAIN_CACHE_MAX 20
+
 void journal_file_close(JournalFile *f) {
         assert(f);
 
@@ -96,6 +99,8 @@ void journal_file_close(JournalFile *f) {
 
         if (f->mmap)
                 mmap_cache_unref(f->mmap);
+
+        hashmap_free_free(f->chain_cache);
 
 #ifdef HAVE_XZ
         free(f->compress_buffer);
@@ -1307,37 +1312,89 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
         return r;
 }
 
+typedef struct ChainCacheItem {
+        uint64_t first; /* the array at the begin of the chain */
+        uint64_t array; /* the cached array */
+        uint64_t begin; /* the first item in the cached array */
+        uint64_t total; /* the total number of items in all arrays before this one in the chain */
+} ChainCacheItem;
+
+static void chain_cache_put(
+                Hashmap *h,
+                ChainCacheItem *ci,
+                uint64_t first,
+                uint64_t array,
+                uint64_t begin,
+                uint64_t total) {
+
+        if (!ci) {
+                if (hashmap_size(h) >= CHAIN_CACHE_MAX)
+                        ci = hashmap_steal_first(h);
+                else {
+                        ci = new(ChainCacheItem, 1);
+                        if (!ci)
+                                return;
+                }
+
+                ci->first = first;
+
+                if (hashmap_put(h, &ci->first, ci) < 0) {
+                        free(ci);
+                        return;
+                }
+        } else
+                assert(ci->first == first);
+
+        ci->array = array;
+        ci->begin = begin;
+        ci->total = total;
+}
+
 static int generic_array_get(JournalFile *f,
                              uint64_t first,
                              uint64_t i,
                              Object **ret, uint64_t *offset) {
 
         Object *o;
-        uint64_t p = 0, a;
+        uint64_t p = 0, a, t = 0;
         int r;
+        ChainCacheItem *ci;
 
         assert(f);
 
         a = first;
+
+        /* Try the chain cache first */
+        ci = hashmap_get(f->chain_cache, &first);
+        if (ci && i > ci->total) {
+                a = ci->array;
+                i -= ci->total;
+                t = ci->total;
+        }
+
         while (a > 0) {
-                uint64_t n;
+                uint64_t k;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
                 if (r < 0)
                         return r;
 
-                n = journal_file_entry_array_n_items(o);
-                if (i < n) {
+                k = journal_file_entry_array_n_items(o);
+                if (i < k) {
                         p = le64toh(o->entry_array.items[i]);
-                        break;
+                        goto found;
                 }
 
-                i -= n;
+                i -= k;
+                t += k;
                 a = le64toh(o->entry_array.next_entry_array_offset);
         }
 
-        if (a <= 0 || p <= 0)
-                return 0;
+        return 0;
+
+found:
+        /* Let's cache this item for the next invocation */
+        chain_cache_put(f->chain_cache, ci, first, a, o->entry_array.items[0], t);
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
         if (r < 0)
@@ -1401,11 +1458,38 @@ static int generic_array_bisect(JournalFile *f,
         bool subtract_one = false;
         Object *o, *array = NULL;
         int r;
+        ChainCacheItem *ci;
 
         assert(f);
         assert(test_object);
 
+        /* Start with the first array in the chain */
         a = first;
+
+        ci = hashmap_get(f->chain_cache, &first);
+        if (ci && n > ci->total) {
+                /* Ah, we have iterated this bisection array chain
+                 * previously! Let's see if we can skip ahead in the
+                 * chain, as far as the last time. But we can't jump
+                 * backwards in the chain, so let's check that
+                 * first. */
+
+                r = test_object(f, ci->begin, needle);
+                if (r < 0)
+                        return r;
+
+                if (r == TEST_LEFT) {
+                        /* OK, what we are looking for is right of th
+                         * begin of this EntryArray, so let's jump
+                         * straight to previously cached array in the
+                         * chain */
+
+                        a = ci->array;
+                        n -= ci->total;
+                        t = ci->total;
+                }
+        }
+
         while (a > 0) {
                 uint64_t left, right, k, lp;
 
@@ -1485,6 +1569,9 @@ static int generic_array_bisect(JournalFile *f,
 found:
         if (subtract_one && t == 0 && i == 0)
                 return 0;
+
+        /* Let's cache this item for the next invocation */
+        chain_cache_put(f->chain_cache, ci, first, a, array->entry_array.items[0], t);
 
         if (subtract_one && i == 0)
                 p = last_p;
@@ -2261,6 +2348,12 @@ int journal_file_open(
 
         f->path = strdup(fname);
         if (!f->path) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        f->chain_cache = hashmap_new(uint64_hash_func, uint64_compare_func);
+        if (!f->chain_cache) {
                 r = -ENOMEM;
                 goto fail;
         }

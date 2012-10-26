@@ -44,6 +44,9 @@ int string_compare_func(const void *a, const void *b);
 unsigned trivial_hash_func(const void *p);
 int trivial_compare_func(const void *a, const void *b);
 
+unsigned uint64_hash_func(const void *p);
+int uint64_compare_func(const void *a, const void *b);
+
 Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func);
 void hashmap_free(Hashmap *h);
 void hashmap_free_free(Hashmap *h);
