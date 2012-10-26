@@ -13,11 +13,28 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
+* _SOURCE_MONOTONIC_TIMESTAMP entries from the kernel seem to be off by 1000000
+
 F18:
 
 * Retest multi-seat
 
 Features:
+
+* localectl: add listing support for X11 keymaps, by parsing /usr/share/X11/xkb/rules/xorg.lst
+
+* libunwind support for coredump pattern hook, and includes this in
+  the message for coredumps. After all, libunwind is now capable to
+  unwind coredumps since a few weeks ago. This probably requires that
+  we have nice support for multi-line messages on display in logs-show.c.
+
+* coredumpctl: show dates for coredumps
+
+* coredumpctl: add gdb command that invokes gdb on the selected coredump an binary in one go
+
+* figure out relation of --all and --full in the various tools
+
+* journal: when writing journal auto-rotate if time jumps backwards
 
 * introduce new "journal" group in place of adm? introduce groups for the various mini daemons?
 
@@ -47,18 +64,11 @@ Features:
 * fedup: don't delete initrd on switch-root
 * fedup: generator
 
-* journalctl/gatewayd: GELF output
-
 * journal: find a way to allow dropping history early, based on priority, other rules
-
-* journal: When interleaving journal files cache binary search results so that
-  we can cheaply continue where we left off.
 
 * journal: When used on NFS, check payload hashes
 
 * journal: When used on NFS make sure wake up sd_journal_wait() every 2s, to handle missing inotify
-
-* "See journal for details" messages should include "journalctl -u" command line
 
 * document that people can use file system ACLs to manage access to journal files, with example
 
@@ -71,8 +81,6 @@ Features:
 * clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
 
 * introduce hybrid-sleep.target
-
-* _SOURCE_MONOTONIC_TIMESTAMP entries from the kernel seem to be off by 1000000
 
 * document unit_name_mangle()
 
@@ -127,8 +135,6 @@ Features:
 
 * need to update LGPL2.1 text to newest version (with updated FSF address)
 
-* allow users from "wheel" to start/stop services
-
 * systemctl: when powering down/suspending check for inhibitors, and warn.
 
 * instantiated [Install] for target units
@@ -171,11 +177,7 @@ Features:
 
 * journald: check whether it is OK if the client can still modify delivered journal entries
 
-* json: properly serialize multiple fields with the same name per entry
-
 * journal live copy, based on libneon (client) and libmicrohttpd
-
-* document in wiki json serialization
 
 * system-wide seccomp filter
 
@@ -185,11 +187,7 @@ Features:
 
 * bind mount read-only the cgroup tree higher than than nspawn
 
-* currently system services appear not to generate core dumps...
-
 * allow writing multiple conditions in unit files on one line
-
-* cleanup ellipsation for log output in journalctl and systemctl status: have a sane way to disable ellipsation, and disable it by default when invoked in less/more
 
 * explore multiple service instances per listening socket idea
 
@@ -483,8 +481,7 @@ Features:
   - how to integrate cgconfig and suchlike with systemd
   - testing with Harald's awesome test kit
   - auto-restart
-  - how to make use of the journal submission APIs
-  - same for journal browsing
+  - how to develop against journal browsing APIs
   - the journal HTTP iface
   - non-cgroup resource management
 
