@@ -60,7 +60,7 @@ static Set *new_matches(void) {
         tmp = strdup("MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1");
         if (!tmp) {
                 log_oom();
-                set_clear_free(set);
+                set_free(set);
                 return NULL;
         }
 
@@ -68,7 +68,7 @@ static Set *new_matches(void) {
         if (r < 0) {
                 log_error("failed to add to set: %s", strerror(-r));
                 free(tmp);
-                set_clear_free(set);
+                set_free(set);
                 return NULL;
         }
 
