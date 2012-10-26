@@ -311,11 +311,14 @@ static int builtin_hwdb_init(struct udev *udev)
                 return 0;
 
         trie.f = fopen(SYSCONFDIR "/udev/hwdb.bin", "re");
-        if (!trie.f)
+        if (!trie.f) {
+                if (errno != EEXIST)
+                        log_error("Error reading " SYSCONFDIR "/udev/hwdb.bin: %m");
                 return -errno;
+        }
 
         if (fstat(fileno(trie.f), &st) < 0 || (size_t)st.st_size < offsetof(struct trie_header_f, strings_len) + 8) {
-                log_error("Error reading '%s'.", SYSCONFDIR "/udev/hwdb.bin: %m");
+                log_error("Error reading " SYSCONFDIR "/udev/hwdb.bin: %m");
                 fclose(trie.f);
                 zero(trie);
                 return -EINVAL;
@@ -323,7 +326,7 @@ static int builtin_hwdb_init(struct udev *udev)
 
         trie.map = mmap(0, st.st_size, PROT_READ, MAP_SHARED, fileno(trie.f), 0);
         if (trie.map == MAP_FAILED) {
-                log_error("Error mapping '%s'.", SYSCONFDIR "/udev/hwdb.bin: %m");
+                log_error("Error mapping " SYSCONFDIR "/udev/hwdb.bin: %m");
                 fclose(trie.f);
                 return -EINVAL;
         }
@@ -331,7 +334,7 @@ static int builtin_hwdb_init(struct udev *udev)
         trie.map_size = st.st_size;
 
         if (memcmp(trie.map, sig, sizeof(trie.head->signature)) != 0 || (size_t)st.st_size != le64toh(trie.head->file_size)) {
-                log_error("Unable to recognize the format of '%s'.", SYSCONFDIR "/udev/hwdb.bin");
+                log_error("Unable to recognize the format of " SYSCONFDIR "/udev/hwdb.bin.");
                 log_error("Please try 'udevadm hwdb --update' to re-create it.");
                 munmap((void *)trie.map, st.st_size);
                 fclose(trie.f);

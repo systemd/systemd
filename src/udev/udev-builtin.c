@@ -41,24 +41,18 @@ static const struct udev_builtin *builtins[] = {
 #endif
 };
 
-int udev_builtin_init(struct udev *udev)
+void udev_builtin_init(struct udev *udev)
 {
         unsigned int i;
-        int err = 0;
 
         if (initialized)
-                return 0;
+                return;
 
-        for (i = 0; i < ELEMENTSOF(builtins); i++) {
-                if (builtins[i]->init) {
-                        err = builtins[i]->init(udev);
-                        if (err < 0)
-                                break;
-                }
-        }
+        for (i = 0; i < ELEMENTSOF(builtins); i++)
+                if (builtins[i]->init)
+                        builtins[i]->init(udev);
 
         initialized = true;
-        return err;
 }
 
 void udev_builtin_exit(struct udev *udev)
@@ -78,13 +72,11 @@ void udev_builtin_exit(struct udev *udev)
 bool udev_builtin_validate(struct udev *udev)
 {
         unsigned int i;
-        bool change = false;
 
         for (i = 0; i < ELEMENTSOF(builtins); i++)
-                if (builtins[i]->validate)
-                        if (builtins[i]->validate(udev))
-                                change = true;
-        return change;
+                if (builtins[i]->validate && builtins[i]->validate(udev))
+                        return true;
+        return false;
 }
 
 void udev_builtin_list(struct udev *udev)
