@@ -232,12 +232,15 @@ static int retrieve(const void *data,
         return 0;
 }
 
-static void print_entry(FILE* file, sd_journal *j, int had_header) {
+static int print_entry(FILE* file, sd_journal *j, int had_header) {
         const char _cleanup_free_
                 *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL;
         const void *d;
         size_t l;
+        usec_t t;
+        char buf[FORMAT_TIMESTAMP_MAX];
+        int r;
 
         SD_JOURNAL_FOREACH_DATA(j, d, l) {
                 retrieve(d, l, "COREDUMP_PID", &pid);
@@ -253,24 +256,36 @@ static void print_entry(FILE* file, sd_journal *j, int had_header) {
         }
 
         if (!pid && !uid && !gid && !sgnl && !exe) {
-                log_warning("empty coredump log entry");
-                return;
+                log_warning("Empty coredump log entry");
+                return -EINVAL;
         }
 
+        r = sd_journal_get_realtime_usec(j, &t);
+        if (r < 0) {
+                log_error("Failed to get realtime timestamp: %s", strerror(-r));
+                return r;
+        }
+
+        format_timestamp(buf, sizeof(buf), t);
+
         if (!had_header)
-                fprintf(file, "%*s %*s %*s %*s %s\n",
+                fprintf(file, "%-*s %*s %*s %*s %*s %s\n",
+                        FORMAT_TIMESTAMP_MAX-1, "TIME",
                         6, "PID",
                         5, "UID",
                         5, "GID",
-                        3, "sig",
-                        "exe");
+                        3, "SIG",
+                           "EXE");
 
-        fprintf(file, "%*s %*s %*s %*s %s\n",
+        fprintf(file, "%*s %*s %*s %*s %*s %s\n",
+                FORMAT_TIMESTAMP_MAX-1, buf,
                 6, pid,
                 5, uid,
                 5, gid,
                 3, sgnl,
                 exe);
+
+        return 0;
 }
 
 static int dump_list(sd_journal *j) {
@@ -282,7 +297,7 @@ static int dump_list(sd_journal *j) {
                 print_entry(stdout, j, found++);
 
         if (!found) {
-                log_error("no coredumps found");
+                log_notice("No coredumps found");
                 return -ESRCH;
         }
 
