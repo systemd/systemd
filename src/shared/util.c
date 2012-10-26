@@ -216,45 +216,38 @@ char* endswith(const char *s, const char *postfix) {
         return (char*) s + sl - pl;
 }
 
-bool startswith(const char *s, const char *prefix) {
-        size_t sl, pl;
+char* startswith(const char *s, const char *prefix) {
+        const char *a, *b;
 
         assert(s);
         assert(prefix);
 
-        sl = strlen(s);
-        pl = strlen(prefix);
+        a = s, b = prefix;
+        for (;;) {
+                if (*b == 0)
+                        return (char*) a;
+                if (*a != *b)
+                        return NULL;
 
-        if (pl == 0)
-                return true;
-
-        if (sl < pl)
-                return false;
-
-        return memcmp(s, prefix, pl) == 0;
+                a++, b++;
+        }
 }
 
-bool startswith_no_case(const char *s, const char *prefix) {
-        size_t sl, pl;
-        unsigned i;
+char* startswith_no_case(const char *s, const char *prefix) {
+        const char *a, *b;
 
         assert(s);
         assert(prefix);
 
-        sl = strlen(s);
-        pl = strlen(prefix);
+        a = s, b = prefix;
+        for (;;) {
+                if (*b == 0)
+                        return (char*) a;
+                if (tolower(*a) != tolower(*b))
+                        return NULL;
 
-        if (pl == 0)
-                return true;
-
-        if (sl < pl)
-                return false;
-
-        for(i = 0; i < pl; ++i)
-                if (tolower(s[i]) != tolower(prefix[i]))
-                        return false;
-
-        return true;
+                a++, b++;
+        }
 }
 
 bool first_word(const char *s, const char *word) {
