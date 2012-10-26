@@ -483,7 +483,8 @@ static int nftw_cb(
 }
 
 static int list_vconsole_keymaps(DBusConnection *bus, char **args, unsigned n) {
-        char **l, **i;
+        char _cleanup_strv_free_ **l = NULL;
+        char **i;
 
         keymaps = set_new(string_hash_func, string_compare_func);
         if (!keymaps)
@@ -513,7 +514,6 @@ static int list_vconsole_keymaps(DBusConnection *bus, char **args, unsigned n) {
         STRV_FOREACH(i, l)
                 puts(*i);
 
-        strv_free(l);
 
         return 0;
 }
