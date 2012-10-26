@@ -354,7 +354,8 @@ static int list_locales(DBusConnection *bus, char **args, unsigned n) {
             h->locrectab_offset + h->locrectab_size > st.st_size ||
             h->sumhash_offset + h->sumhash_size > st.st_size) {
                 log_error("Invalid archive file.");
-                return -EBADMSG;
+                r = -EBADMSG;
+                goto finish;
         }
 
         e = (const struct namehashent*) ((const uint8_t*) p + h->namehash_offset);
