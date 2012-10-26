@@ -13,8 +13,6 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
-* _SOURCE_MONOTONIC_TIMESTAMP entries from the kernel seem to be off by 1000000
-
 F18:
 
 * Retest multi-seat

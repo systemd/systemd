@@ -109,7 +109,7 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
         char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL;
         int priority, r;
         unsigned n = 0, z = 0, j;
-        usec_t usec;
+        unsigned long long usec;
         char *identifier = NULL, *pid = NULL, *e, *f, *k;
         uint64_t serial;
         size_t pl;
@@ -171,7 +171,7 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
                 e = f;
         *e = 0;
 
-        r = parse_usec(p, &usec);
+        r = safe_atollu(p, &usec);
         if (r < 0)
                 return;
 
@@ -263,8 +263,7 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
                 }
         }
 
-        if (asprintf(&source_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu",
-                     (unsigned long long) usec) >= 0)
+        if (asprintf(&source_time, "_SOURCE_MONOTONIC_TIMESTAMP=%llu", usec) >= 0)
                 IOVEC_SET_STRING(iovec[n++], source_time);
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=kernel");
