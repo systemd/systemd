@@ -207,19 +207,23 @@ static int parse_argv(int argc, char *argv[]) {
         return 0;
 }
 
-static int retrieve(sd_journal *j, const char *name, const char **var) {
-        const void *data;
-        size_t len, field;
-        int r;
+static int retrieve(const void *data,
+                    size_t len,
+                    const char *name,
+                    const char **var) {
 
-        r = sd_journal_get_data(j, name, &data, &len);
-        if (r < 0) {
-                log_warning("Failed to retrieve %s", name);
-                return r;
-        }
+        size_t field;
 
-        field = strlen(name) + 1; // name + "="
-        assert(len >= field);
+        field = strlen(name) + 1; /* name + "=" */
+
+        if (len < field)
+                return 0;
+
+        if (memcmp(data, name, field - 1) != 0)
+                return 0;
+
+        if (((const char*) data)[field - 1] != '=')
+                return 0;
 
         *var = strndup((const char*)data + field, len - field);
         if (!var)
@@ -232,16 +236,21 @@ static void print_entry(FILE* file, sd_journal *j, int had_header) {
         const char _cleanup_free_
                 *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL;
+        const void *d;
+        size_t l;
 
-        retrieve(j, "COREDUMP_PID", &pid);
-        retrieve(j, "COREDUMP_UID", &uid);
-        retrieve(j, "COREDUMP_GID", &gid);
-        retrieve(j, "COREDUMP_SIGNAL", &sgnl);
-        retrieve(j, "COREDUMP_EXE", &exe);
-        if (!exe)
-                retrieve(j, "COREDUMP_COMM", &exe);
-        if (!exe)
-                retrieve(j, "COREDUMP_CMDLINE", &exe);
+        SD_JOURNAL_FOREACH_DATA(j, d, l) {
+                retrieve(d, l, "COREDUMP_PID", &pid);
+                retrieve(d, l, "COREDUMP_PID", &pid);
+                retrieve(d, l, "COREDUMP_UID", &uid);
+                retrieve(d, l, "COREDUMP_GID", &gid);
+                retrieve(d, l, "COREDUMP_SIGNAL", &sgnl);
+                retrieve(d, l, "COREDUMP_EXE", &exe);
+                if (!exe)
+                        retrieve(d, l, "COREDUMP_COMM", &exe);
+                if (!exe)
+                        retrieve(d, l, "COREDUMP_CMDLINE", &exe);
+        }
 
         if (!pid && !uid && !gid && !sgnl && !exe) {
                 log_warning("empty coredump log entry");
@@ -295,10 +304,10 @@ static int dump_core(sd_journal* j) {
                 return r;
         }
 
-	if (r == 0) {
-		log_error("No match found");
-		return -ESRCH;
-	}
+        if (r == 0) {
+                log_error("No match found");
+                return -ESRCH;
+        }
 
         r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
         if (r != 0) {
@@ -354,8 +363,6 @@ int main(int argc, char *argv[]) {
         }
 
         SET_FOREACH(match, matches, it) {
-                log_info("Matching: %s", match);
-
                 r = sd_journal_add_match(j, match, strlen(match));
                 if (r != 0) {
                         log_error("Failed to add match '%s': %s",
