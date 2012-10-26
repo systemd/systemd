@@ -121,6 +121,16 @@
                                 </para></listitem>
                         </varlistentry>
 
+
+                        <varlistentry>
+                                <term><command>gdb</command></term>
+
+                                <listitem><para>Invoke the GNU
+                                debugger on the last coredump matching
+                                specified characteristics.
+                                </para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
         </refsect1>
@@ -179,7 +189,8 @@
         <refsect1>
                 <title>See Also</title>
                 <para>
-                        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

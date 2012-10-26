@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <getopt.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <systemd/sd-journal.h>
 
@@ -36,6 +38,7 @@ static enum {
         ACTION_NONE,
         ACTION_LIST,
         ACTION_DUMP,
+        ACTION_GDB,
 } arg_action = ACTION_LIST;
 
 static Set *matches = NULL;
@@ -191,6 +194,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_LIST;
                 else if (streq(cmd, "dump"))
                         arg_action = ACTION_DUMP;
+                else if (streq(cmd, "gdb"))
+                        arg_action = ACTION_GDB;
                 else {
                         log_error("Unknown action '%s'", cmd);
                         return -EINVAL;
@@ -304,12 +309,8 @@ static int dump_list(sd_journal *j) {
         return 0;
 }
 
-static int dump_core(sd_journal* j) {
-        const char *data;
-        size_t len, ret;
+static int focus(sd_journal *j) {
         int r;
-
-        assert(j);
 
         r = sd_journal_seek_tail(j);
         if (r == 0)
@@ -318,17 +319,23 @@ static int dump_core(sd_journal* j) {
                 log_error("Failed to search journal: %s", strerror(-r));
                 return r;
         }
-
         if (r == 0) {
                 log_error("No match found");
                 return -ESRCH;
         }
+        return r;
+}
 
-        r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
-        if (r != 0) {
-                log_error("retrieve COREDUMP field: %s", strerror(-r));
+static int dump_core(sd_journal* j) {
+        const void *data;
+        size_t len, ret;
+        int r;
+
+        assert(j);
+
+        r = focus(j);
+        if (r < 0)
                 return r;
-        }
 
         print_entry(output ? stdout : stderr, j, false);
 
@@ -337,9 +344,17 @@ static int dump_core(sd_journal* j) {
                 return -ENOTTY;
         }
 
-        assert(len >= 9);
+        r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
+        if (r < 0) {
+                log_error("Failed to retrieve COREDUMP field: %s", strerror(-r));
+                return r;
+        }
 
-        ret = fwrite(data+9, len-9, 1, output ? output : stdout);
+        assert(len >= 9);
+        data = (const uint8_t*) data + 9;
+        len -= 9;
+
+        ret = fwrite(data, len, 1, output ? output : stdout);
         if (ret != 1) {
                 log_error("dumping coredump: %m (%zu)", ret);
                 return -errno;
@@ -350,6 +365,100 @@ static int dump_core(sd_journal* j) {
                 log_warning("More than one entry matches, ignoring rest.\n");
 
         return 0;
+}
+
+static int run_gdb(sd_journal *j) {
+        char path[] = "/var/tmp/coredump-XXXXXX";
+        const void *data;
+        size_t len;
+        ssize_t sz;
+        pid_t pid;
+        _cleanup_free_ char *exe = NULL;
+        int r;
+        _cleanup_close_ int fd = -1;
+        siginfo_t st;
+
+        assert(j);
+
+        r = focus(j);
+        if (r < 0)
+                return r;
+
+        print_entry(stdout, j, false);
+
+        r = sd_journal_get_data(j, "COREDUMP_EXE", (const void**) &data, &len);
+        if (r < 0) {
+                log_error("Failed to retrieve COREDUMP_EXE field: %s", strerror(-r));
+                return r;
+        }
+
+        assert(len >= 13);
+        data = (const uint8_t*) data + 13;
+        len -= 13;
+
+        exe = strndup(data, len);
+        if (!exe)
+                return log_oom();
+
+        if (endswith(exe, " (deleted)")) {
+                log_error("Binary already deleted.");
+                return -ENOENT;
+        }
+
+        r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
+        if (r < 0) {
+                log_error("Failed to retrieve COREDUMP field: %s", strerror(-r));
+                return r;
+        }
+
+        assert(len >= 9);
+        data = (const uint8_t*) data + 9;
+        len -= 9;
+
+        fd = mkostemp(path, O_WRONLY);
+        if (fd < 0) {
+                log_error("Failed to create temporary file: %m");
+                return -errno;
+        }
+
+        sz = write(fd, data, len);
+        if (sz < 0) {
+                log_error("Failed to write temporary file: %s", strerror(errno));
+                r = -errno;
+                goto finish;
+        }
+        if (sz != (ssize_t) len) {
+                log_error("Short write to temporary file.");
+                r = -EIO;
+                goto finish;
+        }
+
+        close_nointr_nofail(fd);
+        fd = -1;
+
+        pid = fork();
+        if (pid < 0) {
+                log_error("Failed to fork(): %m");
+                r = -errno;
+                goto finish;
+        }
+        if (pid == 0) {
+                execlp("gdb", "gdb", exe, path, NULL);
+                log_error("Failed to invoke gdb: %m");
+                _exit(1);
+        }
+
+        r = wait_for_terminate(pid, &st);
+        if (r < 0) {
+                log_error("Failed to wait for gdb: %m");
+                goto finish;
+        }
+
+        r = st.si_code == CLD_EXITED ? st.si_status : 255;
+
+finish:
+        unlink(path);
+        return r;
 }
 
 int main(int argc, char *argv[]) {
@@ -387,16 +496,23 @@ int main(int argc, char *argv[]) {
         }
 
         switch(arg_action) {
+
         case ACTION_LIST:
                 if (!arg_no_pager)
                         pager_open();
 
                 r = dump_list(j);
                 break;
+
         case ACTION_DUMP:
                 r = dump_core(j);
                 break;
-        case ACTION_NONE:
+
+        case  ACTION_GDB:
+                r = run_gdb(j);
+                break;
+
+        default:
                 assert_not_reached("Shouldn't be here");
         }
 
@@ -411,5 +527,5 @@ end:
         if (output)
                 fclose(output);
 
-        return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+        return r >= 0 ? r : EXIT_FAILURE;
 }
