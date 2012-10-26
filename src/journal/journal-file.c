@@ -1328,6 +1328,11 @@ static void chain_cache_put(
                 uint64_t total) {
 
         if (!ci) {
+                /* If the chain item to cache for this chain is the
+                 * first one it's not worth caching anything */
+                if (array == first)
+                        return;
+
                 if (hashmap_size(h) >= CHAIN_CACHE_MAX)
                         ci = hashmap_steal_first(h);
                 else {
