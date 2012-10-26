@@ -38,10 +38,10 @@ static enum {
         ACTION_DUMP,
 } arg_action = ACTION_LIST;
 
-Set *matches;
-FILE* output;
+static Set *matches = NULL;
+static FILE* output = NULL;
 
-int arg_no_pager;
+static int arg_no_pager = false;
 
 static Set *new_matches(void) {
         Set *set;
