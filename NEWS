@@ -62,7 +62,7 @@ CHANGES WITH 195:
           "reload" verb, and only then make this available as
           "systemctl reload".
 
-        * "systemctl status --follow" has been removed, use "journal
+        * "systemctl status --follow" has been removed, use "journalctl
           -u" instead.
 
         * journald.conf's RuntimeMinSize=, PersistentMinSize= settings
