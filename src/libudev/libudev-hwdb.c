@@ -35,7 +35,7 @@
  * SECTION:libudev-hwdb
  * @short_description: retrieve properties from the hardware database
  *
- * Libuded hardware database interface.
+ * Libudev hardware database interface.
  */
 
 /**

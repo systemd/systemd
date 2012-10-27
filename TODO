@@ -40,9 +40,10 @@ Features:
 
 * link up selected blog stories from man pages?
 
-* journactl: support negative filtering, i.e. FOOBAR!="waldo"
+* journactl: support negative filtering, i.e. FOOBAR!="waldo",
+  and !FOOBAR for events without FOOBAR.
 
-* drop header/footer from systemctl --failed output if there are no entries shown, print nice message instead, and hook that into ExecStartPre of rescue.service/emergency.service
+* print nice message from systemctl --failed if there are no entries shown, and hook that into ExecStartPre of rescue.service/emergency.service
 
 * add libsystemd-password or so to query passwords during boot using the password agent logic
 
