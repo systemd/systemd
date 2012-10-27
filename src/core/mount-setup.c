@@ -66,6 +66,7 @@ static const MountPoint mount_table[] = {
         { "sysfs",    "/sys",                   "sysfs",    NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV,                true,  true  },
         { "devtmpfs", "/dev",                   "devtmpfs", "mode=755",          MS_NOSUID|MS_STRICTATIME,                    true,  true  },
         { "securityfs", "/sys/kernel/security", "securityfs", NULL,              MS_NOSUID|MS_NOEXEC|MS_NODEV,                false, false },
+        { "efivarfs", "/sys/firmware/efi/efivars", "efivarfs", NULL,             MS_NOSUID|MS_NOEXEC|MS_NODEV,                false, false },
         { "tmpfs",    "/dev/shm",               "tmpfs",    "mode=1777",         MS_NOSUID|MS_NODEV|MS_STRICTATIME,           true,  true  },
         { "devpts",   "/dev/pts",               "devpts",   "mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,          false, true  },
         { "tmpfs",    "/run",                   "tmpfs",    "mode=755",          MS_NOSUID|MS_NODEV|MS_STRICTATIME,           true,  true  },

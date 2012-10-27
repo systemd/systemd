@@ -31,9 +31,10 @@
 #include "kmod-setup.h"
 
 static const char * const kmod_table[] = {
-        "autofs4", "/sys/class/misc/autofs",
-        "ipv6",    "/sys/module/ipv6",
-        "unix",    "/proc/net/unix"
+        "autofs4",  "/sys/class/misc/autofs",
+        "ipv6",     "/sys/module/ipv6",
+        "efivarfs", "/sys/firmware/efi/efivars",
+        "unix",     "/proc/net/unix"
 };
 
 #pragma GCC diagnostic push
