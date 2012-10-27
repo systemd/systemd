@@ -100,3 +100,11 @@ LIBUDEV_189 {
 global:
         udev_device_new_from_device_id;
 } LIBUDEV_183;
+
+LIBUDEV_196 {
+global:
+        udev_hwdb_new;
+        udev_hwdb_ref;
+        udev_hwdb_unref;
+        udev_hwdb_get_properties_list_entry;
+} LIBUDEV_189;

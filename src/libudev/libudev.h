@@ -171,6 +171,17 @@ int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
 struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue);
 
 /*
+ *  udev_hwdb
+ *
+ *  access to the static hardware properties database
+ */
+struct udev_hwdb;
+struct udev_hwdb *udev_hwdb_new(struct udev *udev);
+struct udev_hwdb *udev_hwdb_ref(struct udev_hwdb *hwdb);
+struct udev_hwdb *udev_hwdb_unref(struct udev_hwdb *hwdb);
+struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev_hwdb *hwdb, const char *modalias, unsigned int flags);
+
+/*
  * udev_util
  *
  * udev specific utilities

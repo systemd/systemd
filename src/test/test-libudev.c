@@ -421,6 +421,20 @@ static int test_enumerate(struct udev *udev, const char *subsystem)
         return 0;
 }
 
+static int test_hwdb(struct udev *udev, const char *modalias) {
+        struct udev_hwdb * hwdb;
+        struct udev_list_entry *entry;
+
+        hwdb = udev_hwdb_new(udev);
+
+        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, modalias, 0))
+                printf("'%s'='%s'\n", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
+        printf("\n");
+
+        hwdb = udev_hwdb_unref(hwdb);
+        return 0;
+}
+
 int main(int argc, char *argv[])
 {
         struct udev *udev = NULL;
@@ -488,6 +502,8 @@ int main(int argc, char *argv[])
         test_enumerate(udev, subsystem);
 
         test_queue(udev);
+
+        test_hwdb(udev, "usb:v0D50p0011*");
 
         test_monitor(udev);
 out:

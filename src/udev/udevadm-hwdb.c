@@ -27,7 +27,7 @@
 #include "conf-files.h"
 
 #include "udev.h"
-#include "udev-hwdb.h"
+#include "libudev-hwdb-def.h"
 
 /*
  * Generic udev properties, key/value database based on modalias strings.
@@ -35,7 +35,7 @@
  */
 
 static const char * const conf_file_dirs[] = {
-        SYSCONFDIR "/udev/hwdb.d",
+        "/etc/udev/hwdb.d",
         UDEVLIBEXECDIR "/hwdb.d",
         NULL
 };
@@ -291,7 +291,7 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node) {
                 .children_count = node->children_count,
                 .values_count = htole64(node->values_count),
         };
-        struct trie_child_entry_f *children;
+        struct trie_child_entry_f *children = NULL;
         int64_t node_off;
 
         if (node->children_count) {
@@ -390,12 +390,15 @@ static int trie_store(struct trie *trie, const char *filename) {
         }
 
         log_debug("=== trie on-disk ===\n");
-        log_debug("size:             %8zi bytes\n", size);
+        log_debug("size:             %8llu bytes\n", (unsigned long long)size);
         log_debug("header:           %8zu bytes\n", sizeof(struct trie_header_f));
-        log_debug("nodes:            %8zu bytes (%8zi)\n", t.nodes_count * sizeof(struct trie_node_f), t.nodes_count);
-        log_debug("child pointers:   %8zu bytes (%8zi)\n", t.children_count * sizeof(struct trie_child_entry_f), t.children_count);
-        log_debug("value pointers:   %8zu bytes (%8zi)\n", t.values_count * sizeof(struct trie_value_entry_f), t.values_count);
-        log_debug("string store:     %8zu bytes\n", trie->strings->len);
+        log_debug("nodes:            %8llu bytes (%8llu)\n",
+                  (unsigned long long)t.nodes_count * sizeof(struct trie_node_f), (unsigned long long)t.nodes_count);
+        log_debug("child pointers:   %8llu bytes (%8llu)\n",
+                  (unsigned long long)t.children_count * sizeof(struct trie_child_entry_f), (unsigned long long)t.children_count);
+        log_debug("value pointers:   %8llu bytes (%8llu)\n",
+                  (unsigned long long)t.values_count * sizeof(struct trie_value_entry_f), (unsigned long long)t.values_count);
+        log_debug("string store:     %8llu bytes\n", (unsigned long long)trie->strings->len);
         log_debug("strings start:    %8llu\n", (unsigned long long) t.strings_off);
 out:
         free(filename_tmp);
@@ -406,12 +409,14 @@ static int import_file(struct trie *trie, const char *filename) {
         FILE *f;
         char line[LINE_MAX];
         char match[LINE_MAX];
+        char cond[LINE_MAX];
 
         f = fopen(filename, "re");
         if (f == NULL)
                 return -errno;
 
         match[0] = '\0';
+        cond[0] = '\0';
         while (fgets(line, sizeof(line), f)) {
                 size_t len;
 
@@ -421,6 +426,7 @@ static int import_file(struct trie *trie, const char *filename) {
                 /* new line, new record */
                 if (line[0] == '\n') {
                         match[0] = '\0';
+                        cond[0] = '\0';
                         continue;
                 }
 
@@ -433,8 +439,18 @@ static int import_file(struct trie *trie, const char *filename) {
                 /* start of new record */
                 if (match[0] == '\0') {
                         strcpy(match, line);
+                        cond[0] = '\0';
                         continue;
                 }
+
+                if (line[0] == '+') {
+                        strcpy(cond, line);
+                        continue;
+                }
+
+                /* TODO: support +; skip the entire record until we support it */
+                if (cond[0] != '\0')
+                        continue;
 
                 /* value lines */
                 if (line[0] == ' ') {
@@ -535,13 +551,12 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
         log_debug("strings incoming: %8zu bytes (%8zu)\n", trie->strings->in_len, trie->strings->in_count);
         log_debug("strings dedup'ed: %8zu bytes (%8zu)\n", trie->strings->dedup_len, trie->strings->dedup_count);
 
-        mkdir_parents(SYSCONFDIR "/udev/hwdb.bin", 0755);
-        err = trie_store(trie, SYSCONFDIR "/udev/hwdb.bin");
+        mkdir_parents("/etc/udev/hwdb.bin", 0755);
+        err = trie_store(trie, "/etc/udev/hwdb.bin");
         if (err < 0) {
-                log_error("Failure writing hardware database '%s': %s", SYSCONFDIR "/udev/hwdb.bin", strerror(-err));
+                log_error("Failure writing hardware database '%s': %s", "/etc/udev/hwdb.bin", strerror(-err));
                 rc = EXIT_FAILURE;
         }
-
 out:
         if (trie->root)
                 trie_node_cleanup(trie->root);

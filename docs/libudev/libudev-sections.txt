@@ -118,6 +118,16 @@ udev_queue_get_udev_seqnum
 </SECTION>
 
 <SECTION>
+<FILE>libudev-hwdb</FILE>
+<TITLE>udev_hwdb</TITLE>
+udev_hwdb
+udev_hwdb_ref
+udev_hwdb_unref
+udev_hwdb_new
+udev_hwdb_get_properties_list_entry
+</SECTION>
+
+<SECTION>
 <FILE>libudev-util</FILE>
 <TITLE>udev_util</TITLE>
 udev_util_encode_string

@@ -140,11 +140,14 @@ void udev_queue_export_cleanup(struct udev_queue_export *udev_queue_export);
 int udev_queue_export_device_queued(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
 int udev_queue_export_device_finished(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
 
+/* libudev-hwdb.c */
+bool udev_hwdb_validate(struct udev_hwdb *hwdb);
+
 /* libudev-util.c */
-#define UTIL_PATH_SIZE                                1024
-#define UTIL_NAME_SIZE                                512
-#define UTIL_LINE_SIZE                                16384
-#define UDEV_ALLOWED_CHARS_INPUT                "/ $%?,"
+#define UTIL_PATH_SIZE                      1024
+#define UTIL_NAME_SIZE                       512
+#define UTIL_LINE_SIZE                     16384
+#define UDEV_ALLOWED_CHARS_INPUT        "/ $%?,"
 ssize_t util_get_sys_core_link_value(struct udev *udev, const char *slink, const char *syspath, char *value, size_t size);
 int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size);
 int util_log_priority(const char *priority);
@@ -163,8 +166,7 @@ uint64_t util_string_bloom64(const char *str);
 int util_delete_path(struct udev *udev, const char *path);
 uid_t util_lookup_user(struct udev *udev, const char *user);
 gid_t util_lookup_group(struct udev *udev, const char *group);
-int util_resolve_subsys_kernel(struct udev *udev, const char *string,
-                                      char *result, size_t maxsize, int read_value);
+int util_resolve_subsys_kernel(struct udev *udev, const char *string, char *result, size_t maxsize, int read_value);
 unsigned long long ts_usec(const struct timespec *ts);
 unsigned long long now_usec(void);
 ssize_t print_kmsg(const char *fmt, ...) __attribute__((format(printf, 1, 2)));

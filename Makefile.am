@@ -26,9 +26,9 @@ SUBDIRS = . po
 # remove targets if the command fails
 .DELETE_ON_ERROR:
 
-LIBUDEV_CURRENT=2
-LIBUDEV_REVISION=6
-LIBUDEV_AGE=1
+LIBUDEV_CURRENT=3
+LIBUDEV_REVISION=0
+LIBUDEV_AGE=2
 
 LIBGUDEV_CURRENT=1
 LIBGUDEV_REVISION=2
@@ -1688,7 +1688,9 @@ libudev_la_SOURCES =\
 	src/libudev/libudev-device.c \
 	src/libudev/libudev-enumerate.c \
 	src/libudev/libudev-monitor.c \
-	src/libudev/libudev-queue.c
+	src/libudev/libudev-queue.c \
+	src/libudev/libudev-hwdb-def.h \
+	src/libudev/libudev-hwdb.c
 
 libudev_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1833,7 +1835,6 @@ noinst_LTLIBRARIES += \
 
 libudev_core_la_SOURCES = \
 	src/udev/udev.h \
-	src/udev/udev-hwdb.h \
 	src/udev/udev-event.c \
 	src/udev/udev-watch.c \
 	src/udev/udev-node.c \
