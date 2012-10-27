@@ -1350,8 +1350,15 @@ int main(int argc, char *argv[]) {
                                         log_error("Failed to apply local time delta, ignoring: %s", strerror(-r));
                                 else
                                         log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
-                        } else {
-                                /* Do dummy first-time call to seal the kernel's time warp magic */
+                        } else if (!in_initrd()) {
+                                /*
+                                 * Do dummy first-time call to seal the kernel's time warp magic
+                                 *
+                                 * Do not call this this from inside the initrd. The initrd might not
+                                 * carry /etc/adjtime with LOCAL, but the real system could be set up
+                                 * that way. In such case, we need to delay the time-warp or the sealing
+                                 * until we reach the real system.
+                                 */
                                 hwclock_reset_timezone();
 
                                 /* Tell the kernel our time zone */

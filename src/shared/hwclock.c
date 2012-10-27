@@ -199,14 +199,14 @@ int hwclock_set_timezone(int *min) {
         const struct timeval *tv_null = NULL;
         struct timespec ts;
         struct tm *tm;
-        int minuteswest;
+        int minutesdelta;
         struct timezone tz;
 
         assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
         assert_se(tm = localtime(&ts.tv_sec));
-        minuteswest = tm->tm_gmtoff / 60;
+        minutesdelta = tm->tm_gmtoff / 60;
 
-        tz.tz_minuteswest = -minuteswest;
+        tz.tz_minuteswest = -minutesdelta;
         tz.tz_dsttime = 0; /* DST_NONE*/
 
         /*
@@ -217,7 +217,7 @@ int hwclock_set_timezone(int *min) {
         if (settimeofday(tv_null, &tz) < 0)
                 return -errno;
         if (min)
-                *min = minuteswest;
+                *min = minutesdelta;
         return 0;
 }
 
