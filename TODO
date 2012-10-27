@@ -19,16 +19,16 @@ F18:
 
 Features:
 
+* sd_journal_enumerate_data() implies XZ-decoding compressed field, this sucks hard
+
+* if booted in "quiet" mode, and an error happens, turn on status output again, so that the emergency mode isn't totally surprising
+
 * localectl: add listing support for X11 keymaps, by parsing /usr/share/X11/xkb/rules/xorg.lst
 
 * libunwind support for coredump pattern hook, and includes this in
   the message for coredumps. After all, libunwind is now capable to
   unwind coredumps since a few weeks ago. This probably requires that
   we have nice support for multi-line messages on display in logs-show.c.
-
-* coredumpctl: show dates for coredumps
-
-* coredumpctl: add gdb command that invokes gdb on the selected coredump an binary in one go
 
 * figure out relation of --all and --full in the various tools
 
@@ -77,8 +77,6 @@ Features:
 * timedated: refuse time changes when NTP is on
 
 * clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
-
-* introduce hybrid-sleep.target
 
 * document unit_name_mangle()
 
