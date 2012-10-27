@@ -63,6 +63,7 @@
                 <filename>graphical.target</filename>,
                 <filename>hibernate.target</filename>,
                 <filename>http-daemon.target</filename>,
+                <filename>hybrid-sleep.target</filename>,
                 <filename>halt.target</filename>,
                 <filename>kbrequest.target</filename>,
                 <filename>kexec.target</filename>,
@@ -300,6 +301,15 @@
                                         referring to the
                                         <literal>$httpd</literal>
                                         facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>hybrid-sleep.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        for hibernating and suspending the
+                                        system at the same time. This pulls in
+                                        <filename>sleep.target</filename>.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -652,9 +662,8 @@
                                 <listitem>
                                         <para>A special target unit
                                         that is pulled in by
-                                        <filename>suspend.target</filename>
-                                        and
-                                        <filename>hibernate.target</filename>
+                                        <filename>suspend.target</filename>,
+                                        <filename>hibernate.target</filename> and <filename>hybrid-sleep.target</filename>
                                         and may be used to hook units
                                         into the sleep state
                                         logic.</para>

@@ -1181,6 +1181,11 @@
                                 <listitem><para>Hibernate the system.</para></listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><command>hybrid-sleep</command></term>
+
+                                <listitem><para>Hibernate and suspend the system.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><command>switch-root [ROOT] [INIT]</command></term>
 
                                 <listitem><para>Switches to a

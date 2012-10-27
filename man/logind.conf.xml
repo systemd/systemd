@@ -211,8 +211,9 @@
                                 <literal>poweroff</literal>,
                                 <literal>reboot</literal>,
                                 <literal>halt</literal>,
-                                <literal>kexec</literal> and
-                                <literal>hibernate</literal>. If
+                                <literal>kexec</literal>,
+                                <literal>hibernate</literal> and
+                                <literal>hybrid-sleep</literal>. If
                                 <literal>ignore</literal> logind will
                                 never handle these keys. Otherwise the
                                 specified action will be taken in the

@@ -145,6 +145,9 @@
         "  <method name=\"Hibernate\">\n"                               \
         "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
         "  </method>\n"                                                 \
+        "  <method name=\"HybridSleep\">\n"                             \
+        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
+        "  </method>\n"                                                 \
         "  <method name=\"CanPowerOff\">\n"                             \
         "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
         "  </method>\n"                                                 \
@@ -155,6 +158,9 @@
         "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
         "  </method>\n"                                                 \
         "  <method name=\"CanHibernate\">\n"                            \
+        "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
+        "  </method>\n"                                                 \
+        "  <method name=\"CanHybridSleep\">\n"                          \
         "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
         "  </method>\n"                                                 \
         "  <method name=\"Inhibit\">\n"                                 \
@@ -1054,6 +1060,7 @@ static int bus_manager_can_shutdown_or_sleep(
                 const char *action_multiple_sessions,
                 const char *action_ignore_inhibit,
                 const char *sleep_type,
+                const char *sleep_disk_type,
                 DBusError *error,
                 DBusMessage **_reply) {
 
@@ -1076,6 +1083,17 @@ static int bus_manager_can_shutdown_or_sleep(
 
         if (sleep_type) {
                 r = can_sleep(sleep_type);
+                if (r < 0)
+                        return r;
+
+                if (r == 0) {
+                        result = "na";
+                        goto finish;
+                }
+        }
+
+        if (sleep_disk_type) {
+                r = can_sleep_disk(sleep_disk_type);
                 if (r < 0)
                         return r;
 
@@ -1234,6 +1252,7 @@ static int bus_manager_do_shutdown_or_sleep(
                 const char *action_multiple_sessions,
                 const char *action_ignore_inhibit,
                 const char *sleep_type,
+                const char *sleep_disk_type,
                 DBusError *error,
                 DBusMessage **_reply) {
 
@@ -1264,6 +1283,15 @@ static int bus_manager_do_shutdown_or_sleep(
 
         if (sleep_type) {
                 r = can_sleep(sleep_type);
+                if (r < 0)
+                        return r;
+
+                if (r == 0)
+                        return -ENOTSUP;
+        }
+
+        if (sleep_disk_type) {
+                r = can_sleep_disk(sleep_disk_type);
                 if (r < 0)
                         return r;
 
@@ -2065,7 +2093,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.power-off",
                                 "org.freedesktop.login1.power-off-multiple-sessions",
                                 "org.freedesktop.login1.power-off-ignore-inhibit",
-                                NULL,
+                                NULL, NULL,
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2077,7 +2105,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.reboot",
                                 "org.freedesktop.login1.reboot-multiple-sessions",
                                 "org.freedesktop.login1.reboot-ignore-inhibit",
-                                NULL,
+                                NULL, NULL,
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2090,7 +2118,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.suspend",
                                 "org.freedesktop.login1.suspend-multiple-sessions",
                                 "org.freedesktop.login1.suspend-ignore-inhibit",
-                                "mem",
+                                "mem", NULL,
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2102,7 +2130,20 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.hibernate",
                                 "org.freedesktop.login1.hibernate-multiple-sessions",
                                 "org.freedesktop.login1.hibernate-ignore-inhibit",
-                                "disk",
+                                "disk", NULL,
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "HybridSleep")) {
+                r = bus_manager_do_shutdown_or_sleep(
+                                m, connection, message,
+                                SPECIAL_HYBRID_SLEEP_TARGET,
+                                INHIBIT_SLEEP,
+                                "org.freedesktop.login1.hibernate",
+                                "org.freedesktop.login1.hibernate-multiple-sessions",
+                                "org.freedesktop.login1.hibernate-ignore-inhibit",
+                                "disk", "suspend",
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2115,7 +2156,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.power-off",
                                 "org.freedesktop.login1.power-off-multiple-sessions",
                                 "org.freedesktop.login1.power-off-ignore-inhibit",
-                                NULL,
+                                NULL, NULL,
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2126,7 +2167,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.reboot",
                                 "org.freedesktop.login1.reboot-multiple-sessions",
                                 "org.freedesktop.login1.reboot-ignore-inhibit",
-                                NULL,
+                                NULL, NULL,
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2138,7 +2179,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.suspend",
                                 "org.freedesktop.login1.suspend-multiple-sessions",
                                 "org.freedesktop.login1.suspend-ignore-inhibit",
-                                "mem",
+                                "mem", NULL,
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2150,7 +2191,19 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.hibernate",
                                 "org.freedesktop.login1.hibernate-multiple-sessions",
                                 "org.freedesktop.login1.hibernate-ignore-inhibit",
-                                "disk",
+                                "disk", NULL,
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanHybridSleep")) {
+                r = bus_manager_can_shutdown_or_sleep(
+                                m, connection, message,
+                                INHIBIT_SLEEP,
+                                "org.freedesktop.login1.hibernate",
+                                "org.freedesktop.login1.hibernate-multiple-sessions",
+                                "org.freedesktop.login1.hibernate-ignore-inhibit",
+                                "disk", "suspend",
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);

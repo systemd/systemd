@@ -32,6 +32,7 @@ typedef enum HandleButton {
         HANDLE_KEXEC,
         HANDLE_SUSPEND,
         HANDLE_HIBERNATE,
+        HANDLE_HYBRID_SLEEP,
         _HANDLE_BUTTON_MAX,
         _HANDLE_BUTTON_INVALID = -1
 } HandleButton;

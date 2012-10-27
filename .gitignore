@@ -1,4 +1,5 @@
 /test-journal-enum
+/test-sleep
 /localectl
 /hostnamectl
 /timedatectl

@@ -273,6 +273,7 @@ dist_systemunit_DATA = \
 	units/nss-user-lookup.target \
 	units/mail-transfer-agent.target \
 	units/hibernate.target \
+	units/hybrid-sleep.target \
 	units/http-daemon.target \
 	units/poweroff.target \
 	units/reboot.target \
@@ -329,6 +330,7 @@ nodist_systemunit_DATA = \
 	units/rescue.service \
 	units/user@.service \
 	units/systemd-hibernate.service \
+	units/systemd-hybrid-sleep.service \
 	units/systemd-suspend.service \
 	units/systemd-halt.service \
 	units/systemd-poweroff.service \
@@ -379,6 +381,7 @@ EXTRA_DIST += \
 	units/systemd-udev-settle.service \
 	units/debug-shell.service.in \
 	units/systemd-hibernate.service.in \
+	units/systemd-hybrid-sleep.service.in \
 	units/systemd-suspend.service.in \
 	units/quotaon.service.in \
 	introspect.awk \
@@ -534,6 +537,7 @@ MANPAGES_ALIAS = \
 	man/systemd-shutdownd.socket.8 \
 	man/systemd-shutdownd.8 \
 	man/systemd-hibernate.service.8 \
+	man/systemd-hybrid-sleep.service.8 \
 	man/systemd-sleep.8 \
 	man/systemd-shutdown.8 \
 	man/systemd-poweroff.service.8 \
@@ -608,6 +612,7 @@ man/systemd-initctl.8: man/systemd-initctl.service.8
 man/systemd-shutdownd.socket.8: man/systemd-shutdownd.service.8
 man/systemd-shutdownd.8: man/systemd-shutdownd.service.8
 man/systemd-hibernate.service.8: man/systemd-suspend.service.8
+man/systemd-hybrid-sleep.service.8: man/systemd-suspend.service.8
 man/systemd-sleep.8: man/systemd-suspend.service.8
 man/systemd-shutdown.8: man/systemd-halt.service.8
 man/systemd-poweroff.service.8: man/systemd-halt.service.8
@@ -1176,7 +1181,8 @@ noinst_PROGRAMS += \
 	test-unit-name \
 	test-log \
 	test-unit-file \
-	test-date
+	test-date \
+	test-sleep
 
 TESTS += \
 	test-job-type \
@@ -1184,7 +1190,8 @@ TESTS += \
 	test-strv \
 	test-unit-name \
 	test-unit-file \
-	test-date
+	test-date \
+	test-sleep
 
 test_engine_SOURCES = \
 	src/test/test-engine.c
@@ -1250,6 +1257,12 @@ test_date_SOURCES = \
 	src/test/test-date.c
 
 test_date_LDADD = \
+	libsystemd-core.la
+
+test_sleep_SOURCES = \
+	src/test/test-sleep.c
+
+test_sleep_LDADD = \
 	libsystemd-core.la
 
 test_daemon_SOURCES = \

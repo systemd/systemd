@@ -99,6 +99,7 @@ static enum action {
         ACTION_EXIT,
         ACTION_SUSPEND,
         ACTION_HIBERNATE,
+        ACTION_HYBRID_SLEEP,
         ACTION_RUNLEVEL2,
         ACTION_RUNLEVEL3,
         ACTION_RUNLEVEL4,
@@ -1608,6 +1609,8 @@ static enum action verb_to_action(const char *verb) {
                 return ACTION_SUSPEND;
         else if (streq(verb, "hibernate"))
                 return ACTION_HIBERNATE;
+        else if (streq(verb, "hybrid-sleep"))
+                return ACTION_HYBRID_SLEEP;
         else
                 return ACTION_INVALID;
 }
@@ -1628,7 +1631,8 @@ static int start_unit(DBusConnection *bus, char **args) {
                 [ACTION_DEFAULT] = SPECIAL_DEFAULT_TARGET,
                 [ACTION_EXIT] = SPECIAL_EXIT_TARGET,
                 [ACTION_SUSPEND] = SPECIAL_SUSPEND_TARGET,
-                [ACTION_HIBERNATE] = SPECIAL_HIBERNATE_TARGET
+                [ACTION_HIBERNATE] = SPECIAL_HIBERNATE_TARGET,
+                [ACTION_HYBRID_SLEEP] = SPECIAL_HYBRID_SLEEP_TARGET
         };
 
         int r, ret = 0;
@@ -1764,6 +1768,10 @@ static int reboot_with_logind(DBusConnection *bus, enum action a) {
                 method = "Hibernate";
                 break;
 
+        case ACTION_HYBRID_SLEEP:
+                method = "HybridSleep";
+                break;
+
         default:
                 return -EINVAL;
         }
@@ -1815,7 +1823,8 @@ static int start_special(DBusConnection *bus, char **args) {
             (a == ACTION_POWEROFF ||
              a == ACTION_REBOOT ||
              a == ACTION_SUSPEND ||
-             a == ACTION_HIBERNATE)) {
+             a == ACTION_HIBERNATE ||
+             a == ACTION_HYBRID_SLEEP)) {
                 r = reboot_with_logind(bus, a);
                 if (r >= 0)
                         return r;
@@ -3967,7 +3976,8 @@ static int systemctl_help(void) {
                "  exit                            Request user instance exit\n"
                "  switch-root [ROOT] [INIT]       Change to a different root file system\n"
                "  suspend                         Suspend the system\n"
-               "  hibernate                       Hibernate the system\n",
+               "  hibernate                       Hibernate the system\n"
+               "  hybrid-sleep                    Hibernate and suspend the system\n",
                program_invocation_short_name);
 
         return 0;
@@ -4896,6 +4906,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "kexec",                 EQUAL, 1, start_special     },
                 { "suspend",               EQUAL, 1, start_special     },
                 { "hibernate",             EQUAL, 1, start_special     },
+                { "hybrid-sleep",          EQUAL, 1, start_special     },
                 { "default",               EQUAL, 1, start_special     },
                 { "rescue",                EQUAL, 1, start_special     },
                 { "emergency",             EQUAL, 1, start_special     },

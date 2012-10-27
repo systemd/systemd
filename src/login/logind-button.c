@@ -163,16 +163,18 @@ static int button_handle(
                 [HANDLE_HALT] = "Halting...",
                 [HANDLE_KEXEC] = "Rebooting via kexec...",
                 [HANDLE_SUSPEND] = "Suspending...",
-                [HANDLE_HIBERNATE] = "Hibernating..."
+                [HANDLE_HIBERNATE] = "Hibernating...",
+                [HANDLE_HYBRID_SLEEP] = "Hibernating and suspend...",
         };
 
         static const char * const target_table[_HANDLE_BUTTON_MAX] = {
-                [HANDLE_POWEROFF] = "poweroff.target",
-                [HANDLE_REBOOT] = "reboot.target",
-                [HANDLE_HALT] = "halt.target",
-                [HANDLE_KEXEC] = "kexec.target",
-                [HANDLE_SUSPEND] = "suspend.target",
-                [HANDLE_HIBERNATE] = "hibernate.target"
+                [HANDLE_POWEROFF] = SPECIAL_POWEROFF_TARGET,
+                [HANDLE_REBOOT] = SPECIAL_REBOOT_TARGET,
+                [HANDLE_HALT] = SPECIAL_HALT_TARGET,
+                [HANDLE_KEXEC] = SPECIAL_KEXEC_TARGET,
+                [HANDLE_SUSPEND] = SPECIAL_SUSPEND_TARGET,
+                [HANDLE_HIBERNATE] = SPECIAL_HIBERNATE_TARGET,
+                [HANDLE_HYBRID_SLEEP] = SPECIAL_HYBRID_SLEEP_TARGET
         };
 
         DBusError error;
@@ -193,7 +195,7 @@ static int button_handle(
                 return 0;
         }
 
-        inhibit_operation = handle == HANDLE_SUSPEND || handle == HANDLE_HIBERNATE ? INHIBIT_SLEEP : INHIBIT_SHUTDOWN;
+        inhibit_operation = handle == HANDLE_SUSPEND || handle == HANDLE_HIBERNATE || handle == HANDLE_HYBRID_SLEEP ? INHIBIT_SLEEP : INHIBIT_SHUTDOWN;
 
         /* If the actual operation is inhibited, warn and fail */
         if (!ignore_inhibited &&
@@ -305,7 +307,8 @@ static const char* const handle_button_table[_HANDLE_BUTTON_MAX] = {
         [HANDLE_HALT] = "halt",
         [HANDLE_KEXEC] = "kexec",
         [HANDLE_SUSPEND] = "suspend",
-        [HANDLE_HIBERNATE] = "hibernate"
+        [HANDLE_HIBERNATE] = "hibernate",
+        [HANDLE_HYBRID_SLEEP] = "hybrid-sleep",
 };
 DEFINE_STRING_TABLE_LOOKUP(handle_button, HandleButton);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_handle_button, handle_button, HandleButton, "Failed to parse handle button setting");

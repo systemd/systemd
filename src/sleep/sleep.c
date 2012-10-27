@@ -46,12 +46,22 @@ int main(int argc, char *argv[]) {
 
         if (streq(argv[1], "suspend"))
                 verb = "mem";
-        else if (streq(argv[1], "hibernate"))
+        else if (streq(argv[1], "hibernate") || streq(argv[1], "hybrid-sleep"))
                 verb = "disk";
         else {
                 log_error("Unknown action '%s'.", argv[1]);
                 r = -EINVAL;
                 goto finish;
+        }
+
+        /* Configure the hibernation mode */
+        if (streq(argv[1], "hibernate")) {
+                if (write_one_line_file("/sys/power/disk", "platform") < 0)
+                        write_one_line_file("/sys/power/disk", "shutdown");
+        } else if (streq(argv[1], "hybrid-sleep")) {
+                if (write_one_line_file("/sys/power/disk", "suspend") < 0)
+                        if (write_one_line_file("/sys/power/disk", "platform") < 0)
+                                write_one_line_file("/sys/power/disk", "shutdown");
         }
 
         f = fopen("/sys/power/state", "we");
@@ -73,11 +83,17 @@ int main(int argc, char *argv[]) {
                            "MESSAGE=Suspending system...",
                            "SLEEP=suspend",
                            NULL);
-        else
+        else if (streq(argv[1], "hibernate"))
                 log_struct(LOG_INFO,
                            MESSAGE_ID(SD_MESSAGE_SLEEP_START),
                            "MESSAGE=Hibernating system...",
                            "SLEEP=hibernate",
+                           NULL);
+        else
+                log_struct(LOG_INFO,
+                           MESSAGE_ID(SD_MESSAGE_SLEEP_START),
+                           "MESSAGE=Hibernating and suspending system...",
+                           "SLEEP=hybrid-sleep",
                            NULL);
 
         fputs(verb, f);

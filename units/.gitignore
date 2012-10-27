@@ -1,3 +1,4 @@
+/systemd-hybrid-sleep.service
 /systemd-journal-gatewayd.service
 /systemd-journal-flush.service
 /systemd-hibernate.service

@@ -45,6 +45,7 @@
         <refnamediv>
                 <refname>systemd-suspend.service</refname>
                 <refname>systemd-hibernate.service</refname>
+                <refname>systemd-hybrid-sleep.service</refname>
                 <refname>systemd-sleep</refname>
                 <refpurpose>System sleep state logic</refpurpose>
         </refnamediv>
@@ -52,6 +53,7 @@
         <refsynopsisdiv>
                 <para><filename>systemd-suspend.service</filename></para>
                 <para><filename>systemd-hibernate.service</filename></para>
+                <para><filename>systemd-hybrid-sleep.service</filename></para>
                 <para><filename>/usr/lib/systemd/systemd-sleep</filename></para>
         </refsynopsisdiv>
 
@@ -64,19 +66,25 @@
                 for the actual system suspend. Similar,
                 <filename>systemd-hibernate.service</filename> is
                 pulled in by <filename>hibernate.target</filename> to
-                execute the actual hibernation.</para>
+                execute the actual hibernation. Finally,
+                <filename>systemd-hybrid-sleep.service</filename> is
+                pulled in by <filename>hybrid-sleep.target</filename>
+                to execute hybrid hibernation with system
+                suspend.</para>
 
-                <para>Immediately before entering system suspend and
-                hibernation
-                <filename>systemd-suspend.service</filename> will run
-                all executables in
+                <para>Immediately before entering system suspend
+                and/or hibernation
+                <filename>systemd-suspend.service</filename> (and the
+                other mentioned units, respectively) will run all
+                executables in
                 <filename>/usr/lib/systemd/system-sleep/</filename>
                 and pass two arguments to them. The first argument
                 will be "<literal>pre</literal>", the second either
-                "<literal>suspend</literal>" or
-                "<literal>hibernate</literal>", depending on the
+                "<literal>suspend</literal>",
+                "<literal>hibernate</literal>", or
+                "<literal>hybrid-sleep</literal>" depending on the
                 chosen action. Immediately after leaving system
-                suspend and hibernation the same executables are run,
+                suspend and/or hibernation the same executables are run,
                 but the first argument is now
                 "<literal>post</literal>". All executables in this
                 directory are executed in parallel, and execution of
@@ -87,15 +95,17 @@
                 <filename>/usr/lib/systemd/system-sleep/</filename>
                 are intended for local use only and should be
                 considered hacks. If applications want to be notified
-                of system suspend and resume there are much nicer
-                interfaces available.</para>
+                of system suspend/hibernation and resume there are
+                much nicer interfaces available.</para>
 
                 <para>Note that
-                <filename>systemd-suspend.service</filename> and
-                <filename>systemd-hibernate.service</filename> should
-                never be executed directly. Instead, trigger system
-                sleep states with a command such as "<literal>systemctl
-                suspend</literal>" or suchlike.</para>
+                <filename>systemd-suspend.service</filename>,
+                <filename>systemd-hibernate.service</filename> and
+                <filename>systemd-hybrid-sleep.service</filename>
+                should never be executed directly. Instead, trigger
+                system sleep states with a command such as
+                "<literal>systemctl suspend</literal>" or
+                similar.</para>
         </refsect1>
 
         <refsect1>
