@@ -476,3 +476,78 @@ _hostnamectl() {
         return 0
 }
 complete -F _hostnamectl hostnamectl
+
+__get_all_sysdevs() { ls -1 -d /sys/bus/*/devices/* /sys/class/*/*; }
+
+_udevadm() {
+        local i verb comps
+        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+        local OPTS='-h --help --version --debug'
+
+        local -A VERBS=(
+                [INFO]='info'
+                [TRIGGER]='trigger'
+                [SETTLE]='settle'
+                [CONTROL]='control'
+                [MONITOR]='monitor'
+                [HWDB]='hwdb'
+                [TESTBUILTIN]='test-builtin'
+                [TEST]='test'
+        )
+
+        for ((i=0; $i <= $COMP_CWORD; i++)); do
+                if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                        verb=${COMP_WORDS[i]}
+                        break
+                fi
+        done
+
+        if [[ -z $verb  && $cur = -* ]]; then
+                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+                return 0
+        fi
+
+        if [[ -z $verb ]]; then
+                comps=${VERBS[*]}
+
+        elif __contains_word "$verb" ${VERBS[INFO]}; then
+                if [[ $cur = -* ]]; then
+                        comps='--help --query= --path= --name= --root --attribute-walk --export-db --cleanup-db'
+                else
+                        comps=$( __get_all_sysdevs )
+                fi
+
+        elif __contains_word "$verb" ${VERBS[TRIGGER]}; then
+                comps='--help --verbose --dry-run --type= --action= --subsystem-match=
+                       --subsystem-nomatch= --attr-match= --attr-nomatch= --property-match=
+                       --tag-match= --sysname-match= --parent-match='
+
+        elif __contains_word "$verb" ${VERBS[SETTLE]}; then
+                comps='--help --timeout= --seq-start= --seq-end= --exit-if-exists= --quiet'
+
+        elif __contains_word "$verb" ${VERBS[CONTROL]}; then
+                comps='--help --exit --log-priority= --stop-exec-queue --start-exec-queue
+                       --reload --property= --children-max= --timeout='
+
+        elif __contains_word "$verb" ${VERBS[MONITOR]}; then
+                comps='--help --kernel --udev --property --subsystem-match= --tag-match='
+
+        elif __contains_word "$verb" ${VERBS[HWDB]}; then
+                comps='--help --update --test='
+
+        elif __contains_word "$verb" ${VERBS[TEST]}; then
+                if [[ $cur = -* ]]; then
+                        comps='--help --action='
+                else
+                        comps=$( __get_all_sysdevs )
+                fi
+
+        elif __contains_word "$verb" ${VERBS[TESTBUILTIN]}; then
+                      comps='blkid btrfs firmware hwdb input_id kmod path_id usb_id uaccess'
+        fi
+
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+}
+complete -F _udevadm udevadm
