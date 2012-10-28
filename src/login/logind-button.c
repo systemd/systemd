@@ -150,6 +150,18 @@ fail:
         return r;
 }
 
+static int lock_sessions(Manager *m) {
+        Iterator i;
+        Session *session;
+
+        log_info("Locking sessions...");
+
+        HASHMAP_FOREACH(session, m->sessions, i)
+                session_send_lock(session, true);
+
+        return 1;
+}
+
 static int button_handle(
                 Button *b,
                 InhibitWhat inhibit_key,
@@ -164,7 +176,7 @@ static int button_handle(
                 [HANDLE_KEXEC] = "Rebooting via kexec...",
                 [HANDLE_SUSPEND] = "Suspending...",
                 [HANDLE_HIBERNATE] = "Hibernating...",
-                [HANDLE_HYBRID_SLEEP] = "Hibernating and suspend...",
+                [HANDLE_HYBRID_SLEEP] = "Hibernating and suspend..."
         };
 
         static const char * const target_table[_HANDLE_BUTTON_MAX] = {
@@ -194,6 +206,10 @@ static int button_handle(
                 log_debug("Refusing key handling, %s is inhibited.", inhibit_what_to_string(inhibit_key));
                 return 0;
         }
+
+        /* Locking is handled differently from the rest. */
+        if (handle == HANDLE_LOCK)
+                return lock_sessions(b->manager);
 
         inhibit_operation = handle == HANDLE_SUSPEND || handle == HANDLE_HIBERNATE || handle == HANDLE_HYBRID_SLEEP ? INHIBIT_SLEEP : INHIBIT_SHUTDOWN;
 
@@ -309,6 +325,7 @@ static const char* const handle_button_table[_HANDLE_BUTTON_MAX] = {
         [HANDLE_SUSPEND] = "suspend",
         [HANDLE_HIBERNATE] = "hibernate",
         [HANDLE_HYBRID_SLEEP] = "hybrid-sleep",
+        [HANDLE_LOCK] = "lock"
 };
 DEFINE_STRING_TABLE_LOOKUP(handle_button, HandleButton);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_handle_button, handle_button, HandleButton, "Failed to parse handle button setting");

@@ -213,13 +213,16 @@
                                 <literal>halt</literal>,
                                 <literal>kexec</literal>,
                                 <literal>suspend</literal>,
-                                <literal>hibernate</literal>, and
-                                <literal>hybrid-sleep</literal>. If
+                                <literal>hibernate</literal>,
+                                <literal>hybrid-sleep</literal> and
+                                <literal>lock</literal>. If
                                 <literal>ignore</literal> logind will
-                                never handle these keys. Otherwise the
-                                specified action will be taken in the
-                                respective event. Only input devices
-                                with the
+                                never handle these keys. If
+                                <literal>lock</literal> all running
+                                sessions will be screen
+                                locked. Otherwise the specified action
+                                will be taken in the respective
+                                event. Only input devices with the
                                 <literal>power-switch</literal> udev
                                 tag will be watched for key/lid switch
                                 events. <varname>HandlePowerKey=</varname>
