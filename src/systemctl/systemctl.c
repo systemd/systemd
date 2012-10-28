@@ -321,6 +321,7 @@ static bool output_show_unit(const struct unit_info *u) {
 static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
         unsigned id_len, max_id_len, active_len, sub_len, job_len, desc_len, n_shown = 0;
         const struct unit_info *u;
+        int job_count = 0;
 
         max_id_len = sizeof("UNIT")-1;
         active_len = sizeof("ACTIVE")-1;
@@ -335,14 +336,18 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 max_id_len = MAX(max_id_len, strlen(u->id));
                 active_len = MAX(active_len, strlen(u->active_state));
                 sub_len = MAX(sub_len, strlen(u->sub_state));
-                if (u->job_id != 0)
+                if (u->job_id != 0) {
                         job_len = MAX(job_len, strlen(u->job_type));
+                        job_count++;
+                }
         }
 
         if (!arg_full) {
                 unsigned basic_len;
                 id_len = MIN(max_id_len, 25);
-                basic_len = 5 + id_len + 6 + active_len + sub_len + job_len;
+                basic_len = 5 + id_len + 5 + active_len + sub_len;
+                if (job_count)
+                        basic_len += job_len + 1;
                 if (basic_len < (unsigned) columns()) {
                         unsigned extra_len, incr;
                         extra_len = columns() - basic_len;
@@ -371,8 +376,10 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                         continue;
 
                 if (!n_shown && !arg_no_legend) {
-                        printf("%-*s %-6s %-*s %-*s %-*s ", id_len, "UNIT", "LOAD",
-                               active_len, "ACTIVE", sub_len, "SUB", job_len, "JOB");
+                        printf("%-*s %-6s %-*s %-*s ", id_len, "UNIT", "LOAD",
+                               active_len, "ACTIVE", sub_len, "SUB");
+                        if (job_count)
+                                printf("%-*s ", job_len, "JOB");
                         if (!arg_full && arg_no_pager)
                                 printf("%.*s\n", desc_len, "DESCRIPTION");
                         else
@@ -395,12 +402,12 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 
                 e = arg_full ? NULL : ellipsize(u->id, id_len, 33);
 
-                printf("%-*s %s%-6s%s %s%-*s %-*s%s %-*s ",
+                printf("%-*s %s%-6s%s %s%-*s %-*s%s %-*s",
                        id_len, e ? e : u->id,
                        on_loaded, u->load_state, off_loaded,
                        on_active, active_len, u->active_state,
                        sub_len, u->sub_state, off_active,
-                       job_len, u->job_id ? u->job_type : "");
+                       job_count ? job_len + 1 : 0, u->job_id ? u->job_type : "");
                 if (!arg_full && arg_no_pager)
                         printf("%.*s\n", desc_len, u->description);
                 else
@@ -415,8 +422,9 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 if (n_shown) {
                         printf("\nLOAD   = Reflects whether the unit definition was properly loaded.\n"
                                "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
-                               "SUB    = The low-level unit activation state, values depend on unit type.\n"
-                               "JOB    = Pending job for the unit.\n\n");
+                               "SUB    = The low-level unit activation state, values depend on unit type.\n");
+                        if (job_count)
+                                printf("JOB    = Pending job for the unit.\n");
                         on = ansi_highlight(true);
                         off = ansi_highlight(false);
                 } else {
@@ -425,11 +433,11 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 }
 
                 if (arg_all)
-                        printf("%s%u loaded units listed.%s\n"
+                        printf("\n%s%u loaded units listed.%s\n"
                                "To show all installed unit files use 'systemctl list-unit-files'.\n",
                                on, n_shown, off);
                 else
-                        printf("%s%u loaded units listed.%s Pass --all to see loaded but inactive units, too.\n"
+                        printf("\n%s%u loaded units listed.%s Pass --all to see loaded but inactive units, too.\n"
                                "To show all installed unit files use 'systemctl list-unit-files'.\n",
                                on, n_shown, off);
         }
