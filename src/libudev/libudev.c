@@ -120,7 +120,7 @@ _public_ struct udev *udev_new(void)
         udev->log_priority = LOG_ERR;
         udev_list_init(udev, &udev->properties_list, true);
 
-        f = fopen(SYSCONFDIR "/udev/udev.conf", "re");
+        f = fopen("/etc/udev/udev.conf", "re");
         if (f != NULL) {
                 char line[UTIL_LINE_SIZE];
                 int line_nr = 0;
@@ -144,7 +144,7 @@ _public_ struct udev *udev_new(void)
                         /* split key/value */
                         val = strchr(key, '=');
                         if (val == NULL) {
-                                udev_err(udev, "missing <key>=<value> in " SYSCONFDIR "/udev/udev.conf[%i]; skip line\n", line_nr);
+                                udev_err(udev, "missing <key>=<value> in /etc/udev/udev.conf[%i]; skip line\n", line_nr);
                                 continue;
                         }
                         val[0] = '\0';
@@ -176,7 +176,7 @@ _public_ struct udev *udev_new(void)
                         /* unquote */
                         if (val[0] == '"' || val[0] == '\'') {
                                 if (val[len-1] != val[0]) {
-                                        udev_err(udev, "inconsistent quoting in " SYSCONFDIR "/udev/udev.conf[%i]; skip line\n", line_nr);
+                                        udev_err(udev, "inconsistent quoting in /etc/udev/udev.conf[%i]; skip line\n", line_nr);
                                         continue;
                                 }
                                 val[len-1] = '\0';

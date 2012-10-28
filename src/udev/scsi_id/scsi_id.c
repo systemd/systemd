@@ -53,7 +53,7 @@ static const char dev_short_options[] = "bgp:";
 
 static int all_good;
 static int dev_specified;
-static char config_file[MAX_PATH_LEN] = SYSCONFDIR "/scsi_id.config";
+static char config_file[MAX_PATH_LEN] = "/etc/scsi_id.config";
 static enum page_code default_page_code;
 static int sg_version = 4;
 static int use_stderr;

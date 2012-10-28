@@ -423,12 +423,13 @@ int main(int argc, char **argv)
                         /* Open override file if present, otherwise default file */
                         char keymap_path[PATH_MAX];
                         FILE *f;
-                        snprintf(keymap_path, sizeof(keymap_path), "%s%s", SYSCONFDIR "/udev/keymaps/", filearg);
+
+                        snprintf(keymap_path, sizeof(keymap_path), "/etc/udev/keymaps/%s", filearg);
                         f = fopen(keymap_path, "re");
                         if (f) {
                                 merge_table(fd, f);
                         } else {
-                                snprintf(keymap_path, sizeof(keymap_path), "%s%s", UDEVLIBEXECDIR "/keymaps/", filearg);
+                                snprintf(keymap_path, sizeof(keymap_path), UDEVLIBEXECDIR "/keymaps/%s", filearg);
                                 f = fopen(keymap_path, "re");
                                 if (f)
                                         merge_table(fd, f);

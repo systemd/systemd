@@ -1600,7 +1600,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
         if (!rules->strbuf)
                 return udev_rules_unref(rules);
 
-        rules->dirs = strv_new(SYSCONFDIR "/udev/rules.d",
+        rules->dirs = strv_new("/etc/udev/rules.d",
                                "/run/udev/rules.d",
                                UDEVLIBEXECDIR "/rules.d",
                                NULL);
