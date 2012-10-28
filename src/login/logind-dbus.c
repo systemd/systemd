@@ -1812,7 +1812,7 @@ static DBusHandlerResult manager_message_handler(
 
                 session = hashmap_get(m->sessions, name);
                 if (!session)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+                        return bus_send_error_reply(connection, message, NULL, -ENOENT);
 
                 if (session_send_lock(session, streq(dbus_message_get_member(message), "LockSession")) < 0)
                         goto oom;
@@ -1822,12 +1822,9 @@ static DBusHandlerResult manager_message_handler(
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "LockSessions")) {
-                Session *session;
-                Iterator i;
-
-                HASHMAP_FOREACH(session, m->sessions, i)
-                        if (session_send_lock(session, true) < 0)
-                                goto oom;
+                r = session_send_lock_all(m, true);
+                if (r < 0)
+                        bus_send_error_reply(connection, message, NULL, r);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)

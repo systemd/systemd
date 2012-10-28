@@ -150,18 +150,6 @@ fail:
         return r;
 }
 
-static int lock_sessions(Manager *m) {
-        Iterator i;
-        Session *session;
-
-        log_info("Locking sessions...");
-
-        HASHMAP_FOREACH(session, m->sessions, i)
-                session_send_lock(session, true);
-
-        return 1;
-}
-
 static int button_handle(
                 Button *b,
                 InhibitWhat inhibit_key,
@@ -208,8 +196,11 @@ static int button_handle(
         }
 
         /* Locking is handled differently from the rest. */
-        if (handle == HANDLE_LOCK)
-                return lock_sessions(b->manager);
+        if (handle == HANDLE_LOCK) {
+                log_info("Locking sessions...");
+                session_send_lock_all(b->manager, true);
+                return 1;
+        }
 
         inhibit_operation = handle == HANDLE_SUSPEND || handle == HANDLE_HIBERNATE || handle == HANDLE_HYBRID_SLEEP ? INHIBIT_SLEEP : INHIBIT_SHUTDOWN;
 

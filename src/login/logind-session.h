@@ -132,6 +132,7 @@ extern const DBusObjectPathVTable bus_session_vtable;
 int session_send_signal(Session *s, bool new_session);
 int session_send_changed(Session *s, const char *properties);
 int session_send_lock(Session *s, bool lock);
+int session_send_lock_all(Manager *m, bool lock);
 
 const char* session_state_to_string(SessionState t);
 SessionState session_state_from_string(const char *s);

@@ -570,3 +570,21 @@ int session_send_lock(Session *s, bool lock) {
 
         return 0;
 }
+
+int session_send_lock_all(Manager *m, bool lock) {
+        Session *session;
+        Iterator i;
+        int r = 0;
+
+        assert(m);
+
+        HASHMAP_FOREACH(session, m->sessions, i) {
+                int k;
+
+                k = session_send_lock(session, lock);
+                if (k < 0)
+                        r = k;
+        }
+
+        return r;
+}
