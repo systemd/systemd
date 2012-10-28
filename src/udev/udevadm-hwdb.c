@@ -471,25 +471,27 @@ static int import_file(struct trie *trie, const char *filename) {
 static void help(void) {
         printf("Usage: udevadm hwdb [--create] [--help]\n"
                "  --update            update the hardware database\n"
+               "  --test <modalias>   query database and print result\n"
                "  --help\n\n");
 }
 
 static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
         static const struct option options[] = {
                 { "update", no_argument, NULL, 'u' },
+                { "test", required_argument, NULL, 't' },
                 { "help", no_argument, NULL, 'h' },
                 {}
         };
+        const char *test = NULL;
         bool update = false;
-        struct trie *trie;
-        char **files, **f;
+        struct trie *trie = NULL;
         int err;
         int rc = EXIT_SUCCESS;
 
         for (;;) {
                 int option;
 
-                option = getopt_long(argc, argv, "ch", options, NULL);
+                option = getopt_long(argc, argv, "ut:h", options, NULL);
                 if (option == -1)
                         break;
 
@@ -497,71 +499,92 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 case 'u':
                         update = true;
                         break;
+                case 't':
+                        test = optarg;
+                        break;
                 case 'h':
                         help();
                         return EXIT_SUCCESS;
                 }
         }
 
-        if (!update) {
+        if (!update && !test) {
                 help();
                 return EXIT_SUCCESS;
         }
 
-        trie = calloc(sizeof(struct trie), 1);
-        if (!trie) {
-                rc = EXIT_FAILURE;
-                goto out;
+        if (update) {
+                char **files, **f;
+
+                trie = calloc(sizeof(struct trie), 1);
+                if (!trie) {
+                        rc = EXIT_FAILURE;
+                        goto out;
+                }
+
+                /* string store */
+                trie->strings = strbuf_new();
+                if (!trie->strings) {
+                        rc = EXIT_FAILURE;
+                        goto out;
+                }
+
+                /* index */
+                trie->root = calloc(sizeof(struct trie_node), 1);
+                if (!trie->root) {
+                        rc = EXIT_FAILURE;
+                        goto out;
+                }
+                trie->nodes_count++;
+
+                err = conf_files_list_strv(&files, ".hwdb", (const char **)conf_file_dirs);
+                if (err < 0) {
+                        log_error("failed to enumerate hwdb files: %s\n", strerror(-err));
+                        rc = EXIT_FAILURE;
+                        goto out;
+                }
+                STRV_FOREACH(f, files) {
+                        log_debug("reading file '%s'", *f);
+                        import_file(trie, *f);
+                }
+                strv_free(files);
+
+                strbuf_complete(trie->strings);
+
+                log_debug("=== trie in-memory ===\n");
+                log_debug("nodes:            %8zu bytes (%8zu)\n", trie->nodes_count * sizeof(struct trie_node), trie->nodes_count);
+                log_debug("children arrays:  %8zu bytes (%8zu)\n", trie->children_count * sizeof(struct trie_child_entry), trie->children_count);
+                log_debug("values arrays:    %8zu bytes (%8zu)\n", trie->values_count * sizeof(struct trie_value_entry), trie->values_count);
+                log_debug("strings:          %8zu bytes\n", trie->strings->len);
+                log_debug("strings incoming: %8zu bytes (%8zu)\n", trie->strings->in_len, trie->strings->in_count);
+                log_debug("strings dedup'ed: %8zu bytes (%8zu)\n", trie->strings->dedup_len, trie->strings->dedup_count);
+
+                mkdir_parents("/etc/udev/hwdb.bin", 0755);
+                err = trie_store(trie, "/etc/udev/hwdb.bin");
+                if (err < 0) {
+                        log_error("Failure writing hardware database '%s': %s", "/etc/udev/hwdb.bin", strerror(-err));
+                        rc = EXIT_FAILURE;
+                }
         }
 
-        /* string store */
-        trie->strings = strbuf_new();
-        if (!trie->strings) {
-                rc = EXIT_FAILURE;
-                goto out;
-        }
+        if (test) {
+                struct udev_hwdb *hwdb = udev_hwdb_new(udev);
 
-        /* index */
-        trie->root = calloc(sizeof(struct trie_node), 1);
-        if (!trie->root) {
-                rc = EXIT_FAILURE;
-                goto out;
-        }
-        trie->nodes_count++;
+                if (hwdb) {
+                        struct udev_list_entry *entry;
 
-        err = conf_files_list_strv(&files, ".hwdb", (const char **)conf_file_dirs);
-        if (err < 0) {
-                log_error("failed to enumerate hwdb files: %s\n", strerror(-err));
-                rc = EXIT_FAILURE;
-                goto out;
-        }
-        STRV_FOREACH(f, files) {
-                log_debug("reading file '%s'", *f);
-                import_file(trie, *f);
-        }
-        strv_free(files);
-
-        strbuf_complete(trie->strings);
-
-        log_debug("=== trie in-memory ===\n");
-        log_debug("nodes:            %8zu bytes (%8zu)\n", trie->nodes_count * sizeof(struct trie_node), trie->nodes_count);
-        log_debug("children arrays:  %8zu bytes (%8zu)\n", trie->children_count * sizeof(struct trie_child_entry), trie->children_count);
-        log_debug("values arrays:    %8zu bytes (%8zu)\n", trie->values_count * sizeof(struct trie_value_entry), trie->values_count);
-        log_debug("strings:          %8zu bytes\n", trie->strings->len);
-        log_debug("strings incoming: %8zu bytes (%8zu)\n", trie->strings->in_len, trie->strings->in_count);
-        log_debug("strings dedup'ed: %8zu bytes (%8zu)\n", trie->strings->dedup_len, trie->strings->dedup_count);
-
-        mkdir_parents("/etc/udev/hwdb.bin", 0755);
-        err = trie_store(trie, "/etc/udev/hwdb.bin");
-        if (err < 0) {
-                log_error("Failure writing hardware database '%s': %s", "/etc/udev/hwdb.bin", strerror(-err));
-                rc = EXIT_FAILURE;
+                        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, test, 0))
+                                printf("%s=%s\n", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
+                        hwdb = udev_hwdb_unref(hwdb);
+                }
         }
 out:
-        if (trie->root)
-                trie_node_cleanup(trie->root);
-        strbuf_cleanup(trie->strings);
-        free(trie);
+        if (trie) {
+                if (trie->root)
+                        trie_node_cleanup(trie->root);
+                strbuf_cleanup(trie->strings);
+                free(trie);
+        }
         return rc;
 }
 

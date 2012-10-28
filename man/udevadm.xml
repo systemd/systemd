@@ -436,6 +436,13 @@
             notified about it.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><option>--test=<replaceable>string</replaceable></option></term>
+          <listitem>
+            <para>Query the database with a modalias string, and print the
+            retrieved properties.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
