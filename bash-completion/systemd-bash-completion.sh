@@ -477,7 +477,10 @@ _hostnamectl() {
 }
 complete -F _hostnamectl hostnamectl
 
-__get_all_sysdevs() { ls -1 -d /sys/bus/*/devices/* /sys/class/*/*; }
+__get_all_sysdevs() {
+        local -a devs=(/sys/bus/*/devices/*/ /sys/class/*/*/)
+        printf '%s\n' "${devs[@]%/}"
+}
 
 _udevadm() {
         local i verb comps
