@@ -176,7 +176,7 @@ static int button_handle(
                 [HANDLE_KEXEC] = "Rebooting via kexec...",
                 [HANDLE_SUSPEND] = "Suspending...",
                 [HANDLE_HIBERNATE] = "Hibernating...",
-                [HANDLE_HYBRID_SLEEP] = "Hibernating and suspend..."
+                [HANDLE_HYBRID_SLEEP] = "Hibernating and suspending..."
         };
 
         static const char * const target_table[_HANDLE_BUTTON_MAX] = {
