@@ -338,10 +338,10 @@ _public_ struct udev_hwdb *udev_hwdb_unref(struct udev_hwdb *hwdb) {
         hwdb->refcount--;
         if (hwdb->refcount > 0)
                 return hwdb;
-        if (hwdb->f)
-                fclose(hwdb->f);
         if (hwdb->map)
                 munmap((void *)hwdb->map, hwdb->st.st_size);
+        if (hwdb->f)
+                fclose(hwdb->f);
         udev_list_cleanup(&hwdb->properties_list);
         free(hwdb);
         return NULL;
@@ -382,6 +382,7 @@ _public_ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev
                 return NULL;
         }
 
+        udev_list_cleanup(&hwdb->properties_list);
         err = trie_search_f(hwdb, modalias);
         if (err < 0) {
                 errno = -err;
