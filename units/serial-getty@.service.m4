@@ -39,8 +39,7 @@ Before=getty.target
 IgnoreOnIsolate=yes
 
 [Service]
-Environment=TERM=vt102
-ExecStart=-/sbin/agetty -s %I 115200,38400,9600
+ExecStart=-/sbin/agetty -s %I 115200,38400,9600 vt102
 Type=idle
 Restart=always
 RestartSec=0
