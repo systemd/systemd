@@ -430,7 +430,7 @@ static int hostnamectl_main(DBusConnection *bus, int argc, char *argv[], DBusErr
                 int (* const dispatch)(DBusConnection *bus, char **args, unsigned n);
         } verbs[] = {
                 { "status",              LESS,   1, show_status         },
-                { "set-hostname",        LESS,   2, set_hostname        },
+                { "set-hostname",        EQUAL,  2, set_hostname        },
                 { "set-icon-name",       EQUAL,  2, set_icon_name       },
         };
 
