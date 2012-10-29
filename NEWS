@@ -2,11 +2,11 @@ systemd System and Service Manager
 
 CHANGES WITH 195:
 
-        * journalctl gained the new --since= and --until= switches to
+        * journalctl gained new --since= and --until= switches to
           filter by time. It also now supports nice filtering for
           units via --unit=/-u.
 
-        * Type=oneshot services not may use ExecReload= and do the
+        * Type=oneshot services may use ExecReload= and do the
           right thing.
 
         * The journal daemon now supports time-based rotation and
