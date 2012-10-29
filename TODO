@@ -18,6 +18,11 @@ F18:
 * Retest multi-seat
 
 Features:
+* hwdb:
+  - implement conditional properties (dmi matches)
+  - hwdb --filter=ID_DRIVE_*
+  - find out what to do for blockdevs and skipping scsi modaliases
+  - move writing code to src/libudev/libudev-hwdb-private.c
 
 * sd_journal_enumerate_data() implies XZ-decoding compressed field, this sucks hard
 
