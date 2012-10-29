@@ -485,6 +485,26 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>SmackLabel=</varname></term>
+                                <term><varname>SmackLabelIPIn=</varname></term>
+                                <term><varname>SmackLabelIPOut=</varname></term>
+                                <listitem><para>Takes a string
+                                value. Controls the extended
+                                attributes
+                                <literal>security.SMACK64</literal>,
+                                <literal>security.SMACK64IPIN</literal>
+                                and
+                                <literal>security.SMACK64IPOUT</literal>,
+                                respectively, i.e. the security label
+                                of the FIFO, or the security label for
+                                the incoming or outgoing connections
+                                of the socket, respectively.  See
+                                <ulink
+                                url="https://www.kernel.org/doc/Documentation/security/Smack.txt">Smack.txt</ulink>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>PipeSize=</varname></term>
                                 <listitem><para>Takes an integer
                                 value. Controls the pipe buffer size

@@ -208,6 +208,9 @@ Socket.TCPCongestion,            config_parse_string,                0,         
 Socket.MessageQueueMaxMessages,  config_parse_long,                  0,                             offsetof(Socket, mq_maxmsg)
 Socket.MessageQueueMessageSize,  config_parse_long,                  0,                             offsetof(Socket, mq_msgsize)
 Socket.Service,                  config_parse_socket_service,        0,                             0
+Socket.SmackLabel,               config_parse_string,                0,                             offsetof(Socket, smack)
+Socket.SmackLabelIPIn,           config_parse_string,                0,                             offsetof(Socket, smack_ip_in)
+Socket.SmackLabelIPOut,          config_parse_string,                0,                             offsetof(Socket, smack_ip_out)
 EXEC_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 m4_dnl

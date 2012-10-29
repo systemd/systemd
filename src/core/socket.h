@@ -144,6 +144,10 @@ struct Socket {
 
         /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
         SocketAddressBindIPv6Only bind_ipv6_only;
+
+        char *smack;
+        char *smack_ip_in;
+        char *smack_ip_out;
 };
 
 /* Called from the service code when collecting fds */

@@ -28,6 +28,7 @@
 #include <signal.h>
 #include <arpa/inet.h>
 #include <mqueue.h>
+#include <attr/xattr.h>
 
 #include "unit.h"
 #include "socket.h"
@@ -130,6 +131,10 @@ static void socket_done(Unit *u) {
 
         free(s->bind_to_device);
         s->bind_to_device = NULL;
+
+        free(s->smack);
+        free(s->smack_ip_in);
+        free(s->smack_ip_out);
 
         unit_unwatch_timer(u, &s->timer_watch);
 }
@@ -508,6 +513,21 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sMessageQueueMessageSize: %li\n",
                         prefix, s->mq_msgsize);
 
+        if (s->smack)
+                fprintf(f,
+                        "%sSmackLabel: %s\n",
+                        prefix, s->smack);
+
+        if (s->smack_ip_in)
+                fprintf(f,
+                        "%sSmackLabelIPIn: %s\n",
+                        prefix, s->smack_ip_in);
+
+        if (s->smack_ip_out)
+                fprintf(f,
+                        "%sSmackLabelIPOut: %s\n",
+                        prefix, s->smack_ip_out);
+
         LIST_FOREACH(port, p, s->ports) {
 
                 if (p->type == SOCKET_SOCKET) {
@@ -747,6 +767,14 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         if (s->tcp_congestion)
                 if (setsockopt(fd, SOL_TCP, TCP_CONGESTION, s->tcp_congestion, strlen(s->tcp_congestion)+1) < 0)
                         log_warning("TCP_CONGESTION failed: %m");
+
+        if (s->smack_ip_in)
+                if (fsetxattr(fd, "security.SMACK64IPIN", s->smack_ip_in, strlen(s->smack_ip_in), 0) < 0)
+                        log_error("fsetxattr(\"security.SMACK64IPIN\"): %m");
+
+        if (s->smack_ip_out)
+                if (fsetxattr(fd, "security.SMACK64IPOUT", s->smack_ip_out, strlen(s->smack_ip_out), 0) < 0)
+                        log_error("fsetxattr(\"security.SMACK64IPOUT\"): %m");
 }
 
 static void socket_apply_fifo_options(Socket *s, int fd) {
@@ -756,6 +784,10 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
         if (s->pipe_size > 0)
                 if (fcntl(fd, F_SETPIPE_SZ, s->pipe_size) < 0)
                         log_warning("F_SETPIPE_SZ: %m");
+
+        if (s->smack)
+                if (fsetxattr(fd, "security.SMACK64", s->smack, strlen(s->smack), 0) < 0)
+                        log_error("fsetxattr(\"security.SMACK64\"): %m");
 }
 
 static int fifo_address_create(
