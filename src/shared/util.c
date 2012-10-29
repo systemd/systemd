@@ -148,8 +148,7 @@ usec_t timespec_load(const struct timespec *ts) {
             ts->tv_nsec == (long) -1)
                 return (usec_t) -1;
 
-        if (ts->tv_sec > 0 &&
-            USEC_PER_SEC > ((UINT64_MAX - (ts->tv_nsec / NSEC_PER_USEC)) / (usec_t) ts->tv_sec))
+        if ((usec_t) ts->tv_sec > (UINT64_MAX - (ts->tv_nsec / NSEC_PER_USEC)) / USEC_PER_SEC)
                 return (usec_t) -1;
 
         return
@@ -179,7 +178,7 @@ usec_t timeval_load(const struct timeval *tv) {
             tv->tv_usec == (suseconds_t) -1)
                 return (usec_t) -1;
 
-        if (USEC_PER_SEC > (UINT64_MAX - tv->tv_usec) / (usec_t) tv->tv_sec)
+        if ((usec_t) tv->tv_sec > (UINT64_MAX - tv->tv_usec) / USEC_PER_SEC)
                 return (usec_t) -1;
 
         return
