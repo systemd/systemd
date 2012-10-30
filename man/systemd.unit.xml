@@ -338,7 +338,15 @@
                                 <literal>man:</literal>. For more
                                 information about the syntax of these
                                 URIs see
-                                <citerefentry><refentrytitle>uri</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+                                <citerefentry><refentrytitle>uri</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+                                URIs should be listed in order of
+                                relevance, starting with the most
+                                relevant. It is a good idea to first
+                                reference documentation that explains
+                                what the unit's purpose is, followed
+                                by how it is configured, followed by
+                                any other related
+                                documentation.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
