@@ -113,6 +113,10 @@ typedef struct BusBoundProperties {
         const void *const base;          /* base pointer to which the offset must be added to reach data */
 } BusBoundProperties;
 
+dbus_bool_t bus_maybe_send_reply (DBusConnection   *c,
+                                  DBusMessage *message,
+                                  DBusMessage *reply);
+
 DBusHandlerResult bus_send_error_reply(
                 DBusConnection *c,
                 DBusMessage *message,

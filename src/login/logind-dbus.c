@@ -2276,8 +2276,8 @@ static DBusHandlerResult manager_message_handler(
         }
 
         if (reply) {
-                if (!dbus_connection_send(connection, reply, NULL))
-                        goto oom;
+                if (!bus_maybe_send_reply(connection, message, reply))
+                                goto oom;
 
                 dbus_message_unref(reply);
         }

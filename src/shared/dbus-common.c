@@ -501,7 +501,7 @@ set_prop:
         }
 
         if (reply) {
-                if (!dbus_connection_send(c, reply, NULL))
+                if (!bus_maybe_send_reply(c, message, reply))
                         goto oom;
 
                 return DBUS_HANDLER_RESULT_HANDLED;
@@ -713,6 +713,15 @@ const char *bus_errno_to_dbus(int error) {
         return DBUS_ERROR_FAILED;
 }
 
+dbus_bool_t bus_maybe_send_reply (DBusConnection   *c,
+                                  DBusMessage *message,
+                                  DBusMessage *reply)
+{
+        if (dbus_message_get_no_reply (message))
+                return TRUE;
+        return dbus_connection_send (c, reply, NULL);
+}
+
 DBusHandlerResult bus_send_error_reply(DBusConnection *c, DBusMessage *message, DBusError *berror, int error) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         const char *name, *text;
@@ -729,7 +738,7 @@ DBusHandlerResult bus_send_error_reply(DBusConnection *c, DBusMessage *message, 
         if (!reply)
                 goto oom;
 
-        if (!dbus_connection_send(c, reply, NULL))
+        if (!bus_maybe_send_reply(c, message, reply))
                 goto oom;
 
         if (berror)
