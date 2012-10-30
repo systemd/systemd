@@ -616,7 +616,8 @@ int config_parse_exec_io_class(
         assert(rvalue);
         assert(data);
 
-        if ((x = ioprio_class_from_string(rvalue)) < 0) {
+        x = ioprio_class_from_string(rvalue);
+        if (x < 0) {
                 log_error("[%s:%u] Failed to parse IO scheduling class, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -675,7 +676,8 @@ int config_parse_exec_cpu_sched_policy(
         assert(rvalue);
         assert(data);
 
-        if ((x = sched_policy_from_string(rvalue)) < 0) {
+        x = sched_policy_from_string(rvalue);
+        if (x < 0) {
                 log_error("[%s:%u] Failed to parse CPU scheduling policy, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -1452,11 +1454,11 @@ int config_parse_ip_tos(
         assert(rvalue);
         assert(data);
 
-        if ((x = ip_tos_from_string(rvalue)) < 0)
-                if (safe_atoi(rvalue, &x) < 0) {
-                        log_error("[%s:%u] Failed to parse IP TOS value, ignoring: %s", filename, line, rvalue);
-                        return 0;
-                }
+        x = ip_tos_from_string(rvalue);
+        if (x < 0) {
+                log_error("[%s:%u] Failed to parse IP TOS value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
 
         *ip_tos = x;
         return 0;

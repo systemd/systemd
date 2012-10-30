@@ -5207,7 +5207,7 @@ static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_IDLE] = "idle"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(ioprio_class, int);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, INT_MAX);
 
 static const char *const sigchld_code_table[] = {
         [CLD_EXITED] = "exited",
@@ -5243,7 +5243,7 @@ static const char *const log_facility_unshifted_table[LOG_NFACILITIES] = {
         [LOG_FAC(LOG_LOCAL7)] = "local7"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(log_facility_unshifted, int);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(log_facility_unshifted, int, LOG_FAC(~0));
 
 static const char *const log_level_table[] = {
         [LOG_EMERG] = "emerg",
@@ -5256,7 +5256,7 @@ static const char *const log_level_table[] = {
         [LOG_DEBUG] = "debug"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(log_level, int);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(log_level, int, LOG_DEBUG);
 
 static const char* const sched_policy_table[] = {
         [SCHED_OTHER] = "other",
@@ -5266,7 +5266,7 @@ static const char* const sched_policy_table[] = {
         [SCHED_RR] = "rr"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(sched_policy, int);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);
 
 static const char* const rlimit_table[] = {
         [RLIMIT_CPU] = "LimitCPU",
@@ -5296,7 +5296,7 @@ static const char* const ip_tos_table[] = {
         [IPTOS_LOWCOST] = "low-cost",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(ip_tos, int);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int, 0xff);
 
 static const char *const __signal_table[] = {
         [SIGHUP] = "HUP",

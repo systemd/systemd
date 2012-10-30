@@ -291,6 +291,7 @@ int make_console_stdio(void);
 
 unsigned long long random_ull(void);
 
+/* For basic lookup tables with strictly enumerated entries */
 #define __DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                   \
         scope const char *name##_to_string(type i) {                    \
                 if (i < 0 || i >= (type) ELEMENTSOF(name##_table))      \
@@ -299,21 +300,50 @@ unsigned long long random_ull(void);
         }                                                               \
         scope type name##_from_string(const char *s) {                  \
                 type i;                                                 \
-                unsigned u = 0;                                         \
                 assert(s);                                              \
                 for (i = 0; i < (type)ELEMENTSOF(name##_table); i++)    \
                         if (name##_table[i] &&                          \
                             streq(name##_table[i], s))                  \
                                 return i;                               \
-                if (safe_atou(s, &u) >= 0 &&                            \
-                    u < ELEMENTSOF(name##_table))                       \
-                        return (type) u;                                \
                 return (type) -1;                                       \
         }                                                               \
         struct __useless_struct_to_allow_trailing_semicolon__
 
 #define DEFINE_STRING_TABLE_LOOKUP(name,type) __DEFINE_STRING_TABLE_LOOKUP(name,type,)
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP(name,type) __DEFINE_STRING_TABLE_LOOKUP(name,type,static)
+
+/* For string conversions where numbers are also acceptable */
+#define DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(name,type,max)         \
+        int name##_to_string_alloc(type i, char **str) {                \
+                char *s;                                                \
+                int r;                                                  \
+                if (i < 0 || i > max)                                   \
+                        return -ERANGE;                                 \
+                if (i < (type) ELEMENTSOF(name##_table)) {              \
+                        s = strdup(name##_table[i]);                    \
+                        if (!s)                                         \
+                                return log_oom();                       \
+                } else {                                                \
+                        r = asprintf(&s, "%u", i);                      \
+                        if (r < 0)                                      \
+                                return log_oom();                       \
+                }                                                       \
+                *str = s;                                               \
+                return 0;                                               \
+        }                                                               \
+        type name##_from_string(const char *s) {                        \
+                type i;                                                 \
+                unsigned u = 0;                                         \
+                assert(s);                                              \
+                for (i = 0; i < (type)ELEMENTSOF(name##_table); i++)    \
+                        if (name##_table[i] &&                          \
+                            streq(name##_table[i], s))                  \
+                                return i;                               \
+                if (safe_atou(s, &u) >= 0 && u < max)                   \
+                        return (type) u;                                \
+                return (type) -1;                                       \
+        }                                                               \
+        struct __useless_struct_to_allow_trailing_semicolon__
 
 int fd_nonblock(int fd, bool nonblock);
 int fd_cloexec(int fd, bool cloexec);
@@ -478,25 +508,25 @@ int strdup_or_null(const char *a, char **b);
 #define NULSTR_FOREACH_PAIR(i, j, l)                             \
         for ((i) = (l), (j) = strchr((i), 0)+1; (i) && *(i); (i) = strchr((j), 0)+1, (j) = *(i) ? strchr((i), 0)+1 : (i))
 
-const char *ioprio_class_to_string(int i);
+int ioprio_class_to_string_alloc(int i, char **s);
 int ioprio_class_from_string(const char *s);
 
 const char *sigchld_code_to_string(int i);
 int sigchld_code_from_string(const char *s);
 
-const char *log_facility_unshifted_to_string(int i);
+int log_facility_unshifted_to_string_alloc(int i, char **s);
 int log_facility_unshifted_from_string(const char *s);
 
-const char *log_level_to_string(int i);
+int log_level_to_string_alloc(int i, char **s);
 int log_level_from_string(const char *s);
 
-const char *sched_policy_to_string(int i);
+int sched_policy_to_string_alloc(int i, char **s);
 int sched_policy_from_string(const char *s);
 
 const char *rlimit_to_string(int i);
 int rlimit_from_string(const char *s);
 
-const char *ip_tos_to_string(int i);
+int ip_tos_to_string_alloc(int i, char **s);
 int ip_tos_from_string(const char *s);
 
 const char *signal_to_string(int i);

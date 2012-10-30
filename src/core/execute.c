@@ -1769,21 +1769,37 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 if (c->rlimit[i])
                         fprintf(f, "%s%s: %llu\n", prefix, rlimit_to_string(i), (unsigned long long) c->rlimit[i]->rlim_max);
 
-        if (c->ioprio_set)
+        if (c->ioprio_set) {
+                char *class_str;
+                int r;
+
+                r = ioprio_class_to_string_alloc(IOPRIO_PRIO_CLASS(c->ioprio), &class_str);
+                if (r < 0)
+                        class_str = NULL;
                 fprintf(f,
                         "%sIOSchedulingClass: %s\n"
                         "%sIOPriority: %i\n",
-                        prefix, ioprio_class_to_string(IOPRIO_PRIO_CLASS(c->ioprio)),
+                        prefix, strna(class_str),
                         prefix, (int) IOPRIO_PRIO_DATA(c->ioprio));
+                free(class_str);
+        }
 
-        if (c->cpu_sched_set)
+        if (c->cpu_sched_set) {
+                char *policy_str;
+                int r;
+
+                r = sched_policy_to_string_alloc(c->cpu_sched_policy, &policy_str);
+                if (r < 0)
+                        policy_str = NULL;
                 fprintf(f,
                         "%sCPUSchedulingPolicy: %s\n"
                         "%sCPUSchedulingPriority: %i\n"
                         "%sCPUSchedulingResetOnFork: %s\n",
-                        prefix, sched_policy_to_string(c->cpu_sched_policy),
+                        prefix, strna(policy_str),
                         prefix, c->cpu_sched_priority,
                         prefix, yes_no(c->cpu_sched_reset_on_fork));
+                free(policy_str);
+	}
 
         if (c->cpuset) {
                 fprintf(f, "%sCPUAffinity:", prefix);
@@ -1818,12 +1834,26 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         if (c->std_output == EXEC_OUTPUT_SYSLOG || c->std_output == EXEC_OUTPUT_KMSG || c->std_output == EXEC_OUTPUT_JOURNAL ||
             c->std_output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE || c->std_output == EXEC_OUTPUT_KMSG_AND_CONSOLE || c->std_output == EXEC_OUTPUT_JOURNAL_AND_CONSOLE ||
             c->std_error == EXEC_OUTPUT_SYSLOG || c->std_error == EXEC_OUTPUT_KMSG || c->std_error == EXEC_OUTPUT_JOURNAL ||
-            c->std_error == EXEC_OUTPUT_SYSLOG_AND_CONSOLE || c->std_error == EXEC_OUTPUT_KMSG_AND_CONSOLE || c->std_error == EXEC_OUTPUT_JOURNAL_AND_CONSOLE)
+            c->std_error == EXEC_OUTPUT_SYSLOG_AND_CONSOLE || c->std_error == EXEC_OUTPUT_KMSG_AND_CONSOLE || c->std_error == EXEC_OUTPUT_JOURNAL_AND_CONSOLE) {
+                char *fac_str, *lvl_str;
+                int r;
+
+                r = log_facility_unshifted_to_string_alloc(c->syslog_priority >> 3, &fac_str);
+                if (r < 0)
+                        fac_str = NULL;
+
+                r = log_level_to_string_alloc(LOG_PRI(c->syslog_priority), &lvl_str);
+                if (r < 0)
+                        lvl_str = NULL;
+
                 fprintf(f,
                         "%sSyslogFacility: %s\n"
                         "%sSyslogLevel: %s\n",
-                        prefix, log_facility_unshifted_to_string(c->syslog_priority >> 3),
-                        prefix, log_level_to_string(LOG_PRI(c->syslog_priority)));
+                        prefix, strna(fac_str),
+                        prefix, strna(lvl_str));
+                free(lvl_str);
+                free(fac_str);
+        }
 
         if (c->capabilities) {
                 char *t;

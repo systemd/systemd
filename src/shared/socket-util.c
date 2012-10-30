@@ -194,7 +194,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
 int socket_address_parse_netlink(SocketAddress *a, const char *s) {
         int family;
         unsigned group = 0;
-        char* sfamily = NULL;
+        _cleanup_free_ char *sfamily = NULL;
         assert(a);
         assert(s);
 
@@ -205,13 +205,9 @@ int socket_address_parse_netlink(SocketAddress *a, const char *s) {
         if (sscanf(s, "%ms %u", &sfamily, &group) < 1)
                 return errno ? -errno : -EINVAL;
 
-        if ((family = netlink_family_from_string(sfamily)) < 0)
-                if (safe_atoi(sfamily, &family) < 0) {
-                        free(sfamily);
-                        return -EINVAL;
-                }
-
-        free(sfamily);
+        family = netlink_family_from_string(sfamily);
+        if (family < 0)
+                return -EINVAL;
 
         a->sockaddr.nl.nl_family = AF_NETLINK;
         a->sockaddr.nl.nl_groups = group;
@@ -367,15 +363,13 @@ int socket_address_print(const SocketAddress *a, char **p) {
         }
 
         case AF_NETLINK: {
-                const char *sfamily;
+                char *sfamily;
 
-                if ((sfamily = netlink_family_to_string(a->protocol)))
-                        r = asprintf(p, "%s %u", sfamily, a->sockaddr.nl.nl_groups);
-                else
-                        r = asprintf(p, "%i %u", a->protocol, a->sockaddr.nl.nl_groups);
-
+                r = netlink_family_to_string_alloc(a->protocol, &sfamily);
                 if (r < 0)
-                        return -ENOMEM;
+                        return r;
+                r = asprintf(p, "%s %u", sfamily, a->sockaddr.nl.nl_groups);
+                free(sfamily);
 
                 return 0;
         }
@@ -540,7 +534,7 @@ static const char* const netlink_family_table[] = {
         [NETLINK_ECRYPTFS] = "ecryptfs"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(netlink_family, int);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(netlink_family, int, INT_MAX);
 
 static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX] = {
         [SOCKET_ADDRESS_DEFAULT] = "default",

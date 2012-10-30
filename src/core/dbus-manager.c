@@ -352,17 +352,21 @@ static int bus_manager_set_log_target(DBusMessageIter *i, const char *property, 
 }
 
 static int bus_manager_append_log_level(DBusMessageIter *i, const char *property, void *data) {
-        const char *t;
+        char *t;
+        int r;
 
         assert(i);
         assert(property);
 
-        t = log_level_to_string(log_get_max_level());
+        r = log_level_to_string_alloc(log_get_max_level(), &t);
+        if (r < 0)
+                return r;
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t))
-                return -ENOMEM;
+                r = -ENOMEM;
 
-        return 0;
+        free(t);
+        return r;
 }
 
 static int bus_manager_set_log_level(DBusMessageIter *i, const char *property, void *data) {
