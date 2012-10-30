@@ -75,25 +75,21 @@ void strv_freep(char ***l) {
 char **strv_copy(char **l) {
         char **r, **k;
 
-        k = r = new(char*, strv_length(l)+1);
-        if (!k)
+        k = r = new(char*, strv_length(l) + 1);
+        if (!r)
                 return NULL;
 
         if (l)
-                for (; *l; k++, l++)
-                        if (!(*k = strdup(*l)))
-                                goto fail;
+                for (; *l; k++, l++) {
+                        *k = strdup(*l);
+                        if (!*k) {
+                                strv_free(r);
+                                return NULL;
+                        }
+                }
 
         *k = NULL;
         return r;
-
-fail:
-        for (k--; k >= r; k--)
-                free(*k);
-
-        free(r);
-
-        return NULL;
 }
 
 unsigned strv_length(char **l) {
@@ -163,13 +159,7 @@ char **strv_new_ap(const char *x, va_list ap) {
         return a;
 
 fail:
-
-        for (; i > 0; i--)
-                if (a[i-1])
-                        free(a[i-1]);
-
-        free(a);
-
+        strv_free(a);
         return NULL;
 }
 
@@ -265,15 +255,20 @@ char **strv_split(const char *s, const char *separator) {
         FOREACH_WORD_SEPARATOR(w, l, s, separator, state)
                 n++;
 
-        if (!(r = new(char*, n+1)))
+        r = new(char*, n+1);
+        if (!r)
                 return NULL;
 
         i = 0;
-        FOREACH_WORD_SEPARATOR(w, l, s, separator, state)
-                if (!(r[i++] = strndup(w, l))) {
+        FOREACH_WORD_SEPARATOR(w, l, s, separator, state) {
+                r[i] = strndup(w, l);
+                if (!r[i]) {
                         strv_free(r);
                         return NULL;
                 }
+
+                i++;
+        }
 
         r[i] = NULL;
         return r;
@@ -292,15 +287,19 @@ char **strv_split_quoted(const char *s) {
         FOREACH_WORD_QUOTED(w, l, s, state)
                 n++;
 
-        if (!(r = new(char*, n+1)))
+        r = new(char*, n+1);
+        if (!r)
                 return NULL;
 
         i = 0;
-        FOREACH_WORD_QUOTED(w, l, s, state)
-                if (!(r[i++] = cunescape_length(w, l))) {
+        FOREACH_WORD_QUOTED(w, l, s, state) {
+                r[i] = cunescape_length(w, l);
+                if (!r[i]) {
                         strv_free(r);
                         return NULL;
                 }
+                i++;
+        }
 
         r[i] = NULL;
         return r;
@@ -323,7 +322,8 @@ char *strv_join(char **l, const char *separator) {
                 n += strlen(*s);
         }
 
-        if (!(r = new(char, n+1)))
+        r = new(char, n+1);
+        if (!r)
                 return NULL;
 
         e = r;
@@ -352,22 +352,21 @@ char **strv_append(char **l, const char *s) {
         if (!r)
                 return NULL;
 
-        for (k = r; *l; k++, l++)
-                if (!(*k = strdup(*l)))
+        for (k = r; *l; k++, l++) {
+                *k = strdup(*l);
+                if (!*k)
                         goto fail;
+        }
 
-        if (!(*(k++) = strdup(s)))
+        k[0] = strdup(s);
+        if (!k[0])
                 goto fail;
 
-        *k = NULL;
+        k[1] = NULL;
         return r;
 
 fail:
-        for (k--; k >= r; k--)
-                free(*k);
-
-        free(r);
-
+        strv_free(r);
         return NULL;
 }
 
@@ -462,7 +461,8 @@ static int env_append(char **r, char ***k, char **a) {
                 else
                         free(*j);
 
-                if (!(*j = strdup(*a)))
+                *j = strdup(*a);
+                if (!*j)
                         return -ENOMEM;
         }
 
@@ -484,7 +484,8 @@ char **strv_env_merge(unsigned n_lists, ...) {
         }
         va_end(ap);
 
-        if (!(r = new(char*, n+1)))
+        r = new(char*, n+1);
+        if (!r)
                 return NULL;
 
         k = r;
@@ -503,11 +504,7 @@ char **strv_env_merge(unsigned n_lists, ...) {
 
 fail:
         va_end(ap);
-
-        for (k--; k >= r; k--)
-                free(*k);
-
-        free(r);
+        strv_free(r);
 
         return NULL;
 }
@@ -619,7 +616,8 @@ char **strv_env_set(char **x, const char *p) {
 
         /* Overrides the env var setting of p, returns a new copy */
 
-        if (!(r = new(char*, strv_length(x)+2)))
+        r = new(char*, strv_length(x)+2);
+        if (!r)
                 return NULL;
 
         k = r;
@@ -634,11 +632,7 @@ char **strv_env_set(char **x, const char *p) {
         return r;
 
 fail:
-        for (k--; k >= r; k--)
-                free(*k);
-
-        free(r);
-
+        strv_free(r);
         return NULL;
 
 }
@@ -698,7 +692,8 @@ char **strv_parse_nulstr(const char *s, size_t l) {
         if (s[l-1] != 0)
                 c++;
 
-        if (!(v = new0(char*, c+1)))
+        v = new0(char*, c+1);
+        if (!v)
                 return NULL;
 
         p = s;
@@ -707,10 +702,13 @@ char **strv_parse_nulstr(const char *s, size_t l) {
 
                 e = memchr(p, 0, s + l - p);
 
-                if (!(v[i++] = strndup(p, e ? e - p : s + l - p))) {
+                v[i] = strndup(p, e ? e - p : s + l - p);
+                if (!v[i]) {
                         strv_free(v);
                         return NULL;
                 }
+
+                i++;
 
                 if (!e)
                         break;
