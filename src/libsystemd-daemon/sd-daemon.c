@@ -88,7 +88,7 @@ _sd_export_ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-        if (!p || *p || l <= 0) {
+        if (!p || p == e || *p || l <= 0) {
                 r = -EINVAL;
                 goto finish;
         }
@@ -112,7 +112,7 @@ _sd_export_ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-        if (!p || *p) {
+        if (!p || p == e || *p) {
                 r = -EINVAL;
                 goto finish;
         }

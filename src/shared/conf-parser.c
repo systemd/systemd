@@ -865,7 +865,7 @@ int config_parse_mode(
 
         errno = 0;
         l = strtol(rvalue, &x, 8);
-        if (!x || *x || errno) {
+        if (!x || x == rvalue || *x || errno) {
                 log_error("[%s:%u] Failed to parse mode value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
