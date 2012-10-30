@@ -18,6 +18,11 @@ F18:
 * Retest multi-seat
 
 Features:
+
+* When we begin with system shutdown all kind of suspend/hibernation should be prohibited until shutdown/reboot
+
+* When we update the kernel all kind of hibernation should be prohibited until shutdown/reboot
+
 * hwdb:
   - implement conditional properties (dmi matches)
   - hwdb --filter=ID_DRIVE_*
@@ -143,11 +148,6 @@ Features:
 
 * instantiated [Install] for target units
   https://bugs.freedesktop.org/show_bug.cgi?id=54377
-
-* support *static* (/run) hibernate inhibitors. All rpm -i actions should completely prevent any
-  sort of hibernate action until the next reboot. If the kernel or any other base tool is replaced
-  by rpm, the resume path might fail, the for resume needed kernel might even be uninstalled, and
-  the whole situation leads directly to data loss.
 
 * move debug shell to tty6 and make sure this doesn't break the gettys on tty6
 
