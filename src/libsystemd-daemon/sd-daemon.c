@@ -75,7 +75,8 @@ _sd_export_ int sd_listen_fds(int unset_environment) {
         char *p = NULL;
         unsigned long l;
 
-        if (!(e = getenv("LISTEN_PID"))) {
+        e = getenv("LISTEN_PID");
+        if (!e) {
                 r = 0;
                 goto finish;
         }
@@ -99,7 +100,8 @@ _sd_export_ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-        if (!(e = getenv("LISTEN_FDS"))) {
+        e = getenv("LISTEN_FDS");
+        if (!e) {
                 r = 0;
                 goto finish;
         }
@@ -120,7 +122,8 @@ _sd_export_ int sd_listen_fds(int unset_environment) {
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + (int) l; fd ++) {
                 int flags;
 
-                if ((flags = fcntl(fd, F_GETFD)) < 0) {
+                flags = fcntl(fd, F_GETFD);
+                if (flags < 0) {
                         r = -errno;
                         goto finish;
                 }
@@ -270,7 +273,8 @@ _sd_export_ int sd_is_socket(int fd, int family, int type, int listening) {
         if (family < 0)
                 return -EINVAL;
 
-        if ((r = sd_is_socket_internal(fd, type, listening)) <= 0)
+        r = sd_is_socket_internal(fd, type, listening);
+        if (r <= 0)
                 return r;
 
         if (family > 0) {
@@ -300,7 +304,8 @@ _sd_export_ int sd_is_socket_inet(int fd, int family, int type, int listening, u
         if (family != 0 && family != AF_INET && family != AF_INET6)
                 return -EINVAL;
 
-        if ((r = sd_is_socket_internal(fd, type, listening)) <= 0)
+        r = sd_is_socket_internal(fd, type, listening);
+        if (r <= 0)
                 return r;
 
         memset(&sockaddr, 0, sizeof(sockaddr));
@@ -342,7 +347,8 @@ _sd_export_ int sd_is_socket_unix(int fd, int type, int listening, const char *p
         socklen_t l;
         int r;
 
-        if ((r = sd_is_socket_internal(fd, type, listening)) <= 0)
+        r = sd_is_socket_internal(fd, type, listening);
+        if (r <= 0)
                 return r;
 
         memset(&sockaddr, 0, sizeof(sockaddr));
@@ -432,7 +438,8 @@ _sd_export_ int sd_notify(int unset_environment, const char *state) {
                 goto finish;
         }
 
-        if (!(e = getenv("NOTIFY_SOCKET")))
+        e = getenv("NOTIFY_SOCKET");
+        if (!e)
                 return 0;
 
         /* Must be an abstract socket, or an absolute path */
@@ -441,7 +448,8 @@ _sd_export_ int sd_notify(int unset_environment, const char *state) {
                 goto finish;
         }
 
-        if ((fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0) {
+        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        if (fd < 0) {
                 r = -errno;
                 goto finish;
         }
