@@ -98,6 +98,13 @@
                                 pager.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>--no-legend</option></term>
+
+                                <listitem><para>Do not print the column headers.
+                                </para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
                 <para>The following commands are understood:</para>

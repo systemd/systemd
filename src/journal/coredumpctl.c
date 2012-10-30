@@ -45,6 +45,7 @@ static Set *matches = NULL;
 static FILE* output = NULL;
 
 static int arg_no_pager = false;
+static int arg_no_legend = false;
 
 static Set *new_matches(void) {
         Set *set;
@@ -138,6 +139,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
+                ARG_NO_LEGEND,
         };
 
         int r, c;
@@ -146,6 +148,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",         no_argument,       NULL, 'h'           },
                 { "version" ,     no_argument,       NULL, ARG_VERSION   },
                 { "no-pager",     no_argument,       NULL, ARG_NO_PAGER  },
+                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND },
                 { "output",       required_argument, NULL, 'o'           },
                 { NULL,           0,                 NULL, 0             }
         };
@@ -169,6 +172,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_no_legend = true;
                         break;
 
                 case 'o':
@@ -242,7 +249,7 @@ static int retrieve(const void *data,
         return 0;
 }
 
-static int print_entry(FILE* file, sd_journal *j, int had_header) {
+static int print_entry(FILE* file, sd_journal *j, int had_legend) {
         const char _cleanup_free_
                 *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL;
@@ -278,7 +285,7 @@ static int print_entry(FILE* file, sd_journal *j, int had_header) {
 
         format_timestamp(buf, sizeof(buf), t);
 
-        if (!had_header)
+        if (!had_legend && !arg_no_legend)
                 fprintf(file, "%-*s %*s %*s %*s %*s %s\n",
                         FORMAT_TIMESTAMP_MAX-1, "TIME",
                         6, "PID",
