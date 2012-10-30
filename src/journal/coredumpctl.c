@@ -143,10 +143,11 @@ static int parse_argv(int argc, char *argv[]) {
         int r, c;
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version" ,     no_argument,       NULL, ARG_VERSION      },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
-                { "output",       required_argument, NULL, 'o'              },
+                { "help",         no_argument,       NULL, 'h'           },
+                { "version" ,     no_argument,       NULL, ARG_VERSION   },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER  },
+                { "output",       required_argument, NULL, 'o'           },
+                { NULL,           0,                 NULL, 0             }
         };
 
         assert(argc >= 0);
@@ -183,6 +184,10 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         break;
+
+                case '?':
+                        return -EINVAL;
+
                 default:
                         log_error("Unknown option code %c", c);
                         return -EINVAL;
