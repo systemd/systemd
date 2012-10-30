@@ -339,7 +339,7 @@ unsigned long long random_ull(void);
                         if (name##_table[i] &&                          \
                             streq(name##_table[i], s))                  \
                                 return i;                               \
-                if (safe_atou(s, &u) >= 0 && u < max)                   \
+                if (safe_atou(s, &u) >= 0 && u <= max)                  \
                         return (type) u;                                \
                 return (type) -1;                                       \
         }                                                               \
