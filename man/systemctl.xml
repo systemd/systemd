@@ -1173,17 +1173,29 @@
                         <varlistentry>
                                 <term><command>suspend</command></term>
 
-                                <listitem><para>Suspend the system.</para></listitem>
+                                <listitem><para>Suspend the
+                                system. This will trigger activation
+                                of the special
+                                <filename>suspend.target</filename>
+                                target.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>hibernate</command></term>
 
-                                <listitem><para>Hibernate the system.</para></listitem>
+                                <listitem><para>Hibernate the
+                                system. This will trigger activation
+                                of the special
+                                <filename>hibernate.target</filename>
+                                target.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>hybrid-sleep</command></term>
 
-                                <listitem><para>Hibernate and suspend the system.</para></listitem>
+                                <listitem><para>Hibernate and suspend
+                                the system. This will trigger
+                                activation of the special
+                                <filename>hybrid-sleep.target</filename>
+                                target.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>switch-root [ROOT] [INIT]</command></term>
