@@ -586,3 +586,5 @@ Scheduled for removal or fixing:
 * xxxOverridable dependencies (probably: fix)
 
 * support for early-boot SysV services (definitely: remove)
+
+* insserv support (definitely: remove)
