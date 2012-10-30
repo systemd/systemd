@@ -280,6 +280,17 @@ _loginctl () {
 }
 complete -F _loginctl loginctl
 
+__journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
+                  ERRNO SYSLOG_{FACILITY,IDENTIFIER,PID}
+                  _{P,U,G}ID _COMM _EXE _CMDLINE
+                  _AUDIT_{SESSION,LOGINUID}
+                  _SYSTEMD_{CGROUP,SESSION,UNIT,OWNER_UID}
+                  _SELINUX_CONTEXT _SOURCE_REALTIME_TIMESTAMP
+                  _{BOOT,MACHINE}_ID _HOSTNAME _TRANSPORT
+                  _KERNEL_{DEVICE,SUBSYSTEM}
+                  _UDEV_{SYSNAME,DEVNODE,DEVLINK}
+                  __CURSOR __{REALTIME,MONOTONIC}_TIMESTAMP)
+
 _journalctl() {
         local field_vals= cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local -A OPTS=(
@@ -291,17 +302,6 @@ _journalctl() {
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines -p --priority --since --until
                               --verify-key'
         )
-        local journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
-                              ERRNO SYSLOG_{FACILITY,IDENTIFIER,PID}
-                              _{P,U,G}ID _COMM _EXE _CMDLINE
-                              _AUDIT_{SESSION,LOGINUID}
-                              _SYSTEMD_{CGROUP,SESSION,UNIT,OWNER_UID}
-                              _SELINUX_CONTEXT _SOURCE_REALTIME_TIMESTAMP
-                              _{BOOT,MACHINE}_ID _HOSTNAME _TRANSPORT
-                              _KERNEL_{DEVICE,SUBSYSTEM}
-                              _UDEV_{SYSNAME,DEVNODE,DEVLINK}
-                              __CURSOR __{REALTIME,MONOTONIC}_TIMESTAMP)
-
 
         if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
                 case $prev in
@@ -313,7 +313,7 @@ _journalctl() {
                                 comps='short short-monotonic verbose export json cat'
                         ;;
                         --field|-F)
-                                comps=${journal_fields[*]}
+                                comps=${__journal_fields[*]}
                         ;;
                         --unit|-u)
                                 comps=$(journalctl -F '_SYSTEMD_UNIT')
@@ -337,10 +337,56 @@ _journalctl() {
                 COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "$cur") )
         else
                 compopt -o nospace
-                COMPREPLY=( $(compgen -W '${journal_fields[*]}' -S= -- "$cur") )
+                COMPREPLY=( $(compgen -W '${__journal_fields[*]}' -S= -- "$cur") )
         fi
 }
 complete -F _journalctl journalctl
+
+_coredumpctl() {
+        local i verb comps
+        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+        local OPTS='-h --help --version --no-pager --no-legend -o --output -F --field'
+
+        local -A VERBS=(
+            [LIST]='list'
+            [DUMP]='dump'
+        )
+
+        if __contains_word "$prev" '--output -o'; then
+                comps=$( compgen -A file -- "$cur" )
+                compopt -o filenames
+        elif __contains_word "$prev" '--FIELD -F'; then
+                comps=$( compgen -W '${__journal_fields[*]}' -- "$cur" )
+        elif [[ $cur = -* ]]; then
+                comps=${OPTS}
+        elif __contains_word "$prev" ${VERBS[*]} &&
+           ! __contains_word ${COMP_WORDS[COMP_CWORD-2]} '--output -o -F --field'; then
+                compopt -o nospace
+                COMPREPLY=( $(compgen -W '${__journal_fields[*]}' -S= -- "$cur") )
+               return 0
+        elif [[ $cur = *=* ]]; then
+                mapfile -t field_vals < <(systemd-coredumpctl -F "${prev%=}" 2>/dev/null)
+                COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur#=}") )
+                return 0
+        else
+                for ((i=0; i <= COMP_CWORD; i++)); do
+                        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
+                                verb=${COMP_WORDS[i]}
+                                break
+                        fi
+                done
+
+                if [[ -z $verb ]]; then
+                        comps=${VERBS[*]}
+                elif __contains_word "$verb" ${VERBS[LIST]} ${VERBS[DUMP]}; then
+                        comps=''
+                fi
+        fi
+
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+}
+complete -F _coredumpctl systemd-coredumpctl
 
 _timedatectl() {
         local i verb comps
