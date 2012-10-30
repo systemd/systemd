@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* timer units should get the ability to trigger: a) when CLOCK_REALTIME makes jumps, and b) when DST jumps takes place
+
 * When we begin with system shutdown all kind of suspend/hibernation should be prohibited until shutdown/reboot
 
 * When we update the kernel all kind of hibernation should be prohibited until shutdown/reboot
@@ -28,8 +30,6 @@ Features:
   - hwdb --filter=ID_DRIVE_*
   - find out what to do for blockdevs and skipping scsi modaliases
   - move writing code to src/libudev/libudev-hwdb-private.c
-
-* sudo/pam_systemd borked and yields EINVAL, kill-session= is broken
 
 * sd_journal_enumerate_data() implies XZ-decoding compressed field, this sucks hard
 
