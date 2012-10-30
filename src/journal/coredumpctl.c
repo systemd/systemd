@@ -476,10 +476,13 @@ int main(int argc, char *argv[]) {
         log_open();
 
         matches = new_matches();
-        if (!matches)
+        if (!matches) {
+                r = -ENOMEM;
                 goto end;
+        }
 
-        if (parse_argv(argc, argv))
+        r = parse_argv(argc, argv);
+        if (r < 0)
                 goto end;
 
         if (arg_action == ACTION_NONE)
