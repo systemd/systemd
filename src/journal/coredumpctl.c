@@ -43,6 +43,7 @@ static enum {
 
 static Set *matches = NULL;
 static FILE* output = NULL;
+static char* field = NULL;
 
 static int arg_no_pager = false;
 static int arg_no_legend = false;
@@ -150,13 +151,14 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",     no_argument,       NULL, ARG_NO_PAGER  },
                 { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND },
                 { "output",       required_argument, NULL, 'o'           },
+                { "field",        required_argument, NULL, 'F'           },
                 { NULL,           0,                 NULL, 0             }
         };
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ho:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ho:F:", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
                         help();
@@ -192,6 +194,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case 'F':
+                        if (field) {
+                                log_error("cannot use --field/-F more than once");
+                                return -EINVAL;
+                        }
+
+                        field = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -214,6 +225,11 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
+        if (field && arg_action != ACTION_LIST) {
+                log_error("Option --field/-F only makes sense with list");
+                return -EINVAL;
+        }
+
         while (optind < argc) {
                 r = add_match(matches, argv[optind]);
                 if (r != 0)
@@ -229,24 +245,37 @@ static int retrieve(const void *data,
                     const char *name,
                     const char **var) {
 
-        size_t field;
+        size_t ident;
 
-        field = strlen(name) + 1; /* name + "=" */
+        ident = strlen(name) + 1; /* name + "=" */
 
-        if (len < field)
+        if (len < ident)
                 return 0;
 
-        if (memcmp(data, name, field - 1) != 0)
+        if (memcmp(data, name, ident - 1) != 0)
                 return 0;
 
-        if (((const char*) data)[field - 1] != '=')
+        if (((const char*) data)[ident - 1] != '=')
                 return 0;
 
-        *var = strndup((const char*)data + field, len - field);
+        *var = strndup((const char*)data + ident, len - ident);
         if (!var)
                 return log_oom();
 
         return 0;
+}
+
+static void print_field(FILE* file, sd_journal *j) {
+        const char _cleanup_free_ *value = NULL;
+        const void *d;
+        size_t l;
+
+        assert(field);
+
+        SD_JOURNAL_FOREACH_DATA(j, d, l)
+                retrieve(d, l, field, &value);
+        if (value)
+                fprintf(file, "%s\n", value);
 }
 
 static int print_entry(FILE* file, sd_journal *j, int had_legend) {
@@ -310,10 +339,14 @@ static int dump_list(sd_journal *j) {
 
         assert(j);
 
-        SD_JOURNAL_FOREACH(j)
-                print_entry(stdout, j, found++);
+        SD_JOURNAL_FOREACH(j) {
+                if (field)
+                        print_field(stdout, j);
+                else
+                        print_entry(stdout, j, found++);
+        }
 
-        if (!found) {
+        if (!field && !found) {
                 log_notice("No coredumps found");
                 return -ESRCH;
         }

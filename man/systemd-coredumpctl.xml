@@ -83,6 +83,16 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--field=</option></term>
+                                <term><option>-F</option></term>
+
+                                <listitem><para>Print all possible
+                                data values the specified field
+                                takes in matching coredump entries of the
+                                journal.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--output=FILE</option></term>
                                 <term><option>-o FILE</option></term>
 
