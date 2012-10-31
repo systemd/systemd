@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* introduce ntp.service (or suchlike) as symlink that is used to arbitrate between various NTP implementations
+
 * timer units should get the ability to trigger: a) when CLOCK_REALTIME makes jumps, and b) when DST jumps takes place
 
 * When we begin with system shutdown all kind of suspend/hibernation should be prohibited until shutdown/reboot
