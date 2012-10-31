@@ -552,12 +552,18 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 strbuf_complete(trie->strings);
 
                 log_debug("=== trie in-memory ===\n");
-                log_debug("nodes:            %8zu bytes (%8zu)\n", trie->nodes_count * sizeof(struct trie_node), trie->nodes_count);
-                log_debug("children arrays:  %8zu bytes (%8zu)\n", trie->children_count * sizeof(struct trie_child_entry), trie->children_count);
-                log_debug("values arrays:    %8zu bytes (%8zu)\n", trie->values_count * sizeof(struct trie_value_entry), trie->values_count);
-                log_debug("strings:          %8zu bytes\n", trie->strings->len);
-                log_debug("strings incoming: %8zu bytes (%8zu)\n", trie->strings->in_len, trie->strings->in_count);
-                log_debug("strings dedup'ed: %8zu bytes (%8zu)\n", trie->strings->dedup_len, trie->strings->dedup_count);
+                log_debug("nodes:            %8zu bytes (%8zu)\n",
+                          trie->nodes_count * sizeof(struct trie_node), trie->nodes_count);
+                log_debug("children arrays:  %8zu bytes (%8zu)\n",
+                          trie->children_count * sizeof(struct trie_child_entry), trie->children_count);
+                log_debug("values arrays:    %8zu bytes (%8zu)\n",
+                          trie->values_count * sizeof(struct trie_value_entry), trie->values_count);
+                log_debug("strings:          %8zu bytes\n",
+                          trie->strings->len);
+                log_debug("strings incoming: %8zu bytes (%8zu)\n",
+                          trie->strings->in_len, trie->strings->in_count);
+                log_debug("strings dedup'ed: %8zu bytes (%8zu)\n",
+                          trie->strings->dedup_len, trie->strings->dedup_count);
 
                 mkdir_parents("/etc/udev/hwdb.bin", 0755);
                 err = trie_store(trie, "/etc/udev/hwdb.bin");
