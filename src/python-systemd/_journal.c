@@ -136,6 +136,6 @@ PyMODINIT_FUNC PyInit__journal(void) {
         return PyModule_Create(&module);
 }
 
-#pragma GCC diagnostic pop
-
 #endif
+
+#pragma GCC diagnostic pop
