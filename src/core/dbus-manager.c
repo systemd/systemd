@@ -1436,7 +1436,6 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 r = unit_file_get_list(m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, h);
                 if (r < 0) {
                         unit_file_list_free(h);
-                        dbus_message_unref(reply);
                         return bus_send_error_reply(connection, message, NULL, r);
                 }
 
