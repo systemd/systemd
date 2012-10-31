@@ -390,12 +390,6 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 "mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
 #endif
 
-#ifdef TARGET_FEDORA
-                "MTA",                  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-                "smtpdaemon",           SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-                "httpd",                SPECIAL_HTTP_DAEMON_TARGET,
-#endif
-
 #ifdef TARGET_SUSE
                 "smtp",                 SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
 #endif

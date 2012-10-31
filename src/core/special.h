@@ -59,9 +59,34 @@
 #define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
 #define SPECIAL_SYSLOG_TARGET "syslog.target"             /* LSB's $syslog */
 #define SPECIAL_TIME_SYNC_TARGET "time-sync.target"       /* LSB's $time */
-#define SPECIAL_DISPLAY_MANAGER_SERVICE "display-manager.service"       /* Debian's $x-display-manager */
-#define SPECIAL_MAIL_TRANSFER_AGENT_TARGET "mail-transfer-agent.target" /* Debian's $mail-{transport|transfer-agent */
-#define SPECIAL_HTTP_DAEMON_TARGET "http-daemon.target"
+#define SPECIAL_DISPLAY_MANAGER_SERVICE "display-manager.service" /* Common extension of LSB */
+#define SPECIAL_MAIL_TRANSFER_AGENT_TARGET "mail-transfer-agent.target" /* Common extension of LSB */
+
+/*
+ * Rules regarding adding further high level targets like the above:
+ *
+ * - Be conservative, only add more of these when we really need
+ *   them. We need strong usecases for further additions.
+ *
+ * - When there can be multiple implementations running side-by-side,
+ *   it needs to be a .target unit which can pull in all
+ *   implementations.
+ *
+ * - If something can be implemented with socket activation, and
+ *   without, it needs to be a .target unit, so that it can pull in
+ *   the appropriate unit.
+ *
+ * - Otherwise, it should be a .service unit.
+ *
+ * - In some cases it is OK to have both a .service and a .target
+ *   unit, i.e. if there can be multiple parallel implementations, but
+ *   only one is the "system" one. Example: syslog.
+ *
+ * Or to put this in other words: .service symlinks can be used to
+ * arbitrate between multiple implementations if there can be only one
+ * of a kind. .target units can be used to support multiple
+ * implementations that can run side-by-side.
+ */
 
 /* Magic early boot services */
 #define SPECIAL_FSCK_SERVICE "systemd-fsck@.service"

@@ -61,10 +61,9 @@
                 <filename>final.target</filename>,
                 <filename>getty.target</filename>,
                 <filename>graphical.target</filename>,
-                <filename>hibernate.target</filename>,
-                <filename>http-daemon.target</filename>,
-                <filename>hybrid-sleep.target</filename>,
                 <filename>halt.target</filename>,
+                <filename>hibernate.target</filename>,
+                <filename>hybrid-sleep.target</filename>,
                 <filename>kbrequest.target</filename>,
                 <filename>kexec.target</filename>,
                 <filename>local-fs.target</filename>,
@@ -222,8 +221,7 @@
                                         units with a LSB header
                                         referring to the
                                         <literal>$x-display-manager</literal>
-                                        facility, for compatibility
-                                        with Debian.</para>
+                                        facility.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -285,22 +283,6 @@
                                         for hibernating the
                                         system. This pulls in
                                         <filename>sleep.target</filename>.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>http-daemon.target</filename></term>
-                                <listitem>
-                                        <para>A target for pulling in
-                                        an HTTP server if there is
-                                        any.</para>
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        After for this target unit to
-                                        all SysV init script service
-                                        units with a LSB header
-                                        referring to the
-                                        <literal>$httpd</literal>
-                                        facility.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -401,11 +383,7 @@
                                         all SysV init script service
                                         units with an LSB header
                                         referring to the
-                                        <literal>$mail-transfer-agent</literal>
-                                        or
-                                        <literal>$mail-transport-agent</literal>
-                                        facilities, for compatibility
-                                        with Debian.</para>
+                                        <literal>$mail-transfer-agent</literal>.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -569,56 +547,21 @@
                         </varlistentry>
                         <varlistentry>
                                 <term><filename>runlevel2.target</filename></term>
-                                <listitem>
-                                        <para>This is a target that is
-                                        called whenever the SysV
-                                        compatibility code asks for
-                                        runlevel 2. It is a good idea
-                                        to make this an alias for
-                                        (i.e. symlink to)
-                                        <filename>multi-user.target</filename>.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>runlevel3.target</filename></term>
-                                <listitem>
-                                        <para>This is a target that is
-                                        called whenever the SysV
-                                        compatibility code asks for
-                                        runlevel 3. It is a good idea
-                                        to make this an alias for
-                                        (i.e. symlink to)
-                                        <filename>multi-user.target</filename>
-                                        or
-                                        <filename>graphical.target</filename>.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>runlevel4.target</filename></term>
-                                <listitem>
-                                        <para>This is a target that is
-                                        called whenever the SysV
-                                        compatibility code asks for
-                                        runlevel 4. It is a good idea
-                                        to make this an alias for
-                                        (i.e. symlink to)
-                                        <filename>multi-user.target</filename>
-                                        or
-                                        <filename>graphical.target</filename>.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>runlevel5.target</filename></term>
                                 <listitem>
-                                        <para>This is a target that is
-                                        called whenever the SysV
+                                        <para>These are targets that
+                                        are called whenever the SysV
                                         compatibility code asks for
-                                        runlevel 5. It is a good idea
-                                        to make this an alias for
+                                        runlevel 2, 3, 4, 5,
+                                        respectively. It is a good
+                                        idea to make this an alias for
                                         (i.e. symlink to)
                                         <filename>multi-user.target</filename>
-                                        or
-                                        <filename>graphical.target</filename>.</para>
+                                        (for runlevel 2) or
+                                        <filename>graphical.target</filename>
+                                        (the others).</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

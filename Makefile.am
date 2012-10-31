@@ -273,7 +273,6 @@ dist_systemunit_DATA = \
 	units/mail-transfer-agent.target \
 	units/hibernate.target \
 	units/hybrid-sleep.target \
-	units/http-daemon.target \
 	units/poweroff.target \
 	units/reboot.target \
 	units/rescue.target \
