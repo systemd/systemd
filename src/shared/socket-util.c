@@ -363,13 +363,12 @@ int socket_address_print(const SocketAddress *a, char **p) {
         }
 
         case AF_NETLINK: {
-                char *sfamily;
+                char _cleanup_free_ *sfamily = NULL;
 
                 r = netlink_family_to_string_alloc(a->protocol, &sfamily);
                 if (r < 0)
                         return r;
                 r = asprintf(p, "%s %u", sfamily, a->sockaddr.nl.nl_groups);
-                free(sfamily);
 
                 return 0;
         }
