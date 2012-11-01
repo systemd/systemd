@@ -91,7 +91,7 @@
                 mounting. See
                 <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-                <para>If an mount point is beneath another mount point
+                <para>If a mount point is beneath another mount point
                 in the file system hierarchy, a dependency between both
                 units is created automatically.</para>
 
@@ -133,7 +133,7 @@
                 should wait for a device to show up before giving up
                 on an entry from
                 <filename>/etc/fstab</filename>. Specify a time in
-                seconds or explicitly specifiy a unit as
+                seconds or explicitly specify a unit as
                 <literal>s</literal>, <literal>min</literal>,
                 <literal>h</literal>, <literal>ms</literal>.</para>
 
@@ -177,7 +177,7 @@
                                 <term><varname>Where=</varname></term>
                                 <listitem><para>Takes an absolute path
                                 of a directory of the mount point. If
-                                the mount point is not existing at
+                                the mount point does not exist at the
                                 time of mounting, it is created. This
                                 string must be reflected in the unit
                                 file name. (See above.) This option is

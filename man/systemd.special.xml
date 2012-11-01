@@ -684,7 +684,7 @@
                         <varlistentry>
                                 <term><filename>syslog.socket</filename></term>
                                 <listitem>
-                                        <para>The socket unit where
+                                        <para>The socket unit
                                         syslog implementations should
                                         listen on. All userspace log
                                         messages will be made

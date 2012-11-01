@@ -84,7 +84,7 @@
                 used to monitor files or directories changed by other
                 machines on remote NFS file systems.</para>
 
-                <para>If an path unit is beneath another mount
+                <para>If a path unit is beneath another mount
                 point in the file system hierarchy, a dependency
                 between both units is created automatically.</para>
 

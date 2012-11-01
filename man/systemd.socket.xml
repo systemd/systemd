@@ -395,7 +395,7 @@
                                 until at least one existing connection
                                 is terminated. This setting has no
                                 effect for sockets configured with
-                                <option>Accept=no</option> or datagram
+                                <option>Accept=false</option> or datagram
                                 sockets. Defaults to
                                 64.</para></listitem>
                         </varlistentry>
