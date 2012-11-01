@@ -100,21 +100,20 @@ AC_ARG_WITH([python],
 
 AS_IF([test "x$with_python" != "xno"], [
         AM_PATH_PYTHON(,, [:])
-        if test "$PYTHON" != : ; then
-                have_python=yes
-                AC_PATH_PROG([PYTHON_CONFIG], python-config)
-
-                if test -n "$PYTHON_CONFIG" ; then
-                        have_python_devel=yes
-                        PYTHON_CFLAGS="`$PYTHON_CONFIG --cflags`"
-                        PYTHON_LIBS="`$PYTHON_CONFIG --libs`"
-                        AC_SUBST(PYTHON_CFLAGS)
-                        AC_SUBST(PYTHON_LIBS)
-                fi
-        fi
+        AS_IF([test "$PYTHON" != :], [have_python=yes])
 ])
-
 AM_CONDITIONAL([HAVE_PYTHON], [test "$have_python" = "yes"])
+
+AS_IF([test "x$with_python" != "xno"], [
+        AC_PATH_PROG(PYTHON_CONFIG, python${PYTHON_VERSION}-config)
+        AS_IF([test -n "$PYTHON_CONFIG"], [
+              have_python_devel=yes
+              PYTHON_CFLAGS="`$PYTHON_CONFIG --cflags`"
+              PYTHON_LIBS="`$PYTHON_CONFIG --ldflags`"
+              AC_SUBST(PYTHON_CFLAGS)
+              AC_SUBST(PYTHON_LIBS)
+        ])
+])
 AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
 
 CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
@@ -877,4 +876,6 @@ AC_MSG_RESULT([
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
         CPPLAGS:                 ${OUR_CPPFLAGS} ${CPPFLAGS}
         LDFLAGS:                 ${OUR_LDFLAGS} ${LDFLAGS}
+        PYTHON_CFLAGS:           ${PYTHON_CFLAGS}
+        PYTHON_LIBS:             ${PYTHON_LIBS}
 ])
