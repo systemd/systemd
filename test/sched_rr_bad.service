@@ -1,0 +1,8 @@
+[Unit]
+Description=Bad sched priority for RR
+
+[Service]
+ExecStart=/bin/true
+CPUSchedulingPolicy=rr
+CPUSchedulingPriority=0
+CPUSchedulingPriority=100

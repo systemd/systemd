@@ -90,6 +90,7 @@
 /systemd
 /test-engine
 /test-job-type
+/test-sched-prio
 /systemctl
 /systemadm
 .dirstamp

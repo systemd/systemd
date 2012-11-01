@@ -1185,7 +1185,8 @@ noinst_PROGRAMS += \
 	test-unit-file \
 	test-date \
 	test-sleep \
-	test-replace-var
+	test-replace-var \
+	test-sched-prio
 
 TESTS += \
 	test-job-type \
@@ -1195,7 +1196,15 @@ TESTS += \
 	test-unit-file \
 	test-date \
 	test-sleep \
-	test-replace-var
+	test-replace-var \
+	test-sched-prio
+
+EXTRA_DIST += \
+	test/sched_idle_bad.service \
+	test/sched_idle_ok.service \
+	test/sched_rr_bad.service \
+	test/sched_rr_ok.service \
+	test/sched_rr_change.service
 
 test_engine_SOURCES = \
 	src/test/test-engine.c
@@ -1322,6 +1331,18 @@ test_watchdog_SOURCES = \
 
 test_watchdog_LDADD = \
 	libsystemd-shared.la
+
+test_sched_prio_SOURCES = \
+	src/test/test-sched-prio.c
+
+test_sched_prio_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS) \
+	-D"STR(s)=\#s" -D"TEST_DIR=STR($(abs_top_srcdir)/test/)"
+
+test_sched_prio_LDADD = \
+	libsystemd-core.la \
+	libsystemd-daemon.la
 
 # ------------------------------------------------------------------------------
 systemd_initctl_SOURCES = \

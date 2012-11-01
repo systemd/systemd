@@ -1,0 +1,6 @@
+[Unit]
+Description=Bad sched priority for Idle
+
+[Service]
+ExecStart=/bin/true
+CPUSchedulingPriority=1

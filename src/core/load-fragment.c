@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
+  Copyright 2012 Holger Hans Peter Freyther
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -689,6 +690,8 @@ int config_parse_exec_cpu_sched_policy(
         }
 
         c->cpu_sched_policy = x;
+        /* Moving to or from real-time policy? We need to adjust the priority */
+        c->cpu_sched_priority = CLAMP(c->cpu_sched_priority, sched_get_priority_min(x), sched_get_priority_max(x));
         c->cpu_sched_set = true;
 
         return 0;
@@ -705,16 +708,25 @@ int config_parse_exec_cpu_sched_prio(
                 void *userdata) {
 
         ExecContext *c = data;
-        int i;
+        int i, min, max;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        /* On Linux RR/FIFO have the same range */
-        if (safe_atoi(rvalue, &i) < 0 || i < sched_get_priority_min(SCHED_RR) || i > sched_get_priority_max(SCHED_RR)) {
+        if (safe_atoi(rvalue, &i) < 0) {
                 log_error("[%s:%u] Failed to parse CPU scheduling priority, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+
+        /* On Linux RR/FIFO range from 1 to 99 and OTHER/BATCH may only be 0 */
+        min = sched_get_priority_min(c->cpu_sched_policy);
+        max = sched_get_priority_max(c->cpu_sched_policy);
+
+        if (i < min || i > max) {
+                log_error("[%s:%u] CPU scheduling priority is out of range, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
 

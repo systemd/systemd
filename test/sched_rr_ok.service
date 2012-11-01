@@ -1,0 +1,6 @@
+[Unit]
+Description=Default prio for RR
+
+[Service]
+ExecStart=/bin/true
+CPUSchedulingPolicy=rr

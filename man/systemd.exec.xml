@@ -214,13 +214,15 @@
 
                                 <listitem><para>Sets the CPU
                                 scheduling priority for executed
-                                processes. Takes an integer between 1
-                                (lowest priority) and 99 (highest
-                                priority). The available priority
+                                processes. The available priority
                                 range depends on the selected CPU
-                                scheduling policy (see above). See
-                                <citerefentry><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                                for details.</para></listitem>
+                                scheduling policy (see above). For
+                                real-time scheduling policies an
+                                integer between 1 (lowest priority)
+                                and 99 (highest priority) can be used.
+                                See <citerefentry><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
