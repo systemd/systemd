@@ -295,6 +295,27 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         return f;
 }
 
+static int do_rotate(Server *s, JournalFile **f, const char* name,
+                     bool seal, uint32_t uid) {
+        int r;
+        assert(s);
+
+        if (!*f)
+                return -EINVAL;
+
+        r = journal_file_rotate(f, s->compress, seal);
+        if (r < 0)
+                if (*f)
+                        log_error("Failed to rotate %s: %s",
+                                  (*f)->path, strerror(-r));
+                else
+                        log_error("Failed to create new %s journal: %s",
+                                  name, strerror(-r));
+        else
+                server_fix_perms(s, *f, uid);
+        return r;
+}
+
 void server_rotate(Server *s) {
         JournalFile *f;
         void *k;
@@ -303,42 +324,16 @@ void server_rotate(Server *s) {
 
         log_debug("Rotating...");
 
-        if (s->runtime_journal) {
-                r = journal_file_rotate(&s->runtime_journal, s->compress, false);
-                if (r < 0)
-                        if (s->runtime_journal)
-                                log_error("Failed to rotate %s: %s", s->runtime_journal->path, strerror(-r));
-                        else
-                                log_error("Failed to create new runtime journal: %s", strerror(-r));
-                else
-                        server_fix_perms(s, s->runtime_journal, 0);
-        }
-
-        if (s->system_journal) {
-                r = journal_file_rotate(&s->system_journal, s->compress, s->seal);
-                if (r < 0)
-                        if (s->system_journal)
-                                log_error("Failed to rotate %s: %s", s->system_journal->path, strerror(-r));
-                        else
-                                log_error("Failed to create new system journal: %s", strerror(-r));
-
-                else
-                        server_fix_perms(s, s->system_journal, 0);
-        }
+        do_rotate(s, &s->runtime_journal, "runtime", false, 0);
+        do_rotate(s, &s->system_journal, "system", s->seal, 0);
 
         HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
-                r = journal_file_rotate(&f, s->compress, s->seal);
-                if (r < 0)
-                        if (f)
-                                log_error("Failed to rotate %s: %s", f->path, strerror(-r));
-                        else {
-                                log_error("Failed to create user journal: %s", strerror(-r));
-                                hashmap_remove(s->user_journals, k);
-                        }
-                else {
+                r = do_rotate(s, &f, "user", s->seal, PTR_TO_UINT32(k));
+                if (r >= 0)
                         hashmap_replace(s->user_journals, k, f);
-                        server_fix_perms(s, f, PTR_TO_UINT32(k));
-                }
+                else if (!f)
+                        /* Old file has been closed and deallocated */
+                        hashmap_remove(s->user_journals, k);
         }
 }
 
