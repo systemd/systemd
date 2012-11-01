@@ -364,6 +364,20 @@ void server_sync(Server *s) {
         s->sync_scheduled = false;
 }
 
+static void do_vacuum(Server *s, char *ids, JournalFile *f, const char* path,
+                      JournalMetrics *metrics) {
+        char *p;
+        int r;
+
+        if (!f)
+                return;
+
+        p = strappenda(path, ids);
+        r = journal_directory_vacuum(p, metrics->max_use, s->max_retention_usec, &s->oldest_file_usec);
+        if (r < 0 && r != -ENOENT)
+                log_error("Failed to vacuum %s: %s", p, strerror(-r));
+}
+
 void server_vacuum(Server *s) {
         char ids[33];
         sd_id128_t machine;
@@ -378,24 +392,10 @@ void server_vacuum(Server *s) {
                 log_error("Failed to get machine ID: %s", strerror(-r));
                 return;
         }
-
         sd_id128_to_string(machine, ids);
 
-        if (s->system_journal) {
-                char *p = strappenda("/var/log/journal/", ids);
-
-                r = journal_directory_vacuum(p, s->system_metrics.max_use, s->max_retention_usec, &s->oldest_file_usec);
-                if (r < 0 && r != -ENOENT)
-                        log_error("Failed to vacuum %s: %s", p, strerror(-r));
-        }
-
-        if (s->runtime_journal) {
-                char *p = strappenda("/run/log/journal/", ids);
-
-                r = journal_directory_vacuum(p, s->runtime_metrics.max_use, s->max_retention_usec, &s->oldest_file_usec);
-                if (r < 0 && r != -ENOENT)
-                        log_error("Failed to vacuum %s: %s", p, strerror(-r));
-        }
+        do_vacuum(s, ids, s->system_journal, "/var/log/journal/", &s->system_metrics);
+        do_vacuum(s, ids, s->runtime_journal, "/run/log/journal/", &s->runtime_metrics);
 
         s->cached_available_space_timestamp = 0;
 }
