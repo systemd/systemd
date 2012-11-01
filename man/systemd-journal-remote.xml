@@ -1,0 +1,289 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2012 Zbigniew Jędrzejewski-Szmek
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-journal-remote">
+
+  <refentryinfo>
+    <title>systemd-journal-remote</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Zbigniew</firstname>
+        <surname>Jędrzejewski-Szmek</surname>
+        <email>zbyszek@in.waw.pl</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-journal-remote</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-journal-remote</refname>
+    <refpurpose>Stream journal messages over the network</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-journal-remote</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="norepeat">-o/--output=DIR|FILE</arg>
+      <arg choice="opt" rep="repeat">SOURCES</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>
+      <filename>systemd-journal-remote</filename> is a command to
+      receive serialized journal events and store them to the journal.
+      Input streams must be in the
+      <ulink url="http://www.freedesktop.org/wiki/Software/systemd/export">
+        Journal Export Format
+      </ulink>,
+      i.e. like the output from
+      <command>journalctl --output=export</command>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Sources</title>
+
+    <para>
+      Sources can be either "active"
+      (<command>systemd-journal-remote</command> requests and pulls
+      the data), or "passive"
+      (<command>systemd-journal-remote</command> waits for a
+      connection and than receives events pushed by the other side).
+    </para>
+
+    <para>
+      <command>systemd-journal-remote</command> can read more than one
+      event stream at a time. They will be interleaved in the output
+      file. In case of "active" connections, each "source" is one
+      stream, and in case of "passive" connections each connection can
+      result in a separate stream. Sockets can be configured in
+      "accept" mode (i.e. only one connection), or "listen" mode (i.e.
+      multiple connections, each resulting in a stream).
+    </para>
+
+    <para>
+      When there are no more connections, and no more can be created
+      (there are no listening sockets), then
+      <command>systemd-journal-remote</command> will exit.
+    </para>
+
+    <para>Active sources can be specified in the following
+    ways:</para>
+
+    <variablelist>
+      <varlistentry>
+        <listitem><para>When <option>-</option> is given as a
+        positional argument, events will be read from standard input.
+        Other positional arguments will be treated as filenames
+        to open and read from.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--url=<replaceable>ADDRESS</replaceable></option></term>
+
+        <listitem><para>With the
+        <option>--url=<replaceable>ADDRESS</replaceable></option> option,
+        events will be retrieved using HTTP from
+        <replaceable>ADDRESS</replaceable>. This URL should refer to the
+        root of a remote
+        <citerefentry><refentrytitle>systemd-journal-gatewayd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        instance (e.g. <ulink>http://some.host:19531/</ulink> or
+        <ulink>https://some.host:19531/</ulink>).</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Passive sources can be specified in the following
+    ways:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--listen-raw=<replaceable>ADDRESS</replaceable></option></term>
+
+        <listitem><para><option>ADDRESS</option> must be an address
+        suitable for <option>ListenStream=</option> (c.f.
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        <command>systemd-journal-remote</command> will listen on this
+        socket for connections. Each connection is expected to be a
+        stream of journal events.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$LISTEN_FDS</varname></term>
+
+        <listitem><para><command>systemd-journal-remote</command>
+        supports the
+        <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>
+        protocol. Open sockets inherited through socket
+        activation behave like those opened with
+        <option>--listen-raw=</option> described above.
+        </para>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Sinks</title>
+
+    <para>The location of the output journal can be specified
+    with <option>-o</option> or <option>--output=</option>.
+    </para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--output=<replaceable>FILE</replaceable></option></term>
+
+        <listitem><para>Will write to this journal. The filename must
+        end with <filename>.journal</filename>. The file will be
+        created if it does not exist. When necessary (journal file
+        full, or corrupted) the file will be renamed following normal
+        journald rules and a new journal file will be created in it's
+        stead. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--output=<replaceable>DIR</replaceable></option></term>
+
+        <listitem><para>Will create journal files underneath directory
+        <replaceable>DIR</replaceable>. The directory must exist. When
+        necessary (journal files over size, or corrupted) journal
+        files will be rotated following normal journald rules. Names
+        of files underneath <replaceable>DIR</replaceable> will be
+        generated using the rules described below.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>If <option>--output=</option> is not used, output directory
+    <filename>/var/log/journal/<replaceable>machine-id</replaceable>/</filename>
+    will be used, where <replaceable>machine-id</replaceable> is the
+    identifier of the current system (see
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+    In case the output file is not specified, journal files will be
+    created underneath the selected directory. Files will be called
+    <filename>remote-<replaceable>variable</replaceable>.journal</filename>,
+    where the <replaceable>variable</replaceable> part is generated
+    based on what passive and active sources are specified. It is
+    recommended to give a full output filename.</para>
+
+    <para>In case of "active" sources, if the hostname is known it
+    will be used in the <replaceable>variable</replaceable> part.
+    Otherwise, local address and port number will be used, or
+    <literal>stdin</literal> for events passed over standard
+    input, and <literal>multiple</literal> if more than one source
+    is specified.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--help</option></term>
+        <term><option>-h</option></term>
+
+        <listitem><para>Print a short help
+        text and exit.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--version</option></term>
+
+        <listitem><para>Print a short version
+        string and exit.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--compress</option></term>
+        <term><option>--no-compress</option></term>
+
+        <listitem><para>Compress or not, respectively, the data in the
+        journal using XZ.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--seal</option></term>
+        <term><option>--no-seal</option></term>
+
+        <listitem><para>Periodically sign or not, respectively, the
+        data in the journal using Forward Secure Sealing.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--getter=<replaceable>PROG --option1 --option2</replaceable></option></term>
+
+        <listitem><para>Program to invoke to retrieve data. Journal
+        event stream must be generated on standard output.</para>
+
+        <para>Examples:</para>
+
+        <programlisting>--getter='curl "-HAccept: application/vnd.fdo.journal" https://some.host:19531/'</programlisting>
+
+        <programlisting>--getter='wget --header="Accept: application/vnd.fdo.journal" -O- https://some.host:19531/'</programlisting>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <para>Copy local journal events to a different journal directory:
+    <programlisting>
+journalctl -o export | systemd-journal-remote -o /tmp/dir -
+    </programlisting>
+    </para>
+
+    <para>Retrieve events from a remote
+    <citerefentry><refentrytitle>systemd-journal-gatewayd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    instance and store them in
+    <filename>/var/log/journal/some.host/remote-some~host.journal</filename>:
+    <programlisting>
+systemd-journal-remote --url http://some.host:19531/
+    </programlisting>
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-journal-gatewayd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+</refentry>

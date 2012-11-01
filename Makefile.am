@@ -3130,6 +3130,17 @@ systemd_cat_SOURCES = \
 systemd_cat_LDADD = \
 	libsystemd-journal-core.la
 
+systemd_journal_remote_SOURCES = \
+	src/journal/journal-remote-parse.h \
+	src/journal/journal-remote-parse.c \
+	src/journal/journal-remote-write.h \
+	src/journal/journal-remote-write.c \
+	src/journal/journal-remote.c
+
+systemd_journal_remote_LDADD = \
+	libsystemd-internal.la \
+	libsystemd-journal-core.la
+
 # using _CFLAGS = in the conditional below would suppress AM_CFLAGS
 journalctl_CFLAGS = \
 	$(AM_CFLAGS)
@@ -3380,7 +3391,8 @@ noinst_LTLIBRARIES += \
 	libsystemd-journal-internal.la
 
 rootlibexec_PROGRAMS += \
-	systemd-journald
+	systemd-journald \
+	systemd-journal-remote
 
 rootbin_PROGRAMS += \
 	journalctl

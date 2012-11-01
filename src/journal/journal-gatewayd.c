@@ -78,6 +78,7 @@ static const char* const mime_types[_OUTPUT_MODE_MAX] = {
 static RequestMeta *request_meta(void **connection_cls) {
         RequestMeta *m;
 
+        assert(connection_cls);
         if (*connection_cls)
                 return *connection_cls;
 

@@ -68,6 +68,7 @@ MANPAGES += \
 	man/systemd-halt.service.8 \
 	man/systemd-inhibit.1 \
 	man/systemd-initctl.service.8 \
+	man/systemd-journal-remote.8 \
 	man/systemd-journald.service.8 \
 	man/systemd-machine-id-setup.1 \
 	man/systemd-notify.1 \
@@ -1462,6 +1463,7 @@ EXTRA_DIST += \
 	man/systemd-inhibit.xml \
 	man/systemd-initctl.service.xml \
 	man/systemd-journal-gatewayd.service.xml \
+	man/systemd-journal-remote.xml \
 	man/systemd-journald.service.xml \
 	man/systemd-localed.service.xml \
 	man/systemd-logind.service.xml \
