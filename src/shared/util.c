@@ -57,6 +57,8 @@
 #include <sys/vfs.h>
 #include <linux/magic.h>
 #include <limits.h>
+#include <langinfo.h>
+#include <locale.h>
 
 #include "macro.h"
 #include "util.h"
@@ -6114,4 +6116,27 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                         return (void *)p;
         }
         return NULL;
+}
+
+bool is_locale_utf8(void) {
+        const char *set;
+        static int cached_answer = -1;
+
+        if (cached_answer >= 0)
+                goto out;
+
+        if (!setlocale(LC_ALL, "")) {
+                cached_answer = true;
+                goto out;
+        }
+
+        set = nl_langinfo(CODESET);
+        if (!set) {
+                cached_answer = true;
+                goto out;
+        }
+
+        cached_answer = streq(set, "UTF-8");
+out:
+        return (bool)cached_answer;
 }

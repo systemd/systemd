@@ -33,8 +33,6 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <linux/fs.h>
-#include <locale.h>
-#include <langinfo.h>
 
 #include <systemd/sd-journal.h>
 
@@ -719,9 +717,7 @@ static int setup_keys(void) {
 
 #ifdef HAVE_QRENCODE
                 /* If this is not an UTF-8 system don't print any QR codes */
-                setlocale(LC_CTYPE, "");
-
-                if (streq_ptr(nl_langinfo(CODESET), "UTF-8")) {
+                if (is_locale_utf8()) {
                         fputs("\nTo transfer the verification key to your phone please scan the QR code below:\n\n", stderr);
                         print_qr_code(stderr, seed, seed_size, n, arg_interval, hn, machine);
                 }

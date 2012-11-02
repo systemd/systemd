@@ -29,8 +29,6 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <limits.h>
-#include <locale.h>
-#include <langinfo.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <linux/tiocl.h>
@@ -46,19 +44,6 @@ static bool is_vconsole(int fd) {
 
         data[0] = TIOCL_GETFGCONSOLE;
         return ioctl(fd, TIOCLINUX, data) >= 0;
-}
-
-static bool is_locale_utf8(void) {
-        const char *set;
-
-        if (!setlocale(LC_ALL, ""))
-                return true;
-
-        set = nl_langinfo(CODESET);
-        if (!set)
-                return true;
-
-        return streq(set, "UTF-8");
 }
 
 static int disable_utf8(int fd) {
