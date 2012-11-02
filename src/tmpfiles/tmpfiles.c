@@ -542,7 +542,7 @@ static int recursive_relabel_children(Item *i, const char *path) {
 
         for (;;) {
                 struct dirent *de;
-                bool is_dir;
+                bool dir;
                 int r;
                 _cleanup_free_ char *entry_path = NULL;
 
@@ -567,18 +567,17 @@ static int recursive_relabel_children(Item *i, const char *path) {
                 }
 
                 if (de->d_type == DT_UNKNOWN) {
-                        struct stat st;
-
-                        if (lstat(entry_path, &st) < 0) {
+                        r = is_dir(entry_path);
+                        if (r < 0) {
                                 if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
                                 continue;
                         }
 
-                        is_dir = S_ISDIR(st.st_mode);
+                        dir = r;
 
                 } else
-                        is_dir = de->d_type == DT_DIR;
+                        dir = de->d_type == DT_DIR;
 
                 r = item_set_perms(i, entry_path);
                 if (r < 0) {
@@ -587,7 +586,7 @@ static int recursive_relabel_children(Item *i, const char *path) {
                         continue;
                 }
 
-                if (is_dir) {
+                if (dir) {
                         r = recursive_relabel_children(i, entry_path);
                         if (r < 0 && ret == 0)
                                 ret = r;

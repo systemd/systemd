@@ -58,7 +58,7 @@ int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         return mkdir_safe_internal(path, mode, uid, gid, mkdir);
 }
 
-static int is_dir(const char* path) {
+int is_dir(const char* path) {
         struct stat st;
 
         if (stat(path, &st) < 0)
