@@ -33,6 +33,7 @@
 #include "hwclock.h"
 #include "strv.h"
 #include "pager.h"
+#include "time-dst.h"
 
 static bool arg_adjust_system_clock = false;
 static bool arg_no_pager = false;
@@ -83,9 +84,13 @@ static bool ntp_synced(void) {
 
 static void print_status_info(StatusInfo *i) {
         usec_t n;
+        char a[FORMAT_TIMESTAMP_MAX];
         char b[FORMAT_TIMESTAMP_MAX];
         struct tm tm;
         time_t sec;
+        char *zc, *zn;
+        time_t t, tc, tn;
+        bool is_dstc, is_dstn;
         int r;
 
         assert(i);
@@ -94,14 +99,14 @@ static void print_status_info(StatusInfo *i) {
         sec = (time_t) (n / USEC_PER_SEC);
 
         zero(tm);
-        assert_se(strftime(b, sizeof(b), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) > 0);
-        char_array_0(b);
-        printf("      Local time: %s\n", b);
+        assert_se(strftime(a, sizeof(a), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) > 0);
+        char_array_0(a);
+        printf("      Local time: %s\n", a);
 
         zero(tm);
-        assert_se(strftime(b, sizeof(b), "%a, %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm)) > 0);
-        char_array_0(b);
-        printf("  Universal time: %s\n", b);
+        assert_se(strftime(a, sizeof(a), "%a, %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm)) > 0);
+        char_array_0(a);
+        printf("  Universal time: %s\n", a);
 
         zero(tm);
         r = hwclock_get_time(&tm);
@@ -109,19 +114,60 @@ static void print_status_info(StatusInfo *i) {
                 /* Calculcate the week-day */
                 mktime(&tm);
 
-                assert_se(strftime(b, sizeof(b), "%a, %Y-%m-%d %H:%M:%S", &tm) > 0);
-                char_array_0(b);
-                printf("        RTC time: %s\n", b);
+                assert_se(strftime(a, sizeof(a), "%a, %Y-%m-%d %H:%M:%S", &tm) > 0);
+                char_array_0(a);
+                printf("        RTC time: %s\n", a);
         }
 
+        zero(tm);
+        assert_se(strftime(a, sizeof(a), "%z", localtime_r(&sec, &tm)) > 0);
+        char_array_0(a);
         printf("        Timezone: %s\n"
+               "      UTC offset: %s\n"
                "     NTP enabled: %s\n"
                "NTP synchronized: %s\n"
                " RTC in local TZ: %s\n",
                strna(i->timezone),
+               a,
                yes_no(i->ntp),
                yes_no(ntp_synced()),
                yes_no(i->local_rtc));
+
+        r = time_get_dst(sec, "/etc/localtime",
+                         &tc, &zc, &is_dstc,
+                         &tn, &zn, &is_dstn);
+        if (r >= 0) {
+                printf("      DST active: %s\n", yes_no(is_dstc));
+
+                t = tc - 1;
+                zero(tm);
+                assert_se(strftime(a, sizeof(a), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
+                char_array_0(a);
+
+                zero(tm);
+                assert_se(strftime(b, sizeof(b), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&tc, &tm)) > 0);
+                char_array_0(b);
+                printf(" Last DST change: %s → %s, one hour %s\n"
+                       "                  %s\n"
+                       "                  %s\n",
+                       strna(zn), strna(zc), is_dstc ? "forward" : "backwards", a, b);
+
+                t = tn - 1;
+                zero(tm);
+                assert_se(strftime(a, sizeof(a), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
+                char_array_0(a);
+
+                zero(tm);
+                assert_se(strftime(b, sizeof(b), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&tn, &tm)) > 0);
+                char_array_0(b);
+                printf(" Next DST change: %s → %s, one hour %s\n"
+                       "                  %s\n"
+                       "                  %s\n",
+                       strna(zc), strna(zn), is_dstn ? "forward" : "backwards", a, b);
+
+                free(zc);
+                free(zn);
+        }
 
         if (i->local_rtc)
                 fputs("\n" ANSI_HIGHLIGHT_ON
