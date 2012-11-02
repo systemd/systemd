@@ -235,6 +235,50 @@
         </refsect1>
 
         <refsect1>
+                <title>Examples</title>
+                <para>Show current settings:
+                <programlisting>
+$ timedatectl
+      Local time: Fri, 2012-11-02 09:26:46 CET
+  Universal time: Fri, 2012-11-02 08:26:46 UTC
+        RTC time: Fri, 2012-11-02 08:26:45
+        Timezone: Europe/Warsaw
+      UTC offset: +0100
+     NTP enabled: no
+NTP synchronized: no
+ RTC in local TZ: no
+      DST active: no
+ Last DST change: CEST → CET, DST became inactive
+                  Sun, 2012-10-28 02:59:59 CEST
+                  Sun, 2012-10-28 02:00:00 CET
+ Next DST change: CET → CEST, DST will become active
+                  the clock will jump one hour forward
+                  Sun, 2013-03-31 01:59:59 CET
+                  Sun, 2013-03-31 03:00:00 CEST
+                </programlisting>
+                </para>
+
+                <para>Enable an NTP daemon (chronyd):
+                <programlisting>
+$ timedatectl set-ntp true
+==== AUTHENTICATING FOR org.freedesktop.timedate1.set-ntp ===
+Authentication is required to control whether network time synchronization shall be enabled.
+Authenticating as: user
+Password: ********
+==== AUTHENTICATION COMPLETE ===
+                </programlisting>
+
+                <programlisting>
+$ systemctl status chronyd.service
+chronyd.service - NTP client/server
+          Loaded: loaded (/usr/lib/systemd/system/chronyd.service; enabled)
+          Active: active (running) since Fri, 2012-11-02 09:36:25 CET; 5s ago
+...
+                </programlisting>
+                </para>
+        </refsect1>
+
+        <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
