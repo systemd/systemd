@@ -136,7 +136,9 @@ static void print_status_info(StatusInfo *i) {
         r = time_get_dst(sec, "/etc/localtime",
                          &tc, &zc, &is_dstc,
                          &tn, &zn, &is_dstn);
-        if (r >= 0) {
+        if (r < 0)
+                printf("      DST active: n/a\n");
+        else {
                 printf("      DST active: %s\n", yes_no(is_dstc));
 
                 t = tc - 1;

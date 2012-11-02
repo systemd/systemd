@@ -102,7 +102,7 @@ int time_get_dst(time_t date, const char *tzfile,
         size_t tzspec_len;
         size_t num_leaps;
         size_t lo, hi;
-        int err = 0;
+        int err = -EINVAL;
 
         f = fopen(tzfile, "re");
         if (f == NULL)
