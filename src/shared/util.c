@@ -6140,3 +6140,22 @@ bool is_locale_utf8(void) {
 out:
         return (bool)cached_answer;
 }
+
+const char *draw_special_char(DrawSpecialChar ch) {
+        static const char *draw_table[2][_DRAW_SPECIAL_CHAR_MAX] = {
+                /* UTF-8 */ {
+                        [DRAW_BOX_VERT]           = "\342\224\202", /* │ */
+                        [DRAW_BOX_VERT_AND_RIGHT] = "\342\224\234", /* ├ */
+                        [DRAW_BOX_UP_AND_RIGHT]   = "\342\224\224", /* └ */
+                        [DRAW_TRIANGULAR_BULLET]  = "\342\200\243", /* ‣ */
+                },
+                /* ASCII fallback */ {
+                        [DRAW_BOX_VERT] = "|",
+                        [DRAW_BOX_VERT_AND_RIGHT] = "+",
+                        [DRAW_BOX_UP_AND_RIGHT]   = "\\",
+                        [DRAW_TRIANGULAR_BULLET]  = ">",
+                }
+        };
+
+        return draw_table[!is_locale_utf8()][ch];
+}

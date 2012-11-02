@@ -105,7 +105,8 @@ static int show_sysfs_one(
                 }
 
                 k = ellipsize(sysfs, n_columns, 20);
-                printf("%s%s %s\n", prefix, lookahead ? "\342\224\234" : "\342\224\224", k ? k : sysfs);
+                printf("%s%s %s\n", prefix, draw_special_char(lookahead ? DRAW_BOX_VERT_AND_RIGHT : DRAW_BOX_UP_AND_RIGHT),
+                                    k ? k : sysfs);
                 free(k);
 
                 if (asprintf(&l,
@@ -117,7 +118,8 @@ static int show_sysfs_one(
                 }
 
                 k = ellipsize(l, n_columns, 70);
-                printf("%s%s %s\n", prefix, lookahead ? "\342\224\202" : " ", k ? k : l);
+                printf("%s%s %s\n", prefix, lookahead ? draw_special_char(DRAW_BOX_VERT) : " ",
+                                    k ? k : l);
                 free(k);
                 free(l);
 
@@ -125,7 +127,7 @@ static int show_sysfs_one(
                 if (*item) {
                         char *p;
 
-                        p = strappend(prefix, lookahead ? "\342\224\202 " : "  ");
+                        p = strjoin(prefix, lookahead ? draw_special_char(DRAW_BOX_VERT) : " ", " ", NULL);
                         show_sysfs_one(udev, seat, item, sysfs, p ? p : prefix, n_columns - 2);
                         free(p);
                 }

@@ -88,7 +88,8 @@ static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsi
 
                 printf("%s%s %*lu %s\n",
                        prefix,
-                       extra ? "\342\200\243" : ((more || i < n_pids-1) ? "\342\224\234" : "\342\224\224"),
+                       draw_special_char(extra ? DRAW_TRIANGULAR_BULLET :
+                                         ((more || i < n_pids-1) ? DRAW_BOX_VERT_AND_RIGHT : DRAW_BOX_UP_AND_RIGHT)),
                        pid_width,
                        (unsigned long) pids[i],
                        strna(t));
@@ -207,10 +208,11 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
                 }
 
                 if (last) {
-                        printf("%s\342\224\234 %s\n", prefix, path_get_file_name(last));
+                        printf("%s%s %s\n", prefix, draw_special_char(DRAW_BOX_VERT_AND_RIGHT),
+                                            path_get_file_name(last));
 
                         if (!p1) {
-                                p1 = strappend(prefix, "\342\224\202 ");
+                                p1 = strjoin(prefix, draw_special_char(DRAW_BOX_VERT), " ", NULL);
                                 if (!p1) {
                                         free(k);
                                         r = -ENOMEM;
@@ -232,7 +234,8 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
                 show_cgroup_one_by_path(path, prefix, n_columns, !!last, kernel_threads);
 
         if (last) {
-                printf("%s\342\224\224 %s\n", prefix, path_get_file_name(last));
+                printf("%s%s %s\n", prefix, draw_special_char(DRAW_BOX_UP_AND_RIGHT),
+                                    path_get_file_name(last));
 
                 if (!p2) {
                         p2 = strappend(prefix, "  ");
