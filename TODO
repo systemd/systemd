@@ -354,12 +354,6 @@ Features:
   - utf8 validator code
   - now() vs. now_usec()
 
-* udev: remove network interface renaming, sleep and retry logic, we do
-        no support renaming of interfaces in the conflicting kernel
-        namespace
-
-* udev: find a way to tell udev to not cancel firmware requests when running in initramfs
-
 * udev: scsi_id -> sg3_utils -> kill scsi_id
 
 * udev: add trigger --subsystem-match=usb/usb_device device
