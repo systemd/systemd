@@ -1,14 +1,15 @@
 #!/usr/bin/python
 
-import getopt, dbus, sys, os
+import getopt, sys, os
+from gi.repository import Gio
 try:
         import cairo
 except ImportError:
         cairo = None
 
 def acquire_time_data():
-
-        manager = dbus.Interface(bus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1'), 'org.freedesktop.systemd1.Manager')
+        manager = Gio.DBusProxy.new_for_bus_sync(bus, Gio.DBusProxyFlags.NONE,
+                None, 'org.freedesktop.systemd1', '/org/freedesktop/systemd1', 'org.freedesktop.systemd1.Manager', None)
         units = manager.ListUnits()
 
         l = []
@@ -17,23 +18,25 @@ def acquire_time_data():
                 if i[5] != "":
                         continue
 
-                properties = dbus.Interface(bus.get_object('org.freedesktop.systemd1', i[6]), 'org.freedesktop.DBus.Properties')
+                properties = Gio.DBusProxy.new_for_bus_sync(bus, Gio.DBusProxyFlags.NONE,
+                        None, 'org.freedesktop.systemd1', i[6], 'org.freedesktop.DBus.Properties', None)
 
-                ixt = int(properties.Get('org.freedesktop.systemd1.Unit', 'InactiveExitTimestampMonotonic'))
-                aet = int(properties.Get('org.freedesktop.systemd1.Unit', 'ActiveEnterTimestampMonotonic'))
-                axt = int(properties.Get('org.freedesktop.systemd1.Unit', 'ActiveExitTimestampMonotonic'))
-                iet = int(properties.Get('org.freedesktop.systemd1.Unit', 'InactiveEnterTimestampMonotonic'))
+                ixt = properties.Get('(ss)', 'org.freedesktop.systemd1.Unit', 'InactiveExitTimestampMonotonic')
+                aet = properties.Get('(ss)', 'org.freedesktop.systemd1.Unit', 'ActiveEnterTimestampMonotonic')
+                axt = properties.Get('(ss)', 'org.freedesktop.systemd1.Unit', 'ActiveExitTimestampMonotonic')
+                iet = properties.Get('(ss)', 'org.freedesktop.systemd1.Unit', 'InactiveEnterTimestampMonotonic')
 
                 l.append((str(i[0]), ixt, aet, axt, iet))
 
         return l
 
 def acquire_start_time():
-        properties = dbus.Interface(bus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1'), 'org.freedesktop.DBus.Properties')
+        properties = Gio.DBusProxy.new_for_bus_sync(bus, Gio.DBusProxyFlags.NONE,
+                None, 'org.freedesktop.systemd1', '/org/freedesktop/systemd1', 'org.freedesktop.DBus.Properties', None)
 
-        initrd_time = int(properties.Get('org.freedesktop.systemd1.Manager', 'InitRDTimestampMonotonic'))
-        userspace_time = int(properties.Get('org.freedesktop.systemd1.Manager', 'UserspaceTimestampMonotonic'))
-        finish_time = int(properties.Get('org.freedesktop.systemd1.Manager', 'FinishTimestampMonotonic'))
+        initrd_time = properties.Get('(ss)', 'org.freedesktop.systemd1.Manager', 'InitRDTimestampMonotonic')
+        userspace_time = properties.Get('(ss)', 'org.freedesktop.systemd1.Manager', 'UserspaceTimestampMonotonic')
+        finish_time = properties.Get('(ss)', 'org.freedesktop.systemd1.Manager', 'FinishTimestampMonotonic')
 
         if finish_time == 0:
                 sys.stderr.write("Bootup is not yet finished. Please try again later.\n")
@@ -281,7 +284,7 @@ def unknown_verb():
         usage()
         sys.exit(1)
 
-bus = dbus.SystemBus()
+bus = Gio.BusType.SYSTEM
 
 try:
         opts, args = getopt.gnu_getopt(sys.argv[1:], "h", ["help", "user"])
@@ -293,7 +296,7 @@ for o, a in opts:
         if o in ("-h", "--help"):
                 help()
         elif o == '--user':
-                bus = dbus.SessionBus()
+                bus = Gio.BusType.SESSION
         else:
                 assert False, "unhandled option"
 
