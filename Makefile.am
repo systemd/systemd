@@ -241,7 +241,7 @@ systemgenerator_PROGRAMS = \
 	systemd-system-update-generator
 
 dist_bashcompletion_DATA = \
-	bash-completion/systemd-bash-completion.sh
+	shell-completion/systemd-bash-completion.sh
 
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
