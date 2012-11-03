@@ -130,6 +130,7 @@ Unit.ConditionPathIsSymbolicLink,config_parse_unit_condition_path,   CONDITION_P
 Unit.ConditionPathIsMountPoint,  config_parse_unit_condition_path,   CONDITION_PATH_IS_MOUNT_POINT, 0
 Unit.ConditionPathIsReadWrite,   config_parse_unit_condition_path,   CONDITION_PATH_IS_READ_WRITE,  0
 Unit.ConditionDirectoryNotEmpty, config_parse_unit_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY, 0
+Unit.ConditionFileNotEmpty,      config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY,      0
 Unit.ConditionFileIsExecutable,  config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE,  0
 Unit.ConditionKernelCommandLine, config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE, 0
 Unit.ConditionVirtualization,    config_parse_unit_condition_string, CONDITION_VIRTUALIZATION,      0
