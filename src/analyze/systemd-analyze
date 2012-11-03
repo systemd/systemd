@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
-import getopt, sys, os
+import sys, os
+import argparse
 from gi.repository import Gio
 try:
         import cairo
@@ -74,20 +75,6 @@ def draw_text(context, x, y, text, size = 12, r = 0, g = 0, b = 0, vcenter = 0.5
         context.show_text(text)
 
         context.restore()
-
-def usage():
-        sys.stdout.write("""systemd-analyze [--user] time
-systemd-analyze [--user] blame
-systemd-analyze [--user] plot
-
-Process systemd profiling information
-
-  -h --help         Show this help
-""")
-
-def help():
-        usage()
-        sys.exit()
 
 def time():
 
@@ -279,34 +266,29 @@ def plot():
 
         surface.finish()
 
-def unknown_verb():
-        sys.stderr.write("Unknown verb '%s'.\n" % args[0])
-        usage()
-        sys.exit(1)
+parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                 description='Process systemd profiling information',
+                                 epilog='''\
+time - print time spent in the kernel before reaching userspace
+blame - print list of running units ordered by time to init
+plot - output SVG graphic showing service initialization
+''')
 
-bus = Gio.BusType.SYSTEM
+parser.add_argument('action', choices=('time', 'blame', 'plot'),
+                    default='time', nargs='?',
+                    help='action to perform (default: time)')
+parser.add_argument('--user', action='store_true',
+                    help='use the session bus')
 
-try:
-        opts, args = getopt.gnu_getopt(sys.argv[1:], "h", ["help", "user"])
-except getopt.GetoptError as err:
-        sys.stdout.write(str(err) + "\n")
-        usage()
-        sys.exit(2)
-for o, a in opts:
-        if o in ("-h", "--help"):
-                help()
-        elif o == '--user':
-                bus = Gio.BusType.SESSION
-        else:
-                assert False, "unhandled option"
+args = parser.parse_args()
+
+if args.user:
+        bus = Gio.BusType.SESSION
+else:
+        bus = Gio.BusType.SYSTEM
 
 verb = {'time' : time,
 	'blame': blame,
 	'plot' : plot,
-	'help' : help,
 	}
-
-if len(args) == 0:
-        time()
-else:
-        verb.get(args[0], unknown_verb)()
+verb.get(args.action)()
