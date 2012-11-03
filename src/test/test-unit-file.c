@@ -138,6 +138,16 @@ static void test_config_parse_exec(void) {
 
         assert_se(c1->command_next == NULL);
 
+        /* escaped semicolon */
+        r = config_parse_exec("fake", 5, "section",
+                              "LValue", 0,
+                              "/usr/bin/find \\;",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1,
+                          "/usr/bin/find", "/usr/bin/find", ";", false);
+
         exec_command_free_list(c);
 }
 

@@ -483,6 +483,8 @@ int config_parse_exec(
                 FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                         if (strncmp(w, ";", MAX(l, 1U)) == 0)
                                 break;
+                        else if (strncmp(w, "\\;", MAX(l, 1U)) == 0)
+                                w ++;
 
                         if (honour_argv0 && w == rvalue) {
                                 assert(!path);
