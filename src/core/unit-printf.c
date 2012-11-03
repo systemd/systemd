@@ -127,11 +127,9 @@ static char *specifier_user_name(char specifier, void *data, void *userdata) {
         assert(u);
 
         c = unit_get_exec_context(u);
-        if (!c)
-                return NULL;
 
         /* get USER env from our own env if set */
-        if (!c->user)
+        if (!c || !c->user)
                 return getusername_malloc();
 
         /* fish username from passwd */
@@ -152,11 +150,9 @@ static char *specifier_user_home(char specifier, void *data, void *userdata) {
         assert(u);
 
         c = unit_get_exec_context(u);
-        if (!c)
-                return NULL;
 
         /* return HOME if set, otherwise from passwd */
-        if (!c->user) {
+        if (!c || !c->user) {
                 char *h;
 
                 r = get_home_dir(&h);
@@ -183,11 +179,9 @@ static char *specifier_user_shell(char specifier, void *data, void *userdata) {
         assert(u);
 
         c = unit_get_exec_context(u);
-        if (!c)
-                return NULL;
 
         /* return HOME if set, otherwise from passwd */
-        if (!c->user) {
+        if (!c || !c->user) {
                 char *sh;
 
                 r = get_shell(&sh);
