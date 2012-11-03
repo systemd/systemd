@@ -36,12 +36,14 @@
 #include "mkdir.h"
 #include "special.h"
 #include "cgroup-util.h"
+#include "journald-native.h"
 
 /* Few programs have less than 3MiB resident */
 #define COREDUMP_MIN_START (3*1024*1024)
 /* Make sure to not make this larger than the maximum journal entry
  * size. See ENTRY_SIZE_MAX in journald-native.c. */
 #define COREDUMP_MAX (767*1024*1024)
+assert_cc(COREDUMP_MAX <= ENTRY_SIZE_MAX);
 
 enum {
         ARG_PID = 1,

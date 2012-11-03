@@ -33,12 +33,7 @@
 #include "journald-syslog.h"
 #include "journald-wall.h"
 
-/* Make sure not to make this smaller than the maximum coredump
- * size. See COREDUMP_MAX in coredump.c */
-#define ENTRY_SIZE_MAX (1024*1024*768)
-#define DATA_SIZE_MAX (1024*1024*768)
-
-static bool valid_user_field(const char *p, size_t l) {
+bool valid_user_field(const char *p, size_t l, bool allow_protected) {
         const char *a;
 
         /* We kinda enforce POSIX syntax recommendations for
@@ -56,7 +51,7 @@ static bool valid_user_field(const char *p, size_t l) {
                 return false;
 
         /* Variables starting with an underscore are protected */
-        if (p[0] == '_')
+        if (!allow_protected && p[0] == '_')
                 return false;
 
         /* Don't allow digits as first character */
@@ -65,9 +60,9 @@ static bool valid_user_field(const char *p, size_t l) {
 
         /* Only allow A-Z0-9 and '_' */
         for (a = p; a < p + l; a++)
-                if (!((*a >= 'A' && *a <= 'Z') ||
-                      (*a >= '0' && *a <= '9') ||
-                      *a == '_'))
+                if ((*a < 'A' || *a > 'Z') &&
+                    (*a < '0' || *a > '9') &&
+                    *a != '_')
                         return false;
 
         return true;
@@ -139,7 +134,7 @@ void server_process_native_message(
 
                 q = memchr(p, '=', e - p);
                 if (q) {
-                        if (valid_user_field(p, q - p)) {
+                        if (valid_user_field(p, q - p, false)) {
                                 size_t l;
 
                                 l = e - p;
@@ -239,7 +234,7 @@ void server_process_native_message(
                         k[e - p] = '=';
                         memcpy(k + (e - p) + 1, e + 1 + sizeof(uint64_t), l);
 
-                        if (valid_user_field(p, e - p)) {
+                        if (valid_user_field(p, e - p, false)) {
                                 iovec[n].iov_base = k;
                                 iovec[n].iov_len = (e - p) + 1 + l;
                                 n++;
