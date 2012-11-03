@@ -245,15 +245,6 @@ int main(int argc, char **argv) {
                 if (r < 0 && r != -ENOENT)
                         log_warning("Failed to read /etc/sysconfig/console: %s", strerror(-r));
 
-#elif defined(TARGET_ARCH)
-                r = parse_env_file("/etc/rc.conf", NEWLINE,
-                                   "KEYMAP", &vc_keymap,
-                                   "CONSOLEFONT", &vc_font,
-                                   "CONSOLEMAP", &vc_font_map,
-                                   NULL);
-                if (r < 0 && r != -ENOENT)
-                        log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
-
 #elif defined(TARGET_ALTLINUX)
                 r = parse_env_file("/etc/sysconfig/keyboard", NEWLINE,
                                    "KEYTABLE", &vc_keymap,
