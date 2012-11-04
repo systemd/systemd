@@ -39,7 +39,6 @@ typedef struct Kmodule {
 static const KModule kmod_table[] = {
         { "autofs4",  "/sys/class/misc/autofs",    NULL } ,
         { "ipv6",     "/sys/module/ipv6",          NULL },
-        { "efivarfs", "/sys/firmware/efi/efivars", NULL },
         { "unix",     "/proc/net/unix",            NULL } ,
 };
 
