@@ -30,11 +30,17 @@
 
 #include "kmod-setup.h"
 
-static const char * const kmod_table[] = {
-        "autofs4",  "/sys/class/misc/autofs",
-        "ipv6",     "/sys/module/ipv6",
-        "efivarfs", "/sys/firmware/efi/efivars",
-        "unix",     "/proc/net/unix"
+typedef struct Kmodule {
+        const char *name;
+        const char *directory;
+        bool (*condition_fn)(void);
+} KModule;
+
+static const KModule kmod_table[] = {
+        { "autofs4",  "/sys/class/misc/autofs",    NULL } ,
+        { "ipv6",     "/sys/module/ipv6",          NULL },
+        { "efivarfs", "/sys/firmware/efi/efivars", NULL },
+        { "unix",     "/proc/net/unix",            NULL } ,
 };
 
 #pragma GCC diagnostic push
@@ -42,7 +48,8 @@ static const char * const kmod_table[] = {
 static void systemd_kmod_log(void *data, int priority, const char *file, int line,
                              const char *fn, const char *format, va_list args)
 {
-        log_metav(priority, file, line, fn, format, args);
+        /* library logging is enabled at debug only */
+        log_metav(LOG_DEBUG, file, line, fn, format, args);
 }
 #pragma GCC diagnostic pop
 
@@ -53,13 +60,15 @@ int kmod_setup(void) {
         int err;
 
         for (i = 0; i < ELEMENTSOF(kmod_table); i += 2) {
+                if (kmod_table[i].condition_fn && !kmod_table[i].condition_fn())
+                        continue;
 
-                if (access(kmod_table[i+1], F_OK) >= 0)
+                if (access(kmod_table[i].directory, F_OK) >= 0)
                         continue;
 
                 log_debug("Your kernel apparently lacks built-in %s support. Might be a good idea to compile it in. "
                           "We'll now try to work around this by loading the module...",
-                          kmod_table[i]);
+                          kmod_table[i].name);
 
                 if (!ctx) {
                         ctx = kmod_new(NULL, NULL);
@@ -69,13 +78,12 @@ int kmod_setup(void) {
                         }
 
                         kmod_set_log_fn(ctx, systemd_kmod_log, NULL);
-
                         kmod_load_resources(ctx);
                 }
 
-                err = kmod_module_new_from_name(ctx, kmod_table[i], &mod);
+                err = kmod_module_new_from_name(ctx, kmod_table[i].name, &mod);
                 if (err < 0) {
-                        log_error("Failed to load module '%s'", kmod_table[i]);
+                        log_error("Failed to lookup module '%s'", kmod_table[i].name);
                         continue;
                 }
 
@@ -85,7 +93,7 @@ int kmod_setup(void) {
                 else if (err == KMOD_PROBE_APPLY_BLACKLIST)
                         log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
                 else
-                        log_error("Failed to insert '%s'", kmod_module_get_name(mod));
+                        log_error("Failed to insert module '%s'", kmod_module_get_name(mod));
 
                 kmod_module_unref(mod);
         }
