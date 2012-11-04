@@ -46,14 +46,20 @@
 #define TTY_GID 5
 #endif
 
+typedef enum MountMode {
+        MNT_NONE  =        0,
+        MNT_FATAL =        1 <<  0,
+        MNT_IN_CONTAINER = 1 <<  1,
+} MountMode;
+
 typedef struct MountPoint {
         const char *what;
         const char *where;
         const char *type;
         const char *options;
         unsigned long flags;
-        bool fatal;
-        bool in_container;
+        bool (*condition_fn)(void);
+        MountMode mode;
 } MountPoint;
 
 /* The first three entries we might need before SELinux is up. The
@@ -62,16 +68,26 @@ typedef struct MountPoint {
 #define N_EARLY_MOUNT 4
 
 static const MountPoint mount_table[] = {
-        { "proc",     "/proc",                  "proc",     NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV,                true,  true  },
-        { "sysfs",    "/sys",                   "sysfs",    NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV,                true,  true  },
-        { "devtmpfs", "/dev",                   "devtmpfs", "mode=755",          MS_NOSUID|MS_STRICTATIME,                    true,  true  },
-        { "securityfs", "/sys/kernel/security", "securityfs", NULL,              MS_NOSUID|MS_NOEXEC|MS_NODEV,                false, false },
-        { "efivarfs", "/sys/firmware/efi/efivars", "efivarfs", NULL,             MS_NOSUID|MS_NOEXEC|MS_NODEV,                false, false },
-        { "tmpfs",    "/dev/shm",               "tmpfs",    "mode=1777",         MS_NOSUID|MS_NODEV|MS_STRICTATIME,           true,  true  },
-        { "devpts",   "/dev/pts",               "devpts",   "mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,          false, true  },
-        { "tmpfs",    "/run",                   "tmpfs",    "mode=755",          MS_NOSUID|MS_NODEV|MS_STRICTATIME,           true,  true  },
-        { "tmpfs",    "/sys/fs/cgroup",         "tmpfs",    "mode=755",          MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, false, true  },
-        { "cgroup",   "/sys/fs/cgroup/systemd", "cgroup",   "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV,                false, true  },
+        { "proc",       "/proc",                     "proc",       NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
+        { "sysfs",      "/sys",                      "sysfs",      NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
+        { "devtmpfs",   "/dev",                      "devtmpfs",   "mode=755", MS_NOSUID|MS_STRICTATIME,
+          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
+        { "securityfs", "/sys/kernel/security",      "securityfs", NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          NULL,       MNT_NONE },
+        { "efivarfs",   "/sys/firmware/efi/efivars", "efivarfs",   NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          is_efiboot, MNT_NONE },
+        { "tmpfs",      "/dev/shm",                  "tmpfs",      "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
+        { "devpts",     "/dev/pts",                  "devpts",     "mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,
+          NULL,       MNT_IN_CONTAINER },
+        { "tmpfs",      "/run",                      "tmpfs",      "mode=755", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+          NULL,       MNT_FATAL|MNT_IN_CONTAINER },
+        { "tmpfs",      "/sys/fs/cgroup",            "tmpfs",      "mode=755", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
+          NULL,       MNT_IN_CONTAINER },
+        { "cgroup",     "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          NULL,       MNT_IN_CONTAINER },
 };
 
 /* These are API file systems that might be mounted by other software,
@@ -119,6 +135,9 @@ static int mount_one(const MountPoint *p, bool relabel) {
 
         assert(p);
 
+        if (p->condition_fn && !p->condition_fn())
+                return 0;
+
         /* Relabel first, just in case */
         if (relabel)
                 label_fix(p->where, true, true);
@@ -131,7 +150,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
                 return 0;
 
         /* Skip securityfs in a container */
-        if (!p->in_container && detect_container(NULL) > 0)
+        if (!(p->mode & MNT_IN_CONTAINER) && detect_container(NULL) > 0)
                 return 0;
 
         /* The access mode here doesn't really matter too much, since
@@ -149,8 +168,8 @@ static int mount_one(const MountPoint *p, bool relabel) {
                   p->type,
                   p->flags,
                   p->options) < 0) {
-                log_full(p->fatal ? LOG_ERR : LOG_DEBUG, "Failed to mount %s: %s", p->where, strerror(errno));
-                return p->fatal ? -errno : 0;
+                log_full((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, "Failed to mount %s: %s", p->where, strerror(errno));
+                return (p->mode & MNT_FATAL) ? -errno : 0;
         }
 
         /* Relabel again, since we now mounted something fresh here */
@@ -289,7 +308,6 @@ int mount_cgroup_controllers(char ***join_controllers) {
                 p.type = "cgroup";
                 p.options = options;
                 p.flags = MS_NOSUID|MS_NOEXEC|MS_NODEV;
-                p.fatal = false;
 
                 r = mount_one(&p, true);
                 free(controller);
