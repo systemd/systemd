@@ -77,6 +77,10 @@ char **saved_argv = NULL;
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
+bool is_efiboot(void) {
+        return access("/sys/firmware/efi", F_OK) >= 0;
+}
+
 size_t page_size(void) {
         static __thread size_t pgsz = 0;
         long r;

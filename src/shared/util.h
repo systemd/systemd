@@ -90,6 +90,8 @@ union dirent_storage {
 #define ANSI_HIGHLIGHT_YELLOW_ON "\x1B[1;33m"
 #define ANSI_HIGHLIGHT_OFF "\x1B[0m"
 
+bool is_efiboot(void);
+
 usec_t now(clockid_t clock);
 
 dual_timestamp* dual_timestamp_get(dual_timestamp *ts);
