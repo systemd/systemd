@@ -34,8 +34,6 @@
 #define FILENAME "/etc/sysconfig/network"
 #elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE)
 #define FILENAME "/etc/HOSTNAME"
-#elif defined(TARGET_ARCH)
-#define FILENAME "/etc/rc.conf"
 #elif defined(TARGET_GENTOO)
 #define FILENAME "/etc/conf.d/hostname"
 #endif
@@ -65,7 +63,7 @@ static int read_and_strip_hostname(const char *path, char **hn) {
 
 static int read_distro_hostname(char **hn) {
 
-#if defined(TARGET_ARCH) || defined(TARGET_GENTOO) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
+#if defined(TARGET_GENTOO) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
         int r;
         _cleanup_fclose_ FILE *f = NULL;
 
