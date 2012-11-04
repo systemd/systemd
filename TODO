@@ -22,14 +22,21 @@ F18:
 
 Features:
 
-* introduce ntp.service (or suchlike) as symlink that is used to arbitrate between various NTP implementations
+* introduce ntp.service (or suchlike) as symlink that is used to arbitrate between various
+  NTP implementations
 
-* timer units should get the ability to trigger:
-    a) when CLOCK_REALTIME makes jumps (TFD_TIMER_CANCEL_ON_SET)
-    b) when DST jumps takes place (glibc's zoneinfo "mess")
-  We want to be able to schedule an event when the system time changes by user
-  request, or DST change takes effect, to update the rtc-in-localtime and sys_tz
-  of the kernel when needed.
+* timer units should get the ability to trigger when:
+    - CLOCK_REALTIME makes jumps (TFD_TIMER_CANCEL_ON_SET)
+    - DST changes
+
+* update the kernel's TZ (sys_tz) when DST changes
+
+* sync down the system time to the RTC when:
+    - CLOCK_REALTIME makes jumps (the user explicitely requested a time set)
+    - DST changes && ntp is active && RTC-in-localtime (never do it without ntp)
+  This takes care of syncing ntpdate updates to the RTC, and DST updates for localtime
+  mode, it will never touch the RTC if the no reliale time source is active or the
+  user did not request anything like it.
 
 * When we begin with system shutdown all kind of suspend/hibernation should be prohibited until shutdown/reboot
 
