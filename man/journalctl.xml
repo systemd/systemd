@@ -437,7 +437,7 @@
                                 <term><option>-D</option></term>
                                 <term><option>--directory=</option></term>
 
-                                <listitem><para>Takes an absolute
+                                <listitem><para>Takes a
                                 directory path as argument. If
                                 specified journalctl will operate on the
                                 specified journal directory instead of

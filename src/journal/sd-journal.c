@@ -1596,7 +1596,7 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
         if (!ret)
                 return -EINVAL;
 
-        if (!path || !path_is_absolute(path))
+        if (!path)
                 return -EINVAL;
 
         if (flags != 0)
