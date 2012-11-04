@@ -1,4 +1,7 @@
 Bugfixes:
+* mount efivars only if /sys/firmware/efi/ exists
+  (add *condition callback to API mounts array and check for directory)
+
 * check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
