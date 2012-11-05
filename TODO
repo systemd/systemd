@@ -32,7 +32,7 @@ Features:
     - CLOCK_REALTIME makes jumps (the user explicitely requested a time set)
     - DST changes && ntp is active && RTC-in-localtime (never do it without ntp)
   This takes care of syncing ntpdate updates to the RTC, and DST updates for localtime
-  mode, it will never touch the RTC if the no reliale time source is active or the
+  mode, it will never touch the RTC if the no reliable time source is active or the
   user did not request anything like it.
 
 * When we begin with system shutdown all kind of suspend/hibernation should be prohibited until shutdown/reboot
