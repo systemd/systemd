@@ -52,6 +52,7 @@ int socket_address_listen(
                 int *ret) {
 
         int r, fd, one;
+
         assert(a);
         assert(ret);
 

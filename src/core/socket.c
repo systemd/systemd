@@ -136,6 +136,12 @@ static void socket_done(Unit *u) {
         free(s->smack_ip_in);
         free(s->smack_ip_out);
 
+        free(s->socket_user);
+        s->socket_user = NULL;
+
+        free(s->socket_group);
+        s->socket_group = NULL;
+
         unit_unwatch_timer(u, &s->timer_watch);
 }
 
@@ -449,6 +455,16 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->pass_sec),
                 prefix, strna(s->tcp_congestion));
 
+        if (s->socket_user)
+                fprintf(f,
+                        "SocketUser: %s\n",
+                        s->socket_user);
+
+        if (s->socket_group)
+                fprintf(f,
+                        "SocketGroup: %s\n",
+                        s->socket_group);
+
         if (s->control_pid > 0)
                 fprintf(f,
                         "%sControl PID: %lu\n",
@@ -692,6 +708,9 @@ static void socket_close_fds(Socket *s) {
 }
 
 static void socket_apply_socket_options(Socket *s, int fd) {
+        uid_t uid = 0;
+        gid_t gid = 0;
+
         assert(s);
         assert(fd >= 0);
 
@@ -775,6 +794,21 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         if (s->smack_ip_out)
                 if (fsetxattr(fd, "security.SMACK64IPOUT", s->smack_ip_out, strlen(s->smack_ip_out), 0) < 0)
                         log_error("fsetxattr(\"security.SMACK64IPOUT\"): %m");
+
+        if (s->socket_user &&
+            get_user_creds((const char **)&s->socket_user, &uid,
+                                NULL, NULL, NULL) < 0) {
+                log_warning("failed to lookup user: %s", s->socket_user);
+        }
+
+        if (s->socket_group &&
+            get_group_creds((const char **)&s->socket_group, &gid) < 0) {
+                log_warning("failed to lookup group: %s", s->socket_group);
+        }
+
+        if ((uid != 0 || gid != 0) && fchown(fd, uid, gid) < 0) {
+                log_warning("failed to change ownership of socket");
+        }
 }
 
 static void socket_apply_fifo_options(Socket *s, int fd) {
@@ -794,11 +828,15 @@ static int fifo_address_create(
                 const char *path,
                 mode_t directory_mode,
                 mode_t socket_mode,
+                const char *socket_user,
+                const char *socket_group,
                 int *_fd) {
 
         int fd = -1, r = 0;
         struct stat st;
         mode_t old_mask;
+        uid_t uid = 0;
+        gid_t gid = 0;
 
         assert(path);
         assert(_fd);
@@ -823,7 +861,8 @@ static int fifo_address_create(
                 goto fail;
         }
 
-        if ((fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW)) < 0) {
+        fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
+        if (fd < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -835,12 +874,32 @@ static int fifo_address_create(
                 goto fail;
         }
 
+        if (socket_user &&
+            get_user_creds(&socket_user, &uid, NULL, NULL, NULL) < 0) {
+                r = -errno;
+                log_error("failed to lookup user: %s", socket_user);
+                goto fail;
+        }
+
+        if (socket_group &&
+            get_group_creds(&socket_group, &gid) < 0) {
+                r = -errno;
+                log_error("failed to lookup group: %s", socket_group);
+                goto fail;
+        }
+
         if (!S_ISFIFO(st.st_mode) ||
             (st.st_mode & 0777) != (socket_mode & ~old_mask) ||
-            st.st_uid != getuid() ||
-            st.st_gid != getgid()) {
+            st.st_uid != uid ||
+            st.st_gid != gid) {
 
                 r = -EEXIST;
+                goto fail;
+        }
+
+        if ((uid != 0 || gid != 0) && fchown(fd, uid, gid) < 0) {
+                r = -errno;
+                log_error("failed to changed ownership of FIFO: %s", path);
                 goto fail;
         }
 
@@ -1013,6 +1072,8 @@ static int socket_open_fds(Socket *s) {
                                              p->path,
                                              s->directory_mode,
                                              s->socket_mode,
+                                             s->socket_user,
+                                             s->socket_group,
                                              &p->fd)) < 0)
                                 goto rollback;
 

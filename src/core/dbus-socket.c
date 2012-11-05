@@ -43,6 +43,8 @@
         "  <property name=\"BindToDevice\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"SocketMode\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"SocketUser\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"SocketGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Accept\" type=\"b\" access=\"read\"/>\n"    \
         "  <property name=\"KeepAlive\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Priority\" type=\"i\" access=\"read\"/>\n"  \
@@ -109,6 +111,8 @@ static const BusProperty bus_socket_properties[] = {
         { "BindToDevice",   bus_property_append_string,        "s", offsetof(Socket, bind_to_device), true },
         { "DirectoryMode",  bus_property_append_mode,          "u", offsetof(Socket, directory_mode)  },
         { "SocketMode",     bus_property_append_mode,          "u", offsetof(Socket, socket_mode)     },
+        { "SocketUser",     bus_property_append_string,        "s", offsetof(Socket, socket_user),    true },
+        { "SocketGroup",    bus_property_append_string,        "s", offsetof(Socket, socket_group),   true },
         { "Accept",         bus_property_append_bool,          "b", offsetof(Socket, accept)          },
         { "KeepAlive",      bus_property_append_bool,          "b", offsetof(Socket, keep_alive)      },
         { "Priority",       bus_property_append_int,           "i", offsetof(Socket, priority)        },
