@@ -336,7 +336,7 @@
                         <varlistentry>
                                 <term><varname>DirectoryMode=</varname></term>
                                 <listitem><para>If listening on a file
-                                system socket of FIFO, the parent
+                                system socket or FIFO, the parent
                                 directories are automatically created
                                 if needed. This option specifies the
                                 file system access mode used when
@@ -349,7 +349,7 @@
                         <varlistentry>
                                 <term><varname>SocketMode=</varname></term>
                                 <listitem><para>If listening on a file
-                                system socket of FIFO, this option
+                                system socket or FIFO, this option
                                 specifies the file system access mode
                                 used when creating the file
                                 node. Takes an access mode in octal
