@@ -76,7 +76,7 @@ REQUIREMENTS:
 
         When systemd-hostnamed is used it is strongly recommended to
         install nss-myhostname to ensure that in a world of
-        dynamically changing hostnames the hostname stays resolveable
+        dynamically changing hostnames the hostname stays resolvable
         under all circumstances. In fact, systemd-hostnamed will warn
         if nss-myhostname is not installed. Packagers are encouraged to
         add a dependency on nss-myhostname to the package that
