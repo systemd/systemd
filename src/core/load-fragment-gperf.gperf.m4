@@ -189,8 +189,6 @@ Socket.ExecStopPost,             config_parse_exec,                  SOCKET_EXEC
 Socket.TimeoutSec,               config_parse_usec,                  0,                             offsetof(Socket, timeout_usec)
 Socket.DirectoryMode,            config_parse_mode,                  0,                             offsetof(Socket, directory_mode)
 Socket.SocketMode,               config_parse_mode,                  0,                             offsetof(Socket, socket_mode)
-Socket.SocketUser,               config_parse_string,                0,                             offsetof(Socket, socket_user)
-Socket.SocketGroup,              config_parse_string,                0,                             offsetof(Socket, socket_group)
 Socket.Accept,                   config_parse_bool,                  0,                             offsetof(Socket, accept)
 Socket.MaxConnections,           config_parse_unsigned,              0,                             offsetof(Socket, max_connections)
 Socket.KeepAlive,                config_parse_bool,                  0,                             offsetof(Socket, keep_alive)

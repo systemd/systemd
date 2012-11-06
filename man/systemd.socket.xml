@@ -358,30 +358,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>SocketUser=</varname></term>
-                                <listitem><para>If listening on a file system
-                                socket or FIFO, this option specifies the
-                                user owner of the created socket. When
-                                defining this, keep in mind that name
-                                switch services for user name lookups may
-                                not be available. It is advisable to use a
-                                numeric UID for this
-                                setting.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>SocketGroup=</varname></term>
-                                <listitem><para>If listening on a file system
-                                socket or FIFO, this option specifies the
-                                group owner of the created socket. When
-                                defining this, keep in mind that name
-                                switch services for group name lookups may
-                                not be available. It is advisable to use a
-                                numeric GID for this
-                                setting.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>Accept=</varname></term>
                                 <listitem><para>Takes a boolean
                                 argument. If true, a service instance

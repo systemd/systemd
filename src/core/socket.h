@@ -118,8 +118,6 @@ struct Socket {
 
         mode_t directory_mode;
         mode_t socket_mode;
-        char *socket_user;
-        char *socket_group;
 
         SocketResult result;
 
