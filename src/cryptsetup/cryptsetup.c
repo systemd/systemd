@@ -468,7 +468,8 @@ int main(int argc, char *argv[]) {
                                                  opt_keyfile_size,
                                                  &params);
 
-                                pass_volume_key = !!hash;
+                                /* hash == NULL implies the user passed "plain" */
+                                pass_volume_key = (hash == NULL);
                         }
 
                         if (k < 0) {
