@@ -58,11 +58,11 @@
 
                 <para><command>hostnamectl</command> may be used to
                 query and change the system hostname and related
-               settings.</para>
+                settings.</para>
 
-                <para>This tool distuingishes three different host
+                <para>This tool distinguishes three different host
                 names: the high-level "pretty" hostname which might
-                include all all kinds of special characters
+                include all kinds of special characters
                 (e.g. "Lennart's Laptop"), the static hostname which
                 is used to initialize the kernel hostname at boot
                 (e.g. "lennarts-laptop"), and the transient hostname
@@ -119,7 +119,7 @@
                                 <term><option>-H</option></term>
                                 <term><option>--host</option></term>
 
-                                <listitem><para>Execute operation
+                                <listitem><para>Execute the operation
                                 remotely. Specify a hostname, or
                                 username and hostname separated by @,
                                 to connect to. This will use SSH to
@@ -196,7 +196,7 @@
                                 the <ulink
                                 url="http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">Icon
                                 Naming Specification</ulink>. Pass an
-                                empty string to this operatoin to
+                                empty string to this operation to
                                 reset the icon name to the default
                                 value which is determined from the
                                 system form factor and possibly other

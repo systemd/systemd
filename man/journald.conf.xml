@@ -300,7 +300,7 @@
                                 <term><varname>MaxRetentionSec=</varname></term>
 
                                 <listitem><para>The maximum time to
-                                store journal entries for. This
+                                store journal entries. This
                                 controls whether journal files
                                 containing entries older then the
                                 specified time span are
@@ -313,9 +313,9 @@
                                 journal files don't grow without
                                 bounds. However, to enforce data
                                 retention policies it might make sense
-                                to set change this value from the
+                                to change this value from the
                                 default of 0 (which turns off this
-                                feature). This settings also takes
+                                feature). This setting also takes
                                 time values which may be suffixed with
                                 the units year, month, week, day, h, m
                                 to override the default time unit of

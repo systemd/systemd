@@ -101,7 +101,7 @@
                                 <term><option>-H</option></term>
                                 <term><option>--host</option></term>
 
-                                <listitem><para>Execute operation
+                                <listitem><para>Execute the operation
                                 remotely. Specify a hostname, or
                                 username and hostname separated by @,
                                 to connect to. This will use SSH to
@@ -118,7 +118,7 @@
                                 system clock is synchronized from the
                                 RTC again, taking the new setting into
                                 account. Otherwise the RTC is
-                                synchonized from the system
+                                synchronized from the system
                                 clock.</para></listitem>
                         </varlistentry>
                 </variablelist>
@@ -150,7 +150,7 @@
 
                                 <listitem><para>Set the system time
                                 zone to the specified value. Available
-                                time zones my be listed with
+                                time zones can be listed with
                                 <command>list-timezones</command>. If
                                 the RTC is configured to be in the
                                 local time this will also update the
@@ -167,8 +167,8 @@
 
                                 <listitem><para>List available time
                                 zones, one per line. Entries from the
-                                list may selected as the system
-                                timezone with
+                                list can be set as the system
+                                time zone with
                                 <command>set-timezone</command>.</para></listitem>
                         </varlistentry>
 
@@ -182,7 +182,7 @@
                                 <literal>1</literal> it will maintain
                                 the RTC in local time instead. Note
                                 that maintaining the RTC in the local
-                                timezone is is not fully supported and
+                                time zone is not fully supported and
                                 will create various problems with time
                                 zone changes and daylight saving
                                 adjustments. If at all possible use

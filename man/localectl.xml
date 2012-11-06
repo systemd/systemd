@@ -112,7 +112,7 @@
                                 <term><option>-H</option></term>
                                 <term><option>--host</option></term>
 
-                                <listitem><para>Execute operation
+                                <listitem><para>Execute the operation
                                 remotely. Specify a hostname, or
                                 username and hostname separated by @,
                                 to connect to. This will use SSH to
