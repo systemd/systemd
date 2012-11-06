@@ -342,7 +342,12 @@ int main(int argc, char *argv[]) {
 
                 opt_tries = opt_tries > 0 ? opt_tries : 3;
                 opt_key_size = (opt_key_size > 0 ? opt_key_size : 256);
-                hash = opt_hash ? opt_hash : "ripemd160";
+                if (opt_hash) {
+                        /* plain isn't a real hash type. it just means "use no hash" */
+                        if (!streq(opt_hash, "plain"))
+                                hash = opt_hash;
+                } else
+                        hash = "ripemd160";
 
                 if (opt_cipher) {
                         size_t l;
@@ -463,7 +468,7 @@ int main(int argc, char *argv[]) {
                                                  opt_keyfile_size,
                                                  &params);
 
-                                pass_volume_key = streq(hash, "plain");
+                                pass_volume_key = !!hash;
                         }
 
                         if (k < 0) {
