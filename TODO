@@ -29,8 +29,8 @@ Features:
 * update the kernel's TZ (sys_tz) when DST changes
 
 * sync down the system time to the RTC when:
-    - CLOCK_REALTIME makes jumps (the user explicitly requested a time set)
-    - DST changes && ntp is active && RTC-in-localtime (never do it without ntp)
+    - CLOCK_REALTIME makes jumps (the user explicitely requested a time set)
+    - DST/timezone changes && ntp is active && RTC-in-localtime (never do it without ntp)
   This takes care of syncing ntpdate updates to the RTC, and DST updates for localtime
   mode, it will never touch the RTC if the no reliable time source is active or the
   user did not request anything like it.
