@@ -1799,7 +1799,8 @@ dist_udevrules_DATA += \
 dist_udevhwdb_DATA = \
 	hwdb/20-pci-vendor-product.hwdb \
 	hwdb/20-usb-vendor-product.hwdb \
-	hwdb/20-acpi-vendor.hwdb
+	hwdb/20-acpi-vendor.hwdb \
+	hwdb/20-OUI-vendor.hwdb
 
 udevconfdir = $(sysconfdir)/udev
 dist_udevconf_DATA = \
@@ -3985,7 +3986,7 @@ distclean-local: $(DISTCLEAN_LOCAL_HOOKS)
 
 clean-local:
 	rm -rf $(abs_srcdir)/install-tree
-	rm -f $(abs_srcdir)/hwdb/usb.ids $(abs_srcdir)/hwdb/pci.ids
+	rm -f $(abs_srcdir)/hwdb/usb.ids $(abs_srcdir)/hwdb/pci.ids $(abs_srcdir)/hwdb/oui.txt
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-sysvinit-path=$$dc_install_base/$(sysvinitdir) \
@@ -4006,6 +4007,7 @@ hwdb-update:
 	( cd hwdb && \
 	wget -N http://www.linux-usb.org/usb.ids && \
 	wget -N http://pciids.sourceforge.net/v2.2/pci.ids && \
+	wget -N http://standards.ieee.org/develop/regauth/oui/oui.txt && \
 	./ids-update.pl )
 
 upload: all distcheck

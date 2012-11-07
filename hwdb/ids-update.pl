@@ -78,3 +78,23 @@ while (my $line = <IN>) {
 }
 close(INP);
 close(OUTP);
+
+open(IN, "<", "oui.txt");
+open(OUT, ">", "20-OUI-vendor.hwdb");
+print(OUT "# This file is part of systemd.\n" .
+          "#\n" .
+          "# Data imported and updated from: http://standards.ieee.org/develop/regauth/oui/oui.txt\n");
+
+while (my $line = <IN>) {
+        $line =~ s/\s+$//;
+        $line =~ m/^([0-9A-F]{6})\s*\(base 16\)\s*(.*)$/;
+        if (defined $1) {
+                my $vendor = uc $1;
+                my $text = $2;
+                print(OUT "\n");
+                print(OUT "OUI:" . $vendor . "\n");
+                print(OUT " ID_VENDOR_FROM_DATABASE=" . $text . "\n");
+        }
+}
+close(INP);
+close(OUTP);
