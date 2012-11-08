@@ -80,7 +80,7 @@ close(INP);
 close(OUTP);
 
 open(IN, "<", "oui.txt");
-open(OUT, ">", "20-OUI-vendor.hwdb");
+open(OUT, ">", "20-OUI.hwdb");
 print(OUT "# This file is part of systemd.\n" .
           "#\n" .
           "# Data imported and updated from: http://standards.ieee.org/develop/regauth/oui/oui.txt\n");
@@ -93,7 +93,7 @@ while (my $line = <IN>) {
                 my $text = $2;
                 print(OUT "\n");
                 print(OUT "OUI:" . $vendor . "\n");
-                print(OUT " ID_VENDOR_FROM_DATABASE=" . $text . "\n");
+                print(OUT " ID_OUI_FROM_DATABASE=" . $text . "\n");
         }
 }
 close(INP);
