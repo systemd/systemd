@@ -29,16 +29,80 @@
 
 static struct udev_hwdb *hwdb;
 
+int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *modalias, bool test) {
+        struct udev_list_entry *entry;
+        int n = 0;
+
+        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, modalias, 0)) {
+                if (udev_builtin_add_property(dev, test,
+                                              udev_list_entry_get_name(entry),
+                                              udev_list_entry_get_value(entry)) < 0)
+                        return -ENOMEM;
+                n++;
+        }
+        return n;
+}
+
+static const char *modalias_usb(struct udev_device *dev, char *s, size_t size) {
+        const char *v, *p;
+        int vn, pn;
+
+        v = udev_device_get_sysattr_value(dev, "idVendor");
+        if (!v)
+                return NULL;
+        p = udev_device_get_sysattr_value(dev, "idProduct");
+        if (!p)
+                return NULL;
+        vn = strtol(v, NULL, 16);
+        if (vn <= 0)
+                return NULL;
+        pn = strtol(p, NULL, 16);
+        if (pn <= 0)
+                return NULL;
+        snprintf(s, size, "usb:v%04Xp%04X*", vn, pn);
+        return s;
+}
+
+static int udev_builtin_hwdb_search(struct udev_device *dev, const char *subsystem, bool test) {
+        struct udev_device *d;
+        char s[16];
+        int n = 0;
+
+        for (d = dev; d; d = udev_device_get_parent(d)) {
+                const char *dsubsys;
+                const char *modalias = NULL;
+
+                dsubsys = udev_device_get_subsystem(d);
+                if (!dsubsys)
+                        continue;
+
+                /* look only at devices of a specific subsystem */
+                if (subsystem && !streq(dsubsys, subsystem))
+                        continue;
+
+                /* the usb_device does not have a modalias, compose one */
+                if (streq(dsubsys, "usb"))
+                        modalias = modalias_usb(dev, s, sizeof(s));
+
+                if (!modalias)
+                        modalias = udev_device_get_property_value(d, "MODALIAS");
+
+                if (!modalias)
+                        continue;
+                n = udev_builtin_hwdb_lookup(dev, modalias, test);
+                if (n > 0)
+                        break;
+        }
+
+        return n;
+}
+
 static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool test) {
         static const struct option options[] = {
                 { "subsystem", required_argument, NULL, 's' },
                 {}
         };
-        const char *subsys = NULL;
-        struct udev_device *d;
-        const char *modalias;
-        char str[UTIL_NAME_SIZE];
-        struct udev_list_entry *entry;
+        const char *subsystem = NULL;
 
         if (!hwdb)
                 return EXIT_FAILURE;
@@ -52,53 +116,13 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
 
                 switch (option) {
                 case 's':
-                        subsys = optarg;
+                        subsystem = optarg;
                         break;
                 }
         }
 
-        /* search the first parent device with a modalias */
-        for (d = dev; d; d = udev_device_get_parent(d)) {
-                const char *dsubsys = udev_device_get_subsystem(d);
-
-                /* look only at devices of a specific subsystem */
-                if (subsys && dsubsys && !streq(dsubsys, subsys))
-                        continue;
-
-                modalias = udev_device_get_property_value(d, "MODALIAS");
-                if (modalias)
-                        break;
-
-                /* the usb_device does not have modalias, compose one */
-                if (dsubsys && streq(dsubsys, "usb")) {
-                        const char *v, *p;
-                        int vn, pn;
-
-                        v = udev_device_get_sysattr_value(d, "idVendor");
-                        if (!v)
-                                continue;
-                        p = udev_device_get_sysattr_value(d, "idProduct");
-                        if (!p)
-                                continue;
-                        vn = strtol(v, NULL, 16);
-                        if (vn <= 0)
-                                continue;
-                        pn = strtol(p, NULL, 16);
-                        if (pn <= 0)
-                                continue;
-                        snprintf(str, sizeof(str), "usb:v%04Xp%04X*", vn, pn);
-                        modalias = str;
-                        break;
-                }
-        }
-        if (!modalias)
+        if (udev_builtin_hwdb_search(dev, subsystem, test) < 0)
                 return EXIT_FAILURE;
-
-        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, modalias, 0))
-        if (udev_builtin_add_property(dev, test,
-                                      udev_list_entry_get_name(entry),
-                                      udev_list_entry_get_value(entry)) < 0)
-                        return EXIT_FAILURE;
         return EXIT_SUCCESS;
 }
 

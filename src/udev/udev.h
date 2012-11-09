@@ -174,6 +174,7 @@ int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const c
 void udev_builtin_list(struct udev *udev);
 bool udev_builtin_validate(struct udev *udev);
 int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val);
+int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *modalias, bool test);
 
 /* udev logging */
 void udev_main_log(struct udev *udev, int priority,
