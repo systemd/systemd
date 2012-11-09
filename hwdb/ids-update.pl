@@ -3,98 +3,166 @@
 use strict;
 use warnings;
 
-my $vendor;
+sub usb_vendor {
+	my $vendor;
 
-open(IN, "<", "usb.ids");
-open(OUT, ">", "20-usb-vendor-product.hwdb");
-print(OUT "# This file is part of systemd.\n" .
-          "#\n" .
-          "# Data imported and updated from: http://www.linux-usb.org/usb.ids\n");
+	open(IN, "<", "usb.ids");
+	open(OUT, ">", "20-usb-vendor-product.hwdb");
+	print(OUT "# This file is part of systemd.\n" .
+	          "#\n" .
+	          "# Data imported and updated from: http://www.linux-usb.org/usb.ids\n");
 
-while (my $line = <IN>) {
-        $line =~ s/\s+$//;
-        $line =~ m/^([0-9a-f]{4})\s*(.*)$/;
-        if (defined $1) {
-                $vendor = uc $1;
-                my $text = $2;
-                print(OUT "\n");
-                print(OUT "usb:v" . $vendor . "*\n");
-                print(OUT " ID_VENDOR_FROM_DATABASE=" . $text . "\n");
-                next;
-        }
+	while (my $line = <IN>) {
+	        $line =~ s/\s+$//;
+	        $line =~ m/^([0-9a-f]{4})\s*(.*)$/;
+	        if (defined $1) {
+	                $vendor = uc $1;
+	                my $text = $2;
+	                print(OUT "\n");
+	                print(OUT "usb:v" . $vendor . "*\n");
+	                print(OUT " ID_VENDOR_FROM_DATABASE=" . $text . "\n");
+	                next;
+	        }
 
-        $line =~ m/^\t([0-9a-f]{4})\s*(.*)$/;
-        if (defined $1) {
-                my $product = uc $1;
-                my $text = $2;
-                print(OUT "\n");
-                print(OUT "usb:v" . $vendor . "p" . $product . "*\n");
-                print(OUT " ID_PRODUCT_FROM_DATABASE=" . $text . "\n");
-        }
+	        $line =~ m/^\t([0-9a-f]{4})\s*(.*)$/;
+	        if (defined $1) {
+	                my $product = uc $1;
+	                my $text = $2;
+	                print(OUT "\n");
+	                print(OUT "usb:v" . $vendor . "p" . $product . "*\n");
+	                print(OUT " ID_PRODUCT_FROM_DATABASE=" . $text . "\n");
+	        }
+	}
+
+	close(INP);
+	close(OUTP);
 }
-close(INP);
-close(OUTP);
 
+sub pci_vendor {
+	my $vendor;
+	my $device;
 
-my $device;
+	open(IN, "<", "usb.ids");
+	open(IN, "<", "pci.ids");
+	open(OUT, ">", "20-pci-vendor-product.hwdb");
+	print(OUT "# This file is part of systemd.\n" .
+	          "#\n" .
+	          "# Data imported and updated from: http://pciids.sourceforge.net/v2.2/pci.ids\n");
 
-open(IN, "<", "pci.ids");
-open(OUT, ">", "20-pci-vendor-product.hwdb");
-print(OUT "# This file is part of systemd.\n" .
-          "#\n" .
-          "# Data imported and updated from: http://pciids.sourceforge.net/v2.2/pci.ids\n");
+	while (my $line = <IN>) {
+	        $line =~ s/\s+$//;
+	        $line =~ m/^([0-9a-f]{4})\s*(.*)$/;
 
-while (my $line = <IN>) {
-        $line =~ s/\s+$//;
-        $line =~ m/^([0-9a-f]{4})\s*(.*)$/;
-        if (defined $1) {
-                $vendor = uc $1;
-                my $text = $2;
-                print(OUT "\n");
-                print(OUT "pci:v0000" . $vendor . "*\n");
-                print(OUT " ID_VENDOR_FROM_DATABASE=" . $text . "\n");
-                next;
-        }
+	        if (defined $1) {
+	                $vendor = uc $1;
+	                my $text = $2;
+	                print(OUT "\n");
+	                print(OUT "pci:v0000" . $vendor . "*\n");
+	                print(OUT " ID_VENDOR_FROM_DATABASE=" . $text . "\n");
+	                next;
+	        }
 
-        $line =~ m/^\t([0-9a-f]{4})\s*(.*)$/;
-        if (defined $1) {
-                $device = uc $1;
-                my $text = $2;
-                print(OUT "\n");
-                print(OUT "pci:v0000" . $vendor . "d0000" . $device . "*\n");
-                print(OUT " ID_PRODUCT_FROM_DATABASE=" . $text . "\n");
-                next;
-        }
+	        $line =~ m/^\t([0-9a-f]{4})\s*(.*)$/;
+	        if (defined $1) {
+	                $device = uc $1;
+	                my $text = $2;
+	                print(OUT "\n");
+	                print(OUT "pci:v0000" . $vendor . "d0000" . $device . "*\n");
+	                print(OUT " ID_PRODUCT_FROM_DATABASE=" . $text . "\n");
+	                next;
+	        }
 
-        $line =~ m/^\t\t([0-9a-f]{4})\s*([0-9a-f]{4})\s*(.*)$/;
-        if (defined $1) {
-                my $sub_vendor = uc $1;
-                my $sub_device = uc $2;
-                my $text = $3;
-                print(OUT "\n");
-                print(OUT "pci:v0000" . $vendor . "d0000" . $device . "sv0000" . $sub_vendor . "sd0000" . $sub_device . "*\n");
-                print(OUT " ID_PRODUCT_FROM_DATABASE=" . $text . "\n");
-        }
+	        $line =~ m/^\t\t([0-9a-f]{4})\s*([0-9a-f]{4})\s*(.*)$/;
+	        if (defined $1) {
+	                my $sub_vendor = uc $1;
+	                my $sub_device = uc $2;
+	                my $text = $3;
+	                print(OUT "\n");
+	                print(OUT "pci:v0000" . $vendor . "d0000" . $device . "sv0000" . $sub_vendor . "sd0000" . $sub_device . "*\n");
+	                print(OUT " ID_PRODUCT_FROM_DATABASE=" . $text . "\n");
+	        }
+	}
+
+	close(INP);
+	close(OUTP);
 }
-close(INP);
-close(OUTP);
 
-open(IN, "<", "oui.txt");
-open(OUT, ">", "20-OUI.hwdb");
-print(OUT "# This file is part of systemd.\n" .
-          "#\n" .
-          "# Data imported and updated from: http://standards.ieee.org/develop/regauth/oui/oui.txt\n");
+sub pci_classes {
+	my $class;
+	my $subclass;
+	my $interface;
 
-while (my $line = <IN>) {
-        $line =~ s/\s+$//;
-        $line =~ m/^([0-9A-F]{6})\s*\(base 16\)\s*(.*)$/;
-        if (defined $1) {
-                my $vendor = uc $1;
-                my $text = $2;
-                print(OUT "\n");
-                print(OUT "OUI:" . $vendor . "\n");
-                print(OUT " ID_OUI_FROM_DATABASE=" . $text . "\n");
-        }
+	open(IN, "<", "pci.ids");
+	open(OUT, ">", "20-pci-classes.hwdb");
+	print(OUT "# This file is part of systemd.\n" .
+	          "#\n" .
+	          "# Data imported and updated from: http://pciids.sourceforge.net/v2.2/pci.ids\n");
+
+	while (my $line = <IN>) {
+	        $line =~ s/\s+$//;
+
+	        $line =~ m/^C\ ([0-9a-f]{2})\s*(.*)$/;
+	        if (defined $1) {
+	                $class = uc $1;
+	                my $text = $2;
+	                print(OUT "\n");
+	                print(OUT "pci:v*d*sv*sd*bc" . $class . "*\n");
+	                print(OUT " ID_PCI_CLASS_FROM_DATABASE=" . $text . "\n");
+	                next;
+	        }
+
+	        if (not defined $class) {
+	                next;
+	        }
+
+	        $line =~ m/^\t([0-9a-f]{2})\s*(.*)$/;
+	        if (defined $1) {
+	                $subclass = uc $1;
+	                my $text = $2;
+	                print(OUT "\n");
+	                print(OUT "pci:v*d*sv*sd*bc" . $class . "sc" . $subclass . "*\n");
+	                print(OUT " ID_PCI_SUBCLASS_FROM_DATABASE=" . $text . "\n");
+	                next;
+	        }
+
+	        $line =~ m/^\t\t([0-9a-f]{2})\s*(.*)$/;
+	        if (defined $1) {
+	                $interface = uc $1;
+	                my $text = $2;
+	                print(OUT "\n");
+	                print(OUT "pci:v*d*sv*sd*bc" .  $class . "sc" . $subclass . "i" . $interface . "*\n");
+	                print(OUT " ID_PCI_INTERFACE_FROM_DATABASE=" . $text . "\n");
+	        }
+	}
+
+	close(INP);
+	close(OUTP);
 }
-close(INP);
-close(OUTP);
+
+sub oui {
+	open(IN, "<", "oui.txt");
+	open(OUT, ">", "20-OUI.hwdb");
+	print(OUT "# This file is part of systemd.\n" .
+	          "#\n" .
+	          "# Data imported and updated from: http://standards.ieee.org/develop/regauth/oui/oui.txt\n");
+
+	while (my $line = <IN>) {
+	        $line =~ s/\s+$//;
+	        $line =~ m/^([0-9A-F]{6})\s*\(base 16\)\s*(.*)$/;
+	        if (defined $1) {
+	                my $vendor = uc $1;
+	                my $text = $2;
+	                print(OUT "\n");
+	                print(OUT "OUI:" . $vendor . "\n");
+	                print(OUT " ID_OUI_FROM_DATABASE=" . $text . "\n");
+	        }
+	}
+
+	close(INP);
+	close(OUTP);
+}
+
+usb_vendor();
+pci_vendor();
+pci_classes();
+oui();
