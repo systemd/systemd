@@ -2,9 +2,6 @@
 #
 # Data imported and updated from: http://www.linux-usb.org/usb.ids
 
-usb:v*p*d*dc00*
- ID_USB_CLASS_FROM_DATABASE=(Defined at Interface level)
-
 usb:v*p*d*dc01*
  ID_USB_CLASS_FROM_DATABASE=Audio
 
@@ -85,9 +82,6 @@ usb:v*p*d*dc02dsc0Cdp07*
 
 usb:v*p*d*dc03*
  ID_USB_CLASS_FROM_DATABASE=Human Interface Device
-
-usb:v*p*d*dc03dsc00*
- ID_USB_SUBCLASS_FROM_DATABASE=No Subclass
 
 usb:v*p*d*dc03dsc00dp01*
  ID_USB_PROTOCOL_FROM_DATABASE=Keyboard
@@ -247,9 +241,6 @@ usb:v*p*d*dc0D*
 
 usb:v*p*d*dc0E*
  ID_USB_CLASS_FROM_DATABASE=Video
-
-usb:v*p*d*dc0Edsc00*
- ID_USB_SUBCLASS_FROM_DATABASE=Undefined
 
 usb:v*p*d*dc0Edsc01*
  ID_USB_SUBCLASS_FROM_DATABASE=Video Control

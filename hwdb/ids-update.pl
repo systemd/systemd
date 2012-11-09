@@ -55,10 +55,10 @@ sub usb_classes {
                 $line =~ m/^C\ ([0-9a-f]{2})\s*(.*)$/;
                 if (defined $1) {
                         $class = uc $1;
-                        my $text = $2;
-                        if ($text =~ m/^(\?|None|Unused)$/) {
+                        if ($class =~ m/^00$/) {
                                 next;
                         }
+                        my $text = $2;
                         print(OUT "\n");
                         print(OUT "usb:v*p*d*dc" . $class . "*\n");
                         print(OUT " ID_USB_CLASS_FROM_DATABASE=" . $text . "\n");
@@ -74,6 +74,9 @@ sub usb_classes {
                 $line =~ m/^\t([0-9a-f]{2})\s*(.*)$/;
                 if (defined $1) {
                         $subclass = uc $1;
+                        if ($subclass =~ m/^00$/) {
+                                next;
+                        }
                         my $text = $2;
                         if ($text =~ m/^(\?|None|Unused)$/) {
                                 next;
