@@ -4009,7 +4009,7 @@ endif
 hwdb-update:
 	( cd hwdb && \
 	wget -N http://www.linux-usb.org/usb.ids && \
-	wget -N http://pciids.sourceforge.net/v2.2/pci.ids && \
+	wget -N http://pci-ids.ucw.cz/v2.2/pci.ids && \
 	wget -N http://standards.ieee.org/develop/regauth/oui/oui.txt && \
 	./ids-update.pl )
 

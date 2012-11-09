@@ -1,6 +1,6 @@
 # This file is part of systemd.
 #
-# Data imported and updated from: http://pciids.sourceforge.net/v2.2/pci.ids
+# Data imported and updated from: http://pci-ids.ucw.cz/v2.2/pci.ids
 
 pci:v*d*sv*sd*bc00*
  ID_PCI_CLASS_FROM_DATABASE=Unclassified device

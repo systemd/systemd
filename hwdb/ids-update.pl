@@ -113,7 +113,7 @@ sub pci_vendor {
         open(OUT, ">", "20-pci-vendor-product.hwdb");
         print(OUT "# This file is part of systemd.\n" .
                   "#\n" .
-                  "# Data imported and updated from: http://pciids.sourceforge.net/v2.2/pci.ids\n");
+                  "# Data imported and updated from: http://pci-ids.ucw.cz/v2.2/pci.ids\n");
 
         while (my $line = <IN>) {
                 $line =~ s/\s+$//;
@@ -162,7 +162,7 @@ sub pci_classes {
         open(OUT, ">", "20-pci-classes.hwdb");
         print(OUT "# This file is part of systemd.\n" .
                   "#\n" .
-                  "# Data imported and updated from: http://pciids.sourceforge.net/v2.2/pci.ids\n");
+                  "# Data imported and updated from: http://pci-ids.ucw.cz/v2.2/pci.ids\n");
 
         while (my $line = <IN>) {
                 $line =~ s/\s+$//;
