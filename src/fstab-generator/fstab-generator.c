@@ -111,7 +111,7 @@ static int add_swap(const char *what, struct mntent *me) {
         f = fopen(unit, "wxe");
         if (!f) {
                 r = -errno;
-                log_error("Failed to create unit file: %m");
+                log_error("Failed to create unit file %s: %m", unit);
                 goto finish;
         }
 
@@ -138,7 +138,7 @@ static int add_swap(const char *what, struct mntent *me) {
 
         fflush(f);
         if (ferror(f)) {
-                log_error("Failed to write unit file: %m");
+                log_error("Failed to write unit file %s: %m", unit);
                 r = -errno;
                 goto finish;
         }
@@ -152,7 +152,7 @@ static int add_swap(const char *what, struct mntent *me) {
 
                 mkdir_parents_label(lnk, 0755);
                 if (symlink(unit, lnk) < 0) {
-                        log_error("Failed to create symlink: %m");
+                        log_error("Failed to create symlink %s: %m", lnk);
                         r = -errno;
                         goto finish;
                 }
@@ -171,7 +171,7 @@ static int add_swap(const char *what, struct mntent *me) {
 
                         mkdir_parents_label(lnk, 0755);
                         if (symlink(unit, lnk) < 0) {
-                                log_error("Failed to create symlink: %m");
+                                log_error("Failed to create symlink %s: %m", lnk);
                                 r = -errno;
                                 goto finish;
                         }
@@ -262,7 +262,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
         f = fopen(unit, "wxe");
         if (!f) {
                 r = -errno;
-                log_error("Failed to create unit file: %m");
+                log_error("Failed to create unit file %s: %m", unit);
                 goto finish;
         }
 
@@ -306,7 +306,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
 
         fflush(f);
         if (ferror(f)) {
-                log_error("Failed to write unit file: %m");
+                log_error("Failed to write unit file %s: %m", unit);
                 r = -errno;
                 goto finish;
         }
@@ -320,7 +320,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
 
                 mkdir_parents_label(lnk, 0755);
                 if (symlink(unit, lnk) < 0) {
-                        log_error("Failed to create symlink: %m");
+                        log_error("Failed to create symlink %s: %m", lnk);
                         r = -errno;
                         goto finish;
                 }
@@ -342,7 +342,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
 
                                 mkdir_parents_label(lnk, 0755);
                                 if (symlink(unit, lnk) < 0) {
-                                        log_error("Failed to create symlink: %m");
+                                        log_error("Failed to create symlink %s: %m", lnk);
                                         r = -errno;
                                         goto finish;
                                 }
@@ -367,7 +367,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
                 f = fopen(automount_unit, "wxe");
                 if (!f) {
                         r = -errno;
-                        log_error("Failed to create unit file: %m");
+                        log_error("Failed to create unit file %s: %m", automount_unit);
                         goto finish;
                 }
 
@@ -386,7 +386,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
 
                 fflush(f);
                 if (ferror(f)) {
-                        log_error("Failed to write unit file: %m");
+                        log_error("Failed to write unit file %s: %m", automount_unit);
                         r = -errno;
                         goto finish;
                 }
@@ -400,7 +400,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
 
                 mkdir_parents_label(lnk, 0755);
                 if (symlink(automount_unit, lnk) < 0) {
-                        log_error("Failed to create symlink: %m");
+                        log_error("Failed to create symlink %s: %m", lnk);
                         r = -errno;
                         goto finish;
                 }
