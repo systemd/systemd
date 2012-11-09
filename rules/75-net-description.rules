@@ -3,12 +3,12 @@
 ACTION=="remove", GOTO="net_end"
 SUBSYSTEM!="net", GOTO="net_end"
 
-SUBSYSTEMS=="usb", ENV{ID_MODEL}=="", IMPORT{builtin}="usb_id"
-SUBSYSTEMS=="usb", IMPORT{builtin}="hwdb --subsystem=usb"
-SUBSYSTEMS=="usb", ATTRS{idVendor}!="", ATTRS{idProduct}!="", ENV{ID_VENDOR_ID}="$attr{idVendor}", ENV{ID_MODEL_ID}="$attr{idProduct}"
+IMPORT{builtin}="net_id"
+SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb --subsystem=usb"
 SUBSYSTEMS=="usb", GOTO="net_end"
 
-IMPORT{builtin}="hwdb"
 SUBSYSTEMS=="pci", ENV{ID_BUS}="pci", ENV{ID_VENDOR_ID}="$attr{vendor}", ENV{ID_MODEL_ID}="$attr{device}"
+
+IMPORT{builtin}="hwdb"
 
 LABEL="net_end"
