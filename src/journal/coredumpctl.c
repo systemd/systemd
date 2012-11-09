@@ -87,6 +87,7 @@ static int help(void) {
                "Commands:\n"
                "  -h --help         Show this help\n"
                "  --version         Print version string\n"
+               "  -F --field=FIELD  List all values a certain field takes\n"
                "  gdb               Start gdb for the first matching coredump\n"
                "  list              List available coredumps\n"
                "  dump PID          Print coredump to stdout\n"
