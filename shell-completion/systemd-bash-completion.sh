@@ -281,7 +281,7 @@ _loginctl () {
 complete -F _loginctl loginctl
 
 __journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
-                  ERRNO SYSLOG_{FACILITY,IDENTIFIER,PID}
+                  ERRNO SYSLOG_{FACILITY,IDENTIFIER,PID} COREDUMP_EXE
                   _{P,U,G}ID _COMM _EXE _CMDLINE
                   _AUDIT_{SESSION,LOGINUID}
                   _SYSTEMD_{CGROUP,SESSION,UNIT,OWNER_UID}
@@ -349,7 +349,7 @@ _coredumpctl() {
 
         local -A VERBS=(
             [LIST]='list'
-            [DUMP]='dump'
+            [DUMP]='dump gdb'
         )
 
         if __contains_word "$prev" '--output -o'; then
@@ -368,6 +368,9 @@ _coredumpctl() {
                 mapfile -t field_vals < <(systemd-coredumpctl -F "${prev%=}" 2>/dev/null)
                 COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur#=}") )
                 return 0
+        elif [[ $prev = '=' ]]; then
+                mapfile -t field_vals < <(systemd-coredumpctl -F "${COMP_WORDS[COMP_CWORD-2]}" 2>/dev/null)
+                comps=${field_vals[*]}
         else
                 for ((i=0; i <= COMP_CWORD; i++)); do
                         if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
