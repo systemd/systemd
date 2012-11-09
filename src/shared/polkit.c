@@ -46,6 +46,7 @@ int verify_polkit(
         DBusMessageIter iter_msg, iter_struct, iter_array, iter_dict, iter_variant;
         int r;
         dbus_bool_t authorized = FALSE, challenge = FALSE;
+        unsigned long ul;
 
         assert(c);
         assert(request);
@@ -53,6 +54,14 @@ int verify_polkit(
         sender = dbus_message_get_sender(request);
         if (!sender)
                 return -EINVAL;
+
+        ul = dbus_bus_get_unix_user(c, sender, error);
+        if (ul == (unsigned) -1)
+                return -EINVAL;
+
+        /* Shortcut things for root, to avoid the PK roundtrip and dependency */
+        if (ul == 0)
+                return 1;
 
         pid_raw = bus_get_unix_process_id(c, sender, error);
         if (pid_raw == 0)
@@ -144,7 +153,6 @@ int verify_polkit(
                 r = -EPERM;
 
 finish:
-
         if (m)
                 dbus_message_unref(m);
 
