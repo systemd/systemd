@@ -1800,6 +1800,7 @@ dist_udevhwdb_DATA = \
 	hwdb/20-pci-vendor-product.hwdb \
 	hwdb/20-pci-classes.hwdb \
 	hwdb/20-usb-vendor-product.hwdb \
+	hwdb/20-usb-classes.hwdb \
 	hwdb/20-acpi-vendor.hwdb \
 	hwdb/20-OUI.hwdb
 
