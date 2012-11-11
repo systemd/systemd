@@ -47,9 +47,9 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
                 { "help", no_argument, NULL, 'h' },
                 {}
         };
-        unsigned long long start_usec = now_usec();
-        unsigned long long start = 0;
-        unsigned long long end = 0;
+        usec_t start_usec = now(CLOCK_MONOTONIC);
+        usec_t start = 0;
+        usec_t end = 0;
         int quiet = 0;
         const char *exists = NULL;
         unsigned int timeout = 120;
@@ -123,7 +123,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
                         start = 0;
                         end = 0;
                 }
-                log_debug("start=%llu end=%llu current=%llu\n", start, end, kernel_seq);
+                log_debug("start=%llu end=%llu current=%llu\n", (unsigned long long)start, (unsigned long long)end, kernel_seq);
         } else {
                 if (end > 0) {
                         log_error("seq-end needs seq-start parameter, ignoring\n");
@@ -199,9 +199,9 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
                 }
 
                 if (timeout > 0) {
-                        unsigned long long age_usec;
+                        usec_t age_usec;
 
-                        age_usec = now_usec() - start_usec;
+                        age_usec = now(CLOCK_MONOTONIC) - start_usec;
                         if (age_usec / (1000 * 1000) >= timeout) {
                                 struct udev_list_entry *list_entry;
 

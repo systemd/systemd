@@ -356,7 +356,7 @@ bool udev_hwdb_validate(struct udev_hwdb *hwdb) {
                 return false;
         if (fstat(fileno(hwdb->f), &st) < 0)
                 return true;
-        if (ts_usec(&hwdb->st.st_mtim) != ts_usec(&st.st_mtim))
+        if (timespec_load(&hwdb->st.st_mtim) != timespec_load(&st.st_mtim))
                 return true;
         return false;
 }

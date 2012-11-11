@@ -41,8 +41,8 @@ struct udev_event {
         gid_t gid;
         struct udev_list run_list;
         int exec_delay;
-        unsigned long long birth_usec;
-        unsigned long long timeout_usec;
+        usec_t birth_usec;
+        usec_t timeout_usec;
         int fd_signal;
         unsigned int builtin_run;
         unsigned int builtin_ret;

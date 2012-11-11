@@ -47,7 +47,7 @@ struct uid_gid {
 struct udev_rules {
         struct udev *udev;
         char **dirs;
-        unsigned long long *dirs_ts_usec;
+        usec_t *dirs_ts_usec;
         int resolve_names;
 
         /* every key in the rules file becomes a token */
@@ -1691,7 +1691,7 @@ bool udev_rules_check_timestamp(struct udev_rules *rules)
                 if (stat(rules->dirs[i], &stats) < 0)
                         continue;
 
-                if (rules->dirs_ts_usec[i] == ts_usec(&stats.st_mtim))
+                if (rules->dirs_ts_usec[i] == timespec_load(&stats.st_mtim))
                         continue;
 
                 /* first check */
@@ -1701,7 +1701,7 @@ bool udev_rules_check_timestamp(struct udev_rules *rules)
                 }
 
                 /* update timestamp */
-                rules->dirs_ts_usec[i] = ts_usec(&stats.st_mtim);
+                rules->dirs_ts_usec[i] = timespec_load(&stats.st_mtim);
         }
 out:
         return changed;

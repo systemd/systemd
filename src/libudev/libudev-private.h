@@ -41,13 +41,14 @@ void udev_log(struct udev *udev,
               int priority, const char *file, int line, const char *fn,
               const char *format, ...)
               __attribute__((format(printf, 6, 7)));
-int udev_get_rules_path(struct udev *udev, char **path[], unsigned long long *ts_usec[]);
+int udev_get_rules_path(struct udev *udev, char **path[], usec_t *ts_usec[]);
 struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value);
 struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev);
 
 /* libudev-device.c */
 struct udev_device *udev_device_new(struct udev *udev);
 mode_t udev_device_get_devnode_mode(struct udev_device *udev_device);
+int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
 int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath);
 int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode);
 int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink);
@@ -65,8 +66,8 @@ const char *udev_device_get_id_filename(struct udev_device *udev_device);
 void udev_device_set_is_initialized(struct udev_device *udev_device);
 int udev_device_add_tag(struct udev_device *udev_device, const char *tag);
 void udev_device_cleanup_tags_list(struct udev_device *udev_device);
-unsigned long long udev_device_get_usec_initialized(struct udev_device *udev_device);
-void udev_device_set_usec_initialized(struct udev_device *udev_device, unsigned long long usec_initialized);
+usec_t udev_device_get_usec_initialized(struct udev_device *udev_device);
+void udev_device_set_usec_initialized(struct udev_device *udev_device, usec_t usec_initialized);
 int udev_device_get_devlink_priority(struct udev_device *udev_device);
 int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio);
 int udev_device_get_watch_handle(struct udev_device *udev_device);
@@ -167,7 +168,5 @@ int util_delete_path(struct udev *udev, const char *path);
 uid_t util_lookup_user(struct udev *udev, const char *user);
 gid_t util_lookup_group(struct udev *udev, const char *group);
 int util_resolve_subsys_kernel(struct udev *udev, const char *string, char *result, size_t maxsize, int read_value);
-unsigned long long ts_usec(const struct timespec *ts);
-unsigned long long now_usec(void);
 ssize_t print_kmsg(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 #endif

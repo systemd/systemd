@@ -48,7 +48,7 @@ struct udev_event *udev_event_new(struct udev_device *dev)
         event->udev = udev;
         udev_list_init(udev, &event->run_list, false);
         event->fd_signal = -1;
-        event->birth_usec = now_usec();
+        event->birth_usec = now(CLOCK_MONOTONIC);
         event->timeout_usec = 30 * 1000 * 1000;
         return event;
 }
@@ -466,9 +466,9 @@ static void spawn_read(struct udev_event *event,
                 int i;
 
                 if (event->timeout_usec > 0) {
-                        unsigned long long age_usec;
+                        usec_t age_usec;
 
-                        age_usec = now_usec() - event->birth_usec;
+                        age_usec = now(CLOCK_MONOTONIC) - event->birth_usec;
                         if (age_usec >= event->timeout_usec) {
                                 log_error("timeout '%s'\n", cmd);
                                 goto out;
@@ -554,9 +554,9 @@ static int spawn_wait(struct udev_event *event, const char *cmd, pid_t pid)
                 int fdcount;
 
                 if (event->timeout_usec > 0) {
-                        unsigned long long age_usec;
+                        usec_t age_usec;
 
-                        age_usec = now_usec() - event->birth_usec;
+                        age_usec = now(CLOCK_MONOTONIC) - event->birth_usec;
                         if (age_usec >= event->timeout_usec)
                                 timeout = 1000;
                         else
@@ -860,7 +860,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                 if (event->dev_db != NULL && udev_device_get_usec_initialized(event->dev_db) > 0)
                         udev_device_set_usec_initialized(event->dev, udev_device_get_usec_initialized(event->dev_db));
                 else if (udev_device_get_usec_initialized(event->dev) == 0)
-                        udev_device_set_usec_initialized(event->dev, now_usec());
+                        udev_device_set_usec_initialized(event->dev, now(CLOCK_MONOTONIC));
 
                 /* (re)write database file */
                 udev_device_update_db(dev);

@@ -122,7 +122,7 @@ struct worker {
         struct udev_monitor *monitor;
         enum worker_state state;
         struct event *event;
-        unsigned long long event_start_usec;
+        usec_t event_start_usec;
 };
 
 /* passed from worker to main process */
@@ -378,7 +378,7 @@ out:
                 worker->monitor = worker_monitor;
                 worker->pid = pid;
                 worker->state = WORKER_RUNNING;
-                worker->event_start_usec = now_usec();
+                worker->event_start_usec = now(CLOCK_MONOTONIC);
                 worker->event = event;
                 event->state = EVENT_RUNNING;
                 udev_list_node_append(&worker->node, &worker_list);
@@ -409,7 +409,7 @@ static void event_run(struct event *event)
                 worker_ref(worker);
                 worker->event = event;
                 worker->state = WORKER_RUNNING;
-                worker->event_start_usec = now_usec();
+                worker->event_start_usec = now(CLOCK_MONOTONIC);
                 event->state = EVENT_RUNNING;
                 return;
         }
@@ -1374,7 +1374,7 @@ int main(int argc, char *argv[])
         udev_list_node_init(&worker_list);
 
         for (;;) {
-                static unsigned long long last_usec;
+                static usec_t last_usec;
                 struct epoll_event ev[8];
                 int fdcount;
                 int timeout;
@@ -1445,7 +1445,7 @@ int main(int argc, char *argv[])
                                 if (worker->state != WORKER_RUNNING)
                                         continue;
 
-                                if ((now_usec() - worker->event_start_usec) > 30 * 1000 * 1000) {
+                                if ((now(CLOCK_MONOTONIC) - worker->event_start_usec) > 30 * 1000 * 1000) {
                                         log_error("worker [%u] %s timeout; kill it\n", worker->pid,
                                             worker->event ? worker->event->devpath : "<idle>");
                                         kill(worker->pid, SIGKILL);
@@ -1479,13 +1479,13 @@ int main(int argc, char *argv[])
                 }
 
                 /* check for changed config, every 3 seconds at most */
-                if ((now_usec() - last_usec) > 3 * 1000 * 1000) {
+                if ((now(CLOCK_MONOTONIC) - last_usec) > 3 * 1000 * 1000) {
                         if (udev_rules_check_timestamp(rules))
                                 reload = true;
                         if (udev_builtin_validate(udev))
                                 reload = true;
 
-                        last_usec = now_usec();
+                        last_usec = now(CLOCK_MONOTONIC);
                 }
 
                 /* reload requested, HUP signal received, rules changed, builtin changed */
@@ -1505,7 +1505,7 @@ int main(int argc, char *argv[])
 
                         dev = udev_monitor_receive_device(monitor);
                         if (dev != NULL) {
-                                udev_device_set_usec_initialized(dev, now_usec());
+                                udev_device_set_usec_initialized(dev, now(CLOCK_MONOTONIC));
                                 if (event_queue_insert(dev) < 0)
                                         udev_device_unref(dev);
                         }

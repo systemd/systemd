@@ -359,7 +359,6 @@ Features:
 * udev systemd unify:
   - strpcpy(), strpcpyl(), strscpy(), strscpyl()
   - utf8 validator code
-  - now() vs. now_usec()
 
 * udev: scsi_id -> sg3_utils -> kill scsi_id
 

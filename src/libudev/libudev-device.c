@@ -67,7 +67,7 @@ struct udev_device {
         struct udev_list sysattr_list;
         struct udev_list tags_list;
         unsigned long long int seqnum;
-        unsigned long long int usec_initialized;
+        usec_t usec_initialized;
         int devlink_priority;
         int refcount;
         dev_t devnum;
@@ -246,7 +246,7 @@ static int udev_device_set_devtype(struct udev_device *udev_device, const char *
         return 0;
 }
 
-static int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem)
+int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem)
 {
         free(udev_device->subsystem);
         udev_device->subsystem = strdup(subsystem);
@@ -1267,7 +1267,7 @@ _public_ const char *udev_device_get_action(struct udev_device *udev_device)
  **/
 _public_ unsigned long long int udev_device_get_usec_since_initialized(struct udev_device *udev_device)
 {
-        unsigned long long now_ts;
+        usec_t now_ts;
 
         if (udev_device == NULL)
                 return 0;
@@ -1275,23 +1275,23 @@ _public_ unsigned long long int udev_device_get_usec_since_initialized(struct ud
                 udev_device_read_db(udev_device, NULL);
         if (udev_device->usec_initialized == 0)
                 return 0;
-        now_ts = now_usec();
+        now_ts = now(CLOCK_MONOTONIC);
         if (now_ts == 0)
                 return 0;
         return now_ts - udev_device->usec_initialized;
 }
 
-unsigned long long udev_device_get_usec_initialized(struct udev_device *udev_device)
+usec_t udev_device_get_usec_initialized(struct udev_device *udev_device)
 {
         return udev_device->usec_initialized;
 }
 
-void udev_device_set_usec_initialized(struct udev_device *udev_device, unsigned long long usec_initialized)
+void udev_device_set_usec_initialized(struct udev_device *udev_device, usec_t usec_initialized)
 {
         char num[32];
 
         udev_device->usec_initialized = usec_initialized;
-        snprintf(num, sizeof(num), "%llu", usec_initialized);
+        snprintf(num, sizeof(num), "%llu", (unsigned long long)usec_initialized);
         udev_device_add_property(udev_device, "USEC_INITIALIZED", num);
 }
 
