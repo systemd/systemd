@@ -82,18 +82,42 @@ static bool ntp_synced(void) {
         return true;
 }
 
+static const char *jump_str(int delta_minutes, char *s, size_t size) {
+        if (delta_minutes == 60)
+                return "one hour forward";
+        if (delta_minutes == -60)
+                return "one hour backwards";
+        if (delta_minutes < 0) {
+                snprintf(s, size, "%i minutes backwards", -delta_minutes);
+                return s;
+        }
+        if (delta_minutes > 0) {
+                snprintf(s, size, "%i minutes forward", delta_minutes);
+                return s;
+        }
+        return "";
+}
+
 static void print_status_info(StatusInfo *i) {
         usec_t n;
         char a[FORMAT_TIMESTAMP_MAX];
         char b[FORMAT_TIMESTAMP_MAX];
+        char s[32];
         struct tm tm;
         time_t sec;
         char *zc, *zn;
         time_t t, tc, tn;
+        int dn;
         bool is_dstc, is_dstn;
         int r;
 
         assert(i);
+
+        /* enforce the values of /etc/localtime */
+        if (getenv("TZ")) {
+                fprintf(stderr, "Warning: ignoring the TZ variable, reading the system's timezone setting only.\n\n");
+                unsetenv("TZ");
+        }
 
         n = now(CLOCK_REALTIME);
         sec = (time_t) (n / USEC_PER_SEC);
@@ -135,7 +159,7 @@ static void print_status_info(StatusInfo *i) {
 
         r = time_get_dst(sec, "/etc/localtime",
                          &tc, &zc, &is_dstc,
-                         &tn, &zn, &is_dstn);
+                         &tn, &dn, &zn, &is_dstn);
         if (r < 0)
                 printf("      DST active: n/a\n");
         else {
@@ -149,10 +173,10 @@ static void print_status_info(StatusInfo *i) {
                 zero(tm);
                 assert_se(strftime(b, sizeof(b), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&tc, &tm)) > 0);
                 char_array_0(b);
-                printf(" Last DST change: %s → %s, one hour %s\n"
+                printf(" Last DST change: %s → %s, DST became %s\n"
                        "                  %s\n"
                        "                  %s\n",
-                       strna(zn), strna(zc), is_dstc ? "forward" : "backwards", a, b);
+                       strna(zn), strna(zc), is_dstc ? "active" : "inactive", a, b);
 
                 t = tn - 1;
                 zero(tm);
@@ -162,10 +186,10 @@ static void print_status_info(StatusInfo *i) {
                 zero(tm);
                 assert_se(strftime(b, sizeof(b), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&tn, &tm)) > 0);
                 char_array_0(b);
-                printf(" Next DST change: %s → %s, one hour %s\n"
+                printf(" Next DST change: %s → %s, DST will become %s, the clock will jump %s\n"
                        "                  %s\n"
                        "                  %s\n",
-                       strna(zc), strna(zn), is_dstn ? "forward" : "backwards", a, b);
+                       strna(zc), strna(zn), is_dstn ? "active" : "inactive", jump_str(dn, s, sizeof(s)), a, b);
 
                 free(zc);
                 free(zn);

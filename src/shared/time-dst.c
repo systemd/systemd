@@ -83,7 +83,7 @@ static inline int64_t decode64(const void *ptr) {
 
 int time_get_dst(time_t date, const char *tzfile,
                  time_t *switch_cur, char **zone_cur, bool *dst_cur,
-                 time_t *switch_next, char **zone_next, bool *dst_next) {
+                 time_t *switch_next, int *delta_next, char **zone_next, bool *dst_next) {
         time_t *transitions = NULL;
         size_t num_transitions = 0;
         unsigned char *type_idxs = 0;
@@ -321,8 +321,11 @@ found:
                 *zone_cur = strdup(&zone_names[types[type_idxs[i - 1]].idx]);
         if (dst_cur)
                 *dst_cur = types[type_idxs[i-1]].isdst;
+
         if (switch_next)
                 *switch_next = transitions[i];
+        if (delta_next)
+                *delta_next = (types[type_idxs[i]].offset - types[type_idxs[i-1]].offset) / 60;
         if (zone_next)
                 *zone_next = strdup(&zone_names[types[type_idxs[i]].idx]);
         if (dst_next)

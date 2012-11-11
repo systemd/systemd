@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef footimedst
-#define footimedst
+#pragma once
 
 /***
   This file is part of systemd.
@@ -24,6 +23,4 @@
 
 int time_get_dst(time_t date, const char *tzfile,
                  time_t *switch_cur, char **zone_cur, bool *dst_cur,
-                 time_t *switch_next, char **zone_next, bool *dst_next);
-
-#endif
+                 time_t *switch_next, int *delta_next, char **zone_next, bool *dst_next);
