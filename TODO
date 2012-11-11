@@ -17,6 +17,8 @@ F18:
 
 * Retest multi-seat
 
+* add rpm macros for %rulesdir, %hwdbdir, update rules/hwdb call
+
 Features:
 
 * introduce ntp.service (or suchlike) as symlink that is used to arbitrate between various
