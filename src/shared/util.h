@@ -604,9 +604,9 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
 bool is_locale_utf8(void);
 
 typedef enum DrawSpecialChar {
-        DRAW_BOX_VERT,
-        DRAW_BOX_VERT_AND_RIGHT,
-        DRAW_BOX_UP_AND_RIGHT,
+        DRAW_TREE_VERT,
+        DRAW_TREE_BRANCH,
+        DRAW_TREE_RIGHT,
         DRAW_TRIANGULAR_BULLET,
         _DRAW_SPECIAL_CHAR_MAX
 } DrawSpecialChar;
