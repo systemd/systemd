@@ -25,7 +25,7 @@
 
 #include "socket-util.h"
 #include "path-util.h"
-#include "journald.h"
+#include "journald-server.h"
 #include "journald-native.h"
 #include "journald-kmsg.h"
 #include "journald-console.h"

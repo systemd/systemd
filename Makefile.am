@@ -2432,42 +2432,12 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 systemd_journald_SOURCES = \
 	src/journal/journald.c \
-	src/journal/journald.h \
-	src/journal/journald-kmsg.c \
-	src/journal/journald-kmsg.h \
-	src/journal/journald-syslog.c \
-	src/journal/journald-syslog.h \
-	src/journal/journald-stream.c \
-	src/journal/journald-stream.h \
-	src/journal/journald-console.c \
-	src/journal/journald-console.h \
-	src/journal/journald-native.c \
-	src/journal/journald-native.h \
-	src/journal/journald-rate-limit.c \
-	src/journal/journald-rate-limit.h \
-	src/journal/journal-internal.h
-
-nodist_systemd_journald_SOURCES = \
-	src/journal/journald-gperf.c
+	src/journal/journald-server.h
 
 systemd_journald_LDADD = \
-	libsystemd-label.la \
-	libsystemd-shared.la \
-	libsystemd-audit.la \
-	libsystemd-daemon.la \
-	libsystemd-id128-internal.la \
 	libsystemd-journal-internal.la \
-	libudev.la
-
-if ENABLE_LOGIND
-systemd_journald_LDADD += \
-	libsystemd-login-internal.la
-endif
-
-if HAVE_ACL
-systemd_journald_LDADD += \
-	libsystemd-acl.la
-endif
+	libsystemd-shared.la \
+	libsystemd-id128-internal.la
 
 systemd_cat_SOURCES = \
 	src/journal/cat.c
@@ -2524,12 +2494,11 @@ test_journal_send_LDADD = \
 	libsystemd-id128-internal.la
 
 test_journal_syslog_SOURCES = \
-	src/journal/test-journal-syslog.c \
-	src/journal/journald-syslog.c
+	src/journal/test-journal-syslog.c
 
 test_journal_syslog_LDADD = \
-	libsystemd-shared.la \
 	libsystemd-journal-internal.la \
+	libsystemd-shared.la \
 	libsystemd-id128-internal.la
 
 test_journal_match_SOURCES = \
@@ -2603,12 +2572,44 @@ libsystemd_journal_la_LIBADD = \
 	libsystemd-id128-internal.la
 
 libsystemd_journal_internal_la_SOURCES = \
-	$(libsystemd_journal_la_SOURCES)
+	$(libsystemd_journal_la_SOURCES) \
+	src/journal/journald-kmsg.c \
+	src/journal/journald-kmsg.h \
+	src/journal/journald-syslog.c \
+	src/journal/journald-syslog.h \
+	src/journal/journald-stream.c \
+	src/journal/journald-stream.h \
+	src/journal/journald-server.c \
+	src/journal/journald-server.h \
+	src/journal/journald-console.c \
+	src/journal/journald-console.h \
+	src/journal/journald-native.c \
+	src/journal/journald-native.h \
+	src/journal/journald-rate-limit.c \
+	src/journal/journald-rate-limit.h \
+	src/journal/journal-internal.h
 
 libsystemd_journal_internal_la_CFLAGS = \
 	$(AM_CFLAGS)
 
-libsystemd_journal_internal_la_LIBADD =
+libsystemd_journal_internal_la_LIBADD = \
+	libsystemd-label.la \
+	libsystemd-audit.la \
+	libsystemd-daemon.la \
+	libudev.la
+
+nodist_libsystemd_journal_internal_la_SOURCES = \
+	src/journal/journald-gperf.c
+
+if ENABLE_LOGIND
+libsystemd_journal_internal_la_LIBADD += \
+	libsystemd-login-internal.la
+endif
+
+if HAVE_ACL
+libsystemd_journal_internal_la_LIBADD += \
+	libsystemd-acl.la
+endif
 
 if HAVE_XZ
 libsystemd_journal_la_SOURCES += \

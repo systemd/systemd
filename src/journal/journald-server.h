@@ -23,6 +23,7 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -139,3 +140,13 @@ int config_parse_split_mode(const char *filename, unsigned line, const char *sec
 
 const char *split_mode_to_string(SplitMode s);
 SplitMode split_mode_from_string(const char *s);
+
+void server_fix_perms(Server *s, JournalFile *f, uid_t uid);
+bool shall_try_append_again(JournalFile *f, int r);
+int server_init(Server *s);
+void server_done(Server *s);
+void server_vacuum(Server *s);
+void server_rotate(Server *s);
+int server_flush_to_var(Server *s);
+int process_event(Server *s, struct epoll_event *ev);
+void server_maybe_append_tags(Server *s);

@@ -21,6 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "journald.h"
+#include "journald-server.h"
 
 void server_forward_console(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred);

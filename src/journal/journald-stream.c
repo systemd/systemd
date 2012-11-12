@@ -29,7 +29,7 @@
 #endif
 
 #include "socket-util.h"
-#include "journald.h"
+#include "journald-server.h"
 #include "journald-stream.h"
 #include "journald-syslog.h"
 #include "journald-kmsg.h"

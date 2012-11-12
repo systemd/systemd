@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "journald.h"
+#include "journald-server.h"
 
 int syslog_fixup_facility(int priority);
 

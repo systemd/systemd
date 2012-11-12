@@ -28,7 +28,7 @@
 #include <systemd/sd-messages.h>
 #include <libudev.h>
 
-#include "journald.h"
+#include "journald-server.h"
 #include "journald-kmsg.h"
 #include "journald-syslog.h"
 
