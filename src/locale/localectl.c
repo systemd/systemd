@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <locale.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
@@ -740,6 +741,7 @@ int main(int argc, char *argv[]) {
 
         dbus_error_init(&error);
 
+        setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
 

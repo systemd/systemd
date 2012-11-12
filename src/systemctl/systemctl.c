@@ -22,6 +22,7 @@
 #include <sys/reboot.h>
 #include <stdio.h>
 #include <getopt.h>
+#include <locale.h>
 #include <stdbool.h>
 #include <string.h>
 #include <errno.h>
@@ -5240,6 +5241,7 @@ int main(int argc, char*argv[]) {
 
         dbus_error_init(&error);
 
+        setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
 

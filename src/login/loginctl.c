@@ -25,6 +25,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <pwd.h>
+#include <locale.h>
 
 #include "log.h"
 #include "util.h"
@@ -1568,6 +1569,7 @@ int main(int argc, char*argv[]) {
 
         dbus_error_init(&error);
 
+        setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
 

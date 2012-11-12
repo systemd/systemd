@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <locale.h>
 #include <string.h>
 #include <sys/timex.h>
 
@@ -677,6 +678,7 @@ int main(int argc, char *argv[]) {
 
         dbus_error_init(&error);
 
+        setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
 

@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <locale.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <stddef.h>
@@ -820,6 +821,7 @@ int main(int argc, char *argv[]) {
         bool previous_boot_id_valid = false;
         unsigned n_shown = 0;
 
+        setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
 
