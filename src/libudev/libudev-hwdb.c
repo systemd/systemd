@@ -1,7 +1,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2012 Kay Sievers <kay.sievers@vrfy.org>
+  Copyright 2012 Kay Sievers <kay@vrfy.org>
   Copyright 2008 Alan Jenkins <alan.christopher.jenkins@googlemail.com>
 
   systemd is free software; you can redistribute it and/or modify it
