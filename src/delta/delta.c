@@ -308,7 +308,7 @@ static int process_suffix_chop(const char *prefixes, const char *suffix) {
         /* Strip prefix from the suffix */
         NULSTR_FOREACH(p, prefixes) {
                 if (startswith(suffix, p)) {
-                        suffix += strlen(p);;
+                        suffix += strlen(p);
                         suffix += strspn(suffix, "/");
                         return process_suffix(prefixes, suffix);
                 }

@@ -237,7 +237,7 @@ static ssize_t request_reader_entries(
                         m->tmp = tmpfile();
                         if (!m->tmp) {
                                 log_error("Failed to create temporary file: %m");
-                                return MHD_CONTENT_READER_END_WITH_ERROR;;
+                                return MHD_CONTENT_READER_END_WITH_ERROR;
                         }
                 }
 
@@ -603,7 +603,7 @@ static ssize_t request_reader_fields(
                         m->tmp = tmpfile();
                         if (!m->tmp) {
                                 log_error("Failed to create temporary file: %m");
-                                return MHD_CONTENT_READER_END_WITH_ERROR;;
+                                return MHD_CONTENT_READER_END_WITH_ERROR;
                         }
                 }
 

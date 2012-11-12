@@ -97,7 +97,7 @@ static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent,
         struct udev_device *targetdev;
         struct udev_device *fcdev = NULL;
         const char *port;
-        char *lun = NULL;;
+        char *lun = NULL;
 
         targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
         if (targetdev == NULL)
