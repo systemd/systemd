@@ -185,18 +185,20 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
         if (list->unique) {
                 /* allocate or enlarge sorted array if needed */
                 if (list->entries_cur >= list->entries_max) {
+                        struct udev_list_entry **entries;
                         unsigned int add;
 
                         add = list->entries_max;
                         if (add < 1)
                                 add = 64;
-                        list->entries = realloc(list->entries, (list->entries_max + add) * sizeof(struct udev_list_entry *));
-                        if (list->entries == NULL) {
+                        entries = realloc(list->entries, (list->entries_max + add) * sizeof(struct udev_list_entry *));
+                        if (entries == NULL) {
                                 free(entry->name);
                                 free(entry->value);
                                 free(entry);
                                 return NULL;
                         }
+                        list->entries = entries;
                         list->entries_max += add;
                 }
 
