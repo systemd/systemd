@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2009 Martin Pitt <martin.pitt@ubuntu.com>
  * Portions Copyright (C) 2004 David Zeuthen, <david@fubar.dk>
- * Copyright (C) 2011 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2011 Kay Sievers <kay@vrfy.org>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

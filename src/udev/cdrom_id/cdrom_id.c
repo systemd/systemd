@@ -1,7 +1,7 @@
 /*
  * cdrom_id - optical drive and media information prober
  *
- * Copyright (C) 2008-2010 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2010 Kay Sievers <kay@vrfy.org>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

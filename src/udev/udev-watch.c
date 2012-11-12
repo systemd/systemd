@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2012 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004-2012 Kay Sievers <kay@vrfy.org>
  * Copyright (C) 2009 Canonical Ltd.
  * Copyright (C) 2009 Scott James Remnant <scott@netsplit.com>
  *

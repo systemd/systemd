@@ -1,7 +1,7 @@
 /*
  * probe disks for filesystems and partitions
  *
- * Copyright (C) 2011 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2011 Kay Sievers <kay@vrfy.org>
  * Copyright (C) 2011 Karel Zak <kzak@redhat.com>
  *
  * This program is free software: you can redistribute it and/or modify

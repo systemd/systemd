@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2009 Kay Sievers <kay@vrfy.org>
  * Copyright (c) 2009 Filippo Argiolas <filippo.argiolas@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
