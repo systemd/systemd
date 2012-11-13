@@ -47,24 +47,17 @@ static enum {
 } arg_flags = 0;
 
 static int equivalent(const char *a, const char *b) {
-        char *x, *y;
-        int r;
+        _cleanup_free_ char *x = NULL, *y = NULL;
 
         x = canonicalize_file_name(a);
         if (!x)
                 return -errno;
 
         y = canonicalize_file_name(b);
-        if (!y) {
-                free(x);
+        if (!y)
                 return -errno;
-        }
 
-        r = path_equal(x, y);
-        free(x);
-        free(y);
-
-        return r;
+        return path_equal(x, y);
 }
 
 static int notify_override_masked(const char *top, const char *bottom) {
@@ -108,7 +101,7 @@ static int notify_override_unchanged(const char *f) {
 }
 
 static int found_override(const char *top, const char *bottom) {
-        char *dest;
+        _cleanup_free_ char *dest = NULL;
         int k;
         pid_t pid;
 
@@ -117,7 +110,7 @@ static int found_override(const char *top, const char *bottom) {
 
         if (null_or_empty_path(top) > 0) {
                 notify_override_masked(top, bottom);
-                goto finish;
+                return 0;
         }
 
         k = readlink_malloc(top, &dest);
@@ -127,13 +120,12 @@ static int found_override(const char *top, const char *bottom) {
                 else
                         notify_override_redirected(top, bottom);
 
-                free(dest);
-                goto finish;
+                return 0;
         }
 
         notify_override_overridden(top, bottom);
         if (!arg_diff)
-                goto finish;
+                return 0;
 
         putchar('\n');
 
@@ -153,14 +145,11 @@ static int found_override(const char *top, const char *bottom) {
 
         putchar('\n');
 
-finish:
-
         return 0;
 }
 
 static int enumerate_dir(Hashmap *top, Hashmap *bottom, const char *path) {
-        DIR *d;
-        int r = 0;
+        _cleanup_closedir_ DIR *d;
 
         assert(top);
         assert(bottom);
@@ -182,10 +171,8 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, const char *path) {
                 char *p;
 
                 k = readdir_r(d, &buf.de, &de);
-                if (k != 0) {
-                        r = -k;
-                        goto finish;
-                }
+                if (k != 0)
+                        return -k;
 
                 if (!de)
                         break;
@@ -194,39 +181,30 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, const char *path) {
                         continue;
 
                 p = strjoin(path, "/", de->d_name, NULL);
-                if (!p) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!p)
+                        return -ENOMEM;
 
                 path_kill_slashes(p);
 
                 k = hashmap_put(top, path_get_file_name(p), p);
                 if (k >= 0) {
                         p = strdup(p);
-                        if (!p) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!p)
+                                return -ENOMEM;
                 } else if (k != -EEXIST) {
                         free(p);
-                        r = k;
-                        goto finish;
+                        return k;
                 }
 
                 free(hashmap_remove(bottom, path_get_file_name(p)));
                 k = hashmap_put(bottom, path_get_file_name(p), p);
                 if (k < 0) {
                         free(p);
-                        r = k;
-                        goto finish;
+                        return k;
                 }
         }
 
-finish:
-        closedir(d);
-
-        return r;
+        return 0;
 }
 
 static int process_suffix(const char *prefixes, const char *suffix) {
@@ -253,7 +231,7 @@ static int process_suffix(const char *prefixes, const char *suffix) {
         }
 
         NULSTR_FOREACH(p, prefixes) {
-                char *t;
+                _cleanup_free_ char *t = NULL;
 
                 t = strjoin(p, "/", suffix, NULL);
                 if (!t) {
@@ -266,7 +244,6 @@ static int process_suffix(const char *prefixes, const char *suffix) {
                         r = k;
 
                 log_debug("Looking at %s", t);
-                free(t);
         }
 
         HASHMAP_FOREACH(f, top, i) {
