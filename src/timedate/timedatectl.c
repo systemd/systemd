@@ -187,7 +187,8 @@ static void print_status_info(StatusInfo *i) {
                 zero(tm);
                 assert_se(strftime(b, sizeof(b), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&tn, &tm)) > 0);
                 char_array_0(b);
-                printf(" Next DST change: %s → %s, DST will become %s, the clock will jump %s\n"
+                printf(" Next DST change: %s → %s, DST will become %s\n"
+                       "                  the clock will jump %s\n"
                        "                  %s\n"
                        "                  %s\n",
                        strna(zc), strna(zn), is_dstn ? "active" : "inactive", jump_str(dn, s, sizeof(s)), a, b);
