@@ -21,12 +21,22 @@ F18:
 
 Features:
 
+* add API to close/reopen/get fd for journal client fd in libsystemd-journal.
+
+* maybe add API to send pairs of iovecs via sd_journal_send
+
+* fallback to /dev/log based logging in libsystemd-journal, if we can't log natively?
+
+* declare the local journal protocol stable in the wiki interface chart
+
 * introduce ntp.service (or suchlike) as symlink that is used to arbitrate between various
   NTP implementations
 
 * sd-journal: don't return fields > a threshold by default
 * journal: reuse XZ context
 * sd-journal: speed up sd_journal_get_data() with transparent hash table in bg
+
+* introduce ntp.service (or suchlike) as symlink that is used to arbitrate between various NTP implementations
 
 * timer units should get the ability to trigger when:
     - CLOCK_REALTIME makes jumps (TFD_TIMER_CANCEL_ON_SET)
