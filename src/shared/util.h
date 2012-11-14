@@ -611,3 +611,5 @@ typedef enum DrawSpecialChar {
         _DRAW_SPECIAL_CHAR_MAX
 } DrawSpecialChar;
 const char *draw_special_char(DrawSpecialChar ch);
+
+char *strreplace(const char *text, const char *old_string, const char *new_string);

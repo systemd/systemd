@@ -6163,3 +6163,53 @@ const char *draw_special_char(DrawSpecialChar ch) {
 
         return draw_table[!is_locale_utf8()][ch];
 }
+
+char *strreplace(const char *text, const char *old_string, const char *new_string) {
+        const char *f;
+        char *t, *r;
+        size_t l, old_len, new_len;
+
+        assert(text);
+        assert(old_string);
+        assert(new_string);
+
+        old_len = strlen(old_string);
+        new_len = strlen(new_string);
+
+        l = strlen(text);
+        r = new(char, l+1);
+        if (!r)
+                return NULL;
+
+        f = text;
+        t = r;
+        while (*f) {
+                char *a;
+                size_t d, nl;
+
+                if (!startswith(f, old_string)) {
+                        *(t++) = *(f++);
+                        continue;
+                }
+
+                d = t - r;
+                nl = l - old_len + new_len;
+                a = realloc(r, nl + 1);
+                if (!a)
+                        goto oom;
+
+                l = nl;
+                r = a;
+                t = r + d;
+
+                t = stpcpy(t, new_string);
+                f += old_len;
+        }
+
+        *t = 0;
+        return r;
+
+oom:
+        free(r);
+        return NULL;
+}
