@@ -798,6 +798,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/spawn-ask-password-agent.h \
 	src/shared/specifier.c \
 	src/shared/specifier.h \
+	src/shared/replace-var.c \
+	src/shared/replace-var.h \
 	src/shared/spawn-polkit-agent.c \
 	src/shared/spawn-polkit-agent.h \
 	src/shared/hwclock.c \
@@ -1182,7 +1184,8 @@ noinst_PROGRAMS += \
 	test-log \
 	test-unit-file \
 	test-date \
-	test-sleep
+	test-sleep \
+	test-replace-var
 
 TESTS += \
 	test-job-type \
@@ -1191,7 +1194,8 @@ TESTS += \
 	test-unit-name \
 	test-unit-file \
 	test-date \
-	test-sleep
+	test-sleep \
+	test-replace-var
 
 test_engine_SOURCES = \
 	src/test/test-engine.c
@@ -1264,6 +1268,12 @@ test_sleep_SOURCES = \
 
 test_sleep_LDADD = \
 	libsystemd-core.la
+
+test_replace_var_SOURCES = \
+	src/test/test-replace-var.c
+
+test_replace_var_LDADD = \
+	libsystemd-shared.la
 
 test_daemon_SOURCES = \
 	src/test/test-daemon.c
