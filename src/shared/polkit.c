@@ -56,7 +56,7 @@ int verify_polkit(
                 return -EINVAL;
 
         ul = dbus_bus_get_unix_user(c, sender, error);
-        if (ul == (unsigned) -1)
+        if (ul == (unsigned long) -1)
                 return -EINVAL;
 
         /* Shortcut things for root, to avoid the PK roundtrip and dependency */
