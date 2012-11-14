@@ -41,7 +41,8 @@ char *specifier_printf(const char *text, const Specifier table[], void *userdata
         assert(table);
 
         l = strlen(text);
-        if (!(r = new(char, l+1)))
+        r = new(char, l+1);
+        if (!r)
                 return NULL;
 
         t = r;
@@ -62,7 +63,8 @@ char *specifier_printf(const char *text, const Specifier table[], void *userdata
                                         char *n, *w;
                                         size_t k, j;
 
-                                        if (!(w = i->lookup(i->specifier, i->data, userdata))) {
+                                        w = i->lookup(i->specifier, i->data, userdata);
+                                        if (!w) {
                                                 free(r);
                                                 return NULL;
                                         }
@@ -70,7 +72,8 @@ char *specifier_printf(const char *text, const Specifier table[], void *userdata
                                         j = t - r;
                                         k = strlen(w);
 
-                                        if (!(n = new(char, j + k + l + 1))) {
+                                        n = new(char, j + k + l + 1);
+                                        if (!n) {
                                                 free(r);
                                                 free(w);
                                                 return NULL;
