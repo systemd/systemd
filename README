@@ -44,7 +44,6 @@ REQUIREMENTS:
         libkmod >= 5
         PAM >= 1.1.2 (optional)
         libcryptsetup (optional)
-        libgcrypt (optional)
         libaudit (optional)
         libacl (optional)
         libattr (optional)
