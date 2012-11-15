@@ -157,7 +157,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "this-boot",    no_argument,       NULL, 'b'              },
                 { "directory",    required_argument, NULL, 'D'              },
                 { "header",       no_argument,       NULL, ARG_HEADER       },
-                { "priority",     no_argument,       NULL, 'p'              },
+                { "priority",     required_argument, NULL, 'p'              },
                 { "setup-keys",   no_argument,       NULL, ARG_SETUP_KEYS   },
                 { "interval",     required_argument, NULL, ARG_INTERVAL     },
                 { "verify",       no_argument,       NULL, ARG_VERIFY       },
