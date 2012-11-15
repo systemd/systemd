@@ -438,6 +438,7 @@ int config_parse_exec(
         e += ltype;
 
         for (;;) {
+                int i;
                 char *w;
                 size_t l;
                 char *state;
@@ -452,18 +453,21 @@ int config_parse_exec(
                 if (rvalue[0] == 0)
                         break;
 
-                if (rvalue[0] == '-') {
-                        ignore = true;
-                        rvalue ++;
-                }
+                for (i = 0; i < 2; i++) {
+                        if (rvalue[0] == '-' && !ignore) {
+                                ignore = true;
+                                rvalue ++;
+                        }
 
-                if (rvalue[0] == '@') {
-                        honour_argv0 = true;
-                        rvalue ++;
+                        if (rvalue[0] == '@' && !honour_argv0) {
+                                honour_argv0 = true;
+                                rvalue ++;
+                        }
                 }
 
                 if (*rvalue != '/') {
-                        log_error("[%s:%u] Invalid executable path in command line, ignoring: %s", filename, line, rvalue);
+                        log_error("[%s:%u] Executable path is not absolute, ignoring: %s",
+                                  filename, line, rvalue);
                         return 0;
                 }
 

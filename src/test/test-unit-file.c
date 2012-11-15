@@ -111,6 +111,29 @@ static void test_config_parse_exec(void) {
         check_execcommand(c1,
                           "/RValue/slashes3", "argv0a", "r1", true);
 
+        /* ignore && honour_argv0 */
+        r = config_parse_exec("fake", 4, "section",
+                              "LValue", 0, "@-/RValue///slashes4/// argv0b r1",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1,
+                          "/RValue/slashes4", "argv0b", "r1", true);
+
+        /* ignore && ignore */
+        r = config_parse_exec("fake", 4, "section",
+                              "LValue", 0, "--/RValue argv0 r1",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c1->command_next == NULL);
+
+        /* ignore && ignore */
+        r = config_parse_exec("fake", 4, "section",
+                              "LValue", 0, "-@-/RValue argv0 r1",
+                              &c, NULL);
+        assert_se(r == 0);
+        assert_se(c1->command_next == NULL);
+
         /* semicolon */
         r = config_parse_exec("fake", 5, "section",
                               "LValue", 0,

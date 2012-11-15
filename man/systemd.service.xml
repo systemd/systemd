@@ -326,9 +326,8 @@
                                 abnormal exit due to signal) is ignored
                                 and considered success. If both
                                 <literal>-</literal> and
-                                <literal>@</literal> are used for the
-                                same command the former must precede
-                                the latter. Unless
+                                <literal>@</literal> are used they
+                                can appear in either order. Unless
                                 <varname>Type=forking</varname> is
                                 set, the process started via this
                                 command line will be considered the
