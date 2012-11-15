@@ -740,7 +740,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetJob")) {
@@ -1358,7 +1359,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!e)
                         goto oom;
 
-                if (!(reply = dbus_message_new_method_return(message))) {
+                reply = dbus_message_new_method_return(message);
+                if (!reply) {
                         strv_free(e);
                         goto oom;
                 }
@@ -1410,7 +1412,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!f)
                         goto oom;
 
-                if (!(reply = dbus_message_new_method_return(message))) {
+                reply = dbus_message_new_method_return(message);
+                if (!reply) {
                         strv_free(f);
                         goto oom;
                 }
