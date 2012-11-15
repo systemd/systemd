@@ -4058,6 +4058,22 @@ static int runlevel_help(void) {
         return 0;
 }
 
+static int help_types(void) {
+        int i;
+
+        puts("Available unit types:");
+        for(i = UNIT_SERVICE; i < _UNIT_TYPE_MAX; i++)
+                if (unit_type_table[i])
+                        puts(unit_type_table[i]);
+
+        puts("\nAvailable unit load states: ");
+        for(i = UNIT_STUB; i < _UNIT_LOAD_STATE_MAX; i++)
+                if (unit_type_table[i])
+                        puts(unit_load_state_table[i]);
+
+        return 0;
+}
+
 static int systemctl_parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -4137,6 +4153,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case 't':
+                        if (streq(optarg, "help")) {
+                                help_types();
+                                return 0;
+                        }
+
                         if (unit_type_from_string(optarg) >= 0) {
                                 arg_type = optarg;
                                 break;
@@ -4147,6 +4168,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         }
                         log_error("Unkown unit type or load state '%s'.",
                                   optarg);
+                        log_info("Use -t help to see a list of allowed values.");
                         return -EINVAL;
                 case 'p': {
                         char **l;
