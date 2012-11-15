@@ -112,11 +112,14 @@ int verify_polkit(
 
         reply = dbus_connection_send_with_reply_and_block(c, m, -1, error);
         if (!reply) {
-                r = -EIO;
-                goto finish;
-        }
 
-        if (dbus_set_error_from_message(error, reply)) {
+                /* Treat no PK available as access denied */
+                if (dbus_error_has_name(error, DBUS_ERROR_SERVICE_UNKNOWN)) {
+                        r = -EACCES;
+                        dbus_error_free(error);
+                        goto finish;
+                }
+
                 r = -EIO;
                 goto finish;
         }
