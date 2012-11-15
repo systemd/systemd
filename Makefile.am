@@ -1248,6 +1248,10 @@ test_unit_name_LDADD = \
 test_unit_file_SOURCES = \
 	src/test/test-unit-file.c
 
+test_unit_file_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
 test_unit_file_LDADD = \
 	libsystemd-core.la
 

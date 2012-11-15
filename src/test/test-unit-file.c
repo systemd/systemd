@@ -28,9 +28,9 @@
 #include "util.h"
 #include "macro.h"
 #include "hashmap.h"
+#include "load-fragment.h"
 
-int main(int argc, char *argv[]) {
-
+static void test_unit_file_get_set(void) {
         int r;
         Hashmap *h;
         Iterator i;
@@ -47,6 +47,104 @@ int main(int argc, char *argv[]) {
                 printf("%s = %s\n", p->path, unit_file_state_to_string(p->state));
 
         unit_file_list_free(h);
+}
+
+static void check_execcommand(ExecCommand *c,
+                              const char* path,
+                              const char* argv0,
+                              const char* argv1,
+                              bool ignore) {
+        assert_se(c);
+        log_info("%s %s %s %s",
+                 c->path, c->argv[0], c->argv[1], c->argv[2]);
+        assert_se(streq(c->path, path));
+        assert_se(streq(c->argv[0], argv0));
+        assert_se(streq(c->argv[1], argv1));
+        assert_se(c->argv[2] == NULL);
+        assert_se(c->ignore == ignore);
+}
+
+static void test_config_parse_exec(void) {
+        /* int config_parse_exec( */
+        /*         const char *filename, */
+        /*         unsigned line, */
+        /*         const char *section, */
+        /*         const char *lvalue, */
+        /*         int ltype, */
+        /*         const char *rvalue, */
+        /*         void *data, */
+        /*         void *userdata) */
+        int r;
+
+        ExecCommand *c = NULL, *c1;
+
+        /* basic test */
+        r = config_parse_exec("fake", 1, "section",
+                              "LValue", 0, "/RValue r1",
+                              &c, NULL);
+        assert_se(r >= 0);
+        check_execcommand(c, "/RValue", "/RValue", "r1", false);
+
+        r = config_parse_exec("fake", 2, "section",
+                              "LValue", 0, "/RValue///slashes/// r1",
+                              &c, NULL);
+       /* test slashes */
+        assert_se(r >= 0);
+        c1 = c->command_next;
+        check_execcommand(c1, "/RValue/slashes", "/RValue///slashes///",
+                          "r1", false);
+
+        /* honour_argv0 */
+        r = config_parse_exec("fake", 3, "section",
+                              "LValue", 0, "@/RValue///slashes2/// argv0 r1",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1, "/RValue/slashes2", "argv0", "r1", false);
+
+        /* ignore && honour_argv0 */
+        r = config_parse_exec("fake", 4, "section",
+                              "LValue", 0, "-@/RValue///slashes3/// argv0a r1",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1,
+                          "/RValue/slashes3", "argv0a", "r1", true);
+
+        /* semicolon */
+        r = config_parse_exec("fake", 5, "section",
+                              "LValue", 0,
+                              "-@/RValue argv0 r1 ; "
+                              "/goo/goo boo",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1,
+                          "/RValue", "argv0", "r1", true);
+
+        c1 = c1->command_next;
+        check_execcommand(c1,
+                          "/goo/goo", "/goo/goo", "boo", false);
+
+        /* trailing semicolon */
+        r = config_parse_exec("fake", 5, "section",
+                              "LValue", 0,
+                              "-@/RValue argv0 r1 ; ",
+                              &c, NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1,
+                          "/RValue", "argv0", "r1", true);
+
+        assert_se(c1->command_next == NULL);
+
+        exec_command_free_list(c);
+}
+
+int main(int argc, char *argv[]) {
+
+        test_unit_file_get_set();
+        test_config_parse_exec();
 
         return 0;
 }
