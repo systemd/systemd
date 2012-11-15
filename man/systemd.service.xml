@@ -296,45 +296,58 @@
 
                         <varlistentry>
                                 <term><varname>ExecStart=</varname></term>
-                                <listitem><para>Takes a command line
-                                that is executed when this service
-                                shall be started up. The first token
-                                of the command line must be an
-                                absolute file name, then followed by
-                                arguments for the process. It is
-                                mandatory to set this option for all
-                                services. This option may not be
-                                specified more than once, except when
-                                <varname>Type=oneshot</varname> is
-                                used in which case more than one
-                                <varname>ExecStart=</varname> line is
-                                accepted which are then invoked one by
-                                one, sequentially in the order they
-                                appear in the unit file.</para>
+                                <listitem><para>Commands
+                                that are executed when this service is started.
+                                </para>
 
-                                <para>Optionally, if the absolute file
-                                name is prefixed with
-                                <literal>@</literal>, the second token
-                                will be passed as
-                                <literal>argv[0]</literal> to the
-                                executed process, followed by the
-                                further arguments specified. If the
-                                first token is prefixed with
-                                <literal>-</literal> an exit code of
-                                the command normally considered a
-                                failure (i.e. non-zero exit status or
-                                abnormal exit due to signal) is ignored
-                                and considered success. If both
-                                <literal>-</literal> and
-                                <literal>@</literal> are used they
-                                can appear in either order. Unless
+                                <para>When
+                                <varname>Type=oneshot</varname> is
+                                used, more than one command may be
+                                specified. Multiple command lines may
+                                be concatenated in a single directive,
+                                by separating them with semicolons
+                                (these semicolons must be passed as
+                                separate words). Alternatively, this
+                                directive may be specified more than
+                                once with the same effect. However,
+                                the latter syntax is not recommended
+                                for compatibility with parsers
+                                suitable for XDG
+                                <filename>.desktop</filename> files.
+                                The commands are invoked one by
+                                one sequentially in the order they
+                                appear in the unit file.
+                                When <varname>Type</varname> is
+                                not <option>oneshot</option>, only one
+                                command may be given. Lone semicolons
+                                may be escaped as
+                                '<literal>\;</literal>'.</para>
+
+                                <para>Unless
                                 <varname>Type=forking</varname> is
                                 set, the process started via this
                                 command line will be considered the
                                 main process of the daemon. The
-                                command line accepts % specifiers as
-                                described in
+                                command line accepts '<literal>%</literal>'
+                                specifiers as described in
                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+                                <para>Optionally, if the absolute file
+                                name is prefixed with
+                                '<literal>@</literal>', the second token
+                                will be passed as
+                                <literal>argv[0]</literal> to the
+                                executed process, followed by the
+                                further arguments specified. If the
+                                absolute file name is prefixed with
+                                '<literal>-</literal>' an exit code of
+                                the command normally considered a
+                                failure (i.e. non-zero exit status or
+                                abnormal exit due to signal) is ignored
+                                and considered success. If both
+                                '<literal>-</literal>' and
+                                '<literal>@</literal>' are used they
+                                can appear in either order.</para>
 
                                 <para>On top of that basic environment
                                 variable substitution is
@@ -380,24 +393,13 @@
                                 <listitem><para>Additional commands
                                 that are executed before or after
                                 the command in
-                                <varname>ExecStart=</varname>, respectively. Multiple
-                                command lines may be concatenated in a
-                                single directive, by separating them
-                                by semicolons (these semicolons must
-                                be passed as separate words). In that
-                                case, the commands are executed one
-                                after the other,
-                                serially. Alternatively, these
-                                directives may be specified more than
-                                once with the same effect. However,
-                                the latter syntax is not recommended
-                                for compatibility with parsers
-                                suitable for XDG
-                                <filename>.desktop</filename> files.
-                                Use of these settings is
-                                optional. Specifier and environment
-                                variable substitution is
-                                supported.</para></listitem>
+                                <varname>ExecStart=</varname>, respectively.
+                                Syntax is the same as for
+                                <varname>ExecStart=</varname>, except
+                                that multiple command lines are allowed
+                                and the commands are executed one
+                                after the other, serially.</para>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -406,8 +408,8 @@
                                 trigger a configuration reload in the
                                 service. This argument takes multiple
                                 command lines, following the same
-                                scheme as pointed out for
-                                <varname>ExecStartPre=</varname>
+                                scheme as described for
+                                <varname>ExecStart=</varname>
                                 above. Use of this setting is
                                 optional. Specifier and environment
                                 variable substitution is supported
@@ -428,9 +430,8 @@
                                 stop the service started via
                                 <varname>ExecStart=</varname>. This
                                 argument takes multiple command lines,
-                                following the same scheme as pointed
-                                out for
-                                <varname>ExecStartPre=</varname>
+                                following the same scheme as described
+                                for <varname>ExecStart=</varname>
                                 above. Use of this setting is
                                 optional. All processes remaining for
                                 a service after the commands
@@ -456,9 +457,8 @@
                                 configured in
                                 <varname>ExecStop=</varname>. This
                                 argument takes multiple command lines,
-                                following the same scheme as pointed
-                                out for
-                                <varname>ExecStartPre</varname>. Use
+                                following the same scheme as described
+                                for <varname>ExecStart</varname>. Use
                                 of these settings is
                                 optional. Specifier and environment
                                 variable substitution is
