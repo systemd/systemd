@@ -426,6 +426,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                                "SUB    = The low-level unit activation state, values depend on unit type.\n");
                         if (job_count)
                                 printf("JOB    = Pending job for the unit.\n");
+                        puts("");
                         on = ansi_highlight(true);
                         off = ansi_highlight(false);
                 } else {
@@ -434,11 +435,11 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 }
 
                 if (arg_all)
-                        printf("\n%s%u loaded units listed.%s\n"
+                        printf("%s%u loaded units listed.%s\n"
                                "To show all installed unit files use 'systemctl list-unit-files'.\n",
                                on, n_shown, off);
                 else
-                        printf("\n%s%u loaded units listed.%s Pass --all to see loaded but inactive units, too.\n"
+                        printf("%s%u loaded units listed.%s Pass --all to see loaded but inactive units, too.\n"
                                "To show all installed unit files use 'systemctl list-unit-files'.\n",
                                on, n_shown, off);
         }
