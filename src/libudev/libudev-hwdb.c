@@ -377,7 +377,7 @@ bool udev_hwdb_validate(struct udev_hwdb *hwdb) {
 _public_ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev_hwdb *hwdb, const char *modalias, unsigned int flags) {
         int err;
 
-        if (!hwdb->f) {
+        if (!hwdb || !hwdb->f) {
                 errno = EINVAL;
                 return NULL;
         }
