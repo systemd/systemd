@@ -128,6 +128,8 @@ int sd_journal_reliable_fd(sd_journal *j);
 int sd_journal_process(sd_journal *j);
 int sd_journal_wait(sd_journal *j, uint64_t timeout_usec);
 
+int sd_journal_get_catalog(sd_journal *j, char **text);
+
 #define SD_JOURNAL_FOREACH(j)                                           \
         if (sd_journal_seek_head(j) >= 0)                               \
                 while (sd_journal_next(j) > 0)

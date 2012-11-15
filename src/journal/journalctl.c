@@ -51,6 +51,7 @@
 #include "journal-qrcode.h"
 #include "fsprg.h"
 #include "unit-name.h"
+#include "catalog.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
@@ -74,6 +75,7 @@ static usec_t arg_since, arg_until;
 static bool arg_since_set = false, arg_until_set = false;
 static const char *arg_unit = NULL;
 static const char *arg_field = NULL;
+static bool arg_catalog = false;
 
 static enum {
         ACTION_SHOW,
@@ -82,6 +84,8 @@ static enum {
         ACTION_SETUP_KEYS,
         ACTION_VERIFY,
         ACTION_DISK_USAGE,
+        ACTION_LIST_CATALOG,
+        ACTION_UPDATE_CATALOG
 } arg_action = ACTION_SHOW;
 
 static int help(void) {
@@ -100,6 +104,7 @@ static int help(void) {
                "     --no-tail           Show all lines, even in follow mode\n"
                "  -o --output=STRING     Change journal output mode (short, short-monotonic,\n"
                "                         verbose, export, json, json-pretty, json-sse, cat)\n"
+               "  -x --catalog           Add message explanations where available\n"
                "  -a --all               Show all fields, including long and unprintable\n"
                "  -q --quiet             Don't show privilege warning\n"
                "     --no-pager          Do not pipe output into a pager\n"
@@ -116,6 +121,8 @@ static int help(void) {
                "     --header            Show journal header information\n"
                "     --disk-usage        Show total disk usage\n"
                "  -F --field=FIELD       List all values a certain field takes\n"
+               "     --list-catalog      Show message IDs of all entries in the message catalog\n"
+               "     --update-catalog    Update the message catalog database\n"
 #ifdef HAVE_GCRYPT
                "     --setup-keys        Generate new FSS key pair\n"
                "     --verify            Verify journal file consistency\n"
@@ -139,7 +146,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERIFY_KEY,
                 ARG_DISK_USAGE,
                 ARG_SINCE,
-                ARG_UNTIL
+                ARG_UNTIL,
+                ARG_LIST_CATALOG,
+                ARG_UPDATE_CATALOG
         };
 
         static const struct option options[] = {
@@ -168,6 +177,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "until",        required_argument, NULL, ARG_UNTIL        },
                 { "unit",         required_argument, NULL, 'u'              },
                 { "field",        required_argument, NULL, 'F'              },
+                { "catalog",      no_argument,       NULL, 'x'              },
+                { "list-catalog", no_argument,       NULL, ARG_LIST_CATALOG },
+                { "update-catalog",no_argument,      NULL, ARG_UPDATE_CATALOG },
                 { NULL,           0,                 NULL, 0                }
         };
 
@@ -176,7 +188,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hfo:an::qmbD:p:c:u:F:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hfo:an::qmbD:p:c:u:F:x", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -374,6 +386,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'F':
                         arg_field = optarg;
+                        break;
+
+                case 'x':
+                        arg_catalog = true;
+                        break;
+
+                case ARG_LIST_CATALOG:
+                        arg_action = ACTION_LIST_CATALOG;
+                        break;
+
+                case ARG_UPDATE_CATALOG:
+                        arg_action = ACTION_UPDATE_CATALOG;
                         break;
 
                 default:
@@ -841,6 +865,16 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (arg_action == ACTION_LIST_CATALOG)  {
+                r = catalog_list(stdout);
+                goto finish;
+        }
+
+        if (arg_action == ACTION_UPDATE_CATALOG)  {
+                r = catalog_update();
+                goto finish;
+        }
+
         r = access_check();
         if (r < 0)
                 goto finish;
@@ -1030,7 +1064,8 @@ int main(int argc, char *argv[]) {
                         flags =
                                 arg_all * OUTPUT_SHOW_ALL |
                                 (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
-                                on_tty() * OUTPUT_COLOR;
+                                on_tty() * OUTPUT_COLOR |
+                                arg_catalog * OUTPUT_CATALOG;
 
                         r = output_journal(stdout, j, arg_output, 0, flags);
                         if (r < 0)

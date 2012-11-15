@@ -38,10 +38,14 @@
 #include "compress.h"
 #include "journal-internal.h"
 #include "missing.h"
+#include "catalog.h"
+#include "replace-var.h"
 
 #define JOURNAL_FILES_MAX 1024
 
 #define JOURNAL_FILES_RECHECK_USEC (2 * USEC_PER_SEC)
+
+#define REPLACE_VAR_MAX 256
 
 static void detach_location(sd_journal *j) {
         Iterator i;
@@ -2388,4 +2392,60 @@ _public_ int sd_journal_reliable_fd(sd_journal *j) {
                 return -EINVAL;
 
         return !j->on_network;
+}
+
+static char *lookup_field(const char *field, void *userdata) {
+        sd_journal *j = userdata;
+        const void *data;
+        size_t size, d;
+        int r;
+
+        assert(field);
+        assert(j);
+
+        r = sd_journal_get_data(j, field, &data, &size);
+        if (r < 0 ||
+            size > REPLACE_VAR_MAX)
+                return strdup(field);
+
+        d = strlen(field) + 1;
+
+        return strndup((const char*) data + d, size - d);
+}
+
+_public_ int sd_journal_get_catalog(sd_journal *j, char **ret) {
+        const void *data;
+        size_t size;
+        sd_id128_t id;
+        _cleanup_free_ char *text = NULL, *cid = NULL;
+        char *t;
+        int r;
+
+        if (!j)
+                return -EINVAL;
+        if (!ret)
+                return -EINVAL;
+
+        r = sd_journal_get_data(j, "MESSAGE_ID", &data, &size);
+        if (r < 0)
+                return r;
+
+        cid = strndup((const char*) data + 11, size - 11);
+        if (!cid)
+                return -ENOMEM;
+
+        r = sd_id128_from_string(cid, &id);
+        if (r < 0)
+                return r;
+
+        r = catalog_get(id, &text);
+        if (r < 0)
+                return r;
+
+        t = replace_var(text, lookup_field, j);
+        if (!t)
+                return -ENOMEM;
+
+        *ret = t;
+        return 0;
 }

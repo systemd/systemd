@@ -45,7 +45,8 @@ typedef enum OutputFlags {
         OUTPUT_FOLLOW         = 1 << 1,
         OUTPUT_WARN_CUTOFF    = 1 << 2,
         OUTPUT_FULL_WIDTH     = 1 << 3,
-        OUTPUT_COLOR          = 1 << 4
+        OUTPUT_COLOR          = 1 << 4,
+        OUTPUT_CATALOG        = 1 << 5
 } OutputFlags;
 
 int output_journal(

@@ -34,6 +34,26 @@
 #define PRINT_THRESHOLD 128
 #define JSON_THRESHOLD 4096
 
+static int print_catalog(FILE *f, sd_journal *j) {
+        int r;
+        _cleanup_free_ char *t = NULL, *z = NULL;
+
+
+        r = sd_journal_get_catalog(j, &t);
+        if (r < 0)
+                return r;
+
+        z = strreplace(strstrip(t), "\n", "\n-- ");
+        if (!z)
+                return log_oom();
+
+        fputs("-- ", f);
+        fputs(z, f);
+        fputc('\n', f);
+
+        return 0;
+}
+
 static int parse_field(const void *data, size_t length, const char *field, char **target, size_t *target_size) {
         size_t fl, nl;
         void *buf;
@@ -265,6 +285,9 @@ static int output_short(
         } else
                 fputs("\n", f);
 
+        if (flags & OUTPUT_CATALOG)
+                print_catalog(f, j);
+
         return 0;
 }
 
@@ -321,6 +344,9 @@ static int output_verbose(
                 } else
                         fprintf(f, "\t%.*s\n", (int) length, (const char*) data);
         }
+
+        if (flags & OUTPUT_CATALOG)
+                print_catalog(f, j);
 
         return 0;
 }

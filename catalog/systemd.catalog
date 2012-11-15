@@ -1,0 +1,99 @@
+-- fc2e22bc6ee647b6b90729ab34a250b1
+Subject: Process @COREDUMP_PID@ (@COREDUMP_COMM@) dumped core
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Process @COREDUMP_PID@ (@COREDUMP_COMM@) crashed and dumped core.
+
+This usually indicates a programming error in the crashing program and
+should be reported to the vendor as a bug.
+
+-- fc2e22bc6ee647b6b90729ab34a250b1 de
+Subject: Speicherabbild für Prozess @COREDUMP_PID@ (@COREDUMP_COMM) generiert
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Prozess @COREDUMP_PID@ (@COREDUMP_COMM@) ist abgebrochen worden und
+ein Speicherabbild wurde generiert.
+
+Üblicherweise ist dies ein Hinweis auf einen Programmfehler und sollte
+als Fehler dem Hersteller gemeldet werden.
+
+-- c7a787079b354eaaa9e77b371893cd27
+Subject: Time change
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+The system clock has been changed.
+
+-- c7a787079b354eaaa9e77b371893cd27 de
+Subject: Zeitänderung
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Die System-Zeit wurde geändert.
+
+-- 45f82f4aef7a4bbf942ce861d1f20990
+Subject: Time zone change
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+The system time zone has been changed.
+
+-- f77379a8490b408bbe5f6940505a777b
+Subject: The Journal has been started
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+The system journal process has been starting up, opened the journal
+files for writing and is now ready to process requests.
+
+-- d93fb3c9c24d451a97cea615ce59c00b
+Subject: The Journal has been stopped
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+The system journal process has shut down and closed all currently
+active journal files.
+
+-- fcbefc5da23d428093f97c82a9290f7b
+Subject: A new seat @SEAT_ID@ is now available
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+A new seat @SEAT_ID@ has been configured and is now available.
+
+-- 8d45620c1a4348dbb17410da57c60c66
+Subject: A new session @SESSION_ID@ has been created for user @USER_ID@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+A new session with the ID @SESSION_ID@ has been created for the user @USER_ID@.
+
+The leading process of the session is @LEADER@.
+
+-- a596d6fe7bfa4994828e72309e95d61e
+Subject: Messages from a service have been suppressed
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+See: man:journald.conf(5)
+
+A service has logged too many messages within a time period. Messages
+from the service have been dropped.
+
+Note that only messages from the service in question have been
+dropped, other services' messages are unaffected.
+
+The limits when messages are dropped may be configured with
+RateLimitInterval= and RateLimitBurst= in
+/etc/systemd/journald.conf. See journald.conf(5) for details.

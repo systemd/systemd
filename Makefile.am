@@ -78,9 +78,10 @@ systemsleepdir=$(rootlibexecdir)/system-sleep
 systemunitdir=$(rootprefix)/lib/systemd/system
 systempresetdir=$(rootprefix)/lib/systemd/system-preset
 udevlibexecdir=$(rootprefix)/lib/udev
-udevhomedir = $(udevlibexecdir)
-udevrulesdir = $(udevlibexecdir)/rules.d
-udevhwdbdir = $(udevlibexecdir)/hwdb.d
+udevhomedir=$(udevlibexecdir)
+udevrulesdir=$(udevlibexecdir)/rules.d
+udevhwdbdir=$(udevlibexecdir)/hwdb.d
+catalogdir=$(prefix)/lib/systemd/catalog
 
 # And these are the special ones for /
 rootprefix=@rootprefix@
@@ -2565,6 +2566,15 @@ test_mmap_cache_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-journal-internal.la
 
+test_catalog_SOURCES = \
+	src/journal/test-catalog.c
+
+test_catalog_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-label.la \
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la
+
 libsystemd_journal_la_SOURCES = \
 	src/journal/sd-journal.c \
 	src/systemd/sd-journal.h \
@@ -2579,6 +2589,8 @@ libsystemd_journal_la_SOURCES = \
 	src/journal/journal-send.c \
 	src/journal/journal-def.h \
 	src/journal/compress.h \
+	src/journal/catalog.c \
+	src/journal/catalog.h \
 	src/journal/mmap-cache.c \
 	src/journal/mmap-cache.h
 
@@ -2594,6 +2606,7 @@ libsystemd_journal_la_LDFLAGS = \
 
 libsystemd_journal_la_LIBADD = \
 	libsystemd-shared.la \
+	libsystemd-label.la \
 	libsystemd-id128-internal.la
 
 libsystemd_journal_internal_la_SOURCES = \
@@ -2621,7 +2634,9 @@ libsystemd_journal_internal_la_LIBADD = \
 	libsystemd-label.la \
 	libsystemd-audit.la \
 	libsystemd-daemon.la \
-	libudev.la
+	libudev.la \
+	libsystemd-shared.la \
+	libsystemd-label.la
 
 nodist_libsystemd_journal_internal_la_SOURCES = \
 	src/journal/journald-gperf.c
@@ -2703,7 +2718,8 @@ noinst_PROGRAMS += \
 	test-journal-enum \
 	test-journal-stream \
 	test-journal-verify \
-	test-mmap-cache
+	test-mmap-cache \
+	test-catalog
 
 TESTS += \
 	test-journal \
@@ -2746,6 +2762,9 @@ dist_pkgsysconf_DATA += \
 
 pkgconfiglib_DATA += \
 	src/journal/libsystemd-journal.pc
+
+dist_catalog_DATA = \
+	catalog/systemd.catalog
 
 journal-install-data-hook:
 	$(MKDIR_P) -m 0755 \

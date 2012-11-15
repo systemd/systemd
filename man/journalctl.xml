@@ -233,6 +233,25 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--catalog</option></term>
+                                <term><option>-x</option></term>
+
+                                <listitem><para>Augment log lines with
+                                explanation texts from the message
+                                catalog. This will add explanatory
+                                help texts to log messages in the
+                                output where this is available. These
+                                short help texts will explain the
+                                context of an error or log event,
+                                possible solutions, as well as
+                                pointers to support forums, developer
+                                documentation and any other relevant
+                                manuals. Note that help texts are not
+                                available for all messages but only
+                                for selected ones.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--quiet</option></term>
                                 <term><option>-q</option></term>
 
@@ -402,6 +421,26 @@
                                 <listitem><para>Shows the current disk
                                 usage of all
                                 journal files.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--list-catalog</option></term>
+
+                                <listitem><para>List the contents of
+                                the message catalog, as table of
+                                message IDs plus their short
+                                description strings.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--update-catalog</option></term>
+
+                                <listitem><para>Update the message
+                                catalog index. This command needs to
+                                be executed each time new catalog
+                                files are installed, removed or
+                                updated to rebuild the binary catalog
+                                index.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
