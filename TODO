@@ -21,6 +21,8 @@ F18:
 
 Features:
 
+* Add ConditionBatteryPower= or ConditionACPower=? (but definitely not both)
+
 * add API to close/reopen/get fd for journal client fd in libsystemd-journal.
 
 * maybe add API to send pairs of iovecs via sd_journal_send
