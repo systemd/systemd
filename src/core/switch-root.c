@@ -30,6 +30,7 @@
 #include "util.h"
 #include "path-util.h"
 #include "switch-root.h"
+#include "missing.h"
 
 int switch_root(const char *new_root) {
 
@@ -44,9 +45,20 @@ int switch_root(const char *new_root) {
         struct stat new_root_stat;
         bool old_root_remove;
         const char *i;
+        _cleanup_free_ char *temporary_old_root = NULL;
 
         if (path_equal(new_root, "/"))
                 return 0;
+
+        /* When using pivot_root() we assume that /mnt exists as place
+         * we can temporarily move the old root to. As we immediately
+         * unmount it from there it doesn't matter much which
+         * directory we choose for this, but it should be more likely
+         * than not that /mnt exists and is suitable as mount point
+         * and is on the same fs as the old root dir */
+        temporary_old_root = strappend(new_root, "/mnt");
+        if (!temporary_old_root)
+                return -ENOMEM;
 
         old_root_remove = in_initrd();
 
@@ -103,7 +115,20 @@ int switch_root(const char *new_root) {
                         log_warning("Failed to open root directory: %m");
         }
 
-        if (mount(new_root, "/", NULL, MS_MOVE, NULL) < 0) {
+        /* We first try a pivot_root() so that we can umount the old
+         * root dir. In many cases (i.e. where rootfs is /), that's
+         * not possible however, and hence we simply overmount root */
+        if (pivot_root(new_root, temporary_old_root) >= 0) {
+
+                /* Immediately get rid of the old root. Since we are
+                 * running off it we need to do this lazily. */
+                if (umount2(temporary_old_root, MNT_DETACH) < 0) {
+                        r = -errno;
+                        log_error("Failed to umount old root dir %s: %m", temporary_old_root);
+                        goto fail;
+                }
+
+        } else if (mount(new_root, "/", NULL, MS_MOVE, NULL) < 0) {
                 r = -errno;
                 log_error("Failed to mount moving %s to /: %m", new_root);
                 goto fail;
