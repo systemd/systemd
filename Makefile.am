@@ -2714,6 +2714,18 @@ libsystemd-journal-uninstall-hook:
 UNINSTALL_EXEC_HOOKS += \
 	libsystemd-journal-uninstall-hook
 
+# Update catalog on installation / deinstallation. Do not bother if installing
+# in DESTDIR, since this is likely for packaging purposes.
+catalog-update-hook:
+	test -n "$(DESTDIR)" || journalctl --update-catalog
+
+INSTALL_EXEC_HOOKS += \
+	catalog-update-hook
+
+UNINSTALL_EXEC_HOOKS += \
+	catalog-update-hook
+
+
 noinst_PROGRAMS += \
 	test-journal \
 	test-journal-send \
