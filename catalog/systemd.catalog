@@ -1,55 +1,30 @@
--- fc2e22bc6ee647b6b90729ab34a250b1
-Subject: Process @COREDUMP_PID@ (@COREDUMP_COMM@) dumped core
-Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+b#  This file is part of systemd.
+#
+#  Copyright 2012 Lennart Poettering
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+#
+#  systemd is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-Process @COREDUMP_PID@ (@COREDUMP_COMM@) crashed and dumped core.
+# Message catalog for systemd's own messages
 
-This usually indicates a programming error in the crashing program and
-should be reported to the vendor as a bug.
-
--- fc2e22bc6ee647b6b90729ab34a250b1 de
-Subject: Speicherabbild für Prozess @COREDUMP_PID@ (@COREDUMP_COMM) generiert
-Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
-
-Prozess @COREDUMP_PID@ (@COREDUMP_COMM@) ist abgebrochen worden und
-ein Speicherabbild wurde generiert.
-
-Üblicherweise ist dies ein Hinweis auf einen Programmfehler und sollte
-als Fehler dem Hersteller gemeldet werden.
-
--- c7a787079b354eaaa9e77b371893cd27
-Subject: Time change
-Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
-
-The system clock has been changed.
-
--- c7a787079b354eaaa9e77b371893cd27 de
-Subject: Zeitänderung
-Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
-
-Die System-Zeit wurde geändert.
-
--- 45f82f4aef7a4bbf942ce861d1f20990
-Subject: Time zone change
-Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
-
-The system time zone has been changed.
+# The catalog format is documented on
+# http://www.freedesktop.org/wiki/Software/systemd/catalog
 
 -- f77379a8490b408bbe5f6940505a777b
 Subject: The Journal has been started
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 The system journal process has been starting up, opened the journal
 files for writing and is now ready to process requests.
@@ -58,35 +33,17 @@ files for writing and is now ready to process requests.
 Subject: The Journal has been stopped
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 The system journal process has shut down and closed all currently
 active journal files.
-
--- fcbefc5da23d428093f97c82a9290f7b
-Subject: A new seat @SEAT_ID@ is now available
-Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
-
-A new seat @SEAT_ID@ has been configured and is now available.
-
--- 8d45620c1a4348dbb17410da57c60c66
-Subject: A new session @SESSION_ID@ has been created for user @USER_ID@
-Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
-
-A new session with the ID @SESSION_ID@ has been created for the user @USER_ID@.
-
-The leading process of the session is @LEADER@.
 
 -- a596d6fe7bfa4994828e72309e95d61e
 Subject: Messages from a service have been suppressed
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Developer-Description: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
-See: man:journald.conf(5)
+Documentation: man:journald.conf(5)
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 A service has logged too many messages within a time period. Messages
 from the service have been dropped.
@@ -97,3 +54,223 @@ dropped, other services' messages are unaffected.
 The limits when messages are dropped may be configured with
 RateLimitInterval= and RateLimitBurst= in
 /etc/systemd/journald.conf. See journald.conf(5) for details.
+
+-- e9bf28e6e834481bb6f48f548ad13606
+Subject: Journal messages have been missed
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Kernel messages have been lost as the journal system has been unable
+to process them quickly enough.
+
+-- fc2e22bc6ee647b6b90729ab34a250b1
+Subject: Process @COREDUMP_PID@ (@COREDUMP_COMM@) dumped core
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:core(5)
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Process @COREDUMP_PID@ (@COREDUMP_COMM@) crashed and dumped core.
+
+This usually indicates a programming error in the crashing program and
+should be reported to its vendor as a bug.
+
+-- fc2e22bc6ee647b6b90729ab34a250b1 de
+Subject: Speicherabbild für Prozess @COREDUMP_PID@ (@COREDUMP_COMM) generiert
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: man:core(5)
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Prozess @COREDUMP_PID@ (@COREDUMP_COMM@) ist abgebrochen worden und
+ein Speicherabbild wurde generiert.
+
+Üblicherweise ist dies ein Hinweis auf einen Programmfehler und sollte
+als Fehler dem jeweiligen Hersteller gemeldet werden.
+
+-- 8d45620c1a4348dbb17410da57c60c66
+Subject: A new session @SESSION_ID@ has been created for user @USER_ID@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+A new session with the ID @SESSION_ID@ has been created for the user @USER_ID@.
+
+The leading process of the session is @LEADER@.
+
+-- 3354939424b4456d9802ca8333ed424a
+Subject: A session @SESSION_ID@ has been terminated
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+A session with the ID @SESSION_ID@ has been terminated.
+
+-- fcbefc5da23d428093f97c82a9290f7b
+Subject: A new seat @SEAT_ID@ is now available
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+A new seat @SEAT_ID@ has been configured and is now available.
+
+-- e7852bfe46784ed0accde04bc864c2d5
+Subject: A seat @SEAT_ID@ has now been removed
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+A seat @SEAT_ID@ has been removed and is no longer avilable.
+
+-- c7a787079b354eaaa9e77b371893cd27
+Subject: Time change
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+The system clock has been changed to @REALTIME@ usec after January 1st, 1970.
+
+-- c7a787079b354eaaa9e77b371893cd27 de
+Subject: Zeitänderung
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Die System-Zeit wurde geändert auf @REALTIME@ usec after January 1st, 1970.
+
+-- 45f82f4aef7a4bbf942ce861d1f20990
+Subject: Time zone change to @TIMEZONE@
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+The system time zone has been changed to @TIMEZONE@.
+
+-- b07a249cd024414a82dd00cd181378ff
+Subject: System start-up is now complete
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+All system services necessary queued for starting at boot have been
+successfully started. Note that this does not mean that the machine is
+now idle as services might still be busy with completing start-up.
+
+Kernel start-up required @KERNEL_USEC@ usec.
+
+Initial RAM disk start-up required @INITRD_USEC@ usec.
+
+Userspace start-up required @KERNEL_USEC@ usec.
+
+-- 6bbd95ee977941e497c48be27c254128
+Subject: System sleep state @SLEEP@ entered
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+The system has now entered the @SLEEP@ sleep state.
+
+-- 8811e6df2a8e40f58a94cea26f8ebf14
+Subject: System sleep state @SLEEP@ left
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+The system has now left the @SLEEP@ sleep state.
+
+-- 98268866d1d54a499c4e98921d93bc40
+Subject: System shutdown initiated
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Systemd shutdown has been initiated. The shutdown has now begun and
+all system services are terminated and all file systems unmounted.
+
+-- 7d4958e842da4a758f6c1cdc7b36dcc5
+Subject: Unit @UNIT@ has begun with start-up
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Unit @UNIT@ has begun starting up.
+
+-- 39f53479d3a045ac8e11786248231fbf
+Subject: Unit @UNIT@ has finished start-up
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Unit @UNIT@ has finished starting up.
+
+The start-up result is @RESULT@.
+
+-- de5b426a63be47a7b6ac3eaac82e2f6f
+Subject: Unit @UNIT@ has begun shutting down
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Unit @UNIT@ has begun shutting down.
+
+-- 9d1aaa27d60140bd96365438aad20286
+Subject: Unit @UNIT@ has finished shutting down
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Unit @UNIT@ has finished shutting down.
+
+-- be02cf6855d2428ba40df7e9d022f03d
+Subject: Unit @UNIT@ has failed
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Unit @UNIT@ has failed.
+
+The result is @RESULT@.
+
+-- d34d037fff1847e6ae669a370e694725
+Subject: Unit @UNIT@ has begun with reloading its configuration
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Unit @UNIT@ has begun with reloading its configuration
+
+-- 7b05ebc668384222baa8881179cfda54
+Subject: Unit @UNIT@ has finished reloading its configuration
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+Unit @UNIT@ has finished reloading its configuration
+
+The result is @RESULT@.
+
+-- 641257651c1b4ec9a8624d7a40a9e1e7
+Subject: Process @EXECUTABLE@ could not be executed
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+The process @EXECUTABLE@ could not be executed and failed.
+
+The error number for while executing this process is @ERRNO@.
+
+-- 0027229ca0644181a76c4e92458afa2e
+Subject: One or messages could not be forwarded to syslog
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+One or more messages could not be forwarded to the syslog service
+running side-by-side with journald. This usually indicates that the
+syslog implementation has not been able to keep up with the speed of
+messages queued.
