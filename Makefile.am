@@ -1481,7 +1481,7 @@ systemd_detect_virt_LDADD = \
 	libsystemd-shared.la
 
 systemd-detect-virt-install-hook:
-	$(SETCAP) cap_dac_override,cap_sys_ptrace=ep $(DESTDIR)$(bindir)/systemd-detect-virt ||:
+	-$(SETCAP) cap_dac_override,cap_sys_ptrace=ep $(DESTDIR)$(bindir)/systemd-detect-virt
 
 INSTALL_EXEC_HOOKS += \
 	systemd-detect-virt-install-hook
@@ -2716,13 +2716,12 @@ UNINSTALL_EXEC_HOOKS += \
 
 # Update catalog on installation / deinstallation. Do not bother if installing
 # in DESTDIR, since this is likely for packaging purposes.
+# Ignore failure, since there are other reasons why it might not work,
+# like running under distcheck.
 catalog-update-hook:
-	test -n "$(DESTDIR)" || journalctl --update-catalog
+	-test -n "$(DESTDIR)" || journalctl --update-catalog
 
-INSTALL_EXEC_HOOKS += \
-	catalog-update-hook
-
-UNINSTALL_EXEC_HOOKS += \
+INSTALL_DATA_HOOKS += \
 	catalog-update-hook
 
 
