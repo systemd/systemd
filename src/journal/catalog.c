@@ -269,6 +269,9 @@ static int import_file(Hashmap *h, struct strbuf *sb, const char *path) {
         return 0;
 }
 
+#define CATALOG_PATH "/var/lib/systemd/catalog"
+#define CATALOG_DATABASE CATALOG_PATH "/database"
+
 int catalog_update(void) {
         _cleanup_strv_free_ char **files = NULL;
         _cleanup_fclose_ FILE *w = NULL;
@@ -309,7 +312,8 @@ int catalog_update(void) {
                 log_info("No items in catalog.");
                 r = 0;
                 goto finish;
-        }
+        } else
+                log_debug("Found %u items in catalog.", hashmap_size(h));
 
         strbuf_complete(sb);
 
@@ -328,11 +332,16 @@ int catalog_update(void) {
         assert(n == hashmap_size(h));
         qsort(items, n, sizeof(CatalogItem), catalog_compare_func);
 
-        mkdir_p("/var/lib/systemd/catalog", 0775);
-
-        r = fopen_temporary("/var/lib/systemd/catalog/database", &w, &p);
+        r = mkdir_p(CATALOG_PATH, 0775);
         if (r < 0) {
-                log_error("Failed to open database for writing: %s", strerror(-r));
+                log_error("Recursive mkdir %s: %s", CATALOG_PATH, strerror(-r));
+                goto finish;
+        }
+
+        r = fopen_temporary(CATALOG_DATABASE, &w, &p);
+        if (r < 0) {
+                log_error("Failed to open database for writing: %s: %s",
+                          CATALOG_DATABASE, strerror(-r));
                 goto finish;
         }
 
@@ -344,36 +353,39 @@ int catalog_update(void) {
 
         k = fwrite(&header, 1, sizeof(header), w);
         if (k != sizeof(header)) {
-                log_error("Failed to write header.");
+                log_error("%s: failed to write header.", p);
                 goto finish;
         }
 
         k = fwrite(items, 1, n * sizeof(CatalogItem), w);
         if (k != n * sizeof(CatalogItem)) {
-                log_error("Failed to write database.");
+                log_error("%s: failed to write database.", p);
                 goto finish;
         }
 
         k = fwrite(sb->buf, 1, sb->len, w);
         if (k != sb->len) {
-                log_error("Failed to write strings.");
+                log_error("%s: failed to write strings.", p);
                 goto finish;
         }
 
         fflush(w);
 
         if (ferror(w)) {
-                log_error("Failed to write database.");
+                log_error("%s: failed to write database.", p);
                 goto finish;
         }
 
         fchmod(fileno(w), 0644);
 
-        if (rename(p, "/var/lib/systemd/catalog/database") < 0) {
-                log_error("rename() failed: %m");
+        if (rename(p, CATALOG_DATABASE) < 0) {
+                log_error("rename (%s -> %s) failed: %m", p, CATALOG_DATABASE);
                 r = -errno;
                 goto finish;
         }
+
+        log_info("%s: wrote %u items, with %zu bytes of strings, %zu total size.",
+                 CATALOG_DATABASE, n, sb->len, ftell(w));
 
         free(p);
         p = NULL;
