@@ -269,7 +269,6 @@ static int import_file(Hashmap *h, struct strbuf *sb, const char *path) {
         return 0;
 }
 
-#define CATALOG_PATH "/var/lib/systemd/catalog"
 #define CATALOG_DATABASE CATALOG_PATH "/database"
 
 int catalog_update(void) {
@@ -414,7 +413,7 @@ static int open_mmap(int *_fd, struct stat *_st, void **_p) {
         assert(_st);
         assert(_p);
 
-        fd = open("/var/lib/systemd/catalog/database", O_RDONLY|O_CLOEXEC);
+        fd = open(CATALOG_DATABASE, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 

@@ -63,6 +63,8 @@ bashcompletiondir=$(sysconfdir)/bash_completion.d
 rpmmacrosdir=$(sysconfdir)/rpm
 sysvinitdir=$(SYSTEM_SYSVINIT_PATH)
 varlogdir=$(localstatedir)/log
+systemdstatedir=$(localstatedir)/lib/systemd
+catalogstatedir=$(systemdstatedir)/catalog
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
@@ -94,6 +96,7 @@ BUILT_SOURCES =
 INSTALL_EXEC_HOOKS =
 UNINSTALL_EXEC_HOOKS =
 INSTALL_DATA_HOOKS =
+UNINSTALL_DATA_HOOKS =
 DISTCLEAN_LOCAL_HOOKS =
 pkginclude_HEADERS =
 noinst_LTLIBRARIES =
@@ -126,6 +129,7 @@ AM_CPPFLAGS = \
 	-DUSER_CONFIG_FILE=\"$(pkgsysconfdir)/user.conf\" \
 	-DUSER_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/user\" \
 	-DUSER_DATA_UNIT_PATH=\"$(userunitdir)\" \
+	-DCATALOG_PATH=\"$(catalogstatedir)\" \
 	-DSYSTEMD_CGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
 	-DSYSTEMD_BINARY_PATH=\"$(rootlibexecdir)/systemd\" \
 	-DSYSTEMD_SHUTDOWN_BINARY_PATH=\"$(rootlibexecdir)/systemd-shutdown\" \
@@ -2725,10 +2729,16 @@ UNINSTALL_EXEC_HOOKS += \
 # Update catalog on installation. Do not bother if installing
 # in DESTDIR, since this is likely for packaging purposes.
 catalog-update-hook:
-	-test -n "$(DESTDIR)" || journalctl --update-catalog
+	-test -n "$(DESTDIR)" || $(rootbindir)/journalctl --update-catalog
 
 INSTALL_DATA_HOOKS += \
 	catalog-update-hook
+
+catalog-remove-hook:
+	-test -n "$(DESTDIR)" || rm -f $(catalogstatedir)/database
+
+UNINSTALL_DATA_HOOKS += \
+	catalog-remove-hook
 
 noinst_PROGRAMS += \
 	test-journal \
@@ -3596,7 +3606,7 @@ polkitpolicy_files += \
 logind-install-data-hook:
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(systemunitdir)/multi-user.target.wants \
-		$(DESTDIR)$(localstatedir)/lib/systemd
+		$(DESTDIR)$(systemdstatedir)
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f dbus-org.freedesktop.login1.service && \
 		$(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service)
@@ -4061,7 +4071,7 @@ endif
 
 install-exec-hook: $(INSTALL_EXEC_HOOKS)
 
-uninstall-hook: $(UNINSTALL_EXEC_HOOKS)
+uninstall-hook: $(UNINSTALL_DATA_HOOKS) $(UNINSTALL_EXEC_HOOKS)
 
 install-data-hook: systemd-install-data-hook $(INSTALL_DATA_HOOKS)
 
