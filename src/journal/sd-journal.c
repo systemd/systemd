@@ -1205,7 +1205,7 @@ static void check_network(sd_journal *j, int fd) {
                 return;
 
         j->on_network =
-                sfs.f_type == CIFS_MAGIC_NUMBER ||
+                (long)sfs.f_type == (long)CIFS_MAGIC_NUMBER ||
                 sfs.f_type == CODA_SUPER_MAGIC ||
                 sfs.f_type == NCP_SUPER_MAGIC ||
                 sfs.f_type == NFS_SUPER_MAGIC ||

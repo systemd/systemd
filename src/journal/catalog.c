@@ -384,7 +384,7 @@ int catalog_update(void) {
                 goto finish;
         }
 
-        log_debug("%s: wrote %u items, with %zu bytes of strings, %zu total size.",
+        log_debug("%s: wrote %u items, with %zu bytes of strings, %ld total size.",
                  CATALOG_DATABASE, n, sb->len, ftell(w));
 
         free(p);

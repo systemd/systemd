@@ -3400,6 +3400,12 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct 
         return ret;
 }
 
+static int is_temporary_fs(struct statfs *s) {
+        assert(s);
+        return s->f_type == TMPFS_MAGIC ||
+                (long)s->f_type == (long)RAMFS_MAGIC;
+}
+
 int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev) {
         struct statfs s;
 
@@ -3413,9 +3419,7 @@ int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root
         /* We refuse to clean disk file systems with this call. This
          * is extra paranoia just to be sure we never ever remove
          * non-state data */
-
-        if (s.f_type != TMPFS_MAGIC &&
-            s.f_type != RAMFS_MAGIC) {
+        if (!is_temporary_fs(&s)) {
                 log_error("Attempted to remove disk file system, and we can't allow that.");
                 close_nointr_nofail(fd);
                 return -EPERM;
@@ -3448,8 +3452,7 @@ static int rm_rf_internal(const char *path, bool only_dirs, bool delete_root, bo
                         if (statfs(path, &s) < 0)
                                 return -errno;
 
-                        if (s.f_type != TMPFS_MAGIC &&
-                            s.f_type != RAMFS_MAGIC) {
+                        if (!is_temporary_fs(&s)) {
                                 log_error("Attempted to remove disk file system, and we can't allow that.");
                                 return -EPERM;
                         }
@@ -3468,8 +3471,7 @@ static int rm_rf_internal(const char *path, bool only_dirs, bool delete_root, bo
                         return -errno;
                 }
 
-                if (s.f_type != TMPFS_MAGIC &&
-                    s.f_type != RAMFS_MAGIC) {
+                if (!is_temporary_fs(&s)) {
                         log_error("Attempted to remove disk file system, and we can't allow that.");
                         close_nointr_nofail(fd);
                         return -EPERM;
@@ -5767,7 +5769,7 @@ bool in_initrd(void) {
 
         saved = access("/etc/initrd-release", F_OK) >= 0 &&
                 statfs("/", &s) >= 0 &&
-                (s.f_type == TMPFS_MAGIC || s.f_type == RAMFS_MAGIC);
+                is_temporary_fs(&s);
 
         return saved;
 }
