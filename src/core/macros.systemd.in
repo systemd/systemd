@@ -61,11 +61,11 @@ fi \
 %{nil}
 
 %udev_hwdb_update() \
-@rootbindir@/udevadm hwdb --update >/dev/null 2>&1 || : \
+@bindir@/udevadm hwdb --update >/dev/null 2>&1 || : \
 %{nil}
 
 %udev_rules_update() \
-@rootbindir@/udevadm control --reload >/dev/null 2>&1 || : \
+@bindir@/udevadm control --reload >/dev/null 2>&1 || : \
 %{nil}
 
 %journal_catalog_update() \
