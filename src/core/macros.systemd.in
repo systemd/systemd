@@ -21,6 +21,11 @@
 
 %_unitdir @systemunitdir@
 %_presetdir @systempresetdir@
+%_udevhwdbdir @udevhwdbdir@
+%_udevrulesdir @udevrulesdir@
+%_journalcatalogdir @catalogdir@
+%_tmpfilesdir @tmpfilesdir@
+%_sysctldir @sysctldir@
 
 %systemd_requires \
 Requires(post): systemd \
@@ -53,4 +58,16 @@ if [ $1 -ge 1 ] ; then \
         # Package upgrade, not uninstall \
         @rootbindir@/systemctl try-restart %{?*} >/dev/null 2>&1 || : \
 fi \
+%{nil}
+
+%udev_hwdb_update() \
+@rootbindir@/udevadm hwdb --update >/dev/null 2>&1 || : \
+%{nil}
+
+%udev_rules_update() \
+@rootbindir@/udevadm control --reload >/dev/null 2>&1 || : \
+%{nil}
+
+%journal_catalog_update() \
+@rootbindir@/journalctl --update-catalog >/dev/null 2>&1 || : \
 %{nil}

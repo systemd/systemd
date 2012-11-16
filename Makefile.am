@@ -3750,6 +3750,11 @@ SED_PROCESS = \
 		-e 's,@userunitdir\@,$(userunitdir),g' \
 		-e 's,@systempresetdir\@,$(systempresetdir),g' \
 		-e 's,@userpresetdir\@,$(userpresetdir),g' \
+		-e 's,@udevhwdbdir\@,$(udevhwdbdir),g' \
+		-e 's,@udevrulesdir\@,$(udevrulesdir),g' \
+		-e 's,@catalogdir\@,$(catalogdir),g' \
+		-e 's,@tmpfilesdir\@,$(tmpfilesdir),g' \
+		-e 's,@sysctldir\@,$(sysctldir),g' \
 		-e 's,@PACKAGE_VERSION\@,$(PACKAGE_VERSION),g' \
 		-e 's,@PACKAGE_NAME\@,$(PACKAGE_NAME),g' \
 		-e 's,@PACKAGE_URL\@,$(PACKAGE_URL),g' \
