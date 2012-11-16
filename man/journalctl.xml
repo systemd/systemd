@@ -247,8 +247,13 @@
                                 pointers to support forums, developer
                                 documentation and any other relevant
                                 manuals. Note that help texts are not
-                                available for all messages but only
-                                for selected ones.</para></listitem>
+                                available for all messages, but only
+                                for selected ones. For more
+                                information on the message catalog
+                                please refer to the <ulink
+                                url="http://www.freedesktop.org/wiki/Software/systemd/catalog">Message
+                                Catalog Developer
+                                Documentation</ulink>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
