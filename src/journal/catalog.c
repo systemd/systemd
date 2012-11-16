@@ -50,14 +50,15 @@ typedef struct CatalogHeader {
         uint8_t signature[8];  /* "RHHHKSLP" */
         le32_t compatible_flags;
         le32_t incompatible_flags;
-        le32_t header_size;
-        le32_t n_items;
+        le64_t header_size;
+        le64_t n_items;
+        le64_t catalog_item_size;
 } CatalogHeader;
 
 typedef struct CatalogItem {
         sd_id128_t id;
         char language[32];
-        le32_t offset;
+        le64_t offset;
 } CatalogItem;
 
 static unsigned catalog_hash_func(const void *p) {
@@ -117,18 +118,13 @@ static int finish_item(
         if (offset < 0)
                 return log_oom();
 
-        if (offset > 0xFFFFFFFF) {
-                log_error("Too many catalog entries.");
-                return -E2BIG;
-        }
-
         i = new0(CatalogItem, 1);
         if (!i)
                 return log_oom();
 
         i->id = id;
         strncpy(i->language, language, sizeof(i->language));
-        i->offset = htole32((uint32_t) offset);
+        i->offset = htole64((uint64_t) offset);
 
         r = hashmap_put(h, i, i);
         if (r == EEXIST) {
@@ -342,8 +338,9 @@ int catalog_update(void) {
 
         zero(header);
         memcpy(header.signature, CATALOG_SIGNATURE, sizeof(header.signature));
-        header.header_size = htole32(ALIGN_TO(sizeof(CatalogHeader), 8));
-        header.n_items = htole32(hashmap_size(h));
+        header.header_size = htole64(ALIGN_TO(sizeof(CatalogHeader), 8));
+        header.catalog_item_size = htole64(sizeof(CatalogItem));
+        header.n_items = htole64(hashmap_size(h));
 
         k = fwrite(&header, 1, sizeof(header), w);
         if (k != sizeof(header)) {
@@ -427,10 +424,11 @@ static int open_mmap(int *_fd, struct stat *_st, void **_p) {
 
         h = p;
         if (memcmp(h->signature, CATALOG_SIGNATURE, sizeof(h->signature)) != 0 ||
-            le32toh(h->header_size) < sizeof(CatalogHeader) ||
+            le64toh(h->header_size) < sizeof(CatalogHeader) ||
+            le64toh(h->catalog_item_size) < sizeof(CatalogItem) ||
             h->incompatible_flags != 0 ||
-            le32toh(h->n_items) <= 0 ||
-            st.st_size < (off_t) (le32toh(h->header_size) + sizeof(CatalogItem) * le32toh(h->n_items))) {
+            le64toh(h->n_items) <= 0 ||
+            st.st_size < (off_t) (le64toh(h->header_size) + le64toh(h->catalog_item_size) * le64toh(h->n_items))) {
                 close_nointr_nofail(fd);
                 munmap(p, st.st_size);
                 return -EBADMSG;
@@ -456,30 +454,30 @@ static const char *find_id(void *p, sd_id128_t id) {
                 strncpy(key.language, loc, sizeof(key.language));
                 key.language[strcspn(key.language, ".@")] = 0;
 
-                f = bsearch(&key, (const uint8_t*) p + le32toh(h->header_size), le32toh(h->n_items), sizeof(CatalogItem), catalog_compare_func);
+                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), catalog_compare_func);
                 if (!f) {
                         char *e;
 
                         e = strchr(key.language, '_');
                         if (e) {
                                 *e = 0;
-                                f = bsearch(&key, (const uint8_t*) p + le32toh(h->header_size), le32toh(h->n_items), sizeof(CatalogItem), catalog_compare_func);
+                                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), catalog_compare_func);
                         }
                 }
         }
 
         if (!f) {
                 zero(key.language);
-                f = bsearch(&key, (const uint8_t*) p + le32toh(h->header_size), le32toh(h->n_items), sizeof(CatalogItem), catalog_compare_func);
+                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), catalog_compare_func);
         }
 
         if (!f)
                 return NULL;
 
         return (const char*) p +
-                le32toh(h->header_size) +
-                le32toh(h->n_items) * sizeof(CatalogItem) +
-                le32toh(f->offset);
+                le64toh(h->header_size) +
+                le64toh(h->n_items) * le64toh(h->catalog_item_size) +
+                le64toh(f->offset);
 }
 
 int catalog_get(sd_id128_t id, char **_text) {
@@ -558,9 +556,9 @@ int catalog_list(FILE *f) {
                 return r;
 
         h = p;
-        items = (const CatalogItem*) ((const uint8_t*) p + le32toh(h->header_size));
+        items = (const CatalogItem*) ((const uint8_t*) p + le64toh(h->header_size));
 
-        for (n = 0; n < le32toh(h->n_items); n++) {
+        for (n = 0; n < le64toh(h->n_items); n++) {
                 const char *s;
                 _cleanup_free_ char *subject = NULL, *defined_by = NULL;
 

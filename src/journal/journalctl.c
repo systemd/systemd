@@ -867,6 +867,8 @@ int main(int argc, char *argv[]) {
 
         if (arg_action == ACTION_LIST_CATALOG)  {
                 r = catalog_list(stdout);
+                if (r < 0)
+                        log_error("Failed to list catalog: %s", strerror(-r));
                 goto finish;
         }
 
