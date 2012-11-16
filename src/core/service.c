@@ -49,8 +49,7 @@
 
 typedef enum RunlevelType {
         RUNLEVEL_UP,
-        RUNLEVEL_DOWN,
-        RUNLEVEL_SYSINIT
+        RUNLEVEL_DOWN
 } RunlevelType;
 
 static const struct {
@@ -65,16 +64,6 @@ static const struct {
         { "rc4.d",  SPECIAL_RUNLEVEL4_TARGET, RUNLEVEL_UP },
         { "rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
 
-#ifdef TARGET_SUSE
-        /* SUSE style boot.d */
-        { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
-#endif
-
-#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_ANGSTROM)
-        /* Debian style rcS.d */
-        { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
-#endif
-
         /* Standard SysV runlevels for shutdown */
         { "rc0.d",  SPECIAL_POWEROFF_TARGET,  RUNLEVEL_DOWN },
         { "rc6.d",  SPECIAL_REBOOT_TARGET,    RUNLEVEL_DOWN }
@@ -83,12 +72,10 @@ static const struct {
            directories in this order, and we want to make sure that
            sysv_start_priority is known when we first load the
            unit. And that value we only know from S links. Hence
-           UP/SYSINIT must be read before DOWN */
+           UP must be read before DOWN */
 };
 
 #define RUNLEVELS_UP "12345"
-/* #define RUNLEVELS_DOWN "06" */
-#define RUNLEVELS_BOOT "bBsS"
 #endif
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
@@ -338,11 +325,6 @@ static char *sysv_translate_name(const char *name) {
         if (endswith(name, ".sh"))
                 /* Drop Debian-style .sh suffix */
                 strcpy(stpcpy(r, name) - 3, ".service");
-#endif
-#ifdef TARGET_SUSE
-        if (startswith(name, "boot."))
-                /* Drop SuSE-style boot. prefix */
-                strcpy(stpcpy(r, name + 5), ".service");
 #endif
 #ifdef TARGET_FRUGALWARE
         if (startswith(name, "rc."))
@@ -930,13 +912,6 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
         if ((r = sysv_exec_commands(s, supports_reload)) < 0)
                 goto finish;
-        if (s->sysv_runlevels &&
-            chars_intersect(RUNLEVELS_BOOT, s->sysv_runlevels) &&
-            chars_intersect(RUNLEVELS_UP, s->sysv_runlevels)) {
-                /* Service has both boot and "up" runlevels
-                   configured.  Kill the "up" ones. */
-                delete_chars(s->sysv_runlevels, RUNLEVELS_UP);
-        }
 
         if (s->sysv_runlevels && !chars_intersect(RUNLEVELS_UP, s->sysv_runlevels)) {
                 /* If there a runlevels configured for this service
@@ -1013,15 +988,10 @@ static int service_load_sysv_name(Service *s, const char *name) {
         assert(s);
         assert(name);
 
-        /* For SysV services we strip the boot.*, rc.* and *.sh
+        /* For SysV services we strip the rc.* and *.sh
          * prefixes/suffixes. */
 #if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_ANGSTROM)
         if (endswith(name, ".sh.service"))
-                return -ENOENT;
-#endif
-
-#ifdef TARGET_SUSE
-        if (startswith(name, "boot."))
                 return -ENOENT;
 #endif
 
@@ -1051,21 +1021,6 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 }
 #endif
                 free(path);
-
-#ifdef TARGET_SUSE
-                if (r >= 0 && UNIT(s)->load_state == UNIT_STUB) {
-                        /* Try SUSE style boot.* init scripts */
-
-                        path = strjoin(*p, "/boot.", name, NULL);
-                        if (!path)
-                                return -ENOMEM;
-
-                        /* Drop .service suffix */
-                        path[strlen(path)-8] = 0;
-                        r = service_load_sysv_path(s, path);
-                        free(path);
-                }
-#endif
 
 #ifdef TARGET_FRUGALWARE
                 if (r >= 0 && UNIT(s)->load_state == UNIT_STUB) {
@@ -3535,7 +3490,7 @@ static int service_enumerate(Manager *m) {
 
                                 if (de->d_name[0] == 'S')  {
 
-                                        if (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT) {
+                                        if (rcnd_table[i].type == RUNLEVEL_UP) {
                                                 SERVICE(service)->sysv_start_priority_from_rcnd =
                                                         MAX(a*10 + b, SERVICE(service)->sysv_start_priority_from_rcnd);
 
@@ -3549,8 +3504,7 @@ static int service_enumerate(Manager *m) {
                                                 goto finish;
 
                                 } else if (de->d_name[0] == 'K' &&
-                                           (rcnd_table[i].type == RUNLEVEL_DOWN ||
-                                            rcnd_table[i].type == RUNLEVEL_SYSINIT)) {
+                                           (rcnd_table[i].type == RUNLEVEL_DOWN)) {
 
                                         if ((r = set_ensure_allocated(&shutdown_services, trivial_hash_func, trivial_compare_func)) < 0)
                                                 goto finish;
@@ -3584,9 +3538,7 @@ static int service_enumerate(Manager *m) {
          * runlevels we assume the stop jobs will be implicitly added
          * by the core logic. Also, we don't really distinguish here
          * between the runlevels 0 and 6 and just add them to the
-         * special shutdown target. On SUSE the boot.d/ runlevel is
-         * also used for shutdown, so we add links for that too to the
-         * shutdown target.*/
+         * special shutdown target. */
         SET_FOREACH(service, shutdown_services, j) {
                 service = unit_follow_merge(service);
 
