@@ -21,6 +21,12 @@ F18:
 
 Features:
 
+* RPM macros for message catalog update
+
+* man page for catalog APIs
+
+* When switching root, first try pivot_root, only then fall back to overmounting, to deal sanely with both the initial and later switch roots
+
 * When shutdown.target is queued begin with an asynchronous sync()?
 
 * Add ConditionBatteryPower= or ConditionACPower=? (but definitely not both)
@@ -421,8 +427,6 @@ Features:
 * journal: deal nicely with byte-by-byte copied files, especially regards header
 
 * journal: local deserializer of export mode, http server
-
-* journal: message catalog
 
 * document the exit codes when services fail before they are exec()ed
 
