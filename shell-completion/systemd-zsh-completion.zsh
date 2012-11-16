@@ -91,7 +91,9 @@ _ctls()
                 '--disk-usage[Show total disk usage]' \
                 {-F,--field=}'[List all values a certain field takes]:Fields:_list_fields' \
                 '--setup-keys[Generate new FSS key pair]' \
-                '--verify[Verify journal file consistency]'
+                '--verify[Verify journal file consistency]' \
+                '--list-catalog[List messages in catalog]' \
+                '--update-catalog[Update binary catalog database]' \
         ;;
         localectl)
             _arguments \

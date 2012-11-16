@@ -297,7 +297,7 @@ _journalctl() {
                 [STANDALONE]='-a --all -b --this-boot --disk-usage -f --follow --header
                               -h --help -l --local --new-id128 -m --merge --no-pager
                               --no-tail -q --quiet --setup-keys --this-boot --verify
-                              --version'
+                              --version --list-catalog --update-catalog'
                        [ARG]='-D --directory -F --field -o --output -u --unit'
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines -p --priority --since --until
                               --verify-key'
