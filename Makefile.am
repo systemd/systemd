@@ -1955,6 +1955,14 @@ udevadm_LDADD = \
 	libudev-core.la \
 	libsystemd-shared.la
 
+# Update hwdb on installation. Do not bother if installing
+# in DESTDIR, since this is likely for packaging purposes.
+hwdb-update-hook:
+	-test -n "$(DESTDIR)" || udevadm hwdb --update
+
+INSTALL_DATA_HOOKS += \
+	hwdb-update-hook
+
 # ------------------------------------------------------------------------------
 TESTS += \
 	test/udev-test.pl \
@@ -2714,16 +2722,13 @@ libsystemd-journal-uninstall-hook:
 UNINSTALL_EXEC_HOOKS += \
 	libsystemd-journal-uninstall-hook
 
-# Update catalog on installation / deinstallation. Do not bother if installing
+# Update catalog on installation. Do not bother if installing
 # in DESTDIR, since this is likely for packaging purposes.
-# Ignore failure, since there are other reasons why it might not work,
-# like running under distcheck.
 catalog-update-hook:
 	-test -n "$(DESTDIR)" || journalctl --update-catalog
 
 INSTALL_DATA_HOOKS += \
 	catalog-update-hook
-
 
 noinst_PROGRAMS += \
 	test-journal \
