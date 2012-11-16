@@ -140,9 +140,12 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
         }
 
         if (stat(fwpath, &statbuf) < 0 || statbuf.st_size == 0) {
+                if (!in_initrd())
+                        set_loading(udev, loadpath, "-1");
                 rc = EXIT_FAILURE;
                 goto exit;
         }
+
         if (unlink(misspath) == 0)
                 util_delete_path(udev, misspath);
 
