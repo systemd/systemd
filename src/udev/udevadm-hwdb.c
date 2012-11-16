@@ -565,10 +565,11 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 log_debug("strings dedup'ed: %8zu bytes (%8zu)\n",
                           trie->strings->dedup_len, trie->strings->dedup_count);
 
-                mkdir_parents("/etc/udev/hwdb.bin", 0755);
-                err = trie_store(trie, "/etc/udev/hwdb.bin");
+                mkdir_parents(HWDB_BIN, 0755);
+                err = trie_store(trie, HWDB_BIN);
                 if (err < 0) {
-                        log_error("Failure writing hardware database '%s': %s", "/etc/udev/hwdb.bin", strerror(-err));
+                        log_error("Failure writing hardware database '%s': %s",
+                                  HWDB_BIN, strerror(-err));
                         rc = EXIT_FAILURE;
                 }
         }

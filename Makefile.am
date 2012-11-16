@@ -65,6 +65,8 @@ sysvinitdir=$(SYSTEM_SYSVINIT_PATH)
 varlogdir=$(localstatedir)/log
 systemdstatedir=$(localstatedir)/lib/systemd
 catalogstatedir=$(systemdstatedir)/catalog
+udevstatedir=$(localstatedir)/lib/udev
+hwdb_bin=$(udevstatedir)/hwdb.bin
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
@@ -130,6 +132,7 @@ AM_CPPFLAGS = \
 	-DUSER_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/user\" \
 	-DUSER_DATA_UNIT_PATH=\"$(userunitdir)\" \
 	-DCATALOG_PATH=\"$(catalogstatedir)\" \
+	-DHWDB_BIN=\"$(hwdb_bin)\" \
 	-DSYSTEMD_CGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
 	-DSYSTEMD_BINARY_PATH=\"$(rootlibexecdir)/systemd\" \
 	-DSYSTEMD_SHUTDOWN_BINARY_PATH=\"$(rootlibexecdir)/systemd-shutdown\" \
@@ -1962,10 +1965,13 @@ udevadm_LDADD = \
 # Update hwdb on installation. Do not bother if installing
 # in DESTDIR, since this is likely for packaging purposes.
 hwdb-update-hook:
-	-test -n "$(DESTDIR)" || udevadm hwdb --update
+	-test -n "$(DESTDIR)" || $(bindir)/udevadm hwdb --update
 
 INSTALL_DATA_HOOKS += \
 	hwdb-update-hook
+
+hwdb-remove-hook:
+	-test -n "$(DESTDIR)" || rm -f $(HWDB_BIN)
 
 # ------------------------------------------------------------------------------
 TESTS += \
