@@ -21,6 +21,8 @@ F18:
 
 Features:
 
+* When shutdown.target is queued begin with an asynchronous sync()?
+
 * Add ConditionBatteryPower= or ConditionACPower=? (but definitely not both)
 
 * add API to close/reopen/get fd for journal client fd in libsystemd-journal.
