@@ -2485,6 +2485,7 @@ static int service_start_limit_test(Service *s) {
 
         case SERVICE_START_LIMIT_REBOOT_IMMEDIATE:
                 log_warning("%s start request repeated too quickly, rebooting immediately.", UNIT(s)->id);
+                sync();
                 reboot(RB_AUTOBOOT);
                 break;
 

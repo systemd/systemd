@@ -273,6 +273,13 @@ int main(int argc, char *argv[]) {
                 }
         }
 
+        /* The kernel will automaticall flush ATA disks and suchlike
+         * on reboot(), but the file systems need to be synce'd
+         * explicitly in advance. So let's do this here, but not
+         * needlessly slow down containers. */
+        if (!in_container)
+                sync();
+
         if (cmd == LINUX_REBOOT_CMD_KEXEC) {
 
                 if (!in_container) {
