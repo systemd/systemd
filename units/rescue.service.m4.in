@@ -17,7 +17,7 @@ Before=shutdown.target
 Environment=HOME=/root
 WorkingDirectory=/root
 ExecStartPre=-/bin/plymouth quit
-ExecStartPre=-/bin/echo -e 'Welcome to rescue mode! Type "systemctl default" or ^D to enter default mode.\\nType "journalctl -b" to view system logs. Type "systemctl reboot" to reboot.'
+ExecStartPre=-/bin/echo -e 'Welcome to rescue mode! Type "systemctl default" or ^D to enter default mode.\\nType "journalctl -xb" to view system logs. Type "systemctl reboot" to reboot.'
 m4_ifdef(`TARGET_FEDORA',
 `EnvironmentFile=/etc/sysconfig/init
 ExecStart=-/bin/bash -c "exec ${SINGLE}"',
