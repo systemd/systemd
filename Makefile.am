@@ -1893,7 +1893,6 @@ libudev_core_la_SOURCES = \
 	src/udev/udev-rules.c \
 	src/udev/udev-ctrl.c \
 	src/udev/udev-builtin.c \
-	src/udev/udev-builtin-blkid.c \
 	src/udev/udev-builtin-btrfs.c \
 	src/udev/udev-builtin-firmware.c \
 	src/udev/udev-builtin-hwdb.c \
@@ -1919,6 +1918,11 @@ libudev_core_la_LIBADD = \
 libudev_core_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-DFIRMWARE_PATH="$(FIRMWARE_PATH)"
+
+if HAVE_BLKID
+libudev_core_la_SOURCES += \
+	src/udev/udev-builtin-blkid.c
+endif
 
 if HAVE_ACL
 libudev_core_la_SOURCES += \

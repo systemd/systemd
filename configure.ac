@@ -194,7 +194,18 @@ m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-conf
 
 PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2])
 PKG_CHECK_MODULES(KMOD, [libkmod >= 5])
-PKG_CHECK_MODULES(BLKID,[blkid >= 2.20])
+
+# ------------------------------------------------------------------------------
+have_blkid=no
+AC_ARG_ENABLE(blkid, AS_HELP_STRING([--disable-blkid], [disable blkid support]))
+if test "x$enable_blkid" != "xno"; then
+        PKG_CHECK_MODULES(BLKID, [ blkid >= 2.20 ],
+                [AC_DEFINE(HAVE_BLKID, 1, [Define if blkid is available]) have_blkid=yes], have_blkid=no)
+        if test "x$have_blkid" = xno -a "x$enable_blkid" = xyes; then
+                AC_MSG_ERROR([*** blkid support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_BLKID, [test "$have_blkid" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_ima=yes
@@ -849,6 +860,7 @@ AC_MSG_RESULT([
         timedated:               ${have_timedated}
         localed:                 ${have_localed}
         coredump:                ${have_coredump}
+        blkid:                   ${have_blkid}
         firmware path:           ${FIRMWARE_PATH}
         gudev:                   ${enable_gudev}
         gintrospection:          ${enable_introspection}
