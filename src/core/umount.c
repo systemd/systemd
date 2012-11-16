@@ -407,6 +407,33 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
         assert(head);
 
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+
+                /* If we are in a container, don't attempt to
+                   read-only mount anything as that brings no real
+                   benefits, but might confuse the host, as we remount
+                   the superblock here, not the bind mound. */
+                if (detect_container(NULL) <= 0)  {
+                        /* We always try to remount directories
+                         * read-only first, before we go on and umount
+                         * them.
+                         *
+                         * Mount points can be stacked. If a mount
+                         * point is stacked below / or /usr, we
+                         * cannnot umount or remount it directly,
+                         * since there is no way to refer to the
+                         * underlying mount. There's nothing we can do
+                         * about it for the general case, but we can
+                         * do something about it if it is aliased
+                         * somehwere else via a bind mount. If we
+                         * explicitly remount the super block of that
+                         * alias read-only we hence should be
+                         * relatively safe regarding keeping the fs we
+                         * can otherwise not see dirty. */
+                        mount(NULL, m->path, NULL, MS_REMOUNT|MS_RDONLY, NULL);
+                }
+
+                /* Skip / and /usr since we cannot unmount that
+                 * anyway, since we are running from it */
                 if (path_equal(m->path, "/")
 #ifndef HAVE_SPLIT_USR
                     || path_equal(m->path, "/usr")
@@ -425,29 +452,6 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                         mount_point_free(head, m);
                 } else if (log_error) {
                         log_warning("Could not unmount %s: %m", m->path);
-                        n_failed++;
-                }
-        }
-
-        return n_failed;
-}
-
-static int mount_points_list_remount_read_only(MountPoint **head, bool *changed) {
-        MountPoint *m, *n;
-        int n_failed = 0;
-
-        assert(head);
-
-        LIST_FOREACH_SAFE(mount_point, m, n, *head) {
-
-                /* Trying to remount read-only */
-                if (mount(NULL, m->path, NULL, MS_REMOUNT|MS_RDONLY, NULL) == 0) {
-                        if (changed)
-                                *changed = true;
-
-                        mount_point_free(head, m);
-                } else {
-                        log_warning("Could not remount as read-only %s: %m", m->path);
                         n_failed++;
                 }
         }
@@ -570,13 +574,6 @@ int umount_all(bool *changed) {
         r = mount_points_list_umount(&mp_list_head, &umount_changed, true);
         if (r <= 0)
                 goto end;
-
-        /* If we are in a container, don't attempt to read-only mount
-           anything as that brings no real benefits, but might confuse
-           the host, as we remount the superblock here, not the bind
-           mound. */
-        if (detect_container(NULL) <= 0)
-                r = mount_points_list_remount_read_only(&mp_list_head, changed);
 
   end:
         mount_points_list_free(&mp_list_head);
