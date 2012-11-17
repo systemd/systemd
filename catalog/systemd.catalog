@@ -133,7 +133,7 @@ Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
-The system clock has been changed to @REALTIME@ usec after January 1st, 1970.
+The system clock has been changed to @REALTIME@ microseconds after January 1st, 1970.
 
 -- c7a787079b354eaaa9e77b371893cd27 de
 Subject: Zeitänderung
@@ -141,7 +141,7 @@ Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
-Die System-Zeit wurde geändert auf @REALTIME@ usec after January 1st, 1970.
+Die System-Zeit wurde geändert auf @REALTIME@ Mikrosekunden nach dem 1. Januar 1970.
 
 -- 45f82f4aef7a4bbf942ce861d1f20990
 Subject: Time zone change to @TIMEZONE@
@@ -161,11 +161,11 @@ All system services necessary queued for starting at boot have been
 successfully started. Note that this does not mean that the machine is
 now idle as services might still be busy with completing start-up.
 
-Kernel start-up required @KERNEL_USEC@ usec.
+Kernel start-up required @KERNEL_USEC@ microseconds.
 
-Initial RAM disk start-up required @INITRD_USEC@ usec.
+Initial RAM disk start-up required @INITRD_USEC@ microseconds.
 
-Userspace start-up required @KERNEL_USEC@ usec.
+Userspace start-up required @KERNEL_USEC@ microseconds.
 
 -- 6bbd95ee977941e497c48be27c254128
 Subject: System sleep state @SLEEP@ entered
