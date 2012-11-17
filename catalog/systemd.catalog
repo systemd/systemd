@@ -125,7 +125,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
-A seat @SEAT_ID@ has been removed and is no longer avilable.
+A seat @SEAT_ID@ has been removed and is no longer available.
 
 -- c7a787079b354eaaa9e77b371893cd27
 Subject: Time change
@@ -262,10 +262,10 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE
 
 The process @EXECUTABLE@ could not be executed and failed.
 
-The error number for while executing this process is @ERRNO@.
+The error number returned while executing this process is @ERRNO@.
 
 -- 0027229ca0644181a76c4e92458afa2e
-Subject: One or messages could not be forwarded to syslog
+Subject: One or more messages could not be forwarded to syslog
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
