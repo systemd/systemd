@@ -65,8 +65,7 @@ sysvinitdir=$(SYSTEM_SYSVINIT_PATH)
 varlogdir=$(localstatedir)/log
 systemdstatedir=$(localstatedir)/lib/systemd
 catalogstatedir=$(systemdstatedir)/catalog
-udevstatedir=$(localstatedir)/lib/udev
-hwdb_bin=$(udevstatedir)/hwdb.bin
+hwdb_bin=/etc/udev/hwdb.bin
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd

@@ -424,13 +424,13 @@
     </refsect2>
 
     <refsect2><title>udevadm hwdb <optional>options</optional></title>
-      <para>Maintain the hardware database index in <filename>$(localstatedir)/lib/udev/hwdb.bin</filename>.</para>
+      <para>Maintain the hardware database index in <filename>/etc/udev/hwdb.bin</filename>.</para>
       <variablelist>
         <varlistentry>
           <term><option>--update</option></term>
           <listitem>
             <para>Compile the hardware dabase information located in /usr/lib/udev/hwdb.d/,
-            /etc/udev/hwdb.d/ and store it in <filename>$(localstatedir)/lib/udev/hwdb.bin</filename>. This should be done with
+            /etc/udev/hwdb.d/ and store it in <filename>/etc/udev/hwdb.bin</filename>. This should be done with
             any update to the source files, it will not be called automatically. The running
             udev daemon will detect a new database on its own and does not need to be
             notified about it.</para>
