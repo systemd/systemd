@@ -136,6 +136,13 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--full</option></term>
+
+                                <listitem><para>Show all (printable) fields in
+                                full.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--all</option></term>
                                 <term><option>-a</option></term>
 

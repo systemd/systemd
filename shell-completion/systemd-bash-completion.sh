@@ -294,7 +294,8 @@ __journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
 _journalctl() {
         local field_vals= cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local -A OPTS=(
-                [STANDALONE]='-a --all -b --this-boot --disk-usage -f --follow --header
+                [STANDALONE]='-a --all --full
+                              -b --this-boot --disk-usage -f --follow --header
                               -h --help -l --local --new-id128 -m --merge --no-pager
                               --no-tail -q --quiet --setup-keys --this-boot --verify
                               --version --list-catalog --update-catalog'
