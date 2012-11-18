@@ -19,7 +19,15 @@ F18:
 
 Features:
 
+* define a message ID for "overmounting non-empty directory".
+
+* use polkit "imply" for binding hostname actions together
+
+* journal: when waiting for journal additions always sleep at least 1s or so, in order to minimize wakeups
+
 * man page for catalog APIs
+
+* add catalog api for querying the raw template rather then replaced text
 
 * When shutdown.target is queued begin with an asynchronous sync()?
 
