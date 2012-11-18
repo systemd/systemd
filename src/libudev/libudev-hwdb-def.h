@@ -25,7 +25,7 @@
 #define HWDB_SIG { 'K', 'S', 'L', 'P', 'H', 'H', 'R', 'H' }
 
 /* on-disk trie objects */
-_packed_ struct trie_header_f {
+struct trie_header_f {
         uint8_t signature[8];
 
         /* version of tool which created the file */
@@ -44,9 +44,9 @@ _packed_ struct trie_header_f {
         /* size of the nodes and string section */
         le64_t nodes_len;
         le64_t strings_len;
-};
+} _packed_;
 
-_packed_ struct trie_node_f {
+struct trie_node_f {
         /* prefix of lookup string, shared by all children  */
         le64_t prefix_off;
         /* size of children entry array appended to the node */
@@ -54,21 +54,21 @@ _packed_ struct trie_node_f {
         uint8_t padding[7];
         /* size of value entry array appended to the node */
         le64_t values_count;
-};
+} _packed_;
 
 /* array of child entries, follows directly the node record */
-_packed_ struct trie_child_entry_f {
+struct trie_child_entry_f {
         /* index of the child node */
         uint8_t c;
         uint8_t padding[7];
         /* offset of the child node */
         le64_t child_off;
-};
+} _packed_;
 
 /* array of value entries, follows directly the node record/child array */
-_packed_ struct trie_value_entry_f {
+struct trie_value_entry_f {
         le64_t key_off;
         le64_t value_off;
-};
+} _packed_;
 
 #endif
