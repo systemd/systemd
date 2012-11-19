@@ -86,7 +86,7 @@ int config_parse_unit_deps(
         assert(rvalue);
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char *t, *k;
+                char _cleanup_free_ *t = NULL, *k = NULL;
                 int r;
 
                 t = strndup(w, l);
@@ -94,15 +94,13 @@ int config_parse_unit_deps(
                         return -ENOMEM;
 
                 k = unit_name_printf(u, t);
-                free(t);
                 if (!k)
                         return -ENOMEM;
 
                 r = unit_add_dependency_by_name(u, d, k, NULL, true);
                 if (r < 0)
-                        log_error("[%s:%u] Failed to add dependency on %s, ignoring: %s", filename, line, k, strerror(-r));
-
-                free(k);
+                        log_error("[%s:%u] Failed to add dependency on %s, ignoring: %s",
+                                  filename, line, k, strerror(-r));
         }
 
         return 0;
@@ -757,22 +755,25 @@ int config_parse_exec_cpu_affinity(
         assert(data);
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char *t;
+                char _cleanup_free_ *t = NULL;
                 int r;
                 unsigned cpu;
 
-                if (!(t = strndup(w, l)))
+                t = strndup(w, l);
+                if (!t)
                         return -ENOMEM;
 
                 r = safe_atou(t, &cpu);
-                free(t);
 
-                if (!(c->cpuset))
-                        if (!(c->cpuset = cpu_set_malloc(&c->cpuset_ncpus)))
+                if (!c->cpuset) {
+                        c->cpuset = cpu_set_malloc(&c->cpuset_ncpus);
+                        if (!c->cpuset)
                                 return -ENOMEM;
+                }
 
                 if (r < 0 || cpu >= c->cpuset_ncpus) {
-                        log_error("[%s:%u] Failed to parse CPU affinity, ignoring: %s", filename, line, rvalue);
+                        log_error("[%s:%u] Failed to parse CPU affinity %s, ignoring: %s",
+                                  filename, line, t, rvalue);
                         return 0;
                 }
 
@@ -849,7 +850,8 @@ int config_parse_exec_secure_bits(
                 else if (first_word(w, "noroot-locked"))
                         c->secure_bits |= SECURE_NOROOT_LOCKED;
                 else {
-                        log_error("[%s:%u] Failed to parse secure bits, ignoring: %s", filename, line, rvalue);
+                        log_error("[%s:%u] Failed to parse secure bits, ignoring: %s",
+                                  filename, line, rvalue);
                         return 0;
                 }
         }
@@ -890,7 +892,7 @@ int config_parse_bounding_set(
          * interface. */
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char *t;
+                char _cleanup_free_ *t = NULL;
                 int r;
                 cap_value_t cap;
 
@@ -899,10 +901,9 @@ int config_parse_bounding_set(
                         return -ENOMEM;
 
                 r = cap_from_name(t, &cap);
-                free(t);
-
                 if (r < 0) {
-                        log_error("[%s:%u] Failed to parse capability bounding set, ignoring: %s", filename, line, rvalue);
+                        log_error("[%s:%u] Failed to parse capability in bounding set, ignoring: %s",
+                                  filename, line, t);
                         continue;
                 }
 
@@ -968,7 +969,7 @@ int config_parse_unit_cgroup(
         char *state;
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char *t, *k;
+                char _cleanup_free_ *t = NULL, *k = NULL, *ku = NULL;
                 int r;
 
                 t = strndup(w, l);
@@ -976,22 +977,17 @@ int config_parse_unit_cgroup(
                         return -ENOMEM;
 
                 k = unit_full_printf(u, t);
-                free(t);
-
                 if (!k)
                         return -ENOMEM;
 
-                t = cunescape(k);
-                free(k);
-
-                if (!t)
+                ku = cunescape(k);
+                if (!ku)
                         return -ENOMEM;
 
-                r = unit_add_cgroup_from_text(u, t);
-                free(t);
-
+                r = unit_add_cgroup_from_text(u, ku);
                 if (r < 0) {
-                        log_error("[%s:%u] Failed to parse cgroup value, ignoring: %s", filename, line, rvalue);
+                        log_error("[%s:%u] Failed to parse cgroup value %s, ignoring: %s",
+                                  filename, line, k, rvalue);
                         return 0;
                 }
         }
@@ -1351,33 +1347,30 @@ int config_parse_service_sockets(
         assert(data);
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char *t, *k;
+                char _cleanup_free_ *t = NULL, *k = NULL;
 
                 t = strndup(w, l);
                 if (!t)
                         return -ENOMEM;
 
                 k = unit_name_printf(UNIT(s), t);
-                free(t);
-
                 if (!k)
                         return -ENOMEM;
 
                 if (!endswith(k, ".socket")) {
-                        log_error("[%s:%u] Unit must be of type socket, ignoring: %s", filename, line, rvalue);
-                        free(k);
+                        log_error("[%s:%u] Unit must be of type socket, ignoring: %s",
+                                  filename, line, k);
                         continue;
                 }
 
                 r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_WANTS, UNIT_AFTER, k, NULL, true);
                 if (r < 0)
-                        log_error("[%s:%u] Failed to add dependency on %s, ignoring: %s", filename, line, k, strerror(-r));
+                        log_error("[%s:%u] Failed to add dependency on %s, ignoring: %s",
+                                  filename, line, k, strerror(-r));
 
                 r = unit_add_dependency_by_name(UNIT(s), UNIT_TRIGGERED_BY, k, NULL, true);
                 if (r < 0)
                         return r;
-
-                free(k);
         }
 
         return 0;
@@ -2105,17 +2098,17 @@ int config_parse_syscall_filter(
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 int id;
-                char *t;
+                char _cleanup_free_ *t = NULL;
 
                 t = strndup(w, l);
                 if (!t)
                         return -ENOMEM;
 
                 id = syscall_from_name(t);
-                free(t);
 
                 if (id < 0)  {
-                        log_error("[%s:%u] Failed to parse syscall, ignoring: %s", filename, line, rvalue);
+                        log_error("[%s:%u] Failed to parse syscall, ignoring: %s",
+                                  filename, line, t);
                         continue;
                 }
 
