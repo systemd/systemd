@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
                 }
 
         } else {
-                char *p;
+                char _cleanup_free_ *p;
 
                 p = get_current_dir_name();
                 if (!p) {
@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
                         printf("Working Directory %s:\n", p);
                         r = show_cgroup_by_path(p, NULL, 0, arg_kernel_threads, arg_all);
                 } else {
-                        char *root = NULL;
+                        char _cleanup_free_ *root = NULL;
                         const char *t = NULL;
 
                         r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 1, &root);
@@ -164,10 +164,7 @@ int main(int argc, char *argv[]) {
                         }
 
                         r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, t, NULL, 0, arg_kernel_threads, arg_all);
-                        free(root);
                 }
-
-                free(p);
         }
 
         if (r < 0)
