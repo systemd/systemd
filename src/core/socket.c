@@ -1542,7 +1542,7 @@ static void socket_enter_running(Socket *s, int cfd) {
         return;
 
 fail:
-        log_warning("%s failed to queue socket startup job: %s", UNIT(s)->id, bus_error(&error, r));
+        log_warning("%s failed to queue service startup job (Maybe the service file is missing or not a %s unit?): %s", UNIT(s)->id, cfd >= 0 ? "template" : "non-template", bus_error(&error, r));
         socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
 
         if (cfd >= 0)
