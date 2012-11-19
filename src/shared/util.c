@@ -3803,7 +3803,7 @@ int fd_columns(int fd) {
 
 unsigned columns(void) {
         const char *e;
-        unsigned c;
+        int c;
 
         if (_likely_(cached_columns > 0))
                 return cached_columns;
@@ -3811,7 +3811,7 @@ unsigned columns(void) {
         c = 0;
         e = getenv("COLUMNS");
         if (e)
-                safe_atou(e, &c);
+                safe_atoi(e, &c);
 
         if (c <= 0)
                 c = fd_columns(STDOUT_FILENO);
