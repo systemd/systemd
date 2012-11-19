@@ -1101,15 +1101,22 @@ int config_parse_exec_mount_flags(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                if (strncmp(w, "shared", MAX(l, 6U)) == 0)
+        FOREACH_WORD_SEPARATOR(w, l, rvalue, ", ", state) {
+                char _cleanup_free_ *t;
+
+                t = strndup(w, l);
+                if (!t)
+                        return -ENOMEM;
+
+                if (streq(t, "shared"))
                         flags |= MS_SHARED;
-                else if (strncmp(w, "slave", MAX(l, 5U)) == 0)
+                else if (streq(t, "slave"))
                         flags |= MS_SLAVE;
-                else if (strncmp(w, "private", MAX(l, 7U)) == 0)
+                else if (streq(w, "private"))
                         flags |= MS_PRIVATE;
                 else {
-                        log_error("[%s:%u] Failed to parse mount flags, ignoring: %s", filename, line, rvalue);
+                        log_error("[%s:%u] Failed to parse mount flag %s, ignoring: %s",
+                                  filename, line, t, rvalue);
                         return 0;
                 }
         }
