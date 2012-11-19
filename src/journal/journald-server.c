@@ -336,7 +336,7 @@ void server_rotate(Server *s) {
         HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
                 r = journal_file_rotate(&f, s->compress, s->seal);
                 if (r < 0)
-                        if (f->path)
+                        if (f)
                                 log_error("Failed to rotate %s: %s", f->path, strerror(-r));
                         else
                                 log_error("Failed to create user journal: %s", strerror(-r));
