@@ -19,6 +19,10 @@ F18:
 
 Features:
 
+* All log messages generated from socket.c, service.c, ... should
+  include _SYSTEMD_UNIT= fields so that "systemctl status" can show
+  them along with the unit
+
 * define a message ID for "overmounting non-empty directory".
 
 * use polkit "imply" for binding hostname actions together
