@@ -193,7 +193,18 @@ AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at], [], [], [[#include <sys/
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
 
 PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2])
-PKG_CHECK_MODULES(KMOD, [libkmod >= 5])
+
+# ------------------------------------------------------------------------------
+have_kmod=no
+AC_ARG_ENABLE(kmod, AS_HELP_STRING([--disable-kmod], [disable loadable modules support]))
+if test "x$enable_kmod" != "xno"; then
+        PKG_CHECK_MODULES(KMOD, [ libkmod >= 5 ],
+                [AC_DEFINE(HAVE_KMOD, 1, [Define if kmod is available]) have_kmod=yes], have_kmod=no)
+        if test "x$have_kmod" = xno -a "x$enable_kmod" = xyes; then
+                AC_MSG_ERROR([*** kmod support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_KMOD, [test "$have_kmod" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_blkid=no
@@ -860,6 +871,7 @@ AC_MSG_RESULT([
         timedated:               ${have_timedated}
         localed:                 ${have_localed}
         coredump:                ${have_coredump}
+        kmod:                    ${have_kmod}
         blkid:                   ${have_blkid}
         firmware path:           ${FIRMWARE_PATH}
         gudev:                   ${enable_gudev}

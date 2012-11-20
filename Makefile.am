@@ -234,7 +234,6 @@ rootlibexec_PROGRAMS = \
 	systemd-update-utmp \
 	systemd-shutdownd \
 	systemd-shutdown \
-	systemd-modules-load \
 	systemd-remount-fs \
 	systemd-reply-password \
 	systemd-fsck \
@@ -242,6 +241,11 @@ rootlibexec_PROGRAMS = \
 	systemd-ac-power \
 	systemd-sysctl \
 	systemd-sleep
+
+if HAVE_KMOD
+rootlibexec_PROGRAMS += \
+	systemd-modules-load
+endif
 
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator \
@@ -323,7 +327,6 @@ nodist_systemunit_DATA = \
 	units/console-getty.service \
 	units/systemd-initctl.service \
 	units/systemd-shutdownd.service \
-	units/systemd-modules-load.service \
 	units/systemd-remount-fs.service \
 	units/systemd-update-utmp-runlevel.service \
 	units/systemd-update-utmp-shutdown.service \
@@ -349,6 +352,11 @@ nodist_systemunit_DATA = \
 	units/systemd-udev-settle.service \
 	units/debug-shell.service
 
+if HAVE_KMOD
+nodist_systemunit_DATA += \
+	units/systemd-modules-load.service
+endif
+
 dist_userunit_DATA = \
 	units/user/default.target \
 	units/user/exit.target
@@ -364,7 +372,6 @@ EXTRA_DIST += \
 	units/rescue.service.m4.in \
 	units/systemd-initctl.service.in \
 	units/systemd-shutdownd.service.in \
-	units/systemd-modules-load.service.in \
 	units/systemd-remount-fs.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
 	units/systemd-update-utmp-shutdown.service.in \
@@ -392,6 +399,11 @@ EXTRA_DIST += \
 	units/quotaon.service.in \
 	introspect.awk \
 	man/custom-html.xsl
+
+if HAVE_KMOD
+EXTRA_DIST += \
+	units/systemd-modules-load.service.in
+endif
 
 if TARGET_FEDORA
 dist_systemunit_DATA += \
@@ -481,8 +493,6 @@ MANPAGES = \
 	man/locale.conf.5 \
 	man/os-release.5 \
 	man/machine-info.5 \
-	man/modules-load.d.5 \
-	man/systemd-modules-load.service.8 \
 	man/sysctl.d.5 \
 	man/systemd-sysctl.service.8 \
 	man/systemd-ask-password.1 \
@@ -531,7 +541,6 @@ MANPAGES_ALIAS = \
 	man/reboot.8 \
 	man/poweroff.8 \
 	man/init.1 \
-	man/systemd-modules-load.8 \
 	man/systemd-sysctl.8 \
 	man/systemd-journald.socket.8 \
 	man/systemd-journald.8 \
@@ -603,10 +612,18 @@ MANPAGES_ALIAS = \
 	man/sd_journal_restart_unique.3 \
 	man/SD_JOURNAL_FOREACH_UNIQUE.3
 
+if HAVE_KMOD
+MANPAGES += \
+	man/modules-load.d.5 \
+	man/systemd-modules-load.service.8
+MANPAGES_ALIAS += \
+	man/systemd-modules-load.8
+man/systemd-modules-load.8: man/systemd-modules-load.service.8
+endif
+
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
 man/init.1: man/systemd.1
-man/systemd-modules-load.8: man/systemd-modules-load.service.8
 man/systemd-sysctl.8: man/systemd-sysctl.service.8
 man/systemd-journald.socket.8: man/systemd-journald.service.8
 man/systemd-journald.8: man/systemd-journald.service.8
@@ -1015,8 +1032,6 @@ libsystemd_core_la_SOURCES = \
 	src/core/selinux-setup.h \
 	src/core/ima-setup.c \
 	src/core/ima-setup.h \
-	src/core/kmod-setup.c \
-	src/core/kmod-setup.h \
 	src/core/locale-setup.h \
 	src/core/locale-setup.c \
 	src/core/hostname-setup.c \
@@ -1051,6 +1066,12 @@ libsystemd_core_la_SOURCES = \
 	src/core/syscall-list.h \
 	src/core/audit-fd.c \
 	src/core/audit-fd.h
+
+if HAVE_KMOD
+libsystemd_core_la_SOURCES += \
+	src/core/kmod-setup.c \
+	src/core/kmod-setup.h
+endif
 
 nodist_libsystemd_core_la_SOURCES = \
 	src/core/load-fragment-gperf.c \
@@ -1406,6 +1427,7 @@ systemd_shutdown_LDADD = \
 	libsystemd-shared.la \
 	libudev.la
 
+if HAVE_KMOD
 # ------------------------------------------------------------------------------
 systemd_modules_load_SOURCES = \
 	src/modules-load/modules-load.c
@@ -1417,6 +1439,7 @@ systemd_modules_load_CFLAGS = \
 systemd_modules_load_LDADD = \
 	libsystemd-shared.la \
 	$(KMOD_LIBS)
+endif
 
 # ------------------------------------------------------------------------------
 systemd_tmpfiles_SOURCES = \
@@ -1836,8 +1859,12 @@ dist_udevrules_DATA += \
 	rules/75-net-description.rules \
 	rules/75-tty-description.rules \
 	rules/78-sound-card.rules \
-	rules/80-drivers.rules \
 	rules/95-udev-late.rules
+
+if HAVE_KMOD
+dist_udevrules_DATA += \
+	rules/80-drivers.rules
+endif
 
 dist_udevhwdb_DATA = \
 	hwdb/20-pci-vendor-product.hwdb \
@@ -1904,7 +1931,6 @@ libudev_core_la_SOURCES = \
 	src/udev/udev-builtin-firmware.c \
 	src/udev/udev-builtin-hwdb.c \
 	src/udev/udev-builtin-input_id.c \
-	src/udev/udev-builtin-kmod.c \
 	src/udev/udev-builtin-net_id.c \
 	src/udev/udev-builtin-path_id.c \
 	src/udev/udev-builtin-usb_id.c \
@@ -1925,6 +1951,11 @@ libudev_core_la_LIBADD = \
 libudev_core_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-DFIRMWARE_PATH="$(FIRMWARE_PATH)"
+
+if HAVE_KMOD
+libudev_core_la_SOURCES += \
+	src/udev/udev-builtin-kmod.c
+endif
 
 if HAVE_BLKID
 libudev_core_la_SOURCES += \
@@ -4026,7 +4057,6 @@ systemd-install-data-hook:
 			sys-kernel-config.mount \
 			sys-kernel-debug.mount \
 			sys-fs-fuse-connections.mount \
-			systemd-modules-load.service \
 			systemd-tmpfiles-setup.service \
 			systemd-sysctl.service \
 			systemd-ask-password-console.path && \
@@ -4035,7 +4065,6 @@ systemd-install-data-hook:
 		$(LN_S) ../sys-kernel-config.mount sys-kernel-config.mount && \
 		$(LN_S) ../sys-kernel-debug.mount sys-kernel-debug.mount && \
 		$(LN_S) ../sys-fs-fuse-connections.mount sys-fs-fuse-connections.mount && \
-		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
 		$(LN_S) ../systemd-sysctl.service systemd-sysctl.service && \
 		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path )
@@ -4045,6 +4074,13 @@ systemd-install-data-hook:
 	( cd $(DESTDIR)$(dbussessionservicedir) && \
 		rm -f org.freedesktop.systemd1.service && \
 		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )
+
+if HAVE_KMOD
+	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
+		rm -f systemd-modules-load.service && \
+		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service )
+endif
+
 
 if TARGET_FEDORA
 	( cd $(DESTDIR)$(systemunitdir) && \

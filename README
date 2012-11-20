@@ -40,8 +40,8 @@ REQUIREMENTS:
                 optional but strongly recommended: autofs4, ipv6
         dbus >= 1.4.0
         libcap
-        libblkid >= 2.20 (from util-linux)
-        libkmod >= 5
+        libblkid >= 2.20 (from util-linux) (optional)
+        libkmod >= 5 (optional)
         PAM >= 1.1.2 (optional)
         libcryptsetup (optional)
         libaudit (optional)

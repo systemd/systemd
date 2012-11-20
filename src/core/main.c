@@ -55,7 +55,9 @@
 
 #include "mount-setup.h"
 #include "loopback-setup.h"
+#ifdef HAVE_KMOD
 #include "kmod-setup.h"
+#endif
 #include "hostname-setup.h"
 #include "machine-id-setup.h"
 #include "locale-setup.h"
@@ -1574,7 +1576,9 @@ int main(int argc, char *argv[]) {
                 if (arg_show_status || plymouth_running())
                         status_welcome();
 
+#ifdef HAVE_KMOD
                 kmod_setup();
+#endif
                 hostname_setup();
                 machine_id_setup();
                 loopback_setup();
