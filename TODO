@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* journald: also get thread ID from client, plus thread name
+
 * check if we can make journalctl by default use --follow mode inside of less if called without args?
 
 * Addd a verbose mode to "systemctl start" and friends that explains what is being done or not done
