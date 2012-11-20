@@ -1358,16 +1358,17 @@ _public_ const char *udev_device_get_sysattr_value(struct udev_device *udev_devi
                         goto out;
                 }
 
-                /* resolve link to a device and return its syspath */
-                util_strscpyl(path, sizeof(path), udev_device->syspath, "/", sysattr, NULL);
-                dev = udev_device_new_from_syspath(udev_device->udev, path);
-                if (dev != NULL) {
-                        list_entry = udev_list_entry_add(&udev_device->sysattr_value_list, sysattr,
-                                                         udev_device_get_syspath(dev));
-                        val = udev_list_entry_get_value(list_entry);
-                        udev_device_unref(dev);
+                /* resolve custom link to a device and return its syspath */
+                if (!streq(sysattr, "device")) {
+                        util_strscpyl(path, sizeof(path), udev_device->syspath, "/", sysattr, NULL);
+                        dev = udev_device_new_from_syspath(udev_device->udev, path);
+                        if (dev != NULL) {
+                                list_entry = udev_list_entry_add(&udev_device->sysattr_value_list, sysattr,
+                                                                 udev_device_get_syspath(dev));
+                                val = udev_list_entry_get_value(list_entry);
+                                udev_device_unref(dev);
+                        }
                 }
-
                 goto out;
         }
 
