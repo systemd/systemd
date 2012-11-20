@@ -99,7 +99,7 @@ Features:
 
 * journal: add a setgid "adm" utility to invoke from libsystemd-journal, which passes fds via STDOUT and does PK access
 
-* link up selected blog stories from man pages?
+* link up selected blog stories from man pages and unit files Documentation= fields?
 
 * journactl: support negative filtering, i.e. FOOBAR!="waldo",
   and !FOOBAR for events without FOOBAR.
