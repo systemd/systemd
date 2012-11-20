@@ -19,6 +19,10 @@ F18:
 
 Features:
 
+* "systemctl is-failed" to join "systemctl is-active" and "systemctl is-enabled".
+
+* journal is not closed properly at shutdown when run in a container?
+
 * All log messages generated from socket.c, service.c, ... should
   include _SYSTEMD_UNIT= fields so that "systemctl status" can show
   them along with the unit
@@ -518,6 +522,7 @@ Features:
   - how to develop against journal browsing APIs
   - the journal HTTP iface
   - non-cgroup resource management
+  - refreshed, longer missions statement
 
 * allow port=0 in .socket units
 
