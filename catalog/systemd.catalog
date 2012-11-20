@@ -20,6 +20,8 @@
 # The catalog format is documented on
 # http://www.freedesktop.org/wiki/Software/systemd/catalog
 
+# For an explanation why we do all this, see https://xkcd.com/1024/
+
 -- f77379a8490b408bbe5f6940505a777b
 Subject: The Journal has been started
 Defined-By: systemd
