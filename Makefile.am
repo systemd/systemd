@@ -62,6 +62,7 @@ polkitpolicydir=$(datadir)/polkit-1/actions
 bashcompletiondir=$(sysconfdir)/bash_completion.d
 rpmmacrosdir=$(sysconfdir)/rpm
 sysvinitdir=$(SYSTEM_SYSVINIT_PATH)
+sysvrcddir=$(SYSTEM_SYSVRCND_PATH)
 varlogdir=$(localstatedir)/log
 systemdstatedir=$(localstatedir)/lib/systemd
 catalogstatedir=$(systemdstatedir)/catalog
@@ -4087,7 +4088,6 @@ clean-local:
 	rm -f $(abs_srcdir)/hwdb/usb.ids $(abs_srcdir)/hwdb/pci.ids $(abs_srcdir)/hwdb/oui.txt
 
 DISTCHECK_CONFIGURE_FLAGS = \
-	--with-sysvinit-path=$$dc_install_base/$(sysvinitdir) \
 	--with-dbuspolicydir=$$dc_install_base/$(dbuspolicydir) \
 	--with-dbussessionservicedir=$$dc_install_base/$(dbussessionservicedir) \
 	--with-dbussystemservicedir=$$dc_install_base/$(dbussystemservicedir) \
@@ -4095,6 +4095,13 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
 	--with-rootprefix=$$dc_install_base \
 	--disable-split-usr
+
+
+if HAVE_SYSV_COMPAT
+DISTCHECK_CONFIGURE_FLAGS += \
+	--with-sysvinit-path=$$dc_install_base/$(sysvinitdir) \
+	--with-sysvrcnd-path=$$dc_install_base/$(sysvrcddir)
+endif
 
 if ENABLE_GTK_DOC
 DISTCHECK_CONFIGURE_FLAGS += \
