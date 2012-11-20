@@ -77,6 +77,12 @@
                 implements the <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/Generators">generator
                 specification</ulink>.</para>
+
+                <para>Further information about configuration of
+                gettys you may find in <ulink
+                url="http://0pointer.de/blog/projects/serial-console.html">systemd
+                for Administrators, Part XVI: Gettys on Serial
+                Consoles (and Elsewhere)</ulink>.</para>
         </refsect1>
 
         <refsect1>

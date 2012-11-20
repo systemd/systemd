@@ -7,4 +7,5 @@
 
 [Unit]
 Description=Login Prompts
-Documentation=man:systemd.special(7)
+Documentation=man:systemd.special(7) man:systemd-getty-generator(8)
+Documentation=http://0pointer.de/blog/projects/serial-console.html
