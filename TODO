@@ -33,15 +33,11 @@ Features:
   include _SYSTEMD_UNIT= fields so that "systemctl status" can show
   them along with the unit
 
-* define a message ID for "overmounting non-empty directory".
+* define a message ID for "overmounting non-empty directory" and write message catalog entry for it
 
 * use polkit "imply" for binding hostname actions together
 
 * journal: when waiting for journal additions always sleep at least 1s or so, in order to minimize wakeups
-
-* man page for catalog APIs
-
-* add catalog api for querying the raw template rather then replaced text
 
 * When shutdown.target is queued begin with an asynchronous sync()?
 
@@ -55,8 +51,8 @@ Features:
 
 * declare the local journal protocol stable in the wiki interface chart
 
-* sd-journal: don't return fields > a threshold by default
 * journal: reuse XZ context
+
 * sd-journal: speed up sd_journal_get_data() with transparent hash table in bg
 
 * introduce ntp.service (or suchlike) as symlink that is used to arbitrate between various NTP implementations
