@@ -24,6 +24,7 @@
 #include <string.h>
 #include <lzma.h>
 
+#include "macro.h"
 #include "compress.h"
 
 bool compress_blob(const void *src, uint64_t src_size, void *dst, uint64_t *dst_size) {
@@ -66,10 +67,11 @@ fail:
 }
 
 bool uncompress_blob(const void *src, uint64_t src_size,
-                     void **dst, uint64_t *dst_alloc_size, uint64_t* dst_size) {
+                     void **dst, uint64_t *dst_alloc_size, uint64_t* dst_size, uint64_t dst_max) {
 
         lzma_stream s = LZMA_STREAM_INIT;
         lzma_ret ret;
+        uint64_t space;
         bool b = false;
 
         assert(src);
@@ -98,7 +100,8 @@ bool uncompress_blob(const void *src, uint64_t src_size,
         s.avail_in = src_size;
 
         s.next_out = *dst;
-        s.avail_out = *dst_alloc_size;
+        space = dst_max > 0 ? MIN(*dst_alloc_size, dst_max) : *dst_alloc_size;
+        s.avail_out = space;
 
         for (;;) {
                 void *p;
@@ -111,18 +114,23 @@ bool uncompress_blob(const void *src, uint64_t src_size,
                 if (ret != LZMA_OK)
                         goto fail;
 
-                p = realloc(*dst, *dst_alloc_size*2);
+                if (dst_max > 0 && (space - s.avail_out) >= dst_max)
+                        break;
+
+                p = realloc(*dst, space*2);
                 if (!p)
                         goto fail;
 
                 s.next_out = (uint8_t*) p + ((uint8_t*) s.next_out - (uint8_t*) *dst);
-                s.avail_out += *dst_alloc_size;
+                s.avail_out += space;
+
+                space *= 2;
 
                 *dst = p;
-                *dst_alloc_size *= 2;
+                *dst_alloc_size = space;
         }
 
-        *dst_size = *dst_alloc_size - s.avail_out;
+        *dst_size = space - s.avail_out;
         b = true;
 
 fail:

@@ -27,7 +27,7 @@
 bool compress_blob(const void *src, uint64_t src_size, void *dst, uint64_t *dst_size);
 
 bool uncompress_blob(const void *src, uint64_t src_size,
-                     void **dst, uint64_t *dst_alloc_size, uint64_t* dst_size);
+                     void **dst, uint64_t *dst_alloc_size, uint64_t* dst_size, uint64_t dst_max);
 
 bool uncompress_startswith(const void *src, uint64_t src_size,
                            void **buffer, uint64_t *buffer_size,

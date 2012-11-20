@@ -780,7 +780,7 @@ int journal_file_find_data_object_with_hash(
 
                         l -= offsetof(Object, data.payload);
 
-                        if (!uncompress_blob(o->data.payload, l, &f->compress_buffer, &f->compress_buffer_size, &rsize))
+                        if (!uncompress_blob(o->data.payload, l, &f->compress_buffer, &f->compress_buffer_size, &rsize, 0))
                                 return -EBADMSG;
 
                         if (rsize == size &&
@@ -2591,7 +2591,6 @@ int journal_file_open_reliably(
                                  metrics, mmap_cache, template, ret);
 }
 
-
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset) {
         uint64_t i, n;
         uint64_t q, xor_hash = 0;
@@ -2645,7 +2644,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 #ifdef HAVE_XZ
                         uint64_t rsize;
 
-                        if (!uncompress_blob(o->data.payload, l, &from->compress_buffer, &from->compress_buffer_size, &rsize))
+                        if (!uncompress_blob(o->data.payload, l, &from->compress_buffer, &from->compress_buffer_size, &rsize, 0))
                                 return -EBADMSG;
 
                         data = from->compress_buffer;

@@ -69,7 +69,7 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
 
                         if (!uncompress_blob(o->data.payload,
                                              le64toh(o->object.size) - offsetof(Object, data.payload),
-                                             &b, &alloc, &b_size))
+                                             &b, &alloc, &b_size, 0))
                                 return -EBADMSG;
 
                         h2 = hash64(b, b_size);

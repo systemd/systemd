@@ -113,7 +113,9 @@
                 invocation of
                 <function>sd_journal_enumerate_unique()</function>. Note
                 that the data returned will be prefixed with the field
-                name and '='.</para>
+                name and '='. Note that this call is subject to the
+                data field size threshold as controlled by
+                <function>sd_journal_set_data_threshold()</function>.</para>
 
                 <para><function>sd_journal_restart_unique()</function>
                 resets the data enumeration index to the beginning of

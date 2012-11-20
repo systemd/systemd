@@ -91,7 +91,7 @@ static bool shall_print(const char *p, size_t l, OutputFlags flags) {
         if (flags & OUTPUT_SHOW_ALL)
                 return true;
 
-        if (l > PRINT_THRESHOLD)
+        if (l >= PRINT_THRESHOLD)
                 return false;
 
         if (!utf8_is_printable_n(p, l))
@@ -118,6 +118,8 @@ static int output_short(
 
         assert(f);
         assert(j);
+
+        sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : PRINT_THRESHOLD);
 
         SD_JOURNAL_FOREACH_DATA(j, data, length) {
 
@@ -308,6 +310,8 @@ static int output_verbose(
         assert(f);
         assert(j);
 
+        sd_journal_set_data_threshold(j, 0);
+
         r = sd_journal_get_realtime_usec(j, &realtime);
         if (r < 0) {
                 log_error("Failed to get realtime timestamp: %s", strerror(-r));
@@ -367,6 +371,8 @@ static int output_export(
         size_t length;
 
         assert(j);
+
+        sd_journal_set_data_threshold(j, 0);
 
         r = sd_journal_get_realtime_usec(j, &realtime);
         if (r < 0) {
@@ -441,7 +447,7 @@ void json_escape(
         assert(f);
         assert(p);
 
-        if (!(flags & OUTPUT_SHOW_ALL) && l > JSON_THRESHOLD)
+        if (!(flags & OUTPUT_SHOW_ALL) && l >= JSON_THRESHOLD)
 
                 fputs("null", f);
 
@@ -501,6 +507,8 @@ static int output_json(
         bool done, separator;
 
         assert(j);
+
+        sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
 
         r = sd_journal_get_realtime_usec(j, &realtime);
         if (r < 0) {
@@ -713,6 +721,8 @@ static int output_cat(
 
         assert(j);
         assert(f);
+
+        sd_journal_set_data_threshold(j, 0);
 
         r = sd_journal_get_data(j, "MESSAGE", &data, &l);
         if (r < 0) {

@@ -342,6 +342,11 @@ static int dump_list(sd_journal *j) {
 
         assert(j);
 
+        /* The coredumps are likely to compressed, and for just
+         * listing them we don#t need to decompress them, so let's
+         * pick a fairly low data threshold here */
+        sd_journal_set_data_threshold(j, 4096);
+
         SD_JOURNAL_FOREACH(j) {
                 if (field)
                         print_field(stdout, j);
@@ -380,6 +385,9 @@ static int dump_core(sd_journal* j) {
         int r;
 
         assert(j);
+
+        /* We want full data, nothing truncated. */
+        sd_journal_set_data_threshold(j, 0);
 
         r = focus(j);
         if (r < 0)
@@ -427,6 +435,8 @@ static int run_gdb(sd_journal *j) {
         siginfo_t st;
 
         assert(j);
+
+        sd_journal_set_data_threshold(j, 0);
 
         r = focus(j);
         if (r < 0)

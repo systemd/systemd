@@ -121,6 +121,8 @@ struct sd_journal {
         uint64_t unique_offset;
 
         bool on_network;
+
+        size_t data_threshold;
 };
 
 char *journal_make_match_string(sd_journal *j);

@@ -934,6 +934,8 @@ int server_flush_to_var(Server *s) {
                 return r;
         }
 
+        sd_journal_set_data_threshold(j, 0);
+
         SD_JOURNAL_FOREACH(j) {
                 Object *o = NULL;
                 JournalFile *f;

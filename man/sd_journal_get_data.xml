@@ -47,6 +47,8 @@
                 <refname>sd_journal_enumerate_data</refname>
                 <refname>sd_journal_restart_data</refname>
                 <refname>SD_JOURNAL_FOREACH_DATA</refname>
+                <refname>sd_journal_set_data_threshold</refname>
+                <refname>sd_journal_get_data_threshold</refname>
                 <refpurpose>Read data fields from the current journal entry</refpurpose>
         </refnamediv>
 
@@ -81,6 +83,17 @@
                                 <paramdef>size_t <parameter>length</parameter></paramdef>
                         </funcprototype>
 
+                        <funcprototype>
+                                <funcdef>int <function>sd_journal_set_data_threshold</function></funcdef>
+                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>size_t <parameter>sz</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_journal_get_data_threshold</function></funcdef>
+                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>size_t* <parameter>sz</parameter></paramdef>
+                        </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
 
@@ -102,7 +115,11 @@
                 <function>sd_journal_enumerate_data()</function>, or
                 the read pointer is altered. Note that the data
                 returned will be prefixed with the field name and
-                '='.</para>
+                '='. Also note that by default data fields larger than
+                64K might get truncated to 64K. This threshold may be
+                changed and turned off with
+                <function>sd_journal_set_data_threshold()</function> (see
+                below).</para>
 
                 <para><function>sd_journal_enumerate_data()</function>
                 may be used to iterate through all fields of the
@@ -128,6 +145,32 @@
                 <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 (or related call) has been called at least
                 once, in order to position the read pointer at a valid entry.</para>
+
+                <para><function>sd_journal_set_data_threshold()</function>
+                may be used to change the data field size threshold
+                for data returned by
+                <function>sd_journal_get_data()</function>,
+                <function>sd_journal_enumerate_data()</function> and
+                <function>sd_journal_enumerate_unique()</function>. This
+                threshold is a hint only: it indicates that the client
+                program is interested only in the initial parts of the
+                data fields, up to the threshold in size -- but the
+                library might still return larger data objects. That
+                means applications should not rely exclusively on this
+                setting to limit the size of the data fields returned,
+                but need to apply a explicit size limit on the
+                returned data as well. This threshold defaults to 64K
+                by default. To retrieve the complete data fields this
+                threshold should be turned off by setting it to 0, so
+                that the library always returns the complete data
+                objects. It is recommended to set this threshold as
+                low as possible since this relieves the library from
+                having to decompress large compressed data objects in
+                full.</para>
+
+                <para><function>sd_journal_get_data_threshold()</function>
+                returns the currently configured data field size
+                threshold.</para>
         </refsect1>
 
         <refsect1>
@@ -144,15 +187,22 @@
                 read, 0 when no more fields are known, or a negative
                 errno-style error
                 code. <function>sd_journal_restart_data()</function>
-                returns nothing.</para>
+                returns
+                nothing. <function>sd_journal_set_data_threshold()</function>
+                and <function>sd_journal_get_threshold()</function>
+                return 0 on success or a negative errno-style error
+                code.</para>
         </refsect1>
 
         <refsect1>
                 <title>Notes</title>
 
                 <para>The <function>sd_journal_get_data()</function>,
-                <function>sd_journal_enumerate_data()</function> and
-                <function>sd_journal_restart_data()</function>
+                <function>sd_journal_enumerate_data()</function>,
+                <function>sd_journal_restart_data()</function>,
+                <function>sd_journal_set_data_threshold()</function>
+                and
+                <function>sd_journal_get_data_threshold()</function>
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
                 <literal>libsystemd-journal</literal>

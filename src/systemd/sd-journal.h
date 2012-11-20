@@ -97,6 +97,9 @@ int sd_journal_next_skip(sd_journal *j, uint64_t skip);
 int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret);
 int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id128_t *ret_boot_id);
 
+int sd_journal_set_data_threshold(sd_journal *j, size_t sz);
+int sd_journal_get_data_threshold(sd_journal *j, size_t *sz);
+
 int sd_journal_get_data(sd_journal *j, const char *field, const void **data, size_t *l);
 int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *l);
 void sd_journal_restart_data(sd_journal *j);

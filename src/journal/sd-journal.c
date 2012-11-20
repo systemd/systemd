@@ -47,6 +47,8 @@
 
 #define REPLACE_VAR_MAX 256
 
+#define DEFAULT_DATA_THRESHOLD (64*1024)
+
 static void detach_location(sd_journal *j) {
         Iterator i;
         JournalFile *f;
@@ -1560,6 +1562,7 @@ static sd_journal *journal_new(int flags, const char *path) {
 
         j->inotify_fd = -1;
         j->flags = flags;
+        j->data_threshold = DEFAULT_DATA_THRESHOLD;
 
         if (path) {
                 j->path = strdup(path);
@@ -1838,7 +1841,8 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                                 uint64_t rsize;
 
                                 if (!uncompress_blob(o->data.payload, l,
-                                                     &f->compress_buffer, &f->compress_buffer_size, &rsize))
+                                                     &f->compress_buffer, &f->compress_buffer_size, &rsize,
+                                                     j->data_threshold))
                                         return -EBADMSG;
 
                                 *data = f->compress_buffer;
@@ -1862,7 +1866,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                         *data = o->data.payload;
                         *size = t;
 
-                        return 0;
+                        return 1;
                 }
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
@@ -1873,7 +1877,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         return -ENOENT;
 }
 
-static int return_data(JournalFile *f, Object *o, const void **data, size_t *size) {
+static int return_data(sd_journal *j, JournalFile *f, Object *o, const void **data, size_t *size) {
         size_t t;
         uint64_t l;
 
@@ -1888,7 +1892,7 @@ static int return_data(JournalFile *f, Object *o, const void **data, size_t *siz
 #ifdef HAVE_XZ
                 uint64_t rsize;
 
-                if (!uncompress_blob(o->data.payload, l, &f->compress_buffer, &f->compress_buffer_size, &rsize))
+                if (!uncompress_blob(o->data.payload, l, &f->compress_buffer, &f->compress_buffer_size, &rsize, j->data_threshold))
                         return -EBADMSG;
 
                 *data = f->compress_buffer;
@@ -1942,7 +1946,7 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
         if (le_hash != o->data.hash)
                 return -EBADMSG;
 
-        r = return_data(f, o, data, size);
+        r = return_data(j, f, o, data, size);
         if (r < 0)
                 return r;
 
@@ -2339,7 +2343,7 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                 if (o->object.type != OBJECT_DATA)
                         return -EBADMSG;
 
-                r = return_data(j->unique_file, o, &odata, &ol);
+                r = return_data(j, j->unique_file, o, &odata, &ol);
                 if (r < 0)
                         return r;
 
@@ -2371,7 +2375,7 @@ _public_ int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_
                 if (found)
                         continue;
 
-                r = return_data(j->unique_file, o, data, l);
+                r = return_data(j, j->unique_file, o, data, l);
                 if (r < 0)
                         return r;
 
@@ -2455,4 +2459,22 @@ _public_ int sd_journal_get_catalog_for_message_id(sd_id128_t id, char **ret) {
                 return -EINVAL;
 
         return catalog_get(id, ret);
+}
+
+_public_ int sd_journal_set_data_threshold(sd_journal *j, size_t sz) {
+        if (!j)
+                return -EINVAL;
+
+        j->data_threshold = sz;
+        return 0;
+}
+
+_public_ int sd_journal_get_data_threshold(sd_journal *j, size_t *sz) {
+        if (!j)
+                return -EINVAL;
+        if (!sz)
+                return -EINVAL;
+
+        *sz = j->data_threshold;
+        return 0;
 }
