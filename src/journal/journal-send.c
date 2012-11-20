@@ -35,6 +35,17 @@
 
 #define SNDBUF_SIZE (8*1024*1024)
 
+#define ALLOCA_CODE_FUNC(f, func)                 \
+        do {                                      \
+                size_t _fl;                       \
+                const char *_func = (func);       \
+                char **_f = &(f);                 \
+                _fl = strlen(_func) + 1;          \
+                *_f = alloca(_fl + 10);           \
+                memcpy(*_f, "CODE_FUNC=", 10);    \
+                memcpy(*_f + 10, _func, _fl);     \
+        } while(false)
+
 /* We open a single fd, and we'll share it with the current process,
  * all its threads, and all its subprocesses. This means we need to
  * initialize it atomically, and need to operate on it atomically
@@ -487,7 +498,6 @@ _public_ int sd_journal_printv_with_location(int priority, const char *file, con
         char buffer[8 + LINE_MAX], p[11];
         struct iovec iov[5];
         char *f;
-        size_t fl;
 
         if (priority < 0 || priority > 7)
                 return -EINVAL;
@@ -505,10 +515,7 @@ _public_ int sd_journal_printv_with_location(int priority, const char *file, con
         /* func is initialized from __func__ which is not a macro, but
          * a static const char[], hence cannot easily be prefixed with
          * CODE_FUNC=, hence let's do it manually here. */
-        fl = strlen(func) + 1;
-        f = alloca(fl + 10);
-        memcpy(f, "CODE_FUNC=", 10);
-        memcpy(f + 10, func, fl);
+        ALLOCA_CODE_FUNC(f, func);
 
         zero(iov);
         IOVEC_SET_STRING(iov[0], buffer);
@@ -525,7 +532,6 @@ _public_ int sd_journal_send_with_location(const char *file, const char *line, c
         va_list ap;
         struct iovec *iov = NULL;
         char *f;
-        size_t fl;
 
         va_start(ap, format);
         i = fill_iovec_sprintf(format, ap, 3, &iov);
@@ -536,10 +542,7 @@ _public_ int sd_journal_send_with_location(const char *file, const char *line, c
                 goto finish;
         }
 
-        fl = strlen(func) + 1;
-        f = alloca(fl + 10);
-        memcpy(f, "CODE_FUNC=", 10);
-        memcpy(f + 10, func, fl);
+        ALLOCA_CODE_FUNC(f, func);
 
         IOVEC_SET_STRING(iov[0], file);
         IOVEC_SET_STRING(iov[1], line);
@@ -563,7 +566,6 @@ _public_ int sd_journal_sendv_with_location(
 
         struct iovec *niov;
         char *f;
-        size_t fl;
 
         if (_unlikely_(!iov))
                 return -EINVAL;
@@ -574,10 +576,7 @@ _public_ int sd_journal_sendv_with_location(
         niov = alloca(sizeof(struct iovec) * (n + 3));
         memcpy(niov, iov, sizeof(struct iovec) * n);
 
-        fl = strlen(func) + 1;
-        f = alloca(fl + 10);
-        memcpy(f, "CODE_FUNC=", 10);
-        memcpy(f + 10, func, fl);
+        ALLOCA_CODE_FUNC(f, func);
 
         IOVEC_SET_STRING(niov[n++], file);
         IOVEC_SET_STRING(niov[n++], line);
@@ -592,13 +591,9 @@ _public_ int sd_journal_perror_with_location(
                 const char *message) {
 
         struct iovec iov[6];
-        size_t fl;
         char *f;
 
-        fl = strlen(func) + 1;
-        f = alloca(fl + 10);
-        memcpy(f, "CODE_FUNC=", 10);
-        memcpy(f + 10, func, fl);
+        ALLOCA_CODE_FUNC(f, func);
 
         IOVEC_SET_STRING(iov[0], file);
         IOVEC_SET_STRING(iov[1], line);
