@@ -14,7 +14,7 @@ sub usb_vendor {
 
         while (my $line = <IN>) {
                 $line =~ s/\s+$//;
-                $line =~ m/^([0-9a-f]{4})\s*(.*)$/;
+                $line =~ m/^([0-9a-f]{4})\s*(.+)$/;
                 if (defined $1) {
                         $vendor = uc $1;
                         my $text = $2;
@@ -24,7 +24,7 @@ sub usb_vendor {
                         next;
                 }
 
-                $line =~ m/^\t([0-9a-f]{4})\s*(.*)$/;
+                $line =~ m/^\t([0-9a-f]{4})\s*(.+)$/;
                 if (defined $1) {
                         my $product = uc $1;
                         my $text = $2;
@@ -52,7 +52,7 @@ sub usb_classes {
         while (my $line = <IN>) {
                 $line =~ s/\s+$//;
 
-                $line =~ m/^C\ ([0-9a-f]{2})\s*(.*)$/;
+                $line =~ m/^C\ ([0-9a-f]{2})\s*(.+)$/;
                 if (defined $1) {
                         $class = uc $1;
                         if ($class =~ m/^00$/) {
@@ -71,7 +71,7 @@ sub usb_classes {
                         last;
                 }
 
-                $line =~ m/^\t([0-9a-f]{2})\s*(.*)$/;
+                $line =~ m/^\t([0-9a-f]{2})\s*(.+)$/;
                 if (defined $1) {
                         $subclass = uc $1;
                         if ($subclass =~ m/^00$/) {
@@ -87,7 +87,7 @@ sub usb_classes {
                         next;
                 }
 
-                $line =~ m/^\t\t([0-9a-f]{2})\s*(.*)$/;
+                $line =~ m/^\t\t([0-9a-f]{2})\s*(.+)$/;
                 if (defined $1) {
                         $protocol = uc $1;
                         my $text = $2;
@@ -117,7 +117,7 @@ sub pci_vendor {
 
         while (my $line = <IN>) {
                 $line =~ s/\s+$//;
-                $line =~ m/^([0-9a-f]{4})\s*(.*)$/;
+                $line =~ m/^([0-9a-f]{4})\s*(.+)$/;
 
                 if (defined $1) {
                         $vendor = uc $1;
@@ -128,7 +128,7 @@ sub pci_vendor {
                         next;
                 }
 
-                $line =~ m/^\t([0-9a-f]{4})\s*(.*)$/;
+                $line =~ m/^\t([0-9a-f]{4})\s*(.+)$/;
                 if (defined $1) {
                         $device = uc $1;
                         my $text = $2;
@@ -167,7 +167,7 @@ sub pci_classes {
         while (my $line = <IN>) {
                 $line =~ s/\s+$//;
 
-                $line =~ m/^C\ ([0-9a-f]{2})\s*(.*)$/;
+                $line =~ m/^C\ ([0-9a-f]{2})\s*(.+)$/;
                 if (defined $1) {
                         $class = uc $1;
                         my $text = $2;
@@ -183,7 +183,7 @@ sub pci_classes {
                         last;
                 }
 
-                $line =~ m/^\t([0-9a-f]{2})\s*(.*)$/;
+                $line =~ m/^\t([0-9a-f]{2})\s*(.+)$/;
                 if (defined $1) {
                         $subclass = uc $1;
                         my $text = $2;
@@ -193,7 +193,7 @@ sub pci_classes {
                         next;
                 }
 
-                $line =~ m/^\t\t([0-9a-f]{2})\s*(.*)$/;
+                $line =~ m/^\t\t([0-9a-f]{2})\s*(.+)$/;
                 if (defined $1) {
                         $interface = uc $1;
                         my $text = $2;
@@ -216,7 +216,7 @@ sub oui {
 
         while (my $line = <IN>) {
                 $line =~ s/\s+$//;
-                $line =~ m/^([0-9A-F]{6})\s*\(base 16\)\s*(.*)$/;
+                $line =~ m/^([0-9A-F]{6})\s*\(base 16\)\s*(.+)$/;
                 if (defined $1) {
                         my $vendor = uc $1;
                         my $text = $2;
