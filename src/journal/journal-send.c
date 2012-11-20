@@ -219,6 +219,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
          * be a tmpfs, and one that is available from early boot on
          * and where unprivileged users can create files. */
         char path[] = "/dev/shm/journal.XXXXXX";
+        bool have_syslog_identifier = false;
 
         if (_unlikely_(!iov))
                 return -EINVAL;
@@ -228,7 +229,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
 
         saved_errno = errno;
 
-        w = alloca(sizeof(struct iovec) * n * 5);
+        w = alloca(sizeof(struct iovec) * n * 5 + 3);
         l = alloca(sizeof(uint64_t) * n);
 
         for (i = 0; i < n; i++) {
@@ -244,6 +245,9 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
                         r = -EINVAL;
                         goto finish;
                 }
+
+                have_syslog_identifier =
+                        have_syslog_identifier || (c == iov[i].iov_base + 17 && memcmp(iov[i].iov_base, "SYSLOG_IDENTIFIER", 17) == 0);
 
                 nl = memchr(iov[i].iov_base, '\n', iov[i].iov_len);
                 if (nl) {
@@ -277,6 +281,20 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
                          * append a newline */
                         w[j++] = iov[i];
 
+                IOVEC_SET_STRING(w[j++], "\n");
+        }
+
+        if (!have_syslog_identifier &&
+            string_is_safe(program_invocation_short_name)) {
+
+                /* Implicitly add program_invocation_short_name, if it
+                 * is not set explicitly. We only do this for
+                 * program_invocation_short_name, and nothing else
+                 * since everything else is much nicer to retrieve
+                 * from the outside. */
+
+                IOVEC_SET_STRING(w[j++], "SYSLOG_IDENTIFIER=");
+                IOVEC_SET_STRING(w[j++], program_invocation_short_name);
                 IOVEC_SET_STRING(w[j++], "\n");
         }
 
