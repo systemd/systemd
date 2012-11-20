@@ -597,7 +597,7 @@ _udevadm() {
                 fi
 
         elif __contains_word "$verb" ${VERBS[TESTBUILTIN]}; then
-                      comps='blkid btrfs firmware hwdb input_id kmod path_id usb_id uaccess'
+                      comps='blkid btrfs firmware hwdb input_id kmod net_id path_id usb_id uaccess'
         fi
 
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
