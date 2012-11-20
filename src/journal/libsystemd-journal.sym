@@ -85,4 +85,5 @@ LIBSYSTEMD_JOURNAL_196 {
 global:
         sd_journal_fd_reliable;
         sd_journal_get_catalog;
+        sd_journal_get_catalog_for_message_id;
 } LIBSYSTEMD_JOURNAL_195;

@@ -2449,3 +2449,10 @@ _public_ int sd_journal_get_catalog(sd_journal *j, char **ret) {
         *ret = t;
         return 0;
 }
+
+_public_ int sd_journal_get_catalog_for_message_id(sd_id128_t id, char **ret) {
+        if (!ret)
+                return -EINVAL;
+
+        return catalog_get(id, ret);
+}

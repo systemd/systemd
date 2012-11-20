@@ -129,6 +129,7 @@ int sd_journal_process(sd_journal *j);
 int sd_journal_wait(sd_journal *j, uint64_t timeout_usec);
 
 int sd_journal_get_catalog(sd_journal *j, char **text);
+int sd_journal_get_catalog_for_message_id(sd_id128_t id, char **ret);
 
 #define SD_JOURNAL_FOREACH(j)                                           \
         if (sd_journal_seek_head(j) >= 0)                               \
