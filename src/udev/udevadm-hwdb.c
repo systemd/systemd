@@ -469,7 +469,7 @@ static int import_file(struct trie *trie, const char *filename) {
 }
 
 static void help(void) {
-        printf("Usage: udevadm hwdb [--create] [--help]\n"
+        printf("Usage: udevadm hwdb OPTIONS\n"
                "  --update            update the hardware database\n"
                "  --test <modalias>   query database and print result\n"
                "  --help\n\n");
