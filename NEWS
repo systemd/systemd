@@ -1,5 +1,119 @@
 systemd System and Service Manager
 
+CHANGES WITH 196:
+
+        * udev gained support for loading additional device properties
+          from an indexed database that is keyed by vendor/product IDs
+          and similar device identifiers. For the beginning this
+          "hwdb" is populated with data from the well-known PCI and
+          USB database, but also includes PNP, ACPI and OID data. In
+          the longer run this indexed database shall grow into
+          becoming the one central database for non-essential
+          userspace device metadata. Previously, data from the PCI/USB
+          database was only attached to the select devices, since the
+          lookup was a relatively expensive operation due to O(n) time
+          complexity. Since this is now O(log(n)), we decided to add
+          in this data for all devices where this is available, by
+          default. Note that the indexed database needs to be rebuilt
+          when new data files are installed. To achieve this you need
+          to update your packaging scripts to invoke "udevadm hwdb
+          --update" after installation of hwdb data files. For
+          RPM-based distributions we introduced the new
+          %udev_hwdb_update macro for this purpose.
+
+        * The Journal gained support for the "Message Catalog", an
+          indexed database to link up additional information with
+          journal entries. For further details please check:
+
+          http://www.freedesktop.org/wiki/Software/systemd/catalog
+
+          The indexed message catalog database also needs to be
+          rebuilt after installation of message catalog files. Use
+          "journalctl --update-catalog" for this. For RPM-based
+          distributions we introduced the %journal_catalog_update
+          macro for this purpose.
+
+        * The Python Journal bindings gained support for the standard
+          Python logging framework.
+
+        * The Journal API gained new functions for checking whether
+          the underlying file system of a journal file is capable of
+          properly reporting file change notifications, or whether
+          applications that want to reflect journal changes "live"
+          need to recheck journal files continously in appropriate
+          time intervals.
+
+        * It is now possible to set the "age" field for tmpfiles
+          entries to 0, indicating that files matching this entry
+          shall always be removed when the directories are cleaned up.
+
+        * coredumpctl gained a new "gdb" verb which invokes gdb
+          right-away on the selected coredump.
+
+        * There's now support for "hybrid sleep" on kernels that
+          support this, in addition to "suspend" and "hibernate". Use
+          "systemctl hybrid-sleep" to make use of this.
+
+        * logind's HandleSuspendKey= setting (and related settings)
+          now gained support for a new "lock" setting to simply
+          request the screen lock on all local sessions, instead of
+          actually executing a suspend or hibernation.
+
+        * systemd will now mount the EFI variables file system by
+          default.
+
+        * Socket units now gained support for configuration of the
+          SMACK security label.
+
+        * timedatectl will now output the time of the last and next
+          daylight saving change.
+
+        * We dropped support for various legacy and distro-specific
+          concepts, such as insserv, early-boot SysV services
+          (i.e. those for non-standard runlevels such as 'b' or 'S')
+          or ArchLinux /etc/rc.conf support. We recommend the
+          distributions who still need support this to either continue
+          to maintain the necessary patches downstream, or find a
+          different solution. (Talk to us if you have questions!)
+
+        * Various systemd components will now bypass PolicyKit checks
+          for root and otherwise handle properly if PolicyKit is not
+          found to be around. This should fix most issues for
+          PolicyKit-less systems. Quite frankly this should have been
+          this way since day one. It is absolutely our intention to
+          make systemd work fine on PolicyKit-less systems, and we
+          consider it a bug if something doesn't work as it should if
+          PolicyKit is not around.
+
+        * For embedded systems it is now possible to build udev and
+          systemd without blkid and/or kmod support.
+
+        * "systemctl switch-root" is now capable of switching root
+          more than once. I.e. in addition to transitions from the
+          initrd to the host OS it is now possible to transition to
+          further OS images from the host. This is useful to implement
+          offline updating tools.
+
+        * Various other additions have been made to the RPM macros
+          shipped with systemd. Use %udev_rules_update() after
+          installing new udev rules files. %_udevhwdbdir,
+          %_udevrulesdir, %_journalcatalogdir, %_tmpfilesdir,
+          %_sysctldir are now available which resolve to the right
+          directories for packages to place various data files in.
+
+        * journalctl gained the new --full switch (in addition to
+          --all, to disable ellipsation for long messages.
+
+        Contributions from: Anders Olofsson, Auke Kok, Ben Boeckel,
+        Colin Walters, Cosimo Cecchi, Daniel Wallace, Dave Reisner,
+        Eelco Dolstra, Holger Hans Peter Freyther, Kay Sievers,
+        Chun-Yi Lee, Lekensteyn, Lennart Poettering, Mantas Mikulėnas,
+        Marti Raudsepp, Martin Pitt, Mauro Dreissig, Michael Biebl,
+        Michal Schmidt, Michal Sekletar, Miklos Vajna, Nis Martensen,
+        Oleksii Shevchuk, Olivier Brunel, Ramkumar Ramachandra, Thomas
+        Bächler, Thomas Hindoe Paaboel Andersen, Tom Gundersen, Tony
+        Camuso, Umut Tezduyar, Zbigniew Jędrzejewski-Szmek
+
 CHANGES WITH 195:
 
         * journalctl gained new --since= and --until= switches to
