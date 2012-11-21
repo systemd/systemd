@@ -180,8 +180,6 @@ Features:
 
 * nspawn: implement personality changes a la linux32(8)
 
-* nspawn: reset all aux groups
-
 * cryptsetup-generator: warn if the password files are world-readable
 
 * cryptsetup-generator: add RequiresMountsFor= to cryptseup service files referencing a file, similar for devices

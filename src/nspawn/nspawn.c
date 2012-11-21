@@ -1327,6 +1327,23 @@ int main(int argc, char *argv[]) {
                                         log_error("setreuid() failed: %m");
                                         goto child_fail;
                                 }
+                        } else {
+                                /* Reset everything fully to 0, just in case */
+
+                                if (setgroups(0, NULL) < 0) {
+                                        log_error("setgroups() failed: %m");
+                                        goto child_fail;
+                                }
+
+                                if (setresgid(0, 0, 0) < 0) {
+                                        log_error("setregid() failed: %m");
+                                        goto child_fail;
+                                }
+
+                                if (setresuid(0, 0, 0) < 0) {
+                                        log_error("setreuid() failed: %m");
+                                        goto child_fail;
+                                }
                         }
 
                         if ((asprintf((char**)(envp + 3), "HOME=%s", home ? home: "/root") < 0) ||
