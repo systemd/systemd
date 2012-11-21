@@ -167,7 +167,7 @@ Kernel start-up required @KERNEL_USEC@ microseconds.
 
 Initial RAM disk start-up required @INITRD_USEC@ microseconds.
 
-Userspace start-up required @KERNEL_USEC@ microseconds.
+Userspace start-up required @USERSPACE_USEC@ microseconds.
 
 -- 6bbd95ee977941e497c48be27c254128
 Subject: System sleep state @SLEEP@ entered
