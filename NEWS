@@ -10,10 +10,11 @@ CHANGES WITH 196:
           the longer run this indexed database shall grow into
           becoming the one central database for non-essential
           userspace device metadata. Previously, data from the PCI/USB
-          database was only attached to the select devices, since the
+          database was only attached to select devices, since the
           lookup was a relatively expensive operation due to O(n) time
-          complexity. Since this is now O(log(n)), we decided to add
-          in this data for all devices where this is available, by
+          complexity (with n being the number of entries in the
+          database). Since this is now O(1), we decided to add in this
+          data for all devices where this is available, by
           default. Note that the indexed database needs to be rebuilt
           when new data files are installed. To achieve this you need
           to update your packaging scripts to invoke "udevadm hwdb
