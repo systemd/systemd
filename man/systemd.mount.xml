@@ -75,7 +75,9 @@
                 binary is executed in, and in
                 <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 which define the way the processes are
-                terminated.</para>
+                terminated. The User= and Group= options are not useful
+                for mount units specifying a Type= option; the mount
+                binary must run as root if there is a specified type.</para>
 
                 <para>Mount units must be named after the mount point
                 directories they control. Example: the mount point
