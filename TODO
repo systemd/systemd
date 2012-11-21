@@ -383,7 +383,7 @@ Features:
 
 * Add pretty name for seats in logind
 
-* ConditionSecurity= should learn about IMA
+* ConditionSecurity= should learn about IMA and SMACK
 
 * Auke: merge Auke's bootchart
 
