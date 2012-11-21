@@ -3955,6 +3955,8 @@ CLEANFILES += \
 
 endif
 
+EXTRA_DIST += \
+	shell-completion/systemd-zsh-completion.zsh
 
 systemd-install-data-hook:
 	$(MKDIR_P) -m 0755 \
