@@ -3324,7 +3324,8 @@ finish:
 
 static int switch_root(DBusConnection *bus, char **args) {
         unsigned l;
-        const char *root, *init;
+        const char *root;
+        _cleanup_free_ char *init = NULL;
 
         l = strv_length(args);
         if (l < 2 || l > 3) {
@@ -3333,7 +3334,23 @@ static int switch_root(DBusConnection *bus, char **args) {
         }
 
         root = args[1];
-        init = l >= 3 ? args[2] : "";
+
+        if (l >= 3)
+                init = strdup(args[2]);
+        else {
+                parse_env_file("/proc/cmdline", WHITESPACE,
+                               "init", &init,
+                               NULL);
+
+                if (!init)
+                        init = strdup("");
+
+                if (!init)
+                        return log_oom();
+
+        }
+
+        log_debug("switching root - root: %s; init: %s", root, init);
 
         return bus_method_call_with_reply (
                         bus,
