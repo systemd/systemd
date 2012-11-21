@@ -28,7 +28,9 @@
 #include <signal.h>
 #include <arpa/inet.h>
 #include <mqueue.h>
+#ifdef HAVE_ATTR_XATTR_H
 #include <attr/xattr.h>
+#endif
 
 #include "unit.h"
 #include "socket.h"
@@ -768,6 +770,7 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 if (setsockopt(fd, SOL_TCP, TCP_CONGESTION, s->tcp_congestion, strlen(s->tcp_congestion)+1) < 0)
                         log_warning("TCP_CONGESTION failed: %m");
 
+#ifdef HAVE_ATTR_XATTR_H
         if (s->smack_ip_in)
                 if (fsetxattr(fd, "security.SMACK64IPIN", s->smack_ip_in, strlen(s->smack_ip_in), 0) < 0)
                         log_error("fsetxattr(\"security.SMACK64IPIN\"): %m");
@@ -775,6 +778,7 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         if (s->smack_ip_out)
                 if (fsetxattr(fd, "security.SMACK64IPOUT", s->smack_ip_out, strlen(s->smack_ip_out), 0) < 0)
                         log_error("fsetxattr(\"security.SMACK64IPOUT\"): %m");
+#endif
 }
 
 static void socket_apply_fifo_options(Socket *s, int fd) {
@@ -785,9 +789,11 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
                 if (fcntl(fd, F_SETPIPE_SZ, s->pipe_size) < 0)
                         log_warning("F_SETPIPE_SZ: %m");
 
+#ifdef HAVE_ATTR_XATTR_H
         if (s->smack)
                 if (fsetxattr(fd, "security.SMACK64", s->smack, strlen(s->smack), 0) < 0)
                         log_error("fsetxattr(\"security.SMACK64\"): %m");
+#endif
 }
 
 static int fifo_address_create(
