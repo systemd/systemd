@@ -291,3 +291,5 @@ void manager_recheck_journal(Manager *m);
 
 void manager_set_show_status(Manager *m, bool b);
 bool manager_get_show_status(Manager *m);
+
+void watch_init(Watch *w);

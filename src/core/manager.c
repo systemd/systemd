@@ -1363,7 +1363,8 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                 ssize_t k;
 
                 /* Some timer event, to be dispatched to the units */
-                if ((k = read(w->fd, &v, sizeof(v))) != sizeof(v)) {
+                k = read(w->fd, &v, sizeof(v));
+                if (k != sizeof(v)) {
 
                         if (k < 0 && (errno == EINTR || errno == EAGAIN))
                                 break;
@@ -2306,4 +2307,11 @@ bool manager_get_show_status(Manager *m) {
          * that there's something nice to see when people press Esc */
 
         return plymouth_running();
+}
+
+void watch_init(Watch *w) {
+        assert(w);
+
+        w->type = WATCH_INVALID;
+        w->fd = -1;
 }

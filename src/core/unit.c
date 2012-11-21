@@ -1580,7 +1580,8 @@ int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
         } else if (w->type == WATCH_INVALID) {
 
                 ours = true;
-                if ((fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC)) < 0)
+                fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC);
+                if (fd < 0)
                         return -errno;
         } else
                 assert_not_reached("Invalid watch type");

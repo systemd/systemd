@@ -127,9 +127,9 @@ static void service_init(Unit *u) {
         s->restart_usec = DEFAULT_RESTART_USEC;
         s->type = _SERVICE_TYPE_INVALID;
 
-        s->watchdog_watch.type = WATCH_INVALID;
+        watch_init(&s->watchdog_watch);
+        watch_init(&s->timer_watch);
 
-        s->timer_watch.type = WATCH_INVALID;
 #ifdef HAVE_SYSV_COMPAT
         s->sysv_start_priority = -1;
         s->sysv_start_priority_from_rcnd = -1;
