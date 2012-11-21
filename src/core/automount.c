@@ -40,6 +40,7 @@
 #include "label.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "dbus-common.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
@@ -585,7 +586,7 @@ fail:
 static void automount_enter_runnning(Automount *a) {
         int r;
         struct stat st;
-        DBusError error;
+        _cleanup_dbus_error_free_ DBusError error;
 
         assert(a);
         assert(UNIT_DEREF(a->mount));
@@ -620,7 +621,6 @@ static void automount_enter_runnning(Automount *a) {
 
 fail:
         automount_enter_dead(a, AUTOMOUNT_FAILURE_RESOURCES);
-        dbus_error_free(&error);
 }
 
 static int automount_start(Unit *u) {
@@ -791,13 +791,11 @@ static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         case autofs_ptype_missing_direct:
 
                 if (packet.v5_packet.pid > 0) {
-                        char *p = NULL;
+                        _cleanup_free_ char *p = NULL;
 
                         get_process_comm(packet.v5_packet.pid, &p);
                         log_debug("Got direct mount request on %s, triggered by %lu (%s)",
                                   a->where, (unsigned long) packet.v5_packet.pid, strna(p));
-                        free(p);
-
                 } else
                         log_debug("Got direct mount request on %s", a->where);
 
