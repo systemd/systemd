@@ -32,6 +32,7 @@
 #include "log.h"
 #include "readahead-common.h"
 #include "util.h"
+#include "missing.h"
 
 int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st) {
         assert(fd >= 0);
@@ -62,14 +63,63 @@ int fs_on_ssd(const char *p) {
         struct udev_device *udev_device = NULL, *look_at = NULL;
         bool b = false;
         const char *devtype, *rotational, *model, *id;
+        int r;
 
         assert(p);
 
         if (stat(p, &st) < 0)
                 return -errno;
 
-        if (major(st.st_dev) == 0)
+        if (major(st.st_dev) == 0) {
+                _cleanup_fclose_ FILE *f = NULL;
+                int mount_id;
+                struct file_handle *h;
+
+                /* Might be btrfs, which exposes "ssd" as mount flag if it is on ssd.
+                 *
+                 * We first determine the mount ID here, if we can,
+                 * and then lookup the mount ID in mountinfo to find
+                 * the mount options. */
+
+                h = alloca(MAX_HANDLE_SZ);
+                h->handle_bytes = MAX_HANDLE_SZ;
+                r = name_to_handle_at(AT_FDCWD, p, h, &mount_id, AT_SYMLINK_FOLLOW);
+                if (r < 0)
+                        return false;
+
+                f = fopen("/proc/self/mountinfo", "re");
+                if (!f)
+                        return false;
+
+                for (;;) {
+                        char line[LINE_MAX], *e;
+                        _cleanup_free_ char *opts = NULL;
+                        int mid;
+
+                        if (!fgets(line, sizeof(line), f))
+                                return false;
+
+                        truncate_nl(line);
+
+                        if (sscanf(line, "%i", &mid) != 1)
+                                continue;
+
+                        if (mid != mount_id)
+                                continue;
+
+                        e = strstr(line, " - ");
+                        if (!e)
+                                continue;
+
+                        if (sscanf(e+3, "%*s %*s %ms", &opts) != 1)
+                                continue;
+
+                        if (streq(opts, "ssd") || startswith(opts, "ssd,") || endswith(opts, ",ssd") || strstr(opts, ",ssd,"))
+                                return true;
+                }
+
                 return false;
+        }
 
         udev = udev_new();
         if (!udev)
@@ -97,9 +147,10 @@ int fs_on_ssd(const char *p) {
 
         /* Second, try kernel attribute */
         rotational = udev_device_get_sysattr_value(look_at, "queue/rotational");
-        if (rotational)
-                if ((b = streq(rotational, "0")))
-                        goto finish;
+        if (rotational) {
+                b = streq(rotational, "0");
+                goto finish;
+        }
 
         /* Finally, fallback to heuristics */
         look_at = udev_device_get_parent(look_at);
