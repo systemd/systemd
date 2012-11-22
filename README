@@ -53,8 +53,16 @@ REQUIREMENTS:
         libgcrypt (optional)
         libqrencode (optional)
         libmicrohttpd (optional)
+        libpython (optional)
+        make, gcc, and similar tools
 
-        When you build from git you need the following additional dependencies:
+        During runtime you need the following additional dependencies:
+
+        util-linux > v2.18 (requires fsck -l, agetty -s)
+        sulogin (from sysvinit-tools, optional but recommended)
+        dracut (optional)
+
+        When building from git you need the following additional dependencies:
 
         docbook-xsl
         xsltproc
@@ -65,13 +73,6 @@ REQUIREMENTS:
         gperf
         gtkdocize (optional)
         python (optional)
-        make, gcc, and similar tools
-
-        During runtime you need the following dependencies:
-
-        util-linux > v2.18 (requires fsck -l, agetty -s)
-        sulogin (from sysvinit-tools, optional but recommended)
-        dracut (optional)
 
         When systemd-hostnamed is used it is strongly recommended to
         install nss-myhostname to ensure that in a world of
