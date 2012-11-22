@@ -19,6 +19,10 @@ F18:
 
 Features:
 
+* journald: when dropping msgs due to ratelimit make sure to write
+  "dropped %u messages" not only when we are about to print the next
+  message that works, but alraedy after a short tiemout
+
 * add form factor to /etc/machine-info
 
 * use C11 static_assert() where we currently use assert_cc()
@@ -525,6 +529,7 @@ Features:
   - the journal HTTP iface
   - non-cgroup resource management
   - refreshed, longer missions statement
+  - using detect-virt
 
 * allow port=0 in .socket units
 
