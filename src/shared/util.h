@@ -79,7 +79,7 @@ union dirent_storage {
 #define QUOTES "\"\'"
 #define COMMENTS "#;\n"
 
-#define FORMAT_TIMESTAMP_MAX (5+11+9+4+1)
+#define FORMAT_TIMESTAMP_MAX (6+11+9+4+1)
 #define FORMAT_TIMESTAMP_PRETTY_MAX 256
 #define FORMAT_TIMESPAN_MAX 64
 #define FORMAT_BYTES_MAX 8
