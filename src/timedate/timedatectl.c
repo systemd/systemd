@@ -174,7 +174,7 @@ static void print_status_info(StatusInfo *i) {
                 zero(tm);
                 assert_se(strftime(b, sizeof(b), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&tc, &tm)) > 0);
                 char_array_0(b);
-                printf(" Last DST change, DST became %s\n"
+                printf(" Last DST change: DST became %s\n"
                        "                  %s\n"
                        "                  %s\n",
                        is_dstc ? "active" : "inactive", a, b);
@@ -187,7 +187,7 @@ static void print_status_info(StatusInfo *i) {
                 zero(tm);
                 assert_se(strftime(b, sizeof(b), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&tn, &tm)) > 0);
                 char_array_0(b);
-                printf(" Next DST change, DST will become %s, the clock will jump %s\n"
+                printf(" Next DST change: DST will become %s, the clock will jump %s\n"
                        "                  %s\n"
                        "                  %s\n",
                        is_dstn ? "active" : "inactive", jump_str(dn, s, sizeof(s)), a, b);
