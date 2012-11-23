@@ -26,7 +26,7 @@
 
 static void test_one(const char *input, const char *output) {
         CalendarSpec *c;
-        char *p;
+        _cleanup_free_ char *p = NULL, *q = NULL;
         usec_t u;
         char buf[FORMAT_TIMESTAMP_MAX];
         int r;
@@ -37,13 +37,17 @@ static void test_one(const char *input, const char *output) {
         printf("\"%s\" → \"%s\"\n", input, p);
 
         assert_se(streq(p, output));
-        free(p);
 
         u = now(CLOCK_REALTIME);
         r = calendar_spec_next_usec(c, u, &u);
         printf("Next: %s\n", r < 0 ? strerror(-r) : format_timestamp(buf, sizeof(buf), u));
-
         calendar_spec_free(c);
+
+        assert_se(calendar_spec_from_string(p, &c) >= 0);
+        assert_se(calendar_spec_to_string(c, &q) >= 0);
+        calendar_spec_free(c);
+
+        assert_se(streq(q, p));
 }
 
 int main(int argc, char* argv[]) {
