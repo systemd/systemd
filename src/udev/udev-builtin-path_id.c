@@ -302,6 +302,42 @@ out:
         return hostdev;
 }
 
+static struct udev_device *handle_scsi_hyperv(struct udev_device *parent, char **path) {
+        struct udev_device *hostdev;
+        struct udev_device *vmbusdev;
+        const char *guid_str;
+        char *lun = NULL;
+        char guid[38];
+        size_t i, k;
+
+        hostdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_host");
+        if (!hostdev)
+                return NULL;
+
+        vmbusdev = udev_device_get_parent(hostdev);
+        if (!vmbusdev)
+                return NULL;
+
+        guid_str = udev_device_get_sysattr_value(vmbusdev, "device_id");
+        if (!guid_str)
+                return NULL;
+
+        if (strlen(guid_str) < 37 || guid_str[0] != '{' || guid_str[36] != '}')
+                return NULL;
+
+        for (i = 1, k = 0; i < 36; i++) {
+                if (guid_str[i] == '-')
+                        continue;
+                guid[k++] = guid_str[i];
+        }
+        guid[k] = '\0';
+
+        format_lun_number(parent, &lun);
+        path_prepend(path, "vmbus-%s-%s", guid, lun);
+        free(lun);
+        return parent;
+}
+
 static struct udev_device *handle_scsi(struct udev_device *parent, char **path)
 {
         const char *devtype;
@@ -348,6 +384,11 @@ static struct udev_device *handle_scsi(struct udev_device *parent, char **path)
          */
         if (strstr(name, "/ata") != NULL) {
                 parent = NULL;
+                goto out;
+        }
+
+        if (strstr(name, "/vmbus_") != NULL) {
+                parent = handle_scsi_hyperv(parent, path);
                 goto out;
         }
 
