@@ -111,7 +111,7 @@
                 the values are added up. Example: "50" refers to 50
                 seconds; "2min 200ms" refers to 2 minutes plus 200
                 milliseconds, i.e. 120200ms. The following time units
-                are understood: s, min, h, d, w, ms, us.</para>
+                are understood: s, min, h, d, w, ms, us. For details see <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
                 <para>Empty lines and lines starting with # or ; are
                 ignored. This may be used for commenting. Lines ending
@@ -1077,6 +1077,7 @@
                         <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 </para>
         </refsect1>

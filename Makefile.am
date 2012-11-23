@@ -477,6 +477,7 @@ MANPAGES = \
 	man/systemd.kill.5 \
 	man/systemd.special.7 \
 	man/systemd.journal-fields.7 \
+	man/systemd.time.7 \
 	man/kernel-command-line.7 \
 	man/daemon.7 \
 	man/bootup.7 \
@@ -746,7 +747,8 @@ XML_DIRECTIVE_FILES = \
 	man/systemd.kill.xml \
 	man/systemd.device.xml \
 	man/systemd.conf.xml \
-	man/systemd.journal-fields.xml
+	man/systemd.journal-fields.xml \
+	man/systemd.time.xml
 
 man/systemd.directives.xml: make-directive-index.py $(XML_DIRECTIVE_FILES)
 	$(AM_V_at)$(MKDIR_P) $(dir $@)

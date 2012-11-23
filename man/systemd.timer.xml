@@ -105,7 +105,7 @@
                                 <term><varname>OnUnitActiveSec=</varname></term>
                                 <term><varname>OnUnitInactiveSec=</varname></term>
 
-                                <listitem><para>Defines timers
+                                <listitem><para>Defines monotonic timers
                                 relative to different starting points:
                                 <varname>OnActiveSec=</varname> defines a
                                 timer relative to the moment the timer
@@ -139,8 +139,8 @@
                                 seconds. Example: "OnBootSec=50" means
                                 50s after boot-up. The argument may
                                 also include time units. Example:
-                                "OnBootSec=5h 30min" means 5 hours and 30
-                                minutes after boot-up. For details
+                                "OnBootSec=5h 30min" means 5 hours and
+                                30 minutes after boot-up. For details
                                 about the syntax of time spans see
                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
@@ -152,14 +152,27 @@
                                 elapse and the configured unit is
                                 started. This is not the case for
                                 timers defined in the other
-                                directives.</para></listitem>
+                                directives.</para>
 
                                 <para>These are monotonic timers,
                                 independent of wall-clock time and timezones. If the
                                 computer is temporarily suspended, the
-                                monotonic clock stops too.</para>
+                                monotonic clock stops too.</para></listitem>
 
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>OnCalendar=</varname></term>
+
+                                <listitem><para>Defines realtime
+                                (i.e. wallclock) timers via calendar
+                                event expressions. See
+                                <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for more information on the syntax of
+                                calendar event
+                                expressions.</para></listitem>
+                        </varlistentry>
+
                         <varlistentry>
                                 <term><varname>Unit=</varname></term>
 
@@ -185,7 +198,8 @@
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                   </para>
         </refsect1>
 
