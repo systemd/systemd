@@ -299,6 +299,8 @@ Features:
 
 * systemd-analyze post-boot is broken for initrd
 
+* systemd-analyze: data collection tools should be lightweight (few dependencies); data analysis tools can be heavyweight
+
 * man: clarify that time-sync.target is not only sysv compat but also useful otherwise. Same for similar targets
 
 * .device aliases need to be implemented with the "following" logic, probably.
