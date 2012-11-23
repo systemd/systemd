@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* kill insserv code
+
 * In parse_timestamp() allow specifying a week day, and if it doesn't match the date, generate a parse failure
 
 * journald: when dropping msgs due to ratelimit make sure to write
