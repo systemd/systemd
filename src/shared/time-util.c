@@ -312,6 +312,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
 
         x = time(NULL);
         assert_se(localtime_r(&x, &tm));
+        tm.tm_isdst = -1;
 
         if (streq(t, "now"))
                 goto finish;
