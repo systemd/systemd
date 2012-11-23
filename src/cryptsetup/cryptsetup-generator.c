@@ -83,29 +83,25 @@ static int create_disk(
 
         n = unit_name_from_path_instance("systemd-cryptsetup", name, ".service");
         if (!n) {
-                r = -ENOMEM;
-                log_error("Failed to allocate unit name.");
+                r = log_oom();
                 goto fail;
         }
 
         p = strjoin(arg_dest, "/", n, NULL);
         if (!p) {
-                r = -ENOMEM;
-                log_error("Failed to allocate unit file name.");
+                r = log_oom();
                 goto fail;
         }
 
         u = fstab_node_to_udev_node(device);
         if (!u) {
-                r = -ENOMEM;
-                log_error("Failed to allocate device node.");
+                r = log_oom();
                 goto fail;
         }
 
         d = unit_name_from_path(u, ".device");
         if (!d) {
-                r = -ENOMEM;
-                log_error("Failed to allocate device name.");
+                r = log_oom();
                 goto fail;
         }
 
@@ -169,7 +165,7 @@ static int create_disk(
         }
 
         if (asprintf(&from, "../%s", n) < 0) {
-                r = -ENOMEM;
+                r = log_oom();
                 goto fail;
         }
 
@@ -177,7 +173,7 @@ static int create_disk(
 
                 to = strjoin(arg_dest, "/", d, ".wants/", n, NULL);
                 if (!to) {
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto fail;
                 }
 
@@ -195,7 +191,7 @@ static int create_disk(
                 else
                         to = strjoin(arg_dest, "/cryptsetup.target.wants/", n, NULL);
                 if (!to) {
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto fail;
                 }
 
@@ -213,7 +209,7 @@ static int create_disk(
         e = unit_name_escape(name);
         to = strjoin(arg_dest, "/dev-mapper-", e, ".device.requires/", n, NULL);
         if (!to) {
-                r = -ENOMEM;
+                r = log_oom();
                 goto fail;
         }
 
@@ -260,7 +256,7 @@ static int parse_proc_cmdline(void) {
 
                 word = strndup(w, l);
                 if (!word) {
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
