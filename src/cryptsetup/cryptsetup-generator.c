@@ -108,7 +108,7 @@ static int create_disk(
         f = fopen(p, "wxe");
         if (!f) {
                 r = -errno;
-                log_error("Failed to create unit file: %m");
+                log_error("Failed to create unit file %s: %m", p);
                 goto fail;
         }
 
@@ -160,7 +160,7 @@ static int create_disk(
 
         if (ferror(f)) {
                 r = -errno;
-                log_error("Failed to write file: %m");
+                log_error("Failed to write file %s: %m", p);
                 goto fail;
         }
 
