@@ -19,54 +19,43 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <string.h>
+
 #include "util.h"
 
+static void test_one(const char *p) {
+        usec_t t, q;
+        char buf[FORMAT_TIMESTAMP_MAX], buf_relative[FORMAT_TIMESTAMP_RELATIVE_MAX];
+
+        assert_se(parse_timestamp(p, &t) >= 0);
+        log_info("%s", format_timestamp(buf, sizeof(buf), t));
+
+        /* Chop off timezone */
+        *strrchr(buf, ' ') = 0;
+
+        assert_se(parse_timestamp(buf, &q) >= 0);
+        assert_se(q == t);
+
+        log_info("%s", strna(format_timestamp_relative(buf_relative, sizeof(buf_relative), t)));
+        assert_se(parse_timestamp(buf, &q) >= 0);
+}
+
 int main(int argc, char *argv[]) {
-
-        usec_t t;
-        char buf[FORMAT_TIMESTAMP_MAX];
-
-        assert_se(parse_timestamp("17:41", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
-
-        assert_se(parse_timestamp("18:42:44", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
-
-        assert_se(parse_timestamp("12-10-02 12:13:14", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
-
-        assert_se(parse_timestamp("12-10-2 12:13:14", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
-
-        assert_se(parse_timestamp("12-10-03 12:13", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
-
-        assert_se(parse_timestamp("2012-12-30 18:42", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
-
-        assert_se(parse_timestamp("2012-10-02", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
-
-        assert_se(parse_timestamp("now", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
-
-        assert_se(parse_timestamp("yesterday", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
-
-        assert_se(parse_timestamp("today", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
-
-        assert_se(parse_timestamp("tomorrow", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
-
-        assert_se(parse_timestamp("+2d", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
-
-        assert_se(parse_timestamp("+2y 4d", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
-
-        assert_se(parse_timestamp("5months ago", &t) >= 0);
-        log_info("%s", format_timestamp(buf, sizeof(buf), t));
+        test_one("17:41");
+        test_one("18:42:44");
+        test_one("12-10-02 12:13:14");
+        test_one("12-10-2 12:13:14");
+        test_one("12-10-03 12:13");
+        test_one("2012-12-30 18:42");
+        test_one("2012-10-02");
+        test_one("Tue 2012-10-02");
+        test_one("now");
+        test_one("yesterday");
+        test_one("today");
+        test_one("tomorrow");
+        test_one("+2d");
+        test_one("+2y 4d");
+        test_one("5months ago");
 
         return 0;
 }

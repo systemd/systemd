@@ -284,11 +284,32 @@ void dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
 }
 
 int parse_timestamp(const char *t, usec_t *usec) {
+        static const struct {
+                const char *name;
+                const int nr;
+        } day_nr[] = {
+                { "Sunday",    0 },
+                { "Sun",       0 },
+                { "Monday",    1 },
+                { "Mon",       1 },
+                { "Tuesday",   2 },
+                { "Tue",       2 },
+                { "Wednesday", 3 },
+                { "Wed",       3 },
+                { "Thursday",  4 },
+                { "Thu",       4 },
+                { "Friday",    5 },
+                { "Fri",       5 },
+                { "Saturday",  6 },
+                { "Sat",       6 },
+        };
+
         const char *k;
         struct tm tm, copy;
         time_t x;
         usec_t plus = 0, minus = 0, ret;
-        int r;
+        int r, weekday = -1;
+        unsigned i;
 
         /*
          * Allowed syntaxes:
@@ -360,6 +381,21 @@ int parse_timestamp(const char *t, usec_t *usec) {
                 goto finish;
         }
 
+        for (i = 0; i < ELEMENTSOF(day_nr); i++) {
+                size_t skip;
+
+                if (!startswith_no_case(t, day_nr[i].name))
+                        continue;
+
+                skip = strlen(day_nr[i].name);
+                if (t[skip] != ' ')
+                        continue;
+
+                weekday = day_nr[i].nr;
+                t += skip + 1;
+                break;
+        }
+
         copy = tm;
         k = strptime(t, "%y-%m-%d %H:%M:%S", &tm);
         if (k && *k == 0)
@@ -415,6 +451,9 @@ int parse_timestamp(const char *t, usec_t *usec) {
 finish:
         x = mktime(&tm);
         if (x == (time_t) -1)
+                return -EINVAL;
+
+        if (weekday >= 0 && tm.tm_wday != weekday)
                 return -EINVAL;
 
         ret = (usec_t) x * USEC_PER_SEC;
