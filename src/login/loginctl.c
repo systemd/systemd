@@ -334,7 +334,7 @@ static void print_session_status_info(SessionStatusInfo *i) {
         else
                 printf("%u\n", (unsigned) i->uid);
 
-        s1 = format_timestamp_pretty(since1, sizeof(since1), i->timestamp);
+        s1 = format_timestamp_relative(since1, sizeof(since1), i->timestamp);
         s2 = format_timestamp(since2, sizeof(since2), i->timestamp);
 
         if (s1)
@@ -427,7 +427,7 @@ static void print_user_status_info(UserStatusInfo *i) {
         else
                 printf("%u\n", (unsigned) i->uid);
 
-        s1 = format_timestamp_pretty(since1, sizeof(since1), i->timestamp);
+        s1 = format_timestamp_relative(since1, sizeof(since1), i->timestamp);
         s2 = format_timestamp(since2, sizeof(since2), i->timestamp);
 
         if (s1)

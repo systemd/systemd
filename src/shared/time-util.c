@@ -142,7 +142,7 @@ char *format_timestamp(char *buf, size_t l, usec_t t) {
         return buf;
 }
 
-char *format_timestamp_pretty(char *buf, size_t l, usec_t t) {
+char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
         usec_t n, d;
 
         n = now(CLOCK_REALTIME);

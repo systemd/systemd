@@ -2125,7 +2125,7 @@ static void print_status_info(UnitStatusInfo *i) {
                     streq_ptr(i->active_state, "activating")    ? i->inactive_exit_timestamp :
                                                                   i->active_exit_timestamp;
 
-        s1 = format_timestamp_pretty(since1, sizeof(since1), timestamp);
+        s1 = format_timestamp_relative(since1, sizeof(since1), timestamp);
         s2 = format_timestamp(since2, sizeof(since2), timestamp);
 
         if (s1)
@@ -2136,7 +2136,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("\n");
 
         if (!i->condition_result && i->condition_timestamp > 0) {
-                s1 = format_timestamp_pretty(since1, sizeof(since1), i->condition_timestamp);
+                s1 = format_timestamp_relative(since1, sizeof(since1), i->condition_timestamp);
                 s2 = format_timestamp(since2, sizeof(since2), i->condition_timestamp);
 
                 if (s1)

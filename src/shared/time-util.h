@@ -71,7 +71,7 @@ usec_t timeval_load(const struct timeval *tv);
 struct timeval *timeval_store(struct timeval *tv, usec_t u);
 
 char *format_timestamp(char *buf, size_t l, usec_t t);
-char *format_timestamp_pretty(char *buf, size_t l, usec_t t);
+char *format_timestamp_relative(char *buf, size_t l, usec_t t);
 char *format_timespan(char *buf, size_t l, usec_t t);
 
 void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t);
