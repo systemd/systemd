@@ -75,9 +75,14 @@
                 binary is executed in, and in
                 <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 which define the way the processes are
-                terminated. The User= and Group= options are not useful
-                for mount units specifying a Type= option; the mount
-                binary must run as root if there is a specified type.</para>
+                terminated. Note that the User= and Group= options are
+                not particularly useful for mount units specifying a
+                <literal>Type=</literal> option or using configuration
+                not specified in <filename>/etc/fstab</filename>;
+                <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                will refuse options that aren't listed in
+                <filename>/etc/fstab</filename> if it is not run as
+                UID 0.</para>
 
                 <para>Mount units must be named after the mount point
                 directories they control. Example: the mount point
