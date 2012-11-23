@@ -50,8 +50,11 @@ static int dev_pci(struct udev_device *dev, const char *prefix, bool test) {
         if (!d || !streq("pci", udev_device_get_subsystem(d)))
                 return -ENOENT;
 
-        /* find SMBIOS type 41 entries for on-board devices */
-        index = udev_device_get_sysattr_value(d, "index");
+        /* ACPI _SUN  -- slot user number */
+        index = udev_device_get_sysattr_value(d, "acpi_index");
+        /* SMBIOS type 41 -- Onboard Devices Extended Information */
+        if (!index)
+                index = udev_device_get_sysattr_value(d, "index");
         if (index) {
                 unsigned int idx;
 
