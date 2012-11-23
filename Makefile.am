@@ -4111,12 +4111,6 @@ if TARGET_MANDRIVA
 		$(LN_S) rescue.service single.service )
 endif
 
-if TARGET_DEBIAN_OR_UBUNTU
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f runlevel5.target && \
-		$(LN_S) multi-user.target runlevel5.target )
-endif
-
 if TARGET_SUSE
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f local.service && \
