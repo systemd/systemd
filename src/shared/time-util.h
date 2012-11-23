@@ -54,7 +54,7 @@ typedef struct dual_timestamp {
 #define NSEC_PER_YEAR (31557600ULL*NSEC_PER_SEC)
 
 #define FORMAT_TIMESTAMP_MAX (6+11+9+4+1)
-#define FORMAT_TIMESTAMP_PRETTY_MAX 256
+#define FORMAT_TIMESTAMP_RELATIVE_MAX 256
 #define FORMAT_TIMESPAN_MAX 64
 
 usec_t now(clockid_t clock);

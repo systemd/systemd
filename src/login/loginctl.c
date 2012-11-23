@@ -323,7 +323,7 @@ typedef struct SeatStatusInfo {
 } SeatStatusInfo;
 
 static void print_session_status_info(SessionStatusInfo *i) {
-        char since1[FORMAT_TIMESTAMP_PRETTY_MAX], *s1;
+        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         assert(i);
 
@@ -418,7 +418,7 @@ static void print_session_status_info(SessionStatusInfo *i) {
 }
 
 static void print_user_status_info(UserStatusInfo *i) {
-        char since1[FORMAT_TIMESTAMP_PRETTY_MAX], *s1;
+        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         assert(i);
 

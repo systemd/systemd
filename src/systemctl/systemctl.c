@@ -2056,7 +2056,7 @@ static void print_status_info(UnitStatusInfo *i) {
         ExecStatusInfo *p;
         const char *on, *off, *ss;
         usec_t timestamp;
-        char since1[FORMAT_TIMESTAMP_PRETTY_MAX], *s1;
+        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         const char *path;
 
