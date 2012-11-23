@@ -65,5 +65,8 @@ int main(int argc, char *argv[]) {
         assert_se(parse_timestamp("+2y 4d", &t) >= 0);
         log_info("%s", format_timestamp(buf, sizeof(buf), t));
 
+        assert_se(parse_timestamp("5months ago", &t) >= 0);
+        log_info("%s", format_timestamp(buf, sizeof(buf), t));
+
         return 0;
 }

@@ -344,6 +344,19 @@ int parse_timestamp(const char *t, usec_t *usec) {
                         return r;
 
                 goto finish;
+
+        } else if (endswith(t, " ago")) {
+                _cleanup_free_ char *z;
+
+                z = strndup(t, strlen(t) - 4);
+                if (!z)
+                        return -ENOMEM;
+
+                r = parse_usec(z, &minus);
+                if (r < 0)
+                        return r;
+
+                goto finish;
         }
 
         copy = tm;
