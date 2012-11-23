@@ -38,14 +38,7 @@
 #include <stddef.h>
 
 #include "macro.h"
-
-typedef uint64_t usec_t;
-typedef uint64_t nsec_t;
-
-typedef struct dual_timestamp {
-        usec_t realtime;
-        usec_t monotonic;
-} dual_timestamp;
+#include "time-util.h"
 
 union dirent_storage {
         struct dirent de;
@@ -53,25 +46,6 @@ union dirent_storage {
                         ((NAME_MAX + 1 + sizeof(long)) & ~(sizeof(long) - 1))];
 };
 
-#define MSEC_PER_SEC  1000ULL
-#define USEC_PER_SEC  1000000ULL
-#define USEC_PER_MSEC 1000ULL
-#define NSEC_PER_SEC  1000000000ULL
-#define NSEC_PER_MSEC 1000000ULL
-#define NSEC_PER_USEC 1000ULL
-
-#define USEC_PER_MINUTE (60ULL*USEC_PER_SEC)
-#define NSEC_PER_MINUTE (60ULL*NSEC_PER_SEC)
-#define USEC_PER_HOUR (60ULL*USEC_PER_MINUTE)
-#define NSEC_PER_HOUR (60ULL*NSEC_PER_MINUTE)
-#define USEC_PER_DAY (24ULL*USEC_PER_HOUR)
-#define NSEC_PER_DAY (24ULL*NSEC_PER_HOUR)
-#define USEC_PER_WEEK (7ULL*USEC_PER_DAY)
-#define NSEC_PER_WEEK (7ULL*NSEC_PER_DAY)
-#define USEC_PER_MONTH (2629800ULL*USEC_PER_SEC)
-#define NSEC_PER_MONTH (2629800ULL*NSEC_PER_SEC)
-#define USEC_PER_YEAR (31557600ULL*USEC_PER_SEC)
-#define NSEC_PER_YEAR (31557600ULL*NSEC_PER_SEC)
 
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
@@ -79,9 +53,6 @@ union dirent_storage {
 #define QUOTES "\"\'"
 #define COMMENTS "#;\n"
 
-#define FORMAT_TIMESTAMP_MAX (6+11+9+4+1)
-#define FORMAT_TIMESTAMP_PRETTY_MAX 256
-#define FORMAT_TIMESPAN_MAX 64
 #define FORMAT_BYTES_MAX 8
 
 #define ANSI_HIGHLIGHT_ON "\x1B[1;39m"
@@ -91,19 +62,6 @@ union dirent_storage {
 #define ANSI_HIGHLIGHT_OFF "\x1B[0m"
 
 bool is_efiboot(void);
-
-usec_t now(clockid_t clock);
-
-dual_timestamp* dual_timestamp_get(dual_timestamp *ts);
-dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u);
-
-#define dual_timestamp_is_set(ts) ((ts)->realtime > 0)
-
-usec_t timespec_load(const struct timespec *ts);
-struct timespec *timespec_store(struct timespec *ts, usec_t u);
-
-usec_t timeval_load(const struct timeval *tv);
-struct timeval *timeval_store(struct timeval *tv, usec_t u);
 
 size_t page_size(void);
 #define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
@@ -154,8 +112,6 @@ void close_nointr_nofail(int fd);
 void close_many(const int fds[], unsigned n_fd);
 
 int parse_boolean(const char *v);
-int parse_usec(const char *t, usec_t *usec);
-int parse_nsec(const char *t, nsec_t *nsec);
 int parse_bytes(const char *t, off_t *bytes);
 int parse_pid(const char *s, pid_t* ret_pid);
 int parse_uid(const char *s, uid_t* ret_uid);
@@ -282,10 +238,6 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix);
 bool ignore_file(const char *filename);
 
 bool chars_intersect(const char *a, const char *b);
-
-char *format_timestamp(char *buf, size_t l, usec_t t);
-char *format_timestamp_pretty(char *buf, size_t l, usec_t t);
-char *format_timespan(char *buf, size_t l, usec_t t);
 
 int make_stdio(int fd);
 int make_null_stdio(void);
@@ -442,9 +394,6 @@ int null_or_empty_path(const char *fn);
 
 DIR *xopendirat(int dirfd, const char *name, int flags);
 
-void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t);
-void dual_timestamp_deserialize(const char *value, dual_timestamp *t);
-
 char *fstab_node_to_udev_node(const char *p);
 
 bool tty_is_vc(const char *tty);
@@ -594,8 +543,6 @@ _malloc_ static inline void *memdup_multiply(const void *p, size_t a, size_t b) 
 
 bool filename_is_safe(const char *p);
 bool string_is_safe(const char *p);
-
-int parse_timestamp(const char *t, usec_t *usec);
 
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  int (*compar) (const void *, const void *, void *),

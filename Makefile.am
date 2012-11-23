@@ -787,6 +787,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/virt.h \
 	src/shared/path-util.c \
 	src/shared/path-util.h \
+	src/shared/time-util.c \
+	src/shared/time-util.h \
 	src/shared/hashmap.c \
 	src/shared/hashmap.h \
 	src/shared/set.c \
