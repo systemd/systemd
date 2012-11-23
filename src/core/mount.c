@@ -741,10 +741,12 @@ static int mount_coldplug(Unit *u) {
                         if (m->control_pid <= 0)
                                 return -EBADMSG;
 
-                        if ((r = unit_watch_pid(UNIT(m), m->control_pid)) < 0)
+                        r = unit_watch_pid(UNIT(m), m->control_pid);
+                        if (r < 0)
                                 return r;
 
-                        if ((r = unit_watch_timer(UNIT(m), m->timeout_usec, &m->timer_watch)) < 0)
+                        r = unit_watch_timer(UNIT(m), CLOCK_MONOTONIC, true, m->timeout_usec, &m->timer_watch);
+                        if (r < 0)
                                 return r;
                 }
 
@@ -800,7 +802,8 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         assert(c);
         assert(_pid);
 
-        if ((r = unit_watch_timer(UNIT(m), m->timeout_usec, &m->timer_watch)) < 0)
+        r = unit_watch_timer(UNIT(m), CLOCK_MONOTONIC, true, m->timeout_usec, &m->timer_watch);
+        if (r < 0)
                 goto fail;
 
         if ((r = exec_spawn(c,
@@ -900,7 +903,8 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
         }
 
         if (wait_for_exit) {
-                if ((r = unit_watch_timer(UNIT(m), m->timeout_usec, &m->timer_watch)) < 0)
+                r = unit_watch_timer(UNIT(m), CLOCK_MONOTONIC, true, m->timeout_usec, &m->timer_watch);
+                if (r < 0)
                         goto fail;
 
                 mount_set_state(m, state);

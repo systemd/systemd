@@ -234,6 +234,7 @@ Swap.TimeoutSec,                 config_parse_usec,                  0,         
 EXEC_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
 m4_dnl
+Timer.OnCalendar,                config_parse_timer,                 0,                             0
 Timer.OnActiveSec,               config_parse_timer,                 0,                             0
 Timer.OnBootSec,                 config_parse_timer,                 0,                             0
 Timer.OnStartupSec,              config_parse_timer,                 0,                             0

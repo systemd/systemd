@@ -249,7 +249,7 @@ static void service_handle_watchdog(Service *s) {
                 return;
         }
 
-        r = unit_watch_timer(UNIT(s), s->watchdog_usec - offset, &s->watchdog_watch);
+        r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->watchdog_usec - offset, &s->watchdog_watch);
         if (r < 0)
                 log_warning("%s failed to install watchdog timer: %s", UNIT(s)->id, strerror(-r));
 }
@@ -1599,7 +1599,8 @@ static int service_coldplug(Unit *u) {
 
                                 k = s->deserialized_state == SERVICE_AUTO_RESTART ? s->restart_usec : s->timeout_start_usec;
 
-                                if ((r = unit_watch_timer(UNIT(s), k, &s->timer_watch)) < 0)
+                                r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, k, &s->timer_watch);
+                                if (r < 0)
                                         return r;
                         }
                 }
@@ -1744,7 +1745,7 @@ static int service_spawn(
         }
 
         if (timeout && s->timeout_start_usec) {
-                r = unit_watch_timer(UNIT(s), s->timeout_start_usec, &s->timer_watch);
+                r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->timeout_start_usec, &s->timer_watch);
                 if (r < 0)
                         goto fail;
         } else
@@ -1899,7 +1900,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
              !set_contains(s->restart_ignore_status.signal, INT_TO_PTR(s->main_exec_status.status)))
                 ) {
 
-                r = unit_watch_timer(UNIT(s), s->restart_usec, &s->timer_watch);
+                r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->restart_usec, &s->timer_watch);
                 if (r < 0)
                         goto fail;
 
@@ -2012,7 +2013,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
 
         if (wait_for_exit) {
                 if (s->timeout_stop_usec > 0) {
-                        r = unit_watch_timer(UNIT(s), s->timeout_stop_usec, &s->timer_watch);
+                        r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->timeout_stop_usec, &s->timer_watch);
                         if (r < 0)
                                 goto fail;
                 }
@@ -2262,7 +2263,7 @@ static void service_enter_restart(Service *s) {
                 /* Don't restart things if we are going down anyway */
                 log_info("Stop job pending for unit, delaying automatic restart.");
 
-                r = unit_watch_timer(UNIT(s), s->restart_usec, &s->timer_watch);
+                r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->restart_usec, &s->timer_watch);
                 if (r < 0)
                         goto fail;
 

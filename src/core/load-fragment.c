@@ -1136,30 +1136,47 @@ int config_parse_timer(
                 void *userdata) {
 
         Timer *t = data;
-        usec_t u;
+        usec_t u = 0;
         TimerValue *v;
         TimerBase b;
+        CalendarSpec *c = NULL;
+        clockid_t id;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if ((b = timer_base_from_string(lvalue)) < 0) {
+        b = timer_base_from_string(lvalue);
+        if (b < 0) {
                 log_error("[%s:%u] Failed to parse timer base, ignoring: %s", filename, line, lvalue);
                 return 0;
         }
 
-        if (parse_usec(rvalue, &u) < 0) {
-                log_error("[%s:%u] Failed to parse timer value, ignoring: %s", filename, line, rvalue);
-                return 0;
+        if (b == TIMER_CALENDAR) {
+                if (calendar_spec_from_string(rvalue, &c) < 0) {
+                        log_error("[%s:%u] Failed to parse calendar specification, ignoring: %s", filename, line, rvalue);
+                        return 0;
+                }
+
+                id = CLOCK_REALTIME;
+        } else {
+                if (parse_usec(rvalue, &u) < 0) {
+                        log_error("[%s:%u] Failed to parse timer value, ignoring: %s", filename, line, rvalue);
+                        return 0;
+                }
+
+                id = CLOCK_MONOTONIC;
         }
 
-        if (!(v = new0(TimerValue, 1)))
+        v = new0(TimerValue, 1);
+        if (!v)
                 return -ENOMEM;
 
         v->base = b;
+        v->clock_id = id;
         v->value = u;
+        v->calendar_spec = c;
 
         LIST_PREPEND(TimerValue, value, t->values, v);
 

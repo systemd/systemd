@@ -833,7 +833,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/hwclock.c \
 	src/shared/hwclock.h \
 	src/shared/time-dst.c \
-	src/shared/time-dst.h
+	src/shared/time-dst.h \
+	src/shared/calendarspec.c \
+	src/shared/calendarspec.h
 
 #-------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -1218,7 +1220,8 @@ noinst_PROGRAMS += \
 	test-date \
 	test-sleep \
 	test-replace-var \
-	test-sched-prio
+	test-sched-prio \
+	test-calendarspec
 
 TESTS += \
 	test-job-type \
@@ -1229,7 +1232,8 @@ TESTS += \
 	test-date \
 	test-sleep \
 	test-replace-var \
-	test-sched-prio
+	test-sched-prio \
+	test-calendarspec
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1318,6 +1322,12 @@ test_replace_var_SOURCES = \
 	src/test/test-replace-var.c
 
 test_replace_var_LDADD = \
+	libsystemd-shared.la
+
+test_calendarspec_SOURCES = \
+	src/test/test-calendarspec.c
+
+test_calendarspec_LDADD = \
 	libsystemd-shared.la
 
 test_daemon_SOURCES = \

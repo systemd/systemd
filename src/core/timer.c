@@ -42,7 +42,10 @@ static void timer_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        t->next_elapse = (usec_t) -1;
+        t->next_elapse_monotonic = (usec_t) -1;
+        t->next_elapse_realtime = (usec_t) -1;
+        watch_init(&t->monotonic_watch);
+        watch_init(&t->realtime_watch);
 }
 
 static void timer_done(Unit *u) {
@@ -53,10 +56,15 @@ static void timer_done(Unit *u) {
 
         while ((v = t->values)) {
                 LIST_REMOVE(TimerValue, value, t->values, v);
+
+                if (v->calendar_spec)
+                        calendar_spec_free(v->calendar_spec);
+
                 free(v);
         }
 
-        unit_unwatch_timer(u, &t->timer_watch);
+        unit_unwatch_timer(u, &t->monotonic_watch);
+        unit_unwatch_timer(u, &t->realtime_watch);
 
         unit_ref_unset(&t->unit);
 }
@@ -81,10 +89,12 @@ static int timer_add_default_dependencies(Timer *t) {
         assert(t);
 
         if (UNIT(t)->manager->running_as == SYSTEMD_SYSTEM) {
-                if ((r = unit_add_dependency_by_name(UNIT(t), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
+                r = unit_add_dependency_by_name(UNIT(t), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true);
+                if (r < 0)
                         return r;
 
-                if ((r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+                r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true);
+                if (r < 0)
                         return r;
         }
 
@@ -98,7 +108,8 @@ static int timer_load(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        if ((r = unit_load_fragment_and_dropin(u)) < 0)
+        r = unit_load_fragment_and_dropin(u);
+        if (r < 0)
                 return r;
 
         if (u->load_state == UNIT_LOADED) {
@@ -117,9 +128,11 @@ static int timer_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (UNIT(t)->default_dependencies)
-                        if ((r = timer_add_default_dependencies(t)) < 0)
+                if (UNIT(t)->default_dependencies) {
+                        r = timer_add_default_dependencies(t);
+                        if (r < 0)
                                 return r;
+                }
         }
 
         return timer_verify(t);
@@ -128,8 +141,6 @@ static int timer_load(Unit *u) {
 static void timer_dump(Unit *u, FILE *f, const char *prefix) {
         Timer *t = TIMER(u);
         TimerValue *v;
-        char
-                timespan1[FORMAT_TIMESPAN_MAX];
 
         fprintf(f,
                 "%sTimer State: %s\n"
@@ -139,12 +150,28 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, timer_result_to_string(t->result),
                 prefix, UNIT_DEREF(t->unit)->id);
 
-        LIST_FOREACH(value, v, t->values)
-                fprintf(f,
-                        "%s%s: %s\n",
-                        prefix,
-                        timer_base_to_string(v->base),
-                        strna(format_timespan(timespan1, sizeof(timespan1), v->value)));
+        LIST_FOREACH(value, v, t->values) {
+
+                if (v->base == TIMER_CALENDAR) {
+                        _cleanup_free_ char *p = NULL;
+
+                        calendar_spec_to_string(v->calendar_spec, &p);
+
+                        fprintf(f,
+                                "%s%s: %s\n",
+                                prefix,
+                                timer_base_to_string(v->base),
+                                strna(p));
+                } else  {
+                        char timespan1[FORMAT_TIMESPAN_MAX];
+
+                        fprintf(f,
+                                "%s%s: %s\n",
+                                prefix,
+                                timer_base_to_string(v->base),
+                                strna(format_timespan(timespan1, sizeof(timespan1), v->value)));
+                }
+        }
 }
 
 static void timer_set_state(Timer *t, TimerState state) {
@@ -154,8 +181,10 @@ static void timer_set_state(Timer *t, TimerState state) {
         old_state = t->state;
         t->state = state;
 
-        if (state != TIMER_WAITING)
-                unit_unwatch_timer(UNIT(t), &t->timer_watch);
+        if (state != TIMER_WAITING) {
+                unit_unwatch_timer(UNIT(t), &t->monotonic_watch);
+                unit_unwatch_timer(UNIT(t), &t->realtime_watch);
+        }
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
@@ -196,79 +225,117 @@ static void timer_enter_dead(Timer *t, TimerResult f) {
 
 static void timer_enter_waiting(Timer *t, bool initial) {
         TimerValue *v;
-        usec_t base = 0, delay, n;
-        bool found = false;
+        usec_t base = 0;
+        dual_timestamp ts;
+        bool found_monotonic = false, found_realtime = false;
         int r;
 
-        n = now(CLOCK_MONOTONIC);
+        dual_timestamp_get(&ts);
+        t->next_elapse_monotonic = t->next_elapse_realtime = 0;
 
         LIST_FOREACH(value, v, t->values) {
 
                 if (v->disabled)
                         continue;
 
-                switch (v->base) {
+                if (v->base == TIMER_CALENDAR) {
 
-                case TIMER_ACTIVE:
-                        if (state_translation_table[t->state] == UNIT_ACTIVE)
-                                base = UNIT(t)->inactive_exit_timestamp.monotonic;
+                        r = calendar_spec_next_usec(v->calendar_spec, ts.realtime, &v->next_elapse);
+                        if (r < 0)
+                                continue;
+
+                        if (!initial && v->next_elapse < ts.realtime) {
+                                v->disabled = true;
+                                continue;
+                        }
+
+                        if (!found_realtime)
+                                t->next_elapse_realtime = v->next_elapse;
                         else
-                                base = n;
-                        break;
+                                t->next_elapse_realtime = MIN(t->next_elapse_realtime, v->next_elapse);
 
-                case TIMER_BOOT:
-                        /* CLOCK_MONOTONIC equals the uptime on Linux */
-                        base = 0;
-                        break;
+                        found_realtime = true;
 
-                case TIMER_STARTUP:
-                        base = UNIT(t)->manager->userspace_timestamp.monotonic;
-                        break;
+                } else  {
+                        switch (v->base) {
 
-                case TIMER_UNIT_ACTIVE:
+                        case TIMER_ACTIVE:
+                                if (state_translation_table[t->state] == UNIT_ACTIVE)
+                                        base = UNIT(t)->inactive_exit_timestamp.monotonic;
+                                else
+                                        base = ts.monotonic;
+                                break;
 
-                        if (UNIT_DEREF(t->unit)->inactive_exit_timestamp.monotonic <= 0)
+                        case TIMER_BOOT:
+                                /* CLOCK_MONOTONIC equals the uptime on Linux */
+                                base = 0;
+                                break;
+
+                        case TIMER_STARTUP:
+                                base = UNIT(t)->manager->userspace_timestamp.monotonic;
+                                break;
+
+                        case TIMER_UNIT_ACTIVE:
+
+                                if (UNIT_DEREF(t->unit)->inactive_exit_timestamp.monotonic <= 0)
+                                        continue;
+
+                                base = UNIT_DEREF(t->unit)->inactive_exit_timestamp.monotonic;
+                                break;
+
+                        case TIMER_UNIT_INACTIVE:
+
+                                if (UNIT_DEREF(t->unit)->inactive_enter_timestamp.monotonic <= 0)
+                                        continue;
+
+                                base = UNIT_DEREF(t->unit)->inactive_enter_timestamp.monotonic;
+                                break;
+
+                        default:
+                                assert_not_reached("Unknown timer base");
+                        }
+
+                        v->next_elapse = base + v->value;
+
+                        if (!initial && v->next_elapse < ts.monotonic) {
+                                v->disabled = true;
                                 continue;
+                        }
 
-                        base = UNIT_DEREF(t->unit)->inactive_exit_timestamp.monotonic;
-                        break;
+                        if (!found_monotonic)
+                                t->next_elapse_monotonic = v->next_elapse;
+                        else
+                                t->next_elapse_monotonic = MIN(t->next_elapse_monotonic, v->next_elapse);
 
-                case TIMER_UNIT_INACTIVE:
-
-                        if (UNIT_DEREF(t->unit)->inactive_enter_timestamp.monotonic <= 0)
-                                continue;
-
-                        base = UNIT_DEREF(t->unit)->inactive_enter_timestamp.monotonic;
-                        break;
-
-                default:
-                        assert_not_reached("Unknown timer base");
+                        found_monotonic = true;
                 }
-
-                v->next_elapse = base + v->value;
-
-                if (!initial && v->next_elapse < n) {
-                        v->disabled = true;
-                        continue;
-                }
-
-                if (!found)
-                        t->next_elapse = v->next_elapse;
-                else
-                        t->next_elapse = MIN(t->next_elapse, v->next_elapse);
-
-                found = true;
         }
 
-        if (!found) {
+        if (!found_monotonic && !found_realtime) {
+                log_debug("%s: Timer is elapsed.", UNIT(t)->id);
                 timer_set_state(t, TIMER_ELAPSED);
                 return;
         }
 
-        delay = n < t->next_elapse ? t->next_elapse - n : 0;
+        if (found_monotonic) {
+                char buf[FORMAT_TIMESPAN_MAX];
+                log_debug("%s: Monotonic timer elapses in %s the next time.", UNIT(t)->id, format_timespan(buf, sizeof(buf), t->next_elapse_monotonic - ts.monotonic));
 
-        if ((r = unit_watch_timer(UNIT(t), delay, &t->timer_watch)) < 0)
-                goto fail;
+                r = unit_watch_timer(UNIT(t), CLOCK_MONOTONIC, false, t->next_elapse_monotonic, &t->monotonic_watch);
+                if (r < 0)
+                        goto fail;
+        } else
+                unit_unwatch_timer(UNIT(t), &t->monotonic_watch);
+
+        if (found_realtime) {
+                char buf[FORMAT_TIMESTAMP_MAX];
+                log_debug("%s: Realtime timer elapses at %s the next time.", UNIT(t)->id, format_timestamp(buf, sizeof(buf), t->next_elapse_realtime));
+
+                r = unit_watch_timer(UNIT(t), CLOCK_REALTIME, false, t->next_elapse_realtime, &t->realtime_watch);
+                if (r < 0)
+                        goto fail;
+        } else
+                unit_unwatch_timer(UNIT(t), &t->realtime_watch);
 
         timer_set_state(t, TIMER_WAITING);
         return;
@@ -289,7 +356,8 @@ static void timer_enter_running(Timer *t) {
         if (UNIT(t)->job && UNIT(t)->job->type == JOB_STOP)
                 return;
 
-        if ((r = manager_add_job(UNIT(t)->manager, JOB_START, UNIT_DEREF(t->unit), JOB_REPLACE, true, &error, NULL)) < 0)
+        r = manager_add_job(UNIT(t)->manager, JOB_START, UNIT_DEREF(t->unit), JOB_REPLACE, true, &error, NULL);
+        if (r < 0)
                 goto fail;
 
         timer_set_state(t, TIMER_RUNNING);
@@ -350,7 +418,8 @@ static int timer_deserialize_item(Unit *u, const char *key, const char *value, F
         if (streq(key, "state")) {
                 TimerState state;
 
-                if ((state = timer_state_from_string(value)) < 0)
+                state = timer_state_from_string(value);
+                if (state < 0)
                         log_debug("Failed to parse state value %s", value);
                 else
                         t->deserialized_state = state;
@@ -473,7 +542,8 @@ static const char* const timer_base_table[_TIMER_BASE_MAX] = {
         [TIMER_BOOT] = "OnBootSec",
         [TIMER_STARTUP] = "OnStartupSec",
         [TIMER_UNIT_ACTIVE] = "OnUnitActiveSec",
-        [TIMER_UNIT_INACTIVE] = "OnUnitInactiveSec"
+        [TIMER_UNIT_INACTIVE] = "OnUnitInactiveSec",
+        [TIMER_CALENDAR] = "OnCalendar"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);

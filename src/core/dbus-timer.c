@@ -79,7 +79,8 @@ static int bus_timer_append_timers(DBusMessageIter *i, const char *property, voi
 
                 /* s/Sec/USec/ */
                 l = strlen(t);
-                if (!(buf = new(char, l+2)))
+                buf = new(char, l+2);
+                if (!buf)
                         return -ENOMEM;
 
                 memcpy(buf, t, l-3);
@@ -121,7 +122,8 @@ static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_timer_append_timer_result, timer_resu
 static const BusProperty bus_timer_properties[] = {
         { "Unit",           bus_timer_append_unit,        "s", 0 },
         { "Timers",         bus_timer_append_timers, "a(stt)", 0 },
-        { "NextElapseUSec", bus_property_append_usec,     "t", offsetof(Timer, next_elapse) },
+        { "NextElapseUSec", bus_property_append_usec,     "t", offsetof(Timer, next_elapse_monotonic) },
+        { "NextElapseUSecRealtime", bus_property_append_usec, "t", offsetof(Timer, next_elapse_realtime) },
         { "Result",         bus_timer_append_timer_result,"s", offsetof(Timer, result)      },
         { NULL, }
 };

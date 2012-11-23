@@ -1146,10 +1146,12 @@ static int socket_coldplug(Unit *u) {
                         if (s->control_pid <= 0)
                                 return -EBADMSG;
 
-                        if ((r = unit_watch_pid(UNIT(s), s->control_pid)) < 0)
+                        r = unit_watch_pid(UNIT(s), s->control_pid);
+                        if (r < 0)
                                 return r;
 
-                        if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
+                        r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->timeout_usec, &s->timer_watch);
+                        if (r < 0)
                                 return r;
                 }
 
@@ -1181,10 +1183,12 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         assert(c);
         assert(_pid);
 
-        if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
+        r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->timeout_usec, &s->timer_watch);
+        if (r < 0)
                 goto fail;
 
-        if (!(argv = unit_full_printf_strv(UNIT(s), c->argv))) {
+        argv = unit_full_printf_strv(UNIT(s), c->argv);
+        if (!argv) {
                 r = -ENOMEM;
                 goto fail;
         }
@@ -1306,7 +1310,8 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         }
 
         if (wait_for_exit) {
-                if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
+                r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->timeout_usec, &s->timer_watch);
+                if (r < 0)
                         goto fail;
 
                 socket_set_state(s, state);

@@ -1560,7 +1560,7 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
         hashmap_remove_value(u->manager->watch_pids, LONG_TO_PTR(pid), u);
 }
 
-int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
+int unit_watch_timer(Unit *u, clockid_t clock_id, bool relative, usec_t usec, Watch *w) {
         struct itimerspec its;
         int flags, fd;
         bool ours;
@@ -1580,7 +1580,7 @@ int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
         } else if (w->type == WATCH_INVALID) {
 
                 ours = true;
-                fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC);
+                fd = timerfd_create(clock_id, TFD_NONBLOCK|TFD_CLOEXEC);
                 if (fd < 0)
                         return -errno;
         } else
@@ -1588,7 +1588,7 @@ int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
 
         zero(its);
 
-        if (delay <= 0) {
+        if (usec <= 0) {
                 /* Set absolute time in the past, but not 0, since we
                  * don't want to disarm the timer */
                 its.it_value.tv_sec = 0;
@@ -1596,8 +1596,8 @@ int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
 
                 flags = TFD_TIMER_ABSTIME;
         } else {
-                timespec_store(&its.it_value, delay);
-                flags = 0;
+                timespec_store(&its.it_value, usec);
+                flags = relative ? 0 : TFD_TIMER_ABSTIME;
         }
 
         /* This will also flush the elapse counter */

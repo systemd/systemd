@@ -484,7 +484,7 @@ void unit_unwatch_fd(Unit *u, Watch *w);
 int unit_watch_pid(Unit *u, pid_t pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);
 
-int unit_watch_timer(Unit *u, usec_t delay, Watch *w);
+int unit_watch_timer(Unit *u, clockid_t, bool relative, usec_t usec, Watch *w);
 void unit_unwatch_timer(Unit *u, Watch *w);
 
 int unit_watch_bus_name(Unit *u, const char *name);

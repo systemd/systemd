@@ -24,6 +24,7 @@
 typedef struct Timer Timer;
 
 #include "unit.h"
+#include "calendarspec.h"
 
 typedef enum TimerState {
         TIMER_DEAD,
@@ -41,18 +42,21 @@ typedef enum TimerBase {
         TIMER_STARTUP,
         TIMER_UNIT_ACTIVE,
         TIMER_UNIT_INACTIVE,
+        TIMER_CALENDAR,
         _TIMER_BASE_MAX,
         _TIMER_BASE_INVALID = -1
 } TimerBase;
 
 typedef struct TimerValue {
+        TimerBase base;
+        bool disabled;
+        clockid_t clock_id;
+
         usec_t value;
+        CalendarSpec *calendar_spec;
         usec_t next_elapse;
 
         LIST_FIELDS(struct TimerValue, value);
-
-        TimerBase base;
-        bool disabled;
 } TimerValue;
 
 typedef enum TimerResult {
@@ -66,12 +70,14 @@ struct Timer {
         Unit meta;
 
         LIST_HEAD(TimerValue, values);
-        usec_t next_elapse;
+        usec_t next_elapse_monotonic;
+        usec_t next_elapse_realtime;
 
         TimerState state, deserialized_state;
         UnitRef unit;
 
-        Watch timer_watch;
+        Watch monotonic_watch;
+        Watch realtime_watch;
 
         TimerResult result;
 };
