@@ -145,10 +145,9 @@ static void print_status_info(StatusInfo *i) {
         }
 
         zero(tm);
-        assert_se(strftime(a, sizeof(a), "%z", localtime_r(&sec, &tm)) > 0);
+        assert_se(strftime(a, sizeof(a), "%Z, %z", localtime_r(&sec, &tm)) > 0);
         char_array_0(a);
-        printf("        Timezone: %s\n"
-               "      UTC offset: %s\n"
+        printf("        Timezone: %s (%s)\n"
                "     NTP enabled: %s\n"
                "NTP synchronized: %s\n"
                " RTC in local TZ: %s\n",
