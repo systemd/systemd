@@ -124,12 +124,12 @@ static void print_status_info(StatusInfo *i) {
         sec = (time_t) (n / USEC_PER_SEC);
 
         zero(tm);
-        assert_se(strftime(a, sizeof(a), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) > 0);
+        assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) > 0);
         char_array_0(a);
         printf("      Local time: %s\n", a);
 
         zero(tm);
-        assert_se(strftime(a, sizeof(a), "%a, %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm)) > 0);
+        assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm)) > 0);
         char_array_0(a);
         printf("  Universal time: %s\n", a);
 
@@ -139,7 +139,7 @@ static void print_status_info(StatusInfo *i) {
                 /* Calculcate the week-day */
                 mktime(&tm);
 
-                assert_se(strftime(a, sizeof(a), "%a, %Y-%m-%d %H:%M:%S", &tm) > 0);
+                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S", &tm) > 0);
                 char_array_0(a);
                 printf("        RTC time: %s\n", a);
         }
@@ -168,11 +168,11 @@ static void print_status_info(StatusInfo *i) {
 
                 t = tc - 1;
                 zero(tm);
-                assert_se(strftime(a, sizeof(a), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
+                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
                 char_array_0(a);
 
                 zero(tm);
-                assert_se(strftime(b, sizeof(b), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&tc, &tm)) > 0);
+                assert_se(strftime(b, sizeof(b), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&tc, &tm)) > 0);
                 char_array_0(b);
                 printf(" Last DST change: DST became %s\n"
                        "                  %s\n"
@@ -181,11 +181,11 @@ static void print_status_info(StatusInfo *i) {
 
                 t = tn - 1;
                 zero(tm);
-                assert_se(strftime(a, sizeof(a), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
+                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
                 char_array_0(a);
 
                 zero(tm);
-                assert_se(strftime(b, sizeof(b), "%a, %Y-%m-%d %H:%M:%S %Z", localtime_r(&tn, &tm)) > 0);
+                assert_se(strftime(b, sizeof(b), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&tn, &tm)) > 0);
                 char_array_0(b);
                 printf(" Next DST change: DST will become %s, the clock will jump %s\n"
                        "                  %s\n"
