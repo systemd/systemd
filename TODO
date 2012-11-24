@@ -19,11 +19,7 @@ F18:
 
 Features:
 
-* reschedule calendar timer events when the time jumps
-
-* kill insserv code
-
-* In parse_timestamp() allow specifying a week day, and if it doesn't match the date, generate a parse failure
+* kill insserv code, people should really use a generator for this
 
 * journald: when dropping msgs due to ratelimit make sure to write
   "dropped %u messages" not only when we are about to print the next
@@ -564,9 +560,6 @@ Features:
 * timer events with system resume
 
 * dot output for --test showing the 'initial transaction'
-
-* calendar time support in timer:
-    https://docs.google.com/document/pub?id=1bAMyFAjWLpzR3GTDYdgj5FWRMxoZiWw5zmUHEtvdHKA
 
 * writable cgroups dbus properties for live changes
 
