@@ -60,7 +60,8 @@ enum WatchType {
         WATCH_SWAP,
         WATCH_UDEV,
         WATCH_DBUS_WATCH,
-        WATCH_DBUS_TIMEOUT
+        WATCH_DBUS_TIMEOUT,
+        WATCH_TIME_CHANGE
 };
 
 struct Watch {
@@ -125,6 +126,7 @@ struct Manager {
 
         Watch notify_watch;
         Watch signal_watch;
+        Watch time_change_watch;
 
         int epoll_fd;
 

@@ -527,6 +527,18 @@ static void timer_reset_failed(Unit *u) {
         t->result = TIMER_SUCCESS;
 }
 
+static void timer_time_change(Unit *u) {
+        Timer *t = TIMER(u);
+
+        assert(u);
+
+        if (t->state != TIMER_WAITING)
+                return;
+
+        log_info("%s: time change, recalculating next elapse.", u->id);
+        timer_enter_waiting(t, false);
+}
+
 static const char* const timer_state_table[_TIMER_STATE_MAX] = {
         [TIMER_DEAD] = "dead",
         [TIMER_WAITING] = "waiting",
@@ -582,6 +594,7 @@ const UnitVTable timer_vtable = {
         .timer_event = timer_timer_event,
 
         .reset_failed = timer_reset_failed,
+        .time_change = timer_time_change,
 
         .bus_interface = "org.freedesktop.systemd1.Timer",
         .bus_message_handler = bus_timer_message_handler,

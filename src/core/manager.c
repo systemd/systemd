@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <sys/timerfd.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -120,15 +121,57 @@ static int manager_setup_notify(Manager *m) {
         ev.events = EPOLLIN;
         ev.data.ptr = &m->notify_watch;
 
-        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->notify_watch.fd, &ev) < 0)
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->notify_watch.fd, &ev) < 0) {
+                log_error("Failed to add timer change fd to epoll: %m");
                 return -errno;
+        }
 
         sa.un.sun_path[0] = '@';
         m->notify_socket = strdup(sa.un.sun_path);
         if (!m->notify_socket)
-                return -ENOMEM;
+                return log_oom();
 
         log_debug("Using notification socket %s", m->notify_socket);
+
+        return 0;
+}
+
+static int manager_setup_time_change(Manager *m) {
+        struct epoll_event ev;
+        struct itimerspec its;
+
+        assert(m);
+        assert(m->time_change_watch.type == WATCH_INVALID);
+
+        /* Uses TFD_TIMER_CANCEL_ON_SET to get notifications whenever
+         * CLOCK_REALTIME makes a jump relative to CLOCK_MONOTONIC */
+
+        m->time_change_watch.type = WATCH_TIME_CHANGE;
+        m->time_change_watch.fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
+        if (m->time_change_watch.fd < 0) {
+                log_error("Failed to create timerfd: %m");
+                return -errno;
+        }
+
+        zero(its);
+        its.it_value.tv_sec = 10000000000; /* Year 2287 or so... */
+        if (timerfd_settime(m->time_change_watch.fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0) {
+                log_debug("Failed to set up TFD_TIMER_CANCEL_ON_SET, ignoring: %m");
+                close_nointr_nofail(m->time_change_watch.fd);
+                watch_init(&m->time_change_watch);
+                return 0;
+        }
+
+        zero(ev);
+        ev.events = EPOLLIN;
+        ev.data.ptr = &m->time_change_watch;
+
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->time_change_watch.fd, &ev) < 0) {
+                log_error("Failed to add timer change fd to epoll: %m");
+                return -errno;
+        }
+
+        log_debug("Set up TFD_TIMER_CANCEL_ON_SET timerfd.");
 
         return 0;
 }
@@ -208,7 +251,8 @@ static int manager_setup_signals(Manager *m) {
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
         m->signal_watch.type = WATCH_SIGNAL;
-        if ((m->signal_watch.fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0)
+        m->signal_watch.fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
+        if (m->signal_watch.fd < 0)
                 return -errno;
 
         zero(ev);
@@ -259,7 +303,13 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         m->pin_cgroupfs_fd = -1;
         m->idle_pipe[0] = m->idle_pipe[1] = -1;
 
-        m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = m->dev_autofs_fd = m->swap_watch.fd = -1;
+        watch_init(&m->signal_watch);
+        watch_init(&m->mount_watch);
+        watch_init(&m->swap_watch);
+        watch_init(&m->udev_watch);
+        watch_init(&m->time_change_watch);
+
+        m->epoll_fd = m->dev_autofs_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
         m->environment = strv_copy(environ);
@@ -289,20 +339,29 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         if (!(m->watch_bus = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
 
-        if ((m->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
+        m->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+        if (m->epoll_fd < 0)
                 goto fail;
 
-        if ((r = manager_setup_signals(m)) < 0)
+        r = manager_setup_signals(m);
+        if (r < 0)
                 goto fail;
 
-        if ((r = manager_setup_cgroup(m)) < 0)
+        r = manager_setup_cgroup(m);
+        if (r < 0)
                 goto fail;
 
-        if ((r = manager_setup_notify(m)) < 0)
+        r = manager_setup_notify(m);
+        if (r < 0)
+                goto fail;
+
+        r = manager_setup_time_change(m);
+        if (r < 0)
                 goto fail;
 
         /* Try to connect to the busses, if possible. */
-        if ((r = bus_init(m, running_as != SYSTEMD_SYSTEM)) < 0)
+        r = bus_init(m, running_as != SYSTEMD_SYSTEM);
+        if (r < 0)
                 goto fail;
 
         m->taint_usr = dir_is_empty("/usr") > 0;
@@ -487,6 +546,8 @@ void manager_free(Manager *m) {
                 close_nointr_nofail(m->signal_watch.fd);
         if (m->notify_watch.fd >= 0)
                 close_nointr_nofail(m->notify_watch.fd);
+        if (m->time_change_watch.fd >= 0)
+                close_nointr_nofail(m->time_change_watch.fd);
 
         free(m->notify_socket);
 
@@ -1369,6 +1430,7 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                         if (k < 0 && (errno == EINTR || errno == EAGAIN))
                                 break;
 
+                        log_error("Failed to read timer event counter: %s", k < 0 ? strerror(-k) : "Short read");
                         return k < 0 ? -errno : -EIO;
                 }
 
@@ -1401,6 +1463,28 @@ static int process_event(Manager *m, struct epoll_event *ev) {
         case WATCH_DBUS_TIMEOUT:
                 bus_timeout_event(m, w, ev->events);
                 break;
+
+        case WATCH_TIME_CHANGE: {
+                Unit *u;
+                Iterator i;
+
+                log_struct(LOG_INFO,
+                           MESSAGE_ID(SD_MESSAGE_TIME_CHANGE),
+                           "MESSAGE=Time has been changed",
+                           NULL);
+
+                /* Restart the watch */
+                close_nointr_nofail(m->time_change_watch.fd);
+                watch_init(&m->time_change_watch);
+                manager_setup_time_change(m);
+
+                HASHMAP_FOREACH(u, m->units, i) {
+                        if (UNIT_VTABLE(u)->time_change)
+                                UNIT_VTABLE(u)->time_change(u);
+                }
+
+                break;
+        }
 
         default:
                 log_error("event type=%i", w->type);
@@ -1533,10 +1617,12 @@ int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j) {
         if (!startswith(s, "/org/freedesktop/systemd1/job/"))
                 return -EINVAL;
 
-        if ((r = safe_atou(s + 30, &id)) < 0)
+        r = safe_atou(s + 30, &id);
+        if (r < 0)
                 return r;
 
-        if (!(j = manager_get_job(m, id)))
+        j = manager_get_job(m, id);
+        if (!j)
                 return -ENOENT;
 
         *_j = j;

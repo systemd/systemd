@@ -358,6 +358,9 @@ struct UnitVTable {
         /* Return the set of units that are following each other */
         int (*following_set)(Unit *u, Set **s);
 
+        /* Called whenever CLOCK_REALTIME made a jump */
+        void (*time_change)(Unit *u);
+
         /* This is called for each unit type and should be used to
          * enumerate existing devices and load them. However,
          * everything that is loaded here should still stay in

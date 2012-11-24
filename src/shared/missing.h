@@ -253,3 +253,7 @@ static inline int name_to_handle_at(int fd, const char *name, struct file_handle
 #ifndef CIFS_MAGIC_NUMBER
 #define CIFS_MAGIC_NUMBER 0xFF534D42
 #endif
+
+#ifndef TFD_TIMER_CANCEL_ON_SET
+#define TFD_TIMER_CANCEL_ON_SET (1 << 1)
+#endif
