@@ -77,7 +77,7 @@ _ctls()
                 {-n,--lines=}'[Number of journal entries to show]:integer' \
                 '--no-tail[Show all lines, even in follow mode]' \
                 {-o,--output=}'[Change journal output mode]:output modes:_outputmodes' \
-                {--full}'[Show long fields in full]' \
+                '--full[Show long fields in full]' \
                 {-a,--all}'[Show all fields, including long and unprintable]' \
                 {-q,--quiet}"[Don't show privilege warning]" \
                 '--no-pager[Do not pipe output into a pager]' \
