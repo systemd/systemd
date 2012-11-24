@@ -53,7 +53,7 @@ typedef struct dual_timestamp {
 #define USEC_PER_YEAR (31557600ULL*USEC_PER_SEC)
 #define NSEC_PER_YEAR (31557600ULL*NSEC_PER_SEC)
 
-#define FORMAT_TIMESTAMP_MAX (6+11+9+4+1)
+#define FORMAT_TIMESTAMP_MAX ((4*4+1)+11+9+4+1) /* weekdays can be unicode */
 #define FORMAT_TIMESTAMP_RELATIVE_MAX 256
 #define FORMAT_TIMESPAN_MAX 64
 
