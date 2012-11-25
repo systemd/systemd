@@ -32,6 +32,7 @@
 #include "sd-journal.h"
 #include "sd-daemon.h"
 #include "logs-show.h"
+#include "microhttpd-util.h"
 #include "virt.h"
 #include "build.h"
 
@@ -962,11 +963,13 @@ int main(int argc, char *argv[]) {
                 struct MHD_OptionItem opts[] = {
                         { MHD_OPTION_NOTIFY_COMPLETED,
                           (intptr_t) request_meta_free, NULL },
+                        { MHD_OPTION_EXTERNAL_LOGGER,
+                          (intptr_t) microhttpd_logger, NULL },
                         { MHD_OPTION_END, 0, NULL },
                         { MHD_OPTION_END, 0, NULL },
                         { MHD_OPTION_END, 0, NULL },
                         { MHD_OPTION_END, 0, NULL }};
-                int opts_pos = 1;
+                int opts_pos = 2;
                 int flags = MHD_USE_THREAD_PER_CONNECTION|MHD_USE_POLL|MHD_USE_DEBUG;
 
                 if (n > 0)

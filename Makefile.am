@@ -2799,7 +2799,9 @@ rootlibexec_PROGRAMS += \
 	systemd-journal-gatewayd
 
 systemd_journal_gatewayd_SOURCES = \
-	src/journal/journal-gatewayd.c
+	src/journal/journal-gatewayd.c \
+	src/journal/microhttpd-util.h \
+	src/journal/microhttpd-util.c
 
 systemd_journal_gatewayd_LDADD = \
 	libsystemd-shared.la \
