@@ -328,14 +328,13 @@ static int request_parse_range(
 
                 colon2 = strchr(colon + 1, ':');
                 if (colon2) {
-                        char *t;
+                        char _cleanup_free_ *t;
 
                         t = strndup(colon + 1, colon2 - colon - 1);
                         if (!t)
                                 return -ENOMEM;
 
                         r = safe_atoi64(t, &m->n_skip);
-                        free(t);
                         if (r < 0)
                                 return r;
                 }
