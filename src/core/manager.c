@@ -154,7 +154,12 @@ static int manager_setup_time_change(Manager *m) {
         }
 
         zero(its);
-        its.it_value.tv_sec = 10000000000; /* Year 2287 or so... */
+
+        /* We only care for the cancellation event, hence we set the
+         * timeout to the latest possible value. */
+        assert_cc(sizeof(time_t) == sizeof(long));
+        its.it_value.tv_sec = LONG_MAX;
+
         if (timerfd_settime(m->time_change_watch.fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0) {
                 log_debug("Failed to set up TFD_TIMER_CANCEL_ON_SET, ignoring: %m");
                 close_nointr_nofail(m->time_change_watch.fd);
