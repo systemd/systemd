@@ -624,6 +624,16 @@ MANPAGES_ALIAS += \
 man/systemd-modules-load.8: man/systemd-modules-load.service.8
 endif
 
+if HAVE_MICROHTTPD
+MANPAGES += \
+	man/systemd-journal-gatewayd.service.8
+MANPAGES_ALIAS += \
+	man/systemd-journal-gatewayd.socket.8 \
+	man/systemd-journal-gatewayd.8
+man/systemd-journal-gatewayd.socket.8: man/systemd-journal-gatewayd.service.8
+man/systemd-journal-gatewayd.8: man/systemd-journal-gatewayd.service.8
+endif
+
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
 man/init.1: man/systemd.1

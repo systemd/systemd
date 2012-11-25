@@ -1,0 +1,249 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2012 Zbigniew Jędrzejewski-Szmek
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-journal-gatewayd.service">
+
+  <refentryinfo>
+    <title>systemd-journal-gatewayd.service</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Zbigniew</firstname>
+        <surname>Jędrzejewski-Szmek</surname>
+        <email>zbyszek@in.waw.pl</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-journal-gatewayd.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-journal-gatewayd.service</refname>
+    <refname>systemd-journal-gatewayd.socket</refname>
+    <refname>systemd-journal-gatewayd</refname>
+    <refpurpose>HTTP server for journal events</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-journal-gatewayd.service</filename></para>
+    <para><filename>systemd-journal-gatewayd.socket</filename></para>
+    <cmdsynopsis><command>/usr/lib/systemd/systemd-journal-gatewayd</command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-journal-gatewayd</command> serves journal
+    events over the network. Clients must connect using
+    HTTP, to port 19531 by default.</para>
+
+    <para>The program is started by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    and expects to receive a single socket. Use
+    <command>systemctl start systemd-journal-gatewayd.socket</command> to start
+    the service, and <command>systemctl enable systemd-journal-gatewayd.socket</command>
+    to have it started on boot.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Supported URLs</title>
+
+    <para>The following URLs are recognized:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>/browse</option></term>
+
+        <listitem><para>Interactive browsing.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>/entries[?option1&amp;option2=value...]</option></term>
+
+        <listitem><para>Retrieval of events in various formats.</para>
+
+        <para>The <option>Accept:</option> part of the HTTP header
+        determines the format. Supported values are described below.
+        </para>
+
+        <para>The <option>Range:</option> part of the HTTP header
+        determines the range of events returned. Supported values are
+        described below.
+        </para>
+
+        <para>GET parameters can be used to modify what events are
+        returned. Supported parameters are described below.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Accept header</title>
+
+    <para>
+      <option>Accept: &lt;format&gt;</option>
+    </para>
+
+    <para>Recognized formats:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>text/plain</option></term>
+
+        <listitem><para>The default. Plaintext syslog-like output,
+        one line per journal entry
+        (like <command>journalctl --output short</command>).</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>application/json</option></term>
+
+        <listitem><para>Entries are formatted as JSON data structures,
+        one per line
+        (like <command>journalctl --output json</command>).
+        See <ulink
+        url="http://www.freedesktop.org/wiki/Software/systemd/json">Journal
+        JSON Format</ulink> for more information.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>application/event-stream</option></term>
+
+        <listitem><para>Entries are formatted as JSON data structures,
+        wrapped in a format suitable for <ulink
+        url="https://developer.mozilla.org/en-US/docs/Server-sent_events/Using_server-sent_events">
+        Server-Sent Events</ulink>
+        (like <command>journalctl --output json-sse</command>).
+        </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>application/vnd.fdo.journal</option></term>
+
+        <listitem><para>Entries are serialized into a binary (but
+        mostly text-based) stream suitable for backups and network
+        transfer
+        (like <command>journalctl --output export</command>).
+        See <ulink
+        url="http://www.freedesktop.org/wiki/Software/systemd/export">Journal
+        Export Format</ulink> for more information.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Range header</title>
+
+    <para>
+      <option>Range: entries=&lt;cursor&gt;[[:&lt;num_skip&gt;]:&lt;num_entries&gt;]</option>
+    </para>
+
+    <para>where
+      <option>cursor</option> is a cursor string,
+      <option>num_skip</option> is an integer,
+      <option>num_entries</option> is an unsigned integer.
+    </para>
+
+    <para>Range defaults to all available events.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>URL GET parameters</title>
+
+    <para>Following parameters can be used as part of the URL:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>follow</option></term>
+
+        <listitem><para>wait for new events
+        (like <command>journalctl --follow</command>, except that
+        the number of events returned is not limited).</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>discrete</option></term>
+
+        <listitem><para>Test that the specified cursor refers to an
+        entry in the journal. Returns just this entry.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>boot</option></term>
+
+        <listitem><para>Limit events to the current boot of the system
+        (like <command>journalctl --this--boot</command>).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>&lt;KEY&gt;=&lt;match&gt;</option></term>
+
+        <listitem><para>Match journal fields. See
+        <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <para>Retrieve events from this boot from local journal
+    in <ulink
+    url="http://www.freedesktop.org/wiki/Software/systemd/export">Journal
+    Export Format</ulink>:
+    <programlisting>
+curl --silent -H'Accept: application/vnd.fdo.journal' \
+       'http://localhost:19531/entries?boot'
+    </programlisting>
+    </para>
+
+    <para>Listen for core dumps:
+    <programlisting>
+curl 'http://localhost:19531/entries?follow&amp;MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1'
+    </programlisting></para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>
