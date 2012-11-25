@@ -879,22 +879,22 @@ int main(int argc, char *argv[]) {
         } else if (n > 1) {
                 log_error("Can't listen on more than one socket.");
                 goto finish;
-        } else if (n > 0) {
+        } else {
+                struct MHD_OptionItem opts[] = {
+                        { MHD_OPTION_NOTIFY_COMPLETED,
+                          (intptr_t) request_meta_free, NULL },
+                        { MHD_OPTION_END, 0, NULL },
+                        { MHD_OPTION_END, 0, NULL }};
+                if (n > 0)
+                        opts[1] = (struct MHD_OptionItem)
+                                {MHD_OPTION_LISTEN_SOCKET, SD_LISTEN_FDS_START, NULL};
+
                 d = MHD_start_daemon(
                                 MHD_USE_THREAD_PER_CONNECTION|MHD_USE_POLL|MHD_USE_DEBUG,
                                 19531,
                                 NULL, NULL,
                                 request_handler, NULL,
-                                MHD_OPTION_LISTEN_SOCKET, SD_LISTEN_FDS_START,
-                                MHD_OPTION_NOTIFY_COMPLETED, request_meta_free, NULL,
-                                MHD_OPTION_END);
-        } else {
-                d = MHD_start_daemon(
-                                MHD_USE_DEBUG|MHD_USE_THREAD_PER_CONNECTION|MHD_USE_POLL,
-                                19531,
-                                NULL, NULL,
-                                request_handler, NULL,
-                                MHD_OPTION_NOTIFY_COMPLETED, request_meta_free, NULL,
+                                MHD_OPTION_ARRAY, opts,
                                 MHD_OPTION_END);
         }
 
