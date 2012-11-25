@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <getopt.h>
 
 #include <microhttpd.h>
 
@@ -32,6 +33,7 @@
 #include "sd-daemon.h"
 #include "logs-show.h"
 #include "virt.h"
+#include "build.h"
 
 typedef struct RequestMeta {
         sd_journal *journal;
@@ -859,18 +861,95 @@ static int request_handler(
         return respond_error(connection, MHD_HTTP_NOT_FOUND, "Not found.\n");
 }
 
+static char *key_pem = NULL;
+static char *cert_pem = NULL;
+
+static int parse_argv(int argc, char *argv[]) {
+        enum {
+                ARG_VERSION = 0x100,
+                ARG_KEY,
+                ARG_CERT,
+        };
+
+        int r, c;
+
+        static const struct option options[] = {
+                { "version", no_argument,       NULL, ARG_VERSION },
+                { "key",     required_argument, NULL, ARG_KEY     },
+                { "cert",    required_argument, NULL, ARG_CERT    },
+                { NULL,      0,                 NULL, 0           }
+        };
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "", options, NULL)) >= 0)
+                switch(c) {
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
+                        return 0;
+
+                case ARG_KEY:
+                        if (key_pem) {
+                                log_error("Key file specified twice");
+                                return -EINVAL;
+                        }
+                        r = read_full_file(optarg, &key_pem, NULL);
+                        if (r < 0) {
+                                log_error("Failed to read key file: %s", strerror(-r));
+                                return r;
+                        }
+                        assert(key_pem);
+                        break;
+
+                case ARG_CERT:
+                        if (cert_pem) {
+                                log_error("Certificate file specified twice");
+                                return -EINVAL;
+                        }
+                        r = read_full_file(optarg, &cert_pem, NULL);
+                        if (r < 0) {
+                                log_error("Failed to read certificate file: %s", strerror(-r));
+                                return r;
+                        }
+                        assert(cert_pem);
+                        break;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        log_error("Unknown option code %c", c);
+                        return -EINVAL;
+                }
+
+        if (optind < argc) {
+                log_error("This program does not take arguments.");
+                return -EINVAL;
+        }
+
+        if (!!key_pem != !!cert_pem) {
+                log_error("Certificate and key files must be specified together");
+                return -EINVAL;
+        }
+
+        return 1;
+}
+
 int main(int argc, char *argv[]) {
         struct MHD_Daemon *d = NULL;
-        int r = EXIT_FAILURE, n;
-
-        if (argc > 1) {
-                log_error("This program does not take arguments.");
-                goto finish;
-        }
+        int r, n;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        r = parse_argv(argc, argv);
+        if (r < 0)
+                return EXIT_FAILURE;
+        if (r == 0)
+                return EXIT_SUCCESS;
 
         n = sd_listen_fds(1);
         if (n < 0) {
@@ -884,18 +963,29 @@ int main(int argc, char *argv[]) {
                         { MHD_OPTION_NOTIFY_COMPLETED,
                           (intptr_t) request_meta_free, NULL },
                         { MHD_OPTION_END, 0, NULL },
+                        { MHD_OPTION_END, 0, NULL },
+                        { MHD_OPTION_END, 0, NULL },
                         { MHD_OPTION_END, 0, NULL }};
-                if (n > 0)
-                        opts[1] = (struct MHD_OptionItem)
-                                {MHD_OPTION_LISTEN_SOCKET, SD_LISTEN_FDS_START, NULL};
+                int opts_pos = 1;
+                int flags = MHD_USE_THREAD_PER_CONNECTION|MHD_USE_POLL|MHD_USE_DEBUG;
 
-                d = MHD_start_daemon(
-                                MHD_USE_THREAD_PER_CONNECTION|MHD_USE_POLL|MHD_USE_DEBUG,
-                                19531,
-                                NULL, NULL,
-                                request_handler, NULL,
-                                MHD_OPTION_ARRAY, opts,
-                                MHD_OPTION_END);
+                if (n > 0)
+                        opts[opts_pos++] = (struct MHD_OptionItem)
+                                {MHD_OPTION_LISTEN_SOCKET, SD_LISTEN_FDS_START};
+                if (key_pem) {
+                        assert(cert_pem);
+                        opts[opts_pos++] = (struct MHD_OptionItem)
+                                {MHD_OPTION_HTTPS_MEM_KEY, 0, key_pem};
+                        opts[opts_pos++] = (struct MHD_OptionItem)
+                                {MHD_OPTION_HTTPS_MEM_CERT, 0, cert_pem};
+                        flags |= MHD_USE_SSL;
+                }
+
+                d = MHD_start_daemon(flags, 19531,
+                                     NULL, NULL,
+                                     request_handler, NULL,
+                                     MHD_OPTION_ARRAY, opts,
+                                     MHD_OPTION_END);
         }
 
         if (!d) {
