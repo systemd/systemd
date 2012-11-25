@@ -58,8 +58,8 @@ REQUIREMENTS:
 
         During runtime you need the following additional dependencies:
 
-        util-linux > v2.18 (requires fsck -l, agetty -s)
-        sulogin (from sysvinit-tools, optional but recommended)
+        util-linux >= v2.19 (requires fsck -l, agetty -s)
+        sulogin (from util-linux >= 2.22 or sysvinit-tools, optional but recommended)
         dracut (optional)
 
         When building from git you need the following additional dependencies:
