@@ -18,14 +18,22 @@
 ***/
 
 /*
- * eno<index> -- ethernet on-board
- * ID_NET_NAME_FIRMWARE=eno1
+ * prefixes:
+ *   en -- ethernet
+ *   wl -- wlan
+ *   ww -- wwan
  *
- * enp<pci bus number>s<slot>f<function> -- physical location/path
- * ID_NET_NAME_PATH=enp19s0f0
+ * types:
+ *   o<index>                 -- on-board device index
+ *   s<slot>f<function>       -- hotplug slot number
+ *   x<MAC>                   -- MAC address
+ *   p<bus>s<slot>f<function> -- PCI/physical location
  *
- * enm<MAC address> -- MAC address
- * ID_NET_NAME_MAC=enxf0def180d479
+ * example:
+ *   ID_NET_NAME_ONBOARD=eno1
+ *   ID_NET_NAME_SLOT=ens1f0
+ *   ID_NET_NAME_MAC=enxf0def180d479
+ *   ID_NET_NAME_PATH=enp19s0f0
  */
 
 #include <stdio.h>
@@ -37,50 +45,116 @@
 
 #include "udev.h"
 
-static int dev_pci(struct udev_device *dev, const char *prefix, bool test) {
-        struct udev_device *d;
+/* retrieve on-board index number and label from firmware */
+static int dev_pci_onboard(struct udev_device *dev, const char *prefix, bool test) {
+        const char *index;
+        int idx;
+        const char *label;
+        char s[16];
+        int err;
+
+        /* ACPI _DSM  -- device specific method for naming a PCI or PCI Express device */
+        index = udev_device_get_sysattr_value(dev, "acpi_index");
+        /* SMBIOS type 41 -- Onboard Devices Extended Information */
+        if (!index)
+                index = udev_device_get_sysattr_value(dev, "index");
+        if (!index)
+                return -ENOENT;
+        idx = strtoul(index, NULL, 0);
+        if (idx <= 0)
+                return -EINVAL;
+        snprintf(s, sizeof(s), "%so%d", prefix, idx);
+        err = udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", s);
+        if (err < 0)
+                return err;
+
+        label = udev_device_get_sysattr_value(dev, "label");
+        if (label) {
+                err = udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", label);
+                if (err < 0)
+                        return err;
+        }
+        return 0;
+}
+
+static int dev_pci_slot(struct udev_device *dev, const char *prefix, bool test) {
+        struct udev *udev = udev_device_get_udev(dev);
         unsigned int bus;
         unsigned int slot;
         unsigned int func;
-        const char *index;
-        int err;
+        struct udev_device *pci = NULL;
+        char slots[256];
+        DIR *dir;
+        struct dirent *dent;
+        char str[256];
+        int hotplug_slot = 0;
+        int err = 0;
+
+        /* compose a name based on the raw kernel's PCI bus, slot numbers */
+        if (sscanf(udev_device_get_sysname(dev), "0000:%x:%x.%d", &bus, &slot, &func) != 3)
+                return -ENOENT;
+        snprintf(str, sizeof(str), "%sp%ds%df%d", prefix, bus, slot, func);
+        err = udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+        if (err < 0)
+                return err;
+
+        /* ACPI _SUN  -- slot user number */
+        pci = udev_device_new_from_subsystem_sysname(udev, "subsystem", "pci");
+        if (!pci) {
+                err = -ENOENT;
+                goto out;
+        }
+        snprintf(slots, sizeof(slots), "%s/slots", udev_device_get_syspath(pci));
+        dir = opendir(slots);
+        if (!dir) {
+                err = -errno;
+                goto out;
+        }
+
+        for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+                int i;
+                char *rest;
+                char *address;
+
+                if (dent->d_name[0] == '.')
+                        continue;
+                i = strtol(dent->d_name, &rest, 10);
+                if (rest[0] != '\0')
+                        continue;
+                if (i < 1)
+                        continue;
+                snprintf(str, sizeof(str), "%s/%s/address", slots, dent->d_name);
+                if (read_one_line_file(str, &address) >= 0) {
+                        /* match slot address with device by stripping the function */
+                        if (strncmp(address, udev_device_get_sysname(dev), strlen(address)) == 0)
+                                hotplug_slot = i;
+                        free(address);
+                }
+
+                if (hotplug_slot > 0)
+                        break;
+        }
+        closedir(dir);
+
+        if (hotplug_slot > 0) {
+                snprintf(str, sizeof(str), "%ss%df%d", prefix, hotplug_slot, func);
+                err = udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+        }
+out:
+        udev_device_unref(pci);
+        return err;
+}
+
+static int dev_pci(struct udev_device *dev, const char *prefix, bool test) {
+        struct udev_device *d;
 
         /* skip other buses than direct PCI parents */
         d = udev_device_get_parent(dev);
         if (!d || !streq("pci", udev_device_get_subsystem(d)))
                 return -ENOENT;
 
-        /* ACPI _SUN  -- slot user number */
-        index = udev_device_get_sysattr_value(d, "acpi_index");
-        /* SMBIOS type 41 -- Onboard Devices Extended Information */
-        if (!index)
-                index = udev_device_get_sysattr_value(d, "index");
-        if (index) {
-                unsigned int idx;
-
-                idx = strtoul(index, NULL, 0);
-                if (idx > 0) {
-                        const char *label;
-                        char s[16];
-
-                        snprintf(s, sizeof(s), "%so%d", prefix, idx);
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_FIRMWARE", s);
-
-                        label = udev_device_get_sysattr_value(d, "label");
-                        if (label)
-                                udev_builtin_add_property(dev, test, "ID_NET_LABEL_FIRMWARE", label);
-                }
-        }
-
-        /* compose a name based on the PCI bus location */
-        if (sscanf(udev_device_get_sysname(d), "0000:%x:%x.%d", &bus, &slot, &func) == 3) {
-                char str[16];
-
-                snprintf(str, sizeof(str), "%sp%ds%df%d", prefix, bus, slot, func);
-                err = udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
-                if (err < 0)
-                        return err;
-        }
+        dev_pci_onboard(d, prefix, test);
+        dev_pci_slot(d, prefix, test);
         return 0;
 }
 
@@ -89,7 +163,6 @@ static int dev_mac(struct udev_device *dev, const char *prefix, bool test) {
         unsigned int i;
         unsigned int a1, a2, a3, a4, a5, a6;
         char str[16];
-        int err;
 
         /* check for NET_ADDR_PERM, skip random MAC addresses */
         s = udev_device_get_sysattr_value(dev, "addr_assign_type");
@@ -114,10 +187,7 @@ static int dev_mac(struct udev_device *dev, const char *prefix, bool test) {
         udev_builtin_hwdb_lookup(dev, str, test);
 
         snprintf(str, sizeof(str), "%sx%x%x%x%x%x%x", prefix, a1, a2, a3, a4, a5, a6);
-        err = udev_builtin_add_property(dev, test, "ID_NET_NAME_MAC", str);
-        if (err < 0)
-                return err;
-        return 0;
+        return udev_builtin_add_property(dev, test, "ID_NET_NAME_MAC", str);
 }
 
 static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool test) {
