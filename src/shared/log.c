@@ -448,16 +448,22 @@ static int log_do_header(char *header, size_t size,
         snprintf(header, size,
                  "PRIORITY=%i\n"
                  "SYSLOG_FACILITY=%i\n"
-                 "CODE_FILE=%s\n"
-                 "CODE_LINE=%i\n"
-                 "CODE_FUNCTION=%s\n"
+                 "%s%.*s%s"
+                 "%s%.*i%s"
+                 "%s%.*s%s"
                  "%s%.*s%s"
                  "SYSLOG_IDENTIFIER=%s\n",
                  LOG_PRI(level),
                  LOG_FAC(level),
-                 file,
-                 line,
-                 func,
+                 file ? "CODE_FILE=" : "",
+                 file ? LINE_MAX : 0, file, /* %.0s means no output */
+                 file ? "\n" : "",
+                 line ? "CODE_LINE=" : "",
+                 line ? 1 : 0, line, /* %.0d means no output too, special case for 0 */
+                 line ? "\n" : "",
+                 func ? "CODE_FUNCTION=" : "",
+                 func ? LINE_MAX : 0, func,
+                 func ? "\n" : "",
                  object ? object_name : "",
                  object ? LINE_MAX : 0, object, /* %.0s means no output */
                  object ? "\n" : "",
