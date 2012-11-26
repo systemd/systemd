@@ -441,6 +441,31 @@ static int write_to_kmsg(
         return 1;
 }
 
+static int log_do_header(char *header, size_t size,
+                         int level,
+                         const char *file, int line, const char *func,
+                         const char *object_name, const char *object) {
+        snprintf(header, size,
+                 "PRIORITY=%i\n"
+                 "SYSLOG_FACILITY=%i\n"
+                 "CODE_FILE=%s\n"
+                 "CODE_LINE=%i\n"
+                 "CODE_FUNCTION=%s\n"
+                 "%s%.*s%s"
+                 "SYSLOG_IDENTIFIER=%s\n",
+                 LOG_PRI(level),
+                 LOG_FAC(level),
+                 file,
+                 line,
+                 func,
+                 object ? object_name : "",
+                 object ? LINE_MAX : 0, object, /* %.0s means no output */
+                 object ? "\n" : "",
+                 program_invocation_short_name);
+        header[size - 1] = '\0';
+        return 0;
+}
+
 static int write_to_journal(
         int level,
         const char*file,
@@ -451,39 +476,20 @@ static int write_to_journal(
         const char *buffer) {
 
         char header[LINE_MAX];
-        struct iovec iovec[3];
-        struct msghdr mh;
+        struct iovec iovec[4] = {{0}};
+        struct msghdr mh = {0};
 
         if (journal_fd < 0)
                 return 0;
 
-        snprintf(header, sizeof(header),
-                 "PRIORITY=%i\n"
-                 "SYSLOG_FACILITY=%i\n"
-                 "CODE_FILE=%s\n"
-                 "CODE_LINE=%i\n"
-                 "CODE_FUNCTION=%s\n"
-                 "%s%.*s%s"
-                 "SYSLOG_IDENTIFIER=%s\n"
-                 "MESSAGE=",
-                 LOG_PRI(level),
-                 LOG_FAC(level),
-                 file,
-                 line,
-                 func,
-                 object ? object_name : "",
-                 object ? LINE_MAX : 0, object, /* %.0s means no output */
-                 object ? "\n" : "",
-                 program_invocation_short_name);
+        log_do_header(header, sizeof(header), level,
+                      file, line, func, object_name, object);
 
-        char_array_0(header);
-
-        zero(iovec);
         IOVEC_SET_STRING(iovec[0], header);
-        IOVEC_SET_STRING(iovec[1], buffer);
-        IOVEC_SET_STRING(iovec[2], "\n");
+        IOVEC_SET_STRING(iovec[1], "MESSAGE=");
+        IOVEC_SET_STRING(iovec[2], buffer);
+        IOVEC_SET_STRING(iovec[3], "\n");
 
-        zero(mh);
         mh.msg_iov = iovec;
         mh.msg_iovlen = ELEMENTSOF(iovec);
 
@@ -744,29 +750,14 @@ int log_struct_internal(
             journal_fd >= 0) {
 
                 char header[LINE_MAX];
-                struct iovec iovec[17];
+                struct iovec iovec[17] = {{0}};
                 unsigned n = 0, i;
                 struct msghdr mh;
-                const char nl = '\n';
+                static const char nl = '\n';
 
                 /* If the journal is available do structured logging */
-
-                snprintf(header, sizeof(header),
-                        "PRIORITY=%i\n"
-                        "SYSLOG_FACILITY=%i\n"
-                        "CODE_FILE=%s\n"
-                        "CODE_LINE=%i\n"
-                        "CODE_FUNCTION=%s\n"
-                        "SYSLOG_IDENTIFIER=%s\n",
-                        LOG_PRI(level),
-                        LOG_FAC(level),
-                        file,
-                        line,
-                        func,
-                        program_invocation_short_name);
-                char_array_0(header);
-
-                zero(iovec);
+                log_do_header(header, sizeof(header), level,
+                              file, line, func, NULL, NULL);
                 IOVEC_SET_STRING(iovec[n++], header);
 
                 va_start(ap, format);
