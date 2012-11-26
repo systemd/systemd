@@ -46,7 +46,7 @@
 #include "udev.h"
 
 /* retrieve on-board index number and label from firmware */
-static int dev_pci_onboard(struct udev_device *dev, const char *prefix, bool test) {
+static int dev_pci_onboard(struct udev_device *dev, struct udev_device *parent, const char *prefix, bool test) {
         const char *index;
         int idx;
         const char *label;
@@ -54,10 +54,10 @@ static int dev_pci_onboard(struct udev_device *dev, const char *prefix, bool tes
         int err;
 
         /* ACPI _DSM  -- device specific method for naming a PCI or PCI Express device */
-        index = udev_device_get_sysattr_value(dev, "acpi_index");
+        index = udev_device_get_sysattr_value(parent, "acpi_index");
         /* SMBIOS type 41 -- Onboard Devices Extended Information */
         if (!index)
-                index = udev_device_get_sysattr_value(dev, "index");
+                index = udev_device_get_sysattr_value(parent, "index");
         if (!index)
                 return -ENOENT;
         idx = strtoul(index, NULL, 0);
@@ -68,7 +68,7 @@ static int dev_pci_onboard(struct udev_device *dev, const char *prefix, bool tes
         if (err < 0)
                 return err;
 
-        label = udev_device_get_sysattr_value(dev, "label");
+        label = udev_device_get_sysattr_value(parent, "label");
         if (label) {
                 err = udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", label);
                 if (err < 0)
@@ -77,7 +77,7 @@ static int dev_pci_onboard(struct udev_device *dev, const char *prefix, bool tes
         return 0;
 }
 
-static int dev_pci_slot(struct udev_device *dev, const char *prefix, bool test) {
+static int dev_pci_slot(struct udev_device *dev, struct udev_device *parent, const char *prefix, bool test) {
         struct udev *udev = udev_device_get_udev(dev);
         unsigned int bus;
         unsigned int slot;
@@ -91,7 +91,7 @@ static int dev_pci_slot(struct udev_device *dev, const char *prefix, bool test) 
         int err = 0;
 
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
-        if (sscanf(udev_device_get_sysname(dev), "0000:%x:%x.%d", &bus, &slot, &func) != 3)
+        if (sscanf(udev_device_get_sysname(parent), "0000:%x:%x.%d", &bus, &slot, &func) != 3)
                 return -ENOENT;
         snprintf(str, sizeof(str), "%sp%ds%df%d", prefix, bus, slot, func);
         err = udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
@@ -126,7 +126,7 @@ static int dev_pci_slot(struct udev_device *dev, const char *prefix, bool test) 
                 snprintf(str, sizeof(str), "%s/%s/address", slots, dent->d_name);
                 if (read_one_line_file(str, &address) >= 0) {
                         /* match slot address with device by stripping the function */
-                        if (strncmp(address, udev_device_get_sysname(dev), strlen(address)) == 0)
+                        if (strncmp(address, udev_device_get_sysname(parent), strlen(address)) == 0)
                                 hotplug_slot = i;
                         free(address);
                 }
@@ -146,15 +146,15 @@ out:
 }
 
 static int dev_pci(struct udev_device *dev, const char *prefix, bool test) {
-        struct udev_device *d;
+        struct udev_device *parent;
 
         /* skip other buses than direct PCI parents */
-        d = udev_device_get_parent(dev);
-        if (!d || !streq("pci", udev_device_get_subsystem(d)))
+        parent = udev_device_get_parent(dev);
+        if (!parent || !streq("pci", udev_device_get_subsystem(parent)))
                 return -ENOENT;
 
-        dev_pci_onboard(d, prefix, test);
-        dev_pci_slot(d, prefix, test);
+        dev_pci_onboard(dev, parent, prefix, test);
+        dev_pci_slot(dev, parent, prefix, test);
         return 0;
 }
 
@@ -186,7 +186,7 @@ static int dev_mac(struct udev_device *dev, const char *prefix, bool test) {
         snprintf(str, sizeof(str), "OUI:%X%X%X", a1, a2, a3);
         udev_builtin_hwdb_lookup(dev, str, test);
 
-        snprintf(str, sizeof(str), "%sx%x%x%x%x%x%x", prefix, a1, a2, a3, a4, a5, a6);
+        snprintf(str, sizeof(str), "%sx%02x%02x%02x%02x%02x%02x", prefix, a1, a2, a3, a4, a5, a6);
         return udev_builtin_add_property(dev, test, "ID_NET_NAME_MAC", str);
 }
 
