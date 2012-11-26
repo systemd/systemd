@@ -191,12 +191,6 @@ finish:
         return r;
 }
 
-static bool mount_is_bind(struct mntent *me) {
-        assert(me);
-
-        return hasmntopt(me, "bind");
-}
-
 static bool mount_is_network(struct mntent *me) {
         assert(me);
 
@@ -229,7 +223,7 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
                 return 0;
 
         isnetwork = mount_is_network(me);
-        isbind = mount_is_bind(me);
+        isbind = !!hasmntopt(me, "bind");
 
         noauto = !!hasmntopt(me, "noauto");
         nofail = !!hasmntopt(me, "nofail");
