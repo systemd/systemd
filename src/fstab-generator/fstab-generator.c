@@ -194,9 +194,7 @@ finish:
 static bool mount_is_bind(struct mntent *me) {
         assert(me);
 
-        return
-                hasmntopt(me, "bind") ||
-                streq(me->mnt_opts, "bind");
+        return hasmntopt(me, "bind");
 }
 
 static bool mount_is_network(struct mntent *me) {
