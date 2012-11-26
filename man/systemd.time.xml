@@ -273,7 +273,7 @@ Wed-Sat,Tue 12-10-15 1:2:3 → Tue-Sat 2012-10-15 01:02:03
                      *:2/3 → *-*-* *:02/3:00</programlisting>
 
                   <para>Calendar events are used by timer units, see
-                  <citerefentry><refentrytitle>systemdr.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                   for details.</para>
 
         </refsect1>
