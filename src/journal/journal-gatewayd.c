@@ -900,8 +900,9 @@ static int help(void) {
                "HTTP server for journal events.\n\n"
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
-               "     --cert=CERT.PEM  Specify server certificate in PEM format\n"
-               "     --key=KEY.PEM    Specify server key in PEM format\n",
+               "     --cert=CERT.PEM  Server certificate in PEM format\n"
+               "     --key=KEY.PEM    Server key in PEM format\n"
+               "     --trust=CERT.PEM Certificat authority certificate in PEM format\n",
                program_invocation_short_name);
 
         return 0;
@@ -909,12 +910,14 @@ static int help(void) {
 
 static char *key_pem = NULL;
 static char *cert_pem = NULL;
+static char *trust_pem = NULL;
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_KEY,
                 ARG_CERT,
+                ARG_TRUST,
         };
 
         int r, c;
@@ -924,6 +927,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version", no_argument,       NULL, ARG_VERSION },
                 { "key",     required_argument, NULL, ARG_KEY     },
                 { "cert",    required_argument, NULL, ARG_CERT    },
+                { "trust",   required_argument, NULL, ARG_TRUST   },
                 {}
         };
 
@@ -968,6 +972,19 @@ static int parse_argv(int argc, char *argv[]) {
                         assert(cert_pem);
                         break;
 
+                case ARG_TRUST:
+                        if (trust_pem) {
+                                log_error("CA certificate file specified twice");
+                                return -EINVAL;
+                        }
+                        r = read_full_file(optarg, &trust_pem, NULL);
+                        if (r < 0) {
+                                log_error("Failed to read CA certificate file: %s", strerror(-r));
+                                return r;
+                        }
+                        assert(trust_pem);
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -982,6 +999,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (!!key_pem != !!cert_pem) {
                 log_error("Certificate and key files must be specified together");
+                return -EINVAL;
+        }
+
+        if (trust_pem && !key_pem) {
+                log_error("CA certificate can only be used with certificate file");
                 return -EINVAL;
         }
 
@@ -1018,6 +1040,7 @@ int main(int argc, char *argv[]) {
                         { MHD_OPTION_END, 0, NULL },
                         { MHD_OPTION_END, 0, NULL },
                         { MHD_OPTION_END, 0, NULL },
+                        { MHD_OPTION_END, 0, NULL },
                         { MHD_OPTION_END, 0, NULL }};
                 int opts_pos = 2;
                 int flags = MHD_USE_THREAD_PER_CONNECTION|MHD_USE_POLL|MHD_USE_DEBUG;
@@ -1032,6 +1055,11 @@ int main(int argc, char *argv[]) {
                         opts[opts_pos++] = (struct MHD_OptionItem)
                                 {MHD_OPTION_HTTPS_MEM_CERT, 0, cert_pem};
                         flags |= MHD_USE_SSL;
+                }
+                if (trust_pem) {
+                        assert(flags & MHD_USE_SSL);
+                        opts[opts_pos++] = (struct MHD_OptionItem)
+                                {MHD_OPTION_HTTPS_MEM_TRUST, 0, trust_pem};
                 }
 
                 d = MHD_start_daemon(flags, 19531,
