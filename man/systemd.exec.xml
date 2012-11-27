@@ -1050,7 +1050,7 @@
                                 namespace set up for this unit's
                                 processes will receive or propagate
                                 new mounts. See
-                                <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for details. Default to
                                 <option>shared</option>.</para></listitem>
                         </varlistentry>
