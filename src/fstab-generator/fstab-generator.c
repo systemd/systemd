@@ -111,7 +111,10 @@ static int add_swap(const char *what, struct mntent *me) {
         f = fopen(unit, "wxe");
         if (!f) {
                 r = -errno;
-                log_error("Failed to create unit file %s: %m", unit);
+                if (errno == EEXIST)
+                        log_error("Failed to create swap unit file %s, as it already exists. Duplicate entry in /etc/fstab?", unit);
+                else
+                        log_error("Failed to create unit file %s: %m", unit);
                 goto finish;
         }
 
@@ -254,7 +257,10 @@ static int add_mount(const char *what, const char *where, struct mntent *me) {
         f = fopen(unit, "wxe");
         if (!f) {
                 r = -errno;
-                log_error("Failed to create unit file %s: %m", unit);
+                if (errno == EEXIST)
+                        log_error("Failed to create mount unit file %s, as it already exists. Duplicate entry in /etc/fstab?", unit);
+                else
+                        log_error("Failed to create unit file %s: %m", unit);
                 goto finish;
         }
 
