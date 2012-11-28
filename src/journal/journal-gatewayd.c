@@ -110,7 +110,7 @@ static int open_journal(RequestMeta *m) {
 }
 
 
-static int respond_oom(struct MHD_Connection *connection) {
+static int respond_oom_internal(struct MHD_Connection *connection) {
         struct MHD_Response *response;
         const char m[] = "Out of memory.\n";
         int ret;
@@ -127,6 +127,8 @@ static int respond_oom(struct MHD_Connection *connection) {
 
         return ret;
 }
+
+#define respond_oom(connection) log_oom(), respond_oom_internal(connection)
 
 static int respond_error(
                 struct MHD_Connection *connection,
