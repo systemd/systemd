@@ -101,6 +101,31 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         returned. Supported parameters are described below.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>/machine</option></term>
+
+        <listitem><para>Return a JSON structre describing the machine.</para>
+
+        <para>Example:
+        <programlisting>
+{ "machine_id" : "8cf7ed9d451ea194b77a9f118f3dc446",
+  "boot_id" : "3d3c9efaf556496a9b04259ee35df7f7",
+  "hostname" : "fedora",
+  "os_pretty_name" : "Fedora 19 (Rawhide)",
+  "virtualization" : "kvm",
+  ...}
+        </programlisting>
+        </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>/fields/</option><replaceable>FIELD_NAME</replaceable></term>
+
+        <listitem><para>Return a list of values of this field present in the logs.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -108,7 +133,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Accept header</title>
 
     <para>
-      <option>Accept: &lt;format&gt;</option>
+      <option>Accept: </option><replaceable>format</replaceable>
     </para>
 
     <para>Recognized formats:</para>
