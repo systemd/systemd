@@ -433,8 +433,8 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                 }
 
                 /* Skip / and /usr since we cannot unmount that
-                 * anyway, since we are running from it. They have already been
-                 * remounte ro. */
+                 * anyway, since we are running from it. They have
+                 * already been remounted ro. */
                 if (path_equal(m->path, "/")
 #ifndef HAVE_SPLIT_USR
                     || path_equal(m->path, "/usr")
