@@ -433,15 +433,14 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                 }
 
                 /* Skip / and /usr since we cannot unmount that
-                 * anyway, since we are running from it */
+                 * anyway, since we are running from it. They have already been
+                 * remounte ro. */
                 if (path_equal(m->path, "/")
 #ifndef HAVE_SPLIT_USR
                     || path_equal(m->path, "/usr")
 #endif
-                ) {
-                        n_failed++;
+                )
                         continue;
-                }
 
                 /* Trying to umount. Forcing to umount if busy (only for NFS mounts) */
                 if (umount2(m->path, MNT_FORCE) == 0) {
