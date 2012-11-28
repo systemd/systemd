@@ -1024,6 +1024,11 @@ int main(int argc, char *argv[]) {
         if (r == 0)
                 return EXIT_SUCCESS;
 
+#ifdef HAVE_GNUTLS
+        gnutls_global_set_log_function(log_func_gnutls);
+        gnutls_global_set_log_level(GNUTLS_LOG_LEVEL);
+#endif
+
         n = sd_listen_fds(1);
         if (n < 0) {
                 log_error("Failed to determine passed sockets: %s", strerror(-n));

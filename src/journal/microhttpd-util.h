@@ -26,3 +26,15 @@
 #include "macro.h"
 
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_(2, 0);
+
+#ifdef HAVE_GNUTLS
+#include <gnutls/gnutls.h>
+
+void log_func_gnutls(int level, const char *message);
+
+/* This is additionally filtered by our internal log level, so it
+ * should be set fairly high to capture all potentially interesting
+ * events without overwhelming detail.
+ */
+#define GNUTLS_LOG_LEVEL 6
+#endif

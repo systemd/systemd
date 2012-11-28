@@ -3437,6 +3437,11 @@ systemd_journal_gatewayd_LDADD = \
 	libsystemd-shared.la \
 	$(MICROHTTPD_LIBS)
 
+if HAVE_GNUTLS
+systemd_journal_gatewayd_LDADD += \
+	$(GNUTLS_LIBS)
+endif
+
 systemd_journal_gatewayd_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(MICROHTTPD_CFLAGS)
