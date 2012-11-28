@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
         arguments[2] = NULL;
         execute_directory(SYSTEM_SHUTDOWN_PATH, NULL, arguments);
 
-        if (!in_container &&
+        if (!in_container && !in_initrd() &&
             access("/run/initramfs/shutdown", X_OK) == 0) {
 
                 if (prepare_new_root() >= 0 &&
