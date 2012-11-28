@@ -709,6 +709,18 @@ fi
 AM_CONDITIONAL(HAVE_MICROHTTPD, [test "$have_microhttpd" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_gnutls=no
+AC_ARG_ENABLE(gnutls, AS_HELP_STRING([--disable-gnutls], [disable gnutls support]))
+if test "x$enable_gnutls" != "xno"; then
+        PKG_CHECK_MODULES(GNUTLS, [gnutls],
+                [AC_DEFINE(HAVE_GNUTLS, 1, [Define if gnutls is available]) have_gnutls=yes], have_gnutls=no)
+        if test "x$have_gnutls" = xno -a "x$enable_gnutls" = xyes; then
+                AC_MSG_ERROR([*** gnutls support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_GNUTLS, [test "$have_gnutls" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_binfmt=no
 AC_ARG_ENABLE(binfmt, AS_HELP_STRING([--disable-binfmt], [disable binfmt tool]))
 if test "x$enable_binfmt" != "xno"; then
@@ -1132,6 +1144,7 @@ AC_MSG_RESULT([
         QRENCODE:                ${have_qrencode}
         MICROHTTPD:              ${have_microhttpd}
         CHKCONFIG:               ${have_chkconfig}
+        GNUTLS:                  ${have_gnutls}
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}
         readahead:               ${have_readahead}
