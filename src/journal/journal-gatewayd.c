@@ -482,18 +482,14 @@ static int request_parse_arguments(
 
 static int request_handler_entries(
                 struct MHD_Connection *connection,
-                void **connection_cls) {
+                void *connection_cls) {
 
         struct MHD_Response *response;
-        RequestMeta *m;
+        RequestMeta *m = connection_cls;
         int r;
 
         assert(connection);
-        assert(connection_cls);
-
-        m = request_meta(connection_cls);
-        if (!m)
-                return respond_oom(connection);
+        assert(m);
 
         r = open_journal(m);
         if (r < 0)
@@ -651,15 +647,11 @@ static int request_handler_fields(
                 void *connection_cls) {
 
         struct MHD_Response *response;
-        RequestMeta *m;
+        RequestMeta *m = connection_cls;
         int r;
 
         assert(connection);
-        assert(connection_cls);
-
-        m = request_meta(connection_cls);
-        if (!m)
-                return respond_oom(connection);
+        assert(m);
 
         r = open_journal(m);
         if (r < 0)
@@ -750,10 +742,10 @@ static int request_handler_file(
 
 static int request_handler_machine(
                 struct MHD_Connection *connection,
-                void **connection_cls) {
+                void *connection_cls) {
 
         struct MHD_Response *response;
-        RequestMeta *m;
+        RequestMeta *m = connection_cls;
         int r;
         _cleanup_free_ char* hostname = NULL, *os_name = NULL;
         uint64_t cutoff_from, cutoff_to, usage;
@@ -762,10 +754,7 @@ static int request_handler_machine(
         const char *v = "bare";
 
         assert(connection);
-
-        m = request_meta(connection_cls);
-        if (!m)
-                return respond_oom(connection);
+        assert(m);
 
         r = open_journal(m);
         if (r < 0)
@@ -840,26 +829,33 @@ static int request_handler(
                 void **connection_cls) {
 
         assert(connection);
+        assert(connection_cls);
         assert(url);
         assert(method);
 
         if (!streq(method, "GET"))
                 return MHD_NO;
 
+        if (!*connection_cls) {
+                if (!request_meta(connection_cls))
+                        return respond_oom(connection);
+                return MHD_YES;
+        }
+
         if (streq(url, "/"))
                 return request_handler_redirect(connection, "/browse");
 
         if (streq(url, "/entries"))
-                return request_handler_entries(connection, connection_cls);
+                return request_handler_entries(connection, *connection_cls);
 
         if (startswith(url, "/fields/"))
-                return request_handler_fields(connection, url + 8, connection_cls);
+                return request_handler_fields(connection, url + 8, *connection_cls);
 
         if (streq(url, "/browse"))
                 return request_handler_file(connection, DOCUMENT_ROOT "/browse.html", "text/html");
 
         if (streq(url, "/machine"))
-                return request_handler_machine(connection, connection_cls);
+                return request_handler_machine(connection, *connection_cls);
 
         return respond_error(connection, MHD_HTTP_NOT_FOUND, "Not found.\n");
 }
