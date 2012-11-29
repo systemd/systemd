@@ -9,9 +9,9 @@ HOWTO:
         insensitively) and you should be able to find the places where
         you need to add/change things.
 
-        1) Patch src/hostname-setup.c so that systemd knows where to
-        read your host name from. You might also want to update
-        status_welcome() in util.c.
+        1) Patch src/shared/hostname-setup.c so that systemd knows
+        where to read your host name from. You might also want to
+        update status_welcome() in util.c.
 
         2) Check the unit files in units/ if they match your
         distribution. Most likely you will have to make additions to
