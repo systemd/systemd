@@ -49,7 +49,10 @@
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>systemd-coredumpctl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg> <arg choice="opt" rep="repeat">PID|COMM|EXE|MATCH</arg></command>
+                        <command>systemd-coredumpctl</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="req">COMMAND</arg>
+                        <arg choice="opt" rep="repeat">PID|COMM|EXE|MATCH</arg>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
