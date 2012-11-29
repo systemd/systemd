@@ -362,7 +362,7 @@
                                 the time part is omitted, 00:00:00 is
                                 assumed. If only the seconds component
                                 is omitted, :00 is assumed. If the
-                                date component is ommitted, the
+                                date component is omitted, the
                                 current day is assumed. Alternatively
                                 the strings
                                 <literal>yesterday</literal>,

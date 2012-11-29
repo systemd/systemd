@@ -64,7 +64,7 @@
                 and
                 <citerefentry><refentrytitle>bootparam</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
-                <para>For command line paramaters understood by the
+                <para>For command line parameters understood by the
                 initial RAM disk, please see
                 <citerefentry><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                 or the documentation of the specific initrd

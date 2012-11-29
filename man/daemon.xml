@@ -122,7 +122,7 @@
                                 first child, so that only the second
                                 child (the actual daemon process)
                                 stays around. This ensures that the
-                                daemon process is reparented to
+                                daemon process is re-parented to
                                 init/PID 1, as all daemons should
                                 be.</para></listitem>
 

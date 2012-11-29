@@ -183,8 +183,8 @@
                                 messages is generated. This rate
                                 limiting is applied per-service, so
                                 that two services which log do not
-                                interfere with each other's
-                                limit. Defaults to 200 messages in
+                                interfere with each others'
+                                limits. Defaults to 200 messages in
                                 10s. The time specification for
                                 <varname>RateLimitInterval=</varname>
                                 may be specified in the following
