@@ -24,16 +24,20 @@
  *   ww -- wwan
  *
  * types:
- *   o<index>                 -- on-board device index
- *   s<slot>f<function>       -- hotplug slot number
- *   x<MAC>                   -- MAC address
- *   p<bus>s<slot>f<function> -- PCI/physical location
+ *   o<index>                   -- on-board device index
+ *   s<slot>[f<function>]       -- hotplug slot number
+ *   x<MAC>                     -- MAC address
+ *   p<bus>s<slot>[f<function>] -- PCI/physical location
  *
  * example:
  *   ID_NET_NAME_ONBOARD=eno1
- *   ID_NET_NAME_SLOT=ens1f0
+ *   ID_NET_NAME_SLOT=ens1
+ *   ID_NET_NAME_SLOT=ens2f0
+ *   ID_NET_NAME_SLOT=ens2f1
  *   ID_NET_NAME_MAC=enxf0def180d479
- *   ID_NET_NAME_PATH=enp19s0f0
+ *   ID_NET_NAME_PATH=enp0s25
+ *   ID_NET_NAME_PATH=enp19s3f0
+ *   ID_NET_NAME_PATH=enp19s3f1
  */
 
 #include <stdio.h>
@@ -42,6 +46,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <linux/pci_regs.h>
 
 #include "udev.h"
 
@@ -77,6 +82,27 @@ static int dev_pci_onboard(struct udev_device *dev, struct udev_device *parent, 
         return 0;
 }
 
+static bool is_pci_singlefunction(struct udev_device *dev) {
+        char filename[256];
+        FILE *f;
+        char config[256];
+        bool single = false;
+
+        snprintf(filename, sizeof(filename), "%s/config", udev_device_get_syspath(dev));
+        f = fopen(filename, "re");
+        if (!f)
+                goto out;
+        if (fread(&config, sizeof(config), 1, f) != 1)
+                goto out;
+
+        /* bit 0-6 header type, bit 7 multi/single function device */
+        if ((config[PCI_HEADER_TYPE] & 0x80) == 0)
+                single = true;
+out:
+        fclose(f);
+        return single;
+}
+
 static int dev_pci_slot(struct udev_device *dev, struct udev_device *parent, const char *prefix, bool test) {
         struct udev *udev = udev_device_get_udev(dev);
         unsigned int bus;
@@ -93,7 +119,10 @@ static int dev_pci_slot(struct udev_device *dev, struct udev_device *parent, con
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
         if (sscanf(udev_device_get_sysname(parent), "0000:%x:%x.%d", &bus, &slot, &func) != 3)
                 return -ENOENT;
-        snprintf(str, sizeof(str), "%sp%ds%df%d", prefix, bus, slot, func);
+        if (func == 0 && is_pci_singlefunction(parent))
+                snprintf(str, sizeof(str), "%sp%ds%d", prefix, bus, slot);
+        else
+                snprintf(str, sizeof(str), "%sp%ds%df%d", prefix, bus, slot, func);
         err = udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
         if (err < 0)
                 return err;
@@ -137,7 +166,10 @@ static int dev_pci_slot(struct udev_device *dev, struct udev_device *parent, con
         closedir(dir);
 
         if (hotplug_slot > 0) {
-                snprintf(str, sizeof(str), "%ss%df%d", prefix, hotplug_slot, func);
+                if (func == 0 && is_pci_singlefunction(parent))
+                        snprintf(str, sizeof(str), "%ss%d", prefix, hotplug_slot);
+                else
+                        snprintf(str, sizeof(str), "%ss%df%d", prefix, hotplug_slot, func);
                 err = udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
         }
 out:
