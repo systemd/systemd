@@ -22,14 +22,24 @@
 #pragma once
 
 #include <stdarg.h>
+#include <microhttpd.h>
 
 #include "macro.h"
 
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_(2, 0);
 
-#ifdef HAVE_GNUTLS
-#include <gnutls/gnutls.h>
+int respond_oom_internal(struct MHD_Connection *connection);
 
+/* respond_oom() must be usable with return, hence this form. */
+#define respond_oom(connection) log_oom(), respond_oom_internal(connection)
+
+int respond_error(struct MHD_Connection *connection,
+                  unsigned code,
+                  const char *format, ...);
+
+int check_permissions(struct MHD_Connection *connection, int *code);
+
+#ifdef HAVE_GNUTLS
 void log_func_gnutls(int level, const char *message);
 
 /* This is additionally filtered by our internal log level, so it

@@ -27,6 +27,10 @@
 
 #include <microhttpd.h>
 
+#ifdef HAVE_GNUTLS
+#include <gnutls/gnutls.h>
+#endif
+
 #include "log.h"
 #include "util.h"
 #include "sd-journal.h"
@@ -37,6 +41,10 @@
 #include "microhttpd-util.h"
 #include "build.h"
 #include "fileio.h"
+
+static char *key_pem = NULL;
+static char *cert_pem = NULL;
+static char *trust_pem = NULL;
 
 typedef struct RequestMeta {
         sd_journal *journal;
@@ -109,60 +117,6 @@ static int open_journal(RequestMeta *m) {
                 return 0;
 
         return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM);
-}
-
-static int respond_oom_internal(struct MHD_Connection *connection) {
-        struct MHD_Response *response;
-        const char m[] = "Out of memory.\n";
-        int ret;
-
-        assert(connection);
-
-        response = MHD_create_response_from_buffer(sizeof(m)-1, (char*) m, MHD_RESPMEM_PERSISTENT);
-        if (!response)
-                return MHD_NO;
-
-        MHD_add_response_header(response, "Content-Type", "text/plain");
-        ret = MHD_queue_response(connection, MHD_HTTP_SERVICE_UNAVAILABLE, response);
-        MHD_destroy_response(response);
-
-        return ret;
-}
-
-#define respond_oom(connection) log_oom(), respond_oom_internal(connection)
-
-_printf_(3,4)
-static int respond_error(
-                struct MHD_Connection *connection,
-                unsigned code,
-                const char *format, ...) {
-
-        struct MHD_Response *response;
-        char *m;
-        int r;
-        va_list ap;
-
-        assert(connection);
-        assert(format);
-
-        va_start(ap, format);
-        r = vasprintf(&m, format, ap);
-        va_end(ap);
-
-        if (r < 0)
-                return respond_oom(connection);
-
-        response = MHD_create_response_from_buffer(strlen(m), m, MHD_RESPMEM_MUST_FREE);
-        if (!response) {
-                free(m);
-                return respond_oom(connection);
-        }
-
-        MHD_add_response_header(response, "Content-Type", "text/plain");
-        r = MHD_queue_response(connection, code, response);
-        MHD_destroy_response(response);
-
-        return r;
 }
 
 static ssize_t request_reader_entries(
@@ -859,6 +813,7 @@ static int request_handler(
                 const char *upload_data,
                 size_t *upload_data_size,
                 void **connection_cls) {
+        int r, code;
 
         assert(connection);
         assert(connection_cls);
@@ -874,6 +829,12 @@ static int request_handler(
                 if (!request_meta(connection_cls))
                         return respond_oom(connection);
                 return MHD_YES;
+        }
+
+        if (trust_pem) {
+                r = check_permissions(connection, &code);
+                if (r < 0)
+                        return code;
         }
 
         if (streq(url, "/"))
@@ -907,10 +868,6 @@ static int help(void) {
 
         return 0;
 }
-
-static char *key_pem = NULL;
-static char *cert_pem = NULL;
-static char *trust_pem = NULL;
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
@@ -973,6 +930,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TRUST:
+#ifdef HAVE_GNUTLS
                         if (trust_pem) {
                                 log_error("CA certificate file specified twice");
                                 return -EINVAL;
@@ -984,6 +942,9 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         assert(trust_pem);
                         break;
+#else
+                        log_error("Option --trust is not available.");
+#endif
 
                 case '?':
                         return -EINVAL;
