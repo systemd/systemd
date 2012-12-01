@@ -20,7 +20,7 @@
 
 ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 AM_MAKEFLAGS = --no-print-directory
-AUTOMAKE_OPTIONS = color-tests
+AUTOMAKE_OPTIONS = color-tests parallel-tests
 
 SUBDIRS = . po
 
