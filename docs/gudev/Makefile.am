@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 
 # We require automake 1.10 at least.
-AUTOMAKE_OPTIONS = 1.10
+AUTOMAKE_OPTIONS = 1.10 color-tests
 
 # This is a blank Makefile.am for using gtk-doc.
 # Copy this to your project's API docs directory and modify the variables to
