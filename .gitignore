@@ -114,6 +114,7 @@
 /*.tar.bz2
 /*.tar.gz
 /*.tar.xz
+*.trs
 *.log
 *.a
 *.cache
