@@ -61,7 +61,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para><command>systemd-journal-gatewayd</command> serves journal
     events over the network. Clients must connect using
-    HTTP, to port 19531 by default.</para>
+    HTTP. The server listens on port 19531 by default.</para>
 
     <para>The program is started by
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -105,7 +105,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><option>/machine</option></term>
 
-        <listitem><para>Return a JSON structre describing the machine.</para>
+        <listitem><para>Return a JSON structure describing the machine.</para>
 
         <para>Example:
         <programlisting>
