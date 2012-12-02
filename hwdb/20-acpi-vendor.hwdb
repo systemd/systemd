@@ -1484,7 +1484,7 @@ acpi:DIT*:
  ID_VENDOR_FROM_DATABASE=Dragon Information Technology
 
 acpi:DJE*:
- ID_VENDOR_FROM_DATABASE=Capstone Visua lProduct Development
+ ID_VENDOR_FROM_DATABASE=Capstone Visual Product Development
 
 acpi:DJP*:
  ID_VENDOR_FROM_DATABASE=Maygay Machines, Ltd
