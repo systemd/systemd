@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
 
                 /* Automatically add in a serial getty on the kernel
                  * console */
-                if (tty_is_vc(tty))
+                if (isempty(tty) || tty_is_vc(tty))
                         free(active);
                 else {
                         int k;
