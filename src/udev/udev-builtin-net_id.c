@@ -18,18 +18,27 @@
 ***/
 
 /*
- * prefixes:
+ * predictable network interface device names based on:
+ *  - firmware/bios-provided index numbers for on-board devices
+ *  - firmware-provided pci-express hotplug slot index number
+ *  - physical/geographical location of the hardware
+ *  - the interface's MAC address
+ *
+ * two character prefixes based on the type of interface:
  *   en -- ethernet
  *   wl -- wlan
  *   ww -- wwan
  *
- * types:
- *   o<index>                   -- on-board device index
- *   s<slot>[f<function>]       -- hotplug slot number
+ * type of names:
+ *   o<index>                   -- on-board device index number
+ *   s<slot>[f<function>]       -- hotplug slot index number
  *   x<MAC>                     -- MAC address
- *   p<bus>s<slot>[f<function>] -- PCI/physical location
+ *   p<bus>s<slot>[f<function>] -- PCI geographical location
  *
- * example:
+ * All multi-function devices will carry the [f<function>] number in the
+ * device name, including the function 0 device.
+ *
+ * examples:
  *   ID_NET_NAME_ONBOARD=eno1
  *   ID_NET_NAME_SLOT=ens1
  *   ID_NET_NAME_SLOT=ens2f0
@@ -82,6 +91,7 @@ static int dev_pci_onboard(struct udev_device *dev, struct udev_device *parent, 
         return 0;
 }
 
+/* read the 256 bytes PCI configuration space to check for multi-function */
 static bool is_pci_singlefunction(struct udev_device *dev) {
         char filename[256];
         FILE *f;
@@ -215,8 +225,10 @@ static int dev_mac(struct udev_device *dev, const char *prefix, bool test) {
                 return -EINVAL;
 
         /* add IEEE Organizationally Unique Identifier */
-        snprintf(str, sizeof(str), "OUI:%X%X%X", a1, a2, a3);
-        udev_builtin_hwdb_lookup(dev, str, test);
+        if (a1 + a2 + a3 > 0) {
+                snprintf(str, sizeof(str), "OUI:%02X%02X%02X", a1, a2, a3);
+                udev_builtin_hwdb_lookup(dev, str, test);
+        }
 
         snprintf(str, sizeof(str), "%sx%02x%02x%02x%02x%02x%02x", prefix, a1, a2, a3, a4, a5, a6);
         return udev_builtin_add_property(dev, test, "ID_NET_NAME_MAC", str);
