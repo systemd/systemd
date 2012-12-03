@@ -936,7 +936,7 @@ static int connect_bus(DBusConnection **_bus) {
         if (!bus) {
                 log_error("Failed to get system D-Bus connection: %s", bus_error_message(&error));
                 r = -ECONNREFUSED;
-                goto fail;
+                goto fail2;
         }
 
         dbus_connection_set_exit_on_disconnect(bus, FALSE);
@@ -968,7 +968,7 @@ static int connect_bus(DBusConnection **_bus) {
 fail:
         dbus_connection_close(bus);
         dbus_connection_unref(bus);
-
+fail2:
         dbus_error_free(&error);
 
         return r;
