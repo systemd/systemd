@@ -71,7 +71,7 @@
                         </funcprototype>
 
                         <funcprototype>
-                                <funcdef>int <function>sd_journal_close</function></funcdef>
+                                <funcdef>void <function>sd_journal_close</function></funcdef>
                                 <paramdef>sd_journal* <parameter>j</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
