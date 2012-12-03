@@ -91,7 +91,7 @@ static int dev_pci_onboard(struct udev_device *dev, struct udev_device *parent, 
         return 0;
 }
 
-/* read the 256 bytes PCI configuration space to check for multi-function */
+/* read the 256 bytes PCI configuration space to check the multi-function bit */
 static bool is_pci_singlefunction(struct udev_device *dev) {
         char filename[256];
         FILE *f;
@@ -224,7 +224,10 @@ static int dev_mac(struct udev_device *dev, const char *prefix, bool test) {
         if (a1 + a2 + a3 + a4 + a5 + a6 == 0)
                 return -EINVAL;
 
-        /* add IEEE Organizationally Unique Identifier */
+        /*
+         * IEEE Organizationally Unique Identifier vendor string
+         * skip commonly misused 00:00:00 (Xerox) prefix
+         */
         if (a1 + a2 + a3 > 0) {
                 snprintf(str, sizeof(str), "OUI:%02X%02X%02X", a1, a2, a3);
                 udev_builtin_hwdb_lookup(dev, str, test);
