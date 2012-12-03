@@ -229,7 +229,7 @@ static int dev_mac(struct udev_device *dev, const char *prefix, bool test) {
          * skip commonly misused 00:00:00 (Xerox) prefix
          */
         if (a1 + a2 + a3 > 0) {
-                snprintf(str, sizeof(str), "OUI:%02X%02X%02X", a1, a2, a3);
+                snprintf(str, sizeof(str), "OUI:%02X%02X%02X%02X%02X%02X", a1, a2, a3, a4, a5, a6);
                 udev_builtin_hwdb_lookup(dev, str, test);
         }
 

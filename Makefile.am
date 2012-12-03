@@ -4145,7 +4145,8 @@ distclean-local: $(DISTCLEAN_LOCAL_HOOKS)
 
 clean-local:
 	rm -rf $(abs_srcdir)/install-tree
-	rm -f $(abs_srcdir)/hwdb/usb.ids $(abs_srcdir)/hwdb/pci.ids $(abs_srcdir)/hwdb/oui.txt
+	rm -f $(abs_srcdir)/hwdb/usb.ids $(abs_srcdir)/hwdb/pci.ids $(abs_srcdir)/hwdb/oui.txt \
+              $(abs_srcdir)/hwdb/iab.txt
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbuspolicydir=$$dc_install_base/$(dbuspolicydir) \
@@ -4173,6 +4174,7 @@ hwdb-update:
 	wget -N http://www.linux-usb.org/usb.ids && \
 	wget -N http://pci-ids.ucw.cz/v2.2/pci.ids && \
 	wget -N http://standards.ieee.org/develop/regauth/oui/oui.txt && \
+	wget -N http://standards.ieee.org/develop/regauth/iab/iab.txt && \
 	./ids-update.pl )
 
 upload: all distcheck

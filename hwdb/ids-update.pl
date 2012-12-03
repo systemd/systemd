@@ -208,24 +208,53 @@ sub pci_classes {
 }
 
 sub oui {
-        open(IN, "<", "oui.txt");
+        my $iab_prefix;
+        my %iab_prefixes = ();
+
         open(OUT, ">", "20-OUI.hwdb");
         print(OUT "# This file is part of systemd.\n" .
                   "#\n" .
+                  "# Data imported and updated from: http://standards.ieee.org/develop/regauth/iab/iab.txt\n" .
                   "# Data imported and updated from: http://standards.ieee.org/develop/regauth/oui/oui.txt\n");
 
+        open(IN, "<", "iab.txt");
+        while (my $line = <IN>) {
+                $line =~ s/\s+$//;
+                $line =~ m/^([0-9A-F]{2})-([0-9A-F]{2})-([0-9A-F]{2})\s*\(hex\)\s*.+$/;
+                if (defined $1) {
+                        $iab_prefix = $1 . $2 . $3;
+                        $iab_prefixes{ $iab_prefix } = 1;
+                        next;
+                }
+
+                $line =~ m/^([0-9A-F]{3})000-\g1FFF\s*\(base 16\)\s*(.+)$/;
+                if (defined $1) {
+                        my $vendor = uc $1;
+                        my $text = $2;
+
+                        print(OUT "\n");
+                        print(OUT "OUI:" . $iab_prefix . $vendor . "*\n");
+                        print(OUT " ID_OUI_FROM_DATABASE=" . $text . "\n");
+                }
+        }
+        close(INP);
+
+        open(IN, "<", "oui.txt");
         while (my $line = <IN>) {
                 $line =~ s/\s+$//;
                 $line =~ m/^([0-9A-F]{6})\s*\(base 16\)\s*(.+)$/;
                 if (defined $1) {
                         my $vendor = uc $1;
                         my $text = $2;
-                        print(OUT "\n");
-                        print(OUT "OUI:" . $vendor . "\n");
-                        print(OUT " ID_OUI_FROM_DATABASE=" . $text . "\n");
+
+                        # skip the IAB prefixes
+                        if (! exists $iab_prefixes{ $vendor }) {
+                                print(OUT "\n");
+                                print(OUT "OUI:" . $vendor . "*\n");
+                                print(OUT " ID_OUI_FROM_DATABASE=" . $text . "\n");
+                        }
                 }
         }
-
         close(INP);
         close(OUTP);
 }
