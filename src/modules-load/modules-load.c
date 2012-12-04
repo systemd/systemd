@@ -64,7 +64,8 @@ static int add_modules(const char *p) {
 }
 
 static int parse_proc_cmdline(void) {
-        char *line, *w, *state;
+        char _cleanup_free_ *line = NULL;
+        char *w, *state;
         int r;
         size_t l;
 
@@ -78,38 +79,30 @@ static int parse_proc_cmdline(void) {
         }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
-                char *word;
+                char _cleanup_free_ *word;
 
                 word = strndup(w, l);
-                if (!word) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!word)
+                        return log_oom();
 
                 if (startswith(word, "modules-load=")) {
 
                         r = add_modules(word + 13);
                         if (r < 0)
-                                goto finish;
+                                return r;
 
                 } else if (startswith(word, "rd.modules-load=")) {
 
                         if (in_initrd()) {
                                 r = add_modules(word + 16);
                                 if (r < 0)
-                                        goto finish;
+                                        return r;
                         }
 
                 }
-
-                free(word);
         }
 
-        r = 0;
-
-finish:
-        free(line);
-        return r;
+        return 0;
 }
 
 static int load_module(struct kmod_ctx *ctx, const char *m) {
