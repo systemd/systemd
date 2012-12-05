@@ -1115,6 +1115,7 @@ libsystemd_core_la_LIBADD = \
 	libsystemd-dbus.la \
 	libsystemd-audit.la \
 	libsystemd-id128-internal.la \
+	libsystemd-daemon.la \
 	libudev.la \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
