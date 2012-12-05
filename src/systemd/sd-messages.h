@@ -65,6 +65,8 @@ extern "C" {
 
 #define SD_MESSAGE_FORWARD_SYSLOG_MISSED SD_ID128_MAKE(00,27,22,9c,a0,64,41,81,a7,6c,4e,92,45,8a,fa,2e)
 
+#define SD_MESSAGE_OVERMOUNTING     SD_ID128_MAKE(1d,ee,03,69,c7,fc,47,36,b7,09,9b,38,ec,b4,6e,e7)
+
 #ifdef __cplusplus
 }
 #endif

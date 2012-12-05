@@ -50,6 +50,7 @@
 #include "capability.h"
 #include "util.h"
 #include "log.h"
+#include "sd-messages.h"
 #include "ioprio.h"
 #include "securebits.h"
 #include "cgroup.h"
@@ -62,8 +63,6 @@
 #include "loopback-setup.h"
 #include "path-util.h"
 #include "syscall-list.h"
-#include "sd-id128.h"
-#include "sd-messages.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 

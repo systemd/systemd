@@ -30,6 +30,7 @@
 #include "load-fragment.h"
 #include "load-dropin.h"
 #include "log.h"
+#include "sd-messages.h"
 #include "strv.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -927,6 +928,18 @@ fail:
                 set_free(pid_set);
 }
 
+void warn_if_dir_nonempty(const char *unit, const char* where) {
+        if (dir_is_empty(where) > 0)
+                return;
+        log_struct(LOG_NOTICE,
+                   "MESSAGE=%s: Directory %s to mount over is not empty, mounting anyway.",
+                   unit, where,
+                   "WHERE=%s", where,
+                   "_SYSTEMD_UNIT=%s", unit,
+                   MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
+                   NULL);
+}
+
 static void mount_enter_unmounting(Mount *m) {
         int r;
 
@@ -967,8 +980,7 @@ static void mount_enter_mounting(Mount *m) {
 
         mkdir_p_label(m->where, m->directory_mode);
 
-        if (dir_is_empty(m->where) <= 0)
-                log_notice("%s: Directory %s to mount over is not empty, mounting anyway. (To see the over-mounted files, please manually mount the underlying file system to a secondary location.)", m->meta.id, m->where);
+        warn_if_dir_nonempty(m->meta.id, m->where);
 
         /* Create the source directory for bind-mounts if needed */
         p = get_mount_parameters_fragment(m);

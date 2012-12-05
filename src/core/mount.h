@@ -119,3 +119,5 @@ MountExecCommand mount_exec_command_from_string(const char *s);
 
 const char* mount_result_to_string(MountResult i);
 MountResult mount_result_from_string(const char *s);
+
+void warn_if_dir_nonempty(const char *unit, const char* where);

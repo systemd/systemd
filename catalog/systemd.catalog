@@ -276,3 +276,16 @@ One or more messages could not be forwarded to the syslog service
 running side-by-side with journald. This usually indicates that the
 syslog implementation has not been able to keep up with the speed of
 messages queued.
+
+-- 1dee0369c7fc4736b7099b38ecb46ee7
+Subject: Mount point is not empty
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+The directory @WHERE@ is specified as the mount point (second field in
+/etc/fstab or Where= field in systemd unit file) and is not empty.
+This does not interfere with mounting, but the pre-exisiting files in
+this directory become inaccessible. To see those over-mounted files,
+please manually mount the underlying file system to a secondary
+location.

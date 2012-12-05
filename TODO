@@ -43,8 +43,6 @@ Features:
   include _SYSTEMD_UNIT= fields so that "systemctl status" can show
   them along with the unit
 
-* define a message ID for "overmounting non-empty directory" and write message catalog entry for it
-
 * use polkit "imply" for binding hostname actions together
 
 * journal: when waiting for journal additions always sleep at least 1s or so, in order to minimize wakeups
