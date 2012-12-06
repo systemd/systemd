@@ -18,39 +18,44 @@
 ***/
 
 /*
- * predictable network interface device names based on:
+ * Predictable network interface device names based on:
  *  - firmware/bios-provided index numbers for on-board devices
  *  - firmware-provided pci-express hotplug slot index number
  *  - physical/geographical location of the hardware
  *  - the interface's MAC address
  *
- * two character prefixes based on the type of interface:
+ * Two character prefixes based on the type of interface:
  *   en -- ethernet
  *   wl -- wlan
  *   ww -- wwan
  *
- * type of names:
+ * Type of names:
  *   o<index>                   -- on-board device index number
  *   s<slot>[f<function>]       -- hotplug slot index number
  *   x<MAC>                     -- MAC address
  *   p<bus>s<slot>[f<function>] -- PCI geographical location
- *   p<bus>s<slot>[f<function>][u<port>][u<port>][c<config>][i<interface>]
+ *   p<bus>s<slot>[f<function>][u<port>][...][c<config>][i<interface>]
  *                              -- USB port number chain
  *
- * All multi-function devices will carry the [f<function>] number in the
+ * All multi-function PCI devices will carry the [f<function>] number in the
  * device name, including the function 0 device.
  *
- * PCI card with firmware index
+ * For USB devices the fill chain of port numbers of hubs is composed. If the
+ * string would gt longer than the maximum of 15 characters, the name is not
+ * exported. The usual USB configuration == 1 and interface == 0 values are
+ * suppressed.
+ *
+ * PCI ethernet card with firmware index
  *   ID_NET_NAME_ONBOARD=eno1
  *   ID_NET_NAME_ONBOARD_LABEL=Ethernet Port 1
  *
- * PCI card
+ * PCI ethernet card
  *   /sys/devices/pci0000:00/0000:00:1c.3/0000:05:00.0/net/ens1
  *   ID_NET_NAME_MAC=enx000000000466
  *   ID_NET_NAME_PATH=enp5s0
  *   ID_NET_NAME_SLOT=ens1
  *
- * PCI card in hotplug slot with firmware index number:
+ * PCI ethernet card in hotplug slot with firmware index number:
  *   /sys/devices/pci0000:00/0000:00:1c.3/0000:05:00.0/net/ens1
  *   ID_NET_NAME_MAC=enx000000000466
  *   ID_NET_NAME_PATH=enp5s0
