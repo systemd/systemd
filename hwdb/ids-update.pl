@@ -34,8 +34,8 @@ sub usb_vendor {
                 }
         }
 
-        close(INP);
-        close(OUTP);
+        close(IN);
+        close(OUT);
 }
 
 sub usb_classes {
@@ -100,15 +100,14 @@ sub usb_classes {
                 }
         }
 
-        close(INP);
-        close(OUTP);
+        close(IN);
+        close(OUT);
 }
 
 sub pci_vendor {
         my $vendor;
         my $device;
 
-        open(IN, "<", "usb.ids");
         open(IN, "<", "pci.ids");
         open(OUT, ">", "20-pci-vendor-product.hwdb");
         print(OUT "# This file is part of systemd.\n" .
@@ -149,8 +148,8 @@ sub pci_vendor {
                 }
         }
 
-        close(INP);
-        close(OUTP);
+        close(IN);
+        close(OUT);
 }
 
 sub pci_classes {
@@ -203,8 +202,8 @@ sub pci_classes {
                 }
         }
 
-        close(INP);
-        close(OUTP);
+        close(IN);
+        close(OUT);
 }
 
 sub oui {
@@ -237,7 +236,7 @@ sub oui {
                         print(OUT " ID_OUI_FROM_DATABASE=" . $text . "\n");
                 }
         }
-        close(INP);
+        close(IN);
 
         open(IN, "<", "oui.txt");
         while (my $line = <IN>) {
@@ -255,8 +254,8 @@ sub oui {
                         }
                 }
         }
-        close(INP);
-        close(OUTP);
+        close(IN);
+        close(OUT);
 }
 
 usb_vendor();
