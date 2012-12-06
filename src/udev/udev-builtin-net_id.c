@@ -330,9 +330,9 @@ static int names_mac(struct udev_device *dev, struct netnames *names) {
 
 /* IEEE Organizationally Unique Identifier vendor string */
 static int ieee_oui(struct udev_device *dev, struct netnames *names, bool test) {
-        char str[IFNAMSIZ];
+        char str[32];
 
-        if (names->mac_valid)
+        if (!names->mac_valid)
                 return -ENOENT;
         /* skip commonly misused 00:00:00 (Xerox) prefix */
         if (memcmp(names->mac, "\0\0\0", 3) == 0)
