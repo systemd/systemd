@@ -103,7 +103,7 @@ static void deallocate_tile(void **first_tile, void *p) {
         *first_tile = p;
 }
 
-#ifndef __OPTIMIZE__
+#ifdef VALGRIND
 
 static void drop_pool(struct pool *p) {
         while (p) {
