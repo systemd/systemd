@@ -34,19 +34,42 @@
  *   s<slot>[f<function>]       -- hotplug slot index number
  *   x<MAC>                     -- MAC address
  *   p<bus>s<slot>[f<function>] -- PCI geographical location
+ *   p<bus>s<slot>[f<function>][u<port>][u<port>][c<config>][i<interface>]
+ *                              -- USB port number chain
  *
  * All multi-function devices will carry the [f<function>] number in the
  * device name, including the function 0 device.
  *
- * examples:
+ * PCI card with firmware index
  *   ID_NET_NAME_ONBOARD=eno1
+ *   ID_NET_NAME_ONBOARD_LABEL=Ethernet Port 1
+ *
+ * PCI card
+ *   /sys/devices/pci0000:00/0000:00:1c.3/0000:05:00.0/net/ens1
+ *   ID_NET_NAME_MAC=enx000000000466
+ *   ID_NET_NAME_PATH=enp5s0
  *   ID_NET_NAME_SLOT=ens1
- *   ID_NET_NAME_SLOT=ens2f0
- *   ID_NET_NAME_SLOT=ens2f1
- *   ID_NET_NAME_MAC=enxf0def180d479
- *   ID_NET_NAME_PATH=enp0s25
- *   ID_NET_NAME_PATH=enp19s3f0
- *   ID_NET_NAME_PATH=enp19s3f1
+ *
+ * PCI card in hotplug slot with firmware index number:
+ *   /sys/devices/pci0000:00/0000:00:1c.3/0000:05:00.0/net/ens1
+ *   ID_NET_NAME_MAC=enx000000000466
+ *   ID_NET_NAME_PATH=enp5s0
+ *   ID_NET_NAME_SLOT=ens1
+ *
+ * PCI wlan card:
+ *   /sys/devices/pci0000:00/0000:00:1c.1/0000:03:00.0/net/wlp3s0
+ *   ID_NET_NAME_MAC=wlx0024d7e31130
+ *   ID_NET_NAME_PATH=wlp3s0
+ *
+ * USB built-in 3G modem:
+ *   /sys/devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1.4/2-1.4:1.6/net/wwp0s29u1u4i6
+ *   ID_NET_NAME_MAC=wwx028037ec0200
+ *   ID_NET_NAME_PATH=wwp0s29u1u4i6
+ *
+ * USB Android phone:
+ *   /sys/devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1.2/2-1.2:1.0/net/enp0s29u1u2
+ *   ID_NET_NAME_MAC=enxd626b3450fb5
+ *   ID_NET_NAME_PATH=enp0s29u1u2
  */
 
 #include <stdio.h>
