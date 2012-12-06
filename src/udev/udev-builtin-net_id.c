@@ -40,10 +40,10 @@
  * All multi-function PCI devices will carry the [f<function>] number in the
  * device name, including the function 0 device.
  *
- * For USB devices the fill chain of port numbers of hubs is composed. If the
- * string would gt longer than the maximum of 15 characters, the name is not
- * exported. The usual USB configuration == 1 and interface == 0 values are
- * suppressed.
+ * For USB devices the full chain of port numbers of hubs is composed. If the
+ * name gets longer than the maximum number of 15 characters, the name is not
+ * exported.
+ * The usual USB configuration == 1 and interface == 0 values are suppressed.
  *
  * PCI ethernet card with firmware index
  *   ID_NET_NAME_ONBOARD=eno1
