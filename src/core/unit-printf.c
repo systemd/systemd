@@ -123,6 +123,8 @@ static char *specifier_user_name(char specifier, void *data, void *userdata) {
         ExecContext *c;
         int r;
         const char *username;
+        uid_t uid;
+        char *printed = NULL;
 
         assert(u);
 
@@ -134,11 +136,21 @@ static char *specifier_user_name(char specifier, void *data, void *userdata) {
 
         /* fish username from passwd */
         username = c->user;
-        r = get_user_creds(&username, NULL, NULL, NULL, NULL);
+        r = get_user_creds(&username, &uid, NULL, NULL, NULL);
         if (r < 0)
                 return NULL;
 
-        return strdup(username);
+        switch (specifier) {
+                case 'U':
+                        if (asprintf(&printed, "%d", uid) < 0)
+                                return NULL;
+                        break;
+                case 'u':
+                        printed = strdup(username);
+                        break;
+        }
+
+        return printed;
 }
 
 static char *specifier_user_home(char specifier, void *data, void *userdata) {
@@ -292,6 +304,7 @@ char *unit_full_printf(Unit *u, const char *format) {
                 { 'r', specifier_cgroup_root,         NULL },
                 { 'R', specifier_cgroup_root,         NULL },
                 { 't', specifier_runtime,             NULL },
+                { 'U', specifier_user_name,           NULL },
                 { 'u', specifier_user_name,           NULL },
                 { 'h', specifier_user_home,           NULL },
                 { 's', specifier_user_shell,          NULL },

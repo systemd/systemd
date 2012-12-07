@@ -264,6 +264,11 @@
                         <entry>This is the name of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
                       </row>
                       <row>
+                        <entry><literal>%U</literal></entry>
+                        <entry>User uid</entry>
+                        <entry>This is the uid of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
+                      </row>
+                      <row>
                         <entry><literal>%h</literal></entry>
                         <entry>User home directory</entry>
                         <entry>This is the home directory of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
