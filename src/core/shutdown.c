@@ -197,9 +197,10 @@ int main(int argc, char *argv[]) {
                 if (need_umount) {
                         log_info("Unmounting file systems.");
                         r = umount_all(&changed);
-                        if (r == 0)
+                        if (r == 0) {
                                 need_umount = false;
-                        else if (r > 0)
+                                log_info("All filesystems unmounted.");
+                        } else if (r > 0)
                                 log_info("Not all file systems unmounted, %d left.", r);
                         else
                                 log_error("Failed to unmount file systems: %s", strerror(-r));
@@ -208,9 +209,10 @@ int main(int argc, char *argv[]) {
                 if (need_swapoff) {
                         log_info("Disabling swaps.");
                         r = swapoff_all(&changed);
-                        if (r == 0)
+                        if (r == 0) {
                                 need_swapoff = false;
-                        else if (r > 0)
+                                log_info("All swaps disabled.");
+                        } else if (r > 0)
                                 log_info("Not all swaps are turned off, %d left.", r);
                         else
                                 log_error("Failed to turn off swaps: %s", strerror(-r));
@@ -219,9 +221,10 @@ int main(int argc, char *argv[]) {
                 if (need_loop_detach) {
                         log_info("Detaching loop devices.");
                         r = loopback_detach_all(&changed);
-                        if (r == 0)
+                        if (r == 0) {
                                 need_loop_detach = false;
-                        else if (r > 0)
+                                log_info("All loop devices detached.");
+                        } else if (r > 0)
                                 log_info("Not all loop devices detached, %d left.", r);
                         else
                                 log_error("Failed to detach loop devices: %s", strerror(-r));
@@ -230,9 +233,10 @@ int main(int argc, char *argv[]) {
                 if (need_dm_detach) {
                         log_info("Detaching DM devices.");
                         r = dm_detach_all(&changed);
-                        if (r == 0)
+                        if (r == 0) {
                                 need_dm_detach = false;
-                        else if (r > 0)
+                                log_info("All DM devices detached.");
+                        } else if (r > 0)
                                 log_info("Not all DM devices detached, %d left.", r);
                         else
                                 log_error("Failed to detach DM devices: %s", strerror(-r));

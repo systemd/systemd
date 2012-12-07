@@ -443,8 +443,8 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                         continue;
 
                 /* Trying to umount. Forcing to umount if busy (only for NFS mounts) */
+                log_info("Unmounting %s.", m->path);
                 if (umount2(m->path, MNT_FORCE) == 0) {
-                        log_info("Unmounted %s.", m->path);
                         if (changed)
                                 *changed = true;
 
@@ -465,6 +465,7 @@ static int swap_points_list_off(MountPoint **head, bool *changed) {
         assert(head);
 
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+                log_info("Disabling swap %s.", m->path);
                 if (swapoff(m->path) == 0) {
                         if (changed)
                                 *changed = true;
@@ -500,8 +501,9 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed) {
                         continue;
                 }
 
-                if ((r = delete_loopback(m->path)) >= 0) {
-
+                log_info("Deleting loopback %s.", m->path);
+                r = delete_loopback(m->path);
+                if (r >= 0) {
                         if (r > 0 && changed)
                                 *changed = true;
 
@@ -534,14 +536,15 @@ static int dm_points_list_detach(MountPoint **head, bool *changed) {
                         continue;
                 }
 
-                if ((r = delete_dm(m->devnum)) >= 0) {
-
+                log_info("Deleting DM %u:%u.", major(m->devnum), minor(m->devnum));
+                r = delete_dm(m->devnum);
+                if (r >= 0) {
                         if (changed)
                                 *changed = true;
 
                         mount_point_free(head, m);
                 } else {
-                        log_warning("Could not delete dm %s: %m", m->path);
+                        log_warning("Could not delete DM %s: %m", m->path);
                         n_failed++;
                 }
         }
