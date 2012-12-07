@@ -207,15 +207,15 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (need_swapoff) {
-                        log_info("Disabling swaps.");
+                        log_info("Deactivating swaps.");
                         r = swapoff_all(&changed);
                         if (r == 0) {
                                 need_swapoff = false;
-                                log_info("All swaps disabled.");
+                                log_info("All swaps deactivated.");
                         } else if (r > 0)
-                                log_info("Not all swaps are turned off, %d left.", r);
+                                log_info("Not all swaps deactivated, %d left.", r);
                         else
-                                log_error("Failed to turn off swaps: %s", strerror(-r));
+                                log_error("Failed to deactivate swaps: %s", strerror(-r));
                 }
 
                 if (need_loop_detach) {

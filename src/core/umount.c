@@ -465,7 +465,7 @@ static int swap_points_list_off(MountPoint **head, bool *changed) {
         assert(head);
 
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
-                log_info("Disabling swap %s.", m->path);
+                log_info("Deactivating swap %s.", m->path);
                 if (swapoff(m->path) == 0) {
                         if (changed)
                                 *changed = true;
@@ -501,7 +501,7 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed) {
                         continue;
                 }
 
-                log_info("Deleting loopback %s.", m->path);
+                log_info("Detaching loopback %s.", m->path);
                 r = delete_loopback(m->path);
                 if (r >= 0) {
                         if (r > 0 && changed)
@@ -509,7 +509,7 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed) {
 
                         mount_point_free(head, m);
                 } else {
-                        log_warning("Could not delete loopback %s: %m", m->path);
+                        log_warning("Could not detach loopback %s: %m", m->path);
                         n_failed++;
                 }
         }
@@ -536,7 +536,7 @@ static int dm_points_list_detach(MountPoint **head, bool *changed) {
                         continue;
                 }
 
-                log_info("Deleting DM %u:%u.", major(m->devnum), minor(m->devnum));
+                log_info("Detaching DM %u:%u.", major(m->devnum), minor(m->devnum));
                 r = delete_dm(m->devnum);
                 if (r >= 0) {
                         if (changed)
@@ -544,7 +544,7 @@ static int dm_points_list_detach(MountPoint **head, bool *changed) {
 
                         mount_point_free(head, m);
                 } else {
-                        log_warning("Could not delete DM %s: %m", m->path);
+                        log_warning("Could not detach DM %s: %m", m->path);
                         n_failed++;
                 }
         }
