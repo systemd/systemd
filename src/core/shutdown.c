@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
                         if (r == 0)
                                 need_dm_detach = false;
                         else if (r > 0)
-                                log_warning("Not all DM devices detached, %d left.", r);
+                                log_info("Not all DM devices detached, %d left.", r);
                         else
                                 log_error("Failed to detach DM devices: %s", strerror(-r));
                 }
