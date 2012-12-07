@@ -536,7 +536,7 @@ static int dm_points_list_detach(MountPoint **head, bool *changed) {
 
                 if ((r = delete_dm(m->devnum)) >= 0) {
 
-                        if (r > 0 && changed)
+                        if (changed)
                                 *changed = true;
 
                         mount_point_free(head, m);
