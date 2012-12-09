@@ -45,21 +45,23 @@
  * exported.
  * The usual USB configuration == 1 and interface == 0 values are suppressed.
  *
- * PCI ethernet card with firmware index
+ * PCI ethernet card with firmware index "1":
  *   ID_NET_NAME_ONBOARD=eno1
  *   ID_NET_NAME_ONBOARD_LABEL=Ethernet Port 1
- *
- * PCI ethernet card
- *   /sys/devices/pci0000:00/0000:00:1c.3/0000:05:00.0/net/ens1
- *   ID_NET_NAME_MAC=enx000000000466
- *   ID_NET_NAME_PATH=enp5s0
- *   ID_NET_NAME_SLOT=ens1
  *
  * PCI ethernet card in hotplug slot with firmware index number:
  *   /sys/devices/pci0000:00/0000:00:1c.3/0000:05:00.0/net/ens1
  *   ID_NET_NAME_MAC=enx000000000466
  *   ID_NET_NAME_PATH=enp5s0
  *   ID_NET_NAME_SLOT=ens1
+ *
+ * PCI ethernet multi-function card with 2 ports:
+ *   /sys/devices/pci0000:00/0000:00:1c.0/0000:02:00.0/net/enp2s0f0
+ *   ID_NET_NAME_MAC=enx78e7d1ea46da
+ *   ID_NET_NAME_PATH=enp2s0f0
+ *   /sys/devices/pci0000:00/0000:00:1c.0/0000:02:00.1/net/enp2s0f1
+ *   ID_NET_NAME_MAC=enx78e7d1ea46dc
+ *   ID_NET_NAME_PATH=enp2s0f1
  *
  * PCI wlan card:
  *   /sys/devices/pci0000:00/0000:00:1c.1/0000:03:00.0/net/wlp3s0
