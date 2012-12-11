@@ -169,8 +169,8 @@ static int trie_fnmatch_f(struct udev_hwdb *hwdb, const struct trie_node_f *node
                 linebuf_rem_char(buf);
         }
 
-        if (node->values_count && fnmatch(linebuf_get(buf), search, 0) == 0)
-                for (i = 0; i < node->values_count; i++) {
+        if (le64toh(node->values_count) && fnmatch(linebuf_get(buf), search, 0) == 0)
+                for (i = 0; i < le64toh(node->values_count); i++) {
                         err = hwdb_add_property(hwdb, trie_string(hwdb, trie_node_values(hwdb, node)[i].key_off),
                                                 trie_string(hwdb, trie_node_values(hwdb, node)[i].value_off));
                         if (err < 0)
@@ -236,7 +236,7 @@ static int trie_search_f(struct udev_hwdb *hwdb, const char *search) {
                 if (search[i] == '\0') {
                         size_t n;
 
-                        for (n = 0; n < node->values_count; n++) {
+                        for (n = 0; n < le64toh(node->values_count); n++) {
                                 err = hwdb_add_property(hwdb, trie_string(hwdb, trie_node_values(hwdb, node)[n].key_off),
                                                         trie_string(hwdb, trie_node_values(hwdb, node)[n].value_off));
                                 if (err < 0)
