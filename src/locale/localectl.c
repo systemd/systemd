@@ -537,7 +537,7 @@ static int set_x11_keymap(DBusConnection *bus, char **args, unsigned n) {
         layout = args[1];
         model = n > 2 ? args[2] : "";
         variant = n > 3 ? args[3] : "";
-        options = n > 3 ? args[4] : "";
+        options = n > 4 ? args[4] : "";
         b = arg_convert;
 
         return bus_method_call_with_reply(
