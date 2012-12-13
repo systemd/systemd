@@ -181,6 +181,7 @@ char **path_strv_canonicalize(char **l) {
 
                 t = path_make_absolute_cwd(*s);
                 free(*s);
+                *s = NULL;
 
                 if (!t) {
                         enomem = true;
