@@ -369,6 +369,8 @@ int socket_address_print(const SocketAddress *a, char **p) {
                 if (r < 0)
                         return r;
                 r = asprintf(p, "%s %u", sfamily, a->sockaddr.nl.nl_groups);
+                if (r < 0)
+                        return -ENOMEM;
 
                 return 0;
         }
