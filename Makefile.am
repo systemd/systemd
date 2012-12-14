@@ -422,11 +422,6 @@ systemgenerator_PROGRAMS += \
 	systemd-rc-local-generator
 endif
 
-if TARGET_FRUGALWARE
-dist_systemunit_DATA += \
-	units/frugalware/display-manager.service
-endif
-
 if TARGET_SUSE
 dist_systemunit_DATA += \
 	units/suse/rc-local.service \
