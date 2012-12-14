@@ -10,7 +10,7 @@ sub usb_vendor {
         open(OUT, ">", "20-usb-vendor-product.hwdb");
         print(OUT "# This file is part of systemd.\n" .
                   "#\n" .
-                  "# Data imported and updated from: http://www.linux-usb.org/usb.ids\n");
+                  "# Data imported from: http://www.linux-usb.org/usb.ids\n");
 
         while (my $line = <IN>) {
                 $line =~ s/\s+$//;
@@ -47,7 +47,7 @@ sub usb_classes {
         open(OUT, ">", "20-usb-classes.hwdb");
         print(OUT "# This file is part of systemd.\n" .
                   "#\n" .
-                  "# Data imported and updated from: http://www.linux-usb.org/usb.ids\n");
+                  "# Data imported from: http://www.linux-usb.org/usb.ids\n");
 
         while (my $line = <IN>) {
                 $line =~ s/\s+$//;
@@ -112,7 +112,7 @@ sub pci_vendor {
         open(OUT, ">", "20-pci-vendor-product.hwdb");
         print(OUT "# This file is part of systemd.\n" .
                   "#\n" .
-                  "# Data imported and updated from: http://pci-ids.ucw.cz/v2.2/pci.ids\n");
+                  "# Data imported from: http://pci-ids.ucw.cz/v2.2/pci.ids\n");
 
         while (my $line = <IN>) {
                 $line =~ s/\s+$//;
@@ -161,7 +161,7 @@ sub pci_classes {
         open(OUT, ">", "20-pci-classes.hwdb");
         print(OUT "# This file is part of systemd.\n" .
                   "#\n" .
-                  "# Data imported and updated from: http://pci-ids.ucw.cz/v2.2/pci.ids\n");
+                  "# Data imported from: http://pci-ids.ucw.cz/v2.2/pci.ids\n");
 
         while (my $line = <IN>) {
                 $line =~ s/\s+$//;
@@ -213,8 +213,9 @@ sub oui {
         open(OUT, ">", "20-OUI.hwdb");
         print(OUT "# This file is part of systemd.\n" .
                   "#\n" .
-                  "# Data imported and updated from: http://standards.ieee.org/develop/regauth/iab/iab.txt\n" .
-                  "# Data imported and updated from: http://standards.ieee.org/develop/regauth/oui/oui.txt\n");
+                  "# Data imported from:\n" .
+                  "#   http://standards.ieee.org/develop/regauth/oui/oui.txt\n" .
+                  "#   http://standards.ieee.org/develop/regauth/iab/iab.txt\n");
 
         open(IN, "<", "iab.txt");
         while (my $line = <IN>) {

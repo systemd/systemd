@@ -1,6 +1,6 @@
 # This file is part of systemd.
 #
-# Data imported and updated from: http://www.linux-usb.org/usb.ids
+# Data imported from: http://www.linux-usb.org/usb.ids
 
 usb:v*p*d*dc01*
  ID_USB_CLASS_FROM_DATABASE=Audio
