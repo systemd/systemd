@@ -364,10 +364,10 @@ _sd_export_ int sd_is_socket_unix(int fd, int type, int listening, const char *p
                 return 0;
 
         if (path) {
-                if (length <= 0)
+                if (length == 0)
                         length = strlen(path);
 
-                if (length <= 0)
+                if (length == 0)
                         /* Unnamed socket */
                         return l == offsetof(struct sockaddr_un, sun_path);
 
