@@ -69,15 +69,15 @@ enum {
         OBJECT_COMPRESSED = 1
 };
 
-_packed_ struct ObjectHeader {
+struct ObjectHeader {
         uint8_t type;
         uint8_t flags;
         uint8_t reserved[6];
         le64_t size;
         uint8_t payload[];
-};
+} _packed_;
 
-_packed_ struct DataObject {
+struct DataObject {
         ObjectHeader object;
         le64_t hash;
         le64_t next_hash_offset;
@@ -86,22 +86,22 @@ _packed_ struct DataObject {
         le64_t entry_array_offset;
         le64_t n_entries;
         uint8_t payload[];
-};
+} _packed_;
 
-_packed_ struct FieldObject {
+struct FieldObject {
         ObjectHeader object;
         le64_t hash;
         le64_t next_hash_offset;
         le64_t head_data_offset;
         uint8_t payload[];
-};
+} _packed_;
 
-_packed_ struct EntryItem {
+struct EntryItem {
         le64_t object_offset;
         le64_t hash;
-};
+} _packed_;
 
-_packed_ struct EntryObject {
+struct EntryObject {
         ObjectHeader object;
         le64_t seqnum;
         le64_t realtime;
@@ -109,32 +109,32 @@ _packed_ struct EntryObject {
         sd_id128_t boot_id;
         le64_t xor_hash;
         EntryItem items[];
-};
+} _packed_;
 
-_packed_ struct HashItem {
+struct HashItem {
         le64_t head_hash_offset;
         le64_t tail_hash_offset;
-};
+} _packed_;
 
-_packed_ struct HashTableObject {
+struct HashTableObject {
         ObjectHeader object;
         HashItem items[];
-};
+} _packed_;
 
-_packed_ struct EntryArrayObject {
+struct EntryArrayObject {
         ObjectHeader object;
         le64_t next_entry_array_offset;
         le64_t items[];
-};
+} _packed_;
 
 #define TAG_LENGTH (256/8)
 
-_packed_ struct TagObject {
+struct TagObject {
         ObjectHeader object;
         le64_t seqnum;
         le64_t epoch;
         uint8_t tag[TAG_LENGTH]; /* SHA-256 HMAC */
-};
+} _packed_;
 
 union Object {
         ObjectHeader object;
@@ -164,7 +164,7 @@ enum {
 
 #define HEADER_SIGNATURE ((char[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
 
-_packed_ struct Header {
+struct Header {
         uint8_t signature[8]; /* "LPKSHHRH" */
         le32_t compatible_flags;
         le32_t incompatible_flags;
@@ -197,11 +197,11 @@ _packed_ struct Header {
         le64_t n_entry_arrays;
 
         /* Size: 224 */
-};
+} _packed_;
 
 #define FSS_HEADER_SIGNATURE ((char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
 
-_packed_ struct FSSHeader {
+struct FSSHeader {
         uint8_t signature[8]; /* "KSHHRHLP" */
         le32_t compatible_flags;
         le32_t incompatible_flags;
@@ -213,4 +213,4 @@ _packed_ struct FSSHeader {
         le16_t fsprg_secpar;
         le16_t reserved[3];
         le64_t fsprg_state_size;
-};
+} _packed_;
