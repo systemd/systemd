@@ -329,6 +329,8 @@ _outputmodes() {
     "try-restart:Restart one or more units if active"
     "reload-or-restart:Reload one or more units if possible, otherwise start or restart"
     "force-reload:Reload one or more units if possible, otherwise restart if active"
+    "hibernate:Hibernate the system"
+    "hybrid-sleep:Hibernate and suspend the system"
     "reload-or-try-restart:Reload one or more units if possible, otherwise restart if active"
     "isolate:Start one unit and stop all others"
     "kill:Send signal to processes of a unit"
