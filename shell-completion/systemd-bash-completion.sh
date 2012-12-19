@@ -114,8 +114,9 @@ _systemctl () {
                 [SNAPSHOTS]='delete'
                      [ENVS]='set-environment unset-environment'
                [STANDALONE]='daemon-reexec daemon-reload default dot dump
-                             emergency exit halt kexec list-jobs list-units
-                             list-unit-files poweroff reboot rescue show-environment'
+                             emergency exit halt hibernate hybrid-sleep kexec list-jobs
+                             list-units list-unit-files poweroff reboot rescue
+                             show-environment suspend'
                      [NAME]='snapshot load'
                      [FILE]='link'
         )
