@@ -19,6 +19,10 @@ F18:
 
 Features:
 
+* DeviceAllow/DeviceDeny: disallow everything by default, but whitelist /dev/zero, /dev/null and friends
+
+* service: watchdog logic: for testing purposes allow ping, but do not require pong
+
 * kill insserv code, people should really use a generator for this
 
 * journald: when dropping msgs due to ratelimit make sure to write
