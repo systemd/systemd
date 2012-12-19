@@ -262,7 +262,7 @@ static int retrieve(const void *data,
                 return 0;
 
         *var = strndup((const char*)data + ident, len - ident);
-        if (!var)
+        if (!*var)
                 return log_oom();
 
         return 0;
