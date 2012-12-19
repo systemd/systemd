@@ -1484,7 +1484,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 Service *service;
 
                 if (s->n_connections >= s->max_connections) {
-                        log_warning("Too many incoming connections (%u)", s->n_connections);
+                        log_warning("%s: Too many incoming connections (%u)", UNIT(s)->id, s->n_connections);
                         close_nointr_nofail(cfd);
                         return;
                 }
