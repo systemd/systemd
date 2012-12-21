@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* rewrite #!/usr/bin/python line in python scripts to use @PYTHON@ instead
+
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
 
 * udev: only reset mode/gid of /dev/tty1 and friends on ACTION=add, not ACTION=changed
