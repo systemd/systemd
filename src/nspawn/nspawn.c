@@ -55,6 +55,7 @@
 #include "loopback-setup.h"
 #include "sd-id128.h"
 #include "dev-setup.h"
+#include "fdset.h"
 
 typedef enum LinkJournal {
         LINK_NO,
@@ -1041,13 +1042,14 @@ int main(int argc, char *argv[]) {
         int r = EXIT_FAILURE, k;
         char *oldcg = NULL, *newcg = NULL;
         char **controller = NULL;
-        int master = -1;
+        int master = -1, n_fd_passed;
         const char *console = NULL;
         struct termios saved_attr, raw_attr;
         sigset_t mask;
         bool saved_attr_valid = false;
         struct winsize ws;
         int kmsg_socket_pair[2] = { -1, -1 };
+        FDSet *fds = NULL;
 
         log_parse_environment();
         log_open();
@@ -1091,6 +1093,18 @@ int main(int argc, char *argv[]) {
                 log_error("Directory %s doesn't look like an OS root directory. Refusing.", arg_directory);
                 goto finish;
         }
+
+        log_close();
+        n_fd_passed = sd_listen_fds(false);
+        if (n_fd_passed > 0) {
+                k = fdset_new_listen_fds(&fds, false);
+                if (k < 0) {
+                        log_error("Failed to collect file descriptors: %s", strerror(-k));
+                        goto finish;
+                }
+        }
+        fdset_close_others(fds);
+        log_open();
 
         k = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 0, &oldcg);
         if (k < 0) {
@@ -1180,6 +1194,7 @@ int main(int argc, char *argv[]) {
                         const char *home = NULL;
                         uid_t uid = (uid_t) -1;
                         gid_t gid = (gid_t) -1;
+                        unsigned n_env = 0;
                         const char *envp[] = {
                                 "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                                 "container=systemd-nspawn", /* LXC sets container=lxc, so follow the scheme here */
@@ -1188,28 +1203,45 @@ int main(int argc, char *argv[]) {
                                 NULL, /* USER */
                                 NULL, /* LOGNAME */
                                 NULL, /* container_uuid */
+                                NULL, /* LISTEN_FDS */
+                                NULL, /* LISTEN_PID */
                                 NULL
                         };
 
                         envp[2] = strv_find_prefix(environ, "TERM=");
+                        n_env = 3;
 
                         close_nointr_nofail(master);
+                        master = -1;
 
                         close_nointr(STDIN_FILENO);
                         close_nointr(STDOUT_FILENO);
                         close_nointr(STDERR_FILENO);
 
-                        close_all_fds(&kmsg_socket_pair[1], 1);
+                        close_nointr_nofail(kmsg_socket_pair[0]);
+                        kmsg_socket_pair[0] = -1;
 
                         reset_all_signal_handlers();
 
                         assert_se(sigemptyset(&mask) == 0);
                         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
-                        if (open_terminal(console, O_RDWR) != STDIN_FILENO ||
-                            dup2(STDIN_FILENO, STDOUT_FILENO) != STDOUT_FILENO ||
-                            dup2(STDIN_FILENO, STDERR_FILENO) != STDERR_FILENO)
+                        k = open_terminal(console, O_RDWR);
+                        if (k != STDIN_FILENO) {
+                                if (k >= 0) {
+                                        close_nointr_nofail(k);
+                                        k = -EINVAL;
+                                }
+
+                                log_error("Failed to open console: %s", strerror(-k));
                                 goto child_fail;
+                        }
+
+                        if (dup2(STDIN_FILENO, STDOUT_FILENO) != STDOUT_FILENO ||
+                            dup2(STDIN_FILENO, STDERR_FILENO) != STDERR_FILENO) {
+                                log_error("Failed to duplicate console: %m");
+                                goto child_fail;
+                        }
 
                         if (setsid() < 0) {
                                 log_error("setsid() failed: %m");
@@ -1256,6 +1288,7 @@ int main(int argc, char *argv[]) {
                                 goto child_fail;
 
                         close_nointr_nofail(kmsg_socket_pair[1]);
+                        kmsg_socket_pair[1] = -1;
 
                         if (setup_boot_id(arg_directory) < 0)
                                 goto child_fail;
@@ -1354,15 +1387,29 @@ int main(int argc, char *argv[]) {
                                 }
                         }
 
-                        if ((asprintf((char**)(envp + 3), "HOME=%s", home ? home: "/root") < 0) ||
-                            (asprintf((char**)(envp + 4), "USER=%s", arg_user ? arg_user : "root") < 0) ||
-                            (asprintf((char**)(envp + 5), "LOGNAME=%s", arg_user ? arg_user : "root") < 0)) {
+                        if ((asprintf((char**)(envp + n_env++), "HOME=%s", home ? home: "/root") < 0) ||
+                            (asprintf((char**)(envp + n_env++), "USER=%s", arg_user ? arg_user : "root") < 0) ||
+                            (asprintf((char**)(envp + n_env++), "LOGNAME=%s", arg_user ? arg_user : "root") < 0)) {
                                 log_oom();
                                 goto child_fail;
                         }
 
                         if (arg_uuid) {
-                                if (asprintf((char**)(envp + 6), "container_uuid=%s", arg_uuid) < 0) {
+                                if (asprintf((char**)(envp + n_env++), "container_uuid=%s", arg_uuid) < 0) {
+                                        log_oom();
+                                        goto child_fail;
+                                }
+                        }
+
+                        if (fdset_size(fds) > 0) {
+                                k = fdset_cloexec(fds, false);
+                                if (k < 0) {
+                                        log_error("Failed to unset O_CLOEXEC for file descriptors.");
+                                        goto child_fail;
+                                }
+
+                                if ((asprintf((char **)(envp + n_env++), "LISTEN_FDS=%u", n_fd_passed) < 0) ||
+                                    (asprintf((char **)(envp + n_env++), "LISTEN_PID=%lu", (unsigned long) getpid()) < 0)) {
                                         log_oom();
                                         goto child_fail;
                                 }
@@ -1401,9 +1448,11 @@ int main(int argc, char *argv[]) {
                         _exit(EXIT_FAILURE);
                 }
 
+                fdset_free(fds);
+                fds = NULL;
+
                 if (process_pty(master, &mask) < 0)
                         goto finish;
-
 
                 if (saved_attr_valid)
                         tcsetattr(STDIN_FILENO, TCSANOW, &saved_attr);
@@ -1464,6 +1513,8 @@ finish:
         strv_free(arg_controllers);
         free(oldcg);
         free(newcg);
+
+        fdset_free(fds);
 
         return r;
 }

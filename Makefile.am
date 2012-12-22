@@ -1662,7 +1662,9 @@ systemd_nspawn_SOURCES = \
 	src/core/mount-setup.c \
 	src/core/mount-setup.h \
 	src/core/loopback-setup.c \
-	src/core/loopback-setup.h
+	src/core/loopback-setup.h \
+	src/core/fdset.c \
+	src/core/fdset.h
 
 systemd_nspawn_LDADD = \
 	libsystemd-label.la \

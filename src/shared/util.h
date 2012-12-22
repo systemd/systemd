@@ -46,7 +46,6 @@ union dirent_storage {
                         ((NAME_MAX + 1 + sizeof(long)) & ~(sizeof(long) - 1))];
 };
 
-
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
 #define NEWLINE "\n\r"
