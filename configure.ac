@@ -102,7 +102,12 @@ AS_IF([test "x$with_python" != "xno"], [
         AM_PATH_PYTHON(,, [:])
         AS_IF([test "$PYTHON" != :], [have_python=yes])
 ])
-AM_CONDITIONAL([HAVE_PYTHON], [test "$have_python" = "yes"])
+AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
+AS_IF([test "x$PYTHON_BINARY" = "x"],
+      [AS_IF([test "x$have_python" = "xyes"],
+             [PYTHON_BINARY="$PYTHON"],
+             [PYTHON_BINARY=/usr/bin/python])])
+AC_ARG_VAR(PYTHON_BINARY, [Python binary used to launch installed scripts])
 
 AS_IF([test "x$with_python" != "xno"], [
         AC_PATH_PROG(PYTHON_CONFIG, python${PYTHON_VERSION}-config)
@@ -803,9 +808,6 @@ AC_OUTPUT
 AC_MSG_RESULT([
         $PACKAGE_NAME $VERSION
 
-        SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
-        SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
-        SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
         libcryptsetup:           ${have_libcryptsetup}
         tcpwrap:                 ${have_tcpwrap}
         PAM:                     ${have_pam}
@@ -831,12 +833,15 @@ AC_MSG_RESULT([
         coredump:                ${have_coredump}
         kmod:                    ${have_kmod}
         blkid:                   ${have_blkid}
-        firmware path:           ${FIRMWARE_PATH}
         gudev:                   ${enable_gudev}
         gintrospection:          ${enable_introspection}
         keymap:                  ${enable_keymap}
         Python:                  ${have_python}
         Python Headers:          ${have_python_devel}
+        man pages:               ${have_manpages}
+        gtk-doc:                 ${enable_gtk_doc}
+        Split /usr:              ${enable_split_usr}
+        SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
 
         prefix:                  ${prefix}
         rootprefix:              ${with_rootprefix}
@@ -846,14 +851,16 @@ AC_MSG_RESULT([
         include_prefix:          ${INCLUDE_PREFIX}
         lib dir:                 ${libdir}
         rootlib dir:             ${with_rootlibdir}
+        SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
+        SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
+        Build Python:            ${PYTHON}
+        Installation Python:     ${PYTHON_BINARY}
+        firmware path:           ${FIRMWARE_PATH}
         PAM modules dir:         ${with_pamlibdir}
         D-Bus policy dir:        ${with_dbuspolicydir}
         D-Bus session dir:       ${with_dbussessionservicedir}
         D-Bus system dir:        ${with_dbussystemservicedir}
         D-Bus interfaces dir:    ${with_dbusinterfacedir}
-        Split /usr:              ${enable_split_usr}
-        man pages:               ${have_manpages}
-        gtk-doc:                 ${enable_gtk_doc}
         Extra start script:      ${RC_LOCAL_SCRIPT_PATH_START}
         Extra stop script:       ${RC_LOCAL_SCRIPT_PATH_STOP}
 

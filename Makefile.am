@@ -3803,6 +3803,8 @@ SED_PROCESS = \
 		-e 's,@VARLOGDIR\@,$(varlogdir),g' \
 		-e 's,@RC_LOCAL_SCRIPT_PATH_START\@,$(RC_LOCAL_SCRIPT_PATH_START),g' \
 		-e 's,@RC_LOCAL_SCRIPT_PATH_STOP\@,$(RC_LOCAL_SCRIPT_PATH_STOP),g' \
+		-e 's,@PYTHON\@,$(PYTHON),g' \
+		-e 's,@PYTHON_BINARY\@,$(PYTHON_BINARY),g' \
 		< $< > $@
 
 units/%: units/%.in Makefile

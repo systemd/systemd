@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!@PYTHON_BINARY@
 
 import sys, os
 import argparse
@@ -282,6 +282,7 @@ def plot():
         surface.finish()
 
 parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                 version='systemd-analyze @PACKAGE_VERSION@',
                                  description='Process systemd profiling information',
                                  epilog='''\
 time - print time spent in the kernel before reaching userspace
