@@ -183,9 +183,6 @@ bin_PROGRAMS = \
 	systemd-detect-virt \
 	systemd-delta
 
-dist_bin_SCRIPTS = \
-	src/analyze/systemd-analyze
-
 rootlibexec_PROGRAMS = \
 	systemd \
 	systemd-cgroups-agent \
@@ -210,6 +207,15 @@ systemgenerator_PROGRAMS = \
 	systemd-getty-generator \
 	systemd-fstab-generator \
 	systemd-system-update-generator
+
+dist_bin_SCRIPTS = \
+	src/analyze/systemd-analyze
+
+EXTRA_DIST += \
+	src/analyze/systemd-analyze.in
+
+CLEANFILES += \
+	src/analyze/systemd-analyze
 
 dist_bashcompletion_DATA = \
 	shell-completion/systemd-bash-completion.sh
@@ -3821,6 +3827,10 @@ src/%.policy.in: src/%.policy.in.in Makefile
 	$(SED_PROCESS)
 
 %.sh: %.sh.in Makefile
+	$(SED_PROCESS)
+	$(AM_V_GEN)chmod +x $@
+
+src/analyze/systemd-analyze: %: %.in Makefile
 	$(SED_PROCESS)
 	$(AM_V_GEN)chmod +x $@
 
