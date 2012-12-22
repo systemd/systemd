@@ -1702,7 +1702,8 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                 if (p->type == SOCKET_SOCKET) {
                         char *t;
 
-                        if ((r = socket_address_print(&p->address, &t)) < 0)
+                        r = socket_address_print(&p->address, &t);
+                        if (r < 0)
                                 return r;
 
                         if (socket_address_family(&p->address) == AF_NETLINK)
@@ -1712,6 +1713,8 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                         free(t);
                 } else if (p->type == SOCKET_SPECIAL)
                         unit_serialize_item_format(u, f, "special", "%i %s", copy, p->path);
+                else if (p->type == SOCKET_MQUEUE)
+                        unit_serialize_item_format(u, f, "mqueue", "%i %s", copy, p->path);
                 else {
                         assert(p->type == SOCKET_FIFO);
                         unit_serialize_item_format(u, f, "fifo", "%i %s", copy, p->path);
@@ -1732,7 +1735,8 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
         if (streq(key, "state")) {
                 SocketState state;
 
-                if ((state = socket_state_from_string(value)) < 0)
+                state = socket_state_from_string(value);
+                if (state < 0)
                         log_debug("Failed to parse state value %s", value);
                 else
                         s->deserialized_state = state;
@@ -1798,6 +1802,26 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
                         LIST_FOREACH(port, p, s->ports)
                                 if (p->type == SOCKET_SPECIAL &&
+                                    streq_ptr(p->path, value+skip))
+                                        break;
+
+                        if (p) {
+                                if (p->fd >= 0)
+                                        close_nointr_nofail(p->fd);
+                                p->fd = fdset_remove(fds, fd);
+                        }
+                }
+
+        } else if (streq(key, "mqueue")) {
+                int fd, skip = 0;
+                SocketPort *p;
+
+                if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
+                        log_debug("Failed to parse mqueue value %s", value);
+                else {
+
+                        LIST_FOREACH(port, p, s->ports)
+                                if (p->type == SOCKET_MQUEUE &&
                                     streq_ptr(p->path, value+skip))
                                         break;
 
