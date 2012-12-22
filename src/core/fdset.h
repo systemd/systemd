@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "set.h"
+
 typedef struct FDSet FDSet;
 
 FDSet* fdset_new(void);
@@ -33,5 +35,15 @@ bool fdset_contains(FDSet *s, int fd);
 int fdset_remove(FDSet *s, int fd);
 
 int fdset_new_fill(FDSet **_s);
+int fdset_new_listen_fds(FDSet **_s, bool unset);
 
 int fdset_cloexec(FDSet *fds, bool b);
+
+int fdset_close_others(FDSet *fds);
+
+unsigned fdset_size(FDSet *fds);
+
+int fdset_iterate(FDSet *s, Iterator *i);
+
+#define FDSET_FOREACH(fd, fds, i) \
+        for ((i) = ITERATOR_FIRST, (fd) = fdset_iterate((fds), &(i)); (fd) >= 0; (fd) = fdset_iterate((fds), &(i)))

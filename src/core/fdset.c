@@ -28,6 +28,7 @@
 #include "util.h"
 #include "macro.h"
 #include "fdset.h"
+#include "sd-daemon.h"
 
 #define MAKE_SET(s) ((Set*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)
@@ -75,10 +76,12 @@ int fdset_put_dup(FDSet *s, int fd) {
         assert(s);
         assert(fd >= 0);
 
-        if ((copy = fcntl(fd, F_DUPFD_CLOEXEC, 3)) < 0)
+        copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (copy < 0)
                 return -errno;
 
-        if ((r = fdset_put(s, copy)) < 0) {
+        r = fdset_put(s, copy);
+        if (r < 0) {
                 close_nointr_nofail(copy);
                 return r;
         }
@@ -108,13 +111,15 @@ int fdset_new_fill(FDSet **_s) {
 
         assert(_s);
 
-        /* Creates an fdsets and fills in all currently open file
+        /* Creates an fdset and fills in all currently open file
          * descriptors. */
 
-        if (!(d = opendir("/proc/self/fd")))
+        d = opendir("/proc/self/fd");
+        if (!d)
                 return -errno;
 
-        if (!(s = fdset_new())) {
+        s = fdset_new();
+        if (!s) {
                 r = -ENOMEM;
                 goto finish;
         }
@@ -125,7 +130,8 @@ int fdset_new_fill(FDSet **_s) {
                 if (ignore_file(de->d_name))
                         continue;
 
-                if ((r = safe_atoi(de->d_name, &fd)) < 0)
+                r = safe_atoi(de->d_name, &fd);
+                if (r < 0)
                         goto finish;
 
                 if (fd < 3)
@@ -134,7 +140,8 @@ int fdset_new_fill(FDSet **_s) {
                 if (fd == dirfd(d))
                         continue;
 
-                if ((r = fdset_put(s, fd)) < 0)
+                r = fdset_put(s, fd);
+                if (r < 0)
                         goto finish;
         }
 
@@ -164,4 +171,66 @@ int fdset_cloexec(FDSet *fds, bool b) {
                         return r;
 
         return 0;
+}
+
+int fdset_new_listen_fds(FDSet **_s, bool unset) {
+        int n, fd, r;
+        FDSet *s;
+
+        assert(_s);
+
+        /* Creates an fdset and fills in all passed file descriptors */
+
+        s = fdset_new();
+        if (!s) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        n = sd_listen_fds(unset);
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
+                r = fdset_put(s, fd);
+                if (r < 0)
+                        goto fail;
+        }
+
+        *_s = s;
+        return 0;
+
+
+fail:
+        if (s)
+                set_free(MAKE_SET(s));
+
+        return r;
+}
+
+int fdset_close_others(FDSet *fds) {
+        void *e;
+        Iterator i;
+        int *a;
+        unsigned j, m;
+
+        j = 0, m = fdset_size(fds);
+        a = alloca(sizeof(int) * m);
+        SET_FOREACH(e, MAKE_SET(fds), i)
+                a[j++] = PTR_TO_FD(e);
+
+        assert(j == m);
+
+        return close_all_fds(a, j);
+}
+
+unsigned fdset_size(FDSet *fds) {
+        return set_size(MAKE_SET(fds));
+}
+
+int fdset_iterate(FDSet *s, Iterator *i) {
+        void *p;
+
+        p = set_iterate(MAKE_SET(s), i);
+        if (!p)
+                return -ENOENT;
+
+        return PTR_TO_FD(p);
 }
