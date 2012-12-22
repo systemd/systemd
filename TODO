@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* service: when killing a service with SIGKILL always kill all processes
+
 * rewrite #!/usr/bin/python line in python scripts to use @PYTHON@ instead
 
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
