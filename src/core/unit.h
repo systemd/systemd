@@ -310,6 +310,9 @@ struct UnitVTable {
         /* Restore one item from the serialization */
         int (*deserialize_item)(Unit *u, const char *key, const char *data, FDSet *fds);
 
+        /* Try to match up fds with what we need for this unit */
+        int (*distribute_fds)(Unit *u, FDSet *fds);
+
         /* Boils down the more complex internal state of this unit to
          * a simpler one that the engine can understand */
         UnitActiveState (*active_state)(Unit *u);

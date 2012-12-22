@@ -272,6 +272,7 @@ int manager_open_serialization(Manager *m, FILE **_f);
 
 int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool serialize_jobs);
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds);
+int manager_distribute_fds(Manager *m, FDSet *fds);
 
 int manager_reload(Manager *m);
 

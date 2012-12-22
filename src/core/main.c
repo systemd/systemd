@@ -934,14 +934,18 @@ static int parse_argv(int argc, char *argv[]) {
                         int fd;
                         FILE *f;
 
-                        if ((r = safe_atoi(optarg, &fd)) < 0 || fd < 0) {
+                        r = safe_atoi(optarg, &fd);
+                        if (r < 0 || fd < 0) {
                                 log_error("Failed to parse deserialize option %s.", optarg);
-                                return r;
+                                return r < 0 ? r : -EINVAL;
                         }
 
-                        if (!(f = fdopen(fd, "r"))) {
+                        fd_cloexec(fd, true);
+
+                        f = fdopen(fd, "r");
+                        if (!f) {
                                 log_error("Failed to open serialization fd: %m");
-                                return r;
+                                return -errno;
                         }
 
                         if (serialization)
@@ -1474,16 +1478,15 @@ int main(int argc, char *argv[]) {
         log_close();
 
         /* Remember open file descriptors for later deserialization */
-        if (serialization) {
-                r = fdset_new_fill(&fds);
-                if (r < 0) {
-                        log_error("Failed to allocate fd set: %s", strerror(-r));
-                        goto finish;
-                }
-
-                assert_se(fdset_remove(fds, fileno(serialization)) >= 0);
+        r = fdset_new_fill(&fds);
+        if (r < 0) {
+                log_error("Failed to allocate fd set: %s", strerror(-r));
+                goto finish;
         } else
-                close_all_fds(NULL, 0);
+                fdset_cloexec(fds, true);
+
+        if (serialization)
+                assert_se(fdset_remove(fds, fileno(serialization)) >= 0);
 
         /* Set up PATH unless it is already set */
         setenv("PATH",
@@ -1517,6 +1520,12 @@ int main(int argc, char *argv[]) {
                  * to pass on */
                 unsetenv("USER");
                 unsetenv("LOGNAME");
+
+                /* We suppress the socket activation env vars, as
+                 * we'll try to match *any* open fd to units if
+                 * possible. */
+                unsetenv("LISTEN_FDS");
+                unsetenv("LISTEN_PID");
 
                 /* All other variables are left as is, so that clients
                  * can still read them via /proc/1/environ */
@@ -1653,10 +1662,7 @@ int main(int argc, char *argv[]) {
 
         /* This will close all file descriptors that were opened, but
          * not claimed by any unit. */
-        if (fds) {
-                fdset_free(fds);
-                fds = NULL;
-        }
+        fdset_free(fds);
 
         if (serialization) {
                 fclose(serialization);

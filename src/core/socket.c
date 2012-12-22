@@ -1876,6 +1876,34 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
         return 0;
 }
 
+static int socket_distribute_fds(Unit *u, FDSet *fds) {
+        Socket *s = SOCKET(u);
+        SocketPort *p;
+
+        assert(u);
+
+        LIST_FOREACH(port, p, s->ports) {
+                Iterator i;
+                int fd;
+
+                if (p->type != SOCKET_SOCKET)
+                        continue;
+
+                if (p->fd >= 0)
+                        continue;
+
+                FDSET_FOREACH(fd, fds, i) {
+                        if (socket_address_matches_fd(&p->address, fd)) {
+                                p->fd = fdset_remove(fds, fd);
+                                s->deserialized_state = SOCKET_LISTENING;
+                                break;
+                        }
+                }
+        }
+
+        return 0;
+}
+
 static UnitActiveState socket_active_state(Unit *u) {
         assert(u);
 
@@ -2288,6 +2316,7 @@ const UnitVTable socket_vtable = {
 
         .serialize = socket_serialize,
         .deserialize_item = socket_deserialize_item,
+        .distribute_fds = socket_distribute_fds,
 
         .active_state = socket_active_state,
         .sub_state_to_string = socket_sub_state_to_string,

@@ -515,6 +515,55 @@ bool socket_ipv6_is_supported(void) {
         return enabled;
 }
 
+bool socket_address_matches_fd(const SocketAddress *a, int fd) {
+        union sockaddr_union sa;
+        socklen_t salen = sizeof(sa), solen;
+        int protocol, type;
+
+        assert(a);
+        assert(fd >= 0);
+
+        if (getsockname(fd, &sa.sa, &salen) < 0)
+                return false;
+
+        if (sa.sa.sa_family != a->sockaddr.sa.sa_family)
+                return false;
+
+        solen = sizeof(type);
+        if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &solen) < 0)
+                return false;
+
+        if (type != a->type)
+                return false;
+
+        if (a->protocol != 0)  {
+                solen = sizeof(protocol);
+                if (getsockopt(fd, SOL_SOCKET, SO_PROTOCOL, &protocol, &solen) < 0)
+                        return false;
+
+                if (protocol != a->protocol)
+                        return false;
+        }
+
+        switch (sa.sa.sa_family) {
+
+        case AF_INET:
+                return sa.in4.sin_port == a->sockaddr.in4.sin_port &&
+                        sa.in4.sin_addr.s_addr == a->sockaddr.in4.sin_addr.s_addr;
+
+        case AF_INET6:
+                return sa.in6.sin6_port == a->sockaddr.in6.sin6_port &&
+                        memcmp(&sa.in6.sin6_addr, &a->sockaddr.in6.sin6_addr, sizeof(struct in6_addr)) == 0;
+
+        case AF_UNIX:
+                return salen == a->size &&
+                        memcmp(sa.un.sun_path, a->sockaddr.un.sun_path, salen - offsetof(struct sockaddr_un, sun_path)) == 0;
+
+        }
+
+        return false;
+}
+
 static const char* const netlink_family_table[] = {
         [NETLINK_ROUTE] = "route",
         [NETLINK_FIREWALL] = "firewall",

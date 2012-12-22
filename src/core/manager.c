@@ -706,6 +706,16 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                         r = q;
         }
 
+        /* Any fds left? Find some unit which wants them. This is
+         * useful to allow container managers to pass some file
+         * descriptors to us pre-initialized. This enables
+         * socket-based activation of entire containers. */
+        if (fdset_size(fds) > 0) {
+                q = manager_distribute_fds(m, fds);
+                if (q < 0)
+                        r = q;
+        }
+
         /* Third, fire things up! */
         q = manager_coldplug(m);
         if (q < 0)
@@ -1807,7 +1817,8 @@ int manager_open_serialization(Manager *m, FILE **_f) {
         log_debug("Serializing state to %s", path);
         free(path);
 
-        if (!(f = fdopen(fd, "w+")))
+        f = fdopen(fd, "w+");
+        if (!f)
                 return -errno;
 
         *_f = f;
@@ -1965,7 +1976,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 if ((r = manager_load_unit(m, strstrip(name), NULL, NULL, &u)) < 0)
                         goto finish;
 
-                if ((r = unit_deserialize(u, f, fds)) < 0)
+                r = unit_deserialize(u, f, fds);
+                if (r < 0)
                         goto finish;
         }
 
@@ -1979,6 +1991,28 @@ finish:
         m->n_reloading --;
 
         return r;
+}
+
+int manager_distribute_fds(Manager *m, FDSet *fds) {
+        Unit *u;
+        Iterator i;
+        int r;
+
+        assert(m);
+
+        HASHMAP_FOREACH(u, m->units, i) {
+
+                if (fdset_size(fds) <= 0)
+                        break;
+
+                if (UNIT_VTABLE(u)->distribute_fds) {
+                        r = UNIT_VTABLE(u)->distribute_fds(u, fds);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
 }
 
 int manager_reload(Manager *m) {
