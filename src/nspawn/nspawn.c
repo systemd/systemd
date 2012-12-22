@@ -817,13 +817,18 @@ static int is_os_tree(const char *path) {
         return r < 0 ? 0 : 1;
 }
 
-static int process_pty(int master, sigset_t *mask) {
+static int process_pty(int master, pid_t pid, sigset_t *mask) {
 
         char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
         size_t in_buffer_full = 0, out_buffer_full = 0;
         struct epoll_event stdin_ev, stdout_ev, master_ev, signal_ev;
         bool stdin_readable = false, stdout_writable = false, master_readable = false, master_writable = false;
         int ep = -1, signal_fd = -1, r;
+        bool tried_orderly_shutdown = false;
+
+        assert(master >= 0);
+        assert(pid > 0);
+        assert(mask);
 
         fd_nonblock(STDIN_FILENO, 1);
         fd_nonblock(STDOUT_FILENO, 1);
@@ -940,6 +945,14 @@ static int process_pty(int master, sigset_t *mask) {
                                                 /* The window size changed, let's forward that. */
                                                 if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
                                                         ioctl(master, TIOCSWINSZ, &ws);
+                                        } else if (sfsi.ssi_signo == SIGTERM && arg_boot && !tried_orderly_shutdown) {
+
+                                                log_info("Trying to halt container. Send SIGTERM again to trigger immediate termination.");
+
+                                                /* This only works for systemd... */
+                                                tried_orderly_shutdown = true;
+                                                kill(pid, SIGRTMIN+3);
+
                                         } else {
                                                 r = 0;
                                                 goto finish;
@@ -1451,7 +1464,7 @@ int main(int argc, char *argv[]) {
                 fdset_free(fds);
                 fds = NULL;
 
-                if (process_pty(master, &mask) < 0)
+                if (process_pty(master, pid, &mask) < 0)
                         goto finish;
 
                 if (saved_attr_valid)

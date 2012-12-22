@@ -1176,7 +1176,8 @@ static int manager_process_signal_fd(Manager *m) {
         assert(m);
 
         for (;;) {
-                if ((n = read(m->signal_watch.fd, &sfsi, sizeof(sfsi))) != sizeof(sfsi)) {
+                n = read(m->signal_watch.fd, &sfsi, sizeof(sfsi));
+                if (n != sizeof(sfsi)) {
 
                         if (n >= 0)
                                 return -EIO;
