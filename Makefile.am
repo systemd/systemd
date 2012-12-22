@@ -3307,8 +3307,8 @@ dist_pkgdata_DATA += \
 dist_noinst_SCRIPT = \
 	src/locale/generate-kbd-model-map
 
-update-kbd-model-map:
-	src/locale/generate-kbd-model-map > src/locale/kbd-model-map
+update-kbd-model-map: src/locale/generate-kbd-model-map
+	$PYTHON $< > src/locale/kbd-model-map
 
 localectl_SOURCES = \
 	src/locale/localectl.c

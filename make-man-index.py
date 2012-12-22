@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #  -*- Mode: python; indent-tabs-mode: nil -*- */
 #
 #  This file is part of systemd.
