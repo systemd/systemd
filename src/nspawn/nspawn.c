@@ -842,9 +842,19 @@ static int process_pty(int master, sigset_t *mask) {
                 goto finish;
         }
 
-        zero(stdin_ev);
-        stdin_ev.events = EPOLLIN|EPOLLET;
-        stdin_ev.data.fd = STDIN_FILENO;
+        /* We read from STDIN only if this is actually a TTY,
+         * otherwise we assume non-interactivity. */
+        if (isatty(STDIN_FILENO)) {
+                zero(stdin_ev);
+                stdin_ev.events = EPOLLIN|EPOLLET;
+                stdin_ev.data.fd = STDIN_FILENO;
+
+                if (epoll_ctl(ep, EPOLL_CTL_ADD, STDIN_FILENO, &stdin_ev) < 0) {
+                        log_error("Failed to register STDIN in epoll: %m");
+                        r = -errno;
+                        goto finish;
+                }
+        }
 
         zero(stdout_ev);
         stdout_ev.events = EPOLLOUT|EPOLLET;
@@ -858,11 +868,10 @@ static int process_pty(int master, sigset_t *mask) {
         signal_ev.events = EPOLLIN;
         signal_ev.data.fd = signal_fd;
 
-        if (epoll_ctl(ep, EPOLL_CTL_ADD, STDIN_FILENO, &stdin_ev) < 0 ||
-            epoll_ctl(ep, EPOLL_CTL_ADD, STDOUT_FILENO, &stdout_ev) < 0 ||
+        if (epoll_ctl(ep, EPOLL_CTL_ADD, STDOUT_FILENO, &stdout_ev) < 0 ||
             epoll_ctl(ep, EPOLL_CTL_ADD, master, &master_ev) < 0 ||
             epoll_ctl(ep, EPOLL_CTL_ADD, signal_fd, &signal_ev) < 0) {
-                log_error("Failed to regiser fds in epoll: %m");
+                log_error("Failed to register fds in epoll: %m");
                 r = -errno;
                 goto finish;
         }
@@ -1128,16 +1137,13 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (tcgetattr(STDIN_FILENO, &saved_attr) < 0) {
-                log_error("Failed to get terminal attributes: %m");
-                goto finish;
+        if (tcgetattr(STDIN_FILENO, &saved_attr) >= 0) {
+                saved_attr_valid = true;
+
+                raw_attr = saved_attr;
+                cfmakeraw(&raw_attr);
+                raw_attr.c_lflag &= ~ECHO;
         }
-
-        saved_attr_valid = true;
-
-        raw_attr = saved_attr;
-        cfmakeraw(&raw_attr);
-        raw_attr.c_lflag &= ~ECHO;
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
                 log_error("Failed to create kmsg socket pair");
@@ -1151,9 +1157,11 @@ int main(int argc, char *argv[]) {
         for (;;) {
                 siginfo_t status;
 
-                if (tcsetattr(STDIN_FILENO, TCSANOW, &raw_attr) < 0) {
-                        log_error("Failed to set terminal attributes: %m");
-                        goto finish;
+                if (saved_attr_valid) {
+                        if (tcsetattr(STDIN_FILENO, TCSANOW, &raw_attr) < 0) {
+                                log_error("Failed to set terminal attributes: %m");
+                                goto finish;
+                        }
                 }
 
                 pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_private_network ? CLONE_NEWNET : 0), NULL);
