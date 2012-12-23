@@ -3481,6 +3481,8 @@ systemd_logind_SOURCES = \
 	src/login/logind-device.h \
 	src/login/logind-button.c \
 	src/login/logind-button.h \
+	src/login/logind-action.c \
+	src/login/logind-action.h \
 	src/login/logind-seat.c \
 	src/login/logind-seat.h \
 	src/login/logind-session.c \

@@ -34,8 +34,6 @@
 #include "cgroup-util.h"
 #include "logind-session.h"
 
-#define IDLE_THRESHOLD_USEC (5*USEC_PER_MINUTE)
-
 Session* session_new(Manager *m, User *u, const char *id) {
         Session *s;
 
@@ -736,14 +734,51 @@ bool session_is_active(Session *s) {
         return s->seat->active == s;
 }
 
-int session_get_idle_hint(Session *s, dual_timestamp *t) {
-        char *p;
+static int get_tty_atime(const char *tty, usec_t *atime) {
+        _cleanup_free_ char *p = NULL;
         struct stat st;
-        usec_t u, n;
-        int k;
+
+        assert(tty);
+        assert(atime);
+
+        if (!path_is_absolute(tty)) {
+                p = strappend("/dev/", tty);
+                if (!p)
+                        return -ENOMEM;
+
+                tty = p;
+        } else if (!path_startswith(tty, "/dev/"))
+                return -ENOENT;
+
+        if (lstat(tty, &st) < 0)
+                return -errno;
+
+        *atime = timespec_load(&st.st_atim);
+        return 0;
+}
+
+static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(pid > 0);
+        assert(atime);
+
+        r = get_ctty(pid, NULL, &p);
+        if (r < 0)
+                return r;
+
+        return get_tty_atime(p, atime);
+}
+
+int session_get_idle_hint(Session *s, dual_timestamp *t) {
+        _cleanup_free_ char *p = NULL;
+        usec_t atime = 0, n;
+        int r;
 
         assert(s);
 
+        /* Explicit idle hint is set */
         if (s->idle_hint) {
                 if (t)
                         *t = s->idle_hint_timestamp;
@@ -751,40 +786,65 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
                 return s->idle_hint;
         }
 
-        if (isempty(s->tty))
+        /* Graphical sessions really should really implement a real
+         * idle hint logic */
+        if (s->display)
                 goto dont_know;
 
-        if (s->tty[0] != '/') {
-                p = strappend("/dev/", s->tty);
-                if (!p)
-                        return -ENOMEM;
-        } else
-                p = NULL;
-
-        if (!startswith(p ? p : s->tty, "/dev/")) {
-                free(p);
-                goto dont_know;
+        /* For sessions with an explicitly configured tty, let's check
+         * its atime */
+        if (s->tty) {
+                r = get_tty_atime(s->tty, &atime);
+                if (r >= 0)
+                        goto found_atime;
         }
 
-        k = lstat(p ? p : s->tty, &st);
-        free(p);
+        /* For sessions with a leader but no explicitly configured
+         * tty, let's check the controlling tty of the leader */
+        if (s->leader > 0) {
+                r = get_process_ctty_atime(s->leader, &atime);
+                if (r >= 0)
+                        goto found_atime;
+        }
 
-        if (k < 0)
-                goto dont_know;
+        /* For other TTY sessions, let's find the most recent atime of
+         * the ttys of any of the processes of the session */
+        if (s->cgroup_path) {
+                _cleanup_fclose_ FILE *f = NULL;
 
-        u = timespec_load(&st.st_atim);
-        n = now(CLOCK_REALTIME);
+                if (cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path, &f) >= 0) {
+                        pid_t pid;
 
-        if (t)
-                dual_timestamp_from_realtime(t, u);
+                        atime = 0;
+                        while (cg_read_pid(f, &pid) > 0) {
+                                usec_t a;
 
-        return u + IDLE_THRESHOLD_USEC < n;
+                                if (get_process_ctty_atime(pid, &a) >= 0)
+                                        if (atime == 0 || atime < a)
+                                                atime = a;
+                        }
+
+                        if (atime != 0)
+                                goto found_atime;
+                }
+        }
 
 dont_know:
         if (t)
                 *t = s->idle_hint_timestamp;
 
         return 0;
+
+found_atime:
+        if (t)
+                dual_timestamp_from_realtime(t, atime);
+
+        n = now(CLOCK_REALTIME);
+
+        if (s->manager->idle_action_usec <= 0)
+                return 0;
+
+        return atime + s->manager->idle_action_usec <= n;
 }
 
 void session_set_idle_hint(Session *s, bool b) {

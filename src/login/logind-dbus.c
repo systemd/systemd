@@ -220,6 +220,8 @@
         "  <property name=\"HandleSuspendKey\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"HandleHibernateKey\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"HandleLidSwitch\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"IdleAction\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"IdleActionUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"PreparingForShutdown\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"PreparingForSleep\" type=\"b\" access=\"read\"/>\n" \
         " </interface>\n"
@@ -1339,7 +1341,7 @@ static int bus_manager_do_shutdown_or_sleep(
         return 0;
 }
 
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_handle_button, handle_button, HandleButton);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_handle_action, handle_action, HandleAction);
 
 static const BusProperty bus_login_manager_properties[] = {
         { "ControlGroupHierarchy",  bus_property_append_string,         "s",  offsetof(Manager, cgroup_path),        true },
@@ -1355,10 +1357,12 @@ static const BusProperty bus_login_manager_properties[] = {
         { "BlockInhibited",         bus_manager_append_inhibited,       "s",  0 },
         { "DelayInhibited",         bus_manager_append_inhibited,       "s",  0 },
         { "InhibitDelayMaxUSec",    bus_property_append_usec,           "t",  offsetof(Manager, inhibit_delay_max)   },
-        { "HandlePowerKey",         bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_power_key)    },
-        { "HandleSuspendKey",       bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_suspend_key)  },
-        { "HandleHibernateKey",     bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_hibernate_key)},
-        { "HandleLidSwitch",        bus_manager_append_handle_button,   "s",  offsetof(Manager, handle_lid_switch)   },
+        { "HandlePowerKey",         bus_manager_append_handle_action,   "s",  offsetof(Manager, handle_power_key)    },
+        { "HandleSuspendKey",       bus_manager_append_handle_action,   "s",  offsetof(Manager, handle_suspend_key)  },
+        { "HandleHibernateKey",     bus_manager_append_handle_action,   "s",  offsetof(Manager, handle_hibernate_key)},
+        { "HandleLidSwitch",        bus_manager_append_handle_action,   "s",  offsetof(Manager, handle_lid_switch)   },
+        { "IdleAction",             bus_manager_append_handle_action,   "s",  offsetof(Manager, idle_action)         },
+        { "IdleActionUSec",         bus_property_append_usec,           "t",  offsetof(Manager, idle_action_usec) },
         { "PreparingForShutdown",   bus_manager_append_preparing,       "b",  0 },
         { "PreparingForSleep",      bus_manager_append_preparing,       "b",  0 },
         { NULL, }

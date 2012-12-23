@@ -2869,7 +2869,8 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
         snprintf(fn, sizeof(fn), "/dev/char/%u:%u", major(devnr), minor(devnr));
         char_array_0(fn);
 
-        if ((k = readlink_malloc(fn, &s)) < 0) {
+        k = readlink_malloc(fn, &s);
+        if (k < 0) {
 
                 if (k != -ENOENT)
                         return k;
@@ -2890,7 +2891,8 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
                  * symlink in /dev/char. Let's return something
                  * vaguely useful. */
 
-                if (!(b = strdup(fn + 5)))
+                b = strdup(fn + 5);
+                if (!b)
                         return -ENOMEM;
 
                 *r = b;

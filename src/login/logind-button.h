@@ -24,20 +24,6 @@
 
 typedef struct Button Button;
 
-typedef enum HandleButton {
-        HANDLE_IGNORE,
-        HANDLE_POWEROFF,
-        HANDLE_REBOOT,
-        HANDLE_HALT,
-        HANDLE_KEXEC,
-        HANDLE_SUSPEND,
-        HANDLE_HIBERNATE,
-        HANDLE_HYBRID_SLEEP,
-        HANDLE_LOCK,
-        _HANDLE_BUTTON_MAX,
-        _HANDLE_BUTTON_INVALID = -1
-} HandleButton;
-
 #include "list.h"
 #include "util.h"
 #include "logind.h"
@@ -58,10 +44,5 @@ int button_open(Button *b);
 int button_process(Button *b);
 int button_recheck(Button *b);
 int button_set_seat(Button *b, const char *sn);
-
-const char* handle_button_to_string(HandleButton h);
-HandleButton handle_button_from_string(const char *s);
-
-int config_parse_handle_button(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 #endif

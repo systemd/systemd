@@ -153,88 +153,21 @@ fail:
 static int button_handle(
                 Button *b,
                 InhibitWhat inhibit_key,
-                HandleButton handle,
+                HandleAction handle,
                 bool ignore_inhibited,
                 bool is_edge) {
 
-        static const char * const message_table[_HANDLE_BUTTON_MAX] = {
-                [HANDLE_POWEROFF] = "Powering Off...",
-                [HANDLE_REBOOT] = "Rebooting...",
-                [HANDLE_HALT] = "Halting...",
-                [HANDLE_KEXEC] = "Rebooting via kexec...",
-                [HANDLE_SUSPEND] = "Suspending...",
-                [HANDLE_HIBERNATE] = "Hibernating...",
-                [HANDLE_HYBRID_SLEEP] = "Hibernating and suspending..."
-        };
-
-        static const char * const target_table[_HANDLE_BUTTON_MAX] = {
-                [HANDLE_POWEROFF] = SPECIAL_POWEROFF_TARGET,
-                [HANDLE_REBOOT] = SPECIAL_REBOOT_TARGET,
-                [HANDLE_HALT] = SPECIAL_HALT_TARGET,
-                [HANDLE_KEXEC] = SPECIAL_KEXEC_TARGET,
-                [HANDLE_SUSPEND] = SPECIAL_SUSPEND_TARGET,
-                [HANDLE_HIBERNATE] = SPECIAL_HIBERNATE_TARGET,
-                [HANDLE_HYBRID_SLEEP] = SPECIAL_HYBRID_SLEEP_TARGET
-        };
-
-        DBusError error;
         int r;
-        InhibitWhat inhibit_operation;
 
         assert(b);
 
-        /* If the key handling is turned off, don't do anything */
-        if (handle == HANDLE_IGNORE) {
-                log_debug("Refusing key handling, as it is turned off.");
-                return 0;
-        }
+        r = manager_handle_action(b->manager, inhibit_key, handle, ignore_inhibited, is_edge);
+        if (r > 0)
+                /* We are executing the operation, so make sure we don't
+                 * execute another one until the lid is opened/closed again */
+                b->lid_close_queued = false;
 
-        /* If the key handling is inhibited, don't do anything */
-        if (manager_is_inhibited(b->manager, inhibit_key, INHIBIT_BLOCK, NULL, true, false, 0)) {
-                log_debug("Refusing key handling, %s is inhibited.", inhibit_what_to_string(inhibit_key));
-                return 0;
-        }
-
-        /* Locking is handled differently from the rest. */
-        if (handle == HANDLE_LOCK) {
-                log_info("Locking sessions...");
-                session_send_lock_all(b->manager, true);
-                return 1;
-        }
-
-        inhibit_operation = handle == HANDLE_SUSPEND || handle == HANDLE_HIBERNATE || handle == HANDLE_HYBRID_SLEEP ? INHIBIT_SLEEP : INHIBIT_SHUTDOWN;
-
-        /* If the actual operation is inhibited, warn and fail */
-        if (!ignore_inhibited &&
-            manager_is_inhibited(b->manager, inhibit_operation, INHIBIT_BLOCK, NULL, false, false, 0)) {
-
-
-                /* If this is just a recheck of the lid switch then don't warn about anything */
-                if (!is_edge) {
-                        log_debug("Refusing operation, %s is inhibited.", inhibit_what_to_string(inhibit_operation));
-                        return 0;
-                }
-
-                log_error("Refusing operation, %s is inhibited.", inhibit_what_to_string(inhibit_operation));
-                warn_melody();
-                return -EPERM;
-        }
-
-        log_info("%s", message_table[handle]);
-
-        /* We are executing the operation, so make sure we don't
-         * execute another one until the lid is opened/closed again */
-        b->lid_close_queued = false;
-
-        dbus_error_init(&error);
-        r = bus_manager_shutdown_or_sleep_now_or_later(b->manager, target_table[handle], inhibit_operation, &error);
-        if (r < 0) {
-                log_error("Failed to execute operation: %s", bus_error_message(&error));
-                dbus_error_free(&error);
-                return r;
-        }
-
-        return 1;
+        return r;
 }
 
 int button_process(Button *b) {
@@ -306,17 +239,3 @@ int button_recheck(Button *b) {
 
         return button_handle(b, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, false);
 }
-
-static const char* const handle_button_table[_HANDLE_BUTTON_MAX] = {
-        [HANDLE_IGNORE] = "ignore",
-        [HANDLE_POWEROFF] = "poweroff",
-        [HANDLE_REBOOT] = "reboot",
-        [HANDLE_HALT] = "halt",
-        [HANDLE_KEXEC] = "kexec",
-        [HANDLE_SUSPEND] = "suspend",
-        [HANDLE_HIBERNATE] = "hibernate",
-        [HANDLE_HYBRID_SLEEP] = "hybrid-sleep",
-        [HANDLE_LOCK] = "lock"
-};
-DEFINE_STRING_TABLE_LOOKUP(handle_button, HandleButton);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_handle_button, handle_button, HandleButton, "Failed to parse handle button setting");

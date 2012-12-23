@@ -28,6 +28,7 @@
 #include <sys/epoll.h>
 #include <sys/ioctl.h>
 #include <linux/vt.h>
+#include <sys/timerfd.h>
 
 #include <systemd/sd-daemon.h>
 
@@ -60,6 +61,11 @@ Manager *manager_new(void) {
         m->handle_hibernate_key = HANDLE_HIBERNATE;
         m->handle_lid_switch = HANDLE_SUSPEND;
         m->lid_switch_ignore_inhibited = true;
+
+        m->idle_action_fd = -1;
+        m->idle_action_usec = 30 * USEC_PER_MINUTE;
+        m->idle_action = HANDLE_IGNORE;
+        m->idle_action_not_before_usec = now(CLOCK_MONOTONIC);
 
         m->devices = hashmap_new(string_hash_func, string_compare_func);
         m->seats = hashmap_new(string_hash_func, string_compare_func);
@@ -172,6 +178,9 @@ void manager_free(Manager *m) {
 
         if (m->reserve_vt_fd >= 0)
                 close_nointr_nofail(m->reserve_vt_fd);
+
+        if (m->idle_action_fd >= 0)
+                close_nointr_nofail(m->idle_action_fd);
 
         strv_free(m->controllers);
         strv_free(m->reset_controllers);
@@ -1441,6 +1450,79 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
         return idle_hint;
 }
 
+int manager_dispatch_idle_action(Manager *m) {
+        struct dual_timestamp since;
+        struct itimerspec its;
+        int r;
+        usec_t n;
+
+        assert(m);
+
+        if (m->idle_action == HANDLE_IGNORE ||
+            m->idle_action_usec <= 0) {
+                r = 0;
+                goto finish;
+        }
+
+        zero(its);
+        n = now(CLOCK_MONOTONIC);
+
+        r = manager_get_idle_hint(m, &since);
+        if (r <= 0)
+                /* Not idle. Let's check if after a timeout it it might be idle then. */
+                timespec_store(&its.it_value, n + m->idle_action_usec);
+        else {
+                /* Idle! Let's see if it's time to do something, or if
+                 * we shall sleep for longer. */
+
+                if (n >= since.monotonic + m->idle_action_usec &&
+                    (m->idle_action_not_before_usec <= 0 || n >= m->idle_action_not_before_usec + m->idle_action_usec)) {
+                        log_info("System idle. Taking action.");
+
+                        manager_handle_action(m, 0, m->idle_action, false, false);
+                        m->idle_action_not_before_usec = n;
+                }
+
+                timespec_store(&its.it_value, MAX(since.monotonic, m->idle_action_not_before_usec) + m->idle_action_usec);
+        }
+
+        if (m->idle_action_fd < 0) {
+                struct epoll_event ev;
+
+                m->idle_action_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC);
+                if (m->idle_action_fd < 0) {
+                        log_error("Failed to create idle action timer: %m");
+                        r = -errno;
+                        goto finish;
+                }
+
+                zero(ev);
+                ev.events = EPOLLIN;
+                ev.data.u32 = FD_IDLE_ACTION;
+
+                if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->idle_action_fd, &ev) < 0) {
+                        log_error("Failed to add idle action timer to epoll: %m");
+                        r = -errno;
+                        goto finish;
+                }
+        }
+
+        if (timerfd_settime(m->idle_action_fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
+                log_error("Failed to reset timerfd: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        return 0;
+
+finish:
+        if (m->idle_action_fd >= 0) {
+                close_nointr_nofail(m->idle_action_fd);
+                m->idle_action_fd = -1;
+        }
+
+        return r;
+}
 int manager_startup(Manager *m) {
         int r;
         Seat *seat;
@@ -1505,6 +1587,8 @@ int manager_startup(Manager *m) {
 
         HASHMAP_FOREACH(inhibitor, m->inhibitors, i)
                 inhibitor_start(inhibitor);
+
+        manager_dispatch_idle_action(m);
 
         return 0;
 }
@@ -1587,6 +1671,10 @@ int manager_run(Manager *m) {
 
                 case FD_CONSOLE:
                         manager_dispatch_console(m);
+                        break;
+
+                case FD_IDLE_ACTION:
+                        manager_dispatch_idle_action(m);
                         break;
 
                 case FD_BUS:

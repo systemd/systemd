@@ -40,6 +40,7 @@ typedef struct Manager Manager;
 #include "logind-user.h"
 #include "logind-inhibit.h"
 #include "logind-button.h"
+#include "logind-action.h"
 
 struct Manager {
         DBusConnection *bus;
@@ -99,10 +100,15 @@ struct Manager {
 
         usec_t inhibit_delay_max;
 
-        HandleButton handle_power_key;
-        HandleButton handle_suspend_key;
-        HandleButton handle_hibernate_key;
-        HandleButton handle_lid_switch;
+        int idle_action_fd;
+        usec_t idle_action_usec;
+        usec_t idle_action_not_before_usec;
+        HandleAction idle_action;
+
+        HandleAction handle_power_key;
+        HandleAction handle_suspend_key;
+        HandleAction handle_hibernate_key;
+        HandleAction handle_lid_switch;
 
         bool power_key_ignore_inhibited;
         bool suspend_key_ignore_inhibited;
@@ -116,6 +122,7 @@ enum {
         FD_BUTTON_UDEV,
         FD_CONSOLE,
         FD_BUS,
+        FD_IDLE_ACTION,
         FD_OTHER_BASE
 };
 
@@ -138,6 +145,7 @@ int manager_dispatch_seat_udev(Manager *m);
 int manager_dispatch_vcsa_udev(Manager *m);
 int manager_dispatch_button_udev(Manager *m);
 int manager_dispatch_console(Manager *m);
+int manager_dispatch_idle_action(Manager *m);
 
 int manager_enumerate_devices(Manager *m);
 int manager_enumerate_buttons(Manager *m);
