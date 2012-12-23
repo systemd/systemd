@@ -322,7 +322,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         struct passwd *pw;
         bool kill_processes = false, debug = false;
-        const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type, *class, *cvtnr = NULL;
+        const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type = NULL, *class, *cvtnr = NULL;
         char **controllers = NULL, **reset_controllers = NULL, **kill_only_users = NULL, **kill_exclude_users = NULL;
         DBusError error;
         uint32_t uid, pid;
@@ -453,9 +453,17 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         display = tty;
                 tty = "";
         } else if (streq(tty, "cron")) {
-                /* cron has been setting PAM_TTY to "cron" for a very long time
-                 * and it cannot stop doing that for compatibility reasons. */
+                /* cron has been setting PAM_TTY to "cron" for a very
+                 * long time and it probably shouldn't stop doing that
+                 * for compatibility reasons. */
                 tty = "";
+                type = "unspecified";
+        } else if (streq(tty, "ssh")) {
+                /* ssh has been setting PAM_TTY to "ssh" for a very
+                 * long time and probably shouldn't stop doing that
+                 * for compatibility reasons. */
+                tty = "";
+                type ="tty";
         }
 
         /* If this fails vtnr will be 0, that's intended */
@@ -469,8 +477,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         get_seat_from_display(display, NULL, &vtnr);
         }
 
-        type = !isempty(display) ? "x11" :
-                   !isempty(tty) ? "tty" : "unspecified";
+        if (!type)
+                type = !isempty(display) ? "x11" :
+                        !isempty(tty) ? "tty" : "unspecified";
 
         class = pam_getenv(handle, "XDG_SESSION_CLASS");
         if (isempty(class))
