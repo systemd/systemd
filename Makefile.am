@@ -849,6 +849,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/calendarspec.c \
 	src/shared/calendarspec.h
 
+libsystemd_shared_la_LIBADD = libsystemd-daemon.la
+
 #-------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
 	libsystemd-dbus.la
