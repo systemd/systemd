@@ -19,7 +19,7 @@ F18:
 
 Features:
 
-* service: when killing a service with SIGKILL always kill all processes
+* service: when killing a service with SIGKILL always kill all processes, even if for SIGTERM we only killed the main process
 
 * rewrite #!/usr/bin/python line in python scripts to use @PYTHON@ instead
 
@@ -45,7 +45,7 @@ Features:
 
 * check if we can make journalctl by default use --follow mode inside of less if called without args?
 
-* Addd a verbose mode to "systemctl start" and friends that explains what is being done or not done
+* Add a verbose mode to "systemctl start" and friends that explains what is being done or not done
 
 * "systemctl is-failed" to join "systemctl is-active" and "systemctl is-enabled".
 
@@ -57,7 +57,7 @@ Features:
 
 * use polkit "imply" for binding hostname actions together
 
-* journal: when waiting for journal additions always sleep at least 1s or so, in order to minimize wakeups
+* journal: when waiting for journal additions in the client always sleep at least 1s or so, in order to minimize wakeups
 
 * When shutdown.target is queued begin with an asynchronous sync()?
 
@@ -150,8 +150,6 @@ Features:
 
 * document that people can use file system ACLs to manage access to journal files, with example
 
-* don't show cgroup in "systemctl status" if empty/non-existent, especially for foreign .mount units
-
 * timedated: export boolean that clarifies whether NTP is even available
 
 * timedated: refuse time changes when NTP is on
@@ -192,7 +190,7 @@ Features:
 
 * WorkingDirectory: support env var replacements like in ExecStart= so that people can use $HOME
 
-* refuse boot if /etc/machine-id is not useful
+* refuse boot if /etc/machine-id is not useful (or set taint?)
 
 * nspawn: consider changing users for -u with su, so that NSS resolving works correctly
 
@@ -216,8 +214,6 @@ Features:
 
 * move cryptsetup key caching into kernel keyctl?
   https://bugs.freedesktop.org/show_bug.cgi?id=54982
-
-* make nspawn work without terminal
 
 * hw watchdog: optionally try to use the preset watchdog timeout instead of always overriding it
   https://bugs.freedesktop.org/show_bug.cgi?id=54712
