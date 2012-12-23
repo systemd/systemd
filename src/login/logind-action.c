@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <unistd.h>
+
 #include "conf-parser.h"
 #include "special.h"
 #include "dbus-common.h"
@@ -54,6 +56,7 @@ int manager_handle_action(
         DBusError error;
         int r;
         InhibitWhat inhibit_operation;
+        bool supported = true;
 
         assert(m);
 
@@ -61,6 +64,20 @@ int manager_handle_action(
         if (handle == HANDLE_IGNORE) {
                 log_debug("Refusing operation, as it is turned off.");
                 return 0;
+        }
+
+        if (handle == HANDLE_SUSPEND)
+                supported = can_sleep("mem") > 0;
+        else if (handle == HANDLE_HIBERNATE)
+                supported = can_sleep("disk") > 0;
+        else if (handle == HANDLE_HYBRID_SLEEP)
+                supported = can_sleep("disk") > 0 && can_sleep_disk("suspend") > 0;
+        else if (handle == HANDLE_KEXEC)
+                supported = access("/sbin/kexec", X_OK) >= 0;
+
+        if (!supported) {
+                log_warning("Requested operation not supported, ignoring.");
+                return -ENOTSUP;
         }
 
         /* If the key handling is inhibited, don't do anything */
