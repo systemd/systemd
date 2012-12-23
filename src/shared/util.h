@@ -559,3 +559,5 @@ typedef enum DrawSpecialChar {
 const char *draw_special_char(DrawSpecialChar ch);
 
 char *strreplace(const char *text, const char *old_string, const char *new_string);
+
+char *strip_tab_ansi(char **p, size_t *l);

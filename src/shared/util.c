@@ -5666,3 +5666,86 @@ oom:
         free(r);
         return NULL;
 }
+
+char *strip_tab_ansi(char **ibuf, size_t *_isz) {
+        const char *i, *begin;
+        enum {
+                STATE_OTHER,
+                STATE_ESCAPE,
+                STATE_BRACKET
+        } state = STATE_OTHER;
+        char *obuf = NULL;
+        size_t osz = 0, isz;
+        FILE *f;
+
+        assert(ibuf);
+        assert(*ibuf);
+
+        /* Strips ANSI color and replaces TABs by 8 spaces */
+
+        isz = _isz ? *_isz : strlen(*ibuf);
+
+        f = open_memstream(&obuf, &osz);
+        if (!f)
+                return NULL;
+
+        for (i = *ibuf; i < *ibuf + isz + 1; i++) {
+
+                switch (state) {
+
+                case STATE_OTHER:
+                        if (i >= *ibuf + isz) /* EOT */
+                                break;
+                        else if (*i == '\x1B')
+                                state = STATE_ESCAPE;
+                        else if (*i == '\t')
+                                fputs("        ", f);
+                        else
+                                fputc(*i, f);
+                        break;
+
+                case STATE_ESCAPE:
+                        if (i >= *ibuf + isz) { /* EOT */
+                                fputc('\x1B', f);
+                                break;
+                        } else if (*i == '[') {
+                                state = STATE_BRACKET;
+                                begin = i + 1;
+                        } else {
+                                fputc('\x1B', f);
+                                fputc(*i, f);
+                                state = STATE_OTHER;
+                        }
+
+                        break;
+
+                case STATE_BRACKET:
+
+                        if (i >= *ibuf + isz || /* EOT */
+                            (!(*i >= '0' && *i <= '9') && *i != ';' && *i != 'm')) {
+                                fputc('\x1B', f);
+                                fputc('[', f);
+                                state = STATE_OTHER;
+                                i = begin-1;
+                        } else if (*i == 'm')
+                                state = STATE_OTHER;
+                        break;
+                }
+        }
+
+        if (ferror(f)) {
+                fclose(f);
+                free(obuf);
+                return NULL;
+        }
+
+        fclose(f);
+
+        free(*ibuf);
+        *ibuf = obuf;
+
+        if (_isz)
+                *_isz = osz;
+
+        return obuf;
+}

@@ -1232,7 +1232,8 @@ noinst_PROGRAMS += \
 	test-sleep \
 	test-replace-var \
 	test-sched-prio \
-	test-calendarspec
+	test-calendarspec \
+	test-strip-tab-ansi
 
 TESTS += \
 	test-job-type \
@@ -1244,7 +1245,8 @@ TESTS += \
 	test-sleep \
 	test-replace-var \
 	test-sched-prio \
-	test-calendarspec
+	test-calendarspec \
+	test-strip-tab-ansi
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1339,6 +1341,12 @@ test_calendarspec_SOURCES = \
 	src/test/test-calendarspec.c
 
 test_calendarspec_LDADD = \
+	libsystemd-shared.la
+
+test_strip_tab_ansi_SOURCES = \
+	src/test/test-strip-tab-ansi.c
+
+test_strip_tab_ansi_LDADD = \
 	libsystemd-shared.la
 
 test_daemon_SOURCES = \

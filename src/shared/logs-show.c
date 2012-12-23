@@ -179,6 +179,9 @@ static int output_short(
         if (!message)
                 return 0;
 
+        if (!(flags & OUTPUT_SHOW_ALL))
+                strip_tab_ansi(&message, &message_len);
+
         if (priority_len == 1 && *priority >= '0' && *priority <= '7')
                 p = *priority - '0';
 
