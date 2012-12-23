@@ -801,6 +801,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/hashmap.h \
 	src/shared/set.c \
 	src/shared/set.h \
+	src/shared/fdset.c \
+	src/shared/fdset.h \
 	src/shared/strv.c \
 	src/shared/strv.h \
 	src/shared/strbuf.c \
@@ -1057,8 +1059,6 @@ libsystemd_core_la_SOURCES = \
 	src/core/mount-setup.h \
 	src/core/loopback-setup.h \
 	src/core/loopback-setup.c \
-	src/core/fdset.c \
-	src/core/fdset.h \
 	src/core/condition.c \
 	src/core/condition.h \
 	src/core/namespace.c \
@@ -1670,9 +1670,7 @@ systemd_nspawn_SOURCES = \
 	src/core/mount-setup.c \
 	src/core/mount-setup.h \
 	src/core/loopback-setup.c \
-	src/core/loopback-setup.h \
-	src/core/fdset.c \
-	src/core/fdset.h
+	src/core/loopback-setup.h
 
 systemd_nspawn_LDADD = \
 	libsystemd-label.la \
