@@ -2265,7 +2265,8 @@ static void print_status_info(UnitStatusInfo *i) {
         if (i->status_text)
                 printf("\t  Status: \"%s\"\n", i->status_text);
 
-        if (i->default_control_group) {
+        if (i->default_control_group &&
+            (i->main_pid > 0 || i->control_pid > 0 || cg_is_empty_by_spec(i->default_control_group, false) == 0)) {
                 unsigned c;
 
                 printf("\t  CGroup: %s\n", i->default_control_group);

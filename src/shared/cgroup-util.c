@@ -934,6 +934,20 @@ int cg_is_empty(const char *controller, const char *path, bool ignore_self) {
         return !found;
 }
 
+int cg_is_empty_by_spec(const char *spec, bool ignore_self) {
+        int r;
+        _cleanup_free_ char *controller = NULL, *path = NULL;
+
+        assert(spec);
+
+        r = cg_split_spec(spec, &controller, &path);
+        if (r < 0)
+                return r;
+
+        return cg_is_empty(controller, path, ignore_self);
+}
+
+
 int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self) {
         int r;
         DIR *d = NULL;

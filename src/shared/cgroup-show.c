@@ -335,7 +335,7 @@ int show_cgroup_and_extra(const char *controller, const char *path, const char *
 
 int show_cgroup_and_extra_by_spec(const char *spec, const char *prefix, unsigned n_columns, bool kernel_threads, bool all, const pid_t extra_pids[], unsigned n_extra_pids) {
         int r;
-        char *controller, *path;
+        _cleanup_free_ char *controller = NULL, *path = NULL;
 
         assert(spec);
 
@@ -343,9 +343,5 @@ int show_cgroup_and_extra_by_spec(const char *spec, const char *prefix, unsigned
         if (r < 0)
                 return r;
 
-        r = show_cgroup_and_extra(controller, path, prefix, n_columns, kernel_threads, all, extra_pids, n_extra_pids);
-        free(controller);
-        free(path);
-
-        return r;
+        return show_cgroup_and_extra(controller, path, prefix, n_columns, kernel_threads, all, extra_pids, n_extra_pids);
 }
