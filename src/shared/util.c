@@ -5282,9 +5282,13 @@ int can_sleep(const char *type) {
 
         assert(type);
 
+        /* If /sys is read-only we cannot sleep */
+        if (access("/sys/power/state", W_OK) < 0)
+                return false;
+
         r = read_one_line_file("/sys/power/state", &p);
         if (r < 0)
-                return r == -ENOENT ? 0 : r;
+                return false;
 
         k = strlen(type);
         FOREACH_WORD_SEPARATOR(w, l, p, WHITESPACE, state)
@@ -5302,9 +5306,14 @@ int can_sleep_disk(const char *type) {
 
         assert(type);
 
+        /* If /sys is read-only we cannot sleep */
+        if (access("/sys/power/state", W_OK) < 0 ||
+            access("/sys/power/disk", W_OK) < 0)
+                return false;
+
         r = read_one_line_file("/sys/power/disk", &p);
         if (r < 0)
-                return r == -ENOENT ? 0 : r;
+                return false;
 
         k = strlen(type);
         FOREACH_WORD_SEPARATOR(w, l, p, WHITESPACE, state) {
