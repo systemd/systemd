@@ -2851,6 +2851,9 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
                    &ttynr) != 1)
                 return -EIO;
 
+        if (major(ttynr) == 0 && minor(ttynr) == 0)
+                return -ENOENT;
+
         *d = (dev_t) ttynr;
         return 0;
 }
