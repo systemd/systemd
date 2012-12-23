@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* logind: optionally, ignore idle-hint logic for autosuspend, block suspend as long as a session is around
+
 * service: when killing a service with SIGKILL always kill all processes, even if for SIGTERM we only killed the main process
 
 * rewrite #!/usr/bin/python line in python scripts to use @PYTHON@ instead
@@ -376,12 +378,6 @@ Features:
 * readahead: make use of EXT4_IOC_MOVE_EXT, as used by http://e4rat.sourceforge.net/
 
 * automount: implement expire
-
-* logind: auto-suspend, auto-shutdown:
-        IdleAction=(none|suspend|opportunistic|hibernate|poweroff)
-        IdleActionDelay=...
-        SessionIdleMode=(explicit|ignore|login)
-        ForceShutdown=(yes|no)
 
 * services which create their own subcgroups break cgroup-empty notification (needs to be fixed in the kernel)
 
