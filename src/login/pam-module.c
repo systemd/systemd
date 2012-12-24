@@ -49,6 +49,7 @@ static int parse_argv(pam_handle_t *handle,
                       bool *kill_processes,
                       char ***kill_only_users,
                       char ***kill_exclude_users,
+                      const char **class,
                       bool *debug) {
 
         unsigned i;
@@ -134,6 +135,11 @@ static int parse_argv(pam_handle_t *handle,
                                 strv_free(*kill_exclude_users);
                                 *kill_exclude_users = l;
                         }
+
+                } else if (startswith(argv[i], "class=")) {
+
+                        if (class)
+                                *class = argv[i] + 6;
 
                 } else if (startswith(argv[i], "debug=")) {
                         if ((k = parse_boolean(argv[i] + 6)) < 0) {
@@ -322,7 +328,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         struct passwd *pw;
         bool kill_processes = false, debug = false;
-        const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type = NULL, *class, *cvtnr = NULL;
+        const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type = NULL, *class = NULL, *class_pam = NULL, *cvtnr = NULL;
         char **controllers = NULL, **reset_controllers = NULL, **kill_only_users = NULL, **kill_exclude_users = NULL;
         DBusError error;
         uint32_t uid, pid;
@@ -349,7 +355,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                        argc, argv,
                        &controllers, &reset_controllers,
                        &kill_processes, &kill_only_users, &kill_exclude_users,
-                       &debug) < 0) {
+                       &class_pam, &debug) < 0) {
                 r = PAM_SESSION_ERR;
                 goto finish;
         }
@@ -484,6 +490,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         class = pam_getenv(handle, "XDG_SESSION_CLASS");
         if (isempty(class))
                 class = getenv("XDG_SESSION_CLASS");
+        if (isempty(class))
+                class = class_pam;
         if (isempty(class))
                 class = "user";
 

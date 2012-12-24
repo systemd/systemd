@@ -194,6 +194,15 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>class=</option></term>
+
+                                <listitem><para>Takes a string
+                                argument which sets the session class.
+                                The XDG_SESSION_CLASS environmental variable
+                                takes precedence.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>debug=</option></term>
 
                                 <listitem><para>Takes a boolean
