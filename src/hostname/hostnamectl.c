@@ -63,6 +63,7 @@ typedef struct StatusInfo {
         const char *static_hostname;
         const char *pretty_hostname;
         const char *icon_name;
+        const char *chassis;
 } StatusInfo;
 
 static void print_status_info(StatusInfo *i) {
@@ -82,9 +83,11 @@ static void print_status_info(StatusInfo *i) {
                        strna(i->hostname));
 
         printf("   Pretty hostname: %s\n"
-               "         Icon name: %s\n",
+               "         Icon name: %s\n"
+               "           Chassis: %s\n",
                strna(i->pretty_hostname),
-               strna(i->icon_name));
+               strna(i->icon_name),
+               strna(i->chassis));
 
         r = sd_id128_get_machine(&mid);
         if (r >= 0)
@@ -133,6 +136,8 @@ static int status_property(const char *name, DBusMessageIter *iter, StatusInfo *
                                 i->pretty_hostname = s;
                         if (streq(name, "IconName"))
                                 i->icon_name = s;
+                        if (streq(name, "Chassis"))
+                                i->chassis = s;
                 }
                 break;
         }
@@ -321,6 +326,28 @@ static int set_icon_name(DBusConnection *bus, char **args, unsigned n) {
                         DBUS_TYPE_INVALID);
 }
 
+static int set_chassis(DBusConnection *bus, char **args, unsigned n) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        dbus_bool_t interactive = true;
+
+        assert(args);
+        assert(n == 2);
+
+        polkit_agent_open_if_enabled();
+
+        return bus_method_call_with_reply(
+                        bus,
+                        "org.freedesktop.hostname1",
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        "SetChassis",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &args[1],
+                        DBUS_TYPE_BOOLEAN, &interactive,
+                        DBUS_TYPE_INVALID);
+}
+
 static int help(void) {
 
         printf("%s [OPTIONS...] COMMAND ...\n\n"
@@ -335,7 +362,8 @@ static int help(void) {
                "Commands:\n"
                "  status                 Show current hostname settings\n"
                "  set-hostname NAME      Set system hostname\n"
-               "  set-icon-name NAME     Set icon name for host\n",
+               "  set-icon-name NAME     Set icon name for host\n"
+               "  set-chassis NAME       Set chassis type for host\n",
                program_invocation_short_name);
 
         return 0;
@@ -434,9 +462,10 @@ static int hostnamectl_main(DBusConnection *bus, int argc, char *argv[], DBusErr
                 const int argc;
                 int (* const dispatch)(DBusConnection *bus, char **args, unsigned n);
         } verbs[] = {
-                { "status",              LESS,   1, show_status         },
-                { "set-hostname",        EQUAL,  2, set_hostname        },
-                { "set-icon-name",       EQUAL,  2, set_icon_name       },
+                { "status",        LESS,  1, show_status   },
+                { "set-hostname",  EQUAL, 2, set_hostname  },
+                { "set-icon-name", EQUAL, 2, set_icon_name },
+                { "set-chassis",   EQUAL, 2, set_chassis   },
         };
 
         int left;

@@ -80,8 +80,8 @@
                 <para>The static host name is stored in
                 <filename>/etc/hostname</filename>, see
                 <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for more information. The pretty host name and icon
-                name are stored in
+                for more information. The pretty host name, chassis
+                type and icon name are stored in
                 <filename>/etc/machine-info</filename>, see
                 <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </refsect1>
@@ -198,8 +198,34 @@
                                 Naming Specification</ulink>. Pass an
                                 empty string to this operation to
                                 reset the icon name to the default
+                                value which is determined from chassis
+                                type (see below) and possibly other
+                                parameters.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>set-chassis [TYPE]</command></term>
+
+                                <listitem><para>Set the chassis
+                                type. The chassis type is used by some
+                                graphical applications to visualize
+                                the host or alter user
+                                interaction. Currently, the following
+                                chassis types are defined:
+                                <literal>desktop</literal>,
+                                <literal>laptop</literal>,
+                                <literal>server</literal>,
+                                <literal>tablet</literal>,
+                                <literal>handset</literal>, as well as
+                                the special chassis types
+                                <literal>vm</literal> and
+                                <literal>container</literal> for
+                                virtualized systems that lack an
+                                immediate physical chassis. Pass an
+                                empty string to this operation to
+                                reset the chassis type to the default
                                 value which is determined from the
-                                system form factor and possibly other
+                                firmware and possibly other
                                 parameters.</para></listitem>
                         </varlistentry>
 
