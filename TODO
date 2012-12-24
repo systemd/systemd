@@ -39,8 +39,6 @@ Features:
   "dropped %u messages" not only when we are about to print the next
   message that works, but alraedy after a short tiemout
 
-* add form factor to /etc/machine-info
-
 * use C11 static_assert() where we currently use assert_cc()
 
 * journald: also get thread ID from client, plus thread name
