@@ -34,6 +34,7 @@
                         <allow_inactive>auth_admin_keep</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.hostname1.set-hostname org.freedesktop.hostname1.set-machine-info</annotate>
         </action>
 
         <action id="org.freedesktop.hostname1.set-machine-info">

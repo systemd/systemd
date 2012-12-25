@@ -24,6 +24,7 @@
                         <allow_inactive>yes</allow_inactive>
                         <allow_active>yes</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.inhibit-delay-shutdown org.freedesktop.login1.inhibit-block-sleep org.freedesktop.login1.inhibit-delay-sleep org.freedesktop.login1.inhibit-block-idle</annotate>
         </action>
 
         <action id="org.freedesktop.login1.inhibit-delay-shutdown">
@@ -34,6 +35,7 @@
                         <allow_inactive>yes</allow_inactive>
                         <allow_active>yes</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.inhibit-delay-sleep</annotate>
         </action>
 
         <action id="org.freedesktop.login1.inhibit-block-sleep">
@@ -44,6 +46,7 @@
                         <allow_inactive>yes</allow_inactive>
                         <allow_active>yes</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.inhibit-delay-sleep org.freedesktop.login1.inhibit-block-idle</annotate>
         </action>
 
         <action id="org.freedesktop.login1.inhibit-delay-sleep">
@@ -74,6 +77,7 @@
                         <allow_inactive>yes</allow_inactive>
                         <allow_active>yes</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.inhibit-handle-suspend-key org.freedesktop.login1.inhibit-handle-hibernate-key org.freedesktop.login1.inhibit-handle-lid-switch</annotate>
         </action>
 
         <action id="org.freedesktop.login1.inhibit-handle-suspend-key">
@@ -84,6 +88,7 @@
                         <allow_inactive>yes</allow_inactive>
                         <allow_active>yes</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.inhibit-handle-hibernate-key org.freedesktop.login1.inhibit-handle-lid-switch</annotate>
         </action>
 
         <action id="org.freedesktop.login1.inhibit-handle-hibernate-key">
@@ -124,6 +129,7 @@
                         <allow_inactive>auth_admin_keep</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.flush-devices</annotate>
         </action>
 
         <action id="org.freedesktop.login1.flush-devices">
@@ -154,6 +160,7 @@
                         <allow_inactive>auth_admin_keep</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.power-off</annotate>
         </action>
 
         <action id="org.freedesktop.login1.power-off-ignore-inhibit">
@@ -164,6 +171,7 @@
                         <allow_inactive>auth_admin_keep</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.power-off</annotate>
         </action>
 
         <action id="org.freedesktop.login1.reboot">
@@ -184,6 +192,7 @@
                         <allow_inactive>auth_admin_keep</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.reboot</annotate>
         </action>
 
         <action id="org.freedesktop.login1.reboot-ignore-inhibit">
@@ -194,6 +203,7 @@
                         <allow_inactive>auth_admin_keep</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.reboot</annotate>
         </action>
 
         <action id="org.freedesktop.login1.suspend">
@@ -214,6 +224,7 @@
                         <allow_inactive>auth_admin_keep</allow_inactive>
                         <allow_active>yes</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.suspend</annotate>
         </action>
 
         <action id="org.freedesktop.login1.suspend-ignore-inhibit">
@@ -224,6 +235,7 @@
                         <allow_inactive>auth_admin_keep</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.suspend</annotate>
         </action>
 
         <action id="org.freedesktop.login1.hibernate">
@@ -244,6 +256,7 @@
                         <allow_inactive>auth_admin_keep</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.hibernate</annotate>
         </action>
 
         <action id="org.freedesktop.login1.hibernate-ignore-inhibit">
@@ -254,6 +267,7 @@
                         <allow_inactive>auth_admin_keep</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.hibernate</annotate>
         </action>
 
 </policyconfig>
