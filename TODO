@@ -39,8 +39,6 @@ Features:
   "dropped %u messages" not only when we are about to print the next
   message that works, but alraedy after a short tiemout
 
-* use C11 static_assert() where we currently use assert_cc()
-
 * journald: also get thread ID from client, plus thread name
 
 * check if we can make journalctl by default use --follow mode inside of less if called without args?
