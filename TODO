@@ -55,8 +55,6 @@ Features:
   include _SYSTEMD_UNIT= fields so that "systemctl status" can show
   them along with the unit
 
-* use polkit "imply" for binding hostname actions together
-
 * journal: when waiting for journal additions in the client always sleep at least 1s or so, in order to minimize wakeups
 
 * When shutdown.target is queued begin with an asynchronous sync()?
