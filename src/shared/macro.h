@@ -119,14 +119,21 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
                 log_assert_failed_unreachable(t, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
         } while (false)
 
-#define assert_cc(expr)                            \
-        do {                                       \
-                switch (0) {                       \
-                        case 0:                    \
-                        case !!(expr):             \
-                                ;                  \
-                }                                  \
+#if defined(static_assert)
+#define assert_cc(expr)                         \
+        do {                                    \
+                static_assert(expr, #expr);     \
         } while (false)
+#else
+#define assert_cc(expr)                         \
+        do {                                    \
+                switch (0) {                    \
+                case 0:                         \
+                case !!(expr):                  \
+                        ;                       \
+                }                               \
+        } while (false)
+#endif
 
 #define PTR_TO_UINT(p) ((unsigned int) ((uintptr_t) (p)))
 #define UINT_TO_PTR(u) ((void*) ((uintptr_t) (u)))
