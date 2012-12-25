@@ -507,8 +507,10 @@ static int write_one_file(Item *i, const char *path) {
                 _cleanup_free_ char *unescaped;
 
                 unescaped = cunescape(i->argument);
-                if (unescaped == NULL)
+                if (unescaped == NULL) {
+                        close_nointr_nofail(fd);
                         return log_oom();
+                }
 
                 l = strlen(unescaped);
                 n = write(fd, unescaped, l);
