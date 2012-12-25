@@ -35,6 +35,17 @@ def acquire_start_time():
         properties = Gio.DBusProxy.new_for_bus_sync(bus, Gio.DBusProxyFlags.NONE,
                 None, 'org.freedesktop.systemd1', '/org/freedesktop/systemd1', 'org.freedesktop.DBus.Properties', None)
 
+        # Note that the firmware/loader times are returned as positive
+        # values but are atcually considered negative from the point
+        # in time of kernel initialization. Also, the monotonic kernel
+        # time will always be 0 since that's where the epoch of the
+        # monotonic clock ist. Since we want to know whether the
+        # kernel time stamp is set at all, we will thus ask for the
+        # realtime clock for this timestamp, instead.
+
+        firmware_time = properties.Get('(ss)', 'org.freedesktop.systemd1.Manager', 'FirmwareTimestampMonotonic')
+        loader_time = properties.Get('(ss)', 'org.freedesktop.systemd1.Manager', 'LoaderTimestampMonotonic')
+        kernel_time = properties.Get('(ss)', 'org.freedesktop.systemd1.Manager', 'KernelTimestamp')
         initrd_time = properties.Get('(ss)', 'org.freedesktop.systemd1.Manager', 'InitRDTimestampMonotonic')
         userspace_time = properties.Get('(ss)', 'org.freedesktop.systemd1.Manager', 'UserspaceTimestampMonotonic')
         finish_time = properties.Get('(ss)', 'org.freedesktop.systemd1.Manager', 'FinishTimestampMonotonic')
@@ -43,10 +54,11 @@ def acquire_start_time():
                 sys.stderr.write("Bootup is not yet finished. Please try again later.\n")
                 sys.exit(1)
 
+        assert firmware_time >= loader_time
         assert initrd_time <= userspace_time
         assert userspace_time <= finish_time
 
-        return initrd_time, userspace_time, finish_time
+        return firmware_time, loader_time, kernel_time, initrd_time, userspace_time, finish_time
 
 def draw_box(context, j, k, l, m, r = 0, g = 0, b = 0):
         context.save()
@@ -78,20 +90,25 @@ def draw_text(context, x, y, text, size = 12, r = 0, g = 0, b = 0, vcenter = 0.5
 
 def time():
 
-        initrd_time, start_time, finish_time = acquire_start_time()
+        firmware_time, loader_time, kernel_time, initrd_time, userspace_time, finish_time = acquire_start_time()
 
+        sys.stdout.write("Startup finished in ")
+
+        if firmware_time > 0:
+                sys.stdout.write("%lums (firmware) + " % ((firmware_time - loader_time) / 1000))
+        if loader_time > 0:
+                sys.stdout.write("%lums (loader) + " % (loader_time / 1000))
         if initrd_time > 0:
-                sys.stdout.write("Startup finished in %lums (kernel) + %lums (initramfs) + %lums (userspace) = %lums\n" % ( \
-                        initrd_time/1000, \
-                        (start_time - initrd_time)/1000, \
-                        (finish_time - start_time)/1000, \
-                        finish_time/1000))
-        else:
-                sys.stdout.write("Startup finished in %lums (kernel) + %lums (userspace) = %lums\n" % ( \
-                        start_time/1000, \
-                        (finish_time - start_time)/1000, \
-                        finish_time/1000))
+                sys.stdout.write("%lums (kernel) + %lums (initrd) + " % (initrd_time / 1000, (userspace_time - initrd_time) / 1000))
+        elif kernel_time > 0:
+                sys.stdout.write("%lums (kernel) + " % (userspace_time  / 1000))
 
+        sys.stdout.write("%lums (userspace) " % ((finish_time - userspace_time) / 1000))
+
+        if kernel_time > 0:
+                sys.stdout.write("= %lums\n" % ((firmware_time + finish_time) / 1000))
+        else:
+                sys.stdout.write("= %lums\n" % ((finish_time - userspace_time) / 1000))
 
 def blame():
 
@@ -112,7 +129,7 @@ def plot():
         if cairo is None:
                 sys.stderr.write("Failed to initilize python-cairo required for 'plot' verb.\n")
                 sys.exit(1)
-        initrd_time, start_time, finish_time = acquire_start_time()
+        firmware_time, loader_time, kernel_time, initrd_time, userspace_time, finish_time = acquire_start_time()
         data = acquire_time_data()
         s = sorted(data, key = lambda i: i[1])
 
@@ -124,9 +141,9 @@ def plot():
 
         for name, ixt, aet, axt, iet in s:
 
-                if (ixt >= start_time and ixt <= finish_time) or \
-                                (aet >= start_time and aet <= finish_time) or \
-                                (axt >= start_time and axt <= finish_time):
+                if (ixt >= userspace_time and ixt <= finish_time) or \
+                                (aet >= userspace_time and aet <= finish_time) or \
+                                (axt >= userspace_time and axt <= finish_time):
                         count += 1
 
         border = 100
@@ -186,17 +203,17 @@ def plot():
                 draw_text(context, 10, y + bar_height/2, "kernel", hcenter = 0)
                 y += bar_height + bar_space
 
-                draw_box(context, initrd_time/10000, y, start_time/10000-initrd_time/10000, bar_height, 0.7, 0.7, 0.7)
+                draw_box(context, initrd_time/10000, y, userspace_time/10000-initrd_time/10000, bar_height, 0.7, 0.7, 0.7)
                 draw_text(context, initrd_time/10000 + 10, y + bar_height/2, "initramfs", hcenter = 0)
                 y += bar_height + bar_space
 
         else:
-                draw_box(context, 0, y, start_time/10000, bar_height, 0.6, 0.6, 0.6)
+                draw_box(context, 0, y, userspace_time/10000, bar_height, 0.6, 0.6, 0.6)
                 draw_text(context, 10, y + bar_height/2, "kernel", hcenter = 0)
                 y += bar_height + bar_space
 
-        draw_box(context, start_time/10000, y, finish_time/10000-start_time/10000, bar_height, 0.7, 0.7, 0.7)
-        draw_text(context, start_time/10000 + 10, y + bar_height/2, "userspace", hcenter = 0)
+        draw_box(context, userspace_time/10000, y, finish_time/10000-userspace_time/10000, bar_height, 0.7, 0.7, 0.7)
+        draw_text(context, userspace_time/10000 + 10, y + bar_height/2, "userspace", hcenter = 0)
         y += bar_height + bar_space
 
         for name, ixt, aet, axt, iet in s:
@@ -204,7 +221,7 @@ def plot():
                 drawn = False
                 left = -1
 
-                if ixt >= start_time and ixt <= finish_time:
+                if ixt >= userspace_time and ixt <= finish_time:
 
                         # Activating
                         a = ixt
@@ -216,7 +233,7 @@ def plot():
                         if left < 0:
                                 left = a
 
-                if aet >= start_time and aet <= finish_time:
+                if aet >= userspace_time and aet <= finish_time:
 
                         # Active
                         a = aet
@@ -228,7 +245,7 @@ def plot():
                         if left < 0:
                                 left = a
 
-                if axt >= start_time and axt <= finish_time:
+                if axt >= userspace_time and axt <= finish_time:
 
                         # Deactivating
                         a = axt
@@ -255,13 +272,13 @@ def plot():
         if initrd_time > 0:
                 draw_text(context, 0, height-border*2 + bar_height, "Startup finished in %lums (kernel) + %lums (initramfs) + %lums (userspace) = %lums" % ( \
                         initrd_time/1000, \
-                        (start_time - initrd_time)/1000, \
-                        (finish_time - start_time)/1000, \
+                        (userspace_time - initrd_time)/1000, \
+                        (finish_time - userspace_time)/1000, \
                         finish_time/1000), hcenter = 0, vcenter = -1)
         else:
                 draw_text(context, 0, height-border*2 + bar_height, "Startup finished in %lums (kernel) + %lums (userspace) = %lums" % ( \
-                        start_time/1000, \
-                        (finish_time - start_time)/1000, \
+                        userspace_time/1000, \
+                        (finish_time - userspace_time)/1000, \
                         finish_time/1000), hcenter = 0, vcenter = -1)
 
         surface.finish()
