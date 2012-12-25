@@ -221,6 +221,16 @@ static bool test_host(const char *parameter) {
         return b;
 }
 
+static bool test_ac_power(const char *parameter) {
+        int r;
+
+        r = parse_boolean(parameter);
+        if (r < 0)
+                return true;
+
+        return (on_ac_power() != 0) == !!r;
+}
+
 bool condition_test(Condition *c) {
         assert(c);
 
@@ -294,6 +304,9 @@ bool condition_test(Condition *c) {
         case CONDITION_HOST:
                 return test_host(c->parameter) == !c->negate;
 
+        case CONDITION_AC_POWER:
+                return test_ac_power(c->parameter) == !c->negate;
+
         case CONDITION_NULL:
                 return !c->negate;
 
@@ -364,6 +377,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",
         [CONDITION_SECURITY] = "ConditionSecurity",
         [CONDITION_HOST] = "ConditionHost",
+        [CONDITION_AC_POWER] = "ConditionACPower",
         [CONDITION_NULL] = "ConditionNull"
 };
 

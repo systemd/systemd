@@ -137,6 +137,7 @@ Unit.ConditionVirtualization,    config_parse_unit_condition_string, CONDITION_V
 Unit.ConditionSecurity,          config_parse_unit_condition_string, CONDITION_SECURITY,            0
 Unit.ConditionCapability,        config_parse_unit_condition_string, CONDITION_CAPABILITY,          0
 Unit.ConditionHost,              config_parse_unit_condition_string, CONDITION_HOST,                0
+Unit.ConditionACPower,           config_parse_unit_condition_string, CONDITION_AC_POWER,            0
 Unit.ConditionNull,              config_parse_unit_condition_null,   0,                             0
 m4_dnl
 Service.PIDFile,                 config_parse_unit_path_printf,      0,                             offsetof(Service, pid_file)

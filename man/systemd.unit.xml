@@ -790,6 +790,7 @@
                                 <term><varname>ConditionSecurity=</varname></term>
                                 <term><varname>ConditionCapability=</varname></term>
                                 <term><varname>ConditionHost=</varname></term>
+                                <term><varname>ConditionACPower=</varname></term>
                                 <term><varname>ConditionNull=</varname></term>
 
                                 <listitem><para>Before starting a unit
@@ -958,6 +959,23 @@
                                 <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
                                 The test may be negated by prepending
                                 an exclamation mark.</para>
+
+                                <para><varname>ConditionACPower=</varname>
+                                may may be used to check whether the
+                                system has AC power, or is exlcusively
+                                battery powered at the time of
+                                activation of the unit. This takes a
+                                boolean argument. If set to
+                                <varname>true</varname> the condition
+                                will hold only if at least one AC
+                                connector of the system is connected
+                                to a power source, or if no AC
+                                connectors are known. Conversely, if
+                                set to <varname>false</varname> the
+                                condition will hold only if there is
+                                at least one AC connector known and
+                                all AC connectors are disconnected
+                                from a power source.</para>
 
                                 <para>Finally,
                                 <varname>ConditionNull=</varname> may

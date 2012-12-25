@@ -5763,3 +5763,81 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz) {
 
         return obuf;
 }
+
+int on_ac_power(void) {
+        bool found_offline = false, found_online = false;
+        _cleanup_closedir_ DIR *d = NULL;
+
+        d = opendir("/sys/class/power_supply");
+        if (!d)
+                return -errno;
+
+        for (;;) {
+                struct dirent *de;
+                union dirent_storage buf;
+                _cleanup_free_ char *p = NULL;
+                _cleanup_close_ int fd = -1, device = -1;
+                char contents[6];
+                ssize_t n;
+                int k;
+
+                k = readdir_r(d, &buf.de, &de);
+                if (k != 0)
+                        return -k;
+
+                if (!de)
+                        break;
+
+                if (ignore_file(de->d_name))
+                        continue;
+
+                device = openat(dirfd(d), de->d_name, O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (device < 0) {
+                        if (errno == ENOENT || errno == ENOTDIR)
+                                continue;
+
+                        return -errno;
+                }
+
+                fd = openat(device, "type", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return -errno;
+                }
+
+                n = read(fd, contents, sizeof(contents));
+                if (n < 0)
+                        return -errno;
+
+                if (n != 6 || memcmp(contents, "Mains\n", 6))
+                        continue;
+
+                close_nointr_nofail(fd);
+                fd = openat(device, "online", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return -errno;
+                }
+
+                n = read(fd, contents, sizeof(contents));
+                if (n < 0)
+                        return -errno;
+
+                if (n != 2 || contents[1] != '\n')
+                        return -EIO;
+
+                if (contents[0] == '1') {
+                        found_online = true;
+                        break;
+                } else if (contents[0] == '0')
+                        found_offline = true;
+                else
+                        return -EIO;
+        }
+
+        return found_online || !found_offline;
+}

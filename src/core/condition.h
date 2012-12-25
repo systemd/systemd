@@ -40,6 +40,7 @@ typedef enum ConditionType {
         CONDITION_SECURITY,
         CONDITION_CAPABILITY,
         CONDITION_HOST,
+        CONDITION_AC_POWER,
         CONDITION_NULL,
         _CONDITION_TYPE_MAX,
         _CONDITION_TYPE_INVALID = -1
