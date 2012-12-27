@@ -198,6 +198,7 @@
                                 STDOUT in
                                 <command>snapshot</command>,
                                 <command>is-active</command>,
+                                <command>is-failed</command>,
                                 <command>enable</command> and
                                 <command>disable</command>.</para></listitem>
                         </varlistentry>
@@ -595,6 +596,18 @@
                                 the specified units are active
                                 (i.e. running). Returns an exit code
                                 0 if at least one is active, non-zero
+                                otherwise. Unless
+                                <option>--quiet</option> is specified
+                                this will also print the current unit
+                                state to STDOUT.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>is-failed [NAME...]</command></term>
+
+                                <listitem><para>Check whether any of
+                                the specified units are failed.
+                                Returns an exit code
+                                0 if at least one is failed, non-zero
                                 otherwise. Unless
                                 <option>--quiet</option> is specified
                                 this will also print the current unit

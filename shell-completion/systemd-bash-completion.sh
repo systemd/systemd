@@ -100,7 +100,7 @@ _systemctl () {
         fi
 
         local -A VERBS=(
-                [ALL_UNITS]='is-active is-enabled status show mask preset'
+                [ALL_UNITS]='is-active is-failed is-enabled status show mask preset'
             [ENABLED_UNITS]='disable reenable'
            [DISABLED_UNITS]='enable'
              [FAILED_UNITS]='reset-failed'

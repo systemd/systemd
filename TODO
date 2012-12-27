@@ -47,8 +47,6 @@ Features:
 
 * Add a verbose mode to "systemctl start" and friends that explains what is being done or not done
 
-* "systemctl is-failed" to join "systemctl is-active" and "systemctl is-enabled".
-
 * journal is not closed properly at shutdown when run in a container?
 
 * All log messages generated from socket.c, service.c, ... should

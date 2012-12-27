@@ -1366,7 +1366,7 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
         return r;
 }
 
-static int check_one_unit(DBusConnection *bus, char *name, bool quiet) {
+static int check_one_unit(DBusConnection *bus, char *name, char **check_states, bool quiet) {
         DBusMessage *reply = NULL;
         DBusMessageIter iter, sub;
         const char
@@ -1440,7 +1440,7 @@ static int check_one_unit(DBusConnection *bus, char *name, bool quiet) {
         if (!quiet)
                 puts(state);
 
-        if (streq(state, "active") || streq(state, "reloading"))
+        if (strv_find(check_states, state))
                 r = 0;
         else
                 r = 3; /* According to LSB: "program is not running" */
@@ -1503,6 +1503,7 @@ static void check_triggering_units(
         sub = iter;
 
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                char **check_states = NULL;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
                         log_error("Failed to parse reply.");
@@ -1511,7 +1512,9 @@ static void check_triggering_units(
 
                 dbus_message_iter_get_basic(&sub, &service_trigger);
 
-                r = check_one_unit(bus, service_trigger, true);
+                check_states = strv_new("active", "reloading", NULL);
+                r = check_one_unit(bus, service_trigger, check_states, true);
+                strv_free(check_states);
                 if (r < 0)
                         return;
                 if (r == 0) {
@@ -1847,7 +1850,7 @@ static int start_special(DBusConnection *bus, char **args) {
         return r;
 }
 
-static int check_unit(DBusConnection *bus, char **args) {
+static int check_unit_active(DBusConnection *bus, char **args) {
         char **name;
         int r = 3; /* According to LSB: "program is not running" */
 
@@ -1855,7 +1858,29 @@ static int check_unit(DBusConnection *bus, char **args) {
         assert(args);
 
         STRV_FOREACH(name, args+1) {
-                int state = check_one_unit(bus, *name, arg_quiet);
+                char **check_states = strv_new("active", "reloading", NULL);
+                int state = check_one_unit(bus, *name, check_states, arg_quiet);
+                strv_free(check_states);
+                if (state < 0)
+                        return state;
+                if (state == 0)
+                        r = 0;
+        }
+
+        return r;
+}
+
+static int check_unit_failed(DBusConnection *bus, char **args) {
+        char **name;
+        int r = 1;
+
+        assert(bus);
+        assert(args);
+
+        STRV_FOREACH(name, args+1) {
+                char **check_states = strv_new("failed", NULL);
+                int state = check_one_unit(bus, *name, check_states, arg_quiet);
+                strv_free(check_states);
                 if (state < 0)
                         return state;
                 if (state == 0)
@@ -3967,6 +3992,7 @@ static int systemctl_help(void) {
                "  isolate [NAME]                  Start one unit and stop all others\n"
                "  kill [NAME...]                  Send signal to processes of a unit\n"
                "  is-active [NAME...]             Check whether units are active\n"
+               "  is-failed [NAME...]             Check whether units are failed\n"
                "  status [NAME...|PID...]         Show runtime status of one or more units\n"
                "  show [NAME...|JOB...]           Show properties of one or more\n"
                "                                  units/jobs or the manager\n"
@@ -4945,8 +4971,9 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "condrestart",           MORE,  2, start_unit        }, /* For compatibility with RH */
                 { "isolate",               EQUAL, 2, start_unit        },
                 { "kill",                  MORE,  2, kill_unit         },
-                { "is-active",             MORE,  2, check_unit        },
-                { "check",                 MORE,  2, check_unit        },
+                { "is-active",             MORE,  2, check_unit_active },
+                { "check",                 MORE,  2, check_unit_active },
+                { "is-failed",             MORE,  2, check_unit_failed },
                 { "show",                  MORE,  1, show              },
                 { "status",                MORE,  2, show              },
                 { "help",                  MORE,  2, show              },

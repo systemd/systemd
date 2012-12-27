@@ -335,6 +335,7 @@ _outputmodes() {
     "isolate:Start one unit and stop all others"
     "kill:Send signal to processes of a unit"
     "is-active:Check whether units are active"
+    "is-failed:Check whether units are failed"
     "status:Show runtime status of one or more units"
     "show:Show properties of one or more units/jobs or the manager"
     "reset-failed:Reset failed state for all, one, or more units"
@@ -457,7 +458,7 @@ _systemctl_disabled_units(){_sys_disabled_units=($(__systemctl list-unit-files  
 _systemctl_masked_units()  {_sys_masked_units=(  $(__systemctl list-unit-files     | { while read a b; do [[ $b == "masked" ]] && echo "$a"; done; }) )}
 
 # Completion functions for ALL_UNITS
-for fun in is-active is-enabled status show mask preset ; do
+for fun in is-active is-failed is-enabled status show mask preset ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     _systemctl_really_all_units
