@@ -96,7 +96,7 @@
                                 <filename>/etc/fstab</filename>. <varname>rd.fstab=</varname>
                                 is honored only by initial RAM disk
                                 (initrd) while
-                                <varname>luks.fstab=</varname> is
+                                <varname>fstab=</varname> is
                                 honored by both the main system and
                                 the initrd.  </para></listitem>
                         </varlistentry>
