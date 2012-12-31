@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* drop the TARGET_xxx stuff as far as possible
+
 * logind: optionally, ignore idle-hint logic for autosuspend, block suspend as long as a session is around
 
 * service: when killing a service with SIGKILL always kill all processes, even if for SIGTERM we only killed the main process
