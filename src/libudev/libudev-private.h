@@ -56,6 +56,8 @@ struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev);
 /* libudev-device.c */
 struct udev_device *udev_device_new(struct udev *udev);
 mode_t udev_device_get_devnode_mode(struct udev_device *udev_device);
+uid_t udev_device_get_devnode_uid(struct udev_device *udev_device);
+gid_t udev_device_get_devnode_gid(struct udev_device *udev_device);
 int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
 int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath);
 int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode);

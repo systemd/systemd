@@ -60,6 +60,8 @@ struct udev_device {
         const char *sysnum;
         char *devnode;
         mode_t devnode_mode;
+        uid_t devnode_uid;
+        gid_t devnode_gid;
         char *subsystem;
         char *devtype;
         char *driver;
@@ -323,6 +325,40 @@ static int udev_device_set_devnode_mode(struct udev_device *udev_device, mode_t 
         return 0;
 }
 
+uid_t udev_device_get_devnode_uid(struct udev_device *udev_device)
+{
+        if (!udev_device->info_loaded)
+                udev_device_read_uevent_file(udev_device);
+        return udev_device->devnode_uid;
+}
+
+static int udev_device_set_devnode_uid(struct udev_device *udev_device, uid_t uid)
+{
+        char num[32];
+
+        udev_device->devnode_uid = uid;
+        snprintf(num, sizeof(num), "%u", uid);
+        udev_device_add_property(udev_device, "DEVUID", num);
+        return 0;
+}
+
+gid_t udev_device_get_devnode_gid(struct udev_device *udev_device)
+{
+        if (!udev_device->info_loaded)
+                udev_device_read_uevent_file(udev_device);
+        return udev_device->devnode_gid;
+}
+
+static int udev_device_set_devnode_gid(struct udev_device *udev_device, gid_t gid)
+{
+        char num[32];
+
+        udev_device->devnode_gid = gid;
+        snprintf(num, sizeof(num), "%u", gid);
+        udev_device_add_property(udev_device, "DEVGID", num);
+        return 0;
+}
+
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
 {
         udev_device->envp_uptodate = false;
@@ -430,6 +466,10 @@ void udev_device_add_property_from_string_parse(struct udev_device *udev_device,
                 udev_device_set_ifindex(udev_device, strtoull(&property[8], NULL, 10));
         } else if (startswith(property, "DEVMODE=")) {
                 udev_device_set_devnode_mode(udev_device, strtoul(&property[8], NULL, 8));
+        } else if (startswith(property, "DEVUID=")) {
+                udev_device_set_devnode_uid(udev_device, strtoul(&property[7], NULL, 10));
+        } else if (startswith(property, "DEVGID=")) {
+                udev_device_set_devnode_gid(udev_device, strtoul(&property[7], NULL, 10));
         } else {
                 udev_device_add_property_from_string(udev_device, property);
         }

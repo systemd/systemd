@@ -2224,6 +2224,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                         if (cur->key.op == OP_ASSIGN_FINAL)
                                 event->owner_final = true;
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), owner, sizeof(owner));
+                        event->owner_set = true;
                         event->uid = util_lookup_user(event->udev, owner);
                         log_debug("OWNER %u %s:%u\n",
                                   event->uid,
@@ -2239,6 +2240,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                         if (cur->key.op == OP_ASSIGN_FINAL)
                                 event->group_final = true;
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), group, sizeof(group));
+                        event->group_set = true;
                         event->gid = util_lookup_group(event->udev, group);
                         log_debug("GROUP %u %s:%u\n",
                                   event->gid,
@@ -2274,6 +2276,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                 break;
                         if (cur->key.op == OP_ASSIGN_FINAL)
                                 event->owner_final = true;
+                        event->owner_set = true;
                         event->uid = cur->key.uid;
                         log_debug("OWNER %u %s:%u\n",
                                   event->uid,
@@ -2285,6 +2288,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                 break;
                         if (cur->key.op == OP_ASSIGN_FINAL)
                                 event->group_final = true;
+                        event->group_set = true;
                         event->gid = cur->key.gid;
                         log_debug("GROUP %u %s:%u\n",
                                   event->gid,

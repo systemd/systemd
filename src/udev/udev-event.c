@@ -842,6 +842,12 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                         if (event->dev_db != NULL)
                                 udev_node_update_old_links(dev, event->dev_db);
 
+                        if (!event->owner_set)
+                                event->uid = udev_device_get_devnode_uid(dev);
+
+                        if (!event->group_set)
+                                event->gid = udev_device_get_devnode_gid(dev);
+
                         if (!event->mode_set) {
                                 if (udev_device_get_devnode_mode(dev) > 0) {
                                         /* kernel supplied value */

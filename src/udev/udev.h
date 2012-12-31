@@ -49,7 +49,9 @@ struct udev_event {
         bool sigterm;
         bool inotify_watch;
         bool inotify_watch_final;
+        bool group_set;
         bool group_final;
+        bool owner_set;
         bool owner_final;
         bool mode_set;
         bool mode_final;
