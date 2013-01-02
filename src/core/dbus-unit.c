@@ -235,7 +235,7 @@ static int bus_unit_append_can_isolate(DBusMessageIter *i, const char *property,
 static int bus_unit_append_job(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         DBusMessageIter sub;
-        char *p;
+        _cleanup_free_ char *p = NULL;
 
         assert(i);
         assert(property);
@@ -246,14 +246,13 @@ static int bus_unit_append_job(DBusMessageIter *i, const char *property, void *d
 
         if (u->job) {
 
-                if (!(p = job_dbus_path(u->job)))
+                p = job_dbus_path(u->job);
+                if (!p)
                         return -ENOMEM;
 
                 if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT32, &u->job->id) ||
-                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &p)) {
-                        free(p);
+                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &p))
                         return -ENOMEM;
-                }
         } else {
                 uint32_t id = 0;
 
@@ -261,17 +260,14 @@ static int bus_unit_append_job(DBusMessageIter *i, const char *property, void *d
                  * data. Since we need to fill in a valid path we
                  * simple point to ourselves. */
 
-                if (!(p = unit_dbus_path(u)))
+                p = unit_dbus_path(u);
+                if (!p)
                         return -ENOMEM;
 
                 if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT32, &id) ||
-                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &p)) {
-                        free(p);
+                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &p))
                         return -ENOMEM;
-                }
         }
-
-        free(p);
 
         if (!dbus_message_iter_close_container(i, &sub))
                 return -ENOMEM;
@@ -289,8 +285,10 @@ static int bus_unit_append_default_cgroup(DBusMessageIter *i, const char *proper
         assert(property);
         assert(u);
 
-        if ((cgb = unit_get_default_cgroup(u))) {
-                if (!(t = cgroup_bonding_to_string(cgb)))
+        cgb = unit_get_default_cgroup(u);
+        if (cgb) {
+                t = cgroup_bonding_to_string(cgb);
+                if (!t)
                         return -ENOMEM;
         } else
                 t = (char*) "";
@@ -312,15 +310,14 @@ static int bus_unit_append_cgroups(DBusMessageIter *i, const char *property, voi
                 return -ENOMEM;
 
         LIST_FOREACH(by_unit, cgb, u->cgroup_bondings) {
-                char *t;
+                char _cleanup_free_ *t = NULL;
                 bool success;
 
-                if (!(t = cgroup_bonding_to_string(cgb)))
+                t = cgroup_bonding_to_string(cgb);
+                if (!t)
                         return -ENOMEM;
 
                 success = dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &t);
-                free(t);
-
                 if (!success)
                         return -ENOMEM;
         }
@@ -340,7 +337,7 @@ static int bus_unit_append_cgroup_attrs(DBusMessageIter *i, const char *property
                 return -ENOMEM;
 
         LIST_FOREACH(by_unit, a, u->cgroup_attributes) {
-                char *v = NULL;
+                char _cleanup_free_ *v = NULL;
                 bool success;
 
                 if (a->map_callback)
@@ -352,9 +349,6 @@ static int bus_unit_append_cgroup_attrs(DBusMessageIter *i, const char *property
                         dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &a->name) &&
                         dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, v ? &v : &a->value) &&
                         dbus_message_iter_close_container(&sub, &sub2);
-
-                free(v);
-
                 if (!success)
                         return -ENOMEM;
         }
@@ -619,8 +613,8 @@ const DBusObjectPathVTable bus_unit_vtable = {
 };
 
 void bus_unit_send_change_signal(Unit *u) {
-        char *p = NULL;
-        DBusMessage *m = NULL;
+        _cleanup_free_ char *p = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
 
         assert(u);
 
@@ -637,7 +631,8 @@ void bus_unit_send_change_signal(Unit *u) {
                 return;
         }
 
-        if (!(p = unit_dbus_path(u)))
+        p = unit_dbus_path(u);
+        if (!p)
                 goto oom;
 
         if (u->sent_dbus_new_signal) {
@@ -648,9 +643,10 @@ void bus_unit_send_change_signal(Unit *u) {
 
                 if (UNIT_VTABLE(u)->bus_invalidating_properties) {
 
-                        if (!(m = bus_properties_changed_new(p,
-                                                             UNIT_VTABLE(u)->bus_interface,
-                                                             UNIT_VTABLE(u)->bus_invalidating_properties)))
+                        m = bus_properties_changed_new(p,
+                                                       UNIT_VTABLE(u)->bus_interface,
+                                                       UNIT_VTABLE(u)->bus_invalidating_properties);
+                        if (!m)
                                 goto oom;
 
                         if (bus_broadcast(u->manager, m) < 0)
@@ -659,13 +655,18 @@ void bus_unit_send_change_signal(Unit *u) {
                         dbus_message_unref(m);
                 }
 
-                if (!(m = bus_properties_changed_new(p, "org.freedesktop.systemd1.Unit", INVALIDATING_PROPERTIES)))
+                m = bus_properties_changed_new(p, "org.freedesktop.systemd1.Unit",
+                                               INVALIDATING_PROPERTIES);
+                if (!m)
                         goto oom;
 
         } else {
                 /* Send a new signal */
 
-                if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "UnitNew")))
+                m = dbus_message_new_signal("/org/freedesktop/systemd1",
+                                            "org.freedesktop.systemd1.Manager",
+                                            "UnitNew");
+                if (!m)
                         goto oom;
 
                 if (!dbus_message_append_args(m,
@@ -678,25 +679,17 @@ void bus_unit_send_change_signal(Unit *u) {
         if (bus_broadcast(u->manager, m) < 0)
                 goto oom;
 
-        free(p);
-        dbus_message_unref(m);
-
         u->sent_dbus_new_signal = true;
 
         return;
 
 oom:
-        free(p);
-
-        if (m)
-                dbus_message_unref(m);
-
-        log_error("Failed to allocate unit change/new signal.");
+        log_oom();
 }
 
 void bus_unit_send_removed_signal(Unit *u) {
-        char *p = NULL;
-        DBusMessage *m = NULL;
+        _cleanup_free_ char *p = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
 
         assert(u);
 
@@ -709,10 +702,14 @@ void bus_unit_send_removed_signal(Unit *u) {
         if (!u->id)
                 return;
 
-        if (!(p = unit_dbus_path(u)))
+        p = unit_dbus_path(u);
+        if (!p)
                 goto oom;
 
-        if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "UnitRemoved")))
+        m = dbus_message_new_signal("/org/freedesktop/systemd1",
+                                    "org.freedesktop.systemd1.Manager",
+                                    "UnitRemoved");
+        if (!m)
                 goto oom;
 
         if (!dbus_message_append_args(m,
@@ -724,18 +721,10 @@ void bus_unit_send_removed_signal(Unit *u) {
         if (bus_broadcast(u->manager, m) < 0)
                 goto oom;
 
-        free(p);
-        dbus_message_unref(m);
-
         return;
 
 oom:
-        free(p);
-
-        if (m)
-                dbus_message_unref(m);
-
-        log_error("Failed to allocate unit remove signal.");
+        log_oom();
 }
 
 DBusHandlerResult bus_unit_queue_job(
@@ -780,7 +769,8 @@ DBusHandlerResult bus_unit_queue_job(
         if ((type == JOB_START && u->refuse_manual_start) ||
             (type == JOB_STOP && u->refuse_manual_stop) ||
             ((type == JOB_RESTART || type == JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop))) {
-                dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only.", u->id);
+                dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY,
+                               "Operation refused, unit %s may be requested by dependency only.", u->id);
                 return bus_send_error_reply(connection, message, &error, -EPERM);
         }
 
