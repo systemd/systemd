@@ -4096,11 +4096,11 @@ DISTCHECK_CONFIGURE_FLAGS += \
 endif
 
 hwdb-update:
-	( cd hwdb && \
-	wget -N http://www.linux-usb.org/usb.ids && \
-	wget -N http://pci-ids.ucw.cz/v2.2/pci.ids && \
-	wget -N http://standards.ieee.org/develop/regauth/oui/oui.txt && \
-	wget -N http://standards.ieee.org/develop/regauth/iab/iab.txt && \
+	( cd $(top_srcdir)/hwdb && \
+	wget -N http://www.linux-usb.org/usb.ids \
+	        http://pci-ids.ucw.cz/v2.2/pci.ids \
+		http://standards.ieee.org/develop/regauth/oui/oui.txt \
+	        http://standards.ieee.org/develop/regauth/iab/iab.txt && \
 	./ids-update.pl )
 
 upload: all distcheck
