@@ -36,12 +36,12 @@ def acquire_start_time():
                 None, 'org.freedesktop.systemd1', '/org/freedesktop/systemd1', 'org.freedesktop.DBus.Properties', None)
 
         # Note that the firmware/loader times are returned as positive
-        # values but are atcually considered negative from the point
+        # values but are actually considered negative from the point
         # in time of kernel initialization. Also, the monotonic kernel
-        # time will always be 0 since that's where the epoch of the
-        # monotonic clock ist. Since we want to know whether the
-        # kernel time stamp is set at all, we will thus ask for the
-        # realtime clock for this timestamp, instead.
+        # time will always be 0 since that's the epoch of the
+        # monotonic clock. Since we want to know whether the kernel
+        # timestamp is set at all we will instead ask for the realtime
+        # clock for this timestamp.
 
         firmware_time = properties.Get('(ss)', 'org.freedesktop.systemd1.Manager', 'FirmwareTimestampMonotonic')
         loader_time = properties.Get('(ss)', 'org.freedesktop.systemd1.Manager', 'LoaderTimestampMonotonic')
@@ -51,8 +51,7 @@ def acquire_start_time():
         finish_time = properties.Get('(ss)', 'org.freedesktop.systemd1.Manager', 'FinishTimestampMonotonic')
 
         if finish_time == 0:
-                sys.stderr.write("Bootup is not yet finished. Please try again later.\n")
-                sys.exit(1)
+                sys.exit("Bootup is not yet finished. Please try again later.")
 
         assert firmware_time >= loader_time
         assert initrd_time <= userspace_time
@@ -127,8 +126,7 @@ def blame():
 
 def plot():
         if cairo is None:
-                sys.stderr.write("Failed to initilize python-cairo required for 'plot' verb.\n")
-                sys.exit(1)
+                sys.exit("Failed to initilize python-cairo required for 'plot' verb.")
         firmware_time, loader_time, kernel_time, initrd_time, userspace_time, finish_time = acquire_start_time()
         data = acquire_time_data()
         s = sorted(data, key = lambda i: i[1])
