@@ -634,7 +634,8 @@ static void manager_build_unit_path_cache(Manager *m) {
         STRV_FOREACH(i, m->lookup_paths.unit_path) {
                 struct dirent *de;
 
-                if (!(d = opendir(*i))) {
+                d = opendir(*i);
+                if (!d) {
                         log_error("Failed to open directory: %m");
                         continue;
                 }
@@ -1033,7 +1034,8 @@ static int manager_process_notify_fd(Manager *m) {
                 msghdr.msg_control = &control;
                 msghdr.msg_controllen = sizeof(control);
 
-                if ((n = recvmsg(m->notify_watch.fd, &msghdr, MSG_DONTWAIT)) <= 0) {
+                n = recvmsg(m->notify_watch.fd, &msghdr, MSG_DONTWAIT);
+                if (n <= 0) {
                         if (n >= 0)
                                 return -EIO;
 
@@ -1053,16 +1055,20 @@ static int manager_process_notify_fd(Manager *m) {
 
                 ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
 
-                if (!(u = hashmap_get(m->watch_pids, LONG_TO_PTR(ucred->pid))))
-                        if (!(u = cgroup_unit_by_pid(m, ucred->pid))) {
+                u = hashmap_get(m->watch_pids, LONG_TO_PTR(ucred->pid));
+                if (!u) {
+                        u = cgroup_unit_by_pid(m, ucred->pid);
+                        if (!u) {
                                 log_warning("Cannot find unit for notify message of PID %lu.", (unsigned long) ucred->pid);
                                 continue;
                         }
+                }
 
                 assert((size_t) n < sizeof(buf));
                 buf[n] = 0;
-                if (!(tags = strv_split(buf, "\n\r")))
-                        return -ENOMEM;
+                tags = strv_split(buf, "\n\r");
+                if (!tags)
+                        return log_oom();
 
                 log_debug("Got notification message for unit %s", u->id);
 
@@ -1103,22 +1109,23 @@ static int manager_dispatch_sigchld(Manager *m) {
                         break;
 
                 if (si.si_code == CLD_EXITED || si.si_code == CLD_KILLED || si.si_code == CLD_DUMPED) {
-                        char *name = NULL;
+                        char _cleanup_free_ *name = NULL;
 
                         get_process_comm(si.si_pid, &name);
                         log_debug("Got SIGCHLD for process %lu (%s)", (unsigned long) si.si_pid, strna(name));
-                        free(name);
                 }
 
                 /* Let's flush any message the dying child might still
                  * have queued for us. This ensures that the process
                  * still exists in /proc so that we can figure out
                  * which cgroup and hence unit it belongs to. */
-                if ((r = manager_process_notify_fd(m)) < 0)
+                r = manager_process_notify_fd(m);
+                if (r < 0)
                         return r;
 
                 /* And now figure out the unit this belongs to */
-                if (!(u = hashmap_get(m->watch_pids, LONG_TO_PTR(si.si_pid))))
+                u = hashmap_get(m->watch_pids, LONG_TO_PTR(si.si_pid));
+                if (!u)
                         u = cgroup_unit_by_pid(m, si.si_pid);
 
                 /* And now, we actually reap the zombie. */
@@ -1160,7 +1167,8 @@ static int manager_start_target(Manager *m, const char *name, JobMode mode) {
 
         log_debug("Activating special unit %s", name);
 
-        if ((r = manager_add_job_by_name(m, JOB_START, name, mode, true, &error, NULL)) < 0)
+        r = manager_add_job_by_name(m, JOB_START, name, mode, true, &error, NULL);
+        if (r < 0)
                 log_error("Failed to enqueue %s job: %s", name, bus_error(&error, r));
 
         dbus_error_free(&error);
@@ -1667,7 +1675,8 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         if (u->type != UNIT_SERVICE)
                 return;
 
-        if (!(p = unit_name_to_prefix_and_instance(u->id))) {
+        p = unit_name_to_prefix_and_instance(u->id);
+        if (!p) {
                 log_error("Failed to allocate unit name for audit message: %s", strerror(ENOMEM));
                 return;
         }
@@ -1974,7 +1983,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                 char_array_0(name);
 
-                if ((r = manager_load_unit(m, strstrip(name), NULL, NULL, &u)) < 0)
+                r = manager_load_unit(m, strstrip(name), NULL, NULL, &u);
+                if (r < 0)
                         goto finish;
 
                 r = unit_deserialize(u, f, fds);
@@ -2131,7 +2141,8 @@ bool manager_unit_pending_inactive(Manager *m, const char *name) {
         assert(name);
 
         /* Returns true if the unit is inactive or going down */
-        if (!(u = manager_get_unit(m, name)))
+        u = manager_get_unit(m, name);
+        if (!u)
                 return true;
 
         return unit_pending_inactive(u);
