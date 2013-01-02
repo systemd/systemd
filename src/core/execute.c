@@ -39,6 +39,7 @@
 #include <linux/oom.h>
 #include <sys/poll.h>
 #include <linux/seccomp-bpf.h>
+#include <glob.h>
 
 #ifdef HAVE_PAM
 #include <security/pam_appl.h>
@@ -1657,6 +1658,8 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
                 int k;
                 bool ignore = false;
                 char **p;
+                glob_t pglob;
+                int count, n;
 
                 fn = *i;
 
@@ -1674,29 +1677,55 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
                         return -EINVAL;
                 }
 
-                if ((k = load_env_file(fn, &p)) < 0) {
-
+                /* Filename supports globbing, take all matching files */
+                zero(pglob);
+                errno = 0;
+                if (glob(fn, 0, NULL, &pglob) != 0) {
+                        globfree(&pglob);
                         if (ignore)
                                 continue;
 
                         strv_free(r);
-                        return k;
+                        return errno ? -errno : -EINVAL;
                 }
+                count = pglob.gl_pathc;
+                if (count == 0) {
+                        globfree(&pglob);
+                        if (ignore)
+                                continue;
 
-                if (r == NULL)
-                        r = p;
-                else {
-                        char **m;
-
-                        m = strv_env_merge(2, r, p);
                         strv_free(r);
-                        strv_free(p);
-
-                        if (!m)
-                                return -ENOMEM;
-
-                        r = m;
+                        return -EINVAL;
                 }
+                for (n = 0; n < count; n++) {
+                        k = load_env_file(pglob.gl_pathv[n], &p);
+                        if (k < 0) {
+                                if (ignore)
+                                        continue;
+
+                                strv_free(r);
+                                globfree(&pglob);
+                                return k;
+                         }
+
+                        if (r == NULL)
+                                r = p;
+                        else {
+                                char **m;
+
+                                m = strv_env_merge(2, r, p);
+                                strv_free(r);
+                                strv_free(p);
+
+                                if (!m) {
+                                        globfree(&pglob);
+                                        return -ENOMEM;
+                                }
+
+                                r = m;
+                        }
+                }
+                globfree(&pglob);
         }
 
         *l = r;

@@ -291,7 +291,7 @@
                                 double quotes (").
                                 The
                                 argument passed should be an absolute
-                                file name, optionally prefixed with
+                                file name or wildcard expression, optionally prefixed with
                                 "-", which indicates that if the file
                                 does not exist it won't be read and no
                                 error or warning message is
