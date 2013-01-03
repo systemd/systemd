@@ -64,7 +64,7 @@ static int unpack_file(FILE *pack) {
         fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW);
         if (fd < 0) {
 
-                if (errno != ENOENT && errno != EPERM && errno != EACCES)
+                if (errno != ENOENT && errno != EPERM && errno != EACCES && errno != ELOOP)
                         log_warning("open(%s) failed: %m", fn);
 
         } else if (file_verify(fd, fn, arg_file_size_max, &st) <= 0) {
