@@ -66,7 +66,7 @@ sk-qwerty		sk	pc105		-		terminate:ctrl_alt_bksp,qwerty
 dev			dev,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
 fr-latin9		fr	pc105		latin9		terminate:ctrl_alt_bksp
 fr_CH-latin1		ch	pc105		fr		terminate:ctrl_alt_bksp
-cf			ca(fr)	pc105		-		terminate:ctrl_alt_bksp
+cf			ca	pc105		-		terminate:ctrl_alt_bksp
 sv-latin1		se	pc105		-		terminate:ctrl_alt_bksp
 sr-cy			rs	pc105		-		terminate:ctrl_alt_bksp
 gr			gr,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
