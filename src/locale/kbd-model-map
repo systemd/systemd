@@ -71,3 +71,4 @@ sv-latin1		se	pc105		-		terminate:ctrl_alt_bksp
 sr-cy			rs	pc105		-		terminate:ctrl_alt_bksp
 gr			gr,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
 by			by,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
+il			il	pc105		-		terminate:ctrl_alt_bksp
