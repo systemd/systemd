@@ -296,8 +296,9 @@
 
                         <varlistentry>
                                 <term><varname>ExecStart=</varname></term>
-                                <listitem><para>Commands
-                                that are executed when this service is started.
+                                <listitem><para>Commands with their
+                                arguments that are executed when this
+                                service is started.
                                 </para>
 
                                 <para>When
@@ -327,10 +328,15 @@
                                 <varname>Type=forking</varname> is
                                 set, the process started via this
                                 command line will be considered the
-                                main process of the daemon. The
-                                command line accepts '<literal>%</literal>'
-                                specifiers as described in
-                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+                                main process of the daemon.</para>
+
+                                <para>The command line accepts
+                                '<literal>%</literal>' specifiers as
+                                described in
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note
+                                that the first argument of the command
+                                line (i.e. the program to execute) may
+                                not include specifiers.</para>
 
                                 <para>Optionally, if the absolute file
                                 name is prefixed with
