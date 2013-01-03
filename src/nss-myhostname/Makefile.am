@@ -45,11 +45,7 @@ libnss_myhostname_la_SOURCES = \
 	nss-myhostname.c \
 	ifconf.h
 
-if LEGACY
-libnss_myhostname_la_SOURCES += legacy.c
-else
 libnss_myhostname_la_SOURCES += netlink.c
-endif
 
 libnss_myhostname_la_LDFLAGS = \
 	-avoid-version \

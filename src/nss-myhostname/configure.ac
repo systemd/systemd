@@ -34,11 +34,6 @@ AC_SUBST(PACKAGE_URL, [http://0pointer.de/lennart/projects/nss-myhostname/])
 ac_default_prefix="/"
 
 AC_CANONICAL_HOST
-case "$host_os" in
-	linux*)	legacy=false ;;
-	*)	legacy=true ;;
-esac
-AM_CONDITIONAL([LEGACY], [test x$legacy = xtrue])
 
 # Checks for programs.
 AC_PROG_CC
