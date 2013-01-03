@@ -2,7 +2,7 @@
 # consolelayout		xlayout	xmodel		xvariant	xoptions
 sg			ch	pc105		de_nodeadkeys	terminate:ctrl_alt_bksp
 nl			nl	pc105		-		terminate:ctrl_alt_bksp
-mk-utf			mkd,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
+mk-utf			mk,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
 trq			tr	pc105		-		terminate:ctrl_alt_bksp
 guj			in,us	pc105		guj		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
 uk			gb	pc105		-		terminate:ctrl_alt_bksp
