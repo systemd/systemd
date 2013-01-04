@@ -30,14 +30,6 @@
 #include "util.h"
 #include "log.h"
 
-#if defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
-#define FILENAME "/etc/sysconfig/network"
-#elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE)
-#define FILENAME "/etc/HOSTNAME"
-#elif defined(TARGET_GENTOO)
-#define FILENAME "/etc/conf.d/hostname"
-#endif
-
 static int read_and_strip_hostname(const char *path, char **hn) {
         char *s;
         int r;
@@ -57,103 +49,23 @@ static int read_and_strip_hostname(const char *path, char **hn) {
         }
 
         *hn = s;
-
-        return 0;
-}
-
-static int read_distro_hostname(char **hn) {
-
-#if defined(TARGET_GENTOO) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
-        int r;
-        _cleanup_fclose_ FILE *f = NULL;
-
-        assert(hn);
-
-        f = fopen(FILENAME, "re");
-        if (!f)
-                return -errno;
-
-        for (;;) {
-                char line[LINE_MAX];
-                char *s, *k;
-
-                if (!fgets(line, sizeof(line), f)) {
-                        if (feof(f))
-                                break;
-
-                        r = -errno;
-                        goto finish;
-                }
-
-                s = strstrip(line);
-
-                if (!startswith_no_case(s, "HOSTNAME="))
-                        continue;
-
-                k = strdup(s+9);
-                if (!k) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                hostname_cleanup(k);
-
-                if (isempty(k)) {
-                        free(k);
-                        r = -ENOENT;
-                        goto finish;
-                }
-
-                *hn = k;
-                r = 0;
-                goto finish;
-        }
-
-        r = -ENOENT;
-
-finish:
-        return r;
-
-#elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE)
-        return read_and_strip_hostname(FILENAME, hn);
-#else
-        return -ENOENT;
-#endif
-}
-
-static int read_hostname(char **hn) {
-        int r;
-
-        assert(hn);
-
-        /* First, try to load the generic hostname configuration file,
-         * that we support on all distributions */
-
-        r = read_and_strip_hostname("/etc/hostname", hn);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        return read_distro_hostname(hn);
-
-                return r;
-        }
-
         return 0;
 }
 
 int hostname_setup(void) {
         int r;
-        char *b = NULL;
-        const char *hn = NULL;
+        _cleanup_free_ char *b = NULL;
+        const char *hn;
         bool enoent = false;
 
-        r = read_hostname(&b);
+        r = read_and_strip_hostname("/etc/hostname", &b);
         if (r < 0) {
-                hn = NULL;
-
                 if (r == -ENOENT)
                         enoent = true;
                 else
                         log_warning("Failed to read configured hostname: %s", strerror(-r));
+
+                hn = NULL;
         } else
                 hn = b;
 
@@ -161,7 +73,7 @@ int hostname_setup(void) {
                 /* Don't override the hostname if it is already set
                  * and not explicitly configured */
                 if (hostname_is_set())
-                        goto finish;
+                        return 0;
 
                 if (enoent)
                         log_info("No hostname configured.");
@@ -171,12 +83,9 @@ int hostname_setup(void) {
 
         if (sethostname(hn, strlen(hn)) < 0) {
                 log_warning("Failed to set hostname to <%s>: %m", hn);
-                r = -errno;
-        } else
-                log_info("Set hostname to <%s>.", hn);
+                return -errno;
+        }
 
-finish:
-        free(b);
-
-        return r;
+        log_info("Set hostname to <%s>.", hn);
+        return 0;
 }

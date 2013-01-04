@@ -199,18 +199,9 @@ static int write_data_timezone(void) {
         int r = 0;
         _cleanup_free_ char *p = NULL;
 
-#ifdef TARGET_DEBIAN
-        struct stat st;
-#endif
-
         if (!tz.zone) {
                 if (unlink("/etc/localtime") < 0 && errno != ENOENT)
                         r = -errno;
-
-#ifdef TARGET_DEBIAN
-                if (unlink("/etc/timezone") < 0 && errno != ENOENT)
-                        r = -errno;
-#endif
 
                 return r;
         }
@@ -222,14 +213,6 @@ static int write_data_timezone(void) {
         r = symlink_atomic(p, "/etc/localtime");
         if (r < 0)
                 return r;
-
-#ifdef TARGET_DEBIAN
-        if (stat("/etc/timezone", &st) == 0 && S_ISREG(st.st_mode)) {
-                r = write_one_line_file_atomic("/etc/timezone", tz.zone);
-                if (r < 0)
-                        return r;
-        }
-#endif
 
         return 0;
 }

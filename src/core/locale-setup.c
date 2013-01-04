@@ -74,9 +74,6 @@ int locale_setup(void) {
 
         if (detect_container(NULL) <= 0) {
                 r = parse_env_file("/proc/cmdline", WHITESPACE,
-#if defined(TARGET_FEDORA)
-                                   "LANG",                     &variables[VARIABLE_LANG],
-#endif
                                    "locale.LANG",              &variables[VARIABLE_LANG],
                                    "locale.LANGUAGE",          &variables[VARIABLE_LANGUAGE],
                                    "locale.LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
@@ -120,99 +117,6 @@ int locale_setup(void) {
                 if (r < 0 && r != -ENOENT)
                         log_warning("Failed to read /etc/locale.conf: %s", strerror(-r));
         }
-
-#if defined(TARGET_ALTLINUX)
-        if (r <= 0) {
-                r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
-                                   "LANG", &variables[VARIABLE_LANG],
-                                   NULL);
-
-                if (r < 0 && r != -ENOENT)
-                        log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
-        }
-
-#elif defined(TARGET_SUSE)
-        if (r <= 0) {
-                r = parse_env_file("/etc/sysconfig/language", NEWLINE,
-                                   "RC_LANG", &variables[VARIABLE_LANG],
-                                   NULL);
-
-                if (r < 0 && r != -ENOENT)
-                        log_warning("Failed to read /etc/sysconfig/language: %s", strerror(-r));
-        }
-
-#elif defined(TARGET_DEBIAN) || defined(TARGET_ANGSTROM)
-        if (r <= 0) {
-                r = parse_env_file("/etc/default/locale", NEWLINE,
-                                   "LANG",              &variables[VARIABLE_LANG],
-                                   "LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
-                                   "LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
-                                   "LC_TIME",           &variables[VARIABLE_LC_TIME],
-                                   "LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
-                                   "LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
-                                   "LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
-                                   "LC_PAPER",          &variables[VARIABLE_LC_PAPER],
-                                   "LC_NAME",           &variables[VARIABLE_LC_NAME],
-                                   "LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
-                                   "LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
-                                   "LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
-                                   "LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
-                                   NULL);
-
-                if (r < 0 && r != -ENOENT)
-                        log_warning("Failed to read /etc/default/locale: %s", strerror(-r));
-        }
-
-#elif defined(TARGET_GENTOO)
-        /* Gentoo's openrc expects locale variables in /etc/env.d/
-         * These files are later compiled by env-update into shell
-         * export commands at /etc/profile.env, with variables being
-         * exported by openrc's runscript (so /etc/init.d/)
-         */
-        if (r <= 0) {
-                r = parse_env_file("/etc/profile.env", NEWLINE,
-                                   "export LANG",              &variables[VARIABLE_LANG],
-                                   "export LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
-                                   "export LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
-                                   "export LC_TIME",           &variables[VARIABLE_LC_TIME],
-                                   "export LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
-                                   "export LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
-                                   "export LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
-                                   "export LC_PAPER",          &variables[VARIABLE_LC_PAPER],
-                                   "export LC_NAME",           &variables[VARIABLE_LC_NAME],
-                                   "export LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
-                                   "export LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
-                                   "export LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
-                                   "export LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
-                                   NULL);
-
-                if (r < 0 && r != -ENOENT)
-                        log_warning("Failed to read /etc/profile.env: %s", strerror(-r));
-        }
-
-#elif defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
-        if (r <= 0) {
-                r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
-                                   "LANG",              &variables[VARIABLE_LANG],
-                                   "LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
-                                   "LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
-                                   "LC_TIME",           &variables[VARIABLE_LC_TIME],
-                                   "LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
-                                   "LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
-                                   "LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
-                                   "LC_PAPER",          &variables[VARIABLE_LC_PAPER],
-                                   "LC_NAME",           &variables[VARIABLE_LC_NAME],
-                                   "LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
-                                   "LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
-                                   "LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
-                                   "LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
-                                   NULL);
-
-                if (r < 0 && r != -ENOENT)
-                        log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
-        }
-
-#endif
 
         if (!variables[VARIABLE_LANG]) {
                 variables[VARIABLE_LANG] = strdup("C");
