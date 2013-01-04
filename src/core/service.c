@@ -321,16 +321,12 @@ static char *sysv_translate_name(const char *name) {
         if (!(r = new(char, strlen(name) + sizeof(".service"))))
                 return NULL;
 
-#if defined(TARGET_DEBIAN) || defined(TARGET_ANGSTROM)
         if (endswith(name, ".sh"))
                 /* Drop Debian-style .sh suffix */
                 strcpy(stpcpy(r, name) - 3, ".service");
-#endif
-#ifdef TARGET_FRUGALWARE
         if (startswith(name, "rc."))
                 /* Drop Frugalware-style rc. prefix */
                 strcpy(stpcpy(r, name + 3), ".service");
-#endif
         else
                 /* Normal init scripts */
                 strcpy(stpcpy(r, name), ".service");
@@ -349,14 +345,11 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
         static const char * const table[] = {
                 /* LSB defined facilities */
                 "local_fs",             SPECIAL_LOCAL_FS_TARGET,
-#if defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
-#else
                 /* Due to unfortunate name selection in Mandriva,
                  * $network is provided by network-up which is ordered
                  * after network which actually starts interfaces.
                  * To break the loop, just ignore it */
                 "network",              SPECIAL_NETWORK_TARGET,
-#endif
                 "named",                SPECIAL_NSS_LOOKUP_TARGET,
                 "portmap",              SPECIAL_RPCBIND_TARGET,
                 "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
@@ -367,14 +360,8 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 "mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
                 "x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE,
                 "null",                 NULL,
-
-#if defined(TARGET_DEBIAN) || defined(TARGET_ANGSTROM)
                 "mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-#endif
-
-#ifdef TARGET_SUSE
                 "smtp",                 SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-#endif
         };
 
         unsigned i;
@@ -990,15 +977,9 @@ static int service_load_sysv_name(Service *s, const char *name) {
 
         /* For SysV services we strip the rc.* and *.sh
          * prefixes/suffixes. */
-#if defined(TARGET_DEBIAN) || defined(TARGET_ANGSTROM)
         if (endswith(name, ".sh.service"))
                 return -ENOENT;
-#endif
-
-#ifdef TARGET_FRUGALWARE
         if (startswith(name, "rc."))
-                return -ENOENT;
-#endif
 
         STRV_FOREACH(p, UNIT(s)->manager->lookup_paths.sysvinit_path) {
                 char *path;
@@ -1013,16 +994,13 @@ static int service_load_sysv_name(Service *s, const char *name) {
 
                 r = service_load_sysv_path(s, path);
 
-#if defined(TARGET_DEBIAN) || defined(TARGET_ANGSTROM)
                 if (r >= 0 && UNIT(s)->load_state == UNIT_STUB) {
                         /* Try Debian style *.sh source'able init scripts */
                         strcat(path, ".sh");
                         r = service_load_sysv_path(s, path);
                 }
-#endif
                 free(path);
 
-#ifdef TARGET_FRUGALWARE
                 if (r >= 0 && UNIT(s)->load_state == UNIT_STUB) {
                         /* Try Frugalware style rc.* init scripts */
 
@@ -1035,12 +1013,11 @@ static int service_load_sysv_name(Service *s, const char *name) {
                         r = service_load_sysv_path(s, path);
                         free(path);
                 }
-#endif
 
                 if (r < 0)
                         return r;
 
-                if ((UNIT(s)->load_state != UNIT_STUB))
+                if (UNIT(s)->load_state != UNIT_STUB)
                         break;
         }
 
