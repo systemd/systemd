@@ -11,25 +11,7 @@ Documentation=man:agetty(8) man:systemd-getty-generator(8)
 Documentation=http://0pointer.de/blog/projects/serial-console.html
 BindsTo=dev-%i.device
 After=dev-%i.device systemd-user-sessions.service plymouth-quit-wait.service
-m4_ifdef(`TARGET_FEDORA',
-After=rc-local.service
-)m4_dnl
-m4_ifdef(`TARGET_DEBIAN',
-After=rc.local.service
-)m4_dnl
-m4_ifdef(`TARGET_ARCH',
-After=rc-local.service
-)m4_dnl
-m4_ifdef(`TARGET_FRUGALWARE',
-After=local.service
-)m4_dnl
-m4_ifdef(`TARGET_ALTLINUX',
-After=rc-local.service
-)m4_dnl
-m4_ifdef(`TARGET_MANDRIVA',
-After=rc-local.service
-)m4_dnl
-m4_ifdef(`TARGET_MAGEIA',
+m4_ifdef(`HAVE_SYSV_COMPAT',
 After=rc-local.service
 )m4_dnl
 
