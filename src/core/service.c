@@ -3319,71 +3319,6 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
 
 #ifdef HAVE_SYSV_COMPAT
 
-#ifdef TARGET_SUSE
-static void sysv_facility_in_insserv_conf(Manager *mgr) {
-        FILE *f=NULL;
-        int r;
-
-        if (!(f = fopen("/etc/insserv.conf", "re"))) {
-                r = errno == ENOENT ? 0 : -errno;
-                goto finish;
-        }
-
-        while (!feof(f)) {
-                char l[LINE_MAX], *t;
-                char **parsed = NULL;
-
-                if (!fgets(l, sizeof(l), f)) {
-                        if (feof(f))
-                                break;
-
-                        r = -errno;
-                        log_error("Failed to read configuration file '/etc/insserv.conf': %s", strerror(-r));
-                        goto finish;
-                }
-
-                t = strstrip(l);
-                if (*t != '$' && *t != '<')
-                        continue;
-
-                parsed = strv_split(t,WHITESPACE);
-                /* we ignore <interactive>, not used, equivalent to X-Interactive */
-                if (parsed && !startswith_no_case (parsed[0], "<interactive>")) {
-                        char *facility;
-                        Unit *u;
-                        if (sysv_translate_facility(parsed[0], NULL, &facility) < 0)
-                                continue;
-                        if ((u = manager_get_unit(mgr, facility)) && (u->type == UNIT_TARGET)) {
-                                UnitDependency e;
-                                char *dep = NULL, *name, **j;
-
-                                STRV_FOREACH (j, parsed+1) {
-                                        if (*j[0]=='+') {
-                                                e = UNIT_WANTS;
-                                                name = *j+1;
-                                        }
-                                        else {
-                                                e = UNIT_REQUIRES;
-                                                name = *j;
-                                        }
-                                        if (sysv_translate_facility(name, NULL, &dep) < 0)
-                                                continue;
-
-                                        r = unit_add_two_dependencies_by_name(u, UNIT_BEFORE, e, dep, NULL, true);
-                                        free(dep);
-                                }
-                        }
-                        free(facility);
-                }
-                strv_free(parsed);
-        }
-finish:
-        if (f)
-                fclose(f);
-
-}
-#endif
-
 static int service_enumerate(Manager *m) {
         char **p;
         unsigned i;
@@ -3528,10 +3463,6 @@ static int service_enumerate(Manager *m) {
         }
 
         r = 0;
-
-#ifdef TARGET_SUSE
-        sysv_facility_in_insserv_conf (m);
-#endif
 
 finish:
         free(path);
