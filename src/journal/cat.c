@@ -81,7 +81,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
-                        puts(DISTRIBUTION);
                         puts(SYSTEMD_FEATURES);
                         return 0;
 

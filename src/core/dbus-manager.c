@@ -228,7 +228,6 @@
 
 #define BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
         "  <property name=\"Version\" type=\"s\" access=\"read\"/>\n"   \
-        "  <property name=\"Distribution\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Features\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"Tainted\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"FirmwareTimestamp\" type=\"t\" access=\"read\"/>\n" \
@@ -526,13 +525,11 @@ static int bus_manager_set_runtime_watchdog_usec(DBusMessageIter *i, const char 
 
 static const char systemd_property_string[] =
         PACKAGE_STRING "\0"
-        DISTRIBUTION "\0"
         SYSTEMD_FEATURES;
 
 static const BusProperty bus_systemd_properties[] = {
-        { "Version",       bus_property_append_string,    "s",  0                                             },
-        { "Distribution",  bus_property_append_string,    "s",  sizeof(PACKAGE_STRING)                        },
-        { "Features",      bus_property_append_string,    "s",  sizeof(PACKAGE_STRING) + sizeof(DISTRIBUTION) },
+        { "Version",       bus_property_append_string,    "s",  0                      },
+        { "Features",      bus_property_append_string,    "s",  sizeof(PACKAGE_STRING) },
         { NULL, }
 };
 

@@ -4,55 +4,31 @@ HOWTO:
         You need to make the follow changes to adapt systemd to your
         distribution:
 
-        0) Make your distribution recognized via the autoconf checks
-        in configure.ac. Grep for the word "fedora" (case
-        insensitively) and you should be able to find the places where
-        you need to add/change things.
+        1) Find the right configure parameters for:
 
-        1) Patch src/shared/hostname-setup.c so that systemd knows
-        where to read your host name from. You might also want to
-        update status_welcome() in util.c.
+            --with-rootprefix=
+            --with-sysvinit-path=
+            --with-sysvrcd-path=
+            --with-rc-local-script-path-start=
+            --with-rc-local-script-path-stop=
+            --with-kbd-loadkeys=
+            --with-kbd-setfont=
+            --with-tty-gid=
 
-        2) Check the unit files in units/ if they match your
-        distribution. Most likely you will have to make additions to
-        units/*.m4 and create a copy of units/fedora/ with changes for
-        your distribution.
-
-        3) Adjust Makefile.am to register the unit files you added in
-        step 2. Also you might need to update the m4 invocation in
-        Makefile.am. Grep for the word "fedora" (case insensitively)
-        and you should be able to find the places where you need to
-        add/change things.
-
-        4) Try it out. Play around with 'systemd --test --system' for
+        2) Try it out. Play around with 'systemd --test --system' for
         a test run of systemd without booting. This will read the unit
         files and print the initial transaction it would execute
         during boot-up. This will also inform you about ordering loops
         and suchlike.
 
 CONTRIBUTING UPSTREAM:
-        We are interested in merging your changes upstream, if they
-        are for a big, and well-known distribution. Unfortunately we
-        don't have the time and resources to maintain
-        distribution-specific patches for all distributions on the
-        planet, hence please do not send us patches that add systemd
-        support for non-mainstream or niche distributions.
+
+        We are generally do no longer accept distribution specific
+        patches to systemd upstream. If you have to make changes to
+        systemd's source code to make it work on your distribution:
+        unless your code is generic enough to be generally useful we
+        are unlikely to merge it. Please always consider adopting the
+        upstream defaults. If that's not possible please maintain the
+        relevant patches downstream.
 
         Thank you for understanding.
-
-BE CONSIDERATE:
-        We'd like to keep differences between the distributions
-        minimal. This both simplifies our maintenance work, as well
-        as it helps administrators to move from one distribution to
-        another.
-
-        Hence we'd like to ask you to keep your changes minimal, and
-        not rename any units without a very good reason (if you need a
-        particular name for compatibility reasons, consider using
-        alias names via symlinks). Before you make changes that change
-        semantics from upstream, please talk to us!
-
-        In SysV almost every distribution uses a different
-        nomenclature and different locations for the boot-up
-        scripts. We'd like to avoid chaos like that with systemd right
-        from the beginning. So please, be considerate!

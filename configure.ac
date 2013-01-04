@@ -616,12 +616,12 @@ AC_ARG_WITH(rc-local-script-path-start,
 
 AC_ARG_WITH(rc-local-script-path-stop,
         AS_HELP_STRING([--with-rc-local-script-path-stop=PATH],
-                [Path to /sbin/halt.local]),
+                [Path to /usr/sbin/halt.local]),
         [RC_LOCAL_SCRIPT_PATH_STOP="$withval"],
-        [RC_LOCAL_SCRIPT_PATH_STOP="/sbin/halt.local"])
+        [RC_LOCAL_SCRIPT_PATH_STOP="/usr/sbin/halt.local"])
 
 AC_DEFINE_UNQUOTED(RC_LOCAL_SCRIPT_PATH_START, ["$RC_LOCAL_SCRIPT_PATH_START"], [Path of /etc/rc.local script])
-AC_DEFINE_UNQUOTED(RC_LOCAL_SCRIPT_PATH_STOP, ["$RC_LOCAL_SCRIPT_PATH_STOP"], [Path of /sbin/halt.local script])
+AC_DEFINE_UNQUOTED(RC_LOCAL_SCRIPT_PATH_STOP, ["$RC_LOCAL_SCRIPT_PATH_STOP"], [Path of /usr/sbin/halt.local script])
 
 AC_SUBST(RC_LOCAL_SCRIPT_PATH_START)
 AC_SUBST(RC_LOCAL_SCRIPT_PATH_STOP)
@@ -697,106 +697,22 @@ AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
 
 # ------------------------------------------------------------------------------
 
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, arch, gentoo, slackware, altlinux, mandriva, mageia, angstrom or other]))
-if test "z$with_distro" = "z"; then
-        if test "$cross_compiling" = yes; then
-                AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
-        else
-                with_distro=$($GREP '^ID=' /etc/os-release 2>/dev/null | $SED 's/ID=//');
-        fi
-        if test "z$with_distro" = "z"; then
-                with_distro=other
-        fi
-fi
-with_distro=`echo ${with_distro} | tr '[[:upper:]]' '[[:lower:]]' `
-AC_DEFINE_UNQUOTED(DISTRIBUTION, ["${with_distro}"], [Target Distribution])
-
 # Location of the init scripts as mandated by LSB
 SYSTEM_SYSVINIT_PATH=/etc/init.d
 SYSTEM_SYSVRCND_PATH=/etc/rc.d
-
 M4_DEFINES=
-
-case $with_distro in
-        fedora)
-                SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
-                AC_DEFINE(TARGET_FEDORA, [], [Target is Fedora/RHEL])
-                M4_DEFINES=-DTARGET_FEDORA=1
-                ;;
-        opensuse|suse)
-                SYSTEM_SYSVRCND_PATH=/etc/init.d
-                AC_DEFINE(TARGET_SUSE, [], [Target is openSUSE/SLE])
-                M4_DEFINES=-DTARGET_SUSE=1
-                ;;
-        debian)
-                SYSTEM_SYSVRCND_PATH=/etc
-                AC_DEFINE(TARGET_DEBIAN, [], [Target is Debian])
-                M4_DEFINES=-DTARGET_DEBIAN=1
-                ;;
-        arch)
-                SYSTEM_SYSVINIT_PATH=
-                SYSTEM_SYSVRCND_PATH=
-                AC_DEFINE(TARGET_ARCH, [], [Target is ArchLinux])
-                M4_DEFINES=-DTARGET_ARCH=1
-                ;;
-        gentoo)
-                SYSTEM_SYSVINIT_PATH=
-                SYSTEM_SYSVRCND_PATH=
-                AC_DEFINE(TARGET_GENTOO, [], [Target is Gentoo])
-                M4_DEFINES=-DTARGET_GENTOO=1
-                ;;
-        slackware)
-                SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
-                AC_DEFINE(TARGET_SLACKWARE, [], [Target is Slackware])
-                M4_DEFINES=-DTARGET_SLACKWARE=1
-                ;;
-        frugalware)
-                SYSTEM_SYSVINIT_PATH=/etc/rc.d
-                AC_DEFINE(TARGET_FRUGALWARE, [], [Target is Frugalware])
-                M4_DEFINES=-DTARGET_FRUGALWARE=1
-                ;;
-        altlinux)
-                SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
-                AC_DEFINE(TARGET_ALTLINUX, [], [Target is ALTLinux])
-                M4_DEFINES=-DTARGET_ALTLINUX=1
-                ;;
-        mandriva)
-                SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
-                AC_DEFINE(TARGET_MANDRIVA, [], [Target is Mandriva])
-                M4_DEFINES=-DTARGET_MANDRIVA=1
-                ;;
-        angstrom)
-                SYSTEM_SYSVRCND_PATH=/etc
-                AC_DEFINE(TARGET_ANGSTROM, [], [Target is Ångström])
-                M4_DEFINES=-DTARGET_ANGSTROM=1
-                ;;
-        mageia)
-                SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
-                AC_DEFINE(TARGET_MAGEIA, [], [Target is Mageia])
-                M4_DEFINES=-DTARGET_MAGEIA=1
-                ;;
-        other)
-                ;;
-        *)
-                AC_MSG_ERROR([Your distribution (${with_distro}) is not yet supported, SysV init scripts could not be found! (patches welcome); you can specify --with-distro=other to skip this check])
-                ;;
-esac
 
 AC_ARG_WITH([sysvinit-path],
         [AS_HELP_STRING([--with-sysvinit-path=PATH],
-                [Specify the path to where the SysV init scripts are located @<:@default=based on distro@:>@])],
+                [Specify the path to where the SysV init scripts are located])],
         [SYSTEM_SYSVINIT_PATH="$withval"],
         [])
 
 AC_ARG_WITH([sysvrcd-path],
         [AS_HELP_STRING([--with-sysvrcd-path=PATH],
-                [Specify the path to the base directory for the SysV rcN.d directories @<:@default=based on distro@:>@])],
+                [Specify the path to the base directory for the SysV rcN.d directories])],
         [SYSTEM_SYSVRCND_PATH="$withval"],
         [])
-
-AC_SUBST(SYSTEM_SYSVINIT_PATH)
-AC_SUBST(SYSTEM_SYSVRCND_PATH)
-AC_SUBST(M4_DEFINES)
 
 if test "x${SYSTEM_SYSVINIT_PATH}" != "x" -a "x${SYSTEM_SYSVRCND_PATH}" != "x"; then
         AC_DEFINE(HAVE_SYSV_COMPAT, [], [SysV init scripts and rcN.d links are supported.])
@@ -808,25 +724,17 @@ else
         SYSTEM_SYSV_COMPAT="no"
 fi
 
+AC_SUBST(SYSTEM_SYSVINIT_PATH)
+AC_SUBST(SYSTEM_SYSVRCND_PATH)
+AC_SUBST(M4_DEFINES)
+
+AM_CONDITIONAL(HAVE_SYSV_COMPAT, test "$SYSTEM_SYSV_COMPAT" = "yes")
+
 AC_ARG_WITH([tty-gid],
         [AS_HELP_STRING([--with-tty-gid=GID],
                 [Specify the numeric GID of the 'tty' group])],
         [AC_DEFINE_UNQUOTED(TTY_GID, [$withval], [GID of the 'tty' group])],
         [])
-
-AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
-AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
-AM_CONDITIONAL(TARGET_DEBIAN, test x"$with_distro" = xdebian)
-AM_CONDITIONAL(TARGET_ARCH, test x"$with_distro" = xarch)
-AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
-AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
-AM_CONDITIONAL(TARGET_FRUGALWARE, test x"$with_distro" = xfrugalware)
-AM_CONDITIONAL(TARGET_ALTLINUX, test x"$with_distro" = xaltlinux)
-AM_CONDITIONAL(TARGET_MANDRIVA, test x"$with_distro" = xmandriva)
-AM_CONDITIONAL(TARGET_ANGSTROM, test x"$with_distro" = xangstrom)
-AM_CONDITIONAL(TARGET_MAGEIA, test x"$with_distro" = xmageia)
-
-AM_CONDITIONAL(HAVE_SYSV_COMPAT, test "$SYSTEM_SYSV_COMPAT" = "yes")
 
 AC_ARG_WITH([dbuspolicydir],
         AS_HELP_STRING([--with-dbuspolicydir=DIR], [D-Bus policy directory]),
@@ -895,7 +803,6 @@ AC_OUTPUT
 AC_MSG_RESULT([
         $PACKAGE_NAME $VERSION
 
-        Distribution:            ${with_distro}
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
         SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}

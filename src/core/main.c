@@ -1064,7 +1064,6 @@ static int help(void) {
 
 static int version(void) {
         puts(PACKAGE_STRING);
-        puts(DISTRIBUTION);
         puts(SYSTEMD_FEATURES);
 
         return 0;
@@ -1567,7 +1566,7 @@ int main(int argc, char *argv[]) {
         if (arg_running_as == SYSTEMD_SYSTEM) {
                 const char *virtualization = NULL;
 
-                log_info(PACKAGE_STRING " running in system mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")");
+                log_info(PACKAGE_STRING " running in system mode. (" SYSTEMD_FEATURES ")");
 
                 detect_virtualization(&virtualization);
                 if (virtualization)
@@ -1577,7 +1576,7 @@ int main(int argc, char *argv[]) {
                         log_info("Running in initial RAM disk.");
 
         } else
-                log_debug(PACKAGE_STRING " running in user mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")");
+                log_debug(PACKAGE_STRING " running in user mode. (" SYSTEMD_FEATURES ")");
 
         if (arg_running_as == SYSTEMD_SYSTEM && !skip_setup) {
                 locale_setup();

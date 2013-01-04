@@ -4062,24 +4062,6 @@ if HAVE_KMOD
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service )
 endif
 
-
-if TARGET_FEDORA
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f display-manager.service single.service && \
-		$(LN_S) rescue.service single.service )
-endif
-
-if TARGET_MANDRIVA
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f display-manager.service dm.service single.service && \
-		$(LN_S) rescue.service single.service )
-endif
-
-if TARGET_MAGEIA
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f display-manager.service )
-endif
-
 install-exec-hook: $(INSTALL_EXEC_HOOKS)
 
 uninstall-hook: $(UNINSTALL_DATA_HOOKS) $(UNINSTALL_EXEC_HOOKS)
