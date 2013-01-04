@@ -3436,7 +3436,7 @@ finish:
 static int enable_sysv_units(char **args) {
         int r = 0;
 
-#if defined (HAVE_SYSV_COMPAT) && (defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_SUSE) || defined(TARGET_ALTLINUX) || defined(TARGET_MAGEIA))
+#if defined(HAVE_SYSV_COMPAT) && defined(HAVE_CHKCONFIG)
         const char *verb = args[0];
         unsigned f = 1, t = 1;
         LookupPaths paths;

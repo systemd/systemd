@@ -233,6 +233,25 @@ if test "x${have_ima}" != xno ; then
 fi
 
 # ------------------------------------------------------------------------------
+have_chkconfig=yes
+AC_ARG_ENABLE([chkconfig], AS_HELP_STRING([--disable-chkconfig],[Disable optional chkconfig support]),
+                [case "${enableval}" in
+                        yes) have_chkconfig=yes ;;
+                        no) have_chkconfig=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --disable-chkconfig) ;;
+                esac],
+                [AC_PATH_PROG(CHKCONFIG, chkconfig)
+                if test -z "$CHKCONFIG"; then
+                        have_chkconfig=no
+                else
+                        have_chkconfig=yes
+                fi])
+
+if test "x${have_chkconfig}" != xno ; then
+        AC_DEFINE(HAVE_CHKCONFIG, 1, [Define if CHKCONFIG is available])
+fi
+
+# ------------------------------------------------------------------------------
 have_selinux=no
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [Disable optional SELINUX support]))
 if test "x$enable_selinux" != "xno"; then
@@ -873,6 +892,7 @@ AC_MSG_RESULT([
         GCRYPT:                  ${have_gcrypt}
         QRENCODE:                ${have_qrencode}
         MICROHTTPD:              ${have_microhttpd}
+        CHKCONFIG:               ${have_chkconfig}
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}
         readahead:               ${have_readahead}
