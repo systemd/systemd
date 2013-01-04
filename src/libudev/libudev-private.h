@@ -165,6 +165,7 @@ int util_log_priority(const char *priority);
 size_t util_path_encode(const char *src, char *dest, size_t size);
 void util_remove_trailing_chars(char *path, char c);
 size_t util_strpcpy(char **dest, size_t size, const char *src);
+size_t util_strpcpyf(char **dest, size_t size, const char *src, ...) __attribute__((format(printf, 3, 4)));
 size_t util_strpcpyl(char **dest, size_t size, const char *src, ...) __attribute__((sentinel));
 size_t util_strscpy(char *dest, size_t size, const char *src);
 size_t util_strscpyl(char *dest, size_t size, const char *src, ...) __attribute__((sentinel));

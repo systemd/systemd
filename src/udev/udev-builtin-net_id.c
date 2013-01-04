@@ -30,12 +30,12 @@
  *   ww -- wwan
  *
  * Type of names:
- *   o<index>                   -- on-board device index number
- *   s<slot>[f<function>]       -- hotplug slot index number
- *   x<MAC>                     -- MAC address
- *   p<bus>s<slot>[f<function>] -- PCI geographical location
- *   p<bus>s<slot>[f<function>][u<port>][...][c<config>][i<interface>]
- *                              -- USB port number chain
+ *   o<index>                              -- on-board device index number
+ *   s<slot>[f<function>][d<dev_id>]       -- hotplug slot index number
+ *   x<MAC>                                -- MAC address
+ *   p<bus>s<slot>[f<function>][d<dev_id>] -- PCI geographical location
+ *   p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
+ *                                         -- USB port number chain
  *
  * All multi-function PCI devices will carry the [f<function>] number in the
  * device name, including the function 0 device.
@@ -134,11 +134,11 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
 }
 
 /* read the 256 bytes PCI configuration space to check the multi-function bit */
-static bool is_pci_singlefunction(struct udev_device *dev) {
+static bool is_pci_multifunction(struct udev_device *dev) {
         char filename[256];
         FILE *f;
         char config[64];
-        bool single = false;
+        bool multi = false;
 
         snprintf(filename, sizeof(filename), "%s/config", udev_device_get_syspath(dev));
         f = fopen(filename, "re");
@@ -148,11 +148,11 @@ static bool is_pci_singlefunction(struct udev_device *dev) {
                 goto out;
 
         /* bit 0-6 header type, bit 7 multi/single function device */
-        if ((config[PCI_HEADER_TYPE] & 0x80) == 0)
-                single = true;
+        if ((config[PCI_HEADER_TYPE] & 0x80) != 0)
+                multi = true;
 out:
         fclose(f);
-        return single;
+        return multi;
 }
 
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
@@ -160,6 +160,10 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         unsigned int bus;
         unsigned int slot;
         unsigned int func;
+        unsigned int dev_id = 0;
+        size_t l;
+        char *s;
+        const char *attr;
         struct udev_device *pci = NULL;
         char slots[256];
         DIR *dir;
@@ -168,13 +172,23 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         int hotplug_slot = 0;
         int err = 0;
 
-        /* compose a name based on the raw kernel's PCI bus, slot numbers */
         if (sscanf(udev_device_get_sysname(names->pcidev), "0000:%x:%x.%d", &bus, &slot, &func) != 3)
                 return -ENOENT;
-        if (func == 0 && is_pci_singlefunction(names->pcidev))
-                snprintf(names->pci_path, sizeof(names->pci_path), "p%ds%d", bus, slot);
-        else
-                snprintf(names->pci_path, sizeof(names->pci_path), "p%ds%df%d", bus, slot, func);
+
+        /* kernel provided multi-device index */
+        attr = udev_device_get_sysattr_value(dev, "dev_id");
+        if (attr)
+                dev_id = strtol(attr, NULL, 16);
+
+        /* compose a name based on the raw kernel's PCI bus, slot numbers */
+        s = names->pci_path;
+        l = util_strpcpyf(&s, sizeof(names->pci_path), "p%ds%d", bus, slot);
+        if (func > 0 || is_pci_multifunction(names->pcidev))
+                l = util_strpcpyf(&s, l, "f%d", func);
+        if (dev_id > 0)
+                l = util_strpcpyf(&s, l, "d%d", dev_id);
+        if (l == 0)
+                names->pci_path[0] = '\0';
 
         /* ACPI _SUN  -- slot user number */
         pci = udev_device_new_from_subsystem_sysname(udev, "subsystem", "pci");
@@ -215,10 +229,14 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         closedir(dir);
 
         if (hotplug_slot > 0) {
-                if (func == 0 && is_pci_singlefunction(names->pcidev))
-                        snprintf(names->pci_slot, sizeof(names->pci_slot), "s%d", hotplug_slot);
-                else
-                        snprintf(names->pci_slot, sizeof(names->pci_slot), "s%df%d", hotplug_slot, func);
+                s = names->pci_slot;
+                l = util_strpcpyf(&s, sizeof(names->pci_slot), "s%d", hotplug_slot);
+                if (func > 0 || is_pci_multifunction(names->pcidev))
+                        l = util_strpcpyf(&s, l, "f%d", func);
+                if (dev_id > 0)
+                        l = util_strpcpyf(&s, l, "d%d", dev_id);
+                if (l == 0)
+                        names->pci_path[0] = '\0';
         }
 out:
         udev_device_unref(pci);

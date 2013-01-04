@@ -321,14 +321,32 @@ size_t util_strpcpy(char **dest, size_t size, const char *src)
                 if (size > 1)
                         *dest = mempcpy(*dest, src, size-1);
                 size = 0;
-                *dest[0] = '\0';
         } else {
                 if (len > 0) {
                         *dest = mempcpy(*dest, src, len);
                         size -= len;
                 }
-                *dest[0] = '\0';
         }
+        *dest[0] = '\0';
+        return size;
+}
+
+size_t util_strpcpyf(char **dest, size_t size, const char *src, ...)
+{
+        va_list va;
+        int i;
+
+        va_start(va, src);
+        i = vsnprintf(*dest, size, src, va);
+        if (i < (int)size) {
+                *dest += i;
+                size -= i;
+        } else {
+                *dest += size;
+                size = 0;
+        }
+        va_end(va);
+        *dest[0] = '\0';
         return size;
 }
 
@@ -343,7 +361,6 @@ size_t util_strpcpyl(char **dest, size_t size, const char *src, ...)
                 src = va_arg(va, char *);
         } while (src != NULL);
         va_end(va);
-
         return size;
 }
 
