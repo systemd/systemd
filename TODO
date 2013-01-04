@@ -29,8 +29,6 @@ Features:
 
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
 
-* udev: only reset mode/gid of /dev/tty1 and friends on ACTION=add, not ACTION=changed
-
 * DeviceAllow/DeviceDeny: disallow everything by default, but whitelist /dev/zero, /dev/null and friends
 
 * service: watchdog logic: for testing purposes allow ping, but do not require pong

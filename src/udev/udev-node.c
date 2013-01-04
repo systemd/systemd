@@ -279,22 +279,23 @@ static int node_fixup(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid
                 goto out;
         }
 
-        if ((stats.st_mode & 0777) != (mode & 0777) || stats.st_uid != uid || stats.st_gid != gid) {
-                log_debug("set permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
-                chmod(devnode, mode);
-                chown(devnode, uid, gid);
-        } else {
-                log_debug("preserve permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
-        }
-
         /*
-         * Set initial selinux file context only on add events.
-         * We set the proper context on bootup (triger) or for newly
-         * added devices, but we don't change it later, in case
-         * something else has set a custom context in the meantime.
+         * Set permissions and selinux file context only on add events. We always
+         * set it on bootup (coldplug) with "trigger --action=add" for all devices
+         * and for any newly added devices (hotplug). We don't want to change it
+         * later, in case something else has applied custom settings in the meantime.
          */
-        if (strcmp(udev_device_get_action(dev), "add") == 0)
-            label_fix(devnode, true, false);
+        if (strcmp(udev_device_get_action(dev), "add") == 0) {
+                if ((stats.st_mode & 0777) != (mode & 0777) || stats.st_uid != uid || stats.st_gid != gid) {
+                        log_debug("set permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
+                        chmod(devnode, mode);
+                        chown(devnode, uid, gid);
+                } else {
+                        log_debug("preserve permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
+                }
+
+                label_fix(devnode, true, false);
+        }
 
         /* always update timestamp when we re-use the node, like on media change events */
         utimensat(AT_FDCWD, devnode, NULL, 0);
