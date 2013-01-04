@@ -54,9 +54,11 @@ static int parse_proc_cmdline(void) {
                         arg_skip = true;
                 else if (startswith(w, "quotacheck"))
                         log_warning("Invalid quotacheck parameter. Ignoring.");
-#if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
-                else if (strneq(w, "forcequotacheck", l))
+#ifdef HAVE_SYSV_COMPAT
+                else if (strneq(w, "forcequotacheck", l)) {
+                        log_error("Please use 'quotacheck.mode=force' rather than 'forcequotacheck' on the kernel command line.");
                         arg_force = true;
+                }
 #endif
         }
 
@@ -65,10 +67,11 @@ static int parse_proc_cmdline(void) {
 }
 
 static void test_files(void) {
-#if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
-        /* This exists only on Fedora, Mandriva or Mageia */
-        if (access("/forcequotacheck", F_OK) >= 0)
+#ifdef HAVE_SYSV_COMPAT
+        if (access("/forcequotacheck", F_OK) >= 0) {
+                log_error("Please pass 'quotacheck.mode=force' on the kernel command line rather than creating /forcequotacheck on the root file system.");
                 arg_force = true;
+        }
 #endif
 }
 

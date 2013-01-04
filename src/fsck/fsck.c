@@ -128,11 +128,14 @@ static int parse_proc_cmdline(void) {
                         arg_skip = true;
                 else if (startswith(w, "fsck"))
                         log_warning("Invalid fsck parameter. Ignoring.");
-#if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
-                else if (strneq(w, "fastboot", l))
+#ifdef HAVE_SYSV_COMPAT
+                else if (strneq(w, "fastboot", l)) {
+                        log_error("Please pass 'fsck.mode=skip' rather than 'fastboot' on the kernel command line.");
                         arg_skip = true;
-                else if (strneq(w, "forcefsck", l))
+                } else if (strneq(w, "forcefsck", l)) {
+                        log_error("Please pass 'fsck.mode=force' rather than 'forcefsck' on the kernel command line.");
                         arg_force = true;
+                }
 #endif
         }
 
@@ -141,11 +144,17 @@ static int parse_proc_cmdline(void) {
 }
 
 static void test_files(void) {
-        if (access("/fastboot", F_OK) >= 0)
+#ifdef HAVE_SYSV_COMPAT
+        if (access("/fastboot", F_OK) >= 0) {
+                log_error("Please pass 'fsck.mode=skip' on the kernel command line rather than creating /fastboot on the root file system.");
                 arg_skip = true;
+        }
 
-        if (access("/forcefsck", F_OK) >= 0)
+        if (access("/forcefsck", F_OK) >= 0) {
+                log_error("Please pass 'fsck.mode=force' on the kernel command line rather than creating /forcefsck on the root file system.");
                 arg_force = true;
+        }
+#endif
 
         if (access("/run/systemd/show-status", F_OK) >= 0 || plymouth_running())
                 arg_show_progress = true;
