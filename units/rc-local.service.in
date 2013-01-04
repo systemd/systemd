@@ -6,14 +6,15 @@
 #  (at your option) any later version.
 
 # This unit gets pulled automatically into multi-user.target by
-# systemd-rc-local-generator if /etc/init.d/boot.local is executable.
+# systemd-rc-local-generator if @RC_LOCAL_SCRIPT_PATH_START@ is executable.
 [Unit]
-Description=/etc/init.d/boot.local Compatibility
+Description=@RC_LOCAL_SCRIPT_PATH_START@ Compatibility
+ConditionFileIsExecutable=@RC_LOCAL_SCRIPT_PATH_START@
 After=network.target
 
 [Service]
-Type=oneshot
-ExecStart=/etc/init.d/boot.local
+Type=forking
+ExecStart=@RC_LOCAL_SCRIPT_PATH_START@ start
 TimeoutSec=0
 RemainAfterExit=yes
 SysVStartPriority=99

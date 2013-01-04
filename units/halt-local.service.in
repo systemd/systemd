@@ -6,15 +6,15 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=/etc/init.d/halt.local Compatibility
-ConditionFileIsExecutable=/etc/init.d/halt.local
+Description=@RC_LOCAL_SCRIPT_PATH_STOP@ Compatibility
+ConditionFileIsExecutable=@RC_LOCAL_SCRIPT_PATH_STOP@
 DefaultDependencies=no
 After=shutdown.target
 Before=final.target
 
 [Service]
 Type=oneshot
-ExecStart=/etc/init.d/halt.local
+ExecStart=@RC_LOCAL_SCRIPT_PATH_STOP@
 TimeoutSec=0
 StandardOutput=tty
 RemainAfterExit=yes

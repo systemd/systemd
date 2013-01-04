@@ -406,34 +406,15 @@ EXTRA_DIST += \
 	units/systemd-modules-load.service.in
 endif
 
-if TARGET_FEDORA
-dist_systemunit_DATA += \
-	units/fedora/rc-local.service \
-	units/fedora/halt-local.service
-systemgenerator_PROGRAMS += \
-	systemd-rc-local-generator
-endif
+if HAVE_SYSV_COMPAT
+nodist_systemunit_DATA += \
+	units/rc-local.service \
+	units/halt-local.service
 
-if TARGET_MANDRIVA
-dist_systemunit_DATA += \
-	units/fedora/rc-local.service \
-	units/fedora/halt-local.service
-systemgenerator_PROGRAMS += \
-	systemd-rc-local-generator
-endif
+EXTRA_DIST += \
+	units/rc-local.service.in \
+	units/halt-local.service.in
 
-if TARGET_SUSE
-dist_systemunit_DATA += \
-	units/suse/rc-local.service \
-	units/suse/halt-local.service
-systemgenerator_PROGRAMS += \
-	systemd-rc-local-generator
-endif
-
-if TARGET_MAGEIA
-dist_systemunit_DATA += \
-	units/fedora/rc-local.service \
-	units/fedora/halt-local.service
 systemgenerator_PROGRAMS += \
 	systemd-rc-local-generator
 endif
@@ -3856,6 +3837,8 @@ SED_PROCESS = \
 		-e 's,@QUOTACHECK\@,$(QUOTACHECK),g' \
 		-e 's,@SYSTEM_SYSVINIT_PATH\@,$(sysvinitdir),g' \
 		-e 's,@VARLOGDIR\@,$(varlogdir),g' \
+		-e 's,@RC_LOCAL_SCRIPT_PATH_START\@,$(RC_LOCAL_SCRIPT_PATH_START),g' \
+		-e 's,@RC_LOCAL_SCRIPT_PATH_STOP\@,$(RC_LOCAL_SCRIPT_PATH_STOP),g' \
 		< $< > $@
 
 units/%: units/%.in Makefile
@@ -4131,12 +4114,6 @@ if TARGET_MANDRIVA
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f display-manager.service dm.service single.service && \
 		$(LN_S) rescue.service single.service )
-endif
-
-if TARGET_SUSE
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f local.service && \
-		$(LN_S) rc-local.service local.service )
 endif
 
 if TARGET_MAGEIA

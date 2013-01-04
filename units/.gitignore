@@ -1,3 +1,5 @@
+/halt-local.service
+/rc-local.service
 /systemd-hybrid-sleep.service
 /systemd-journal-gatewayd.service
 /systemd-journal-flush.service

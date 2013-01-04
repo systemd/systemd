@@ -589,6 +589,25 @@ fi
 AM_CONDITIONAL(ENABLE_COREDUMP, [test "$have_coredump" = "yes"])
 
 # ------------------------------------------------------------------------------
+AC_ARG_WITH(rc-local-script-path-start,
+        AS_HELP_STRING([--with-rc-local-script-path-start=PATH],
+                [Path to /etc/rc.local]),
+        [RC_LOCAL_SCRIPT_PATH_START="$withval"],
+        [RC_LOCAL_SCRIPT_PATH_START="/etc/rc.local"])
+
+AC_ARG_WITH(rc-local-script-path-stop,
+        AS_HELP_STRING([--with-rc-local-script-path-stop=PATH],
+                [Path to /sbin/halt.local]),
+        [RC_LOCAL_SCRIPT_PATH_STOP="$withval"],
+        [RC_LOCAL_SCRIPT_PATH_STOP="/sbin/halt.local"])
+
+AC_DEFINE_UNQUOTED(RC_LOCAL_SCRIPT_PATH_START, ["$RC_LOCAL_SCRIPT_PATH_START"], [Path of /etc/rc.local script])
+AC_DEFINE_UNQUOTED(RC_LOCAL_SCRIPT_PATH_STOP, ["$RC_LOCAL_SCRIPT_PATH_STOP"], [Path of /sbin/halt.local script])
+
+AC_SUBST(RC_LOCAL_SCRIPT_PATH_START)
+AC_SUBST(RC_LOCAL_SCRIPT_PATH_STOP)
+
+# ------------------------------------------------------------------------------
 AC_ARG_WITH(firmware-path,
        AS_HELP_STRING([--with-firmware-path=DIR[[[:DIR[...]]]]],
           [Firmware search path (default=ROOTPREFIX/lib/firmware/updates:ROOTPREFIX/lib/firmware)]),
@@ -889,6 +908,8 @@ AC_MSG_RESULT([
         Split /usr:              ${enable_split_usr}
         man pages:               ${have_manpages}
         gtk-doc:                 ${enable_gtk_doc}
+        Extra start script:      ${RC_LOCAL_SCRIPT_PATH_START}
+        Extra stop script:       ${RC_LOCAL_SCRIPT_PATH_STOP}
 
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
         CPPLAGS:                 ${OUR_CPPFLAGS} ${CPPFLAGS}

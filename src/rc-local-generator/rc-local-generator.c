@@ -28,13 +28,13 @@
 #include "util.h"
 #include "mkdir.h"
 
-#if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
-#define SCRIPT_PATH_START "/etc/rc.d/rc.local"
-#elif defined(TARGET_SUSE)
-#define SCRIPT_PATH_START "/etc/init.d/boot.local"
+#ifndef RC_LOCAL_SCRIPT_PATH_START
+#define RC_LOCAL_SCRIPT_PATH_START "/etc/rc.d/rc.local"
 #endif
 
-#define SCRIPT_PATH_STOP "/sbin/halt.local"
+#ifndef RC_LOCAL_SCRIPT_PATH_STOP
+#define RC_LOCAL_SCRIPT_PATH_STOP "/sbin/halt.local"
+#endif
 
 const char *arg_dest = "/tmp";
 
@@ -97,14 +97,14 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (file_is_executable(SCRIPT_PATH_START)) {
+        if (file_is_executable(RC_LOCAL_SCRIPT_PATH_START)) {
                 log_debug("Automatically adding rc-local.service.");
 
                 if (add_symlink("rc-local.service", "multi-user.target") < 0)
                         r = EXIT_FAILURE;
         }
 
-        if (file_is_executable(SCRIPT_PATH_STOP)) {
+        if (file_is_executable(RC_LOCAL_SCRIPT_PATH_STOP)) {
                 log_debug("Automatically adding halt-local.service.");
 
                 if (add_symlink("halt-local.service", "final.target") < 0)
