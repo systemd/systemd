@@ -222,9 +222,11 @@ static int mount_add_swap_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_SWAP])
-                if ((r = swap_add_one_mount_link(SWAP(other), m)) < 0)
+        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_SWAP]) {
+                r = swap_add_one_mount_link(SWAP(other), m);
+                if (r < 0)
                         return r;
+        }
 
         return 0;
 }
@@ -235,9 +237,11 @@ static int mount_add_path_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_PATH])
-                if ((r = path_add_one_mount_link(PATH(other), m)) < 0)
+        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_PATH]) {
+                r = path_add_one_mount_link(PATH(other), m);
+                if (r < 0)
                         return r;
+        }
 
         return 0;
 }
@@ -248,9 +252,11 @@ static int mount_add_automount_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_AUTOMOUNT])
-                if ((r = automount_add_one_mount_link(AUTOMOUNT(other), m)) < 0)
+        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_AUTOMOUNT]) {
+                r = automount_add_one_mount_link(AUTOMOUNT(other), m);
+                if (r < 0)
                         return r;
+        }
 
         return 0;
 }
@@ -261,9 +267,11 @@ static int mount_add_socket_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_SOCKET])
-                if ((r = socket_add_one_mount_link(SOCKET(other), m)) < 0)
+        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_SOCKET]) {
+                r = socket_add_one_mount_link(SOCKET(other), m);
+                if (r < 0)
                         return r;
+        }
 
         return 0;
 }
@@ -1670,7 +1678,8 @@ void mount_fd_event(Manager *m, int events) {
          * /proc/self/mountinfo file, which informs us about mounting
          * table changes */
 
-        if ((r = mount_load_proc_self_mountinfo(m, true)) < 0) {
+        r = mount_load_proc_self_mountinfo(m, true);
+        if (r < 0) {
                 log_error("Failed to reread /proc/self/mountinfo: %s", strerror(-r));
 
                 /* Reset flags, just in case, for later calls */
