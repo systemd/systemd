@@ -627,6 +627,25 @@ AC_SUBST(RC_LOCAL_SCRIPT_PATH_START)
 AC_SUBST(RC_LOCAL_SCRIPT_PATH_STOP)
 
 # ------------------------------------------------------------------------------
+AC_ARG_WITH(kbd-loadkeys,
+        AS_HELP_STRING([--with-kbd-loadkeys=PATH],
+                [Path to loadkeys]),
+        [KBD_LOADKEYS="$withval"],
+        [KBD_LOADKEYS="/usr/bin/loadkeys"])
+
+AC_ARG_WITH(kbd-setfont,
+        AS_HELP_STRING([--with-kbd-setfont=PATH],
+                [Path to setfont]),
+        [KBD_SETFONT="$withval"],
+        [KBD_SETFONT="/usr/bin/setfont"])
+
+AC_DEFINE_UNQUOTED(KBD_LOADKEYS, ["$KBD_LOADKEYS"], [Path of loadkeys])
+AC_DEFINE_UNQUOTED(KBD_SETFONT, ["$KBD_SETFONT"], [Path of setfont])
+
+AC_SUBST(KBD_LOADKEYS)
+AC_SUBST(KBD_SETFONT)
+
+# ------------------------------------------------------------------------------
 AC_ARG_WITH(firmware-path,
        AS_HELP_STRING([--with-firmware-path=DIR[[[:DIR[...]]]]],
           [Firmware search path (default=ROOTPREFIX/lib/firmware/updates:ROOTPREFIX/lib/firmware)]),
