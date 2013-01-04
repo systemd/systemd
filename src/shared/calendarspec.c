@@ -738,7 +738,7 @@ fail:
 
 static int find_matching_component(const CalendarComponent *c, int *val) {
         const CalendarComponent *n;
-        int d;
+        int d = -1;
         bool d_set = false;
         int r;
 

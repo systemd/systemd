@@ -5682,7 +5682,7 @@ oom:
 }
 
 char *strip_tab_ansi(char **ibuf, size_t *_isz) {
-        const char *i, *begin;
+        const char *i, *begin = NULL;
         enum {
                 STATE_OTHER,
                 STATE_ESCAPE,
