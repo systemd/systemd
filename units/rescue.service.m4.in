@@ -18,16 +18,7 @@ Environment=HOME=/root
 WorkingDirectory=/root
 ExecStartPre=-/bin/plymouth quit
 ExecStartPre=-/bin/echo -e 'Welcome to rescue mode! Type "systemctl default" or ^D to enter default mode.\\nType "journalctl -xb" to view system logs. Type "systemctl reboot" to reboot.'
-m4_ifdef(`TARGET_FEDORA',
-`EnvironmentFile=/etc/sysconfig/init
-ExecStart=-/bin/bash -c "exec ${SINGLE}"',
-m4_ifdef(`TARGET_MANDRIVA',
-`EnvironmentFile=/etc/sysconfig/init
-ExecStart=-/bin/bash -c "exec ${SINGLE}"',
-m4_ifdef(`TARGET_MAGEIA',
-`EnvironmentFile=/etc/sysconfig/init
-ExecStart=-/bin/bash -c "exec ${SINGLE}"',
-`ExecStart=-/sbin/sulogin')))
+ExecStart=-/sbin/sulogin
 ExecStopPost=-@SYSTEMCTL@ --fail --no-block default
 Type=idle
 StandardInput=tty-force
