@@ -3549,6 +3549,27 @@ pamlib_LTLIBRARIES = \
 	pam_systemd.la
 endif
 
+if HAVE_MYHOSTNAME
+libnss_myhostname_la_SOURCES = \
+	src/nss-myhostname/nss-myhostname.c \
+	src/nss-myhostname/ifconf.h \
+	src/nss-myhostname/netlink.c
+
+libnss_myhostname_la_CFLAGS = \
+	$(AM_CFLAGS)
+
+libnss_myhostname_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-module \
+	-export-dynamic \
+	-avoid-version \
+	-shared \
+	-shrext .so.2
+
+lib_LTLIBRARIES += \
+	libnss_myhostname.la
+endif
+
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-login-install-hook:
 	libname=libsystemd-login.so && $(move-to-rootlibdir)
