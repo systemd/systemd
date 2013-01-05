@@ -124,7 +124,7 @@ int path_spec_fd_event(PathSpec *s, uint32_t events) {
         int r = 0;
 
         if (events != EPOLLIN) {
-                log_error("Got Invalid poll event on inotify.");
+                log_error("Got invalid poll event on inotify.");
                 r = -EINVAL;
                 goto out;
         }
@@ -137,13 +137,15 @@ int path_spec_fd_event(PathSpec *s, uint32_t events) {
 
         assert(l > 0);
 
-        if (!(buf = malloc(l))) {
+        buf = malloc(l);
+        if (!buf) {
                 log_error("Failed to allocate buffer: %m");
                 r = -errno;
                 goto out;
         }
 
-        if ((k = read(s->inotify_fd, buf, l)) < 0) {
+        k = read(s->inotify_fd, buf, l);
+        if (k < 0) {
                 log_error("Failed to read inotify event: %m");
                 r = -errno;
                 goto out;
@@ -217,7 +219,8 @@ static void path_spec_mkdir(PathSpec *s, mode_t mode) {
         if (s->type == PATH_EXISTS || s->type == PATH_EXISTS_GLOB)
                 return;
 
-        if ((r = mkdir_p_label(s->path, mode)) < 0)
+        r = mkdir_p_label(s->path, mode);
+        if (r < 0)
                 log_warning("mkdir(%s) failed: %s", s->path, strerror(-r));
 }
 
