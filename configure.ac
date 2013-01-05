@@ -107,7 +107,7 @@ AS_IF([test "x$with_python" != "xno"], [
 AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 AS_IF([test "x$PYTHON_BINARY" = "x"],
       [AS_IF([test "x$have_python" = "xyes"],
-             [PYTHON_BINARY="$PYTHON"],
+             [PYTHON_BINARY="`which "$PYTHON"`"],
              [PYTHON_BINARY=/usr/bin/python])])
 AC_ARG_VAR(PYTHON_BINARY, [Python binary used to launch installed scripts])
 
