@@ -76,7 +76,8 @@ static int timer_verify(Timer *t) {
                 return 0;
 
         if (!t->values) {
-                log_error("%s lacks value setting. Refusing.", UNIT(t)->id);
+                log_error_unit(UNIT(t)->id,
+                               "%s lacks value setting. Refusing.", UNIT(t)->id);
                 return -EINVAL;
         }
 
@@ -187,10 +188,10 @@ static void timer_set_state(Timer *t, TimerState state) {
         }
 
         if (state != old_state)
-                log_debug("%s changed %s -> %s",
-                          UNIT(t)->id,
-                          timer_state_to_string(old_state),
-                          timer_state_to_string(state));
+                log_debug_unit(UNIT(t)->id,
+                               "%s changed %s -> %s", UNIT(t)->id,
+                               timer_state_to_string(old_state),
+                               timer_state_to_string(state));
 
         unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], true);
 }
@@ -312,14 +313,17 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         }
 
         if (!found_monotonic && !found_realtime) {
-                log_debug("%s: Timer is elapsed.", UNIT(t)->id);
+                log_debug_unit(UNIT(t)->id, "%s: Timer is elapsed.", UNIT(t)->id);
                 timer_set_state(t, TIMER_ELAPSED);
                 return;
         }
 
         if (found_monotonic) {
                 char buf[FORMAT_TIMESPAN_MAX];
-                log_debug("%s: Monotonic timer elapses in %s the next time.", UNIT(t)->id, format_timespan(buf, sizeof(buf), t->next_elapse_monotonic - ts.monotonic));
+                log_debug_unit(UNIT(t)->id,
+                               "%s: Monotonic timer elapses in %s the next time.",
+                               UNIT(t)->id,
+                               format_timespan(buf, sizeof(buf), t->next_elapse_monotonic - ts.monotonic));
 
                 r = unit_watch_timer(UNIT(t), CLOCK_MONOTONIC, false, t->next_elapse_monotonic, &t->monotonic_watch);
                 if (r < 0)
@@ -329,7 +333,10 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
         if (found_realtime) {
                 char buf[FORMAT_TIMESTAMP_MAX];
-                log_debug("%s: Realtime timer elapses at %s the next time.", UNIT(t)->id, format_timestamp(buf, sizeof(buf), t->next_elapse_realtime));
+                log_debug_unit(UNIT(t)->id,
+                               "%s: Realtime timer elapses at %s the next time.",
+                               UNIT(t)->id,
+                               format_timestamp(buf, sizeof(buf), t->next_elapse_realtime));
 
                 r = unit_watch_timer(UNIT(t), CLOCK_REALTIME, false, t->next_elapse_realtime, &t->realtime_watch);
                 if (r < 0)
@@ -341,7 +348,9 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         return;
 
 fail:
-        log_warning("%s failed to enter waiting state: %s", UNIT(t)->id, strerror(-r));
+        log_warning_unit(UNIT(t)->id,
+                         "%s failed to enter waiting state: %s",
+                         UNIT(t)->id, strerror(-r));
         timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
 }
 
@@ -364,7 +373,9 @@ static void timer_enter_running(Timer *t) {
         return;
 
 fail:
-        log_warning("%s failed to queue unit startup job: %s", UNIT(t)->id, bus_error(&error, r));
+        log_warning_unit(UNIT(t)->id,
+                         "%s failed to queue unit startup job: %s",
+                         UNIT(t)->id, bus_error(&error, r));
         timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
 
         dbus_error_free(&error);
@@ -420,7 +431,7 @@ static int timer_deserialize_item(Unit *u, const char *key, const char *value, F
 
                 state = timer_state_from_string(value);
                 if (state < 0)
-                        log_debug("Failed to parse state value %s", value);
+                        log_debug_unit(u->id, "Failed to parse state value %s", value);
                 else
                         t->deserialized_state = state;
         } else if (streq(key, "result")) {
@@ -428,12 +439,12 @@ static int timer_deserialize_item(Unit *u, const char *key, const char *value, F
 
                 f = timer_result_from_string(value);
                 if (f < 0)
-                        log_debug("Failed to parse result value %s", value);
+                        log_debug_unit(u->id, "Failed to parse result value %s", value);
                 else if (f != TIMER_SUCCESS)
                         t->result = f;
 
         } else
-                log_debug("Unknown serialization key '%s'", key);
+                log_debug_unit(u->id, "Unknown serialization key '%s'", key);
 
         return 0;
 }
@@ -459,7 +470,7 @@ static void timer_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
         if (t->state != TIMER_WAITING)
                 return;
 
-        log_debug("Timer elapsed on %s", u->id);
+        log_debug_unit(u->id, "Timer elapsed on %s", u->id);
         timer_enter_running(t);
 }
 
@@ -500,7 +511,9 @@ void timer_unit_notify(Unit *u, UnitActiveState new_state) {
                 case TIMER_RUNNING:
 
                         if (UNIT_IS_INACTIVE_OR_FAILED(new_state)) {
-                                log_debug("%s got notified about unit deactivation.", UNIT(t)->id);
+                                log_debug_unit(UNIT(t)->id,
+                                               "%s got notified about unit deactivation.",
+                                               UNIT(t)->id);
                                 timer_enter_waiting(t, false);
                         }
 
@@ -535,7 +548,8 @@ static void timer_time_change(Unit *u) {
         if (t->state != TIMER_WAITING)
                 return;
 
-        log_info("%s: time change, recalculating next elapse.", u->id);
+        log_info_unit(u->id,
+                      "%s: time change, recalculating next elapse.", u->id);
         timer_enter_waiting(t, false);
 }
 

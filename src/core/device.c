@@ -92,10 +92,10 @@ static void device_set_state(Device *d, DeviceState state) {
         d->state = state;
 
         if (state != old_state)
-                log_debug("%s changed %s -> %s",
-                          UNIT(d)->id,
-                          device_state_to_string(old_state),
-                          device_state_to_string(state));
+                log_debug_unit(UNIT(d)->id,
+                               "%s changed %s -> %s", UNIT(d)->id,
+                               device_state_to_string(old_state),
+                               device_state_to_string(state));
 
         unit_notify(UNIT(d), state_translation_table[old_state], state_translation_table[state], true);
 }

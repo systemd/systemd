@@ -487,7 +487,7 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
 
                 if (u->gc_marker == gc_marker + GC_OFFSET_BAD ||
                     u->gc_marker == gc_marker + GC_OFFSET_UNSURE) {
-                        log_debug("Collecting %s", u->id);
+                        log_debug_unit(u->id, "Collecting %s", u->id);
                         u->gc_marker = gc_marker + GC_OFFSET_BAD;
                         unit_add_to_cleanup_queue(u);
                 }
@@ -749,7 +749,9 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
                 return -EPERM;
         }
 
-        log_debug("Trying to enqueue job %s/%s/%s", unit->id, job_type_to_string(type), job_mode_to_string(mode));
+        log_debug_unit(unit->id,
+                       "Trying to enqueue job %s/%s/%s", unit->id,
+                       job_type_to_string(type), job_mode_to_string(mode));
 
         job_type_collapse(&type, unit);
 
@@ -773,7 +775,9 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         if (r < 0)
                 goto tr_abort;
 
-        log_debug("Enqueued job %s/%s as %u", unit->id, job_type_to_string(type), (unsigned) tr->anchor_job->id);
+        log_debug_unit(unit->id,
+                       "Enqueued job %s/%s as %u", unit->id,
+                       job_type_to_string(type), (unsigned) tr->anchor_job->id);
 
         if (_ret)
                 *_ret = tr->anchor_job;
@@ -1070,7 +1074,7 @@ static int manager_process_notify_fd(Manager *m) {
                 if (!tags)
                         return log_oom();
 
-                log_debug("Got notification message for unit %s", u->id);
+                log_debug_unit(u->id, "Got notification message for unit %s", u->id);
 
                 if (UNIT_VTABLE(u)->notify_message)
                         UNIT_VTABLE(u)->notify_message(u, ucred->pid, tags);
@@ -1150,7 +1154,8 @@ static int manager_dispatch_sigchld(Manager *m) {
                 if (!u)
                         continue;
 
-                log_debug("Child %lu belongs to %s", (long unsigned) si.si_pid, u->id);
+                log_debug_unit(u->id,
+                               "Child %lu belongs to %s", (long unsigned) si.si_pid, u->id);
 
                 hashmap_remove(m->watch_pids, LONG_TO_PTR(si.si_pid));
                 UNIT_VTABLE(u)->sigchld_event(u, si.si_pid, si.si_code, si.si_status);
@@ -1165,11 +1170,12 @@ static int manager_start_target(Manager *m, const char *name, JobMode mode) {
 
         dbus_error_init(&error);
 
-        log_debug("Activating special unit %s", name);
+        log_debug_unit(name, "Activating special unit %s", name);
 
         r = manager_add_job_by_name(m, JOB_START, name, mode, true, &error, NULL);
         if (r < 0)
-                log_error("Failed to enqueue %s job: %s", name, bus_error(&error, r));
+                log_error_unit(name,
+                               "Failed to enqueue %s job: %s", name, bus_error(&error, r));
 
         dbus_error_free(&error);
 
@@ -1677,7 +1683,8 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 
         p = unit_name_to_prefix_and_instance(u->id);
         if (!p) {
-                log_error("Failed to allocate unit name for audit message: %s", strerror(ENOMEM));
+                log_error_unit(u->id,
+                               "Failed to allocate unit name for audit message: %s", strerror(ENOMEM));
                 return;
         }
 

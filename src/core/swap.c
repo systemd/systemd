@@ -225,12 +225,16 @@ static int swap_verify(Swap *s) {
 
         b = unit_has_name(UNIT(s), e);
         if (!b) {
-                log_error("%s: Value of \"What\" and unit name do not match, not loading.", UNIT(s)->id);
+                log_error_unit(UNIT(s)->id,
+                               "%s: Value of \"What\" and unit name do not match, not loading.",
+                               UNIT(s)->id);
                 return -EINVAL;
         }
 
         if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP) {
-                log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing to load.", UNIT(s)->id);
+                log_error_unit(UNIT(s)->id,
+                               "%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing to load.",
+                               UNIT(s)->id);
                 return -EINVAL;
         }
 
@@ -398,7 +402,7 @@ static int swap_add_one(
         return 0;
 
 fail:
-        log_warning("Failed to load swap unit: %s", strerror(-r));
+        log_warning_unit(e, "Failed to load swap unit: %s", strerror(-r));
 
         free(wp);
 
@@ -483,10 +487,11 @@ static void swap_set_state(Swap *s, SwapState state) {
         }
 
         if (state != old_state)
-                log_debug("%s changed %s -> %s",
-                          UNIT(s)->id,
-                          swap_state_to_string(old_state),
-                          swap_state_to_string(state));
+                log_debug_unit(UNIT(s)->id,
+                               "%s changed %s -> %s",
+                               UNIT(s)->id,
+                               swap_state_to_string(old_state),
+                               swap_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state],
                     state_translation_table[state], true);
@@ -656,7 +661,9 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
                 if (s->control_pid > 0) {
                         if (kill_and_sigcont(s->control_pid, sig) < 0 && errno != ESRCH)
 
-                                log_warning("Failed to kill control process %li: %m", (long) s->control_pid);
+                                log_warning_unit(UNIT(s)->id,
+                                                 "Failed to kill control process %li: %m",
+                                                 (long) s->control_pid);
                         else
                                 wait_for_exit = true;
                 }
@@ -679,7 +686,8 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
                         r = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, sig, true, false, pid_set, NULL);
                         if (r < 0) {
                                 if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
-                                        log_warning("Failed to kill control group: %s", strerror(-r));
+                                        log_warning_unit(UNIT(s)->id,
+                                                         "Failed to kill control group: %s", strerror(-r));
                         } else if (r > 0)
                                 wait_for_exit = true;
 
@@ -700,7 +708,8 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
         return;
 
 fail:
-        log_warning("%s failed to kill processes: %s", UNIT(s)->id, strerror(-r));
+        log_warning_unit(UNIT(s)->id,
+                         "%s failed to kill processes: %s", UNIT(s)->id, strerror(-r));
 
         swap_enter_dead(s, SWAP_FAILURE_RESOURCES);
 
@@ -755,7 +764,9 @@ static void swap_enter_activating(Swap *s) {
         return;
 
 fail:
-        log_warning("%s failed to run 'swapon' task: %s", UNIT(s)->id, strerror(-r));
+        log_warning_unit(UNIT(s)->id,
+                         "%s failed to run 'swapon' task: %s",
+                         UNIT(s)->id, strerror(-r));
         swap_enter_dead(s, SWAP_FAILURE_RESOURCES);
 }
 
@@ -785,7 +796,9 @@ static void swap_enter_deactivating(Swap *s) {
         return;
 
 fail:
-        log_warning("%s failed to run 'swapoff' task: %s", UNIT(s)->id, strerror(-r));
+        log_warning_unit(UNIT(s)->id,
+                         "%s failed to run 'swapoff' task: %s",
+                         UNIT(s)->id, strerror(-r));
         swap_enter_active(s, SWAP_FAILURE_RESOURCES);
 }
 
@@ -869,7 +882,7 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
 
                 state = swap_state_from_string(value);
                 if (state < 0)
-                        log_debug("Failed to parse state value %s", value);
+                        log_debug_unit(u->id, "Failed to parse state value %s", value);
                 else
                         s->deserialized_state = state;
         } else if (streq(key, "result")) {
@@ -877,14 +890,14 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
 
                 f = swap_result_from_string(value);
                 if (f < 0)
-                        log_debug("Failed to parse result value %s", value);
+                        log_debug_unit(u->id, "Failed to parse result value %s", value);
                 else if (f != SWAP_SUCCESS)
                         s->result = f;
         } else if (streq(key, "control-pid")) {
                 pid_t pid;
 
                 if (parse_pid(value, &pid) < 0)
-                        log_debug("Failed to parse control-pid value %s", value);
+                        log_debug_unit(u->id, "Failed to parse control-pid value %s", value);
                 else
                         s->control_pid = pid;
 
@@ -893,14 +906,14 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
 
                 id = swap_exec_command_from_string(value);
                 if (id < 0)
-                        log_debug("Failed to parse exec-command value %s", value);
+                        log_debug_unit(u->id, "Failed to parse exec-command value %s", value);
                 else {
                         s->control_command_id = id;
                         s->control_command = s->exec_command + id;
                 }
 
         } else
-                log_debug("Unknown serialization key '%s'", key);
+                log_debug_unit(u->id, "Unknown serialization key '%s'", key);
 
         return 0;
 }
@@ -958,8 +971,10 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
         }
 
-        log_full(f == SWAP_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
-                 "%s swap process exited, code=%s status=%i", u->id, sigchld_code_to_string(code), status);
+        log_full_unit(f == SWAP_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                      u->id,
+                      "%s swap process exited, code=%s status=%i",
+                      u->id, sigchld_code_to_string(code), status);
 
         switch (s->state) {
 
@@ -1005,38 +1020,38 @@ static void swap_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
         switch (s->state) {
 
         case SWAP_ACTIVATING:
-                log_warning("%s activation timed out. Stopping.", u->id);
+                log_warning_unit(u->id, "%s activation timed out. Stopping.", u->id);
                 swap_enter_signal(s, SWAP_ACTIVATING_SIGTERM, SWAP_FAILURE_TIMEOUT);
                 break;
 
         case SWAP_DEACTIVATING:
-                log_warning("%s deactivation timed out. Stopping.", u->id);
+                log_warning_unit(u->id, "%s deactivation timed out. Stopping.", u->id);
                 swap_enter_signal(s, SWAP_DEACTIVATING_SIGTERM, SWAP_FAILURE_TIMEOUT);
                 break;
 
         case SWAP_ACTIVATING_SIGTERM:
                 if (s->kill_context.send_sigkill) {
-                        log_warning("%s activation timed out. Killing.", u->id);
+                        log_warning_unit(u->id, "%s activation timed out. Killing.", u->id);
                         swap_enter_signal(s, SWAP_ACTIVATING_SIGKILL, SWAP_FAILURE_TIMEOUT);
                 } else {
-                        log_warning("%s activation timed out. Skipping SIGKILL. Ignoring.", u->id);
+                        log_warning_unit(u->id, "%s activation timed out. Skipping SIGKILL. Ignoring.", u->id);
                         swap_enter_dead(s, SWAP_FAILURE_TIMEOUT);
                 }
                 break;
 
         case SWAP_DEACTIVATING_SIGTERM:
                 if (s->kill_context.send_sigkill) {
-                        log_warning("%s deactivation timed out. Killing.", u->id);
+                        log_warning_unit(u->id, "%s deactivation timed out. Killing.", u->id);
                         swap_enter_signal(s, SWAP_DEACTIVATING_SIGKILL, SWAP_FAILURE_TIMEOUT);
                 } else {
-                        log_warning("%s deactivation timed out. Skipping SIGKILL. Ignoring.", u->id);
+                        log_warning_unit(u->id, "%s deactivation timed out. Skipping SIGKILL. Ignoring.", u->id);
                         swap_enter_dead(s, SWAP_FAILURE_TIMEOUT);
                 }
                 break;
 
         case SWAP_ACTIVATING_SIGKILL:
         case SWAP_DEACTIVATING_SIGKILL:
-                log_warning("%s swap process still around after SIGKILL. Ignoring.", u->id);
+                log_warning_unit(u->id, "%s swap process still around after SIGKILL. Ignoring.", u->id);
                 swap_enter_dead(s, SWAP_FAILURE_TIMEOUT);
                 break;
 

@@ -307,7 +307,8 @@ static int path_verify(Path *p) {
                 return 0;
 
         if (!p->specs) {
-                log_error("%s lacks path setting. Refusing.", UNIT(p)->id);
+                log_error_unit(UNIT(p)->id,
+                               "%s lacks path setting. Refusing.", UNIT(p)->id);
                 return -EINVAL;
         }
 
