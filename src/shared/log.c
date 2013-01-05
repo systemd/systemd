@@ -308,6 +308,8 @@ static int write_to_console(
                 const char*file,
                 int line,
                 const char *func,
+                const char *object_name,
+                const char *object,
                 const char *buffer) {
 
         char location[64];
@@ -346,6 +348,8 @@ static int write_to_syslog(
         const char*file,
         int line,
         const char *func,
+        const char *object_name,
+        const char *object,
         const char *buffer) {
 
         char header_priority[16], header_time[64], header_pid[16];
@@ -361,7 +365,8 @@ static int write_to_syslog(
         char_array_0(header_priority);
 
         t = (time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC);
-        if (!(tm = localtime(&t)))
+        tm = localtime(&t);
+        if (!tm)
                 return -EINVAL;
 
         if (strftime(header_time, sizeof(header_time), "%h %e %T ", tm) <= 0)
@@ -407,6 +412,8 @@ static int write_to_kmsg(
         const char*file,
         int line,
         const char *func,
+        const char *object_name,
+        const char *object,
         const char *buffer) {
 
         char header_priority[16], header_pid[16];
@@ -439,6 +446,8 @@ static int write_to_journal(
         const char*file,
         int line,
         const char *func,
+        const char *object_name,
+        const char *object,
         const char *buffer) {
 
         char header[LINE_MAX];
@@ -454,6 +463,7 @@ static int write_to_journal(
                  "CODE_FILE=%s\n"
                  "CODE_LINE=%i\n"
                  "CODE_FUNCTION=%s\n"
+                 "%s%.*s%s"
                  "SYSLOG_IDENTIFIER=%s\n"
                  "MESSAGE=",
                  LOG_PRI(level),
@@ -461,6 +471,9 @@ static int write_to_journal(
                  file,
                  line,
                  func,
+                 object ? object_name : "",
+                 object ? LINE_MAX : 0, object, /* %.0s means no output */
+                 object ? "\n" : "",
                  program_invocation_short_name);
 
         char_array_0(header);
@@ -485,6 +498,8 @@ static int log_dispatch(
         const char*file,
         int line,
         const char *func,
+        const char *object_name,
+        const char *object,
         char *buffer) {
 
         int r = 0;
@@ -512,7 +527,8 @@ static int log_dispatch(
                     log_target == LOG_TARGET_JOURNAL_OR_KMSG ||
                     log_target == LOG_TARGET_JOURNAL) {
 
-                        k = write_to_journal(level, file, line, func, buffer);
+                        k = write_to_journal(level, file, line, func,
+                                             object_name, object, buffer);
                         if (k < 0) {
                                 if (k != -EAGAIN)
                                         log_close_journal();
@@ -524,7 +540,8 @@ static int log_dispatch(
                 if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
                     log_target == LOG_TARGET_SYSLOG) {
 
-                        k = write_to_syslog(level, file, line, func, buffer);
+                        k = write_to_syslog(level, file, line, func,
+                                            object_name, object, buffer);
                         if (k < 0) {
                                 if (k != -EAGAIN)
                                         log_close_syslog();
@@ -540,7 +557,8 @@ static int log_dispatch(
                      log_target == LOG_TARGET_JOURNAL_OR_KMSG ||
                      log_target == LOG_TARGET_KMSG)) {
 
-                        k = write_to_kmsg(level, file, line, func, buffer);
+                        k = write_to_kmsg(level, file, line, func,
+                                          object_name, object, buffer);
                         if (k < 0) {
                                 log_close_kmsg();
                                 log_open_console();
@@ -549,7 +567,8 @@ static int log_dispatch(
                 }
 
                 if (k <= 0) {
-                        k = write_to_console(level, file, line, func, buffer);
+                        k = write_to_console(level, file, line, func,
+                                             object_name, object, buffer);
                         if (k < 0)
                                 return k;
                 }
@@ -575,7 +594,7 @@ int log_dump_internal(
                 return 0;
 
         saved_errno = errno;
-        r = log_dispatch(level, file, line, func, buffer);
+        r = log_dispatch(level, file, line, func, NULL, NULL, buffer);
         errno = saved_errno;
 
         return r;
@@ -599,7 +618,7 @@ int log_metav(
         vsnprintf(buffer, sizeof(buffer), format, ap);
         char_array_0(buffer);
 
-        r = log_dispatch(level, file, line, func, buffer);
+        r = log_dispatch(level, file, line, func, NULL, NULL, buffer);
         errno = saved_errno;
 
         return r;
@@ -622,6 +641,53 @@ int log_meta(
         return r;
 }
 
+int log_metav_object(
+        int level,
+        const char*file,
+        int line,
+        const char *func,
+        const char *object_name,
+        const char *object,
+        const char *format,
+        va_list ap) {
+
+        char buffer[LINE_MAX];
+        int saved_errno, r;
+
+        if (_likely_(LOG_PRI(level) > log_max_level))
+                return 0;
+
+        saved_errno = errno;
+        vsnprintf(buffer, sizeof(buffer), format, ap);
+        char_array_0(buffer);
+
+        r = log_dispatch(level, file, line, func,
+                         object_name, object, buffer);
+        errno = saved_errno;
+
+        return r;
+}
+
+int log_meta_object(
+        int level,
+        const char*file,
+        int line,
+        const char *func,
+        const char *object_name,
+        const char *object,
+        const char *format, ...) {
+
+        int r;
+        va_list ap;
+
+        va_start(ap, format);
+        r = log_metav_object(level, file, line, func,
+                             object_name, object, format, ap);
+        va_end(ap);
+
+        return r;
+}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
 _noreturn_ static void log_assert(const char *text, const char *file, int line, const char *func, const char *format) {
@@ -632,7 +698,7 @@ _noreturn_ static void log_assert(const char *text, const char *file, int line, 
         char_array_0(buffer);
         log_abort_msg = buffer;
 
-        log_dispatch(LOG_CRIT, file, line, func, buffer);
+        log_dispatch(LOG_CRIT, file, line, func, NULL, NULL, buffer);
         abort();
 }
 #pragma GCC diagnostic pop
@@ -774,7 +840,8 @@ int log_struct_internal(
                 va_end(ap);
 
                 if (found)
-                        r = log_dispatch(level, file, line, func, buf + 8);
+                        r = log_dispatch(level, file, line, func,
+                                         NULL, NULL, buf + 8);
                 else
                         r = -EINVAL;
         }

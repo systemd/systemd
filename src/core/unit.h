@@ -555,3 +555,10 @@ UnitActiveState unit_active_state_from_string(const char *s);
 
 const char *unit_dependency_to_string(UnitDependency i);
 UnitDependency unit_dependency_from_string(const char *s);
+
+#define log_full_unit(level, unit, ...) log_meta_object(level,   __FILE__, __LINE__, __func__, "UNIT=", unit, __VA_ARGS__)
+#define log_debug_unit(unit, ...)       log_full_unit(LOG_DEBUG, unit, __VA_ARGS__)
+#define log_info_unit(unit, ...)        log_full_unit(LOG_INFO, unit, __VA_ARGS__)
+#define log_notice_unit(unit, ...)      log_full_unit(LOG_NOTICE, unit, __VA_ARGS__)
+#define log_warning_unit(unit, ...)     log_full_unit(LOG_WARNING, unit, __VA_ARGS__)
+#define log_error_unit(unit, ...)       log_full_unit(LOG_ERR, unit, __VA_ARGS__)
