@@ -266,7 +266,7 @@ finish:
         return r;
 }
 
-static int list_locales(DBusConnection *bus, char **args, unsigned n) {
+static int add_locales_from_archive(Set *locales) {
         /* Stolen from glibc... */
 
         struct locarhead {
@@ -304,21 +304,15 @@ static int list_locales(DBusConnection *bus, char **args, unsigned n) {
         const struct namehashent *e;
         const void *p = MAP_FAILED;
         _cleanup_close_ int fd = -1;
-        _cleanup_strv_free_ char **l = NULL;
-        char **j;
-        Set *locales;
         size_t sz = 0;
         struct stat st;
         unsigned i;
         int r;
 
-        locales = set_new(string_hash_func, string_compare_func);
-        if (!locales)
-                return log_oom();
-
         fd = open("/usr/lib/locale/locale-archive", O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0) {
-                log_error("Failed to open locale archive: %m");
+                if (errno != ENOENT)
+                        log_error("Failed to open locale archive: %m");
                 r = -errno;
                 goto finish;
         }
@@ -380,14 +374,92 @@ static int list_locales(DBusConnection *bus, char **args, unsigned n) {
                 }
         }
 
+        r = 0;
+
+ finish:
+        if (p != MAP_FAILED)
+                munmap((void*) p, sz);
+
+        return r;
+}
+
+static int add_locales_from_libdir (Set *locales) {
+        DIR *dir;
+        struct dirent *entry;
+        int r;
+
+        dir = opendir("/usr/lib/locale");
+        if (!dir) {
+                log_error("Failed to open locale directory: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        errno = 0;
+        while ((entry = readdir(dir))) {
+                char *z;
+
+                if (entry->d_type != DT_DIR)
+                        continue;
+
+                if (ignore_file(entry->d_name))
+                        continue;
+
+                z = strdup(entry->d_name);
+                if (!z) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                r = set_put(locales, z);
+                if (r < 0) {
+                        free(z);
+
+                        if (r != -EEXIST) {
+                                log_error("Failed to add locale: %s", strerror(-r));
+                                goto finish;
+                        }
+                }
+
+                errno = 0;
+        }
+
+        if (errno != 0) {
+                log_error("Failed to read locale directory: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        r = 0;
+
+ finish:
+        closedir(dir);
+        return r;
+}
+
+static int list_locales(DBusConnection *bus, char **args, unsigned n) {
+        Set *locales;
+        _cleanup_strv_free_ char **l = NULL;
+        char **j;
+        int r;
+
+        locales = set_new(string_hash_func, string_compare_func);
+        if (!locales)
+                return log_oom();
+
+        r = add_locales_from_archive(locales);
+        if (r < 0 && r != -ENOENT)
+                goto finish;
+
+        r = add_locales_from_libdir(locales);
+        if (r < 0)
+                goto finish;
+
         l = set_get_strv(locales);
         if (!l) {
                 r = log_oom();
                 goto finish;
         }
-
-        set_free(locales);
-        locales = NULL;
 
         strv_sort(l);
 
@@ -399,10 +471,7 @@ static int list_locales(DBusConnection *bus, char **args, unsigned n) {
         r = 0;
 
 finish:
-        if (p != MAP_FAILED)
-                munmap((void*) p, sz);
-
-        set_free_free(locales);
+        set_free(locales);
 
         return r;
 }
