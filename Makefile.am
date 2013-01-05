@@ -587,6 +587,11 @@ man/systemd-journal-gatewayd.socket.8: man/systemd-journal-gatewayd.service.8
 man/systemd-journal-gatewayd.8: man/systemd-journal-gatewayd.service.8
 endif
 
+if HAVE_MYHOSTNAME
+MANPAGES += \
+	man/nss-myhostname.8
+endif
+
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
 man/init.1: man/systemd.1

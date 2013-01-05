@@ -1,0 +1,139 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2011 Lennart Poettering
+  Copyright 2013 Tom Gundersen
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="nss-myhostname">
+
+        <refentryinfo>
+                <title>nss-myhostname</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>nss-myhostname</refentrytitle>
+                <manvolnum>8</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>nss-myhostname</refname>
+                <refpurpose>Provide host name resolution for the locally
+                configured system hostname.</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <cmdsynopsis>
+                        <command>nss-myhostname.la</command>
+                </cmdsynopsis>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para><command>nss-myhostname</command> is a plugin for the GNU Name Service Switch
+                (NSS) functionality of the GNU C Library (<command>glibc</command>)
+                providing host name resolution for the locally configured system
+                hostname as returned by
+                <citerefentry><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+                Various software relies on an always resolvable local host name. When
+                using dynamic hostnames this is usually achieved by patching
+                <filename>/etc/hosts</filename> at the same time as changing the host
+                name. This however is not ideal since it requires a writable
+                <filename>/etc</filename> file system and is fragile because the file
+                might be edited by the administrator at the same time. <command>nss-myhostname</command>
+                simply returns all locally configure public IP addresses, or -- if none
+                are configured -- the IPv4 address 127.0.0.2 (wich is on the local
+                loopback) and the IPv6 address ::1 (which is the local host) for
+                whatever system hostname is configured locally. Patching
+                <filename>/etc/hosts</filename> is thus no longer necessary.</para>
+
+                <para>To activate the NSS modules, <option>myhostname</option>
+                has to be added to the line starting with "<varname>hosts:</varname>" in
+                <filename>/etc/nsswitch.conf</filename></para>
+
+                <para>It is recommended to put <option>myhostname</option>
+                last in the <filename>nsswitch.conf</filename> line to make
+                sure that this mapping is only used as fallback, and any DNS
+                or <filename>/etc/hosts</filename> based mapping takes precedence.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Example</title>
+
+                <programlisting>
+# /etc/nsswitch.conf
+
+passwd:         compat
+group:          compat
+shadow:         compat
+
+hosts:          files dns <varname>myhostname</varname>
+networks:       files
+
+protocols:      db files
+services:       db files
+ethers:         db files
+rpc:            db files
+
+netgroup:       nis
+                </programlisting>
+
+                <para>To test, use <command>glibc</command>'s <command>getent</command> tool:</para>
+
+                <programlisting>
+$ getent ahosts `hostname`
+::1             STREAM omega
+::1             DGRAM
+::1             RAW
+127.0.0.2       STREAM
+127.0.0.2       DGRAM
+127.0.0.2       RAW
+                </programlisting>
+
+                <para>In this case the local host name is <varname>omega</varname>.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>pam.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>pam.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>pam_loginuid</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+</refentry>
