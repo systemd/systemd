@@ -10,7 +10,7 @@ ACTION=="remove", GOTO="seat_end"
 TAG=="uaccess", SUBSYSTEM!="sound", TAG+="seat"
 SUBSYSTEM=="sound", KERNEL=="card*", TAG+="seat"
 SUBSYSTEM=="input", KERNEL=="input*", TAG+="seat"
-SUBSYSTEM=="graphics", KERNEL=="fb[0-9]*", TAG+="seat"
+SUBSYSTEM=="graphics", KERNEL=="fb[0-9]*", TAG+="seat", TAG+="seat-master"
 SUBSYSTEM=="usb", ATTR{bDeviceClass}=="09", TAG+="seat"
 
 # 'Plugable' USB hub, sound, network, graphics adapter

@@ -459,11 +459,7 @@ int manager_enumerate_devices(Manager *m) {
                 goto finish;
         }
 
-        r = udev_enumerate_add_match_subsystem(e, "graphics");
-        if (r < 0)
-                goto finish;
-
-        r = udev_enumerate_add_match_tag(e, "seat");
+        r = udev_enumerate_add_match_tag(e, "seat-master");
         if (r < 0)
                 goto finish;
 
@@ -1295,11 +1291,7 @@ static int manager_connect_udev(Manager *m) {
         if (!m->udev_seat_monitor)
                 return -ENOMEM;
 
-        r = udev_monitor_filter_add_match_tag(m->udev_seat_monitor, "seat");
-        if (r < 0)
-                return r;
-
-        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_seat_monitor, "graphics", NULL);
+        r = udev_monitor_filter_add_match_tag(m->udev_seat_monitor, "seat-master");
         if (r < 0)
                 return r;
 
