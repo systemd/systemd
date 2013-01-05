@@ -977,9 +977,9 @@ static int service_load_sysv_name(Service *s, const char *name) {
 
         /* For SysV services we strip the rc.* and *.sh
          * prefixes/suffixes. */
-        if (endswith(name, ".sh.service"))
+        if (startswith(name, "rc.") ||
+            endswith(name, ".sh.service"))
                 return -ENOENT;
-        if (startswith(name, "rc."))
 
         STRV_FOREACH(p, UNIT(s)->manager->lookup_paths.sysvinit_path) {
                 char *path;
