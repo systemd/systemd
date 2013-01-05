@@ -82,7 +82,9 @@ AS_IF([test "x$enable_gtk_doc" = "xyes" -a "x$XSLTPROC" = x], [
 
 m4_ifdef([GOBJECT_INTROSPECTION_CHECK], [
 GOBJECT_INTROSPECTION_CHECK([1.31.1])
-], [AM_CONDITIONAL([HAVE_INTROSPECTION], [false])])
+], [
+   AM_CONDITIONAL([HAVE_INTROSPECTION], [false])
+   enable_introspection=no])
 
 AC_PATH_TOOL(OBJCOPY, objcopy)
 AC_PATH_TOOL(STRINGS, strings)
