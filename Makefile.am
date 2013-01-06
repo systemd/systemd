@@ -167,6 +167,18 @@ AM_CFLAGS = $(OUR_CFLAGS)
 AM_LDFLAGS = $(OUR_LDFLAGS)
 
 # ------------------------------------------------------------------------------
+
+define move-to-rootlibdir =
+	if test "$(libdir)" != "$(rootlibdir)"; then \
+		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
+		so_img_name=$$(readlink $(DESTDIR)$(libdir)/$$libname) && \
+		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
+		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/$$libname && \
+		mv $(DESTDIR)$(libdir)/$$libname.* $(DESTDIR)$(rootlibdir); \
+	fi
+endef
+
+# ------------------------------------------------------------------------------
 rootbin_PROGRAMS = \
 	systemctl \
 	systemd-notify \
@@ -1661,22 +1673,13 @@ pkginclude_HEADERS += \
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-daemon-install-hook:
-	if test "$(libdir)" != "$(rootlibdir)"; then \
-		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
-		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-daemon.so) && \
-		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
-		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-daemon.so && \
-		mv $(DESTDIR)$(libdir)/libsystemd-daemon.so.* $(DESTDIR)$(rootlibdir); \
-	fi
-
-INSTALL_EXEC_HOOKS += \
-	libsystemd-daemon-install-hook
+	libname=libsystemd-daemon.so && $(move-to-rootlibdir)
 
 libsystemd-daemon-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-daemon.so*
 
-UNINSTALL_EXEC_HOOKS += \
-	libsystemd-daemon-uninstall-hook
+INSTALL_EXEC_HOOKS += libsystemd-daemon-install-hook
+UNINSTALL_EXEC_HOOKS += libsystemd-daemon-uninstall-hook
 
 lib_LTLIBRARIES += \
 	libsystemd-daemon.la
@@ -1773,20 +1776,14 @@ CLEANFILES += \
 	src/libudev/libudev.pc
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
-libudev-install-move-hook:
-	if test "$(libdir)" != "$(rootlibdir)"; then \
-		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
-		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libudev.so) && \
-		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
-		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libudev.so && \
-		mv $(DESTDIR)$(libdir)/libudev.so.* $(DESTDIR)$(rootlibdir); \
-	fi
+libudev-install-hook:
+	libname=libudev.so && $(move-to-rootlibdir)
 
-libudev-uninstall-move-hook:
+libudev-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libudev.so*
 
-INSTALL_EXEC_HOOKS += libudev-install-move-hook
-UNINSTALL_EXEC_HOOKS += libudev-uninstall-move-hook
+INSTALL_EXEC_HOOKS += libudev-install-hook
+UNINSTALL_EXEC_HOOKS += libudev-uninstall-hook
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -2250,20 +2247,14 @@ CLEANFILES += $(gir_DATA) $(typelibs_DATA)
 endif # HAVE_INTROSPECTION
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
-libgudev-install-move-hook:
-	if test "$(libdir)" != "$(rootlibdir)"; then \
-		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
-		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libgudev-1.0.so) && \
-		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
-		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libgudev-1.0.so && \
-		mv $(DESTDIR)$(libdir)/libgudev-1.0.so.* $(DESTDIR)$(rootlibdir); \
-	fi
+libgudev-install-hook:
+	libname=libgudev-1.0.so && $(move-to-rootlibdir)
 
-libgudev-uninstall-move-hook:
+libgudev-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libgudev-1.0.so*
 
-INSTALL_EXEC_HOOKS += libgudev-install-move-hook
-UNINSTALL_EXEC_HOOKS += libgudev-uninstall-move-hook
+INSTALL_EXEC_HOOKS += libgudev-install-hook
+UNINSTALL_EXEC_HOOKS += libgudev-uninstall-hook
 endif
 
 EXTRA_DIST += \
@@ -2468,22 +2459,13 @@ pkgconfiglib_DATA += \
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-id128-install-hook:
-	if test "$(libdir)" != "$(rootlibdir)"; then \
-		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
-		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-id128.so) && \
-		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
-		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-id128.so && \
-		mv $(DESTDIR)$(libdir)/libsystemd-id128.so.* $(DESTDIR)$(rootlibdir); \
-	fi
-
-INSTALL_EXEC_HOOKS += \
-	libsystemd-id128-install-hook
+	libname=libsystemd-id128.so && $(move-to-rootlibdir)
 
 libsystemd-id128-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-id128.so*
 
-UNINSTALL_EXEC_HOOKS += \
-	libsystemd-id128-uninstall-hook
+INSTALL_EXEC_HOOKS += libsystemd-id128-install-hook
+UNINSTALL_EXEC_HOOKS += libsystemd-id128-uninstall-hook
 
 EXTRA_DIST += \
 	src/libsystemd-id128/libsystemd-id128.pc.in \
@@ -2727,22 +2709,13 @@ endif
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-journal-install-hook:
-	if test "$(libdir)" != "$(rootlibdir)"; then \
-		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
-		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-journal.so) && \
-		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
-		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-journal.so && \
-		mv $(DESTDIR)$(libdir)/libsystemd-journal.so.* $(DESTDIR)$(rootlibdir); \
-	fi
-
-INSTALL_EXEC_HOOKS += \
-	libsystemd-journal-install-hook
+	libname=libsystemd-journal.so && $(move-to-rootlibdir)
 
 libsystemd-journal-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-journal.so*
 
-UNINSTALL_EXEC_HOOKS += \
-	libsystemd-journal-uninstall-hook
+INSTALL_EXEC_HOOKS += libsystemd-journal-install-hook
+UNINSTALL_EXEC_HOOKS += libsystemd-journal-uninstall-hook
 
 # Update catalog on installation. Do not bother if installing
 # in DESTDIR, since this is likely for packaging purposes.
@@ -3578,22 +3551,13 @@ endif
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-login-install-hook:
-	if test "$(libdir)" != "$(rootlibdir)"; then \
-		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
-		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-login.so) && \
-		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
-		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-login.so && \
-		mv $(DESTDIR)$(libdir)/libsystemd-login.so.* $(DESTDIR)$(rootlibdir); \
-	fi
-
-INSTALL_EXEC_HOOKS += \
-	libsystemd-login-install-hook
+	libname=libsystemd-login.so && $(move-to-rootlibdir)
 
 libsystemd-login-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-login.so*
 
-UNINSTALL_EXEC_HOOKS += \
-	libsystemd-login-uninstall-hook
+INSTALL_EXEC_HOOKS += libsystemd-login-install-hook
+UNINSTALL_EXEC_HOOKS += libsystemd-login-uninstall-hook
 
 nodist_systemunit_DATA += \
 	units/systemd-logind.service \
