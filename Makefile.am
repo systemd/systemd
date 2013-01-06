@@ -168,7 +168,7 @@ AM_LDFLAGS = $(OUR_LDFLAGS)
 
 # ------------------------------------------------------------------------------
 
-define move-to-rootlibdir =
+define move-to-rootlibdir
 	if test "$(libdir)" != "$(rootlibdir)"; then \
 		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
 		so_img_name=$$(readlink $(DESTDIR)$(libdir)/$$libname) && \
