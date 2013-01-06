@@ -24,15 +24,11 @@ Features:
 
 * service: when killing a service with SIGKILL always kill all processes, even if for SIGTERM we only killed the main process
 
-* rewrite #!/usr/bin/python line in python scripts to use @PYTHON@ instead
-
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
 
 * DeviceAllow/DeviceDeny: disallow everything by default, but whitelist /dev/zero, /dev/null and friends
 
 * service: watchdog logic: for testing purposes allow ping, but do not require pong
-
-* kill insserv code, people should really use a generator for this
 
 * journald: when dropping msgs due to ratelimit make sure to write
   "dropped %u messages" not only when we are about to print the next
@@ -45,10 +41,6 @@ Features:
 * Add a verbose mode to "systemctl start" and friends that explains what is being done or not done
 
 * journal is not closed properly at shutdown when run in a container?
-
-* All log messages generated from socket.c, service.c, ... should
-  include _SYSTEMD_UNIT= fields so that "systemctl status" can show
-  them along with the unit
 
 * journal: when waiting for journal additions in the client always sleep at least 1s or so, in order to minimize wakeups
 
@@ -107,8 +99,6 @@ Features:
 * introduce new "journal" group in place of adm? introduce groups for the various mini daemons?
 
 * journal: add a setgid "adm" utility to invoke from libsystemd-journal, which passes fds via STDOUT and does PK access
-
-* link up selected blog stories from man pages and unit files Documentation= fields?
 
 * journactl: support negative filtering, i.e. FOOBAR!="waldo",
   and !FOOBAR for events without FOOBAR.
@@ -214,6 +204,7 @@ Features:
 * make timer units go away after they elapsed
 
 * http://lists.freedesktop.org/archives/systemd-devel/2012-September/006502.html
+  (network and remote-fs on shutdown)
 
 * come up with a nice way to write queue/read_ahead_kb for a block device without interfering with readahead
 
@@ -339,7 +330,7 @@ Features:
 
 * support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
 
-* nspawn: make use of device cgroup contrller by default
+* nspawn: make use of device cgroup controller by default
 
 * drop accountsservice's StandardOutput=syslog and Type=dbus fields
 
@@ -610,6 +601,8 @@ Regularly:
 * set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
 
 * use secure_getenv() instead of getenv() where appropriate
+
+* link up selected blog stories from man pages and unit files Documentation= fields
 
 Scheduled for removal or fixing:
 
