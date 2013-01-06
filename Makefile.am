@@ -1838,6 +1838,7 @@ dist_udevrules_DATA += \
 	rules/75-net-description.rules \
 	rules/75-tty-description.rules \
 	rules/78-sound-card.rules \
+	rules/80-net-name-slot.rules \
 	rules/95-udev-late.rules
 
 if HAVE_KMOD
