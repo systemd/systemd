@@ -18,8 +18,7 @@ F18:
 * Retest multi-seat
 
 Features:
-
-* drop the TARGET_xxx stuff as far as possible
+* udev: remove all (misguided from day 1) userspace firmware_class handling
 
 * logind: optionally, ignore idle-hint logic for autosuspend, block suspend as long as a session is around
 
