@@ -12,7 +12,7 @@ Another solution that has been implemented is "biosdevname" which tries to find 
 
 Finally, many distributions support renaming interfaces to user-chosen names (think: "internet0", "dmz0", ...) keyed off their MAC addresses or physical locations as part of their networking scripts. This is a very good choice but does have the problem that it implies that the user is willing and capable of choosing and assigning these names.
 
-We believe it is a good default choice to generalize the scheme pioneered by "biosdevname". Assigning fixed names based on firmware/topology/location information has the big advantage that the names are fully automatic, fully predictable, that they stay fixed even if hardware is added or removed (i.e. no reenumeration takes place) and that broken hardware can be replaced seamlessly.
+We believe it is a good default choice to generalize the scheme pioneered by "biosdevname". Assigning fixed names based on firmware/topology/location information has the big advantage that the names are fully automatic, fully predictable, that they stay fixed even if hardware is added or removed (i.e. no reenumeration takes place) and that broken hardware can be replaced seamlessly. That said, they admittedly are sometimes harder to read that the "eth0" or "wlan0" everybody is used to. Example: enp5s0
 
 == What has changed v197 precisely? ==
 
