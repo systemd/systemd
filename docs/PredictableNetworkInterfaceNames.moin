@@ -22,7 +22,7 @@ With systemd 197 we have moved a scheme similar to biosdevname (put generally mo
  2. Names incorporating Firmware/BIOS provided PCI Express hotplug slot index numbers
  3. Names incorporating physical/geographical location of the connector of the hardware
  4. Names incorporating the interfaces's MAC address
- 5. Classic, unpredictable kernel-native ethXXX naming
+ 5. Classic, unpredictable kernel-native ethX naming
 
 By default, systemd v197 will now name interfaces following policy 1) if that information from the firmware is applicable and available, falling back to 2) if that information from the firmware is applicable and available, falling back to 3) if applicable, falling back to 5) in all other cases. Policy 4) is not used by default, but is available if the user chooses so.
 
