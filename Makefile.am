@@ -174,6 +174,7 @@ define move-to-rootlibdir
 		so_img_name=$$(readlink $(DESTDIR)$(libdir)/$$libname) && \
 		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
 		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/$$libname && \
+		{ test -n "$(KEEP_LA_FILES)" || rm -f $(DESTDIR)$(libdir)/$${libname/%.so/.la}; } && \
 		mv $(DESTDIR)$(libdir)/$$libname.* $(DESTDIR)$(rootlibdir); \
 	fi
 endef
@@ -4064,11 +4065,23 @@ if HAVE_KMOD
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service )
 endif
 
+# This hook is defined as a rule to make sure that it runs last.
+define remove-la-hook
+	test -z "$(lib_LTLIBRARIES)" || \
+		rm -f $(addprefix $(DESTDIR)$(libdir)/, $(lib_LTLIBRARIES))
+	test -z "$(pamlib_LTLIBRARIES)" || \
+		rm -f $(addprefix $(DESTDIR)$(pamlibdir)/, $(pamlib_LTLIBRARIES))
+	test -z "$(pkgpyexec_LTLIBRARIES)" || \
+		rm -f $(addprefix $(DESTDIR)$(pkgpyexecdir)/, $(pkgpyexec_LTLIBRARIES))
+endef
+
 install-exec-hook: $(INSTALL_EXEC_HOOKS)
+	$(remove-la-hook$(KEEP_LA_FILES))
 
 uninstall-hook: $(UNINSTALL_DATA_HOOKS) $(UNINSTALL_EXEC_HOOKS)
 
 install-data-hook: systemd-install-data-hook $(INSTALL_DATA_HOOKS)
+	$(remove-la-hook$(KEEP_LA_FILES))
 
 distclean-local: $(DISTCLEAN_LOCAL_HOOKS)
 
