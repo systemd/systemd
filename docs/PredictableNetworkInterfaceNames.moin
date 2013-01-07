@@ -18,10 +18,10 @@ Assigning fixed names based on firmware/topology/location information has the bi
 
 With systemd 197 we have moved a scheme similar to biosdevname into systemd/udev proper. A number of different naming schemes for network interfaces are now supported by udev natively:
 
- 1. Firmware/BIOS provided index numbers for on-board devices
- 2. Firmware/BIOS provided PCI Express hotplug slot index numbers
- 3. Physical/geographical location of the hardware on the mainboard
- 4. The interfaces's MAC address
+ 1. Names incorporating Firmware/BIOS provided index numbers for on-board devices
+ 2. Names incorporating Firmware/BIOS provided PCI Express hotplug slot index numbers
+ 3. Names incorporating Physical/geographical location of the hardware on the mainboard
+ 4. Names incorporating the interfaces's MAC address
  5. Classic, unpredictable kernel-native ethXXX naming
 
 By default, systemd v197 will now name interfaces following policy 1 if that information from the firmware is applicable and available, falling back to 2 if that information from the firmware is applicable and available, falling back to 3 if applicable, falling back to 5 in all other cases.
