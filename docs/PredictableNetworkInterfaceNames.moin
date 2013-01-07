@@ -1,41 +1,41 @@
 = Predictable Network Interface Names =
 
-Starting with v197 systemd/udev will automatically assign predictable, stable network interface names for all local Ethernet, WLAN and WWAN interfaces. This is a departure from traditional interface naming ("eth0", "eth1", "wlan0", ...), but should fix real problems.
+Starting with v197 systemd/udev will automatically assign predictable, stable network interface names for all local Ethernet, WLAN and WWAN interfaces. This is a departure from the traditional interface naming scheme ("eth0", "eth1", "wlan0", ...), but should fix real problems.
 
 == Why? ==
 
-The classic naming scheme for network interfaces applied by the kernel is to simply assign names starting with "eth0", "eth1", ... to all interfaces as they are probed by the drivers. As the driver probing is generally not predictable with modern technology this means that as soon as multiple network interfaces are available the assignment of the names "eth0", "eth1" and so on is generally not predicatble. This can have serious security implications, for example in firewall rules which are coded for certain naming schemes, and which are hence very sensitive to changing names. 
+The classic naming scheme for network interfaces applied by the kernel is to simply assign names beginning with "eth0", "eth1", ... to all interfaces as they are probed by the drivers. As the driver probing is generally not predictable for modern technology this means that as soon as multiple network interfaces are available the assignment of the names "eth0", "eth1" and so on is generally not fixed anymore and it might very well happen that "eth0" on one boot ends up being "eth1" on the next. This can have serious security implications, for example in firewall rules which are coded for certain naming schemes, and which are hence very sensitive to unpredictable changing names. 
 
-To fix this problem multiple solutions have been proposed and implemented. For a longer time udev shipped support for assigning permanent "ethXXX" names to certain interfaces based on their MAC addresses. This turned out to have a multitude of problems, among them: this required a writable root directory which is generally not availeble; the statelessness of the system is lost as booting an OS image on a system will result in changed configuration of the image; on many systems MAC addresses are not actually fixed, such as on a lot of embedded hardware and particularly on all kinds of virtualization solutions.  The biggest of all however is that the userspace components trying to assign the interface name raced against the kernel assigning new names from the same "ethXXX" namespace, a race condition with all kinds of weird effects.
+To fix this problem multiple solutions have been proposed and implemented. For a longer time udev shipped support for assigning permanent "ethX" names to certain interfaces based on their MAC addresses. This turned out to have a multitude of problems, among them: this required a writable root directory which is generally not available; the statelessness of the system is lost as booting an OS image on a system will result in changed configuration of the image; on many systems MAC addresses are not actually fixed, such as on a lot of embedded hardware and particularly on all kinds of virtualization solutions.  The biggest of all however is that the userspace components trying to assign the interface name raced against the kernel assigning new names from the same "ethX" namespace, a race condition with all kinds of weird effects. As a result supporting for this has been removed from systemd/udev a while back.
 
-Another solution that has been implemented is "biosdevname" which tries to find fixed slot topology information in certain firmware interfaces and uses them to assign fixed names to interfaces which map to their physical location on the mainboard. (Unfortunately biosdevname did a lot of other stuff too).
+Another solution that has been implemented is "biosdevname" which tries to find fixed slot topology information in certain firmware interfaces and uses them to assign fixed names to interfaces which incorporate their physical location on the mainboard. (Unfortunately biosdevname did a lot more than this which is more problematic).
 
-Finally, many distributions supporting renaming interfaces to user-chosen names (think: "internet0", "dmz0", ...) keyed off their MAC addresses or physical locations. This is a very good choice but does have the problem that it implies that the user is willing and capable of choosing and assigning these names.
+Finally, many distributions support renaming interfaces to user-chosen names (think: "internet0", "dmz0", ...) keyed off their MAC addresses or physical locations as part of their networking scripts. This is a very good choice but does have the problem that it implies that the user is willing and capable of choosing and assigning these names.
 
-Assigning fixed names based on firmware/topology/location information has the big advantage that the names are fully automatic, fully predictable, that they stay fixed even if hardware is added or removed (i.e. no reenumeration takes place), that broken hardware can be replaced seamlessly. 
+We believe it is a good default choice to generalize the scheme pioneered by "biosdevname". Assigning fixed names based on firmware/topology/location information has the big advantage that the names are fully automatic, fully predictable, that they stay fixed even if hardware is added or removed (i.e. no reenumeration takes place) and that broken hardware can be replaced seamlessly.
 
 == What has changed v197 precisely? ==
 
-With systemd 197 we have moved a scheme similar to biosdevname into systemd/udev proper. A number of different naming schemes for network interfaces are now supported by udev natively:
+With systemd 197 we have moved a scheme similar to biosdevname (put generally more powerful) into systemd/udev proper. A number of different naming schemes for network interfaces are now supported by udev natively:
 
  1. Names incorporating Firmware/BIOS provided index numbers for on-board devices
  2. Names incorporating Firmware/BIOS provided PCI Express hotplug slot index numbers
- 3. Names incorporating Physical/geographical location of the hardware on the mainboard
+ 3. Names incorporating physical/geographical location of the hardware on the mainboard
  4. Names incorporating the interfaces's MAC address
  5. Classic, unpredictable kernel-native ethXXX naming
 
-By default, systemd v197 will now name interfaces following policy 1 if that information from the firmware is applicable and available, falling back to 2 if that information from the firmware is applicable and available, falling back to 3 if applicable, falling back to 5 in all other cases.
+By default, systemd v197 will now name interfaces following policy 1) if that information from the firmware is applicable and available, falling back to 2) if that information from the firmware is applicable and available, falling back to 3) if applicable, falling back to 5) in all other cases. (Policy 4) is not used by default, but is available if the user chooses so.)
 
-This policy is only applied as last resort. That means, if the system has biosdevname installed, it will take precedence. If the user has added udev rules which change the name of the kernel devices these will take precedence too. 
+This policy is only applied as last resort. That means, if the system has biosdevname installed, it will take precedence. If the user has added udev rules which change the name of the kernel devices these will take precedence too. Also, any distribution specific naming schemes generally take precedence.
 
 == I don't like this, how do I disable this? ==
 
 You basically have three options:
   
   1. You disable the assignment of fixed names, so that the unpredictable kernel names are used again. For this, simply mask udev's rule file for the default policy: {{{ln -s /dev/null /etc/udev/rules.d/80-net-name-slot.rules}}}
-  2. You create your own manual naming scheme, for example by naming your interfaces "internet0", "dmz0" or "lan0". For that create your own udev rules file and set the NAME property. Make sure to order it before the default policy file, for example by naming it {{{/etc/udev/rules.d/70-my-net-names.rules}}}
+  2. You create your own manual naming scheme, for example by naming your interfaces "internet0", "dmz0" or "lan0". For that create your own udev rules file and set the NAME property for the devices. Make sure to order it before the default policy file, for example by naming it {{{/etc/udev/rules.d/70-my-net-names.rules}}}
   3. You alter the default policy file, for picking a different naming scheme, for example for naming all interface names after their MAC address by default: {{{cp /usr/lib/udev/rules.d/80-net-name-slot.rules /etc/udev/rules.d/80-net-name-slot.rules}}}, then edit the file there and change the lines as necessary.
 
 == How does the new naming scheme look like precisely? ==
 
-That's documented in detail in [[http://cgit.freedesktop.org/systemd/systemd/tree/src/udev/udev-builtin-net_id.c#n20|the sources of the net_id built-in]].
+That's documented in detail in a comment block [[http://cgit.freedesktop.org/systemd/systemd/tree/src/udev/udev-builtin-net_id.c#n20|the sources of the net_id built-in]]. Please refer to this in case you are wondering how to decode the new interface names.
