@@ -25,6 +25,7 @@
 /systemd-ac-power
 /systemd-ask-password
 /systemd-binfmt
+/systemd-bootchart
 /systemd-cat
 /systemd-cgls
 /systemd-cgroups-agent
