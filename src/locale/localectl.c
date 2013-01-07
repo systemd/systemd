@@ -384,15 +384,14 @@ static int add_locales_from_archive(Set *locales) {
 }
 
 static int add_locales_from_libdir (Set *locales) {
-        DIR *dir;
+        DIR _cleanup_closedir_ *dir;
         struct dirent *entry;
         int r;
 
         dir = opendir("/usr/lib/locale");
         if (!dir) {
                 log_error("Failed to open locale directory: %m");
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
         errno = 0;
@@ -406,10 +405,8 @@ static int add_locales_from_libdir (Set *locales) {
                         continue;
 
                 z = strdup(entry->d_name);
-                if (!z) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!z)
+                        return log_oom();
 
                 r = set_put(locales, z);
                 if (r < 0) {
@@ -417,7 +414,7 @@ static int add_locales_from_libdir (Set *locales) {
 
                         if (r != -EEXIST) {
                                 log_error("Failed to add locale: %s", strerror(-r));
-                                goto finish;
+                                return r;
                         }
                 }
 
@@ -426,19 +423,14 @@ static int add_locales_from_libdir (Set *locales) {
 
         if (errno != 0) {
                 log_error("Failed to read locale directory: %m");
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
-        r = 0;
-
- finish:
-        closedir(dir);
-        return r;
+        return 0;
 }
 
 static int list_locales(DBusConnection *bus, char **args, unsigned n) {
-        Set *locales;
+        _cleanup_set_free_ Set *locales;
         _cleanup_strv_free_ char **l = NULL;
         char **j;
         int r;
@@ -449,17 +441,15 @@ static int list_locales(DBusConnection *bus, char **args, unsigned n) {
 
         r = add_locales_from_archive(locales);
         if (r < 0 && r != -ENOENT)
-                goto finish;
+                return r;
 
         r = add_locales_from_libdir(locales);
         if (r < 0)
-                goto finish;
+                return r;
 
         l = set_get_strv(locales);
-        if (!l) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!l)
+                return log_oom();
 
         strv_sort(l);
 
@@ -468,12 +458,7 @@ static int list_locales(DBusConnection *bus, char **args, unsigned n) {
         STRV_FOREACH(j, l)
                 puts(*j);
 
-        r = 0;
-
-finish:
-        set_free(locales);
-
-        return r;
+        return 0;
 }
 
 static int set_vconsole_keymap(DBusConnection *bus, char **args, unsigned n) {

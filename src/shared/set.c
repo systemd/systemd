@@ -37,6 +37,14 @@ void set_free(Set* s) {
         hashmap_free(MAKE_HASHMAP(s));
 }
 
+void set_freep(Set **s) {
+        if (!s)
+                return;
+
+        set_free(*s);
+        *s = NULL;
+}
+
 void set_free_free(Set *s) {
         hashmap_free_free(MAKE_HASHMAP(s));
 }
