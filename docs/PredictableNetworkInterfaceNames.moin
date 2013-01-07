@@ -16,7 +16,7 @@ We believe it is a good default choice to generalize the scheme pioneered by "bi
 
 == What has changed v197 precisely? ==
 
-With systemd 197 we have moved a scheme similar to biosdevname (put generally more powerful) into systemd/udev proper. A number of different naming schemes for network interfaces are now supported by udev natively:
+With systemd 197 we have moved a scheme similar to biosdevname (but generally more powerful) into systemd/udev proper. A number of different naming schemes for network interfaces are now supported by udev natively:
 
  1. Names incorporating Firmware/BIOS provided index numbers for on-board devices (example: {{{eno1}}})
  2. Names incorporating Firmware/BIOS provided PCI Express hotplug slot index numbers (example: {{{ens1}}})
