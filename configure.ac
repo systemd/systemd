@@ -42,7 +42,7 @@ AS_IF([test "x$host_cpu" = "xmips" || test "x$host_cpu" = "xmipsel" ||
       [AC_DEFINE(ARCH_MIPS, [], [Whether on mips arch])])
 
 LT_PREREQ(2.2)
-LT_INIT
+LT_INIT([disable-static])
 
 # i18n stuff for the PolicyKit policy files
 IT_PROG_INTLTOOL([0.40.0])
