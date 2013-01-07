@@ -10,9 +10,11 @@ To fix this problem multiple solutions have been proposed and implemented. For a
 
 Another solution that has been implemented is "biosdevname" which tries to find fixed slot topology information in certain firmware interfaces and uses them to assign fixed names to interfaces which map to their physical location on the mainboard. (Unfortunately biosdevname did a lot of other stuff too).
 
-Assigning fixed names based on firmware/topology/location information has the big advantage that the names are fully predictable, that they stay fixed even if hardware is added or removed (i.e. no reenumeration takes place), that broken hardware can be replaced seamlessly. 
+Finally, many distributions supporting renaming interfaces to user-chosen names (think: "internet0", "dmz0", ...) keyed off their MAC addresses or physical locations. This is a very good choice but does have the problem that it implies that the user is willing and capable of choosing and assigning these names.
 
-== What does v197 do? == 
+Assigning fixed names based on firmware/topology/location information has the big advantage that the names are fully automatic, fully predictable, that they stay fixed even if hardware is added or removed (i.e. no reenumeration takes place), that broken hardware can be replaced seamlessly. 
+
+== What has changed v197 precisely? ==
 
 With systemd 197 we have moved a scheme similar to biosdevname into systemd/udev proper. A number of different naming schemes for network interfaces are now supported by udev natively:
 
