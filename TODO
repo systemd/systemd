@@ -18,6 +18,9 @@ F18:
 * Retest multi-seat
 
 Features:
+
+* mount: turn dependency information from /proc/self/mountinfo into dependency information between systemd units.
+
 * udev: remove all (misguided from day 1) userspace firmware_class handling
 
 * logind: optionally, ignore idle-hint logic for autosuspend, block suspend as long as a session is around
