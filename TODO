@@ -221,8 +221,6 @@ Features:
 
 * Query Paul Moore about relabelling socket fds while they are open
 
-* move keymaps to /usr/lib/... rather than /usr/lib/udev/...
-
 * journald: check whether it is OK if the client can still modify delivered journal entries
 
 * journal live copy, based on libneon (client) and libmicrohttpd
