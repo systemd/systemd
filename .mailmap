@@ -7,6 +7,7 @@ Greg KH <greg@kroah.com>
 Greg KH <greg@kroah.com> <greg@kroah.com>
 Greg KH <greg@kroah.com> <greg@press.(none)>
 Greg KH <greg@kroah.com> <gregkh@suse.de>
+Greg KH <greg@kroah.com> <greg@bucket.kroah.org>
 Harald Hoyer <harald@redhat.com>
 David Zeuthen <david@fubar.dk>
 David Zeuthen <david@fubar.dk> <davidz@redhat.com>
@@ -18,7 +19,6 @@ Alan Jenkins <alan.christopher.jenkins@googlemail.com>
 Alan Jenkins <alan.christopher.jenkins@googlemail.com> <alan-jenkins@tuffmail.co.uk>
 Marco d'Itri <md@linux.it> <md@Linux.IT>
 Robert Gerus <ar@bash.org.pl> Robert "arachnist" Gerus <ar@bash.org.pl>
-Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl> Zbyszek Szmek <zbyszek@in.waw.pl>
 Fabiano Fidêncio <fabianofidencio@gmail.com> Fabiano Fidencio <fidencio@profusion.mobi>
 Martin Pitt <martinpitt@gnome.org>
 Martin Pitt <martinpitt@gnome.org> <martin.pitt@ubuntu.com>
@@ -43,3 +43,10 @@ Miklos Vajna <vmiklos@frugalware.org> <vmiklos@gmail.com>
 William Jon McCann <jmccann@redhat.com> <william.jon.mccann@gmail.com>
 Yin Kangkai <kangkai.yin@intel.com> <kangkai.yin@linux.intel.com>
 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>
+Lennart Poettering <lennart@poettering.net> <lennart@bf9bc1cc-28ce-0310-abfb-9041aa761afb>
+Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+Ananth N Mavinakayanahalli <ananth@in.ibm.com> <ananthmg@rediffmail.com>
+Ted Ts'o <tytso@mit.edu>
+Tobias Klauser <tklauser@access.unizh.ch>
+Tobias Klauser <tklauser@access.unizh.ch> <tklauser@access.unizh.chbk>
+Tobias Klauser <tklauser@access.unizh.ch> <klauser@access.unizh.ch>
