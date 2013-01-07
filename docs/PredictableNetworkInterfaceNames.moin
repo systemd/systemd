@@ -20,7 +20,7 @@ With systemd 197 we have moved a scheme similar to biosdevname (put generally mo
 
  1. Names incorporating Firmware/BIOS provided index numbers for on-board devices
  2. Names incorporating Firmware/BIOS provided PCI Express hotplug slot index numbers
- 3. Names incorporating physical/geographical location of the hardware on the mainboard
+ 3. Names incorporating physical/geographical location of the connector of the on the mainboard
  4. Names incorporating the interfaces's MAC address
  5. Classic, unpredictable kernel-native ethXXX naming
 
