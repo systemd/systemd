@@ -69,22 +69,28 @@ static int bus_timer_append_timers(DBusMessageIter *i, const char *property, voi
                 return -ENOMEM;
 
         LIST_FOREACH(value, k, p->values) {
-                char *buf;
+                _cleanup_free_ char *buf = NULL;
                 const char *t;
                 size_t l;
                 bool b;
 
                 t = timer_base_to_string(k->base);
-                assert(endswith(t, "Sec"));
 
-                /* s/Sec/USec/ */
-                l = strlen(t);
-                buf = new(char, l+2);
-                if (!buf)
-                        return -ENOMEM;
+                if (endswith(t, "Sec")) {
 
-                memcpy(buf, t, l-3);
-                memcpy(buf+l-3, "USec", 5);
+                        /* s/Sec/USec/ */
+                        l = strlen(t);
+                        buf = new(char, l+2);
+                        if (!buf)
+                                return -ENOMEM;
+
+                        memcpy(buf, t, l-3);
+                        memcpy(buf+l-3, "USec", 5);
+                } else {
+                        buf = strdup(t);
+                        if (!buf)
+                                return -ENOMEM;
+                }
 
                 b = dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) &&
                         dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &buf) &&
@@ -92,7 +98,6 @@ static int bus_timer_append_timers(DBusMessageIter *i, const char *property, voi
                         dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &k->next_elapse) &&
                         dbus_message_iter_close_container(&sub, &sub2);
 
-                free(buf);
                 if (!b)
                         return -ENOMEM;
         }
