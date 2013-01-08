@@ -742,8 +742,8 @@ AC_ARG_WITH([sysvinit-path],
         [SYSTEM_SYSVINIT_PATH="$withval"],
         [])
 
-AC_ARG_WITH([sysvrcd-path],
-        [AS_HELP_STRING([--with-sysvrcd-path=PATH],
+AC_ARG_WITH([sysvrcnd-path],
+        [AS_HELP_STRING([--with-sysvrcnd-path=PATH],
                 [Specify the path to the base directory for the SysV rcN.d directories])],
         [SYSTEM_SYSVRCND_PATH="$withval"],
         [])
@@ -753,7 +753,7 @@ if test "x${SYSTEM_SYSVINIT_PATH}" != "x" -a "x${SYSTEM_SYSVRCND_PATH}" != "x"; 
         SYSTEM_SYSV_COMPAT="yes"
         M4_DEFINES="$M4_DEFINES -DHAVE_SYSV_COMPAT"
 elif test "x${SYSTEM_SYSVINIT_PATH}" != "x" -o "x${SYSTEM_SYSVRCND_PATH}" != "x"; then
-        AC_MSG_ERROR([*** You need both --with-sysvinit-path=PATH and --with-sysvrcd-path=PATH to enable SysV compatibility support, or both empty to disable it.])
+        AC_MSG_ERROR([*** You need both --with-sysvinit-path=PATH and --with-sysvrcnd-path=PATH to enable SysV compatibility support, or both empty to disable it.])
 else
         SYSTEM_SYSV_COMPAT="no"
 fi

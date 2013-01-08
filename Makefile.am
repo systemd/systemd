@@ -63,7 +63,7 @@ polkitpolicydir=$(datadir)/polkit-1/actions
 bashcompletiondir=$(sysconfdir)/bash_completion.d
 rpmmacrosdir=$(sysconfdir)/rpm
 sysvinitdir=$(SYSTEM_SYSVINIT_PATH)
-sysvrcddir=$(SYSTEM_SYSVRCND_PATH)
+sysvrcnddir=$(SYSTEM_SYSVRCND_PATH)
 varlogdir=$(localstatedir)/log
 systemdstatedir=$(localstatedir)/lib/systemd
 catalogstatedir=$(systemdstatedir)/catalog
@@ -4106,7 +4106,7 @@ DISTCHECK_CONFIGURE_FLAGS = \
 if HAVE_SYSV_COMPAT
 DISTCHECK_CONFIGURE_FLAGS += \
 	--with-sysvinit-path=$$dc_install_base/$(sysvinitdir) \
-	--with-sysvrcnd-path=$$dc_install_base/$(sysvrcddir)
+	--with-sysvrcnd-path=$$dc_install_base/$(sysvrcnddir)
 endif
 
 if ENABLE_GTK_DOC

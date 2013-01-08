@@ -8,7 +8,7 @@ HOWTO:
 
             --with-rootprefix=
             --with-sysvinit-path=
-            --with-sysvrcd-path=
+            --with-sysvrcnd-path=
             --with-rc-local-script-path-start=
             --with-rc-local-script-path-stop=
             --with-kbd-loadkeys=
