@@ -3027,11 +3027,14 @@ systemd_bootchart_SOURCES = \
 	src/bootchart/svg.c
 
 MANPAGES += \
-	man/systemd-bootchart.1
+	man/systemd-bootchart.1 \
 	man/bootchart.conf.5
 
 rootlibexec_PROGRAMS += \
 	systemd-bootchart
+
+dist_pkgsysconf_DATA += \
+	src/bootchart/bootchart.conf
 endif
 
 # ------------------------------------------------------------------------------
