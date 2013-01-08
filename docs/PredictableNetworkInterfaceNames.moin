@@ -32,7 +32,7 @@ This combined policy is only applied as last resort. That means, if the system h
 
 With this new scheme you now get:
 
- * Stable interface names across reboots (obviously)
+ * Stable interface names across reboots
  * Stable interface names even when hardware is added or removed, i.e. no re-enumeration takes place
  * Stable interface names when kernels or drivers are updated/changed
  * The names are automatically determined without user configuration, they just work
