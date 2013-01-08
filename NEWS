@@ -1,5 +1,144 @@
 systemd System and Service Manager
 
+CHANGES WITH 197:
+
+        * Timer units now support calendar time events in addition to
+          monotonic time events. That means you can now trigger a unit
+          based on a calendar time specification such as "Thu,Fri
+          2013-*-1,5 11:12:13" which refers to 11:12:13 of the first
+          or fifth day of any month of the year 2013, given that it is
+          a thursday or friday. This brings timer event support
+          considerably closer to cron's capabilities. For details on
+          the supported calendar time specification language see
+          systemd.time(7).
+
+        * udev now supports a number of different naming policies for
+          network interfaces for predictable names, and a combination
+          of these policies is now the default. Please see this wiki
+          document for details:
+
+          http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames
+
+        * Auke Kok's bootchart implementation has been added to the
+          systemd tree. It's an optional component that can graph the
+          boot in quite some detail. It's one of the best bootchart
+          implementations around and minimal in its code and
+          dependencies.
+
+        * nss-myhostname has been integrated into the systemd source
+          tree. nss-myhostname guarantees that the local hostname
+          always stays resolvable via NSS. It has been a weak
+          requirement of systemd-hostnamed since a long time, and
+          since its code is actually trivial we decided to just
+          include it in systemd's source tree. It can be turned off
+          with a configure switch.
+
+        * The read-ahead logic is now capable of properly detecting
+          whether a btrfs file system is on SSD or rotating media, in
+          order to optimize the read-ahead scheme. Previously, it was
+          only capable of detecting this on traditional file systems
+          such as ext4.
+
+        * In udev, additional device properties are now read from the
+          IAB in addition to the OUI database. Also, Bluetooth company
+          identities are attached to the devices as well.
+
+        * In service files %U may be used as specifier that is
+          replaced by the configured user name of the service.
+
+        * nspawn may now be invoked without a controlling TTY. This
+          makes it suitable for invocation as its own service. This
+          may be used to set up a simple containerized server system
+          using only core OS tools.
+
+        * systemd and nspawn can now accept socket file descriptors
+          when they are started for socket activation. This enables
+          implementation of socket activated nspawn
+          containers. i.e. think about autospawning an entire OS image
+          when the first SSH or HTTP connection is received. We expect
+          that similar functionality will also be added to libvirt-lxc
+          eventually.
+
+        * journalctl will now suppress ANSI color codes when
+          presenting log data.
+
+        * systemctl will no longer show control group information for
+          a unit if a the control group is empty anyway.
+
+        * logind can now automatically suspend/hibernate/shutdown the
+          system on idle.
+
+        * /etc/machine-info and hostnamed now also expose the chassis
+          type of the system. This can be used to determine whether
+          the local system is a laptop, desktop, handset or
+          tablet. This information may either be configured by the
+          user/vendor or is automatically determined from ACPI and DMI
+          information if possible.
+
+        * A number of PolicyKit actions are now bound together with
+          "imply" rules. This should simplify creating UIs because
+          many actions will now authenticate similar ones as well.
+
+        * Unit files learnt a new condition ConditionACPower= which
+          may be used to conditionalize a unit depending on whether an
+          AC power source is connected or not, of whether the system
+          is running on battery power.
+
+        * systemctl gained a new "is-failed" verb that may be used in
+          shell scripts and suchlike to check whether a specific unit
+          is in the "failed" state.
+
+        * The EnvironmentFile= setting in unit files now supports file
+          globbing, and can hence be used to easily read a number of
+          environment files at once.
+
+        * systemd will no longer detect and recognize specific
+          distributions. All distribution-specific #ifdeffery has been
+          removed, systemd is now fully generic and
+          distribution-agnostic. Effectively, not too much is lost as
+          a lot of the code is still accessible via explicit configure
+          switches. However, support for some distribution specific
+          legacy configuration file formats has been dropped. We
+          recommend distributions to simply adopt the configuration
+          files everybody else uses now and convert the old
+          configuration from packaging scripts. Most distributions
+          already did that. If that's not possible or desirable,
+          distributions are welcome to forward port the specific
+          pieces of code locally from the git history.
+
+        * When logging a message about a unit systemd will now always
+          log the unit name in the message meta data.
+
+        * localectl will now also discover system locale data that is
+          not stored in locale archives, but directly unpacked.
+
+        * logind will no longer unconditionally use framebuffer
+          devices as seat masters, i.e. as devices that are required
+          to be existing before a seat is considered preset. Instead,
+          it will now look for all devices that are tagged as
+          "seat-master" in udev. By default framebuffer devices will
+          be marked as such, but depending on local systems other
+          devices might be marked as well. This may be used to
+          integrate graphics cards using closed source drivers (such
+          as NVidia ones) more nicely into logind. Note however, that
+          we recommend using the open source NVidia drivers instead,
+          and no udev rules for the closed-source drivers will be
+          shipped from us upstream.
+
+        Contributions from: Adam Williamson, Alessandro Crismani, Auke
+        Kok, Colin Walters, Daniel Wallace, Dave Reisner, David
+        Herrmann, David Strauss, Dimitrios Apostolou, Eelco Dolstra,
+        Eric Benoit, Giovanni Campagna, Hannes Reinecke, Henrik
+        Grindal Bakken, Hermann Gausterer, Kay Sievers, Lennart
+        Poettering, Lukas Nykryn, Mantas Mikulėnas, Marcel Holtmann,
+        Martin Pitt, Matthew Monaco, Michael Biebl, Michael Terry,
+        Michal Schmidt, Michal Sekletar, Michał Bartoszkiewicz, Oleg
+        Samarin, Pekka Lundstrom, Philip Nilsson, Ramkumar
+        Ramachandra, Richard Yao, Robert Millan, Sami Kerola, Shawn
+        Landden, Thomas Hindoe Paaboel Andersen, Thomas Jarosch,
+        Tollef Fog Heen, Tom Gundersen, Umut Tezduyar, Zbigniew
+        Jędrzejewski-Szmek
+
 CHANGES WITH 196:
 
         * udev gained support for loading additional device properties
