@@ -366,6 +366,7 @@ static int ieee_oui(struct udev_device *dev, struct netnames *names, bool test) 
 
 static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool test) {
         const char *s;
+        const char *p;
         unsigned int i;
         const char *devtype;
         const char *prefix = "en";
@@ -378,6 +379,16 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
                 return EXIT_FAILURE;
         i = strtoul(s, NULL, 0);
         if (i != 1)
+                return 0;
+
+        /* skip stacked devices, like VLANs, ... */
+        s = udev_device_get_sysattr_value(dev, "ifindex");
+        if (!s)
+                return EXIT_FAILURE;
+        p = udev_device_get_sysattr_value(dev, "iflink");
+        if (!p)
+                return EXIT_FAILURE;
+        if (strcmp(s, p) != 0)
                 return 0;
 
         devtype = udev_device_get_devtype(dev);
