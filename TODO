@@ -378,8 +378,6 @@ Features:
 
 * ConditionSecurity= should learn about IMA and SMACK
 
-* Auke: merge Auke's bootchart
-
 * udev: move to LGPL
 
 * udev systemd unify:
@@ -514,7 +512,6 @@ Features:
   - the journal HTTP iface
   - non-cgroup resource management
   - refreshed, longer missions statement
-  - using detect-virt
 
 * allow port=0 in .socket units
 
@@ -579,7 +576,7 @@ External:
 
 * make cryptsetup lower --iter-time
 
-* patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup?
+* patch kernel for xattr support in /dev, /proc/, /sys?
 
 * NTP: the kernel's 11-minutes-mode syncs the system time to the RTC, but only
   in an ~30 minutes window. It does not adjust larger differences. Find a way
@@ -610,7 +607,3 @@ Regularly:
 Scheduled for removal or fixing:
 
 * xxxOverridable dependencies (probably: fix)
-
-* support for early-boot SysV services (definitely: remove)
-
-* insserv support (definitely: remove)
