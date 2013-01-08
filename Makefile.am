@@ -1,4 +1,4 @@
-#  -*- Mode: makefile; indent-tabs-mode: t -*- */
+#  -*- Mode: makefile; indent-tabs-mode: t -*-
 #
 #  This file is part of systemd.
 #
