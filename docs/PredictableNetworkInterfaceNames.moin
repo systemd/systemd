@@ -37,6 +37,7 @@ With this new scheme you now get:
  * Stable interface names across reboots
  * Stable interface names even when hardware is added or removed, i.e. no re-enumeration takes place
  * Stable interface names when kernels or drivers are updated/changed
+ * Stable interface names even if you have to replace broken ethernet cards by new ones
  * The names are automatically determined without user configuration, they just work
  * The interface names are fully predictable, i.e. just by looking at lspci you can figure out what the interface is going to be called
  * Fully stateless operation, changing the hardware configuration will not result in changes in /etc
