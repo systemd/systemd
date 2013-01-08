@@ -61,6 +61,7 @@ usec_t now(clockid_t clock);
 
 dual_timestamp* dual_timestamp_get(dual_timestamp *ts);
 dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u);
+dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u);
 
 #define dual_timestamp_is_set(ts) ((ts)->realtime > 0)
 

@@ -46,6 +46,11 @@ dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u) {
         int64_t delta;
         assert(ts);
 
+        if (u == (usec_t) -1) {
+                ts->realtime = ts->monotonic = (usec_t) -1;
+                return ts;
+        }
+
         ts->realtime = u;
 
         if (u == 0)
@@ -60,6 +65,27 @@ dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u) {
                 else
                         ts->monotonic = 0;
         }
+
+        return ts;
+}
+
+dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
+        int64_t delta;
+        assert(ts);
+
+        if (u == (usec_t) -1) {
+                ts->realtime = ts->monotonic = (usec_t) -1;
+                return ts;
+        }
+
+        ts->monotonic = u;
+        delta = (int64_t) now(CLOCK_MONOTONIC) - (int64_t) u;
+
+        ts->realtime = now(CLOCK_REALTIME);
+        if ((int64_t) ts->realtime > delta)
+                ts->realtime -= delta;
+        else
+                ts->realtime = 0;
 
         return ts;
 }
