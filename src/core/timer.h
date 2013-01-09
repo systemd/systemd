@@ -52,8 +52,8 @@ typedef struct TimerValue {
         bool disabled;
         clockid_t clock_id;
 
-        usec_t value;
-        CalendarSpec *calendar_spec;
+        usec_t value; /* only for monotonic events */
+        CalendarSpec *calendar_spec; /* only for calendar events */
         usec_t next_elapse;
 
         LIST_FIELDS(struct TimerValue, value);

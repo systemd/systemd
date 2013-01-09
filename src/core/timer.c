@@ -323,7 +323,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                 log_debug_unit(UNIT(t)->id,
                                "%s: Monotonic timer elapses in %s the next time.",
                                UNIT(t)->id,
-                               format_timespan(buf, sizeof(buf), t->next_elapse_monotonic - ts.monotonic));
+                               format_timespan(buf, sizeof(buf), t->next_elapse_monotonic > ts.monotonic ? t->next_elapse_monotonic - ts.monotonic : 0));
 
                 r = unit_watch_timer(UNIT(t), CLOCK_MONOTONIC, false, t->next_elapse_monotonic, &t->monotonic_watch);
                 if (r < 0)

@@ -230,6 +230,8 @@ char *format_timespan(char *buf, size_t l, usec_t t) {
                 const char *suffix;
                 usec_t usec;
         } table[] = {
+                { "y", USEC_PER_YEAR },
+                { "month", USEC_PER_MONTH },
                 { "w", USEC_PER_WEEK },
                 { "d", USEC_PER_DAY },
                 { "h", USEC_PER_HOUR },
