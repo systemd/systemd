@@ -717,9 +717,9 @@ static void mount_set_state(Mount *m, MountState state) {
                  state == MOUNT_UNMOUNTING_SIGTERM ||
                  state == MOUNT_UNMOUNTING_SIGKILL ||
                  state == MOUNT_FAILED) {
-		if (state != old_state)
-			mount_notify_automount(m, -ENODEV);
-	}
+                if (state != old_state)
+                        mount_notify_automount(m, -ENODEV);
+        }
 
         if (state != old_state)
                 log_debug_unit(UNIT(m)->id,

@@ -322,7 +322,7 @@ else:
         bus = Gio.BusType.SYSTEM
 
 verb = {'time' : time,
-	'blame': blame,
-	'plot' : plot,
-	}
+        'blame': blame,
+        'plot' : plot,
+        }
 verb.get(args.action)()

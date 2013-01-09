@@ -1827,7 +1827,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         prefix, c->cpu_sched_priority,
                         prefix, yes_no(c->cpu_sched_reset_on_fork));
                 free(policy_str);
-	}
+        }
 
         if (c->cpuset) {
                 fprintf(f, "%sCPUAffinity:", prefix);

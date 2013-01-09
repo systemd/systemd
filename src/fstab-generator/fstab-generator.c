@@ -451,8 +451,8 @@ static int parse_new_root_from_proc_cmdline(void) {
         if (!opts || !type)
                 return log_oom();
 
-	/* root= and roofstype= may occur more than once, the last instance should take precedence.
-	 * In the case of multiple rootflags= the arguments should be concatenated */
+        /* root= and roofstype= may occur more than once, the last instance should take precedence.
+         * In the case of multiple rootflags= the arguments should be concatenated */
         FOREACH_WORD_QUOTED(w, l, line, state) {
                 char *word, *tmp_word;
 
