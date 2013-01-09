@@ -961,8 +961,8 @@
                                 an exclamation mark.</para>
 
                                 <para><varname>ConditionACPower=</varname>
-                                may may be used to check whether the
-                                system has AC power, or is exlcusively
+                                may be used to check whether the
+                                system has AC power, or is exclusively
                                 battery powered at the time of
                                 activation of the unit. This takes a
                                 boolean argument. If set to
