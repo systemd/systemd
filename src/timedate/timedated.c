@@ -176,14 +176,6 @@ static int read_data(void) {
                 }
         }
 
-#ifdef HAVE_DEBIAN
-        r = read_one_line_file("/etc/timezone", &tz.zone);
-        if (r < 0) {
-                if (r != -ENOENT)
-                        log_warning("Failed to read /etc/timezone: %s", strerror(-r));
-        }
-#endif
-
 have_timezone:
         if (isempty(tz.zone)) {
                 free(tz.zone);
