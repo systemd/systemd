@@ -381,7 +381,6 @@ Features:
 * udev: move to LGPL
 
 * udev systemd unify:
-  - strpcpy(), strpcpyl(), strscpy(), strscpyl()
   - utf8 validator code
 
 * udev: scsi_id -> sg3_utils -> kill scsi_id

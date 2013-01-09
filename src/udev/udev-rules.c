@@ -600,7 +600,7 @@ static int import_property_from_string(struct udev_device *dev, char *line)
 
                 log_debug("updating devpath from '%s' to '%s'\n",
                           udev_device_get_devpath(dev), val);
-                util_strscpyl(syspath, sizeof(syspath), "/sys", val, NULL);
+                strscpyl(syspath, sizeof(syspath), "/sys", val, NULL);
                 udev_device_set_syspath(dev, syspath);
         } else {
                 struct udev_list_entry *entry;
@@ -691,8 +691,8 @@ static int wait_for_file(struct udev_device *dev, const char *file, int timeout)
         /* a relative path is a device attribute */
         devicepath[0] = '\0';
         if (file[0] != '/') {
-                util_strscpyl(devicepath, sizeof(devicepath), udev_device_get_syspath(dev), NULL);
-                util_strscpyl(filepath, sizeof(filepath), devicepath, "/", file, NULL);
+                strscpyl(devicepath, sizeof(devicepath), udev_device_get_syspath(dev), NULL);
+                strscpyl(filepath, sizeof(filepath), devicepath, "/", file, NULL);
                 file = filepath;
         }
 
@@ -726,7 +726,7 @@ static int attr_subst_subdir(char *attr, size_t len)
                 const char *tail;
                 DIR *dir;
 
-                util_strscpy(dirname, sizeof(dirname), attr);
+                strscpy(dirname, sizeof(dirname), attr);
                 pos = strstr(dirname, "/*/");
                 if (pos == NULL)
                         return -1;
@@ -741,7 +741,7 @@ static int attr_subst_subdir(char *attr, size_t len)
 
                                 if (dent->d_name[0] == '.')
                                         continue;
-                                util_strscpyl(attr, len, dirname, "/", dent->d_name, tail, NULL);
+                                strscpyl(attr, len, dirname, "/", dent->d_name, tail, NULL);
                                 if (stat(attr, &stats) == 0) {
                                         found = true;
                                         break;
@@ -1752,7 +1752,7 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
                 {
                         char value[UTIL_PATH_SIZE];
 
-                        util_strscpy(value, sizeof(value), rules_str(rules, token->key.value_off));
+                        strscpy(value, sizeof(value), rules_str(rules, token->key.value_off));
                         key_value = value;
                         while (key_value != NULL) {
                                 pos = strchr(key_value, '|');
@@ -1819,7 +1819,7 @@ static int match_attr(struct udev_rules *rules, struct udev_device *dev, struct 
                 klen = strlen(key_value);
                 if (klen > 0 && !isspace(key_value[klen-1])) {
                         if (value != vbuf) {
-                                util_strscpy(vbuf, sizeof(vbuf), value);
+                                strscpy(vbuf, sizeof(vbuf), value);
                                 value = vbuf;
                         }
                         while (len > 0 && isspace(vbuf[--len]))
@@ -2015,8 +2015,8 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                 if (filename[0] != '/') {
                                         char tmp[UTIL_PATH_SIZE];
 
-                                        util_strscpy(tmp, sizeof(tmp), filename);
-                                        util_strscpyl(filename, sizeof(filename),
+                                        strscpy(tmp, sizeof(tmp), filename);
+                                        strscpyl(filename, sizeof(filename),
                                                       udev_device_get_syspath(event->dev), "/", tmp, NULL);
                                 }
                         }
@@ -2328,7 +2328,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
                                 /* append value separated by space */
                                 udev_event_apply_format(event, value, temp, sizeof(temp));
-                                util_strscpyl(value_new, sizeof(value_new), value_old, " ", temp, NULL);
+                                strscpyl(value_new, sizeof(value_new), value_old, " ", temp, NULL);
                         } else
                                 udev_event_apply_format(event, value, value_new, sizeof(value_new));
 
@@ -2419,7 +2419,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                 next[0] = '\0';
                                 log_debug("LINK '%s' %s:%u\n", pos,
                                           rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
-                                util_strscpyl(filename, sizeof(filename), "/dev/", pos, NULL);
+                                strscpyl(filename, sizeof(filename), "/dev/", pos, NULL);
                                 udev_device_add_devlink(event->dev, filename);
                                 while (isspace(next[1]))
                                         next++;
@@ -2429,7 +2429,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                         if (pos[0] != '\0') {
                                 log_debug("LINK '%s' %s:%u\n", pos,
                                           rules_str(rules, rule->rule.filename_off), rule->rule.filename_line);
-                                util_strscpyl(filename, sizeof(filename), "/dev/", pos, NULL);
+                                strscpyl(filename, sizeof(filename), "/dev/", pos, NULL);
                                 udev_device_add_devlink(event->dev, filename);
                         }
                         break;
@@ -2441,7 +2441,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                         FILE *f;
 
                         if (util_resolve_subsys_kernel(event->udev, key_name, attr, sizeof(attr), 0) != 0)
-                                util_strscpyl(attr, sizeof(attr), udev_device_get_syspath(event->dev), "/", key_name, NULL);
+                                strscpyl(attr, sizeof(attr), udev_device_get_syspath(event->dev), "/", key_name, NULL);
                         attr_subst_subdir(attr, sizeof(attr));
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), value, sizeof(value));
@@ -2539,7 +2539,7 @@ void udev_rules_apply_static_dev_perms(struct udev_rules *rules)
                         /* we assure, that the permissions tokens are sorted before the static token */
                         if (mode == 0 && uid == 0 && gid == 0)
                                 goto next;
-                        util_strscpyl(filename, sizeof(filename), "/dev/", rules_str(rules, cur->key.value_off), NULL);
+                        strscpyl(filename, sizeof(filename), "/dev/", rules_str(rules, cur->key.value_off), NULL);
                         if (stat(filename, &stats) != 0)
                                 goto next;
                         if (!S_ISBLK(stats.st_mode) && !S_ISCHR(stats.st_mode))

@@ -55,10 +55,10 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
         l = sizeof(target);
         while (slink[i] != '\0') {
                 if (slink[i] == '/')
-                        l = util_strpcpy(&s, l, "../");
+                        l = strpcpy(&s, l, "../");
                 i++;
         }
-        l = util_strscpy(s, l, &node[tail]);
+        l = strscpy(s, l, &node[tail]);
         if (l == 0) {
                 err = -EINVAL;
                 goto exit;
@@ -101,7 +101,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
         }
 
         log_debug("atomically replace '%s'\n", slink);
-        util_strscpyl(slink_tmp, sizeof(slink_tmp), slink, TMP_FILE_EXT, NULL);
+        strscpyl(slink_tmp, sizeof(slink_tmp), slink, TMP_FILE_EXT, NULL);
         unlink(slink_tmp);
         do {
                 err = mkdir_parents_label(slink_tmp, 0755);
@@ -136,7 +136,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
 
         if (add) {
                 priority = udev_device_get_devlink_priority(dev);
-                util_strscpy(buf, bufsize, udev_device_get_devnode(dev));
+                strscpy(buf, bufsize, udev_device_get_devnode(dev));
                 target = buf;
         }
 
@@ -169,7 +169,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
                                         log_debug("'%s' claims priority %i for '%s'\n",
                                                   udev_device_get_syspath(dev_db), udev_device_get_devlink_priority(dev_db), stackdir);
                                         priority = udev_device_get_devlink_priority(dev_db);
-                                        util_strscpy(buf, bufsize, devnode);
+                                        strscpy(buf, bufsize, devnode);
                                         target = buf;
                                 }
                         }
@@ -191,8 +191,8 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
         char buf[UTIL_PATH_SIZE];
 
         util_path_encode(slink + strlen("/dev"), name_enc, sizeof(name_enc));
-        util_strscpyl(dirname, sizeof(dirname), "/run/udev/links/", name_enc, NULL);
-        util_strscpyl(filename, sizeof(filename), dirname, "/", udev_device_get_id_filename(dev), NULL);
+        strscpyl(dirname, sizeof(dirname), "/run/udev/links/", name_enc, NULL);
+        strscpyl(filename, sizeof(filename), dirname, "/", udev_device_get_id_filename(dev), NULL);
 
         if (!add && unlink(filename) == 0)
                 rmdir(dirname);

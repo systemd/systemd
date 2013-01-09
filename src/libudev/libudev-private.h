@@ -29,6 +29,7 @@
 #include "macro.h"
 #include "util.h"
 #include "mkdir.h"
+#include "strxcpyx.h"
 
 #define READ_END  0
 #define WRITE_END 1
@@ -164,11 +165,6 @@ int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size);
 int util_log_priority(const char *priority);
 size_t util_path_encode(const char *src, char *dest, size_t size);
 void util_remove_trailing_chars(char *path, char c);
-size_t util_strpcpy(char **dest, size_t size, const char *src);
-size_t util_strpcpyf(char **dest, size_t size, const char *src, ...) __attribute__((format(printf, 3, 4)));
-size_t util_strpcpyl(char **dest, size_t size, const char *src, ...) __attribute__((sentinel));
-size_t util_strscpy(char *dest, size_t size, const char *src);
-size_t util_strscpyl(char *dest, size_t size, const char *src, ...) __attribute__((sentinel));
 int util_replace_whitespace(const char *str, char *to, size_t len);
 int util_replace_chars(char *str, const char *white);
 unsigned int util_string_hash32(const char *key);

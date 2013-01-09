@@ -108,7 +108,7 @@ static void set_type(const char *from, char *to, size_t len)
                         break;
                 }
         }
-        util_strscpy(to, len, type);
+        strscpy(to, len, type);
 }
 
 /*
@@ -341,7 +341,7 @@ static int set_options(struct udev *udev,
 
                 case 'd':
                         dev_specified = 1;
-                        util_strscpy(maj_min_dev, MAX_PATH_LEN, optarg);
+                        strscpy(maj_min_dev, MAX_PATH_LEN, optarg);
                         break;
 
                 case 'e':
@@ -349,7 +349,7 @@ static int set_options(struct udev *udev,
                         break;
 
                 case 'f':
-                        util_strscpy(config_file, MAX_PATH_LEN, optarg);
+                        strscpy(config_file, MAX_PATH_LEN, optarg);
                         break;
 
                 case 'g':
@@ -415,7 +415,7 @@ static int set_options(struct udev *udev,
         }
         if (optind < argc && !dev_specified) {
                 dev_specified = 1;
-                util_strscpy(maj_min_dev, MAX_PATH_LEN, argv[optind]);
+                strscpy(maj_min_dev, MAX_PATH_LEN, argv[optind]);
         }
         return 0;
 }

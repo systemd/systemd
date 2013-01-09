@@ -769,6 +769,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/strv.h \
 	src/shared/strbuf.c \
 	src/shared/strbuf.h \
+	src/shared/strxcpyx.c \
+	src/shared/strxcpyx.h \
 	src/shared/conf-parser.c \
 	src/shared/conf-parser.h \
 	src/shared/log.c \

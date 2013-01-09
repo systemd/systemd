@@ -93,7 +93,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd)
         }
 
         uctrl->saddr.sun_family = AF_LOCAL;
-        util_strscpy(uctrl->saddr.sun_path, sizeof(uctrl->saddr.sun_path), "/run/udev/control");
+        strscpy(uctrl->saddr.sun_path, sizeof(uctrl->saddr.sun_path), "/run/udev/control");
         uctrl->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(uctrl->saddr.sun_path);
         return uctrl;
 }
@@ -250,7 +250,7 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
         ctrl_msg_wire.type = type;
 
         if (buf != NULL)
-                util_strscpy(ctrl_msg_wire.buf, sizeof(ctrl_msg_wire.buf), buf);
+                strscpy(ctrl_msg_wire.buf, sizeof(ctrl_msg_wire.buf), buf);
         else
                 ctrl_msg_wire.intval = intval;
 

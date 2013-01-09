@@ -96,9 +96,9 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[])
 
         /* add /sys if needed */
         if (!startswith(syspath, "/sys"))
-                util_strscpyl(filename, sizeof(filename), "/sys", syspath, NULL);
+                strscpyl(filename, sizeof(filename), "/sys", syspath, NULL);
         else
-                util_strscpy(filename, sizeof(filename), syspath);
+                strscpy(filename, sizeof(filename), syspath);
         util_remove_trailing_chars(filename, '/');
 
         dev = udev_device_new_from_syspath(udev, filename);

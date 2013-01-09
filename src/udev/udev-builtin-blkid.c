@@ -76,7 +76,7 @@ static void print_property(struct udev_device *dev, bool test, const char *name,
                 udev_builtin_add_property(dev, test, "ID_PART_ENTRY_TYPE", s);
 
         } else if (startswith(name, "PART_ENTRY_")) {
-                util_strscpyl(s, sizeof(s), "ID_", name, NULL);
+                strscpyl(s, sizeof(s), "ID_", name, NULL);
                 udev_builtin_add_property(dev, test, s, value);
         }
 }

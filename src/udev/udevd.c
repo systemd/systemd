@@ -726,7 +726,7 @@ static int handle_inotify(struct udev *udev)
                                 int fd;
 
                                 log_debug("device %s closed, synthesising 'change'\n", udev_device_get_devnode(dev));
-                                util_strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
+                                strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
                                 fd = open(filename, O_WRONLY);
                                 if (fd >= 0) {
                                         if (write(fd, "change", 6) < 0)
@@ -813,7 +813,7 @@ static void static_dev_create_from_modules(struct udev *udev)
         FILE *f;
 
         uname(&kernel);
-        util_strscpyl(modules, sizeof(modules), ROOTPREFIX "/lib/modules/", kernel.release, "/modules.devname", NULL);
+        strscpyl(modules, sizeof(modules), ROOTPREFIX "/lib/modules/", kernel.release, "/modules.devname", NULL);
         f = fopen(modules, "re");
         if (f == NULL)
                 return;
@@ -860,7 +860,7 @@ static void static_dev_create_from_modules(struct udev *udev)
                 else
                         continue;
 
-                util_strscpyl(filename, sizeof(filename), "/dev/", devname, NULL);
+                strscpyl(filename, sizeof(filename), "/dev/", devname, NULL);
                 mkdir_parents_label(filename, 0755);
                 label_context_set(filename, mode);
                 log_debug("mknod '%s' %c%u:%u\n", filename, type, maj, min);
@@ -909,7 +909,7 @@ static int convert_db(struct udev *udev)
         mkdir_p("/run/udev/data", 0755);
 
         /* old database */
-        util_strscpyl(filename, sizeof(filename), "/dev/.udev/db", NULL);
+        strscpyl(filename, sizeof(filename), "/dev/.udev/db", NULL);
         if (access(filename, F_OK) < 0)
                 return 0;
 
@@ -938,7 +938,7 @@ static int convert_db(struct udev *udev)
 
                         /* find database in old location */
                         id = udev_device_get_id_filename(device);
-                        util_strscpyl(from, sizeof(from), "/dev/.udev/db/", id, NULL);
+                        strscpyl(from, sizeof(from), "/dev/.udev/db/", id, NULL);
                         if (lstat(from, &stats) == 0) {
                                 if (!have_db) {
                                         udev_device_read_db(device, from);
@@ -948,7 +948,7 @@ static int convert_db(struct udev *udev)
                         }
 
                         /* find old database with $subsys:$sysname name */
-                        util_strscpyl(from, sizeof(from), "/dev/.udev/db/",
+                        strscpyl(from, sizeof(from), "/dev/.udev/db/",
                                       udev_device_get_subsystem(device), ":", udev_device_get_sysname(device), NULL);
                         if (lstat(from, &stats) == 0) {
                                 if (!have_db) {
@@ -960,7 +960,7 @@ static int convert_db(struct udev *udev)
 
                         /* find old database with the encoded devpath name */
                         util_path_encode(udev_device_get_devpath(device), devpath, sizeof(devpath));
-                        util_strscpyl(from, sizeof(from), "/dev/.udev/db/", devpath, NULL);
+                        strscpyl(from, sizeof(from), "/dev/.udev/db/", devpath, NULL);
                         if (lstat(from, &stats) == 0) {
                                 if (!have_db) {
                                         udev_device_read_db(device, from);

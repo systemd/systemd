@@ -48,7 +48,7 @@ static int builtin_btrfs(struct udev_device *dev, int argc, char *argv[], bool t
         if (fd < 0)
                 return EXIT_FAILURE;
 
-        util_strscpy(args.name, sizeof(args.name), argv[2]);
+        strscpy(args.name, sizeof(args.name), argv[2]);
         err = ioctl(fd, BTRFS_IOC_DEVICES_READY, &args);
         close(fd);
         if (err < 0)

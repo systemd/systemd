@@ -183,11 +183,11 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
 
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
         s = names->pci_path;
-        l = util_strpcpyf(&s, sizeof(names->pci_path), "p%ds%d", bus, slot);
+        l = strpcpyf(&s, sizeof(names->pci_path), "p%ds%d", bus, slot);
         if (func > 0 || is_pci_multifunction(names->pcidev))
-                l = util_strpcpyf(&s, l, "f%d", func);
+                l = strpcpyf(&s, l, "f%d", func);
         if (dev_id > 0)
-                l = util_strpcpyf(&s, l, "d%d", dev_id);
+                l = strpcpyf(&s, l, "d%d", dev_id);
         if (l == 0)
                 names->pci_path[0] = '\0';
 
@@ -231,11 +231,11 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
 
         if (hotplug_slot > 0) {
                 s = names->pci_slot;
-                l = util_strpcpyf(&s, sizeof(names->pci_slot), "s%d", hotplug_slot);
+                l = strpcpyf(&s, sizeof(names->pci_slot), "s%d", hotplug_slot);
                 if (func > 0 || is_pci_multifunction(names->pcidev))
-                        l = util_strpcpyf(&s, l, "f%d", func);
+                        l = strpcpyf(&s, l, "f%d", func);
                 if (dev_id > 0)
-                        l = util_strpcpyf(&s, l, "d%d", dev_id);
+                        l = strpcpyf(&s, l, "d%d", dev_id);
                 if (l == 0)
                         names->pci_path[0] = '\0';
         }
@@ -277,7 +277,7 @@ static int names_usb(struct udev_device *dev, struct netnames *names) {
                 return -ENOENT;
 
         /* get USB port number chain, configuration, interface */
-        util_strscpy(name, sizeof(name), udev_device_get_sysname(names->usbdev));
+        strscpy(name, sizeof(name), udev_device_get_sysname(names->usbdev));
         s = strchr(name, '-');
         if (!s)
                 return -EINVAL;
@@ -300,15 +300,15 @@ static int names_usb(struct udev_device *dev, struct netnames *names) {
         while ((s = strchr(s, '.')))
                 s[0] = 'u';
         s = names->usb_ports;
-        l = util_strpcpyl(&s, sizeof(names->usb_ports), "u", ports, NULL);
+        l = strpcpyl(&s, sizeof(names->usb_ports), "u", ports, NULL);
 
         /* append USB config number, suppress the common config == 1 */
         if (!streq(config, "1"))
-                l = util_strpcpyl(&s, sizeof(names->usb_ports), "c", config, NULL);
+                l = strpcpyl(&s, sizeof(names->usb_ports), "c", config, NULL);
 
         /* append USB interface number, suppress the interface == 0 */
         if (!streq(interf, "0"))
-                l = util_strpcpyl(&s, sizeof(names->usb_ports), "i", interf, NULL);
+                l = strpcpyl(&s, sizeof(names->usb_ports), "i", interf, NULL);
         if (l == 0)
                 return -ENAMETOOLONG;
 

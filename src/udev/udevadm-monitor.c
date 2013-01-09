@@ -116,7 +116,7 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[])
                                 char subsys[UTIL_NAME_SIZE];
                                 char *devtype;
 
-                                util_strscpy(subsys, sizeof(subsys), optarg);
+                                strscpy(subsys, sizeof(subsys), optarg);
                                 devtype = strchr(subsys, '/');
                                 if (devtype != NULL) {
                                         devtype[0] = '\0';

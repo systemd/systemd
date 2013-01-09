@@ -111,7 +111,7 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
                         break;
                 }
         }
-        util_strscpy(to, len, type);
+        strscpy(to, len, type);
         return type_num;
 }
 
@@ -143,7 +143,7 @@ static void set_scsi_type(char *to, const char *from, size_t len)
                         break;
                 }
         }
-        util_strscpy(to, len, type);
+        strscpy(to, len, type);
 }
 
 #define USB_DT_DEVICE                        0x01
@@ -438,12 +438,12 @@ fallback:
         }
 
         s = serial;
-        l = util_strpcpyl(&s, sizeof(serial), vendor_str, "_", model_str, NULL);
+        l = strpcpyl(&s, sizeof(serial), vendor_str, "_", model_str, NULL);
         if (serial_str[0] != '\0')
-                l = util_strpcpyl(&s, l, "_", serial_str, NULL);
+                l = strpcpyl(&s, l, "_", serial_str, NULL);
 
         if (instance_str[0] != '\0')
-                util_strpcpyl(&s, l, "-", instance_str, NULL);
+                strpcpyl(&s, l, "-", instance_str, NULL);
 
         udev_builtin_add_property(dev, test, "ID_VENDOR", vendor_str);
         udev_builtin_add_property(dev, test, "ID_VENDOR_ENC", vendor_str_enc);

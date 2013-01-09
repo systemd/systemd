@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
 
         rules = udev_rules_new(udev, 1);
 
-        util_strscpyl(syspath, sizeof(syspath), "/sys", devpath, NULL);
+        strscpyl(syspath, sizeof(syspath), "/sys", devpath, NULL);
         dev = udev_device_new_from_syspath(udev, syspath);
         if (dev == NULL) {
                 log_debug("unknown device '%s'\n", devpath);

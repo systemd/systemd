@@ -110,7 +110,7 @@ enum udev_builtin_cmd udev_builtin_lookup(const char *command)
         enum udev_builtin_cmd i;
         char *pos;
 
-        util_strscpy(name, sizeof(name), command);
+        strscpy(name, sizeof(name), command);
         pos = strchr(name, ' ');
         if (pos)
                 pos[0] = '\0';
@@ -128,7 +128,7 @@ int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const c
 
         /* we need '0' here to reset the internal state */
         optind = 0;
-        util_strscpy(arg, sizeof(arg), command);
+        strscpy(arg, sizeof(arg), command);
         udev_build_argv(udev_device_get_udev(dev), arg, &argc, argv);
         return builtins[cmd]->cmd(dev, argc, argv, test);
 }

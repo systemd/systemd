@@ -458,7 +458,7 @@ _public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_qu
                 snprintf(seqnum_str, sizeof(seqnum_str), "%llu", seqnum);
 
                 s = syspath;
-                l = util_strpcpy(&s, sizeof(syspath), "/sys");
+                l = strpcpy(&s, sizeof(syspath), "/sys");
                 len = udev_queue_read_devpath(queue_file, s, l);
                 if (len < 0)
                         break;

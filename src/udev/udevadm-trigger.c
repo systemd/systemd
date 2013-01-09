@@ -48,7 +48,7 @@ static void exec_list(struct udev_enumerate *udev_enumerate, const char *action)
                         printf("%s\n", udev_list_entry_get_name(entry));
                 if (dry_run)
                         continue;
-                util_strscpyl(filename, sizeof(filename), udev_list_entry_get_name(entry), "/uevent", NULL);
+                strscpyl(filename, sizeof(filename), udev_list_entry_get_name(entry), "/uevent", NULL);
                 fd = open(filename, O_WRONLY);
                 if (fd < 0)
                         continue;
@@ -62,7 +62,7 @@ static const char *keyval(const char *str, const char **val, char *buf, size_t s
 {
         char *pos;
 
-        util_strscpy(buf, size,str);
+        strscpy(buf, size,str);
         pos = strchr(buf, '=');
         if (pos != NULL) {
                 pos[0] = 0;
@@ -165,9 +165,9 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
 
                         /* add sys dir if needed */
                         if (!startswith(optarg, "/sys"))
-                                util_strscpyl(path, sizeof(path), "/sys", optarg, NULL);
+                                strscpyl(path, sizeof(path), "/sys", optarg, NULL);
                         else
-                                util_strscpy(path, sizeof(path), optarg);
+                                strscpy(path, sizeof(path), optarg);
                         util_remove_trailing_chars(path, '/');
                         dev = udev_device_new_from_syspath(udev, path);
                         if (dev == NULL) {

@@ -269,7 +269,7 @@ static struct udev_device *find_device(struct udev *udev, const char *id, const 
         char name[UTIL_PATH_SIZE];
 
         if (prefix && !startswith(id, prefix)) {
-                util_strscpyl(name, sizeof(name), prefix, id, NULL);
+                strscpyl(name, sizeof(name), prefix, id, NULL);
                 id = name;
         }
 
@@ -414,7 +414,7 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
                         break;
                 case 'd':
                         action = ACTION_DEVICE_ID_FILE;
-                        util_strscpy(name, sizeof(name), optarg);
+                        strscpy(name, sizeof(name), optarg);
                         break;
                 case 'a':
                         action = ACTION_ATTRIBUTE_WALK;

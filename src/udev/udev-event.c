@@ -191,20 +191,20 @@ subst:
 
                 switch (type) {
                 case SUBST_DEVPATH:
-                        l = util_strpcpy(&s, l, udev_device_get_devpath(dev));
+                        l = strpcpy(&s, l, udev_device_get_devpath(dev));
                         break;
                 case SUBST_KERNEL:
-                        l = util_strpcpy(&s, l, udev_device_get_sysname(dev));
+                        l = strpcpy(&s, l, udev_device_get_sysname(dev));
                         break;
                 case SUBST_KERNEL_NUMBER:
                         if (udev_device_get_sysnum(dev) == NULL)
                                 break;
-                        l = util_strpcpy(&s, l, udev_device_get_sysnum(dev));
+                        l = strpcpy(&s, l, udev_device_get_sysnum(dev));
                         break;
                 case SUBST_ID:
                         if (event->dev_parent == NULL)
                                 break;
-                        l = util_strpcpy(&s, l, udev_device_get_sysname(event->dev_parent));
+                        l = strpcpy(&s, l, udev_device_get_sysname(event->dev_parent));
                         break;
                 case SUBST_DRIVER: {
                         const char *driver;
@@ -215,21 +215,21 @@ subst:
                         driver = udev_device_get_driver(event->dev_parent);
                         if (driver == NULL)
                                 break;
-                        l = util_strpcpy(&s, l, driver);
+                        l = strpcpy(&s, l, driver);
                         break;
                 }
                 case SUBST_MAJOR: {
                         char num[UTIL_PATH_SIZE];
 
                         sprintf(num, "%d", major(udev_device_get_devnum(dev)));
-                        l = util_strpcpy(&s, l, num);
+                        l = strpcpy(&s, l, num);
                         break;
                 }
                 case SUBST_MINOR: {
                         char num[UTIL_PATH_SIZE];
 
                         sprintf(num, "%d", minor(udev_device_get_devnum(dev)));
-                        l = util_strpcpy(&s, l, num);
+                        l = strpcpy(&s, l, num);
                         break;
                 }
                 case SUBST_RESULT: {
@@ -247,7 +247,7 @@ subst:
                                 char tmp[UTIL_PATH_SIZE];
                                 char *cpos;
 
-                                util_strscpy(result, sizeof(result), event->program_result);
+                                strscpy(result, sizeof(result), event->program_result);
                                 cpos = result;
                                 while (--i) {
                                         while (cpos[0] != '\0' && !isspace(cpos[0]))
@@ -259,16 +259,16 @@ subst:
                                         log_error("requested part of result string not found\n");
                                         break;
                                 }
-                                util_strscpy(tmp, sizeof(tmp), cpos);
+                                strscpy(tmp, sizeof(tmp), cpos);
                                 /* %{2+}c copies the whole string from the second part on */
                                 if (rest[0] != '+') {
                                         cpos = strchr(tmp, ' ');
                                         if (cpos)
                                                 cpos[0] = '\0';
                                 }
-                                l = util_strpcpy(&s, l, tmp);
+                                l = strpcpy(&s, l, tmp);
                         } else {
-                                l = util_strpcpy(&s, l, event->program_result);
+                                l = strpcpy(&s, l, event->program_result);
                         }
                         break;
                 }
@@ -300,14 +300,14 @@ subst:
 
                         /* strip trailing whitespace, and replace unwanted characters */
                         if (value != vbuf)
-                                util_strscpy(vbuf, sizeof(vbuf), value);
+                                strscpy(vbuf, sizeof(vbuf), value);
                         len = strlen(vbuf);
                         while (len > 0 && isspace(vbuf[--len]))
                                 vbuf[len] = '\0';
                         count = util_replace_chars(vbuf, UDEV_ALLOWED_CHARS_INPUT);
                         if (count > 0)
                                 log_debug("%i character(s) replaced\n" , count);
-                        l = util_strpcpy(&s, l, vbuf);
+                        l = strpcpy(&s, l, vbuf);
                         break;
                 }
                 case SUBST_PARENT: {
@@ -319,20 +319,20 @@ subst:
                                 break;
                         devnode = udev_device_get_devnode(dev_parent);
                         if (devnode != NULL)
-                                l = util_strpcpy(&s, l, devnode + strlen("/dev/"));
+                                l = strpcpy(&s, l, devnode + strlen("/dev/"));
                         break;
                 }
                 case SUBST_DEVNODE:
                         if (udev_device_get_devnode(dev) != NULL)
-                                l = util_strpcpy(&s, l, udev_device_get_devnode(dev));
+                                l = strpcpy(&s, l, udev_device_get_devnode(dev));
                         break;
                 case SUBST_NAME:
                         if (event->name != NULL)
-                                l = util_strpcpy(&s, l, event->name);
+                                l = strpcpy(&s, l, event->name);
                         else if (udev_device_get_devnode(dev) != NULL)
-                                l = util_strpcpy(&s, l, udev_device_get_devnode(dev) + strlen("/dev/"));
+                                l = strpcpy(&s, l, udev_device_get_devnode(dev) + strlen("/dev/"));
                         else
-                                l = util_strpcpy(&s, l, udev_device_get_sysname(dev));
+                                l = strpcpy(&s, l, udev_device_get_sysname(dev));
                         break;
                 case SUBST_LINKS: {
                         struct udev_list_entry *list_entry;
@@ -340,16 +340,16 @@ subst:
                         list_entry = udev_device_get_devlinks_list_entry(dev);
                         if (list_entry == NULL)
                                 break;
-                        l = util_strpcpy(&s, l, udev_list_entry_get_name(list_entry) + strlen("/dev/"));
+                        l = strpcpy(&s, l, udev_list_entry_get_name(list_entry) + strlen("/dev/"));
                         udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry))
-                                l = util_strpcpyl(&s, l, " ", udev_list_entry_get_name(list_entry) + strlen("/dev/"), NULL);
+                                l = strpcpyl(&s, l, " ", udev_list_entry_get_name(list_entry) + strlen("/dev/"), NULL);
                         break;
                 }
                 case SUBST_ROOT:
-                        l = util_strpcpy(&s, l, "/dev");
+                        l = strpcpy(&s, l, "/dev");
                         break;
                 case SUBST_SYS:
-                        l = util_strpcpy(&s, l, "/sys");
+                        l = strpcpy(&s, l, "/sys");
                         break;
                 case SUBST_ENV:
                         if (attr == NULL) {
@@ -360,7 +360,7 @@ subst:
                                 value = udev_device_get_property_value(event->dev, attr);
                                 if (value == NULL)
                                         break;
-                                l = util_strpcpy(&s, l, value);
+                                l = strpcpy(&s, l, value);
                                 break;
                         }
                 default:
@@ -667,7 +667,7 @@ int udev_event_spawn(struct udev_event *event,
         char program[UTIL_PATH_SIZE];
         int err = 0;
 
-        util_strscpy(arg, sizeof(arg), cmd);
+        strscpy(arg, sizeof(arg), cmd);
         udev_build_argv(event->udev, arg, NULL, argv);
 
         /* pipes from child to parent */
@@ -688,7 +688,7 @@ int udev_event_spawn(struct udev_event *event,
 
         /* allow programs in /usr/lib/udev/ to be called without the path */
         if (argv[0][0] != '/') {
-                util_strscpyl(program, sizeof(program), UDEVLIBEXECDIR "/", argv[0], NULL);
+                strscpyl(program, sizeof(program), UDEVLIBEXECDIR "/", argv[0], NULL);
                 argv[0] = program;
         }
 
@@ -763,8 +763,8 @@ static int rename_netif(struct udev_event *event)
         }
 
         memset(&ifr, 0x00, sizeof(struct ifreq));
-        util_strscpy(ifr.ifr_name, IFNAMSIZ, udev_device_get_sysname(dev));
-        util_strscpy(ifr.ifr_newname, IFNAMSIZ, event->name);
+        strscpy(ifr.ifr_name, IFNAMSIZ, udev_device_get_sysname(dev));
+        strscpy(ifr.ifr_newname, IFNAMSIZ, event->name);
         err = ioctl(sk, SIOCSIFNAME, &ifr);
         if (err >= 0) {
                 print_kmsg("renamed network interface %s to %s\n", ifr.ifr_name, ifr.ifr_newname);
@@ -825,11 +825,11 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                                 udev_device_add_property(dev, "INTERFACE_OLD", udev_device_get_sysname(dev));
 
                                 /* now change the devpath, because the kernel device name has changed */
-                                util_strscpy(syspath, sizeof(syspath), udev_device_get_syspath(dev));
+                                strscpy(syspath, sizeof(syspath), udev_device_get_syspath(dev));
                                 pos = strrchr(syspath, '/');
                                 if (pos != NULL) {
                                         pos++;
-                                        util_strscpy(pos, sizeof(syspath) - (pos - syspath), event->name);
+                                        strscpy(pos, sizeof(syspath) - (pos - syspath), event->name);
                                         udev_device_set_syspath(event->dev, syspath);
                                         udev_device_add_property(dev, "INTERFACE", udev_device_get_sysname(dev));
                                         log_debug("changed devpath to '%s'\n", udev_device_get_devpath(dev));
