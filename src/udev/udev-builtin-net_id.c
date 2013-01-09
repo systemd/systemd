@@ -136,7 +136,7 @@ static int dev_pci_onboard(struct udev_device *dev, struct netnames *names) {
 /* read the 256 bytes PCI configuration space to check the multi-function bit */
 static bool is_pci_multifunction(struct udev_device *dev) {
         char filename[256];
-        FILE *f;
+        FILE *f = NULL;
         char config[64];
         bool multi = false;
 
@@ -151,7 +151,8 @@ static bool is_pci_multifunction(struct udev_device *dev) {
         if ((config[PCI_HEADER_TYPE] & 0x80) != 0)
                 multi = true;
 out:
-        fclose(f);
+        if(f)
+                fclose(f);
         return multi;
 }
 
