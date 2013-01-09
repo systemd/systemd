@@ -100,7 +100,7 @@
                 <title>Output</title>
 
                 <para>Systemd-bootchart generates SVG graphs. In order to render these
-                on a graphica display any SVG capable viewer can be used. It should be
+                on a graphical display any SVG capable viewer can be used. It should be
                 noted that the SVG render engines in most browsers (including Chrome
                 and Firefox) are many times faster than dedicated graphical applications
                 like Gimp and Inkscape.  Just point your browser at "file:///var/log"!
