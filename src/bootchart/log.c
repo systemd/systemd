@@ -364,9 +364,9 @@ schedstat_next:
 		if (!ps->smaps) {
 			sprintf(filename, "/proc/%d/smaps", pid);
 			ps->smaps = fopen(filename, "r");
-			setvbuf(ps->smaps, smaps_buf, _IOFBF, sizeof(smaps_buf));
 			if (!ps->smaps)
 				continue;
+			setvbuf(ps->smaps, smaps_buf, _IOFBF, sizeof(smaps_buf));
 		} else {
 			rewind(ps->smaps);
 		}
