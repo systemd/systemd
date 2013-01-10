@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* add a man page "systemdall" that lists all of systemd's man pages, inspired by zsh's "zshall" page
+
 * print a nicer explanation if people use variable/specifier expansion in ExecStart= for the first word
 
 * kernel cmdline switch to turn of predictable network interface names
