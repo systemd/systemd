@@ -91,13 +91,14 @@ DEFINE_STRING_TABLE_LOOKUP(split_mode, SplitMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode, split_mode, SplitMode, "Failed to parse split mode setting");
 
 static uint64_t available_space(Server *s) {
-        char ids[33], *p;
+        char ids[33];
+        char _cleanup_free_ *p = NULL;
         const char *f;
         sd_id128_t machine;
         struct statvfs ss;
         uint64_t sum = 0, avail = 0, ss_avail = 0;
         int r;
-        DIR *d;
+        DIR _cleanup_closedir_ *d = NULL;
         usec_t ts;
         JournalMetrics *m;
 
@@ -125,13 +126,11 @@ static uint64_t available_space(Server *s) {
                 return 0;
 
         d = opendir(p);
-        free(p);
-
         if (!d)
                 return 0;
 
         if (fstatvfs(dirfd(d), &ss) < 0)
-                goto finish;
+                return 0;
 
         for (;;) {
                 struct stat st;
@@ -169,9 +168,6 @@ static uint64_t available_space(Server *s) {
 
         s->cached_available_space = avail;
         s->cached_available_space_timestamp = ts;
-
-finish:
-        closedir(d);
 
         return avail;
 }
@@ -396,7 +392,8 @@ void server_vacuum(Server *s) {
 
 static char *shortened_cgroup_path(pid_t pid) {
         int r;
-        char *process_path, *init_path, *path;
+        char _cleanup_free_ *process_path = NULL, *init_path = NULL;
+        char *path;
 
         assert(pid > 0);
 
@@ -405,10 +402,8 @@ static char *shortened_cgroup_path(pid_t pid) {
                 return NULL;
 
         r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 1, &init_path);
-        if (r < 0) {
-                free(process_path);
+        if (r < 0)
                 return NULL;
-        }
 
         if (endswith(init_path, "/system"))
                 init_path[strlen(init_path) - 7] = 0;
@@ -416,22 +411,11 @@ static char *shortened_cgroup_path(pid_t pid) {
                 init_path[0] = 0;
 
         if (startswith(process_path, init_path)) {
-                char *p;
-
-                p = strdup(process_path + strlen(init_path));
-                if (!p) {
-                        free(process_path);
-                        free(init_path);
-                        return NULL;
-                }
-                path = p;
+                path = strdup(process_path + strlen(init_path));
         } else {
                 path = process_path;
                 process_path = NULL;
         }
-
-        free(process_path);
-        free(init_path);
 
         return path;
 }
@@ -519,7 +503,7 @@ static void dispatch_message_real(
                 const char *label, size_t label_len,
                 const char *unit_id) {
 
-        char *pid = NULL, *uid = NULL, *gid = NULL,
+        char _cleanup_free_ *pid = NULL, *uid = NULL, *gid = NULL,
                 *source_time = NULL, *boot_id = NULL, *machine_id = NULL,
                 *comm = NULL, *cmdline = NULL, *hostname = NULL,
                 *audit_session = NULL, *audit_loginuid = NULL,
@@ -679,24 +663,6 @@ static void dispatch_message_real(
                          s->split_mode == SPLIT_NONE ? 0 :
                          (s->split_mode == SPLIT_UID ? realuid :
                           (realuid == 0 ? 0 : loginuid)), iovec, n);
-
-        free(pid);
-        free(uid);
-        free(gid);
-        free(comm);
-        free(exe);
-        free(cmdline);
-        free(source_time);
-        free(boot_id);
-        free(machine_id);
-        free(hostname);
-        free(audit_session);
-        free(audit_loginuid);
-        free(cgroup);
-        free(session);
-        free(owner_uid);
-        free(unit);
-        free(selinux_context);
 }
 
 void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) {
@@ -744,7 +710,8 @@ void server_dispatch_message(
                 int priority) {
 
         int rl;
-        char *path = NULL, *c;
+        char _cleanup_free_ *path = NULL;
+        char *c;
 
         assert(s);
         assert(iovec || n == 0);
@@ -778,18 +745,16 @@ void server_dispatch_message(
                 }
         }
 
-        rl = journal_rate_limit_test(s->rate_limit, path, priority & LOG_PRIMASK, available_space(s));
+        rl = journal_rate_limit_test(s->rate_limit, path,
+                                     priority & LOG_PRIMASK, available_space(s));
 
-        if (rl == 0) {
-                free(path);
+        if (rl == 0)
                 return;
-        }
 
         /* Write a suppression message if we suppressed something */
         if (rl > 1)
-                server_driver_message(s, SD_MESSAGE_JOURNAL_DROPPED, "Suppressed %u messages from %s", rl - 1, path);
-
-        free(path);
+                server_driver_message(s, SD_MESSAGE_JOURNAL_DROPPED,
+                                      "Suppressed %u messages from %s", rl - 1, path);
 
 finish:
         dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len, unit_id);
@@ -1234,7 +1199,8 @@ static int open_signalfd(Server *s) {
 }
 
 static int server_parse_proc_cmdline(Server *s) {
-        char *line, *w, *state;
+        char _cleanup_free_ *line = NULL;
+        char *w, *state;
         int r;
         size_t l;
 
@@ -1248,13 +1214,11 @@ static int server_parse_proc_cmdline(Server *s) {
         }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
-                char *word;
+                char _cleanup_free_ *word;
 
                 word = strndup(w, l);
-                if (!word) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!word)
+                        return -ENOMEM;
 
                 if (startswith(word, "systemd.journald.forward_to_syslog=")) {
                         r = parse_boolean(word + 35);
@@ -1276,25 +1240,18 @@ static int server_parse_proc_cmdline(Server *s) {
                                 s->forward_to_console = r;
                 } else if (startswith(word, "systemd.journald"))
                         log_warning("Invalid systemd.journald parameter. Ignoring.");
-
-                free(word);
         }
 
-        r = 0;
-
-finish:
-        free(line);
-        return r;
+        return 0;
 }
 
 static int server_parse_config_file(Server *s) {
-        FILE *f;
-        const char *fn;
+        static const char *fn = "/etc/systemd/journald.conf";
+        FILE _cleanup_fclose_ *f = NULL;
         int r;
 
         assert(s);
 
-        fn = "/etc/systemd/journald.conf";
         f = fopen(fn, "re");
         if (!f) {
                 if (errno == ENOENT)
@@ -1304,11 +1261,10 @@ static int server_parse_config_file(Server *s) {
                 return -errno;
         }
 
-        r = config_parse(fn, f, "Journal\0", config_item_perf_lookup, (void*) journald_gperf_lookup, false, s);
+        r = config_parse(fn, f, "Journal\0", config_item_perf_lookup,
+                         (void*) journald_gperf_lookup, false, s);
         if (r < 0)
                 log_warning("Failed to parse configuration file: %s", strerror(-r));
-
-        fclose(f);
 
         return r;
 }
