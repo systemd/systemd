@@ -232,12 +232,11 @@ int main(int argc, char *argv[])
         }
 
         /* start with empty ps LL */
-        ps_first = malloc(sizeof(struct ps_struct));
+        ps_first = calloc(1, sizeof(struct ps_struct));
         if (!ps_first) {
-                perror("malloc(ps_struct)");
+                perror("calloc(ps_struct)");
                 exit(EXIT_FAILURE);
         }
-        memset(ps_first, 0, sizeof(struct ps_struct));
 
         /* handle TERM/INT nicely */
         memset(&sig, 0, sizeof(struct sigaction));

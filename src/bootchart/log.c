@@ -225,21 +225,19 @@ schedstat_next:
                         char t[32];
                         struct ps_struct *parent;
 
-                        ps->next_ps = malloc(sizeof(struct ps_struct));
+                        ps->next_ps = calloc(1, sizeof(struct ps_struct));
                         if (!ps->next_ps) {
-                                perror("malloc(ps_struct)");
+                                perror("calloc(ps_struct)");
                                 exit (EXIT_FAILURE);
                         }
-                        memset(ps->next_ps, 0, sizeof(struct ps_struct));
                         ps = ps->next_ps;
                         ps->pid = pid;
 
-                        ps->sample = malloc(sizeof(struct ps_sched_struct) * (len + 1));
+                        ps->sample = calloc(len + 1, sizeof(struct ps_sched_struct));
                         if (!ps->sample) {
-                                perror("malloc(ps_struct)");
+                                perror("calloc(ps_struct)");
                                 exit (EXIT_FAILURE);
                         }
-                        memset(ps->sample, 0, sizeof(struct ps_sched_struct) * (len + 1));
 
                         pscount++;
 
