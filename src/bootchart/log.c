@@ -39,11 +39,11 @@ DIR *proc;
 
 double gettime_ns(void)
 {
-        struct timespec now;
+        struct timespec n;
 
-        clock_gettime(CLOCK_MONOTONIC, &now);
+        clock_gettime(CLOCK_MONOTONIC, &n);
 
-        return (now.tv_sec + (now.tv_nsec / 1000000000.0));
+        return (n.tv_sec + (n.tv_nsec / 1000000000.0));
 }
 
 
