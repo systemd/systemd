@@ -182,8 +182,10 @@ schedstat_next:
 
                 if (e_fd) {
                         n = pread(e_fd, buf, sizeof(buf) - 1, 0);
-                        if (n > 0)
+                        if (n > 0) {
+                                buf[n] = '\0';
                                 entropy_avail[sample] = atoi(buf);
+                        }
                 }
         }
 
@@ -256,6 +258,7 @@ schedstat_next:
                                 close(ps->sched);
                                 continue;
                         }
+                        buf[s] = '\0';
 
                         if (!sscanf(buf, "%s %*s %*s", key))
                                 continue;
@@ -337,8 +340,8 @@ schedstat_next:
                         if (ps->schedstat == -1)
                                 continue;
                 }
-
-                if (pread(ps->schedstat, buf, sizeof(buf) - 1, 0) <= 0) {
+                s = pread(ps->schedstat, buf, sizeof(buf) - 1, 0);
+                if (s <= 0) {
                         /* clean up our file descriptors - assume that the process exited */
                         close(ps->schedstat);
                         if (ps->sched)
@@ -347,6 +350,8 @@ schedstat_next:
                         //        fclose(ps->smaps);
                         continue;
                 }
+                buf[s] = '\0';
+
                 if (!sscanf(buf, "%s %s %*s", rt, wt))
                         continue;
 
@@ -401,7 +406,8 @@ catch_rename:
                                 if (ps->sched == -1)
                                         continue;
                         }
-                        if (pread(ps->sched, buf, sizeof(buf) - 1, 0) <= 0) {
+                        s = pread(ps->sched, buf, sizeof(buf) - 1, 0);
+                        if (s <= 0) {
                                 /* clean up file descriptors */
                                 close(ps->sched);
                                 if (ps->schedstat)
@@ -410,6 +416,7 @@ catch_rename:
                                 //        fclose(ps->smaps);
                                 continue;
                         }
+                        buf[s] = '\0';
 
                         if (!sscanf(buf, "%s %*s %*s", key))
                                 continue;
