@@ -257,7 +257,6 @@ int main (int argc, char** argv)
 
         char devpath[PATH_MAX];
         char *devnode;
-        const char *id_path;
         struct udev_enumerate *enumerate;
         struct udev_list_entry *list_entry;
 
@@ -303,18 +302,10 @@ int main (int argc, char** argv)
                 return 1;
         }
 
-        id_path = udev_device_get_property_value(dev, "ID_PATH");
-        if (id_path == NULL) {
-                fprintf (stderr, "unable to get property ID_PATH for '%s'", devpath);
-                return 0;
-        }
-
         /* Get the children devices and find the devnode */
-        /* FIXME: use udev_enumerate_add_match_parent() instead */
         devnode = NULL;
         enumerate = udev_enumerate_new(udev);
-        udev_enumerate_add_match_property(enumerate, "ID_PATH", id_path);
-        udev_enumerate_add_match_subsystem(enumerate, "input");
+        udev_enumerate_add_match_parent(enumerate, dev);
         udev_enumerate_scan_devices(enumerate);
         udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(enumerate)) {
                 struct udev_device *device;
