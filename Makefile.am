@@ -377,23 +377,21 @@ EXTRA_DIST += \
 	introspect.awk \
 	man/custom-html.xsl
 
-if HAVE_KMOD
 EXTRA_DIST += \
 	units/systemd-modules-load.service.in
-endif
 
 if HAVE_SYSV_COMPAT
 nodist_systemunit_DATA += \
 	units/rc-local.service \
 	units/halt-local.service
 
-EXTRA_DIST += \
-	units/rc-local.service.in \
-	units/halt-local.service.in
-
 systemgenerator_PROGRAMS += \
 	systemd-rc-local-generator
 endif
+
+EXTRA_DIST += \
+	units/rc-local.service.in \
+	units/halt-local.service.in
 
 dist_doc_DATA = \
 	README \
@@ -3944,15 +3942,15 @@ docs/sysvinit/README: docs/sysvinit/README.in
 docs/var-log/README: docs/var-log/README.in
 	$(SED_PROCESS)
 
-EXTRA_DIST += \
-	docs/sysvinit/README.in \
-	docs/var-log/README.in
-
 CLEANFILES += \
 	docs/sysvinit/README \
 	docs/var-log/README
 
 endif
+
+EXTRA_DIST += \
+	docs/sysvinit/README.in \
+	docs/var-log/README.in
 
 EXTRA_DIST += \
 	shell-completion/systemd-zsh-completion.zsh
