@@ -28,6 +28,7 @@
 
 
 #include "bootchart.h"
+#include "util.h"
 
 double graph_start;
 double log_start;
@@ -109,25 +110,25 @@ int main(int argc, char *argv[])
 
                         // todo: filter leading/trailing whitespace
 
-                        if (!strcmp(key, "samples"))
+                        if (streq(key, "samples"))
                                 len = atoi(val);
-                        if (!strcmp(key, "freq"))
+                        if (streq(key, "freq"))
                                 hz = atof(val);
-                        if (!strcmp(key, "rel"))
+                        if (streq(key, "rel"))
                                 relative = atoi(val);
-                        if (!strcmp(key, "filter"))
+                        if (streq(key, "filter"))
                                 filter = atoi(val);
-                        if (!strcmp(key, "pss"))
+                        if (streq(key, "pss"))
                                 pss = atoi(val);
-                        if (!strcmp(key, "output"))
+                        if (streq(key, "output"))
                                 strncpy(output_path, val, PATH_MAX - 1);
-                        if (!strcmp(key, "init"))
+                        if (streq(key, "init"))
                                 strncpy(init_path, val, PATH_MAX - 1);
-                        if (!strcmp(key, "scale_x"))
+                        if (streq(key, "scale_x"))
                                 scale_x = atof(val);
-                        if (!strcmp(key, "scale_y"))
+                        if (streq(key, "scale_y"))
                                 scale_y = atof(val);
-                        if (!strcmp(key, "entropy"))
+                        if (streq(key, "entropy"))
                                 entropy = atoi(val);
                 }
                 fclose(f);

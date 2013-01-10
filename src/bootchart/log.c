@@ -26,6 +26,7 @@
 
 
 #include "bootchart.h"
+#include "util.h"
 
 /*
  * Alloc a static 4k buffer for stdio - primarily used to increase
@@ -125,9 +126,9 @@ void log_sample(int sample)
         while (m) {
                 if (sscanf(m, "%s %s", key, val) < 2)
                         goto vmstat_next;
-                if (!strcmp(key, "pgpgin"))
+                if (streq(key, "pgpgin"))
                         blockstat[sample].bi = atoi(val);
-                if (!strcmp(key, "pgpgout")) {
+                if (streq(key, "pgpgout")) {
                         blockstat[sample].bo = atoi(val);
                         break;
                 }
