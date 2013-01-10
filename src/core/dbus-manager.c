@@ -106,6 +106,9 @@
         "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
+        "  <method name=\"CancelJob\">\n"                               \
+        "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
+        "  </method>\n"                                                 \
         "  <method name=\"ClearJobs\"/>\n"                              \
         "  <method name=\"ResetFailed\"/>\n"                            \
         "  <method name=\"ListUnits\">\n"                               \
@@ -123,6 +126,9 @@
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"cleanup\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
+        "  <method name=\"RemoveSnapshot\">\n"                          \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
         "  <method name=\"Reload\"/>\n"                                 \
         "  <method name=\"Reexecute\"/>\n"                              \
@@ -774,10 +780,33 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         goto oom;
 
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "CancelJob")) {
+                uint32_t id;
+                Job *j;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &id,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                j = manager_get_job(m, id);
+                if (!j) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+                }
+
+                SELINUX_UNIT_ACCESS_CHECK(j->unit, connection, message, "stop");
+                job_finish_and_invalidate(j, JOB_CANCELED, true);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ClearJobs")) {
 
                 SELINUX_ACCESS_CHECK(connection, message, "reboot");
-
                 manager_clear_jobs(m);
 
                 reply = dbus_message_new_method_return(message);
@@ -1078,6 +1107,35 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     reply,
                                     DBUS_TYPE_OBJECT_PATH, &path,
                                     DBUS_TYPE_INVALID))
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "RemoveSnapshot")) {
+                const char *name;
+                Unit *u;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                u = manager_get_unit(m, name);
+                if (!u) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s does not exist.", name);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+                }
+
+                if (u->type != UNIT_SNAPSHOT) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not a snapshot.", name);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+                }
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
+                snapshot_remove(SNAPSHOT(u));
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {

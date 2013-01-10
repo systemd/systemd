@@ -54,19 +54,16 @@ static const BusProperty bus_snapshot_properties[] = {
 DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Snapshot *s = SNAPSHOT(u);
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        DBusError error;
-
-        dbus_error_init(&error);
 
         if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Snapshot", "Remove")) {
 
                 SELINUX_UNIT_ACCESS_CHECK(u, c, message, "stop");
 
-                snapshot_remove(SNAPSHOT(u));
-
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
-                        goto oom;
+                        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+                snapshot_remove(SNAPSHOT(u));
 
         } else {
                 const BusBoundProperties bps[] = {
@@ -80,15 +77,8 @@ DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusConnection *c, DBusM
                 return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
         }
 
-        if (reply) {
-                if (!dbus_connection_send(c, reply, NULL))
-                        goto oom;
-        }
+        if (!dbus_connection_send(c, reply, NULL))
+                return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
         return DBUS_HANDLER_RESULT_HANDLED;
-
-oom:
-        dbus_error_free(&error);
-
-        return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }

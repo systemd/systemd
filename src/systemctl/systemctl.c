@@ -1032,12 +1032,14 @@ finish:
 }
 
 static int load_unit(DBusConnection *bus, char **args) {
-        int r = 0;
-        char **name, *n;
+        char **name;
 
         assert(args);
 
         STRV_FOREACH(name, args+1) {
+                _cleanup_free_ char *n = NULL;
+                int r;
+
                 n = unit_name_mangle(*name);
                 r = bus_method_call_with_reply (
                                 bus,
@@ -1049,18 +1051,14 @@ static int load_unit(DBusConnection *bus, char **args) {
                                 NULL,
                                 DBUS_TYPE_STRING, n ? &n : name,
                                 DBUS_TYPE_INVALID);
-                free(n);
-                if (r)
-                        goto finish;
+                if (r < 0)
+                        return r;
         }
 
-finish:
-        return r;
+        return 0;
 }
 
 static int cancel_job(DBusConnection *bus, char **args) {
-        DBusMessage *reply = NULL;
-        int r = 0;
         char **name;
 
         assert(args);
@@ -1069,54 +1067,30 @@ static int cancel_job(DBusConnection *bus, char **args) {
                 return daemon_reload(bus, args);
 
         STRV_FOREACH(name, args+1) {
-                unsigned id;
-                const char *path;
+                uint32_t id;
+                int r;
 
-                r = safe_atou(*name, &id);
+                r = safe_atou32(*name, &id);
                 if (r < 0) {
                         log_error("Failed to parse job id: %s", strerror(-r));
-                        goto finish;
+                        return r;
                 }
-                assert_cc(sizeof(uint32_t) == sizeof(id));
 
-                r = bus_method_call_with_reply (
+                r = bus_method_call_with_reply(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "GetJob",
-                                &reply,
+                                "CancelJob",
+                                NULL,
                                 NULL,
                                 DBUS_TYPE_UINT32, &id,
                                 DBUS_TYPE_INVALID);
-                if (r)
-                        goto finish;
-
-                if (!dbus_message_get_args(reply, NULL,
-                                           DBUS_TYPE_OBJECT_PATH, &path,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply");
-                        dbus_message_unref(reply);
-                        r = -EIO;
-                        goto finish;
-                }
-                dbus_message_unref(reply);
-
-                r = bus_method_call_with_reply (
-                                bus,
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Job",
-                                "Cancel",
-                                NULL,
-                                NULL,
-                                DBUS_TYPE_INVALID);
-                if (r)
-                        goto finish;
+                if (r < 0)
+                        return r;
         }
 
-finish:
-        return r;
+        return 0;
 }
 
 static bool need_daemon_reload(DBusConnection *bus, const char *unit) {
@@ -3062,7 +3036,7 @@ finish:
 }
 
 static int snapshot(DBusConnection *bus, char **args) {
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         DBusError error;
         int r;
         dbus_bool_t cleanup = FALSE;
@@ -3071,14 +3045,15 @@ static int snapshot(DBusConnection *bus, char **args) {
                 *name = "", *path, *id,
                 *interface = "org.freedesktop.systemd1.Unit",
                 *property = "Id";
-        char *n;
+        _cleanup_free_ char *n = NULL;
 
         dbus_error_init(&error);
 
-        if (strv_length(args) > 1)
+        if (strv_length(args) > 1) {
                 name = args[1];
+                n = unit_name_mangle(name);
+        }
 
-        n = unit_name_mangle(name);
         r = bus_method_call_with_reply (
                         bus,
                         "org.freedesktop.systemd1",
@@ -3090,8 +3065,7 @@ static int snapshot(DBusConnection *bus, char **args) {
                         DBUS_TYPE_STRING, n ? (const char**) &n : &name,
                         DBUS_TYPE_BOOLEAN, &cleanup,
                         DBUS_TYPE_INVALID);
-        free(n);
-        if (r)
+        if (r < 0)
                 goto finish;
 
         if (!dbus_message_get_args(reply, &error,
@@ -3103,6 +3077,8 @@ static int snapshot(DBusConnection *bus, char **args) {
         }
 
         dbus_message_unref(reply);
+        reply = NULL;
+
         r = bus_method_call_with_reply (
                         bus,
                         "org.freedesktop.systemd1",
@@ -3114,7 +3090,7 @@ static int snapshot(DBusConnection *bus, char **args) {
                         DBUS_TYPE_STRING, &interface,
                         DBUS_TYPE_STRING, &property,
                         DBUS_TYPE_INVALID);
-        if (r)
+        if (r < 0)
                 goto finish;
 
         if (!dbus_message_iter_init(reply, &iter) ||
@@ -3138,69 +3114,36 @@ static int snapshot(DBusConnection *bus, char **args) {
                 puts(id);
 
 finish:
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return r;
 }
 
 static int delete_snapshot(DBusConnection *bus, char **args) {
-        DBusMessage *reply = NULL;
-        int r = 0;
-        DBusError error;
         char **name;
 
         assert(args);
 
-        dbus_error_init(&error);
-
         STRV_FOREACH(name, args+1) {
-                const char *path = NULL;
-                char *n;
+                _cleanup_free_ char *n = NULL;
+                int r;
 
                 n = unit_name_mangle(*name);
-                r = bus_method_call_with_reply (
+                r = bus_method_call_with_reply(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "GetUnit",
-                                &reply,
+                                "RemoveSnapshot",
+                                NULL,
                                 NULL,
                                 DBUS_TYPE_STRING, n ? &n : name,
                                 DBUS_TYPE_INVALID);
-                free(n);
-                if (r)
-                        goto finish;
-
-                if (!dbus_message_get_args(reply, &error,
-                                           DBUS_TYPE_OBJECT_PATH, &path,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", bus_error_message(&error));
-                        r = -EIO;
-                        dbus_message_unref(reply);
-                        dbus_error_free(&error);
-                        goto finish;
-                }
-                dbus_message_unref(reply);
-
-                r = bus_method_call_with_reply (
-                                bus,
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Snapshot",
-                                "Remove",
-                                NULL,
-                                NULL,
-                                DBUS_TYPE_INVALID);
-                if (r)
-                        goto finish;
+                if (r < 0)
+                        return r;
         }
 
-finish:
-        return r;
+        return 0;
 }
 
 static int daemon_reload(DBusConnection *bus, char **args) {

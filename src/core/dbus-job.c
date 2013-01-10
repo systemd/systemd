@@ -101,12 +101,11 @@ static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusConnection *connec
         if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Job", "Cancel")) {
 
                 SELINUX_UNIT_ACCESS_CHECK(j->unit, connection, message, "stop");
+                job_finish_and_invalidate(j, JOB_CANCELED, true);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
                         return DBUS_HANDLER_RESULT_NEED_MEMORY;
-
-                job_finish_and_invalidate(j, JOB_CANCELED, true);
         } else {
                 const BusBoundProperties bps[] = {
                         { "org.freedesktop.systemd1.Job", bus_job_properties, j },
@@ -114,7 +113,6 @@ static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusConnection *connec
                 };
 
                 SELINUX_UNIT_ACCESS_CHECK(j->unit, connection, message, "status");
-
                 return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
         }
 
