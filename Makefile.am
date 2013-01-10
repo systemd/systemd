@@ -4105,11 +4105,14 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-rootprefix=$$dc_install_base \
 	--disable-split-usr
 
-
 if HAVE_SYSV_COMPAT
 DISTCHECK_CONFIGURE_FLAGS += \
 	--with-sysvinit-path=$$dc_install_base/$(sysvinitdir) \
 	--with-sysvrcnd-path=$$dc_install_base/$(sysvrcnddir)
+else
+DISTCHECK_CONFIGURE_FLAGS += \
+	--with-sysvinit-path= \
+	--with-sysvrcnd-path=
 endif
 
 if ENABLE_GTK_DOC
