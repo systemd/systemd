@@ -81,7 +81,7 @@
                 sections of the unit files.</para>
 
                 <para>In addition to the generic [Unit] and [Install]
-                sections described here, each unit should have a
+                sections described here, each unit may have a
                 type-specific section, e.g. [Service] for a service
                 unit. See the respective man pages for more
                 information.</para>
@@ -106,12 +106,14 @@
                 <para>Time span values encoded in unit files can be
                 written in various formats. A stand-alone number
                 specifies a time in seconds. If suffixed with a time
-                unit, the unit is honored. A concatenation of
-                multiple values with units is supported, in which case
-                the values are added up. Example: "50" refers to 50
+                unit, the unit is honored. A concatenation of multiple
+                values with units is supported, in which case the
+                values are added up. Example: "50" refers to 50
                 seconds; "2min 200ms" refers to 2 minutes plus 200
                 milliseconds, i.e. 120200ms. The following time units
-                are understood: s, min, h, d, w, ms, us. For details see <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+                are understood: s, min, h, d, w, ms, us. For details
+                see
+                <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
                 <para>Empty lines and lines starting with # or ; are
                 ignored. This may be used for commenting. Lines ending
@@ -119,31 +121,41 @@
                 line while reading and the backslash is replaced by a
                 space character. This may be used to wrap long lines.</para>
 
+                <para>Along with a unit file
+                <filename>foo.service</filename> the directory
+                <filename>foo.service.wants/</filename> may exist. All
+                unit files symlinked from such a directory are
+                implicitly added as dependencies of type
+                <varname>Wanted=</varname> to the unit. This is useful
+                to hook units into the start-up of other units,
+                without having to modify their unit files. For details
+                about the semantics of <varname>Wanted=</varname> see
+                below. The preferred way to create symlinks in the
+                <filename>.wants/</filename> directory of a unit file
+                is with the <command>enable</command> command of the
+                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                tool which reads information from the [Install]
+                section of unit files (see below). A similar
+                functionality exists for <varname>Requires=</varname>
+                type dependencies as well, the directory suffix is
+                <filename>.requires/</filename> in this case.</para>
+
+                <para>Along with a unit file
+                <filename>foo.service</filename> a directory
+                <filename>foo.service.d/</filename> may exist. All
+                files with the suffix <filename>.conf</filename> from
+                this directory will be parsed after the file itself is
+                parsed. This is useful to alter or add configuration
+                settings to a unit, without having to modify their
+                unit files. Make sure that the file that is included
+                has the appropriate section headers before any
+                directive.</para>
+
                 <para>If a line starts with <option>.include</option>
                 followed by a file name, the specified file will be
                 parsed at this point. Make sure that the file that is
                 included has the appropriate section headers before
                 any directives.</para>
-
-                <para>Along with a unit file
-                <filename>foo.service</filename> a directory
-                <filename>foo.service.wants/</filename> may exist. All
-                units symlinked from such a directory are implicitly
-                added as dependencies of type
-                <varname>Wanted=</varname> to the unit. This is useful
-                to hook units into the start-up of other units,
-                without having to modify their unit configuration
-                files. For details about the semantics of
-                <varname>Wanted=</varname> see below. The preferred
-                way to create symlinks in the
-                <filename>.wants/</filename> directory of a service is
-                with the <command>enable</command> command of the
-                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                tool which reads information from the [Install]
-                section of unit files. (See below.) A similar
-                functionality exists for <varname>Requires=</varname>
-                type dependencies as well, the directory suffix is
-                <filename>.requires/</filename> in this case.</para>
 
                 <para>Note that while systemd offers a flexible
                 dependency system between units it is recommended to
@@ -186,116 +198,7 @@
                 <para>To refer to the instance string from
                 within the configuration file you may use the special
                 <literal>%i</literal> specifier in many of the
-                configuration options. Other specifiers exist, the
-                full list is:</para>
-
-                <table>
-                  <title>Specifiers available in unit files</title>
-                  <tgroup cols='3' align='left' colsep='1' rowsep='1'>
-                    <colspec colname="spec" />
-                    <colspec colname="mean" />
-                    <colspec colname="detail" />
-                    <thead>
-                      <row>
-                        <entry>Specifier</entry>
-                        <entry>Meaning</entry>
-                        <entry>Details</entry>
-                      </row>
-                    </thead>
-                    <tbody>
-                      <row>
-                        <entry><literal>%n</literal></entry>
-                        <entry>Full unit name</entry>
-                        <entry></entry>
-                      </row>
-                      <row>
-                        <entry><literal>%N</literal></entry>
-                        <entry>Unescaped full unit name</entry>
-                        <entry></entry>
-                      </row>
-                      <row>
-                        <entry><literal>%p</literal></entry>
-                        <entry>Prefix name</entry>
-                        <entry>This refers to the string before the @, i.e. "getty" in the example above, where "tty3" is the instance name.</entry>
-                      </row>
-                      <row>
-                        <entry><literal>%P</literal></entry>
-                        <entry>Unescaped prefix name</entry>
-                        <entry></entry>
-                      </row>
-                      <row>
-                        <entry><literal>%i</literal></entry>
-                        <entry>Instance name</entry>
-                        <entry>This is the string between the @ character and the suffix.</entry>
-                      </row>
-                      <row>
-                        <entry><literal>%I</literal></entry>
-                        <entry>Unescaped instance name</entry>
-                        <entry></entry>
-                      </row>
-                      <row>
-                        <entry><literal>%f</literal></entry>
-                        <entry>Unescaped file name</entry>
-                        <entry>This is either the unescaped instance name (if set) with / prepended (if necessary), or the prefix name similarly prepended with /.</entry>
-                      </row>
-                      <row>
-                        <entry><literal>%c</literal></entry>
-                        <entry>Control group path of the unit</entry>
-                        <entry></entry>
-                      </row>
-                      <row>
-                        <entry><literal>%r</literal></entry>
-                        <entry>Root control group path of systemd</entry>
-                        <entry></entry>
-                      </row>
-                      <row>
-                        <entry><literal>%R</literal></entry>
-                        <entry>Parent directory of the root control group path of systemd</entry>
-                        <entry></entry>
-                      </row>
-                      <row>
-                        <entry><literal>%t</literal></entry>
-                        <entry>Runtime socket dir</entry>
-                        <entry>This is either /run (for the system manager) or $XDG_RUNTIME_DIR (for user managers).</entry>
-                      </row>
-                      <row>
-                        <entry><literal>%u</literal></entry>
-                        <entry>User name</entry>
-                        <entry>This is the name of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
-                      </row>
-                      <row>
-                        <entry><literal>%U</literal></entry>
-                        <entry>User uid</entry>
-                        <entry>This is the uid of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
-                      </row>
-                      <row>
-                        <entry><literal>%h</literal></entry>
-                        <entry>User home directory</entry>
-                        <entry>This is the home directory of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
-                      </row>
-                      <row>
-                        <entry><literal>%s</literal></entry>
-                        <entry>User shell</entry>
-                        <entry>This is the shell of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
-                      </row>
-                      <row>
-                        <entry><literal>%m</literal></entry>
-                        <entry>Machine ID</entry>
-                        <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
-                      </row>
-                      <row>
-                        <entry><literal>%b</literal></entry>
-                        <entry>Boot ID</entry>
-                        <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
-                      </row>
-                      <row>
-                        <entry><literal>%H</literal></entry>
-                        <entry>Host name</entry>
-                        <entry>The host name of the running system.</entry>
-                      </row>
-                    </tbody>
-                  </tgroup>
-                </table>
+                configuration options. See below for details.</para>
 
                 <para>If a unit file is empty (i.e. has the file size
                 0) or is symlinked to <filename>/dev/null</filename>
@@ -309,6 +212,7 @@
                 <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
                 Stability Promise</ulink>.</para>
+
         </refsect1>
 
         <refsect1>
@@ -1082,6 +986,124 @@
                         </varlistentry>
                 </variablelist>
 
+        </refsect1>
+
+        <refsect1>
+                <title>Specifiers</title>
+
+                <para>Many settings resolve specifiers which may be
+                used to write generic unit files referring to runtime
+                or unit parameters that are replaced when the unit
+                files are loaded. The following specifiers are
+                understood:</para>
+
+                <table>
+                  <title>Specifiers available in unit files</title>
+                  <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+                    <colspec colname="spec" />
+                    <colspec colname="mean" />
+                    <colspec colname="detail" />
+                    <thead>
+                      <row>
+                        <entry>Specifier</entry>
+                        <entry>Meaning</entry>
+                        <entry>Details</entry>
+                      </row>
+                    </thead>
+                    <tbody>
+                      <row>
+                        <entry><literal>%n</literal></entry>
+                        <entry>Full unit name</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%N</literal></entry>
+                        <entry>Unescaped full unit name</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%p</literal></entry>
+                        <entry>Prefix name</entry>
+                        <entry>For instantiated units this refers to the string before the @. For non-instantiated units this refers to to the name of the unit with the type suffix removed.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%P</literal></entry>
+                        <entry>Unescaped prefix name</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%i</literal></entry>
+                        <entry>Instance name</entry>
+                        <entry>For instantiated units: this is the string between the @ character and the suffix.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%I</literal></entry>
+                        <entry>Unescaped instance name</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%f</literal></entry>
+                        <entry>Unescaped file name</entry>
+                        <entry>This is either the unescaped instance name (if applicable) with / prepended (if applicable), or the prefix name similarly prepended with /.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%c</literal></entry>
+                        <entry>Control group path of the unit</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%r</literal></entry>
+                        <entry>Root control group path of systemd</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%R</literal></entry>
+                        <entry>Parent directory of the root control group path of systemd</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%t</literal></entry>
+                        <entry>Runtime socket dir</entry>
+                        <entry>This is either <filename>/run</filename> (for the system manager) or <literal>$XDG_RUNTIME_DIR</literal> (for user managers).</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%u</literal></entry>
+                        <entry>User name</entry>
+                        <entry>This is the name of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%U</literal></entry>
+                        <entry>User UID</entry>
+                        <entry>This is the UID of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%h</literal></entry>
+                        <entry>User home directory</entry>
+                        <entry>This is the home directory of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%s</literal></entry>
+                        <entry>User shell</entry>
+                        <entry>This is the shell of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%m</literal></entry>
+                        <entry>Machine ID</entry>
+                        <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%b</literal></entry>
+                        <entry>Boot ID</entry>
+                        <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%H</literal></entry>
+                        <entry>Host name</entry>
+                        <entry>The host name of the running system.</entry>
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
         </refsect1>
 
         <refsect1>

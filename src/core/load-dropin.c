@@ -27,10 +27,21 @@
 #include "log.h"
 #include "strv.h"
 #include "unit-name.h"
+#include "conf-parser.h"
+#include "load-fragment.h"
+
+static int load_dropin_config_file(Unit *u, const char *path) {
+        assert(u);
+        assert(path);
+
+        if (!endswith(path, ".conf"))
+                return 0;
+
+        return config_parse(path, NULL, UNIT_VTABLE(u)->sections, config_item_perf_lookup, (void*) load_fragment_gperf_lookup, false, u);
+}
 
 static int iterate_dir(Unit *u, const char *path, UnitDependency dependency) {
-        DIR *d;
-        struct dirent *de;
+        _cleanup_closedir_ DIR *d = NULL;
         int r;
 
         assert(u);
@@ -38,37 +49,46 @@ static int iterate_dir(Unit *u, const char *path, UnitDependency dependency) {
 
         d = opendir(path);
         if (!d) {
-
                 if (errno == ENOENT)
                         return 0;
 
                 return -errno;
         }
 
-        while ((de = readdir(d))) {
-                char *f;
+        for (;;) {
+                struct dirent *de;
+                union dirent_storage buf;
+                _cleanup_free_ char *f = NULL;
+                int k;
+
+                k = readdir_r(d, &buf.de, &de);
+                if (k != 0) {
+                        log_error("Failed to read directory %s: %s", path, strerror(k));
+                        return -k;
+                }
+
+                if (!de)
+                        break;
 
                 if (ignore_file(de->d_name))
                         continue;
 
                 f = strjoin(path, "/", de->d_name, NULL);
-                if (!f) {
-                        r = -ENOMEM;
-                        goto finish;
+                if (!f)
+                        return log_oom();
+
+                if (dependency >= 0) {
+                        r = unit_add_dependency_by_name(u, dependency, de->d_name, f, true);
+                        if (r < 0)
+                                log_error("Cannot add dependency %s to %s, ignoring: %s", de->d_name, u->id, strerror(-r));
+                } else {
+                        r = load_dropin_config_file(u, f);
+                        if (r < 0)
+                                log_error("Cannot load drop-in configuration file %s for %s, ignoring: %s", f, u->id, strerror(-r));
                 }
-
-                r = unit_add_dependency_by_name(u, dependency, de->d_name, f, true);
-                free(f);
-
-                if (r < 0)
-                        log_error("Cannot add dependency %s to %s, ignoring: %s", de->d_name, u->id, strerror(-r));
         }
 
-        r = 0;
-
-finish:
-        closedir(d);
-        return r;
+        return 0;
 }
 
 static int process_dir(Unit *u, const char *unit_path, const char *name, const char *suffix, UnitDependency dependency) {
@@ -141,6 +161,11 @@ int unit_load_dropin(Unit *u) {
                                 return r;
 
                         r = process_dir(u, *p, t, ".requires", UNIT_REQUIRES);
+                        if (r < 0)
+                                return r;
+
+                        /* This loads the drop-in config snippets */
+                        r = process_dir(u, *p, t, ".d", _UNIT_TYPE_INVALID);
                         if (r < 0)
                                 return r;
                 }

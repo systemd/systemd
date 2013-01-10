@@ -1781,6 +1781,7 @@ static const char *resolve_template(Unit *u, const char *name, const char*path, 
 
         assert(u);
         assert(name || path);
+        assert(p);
 
         if (!name)
                 name = path_get_file_name(path);
@@ -1795,7 +1796,8 @@ static const char *resolve_template(Unit *u, const char *name, const char*path, 
         else {
                 char *i;
 
-                if (!(i = unit_name_to_prefix(u->id)))
+                i = unit_name_to_prefix(u->id);
+                if (!i)
                         return NULL;
 
                 s = unit_name_replace_instance(name, i);
@@ -1812,22 +1814,20 @@ static const char *resolve_template(Unit *u, const char *name, const char*path, 
 int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *path, bool add_reference) {
         Unit *other;
         int r;
-        char *s;
+        _cleanup_free_ char *s = NULL;
 
         assert(u);
         assert(name || path);
 
-        if (!(name = resolve_template(u, name, path, &s)))
+        name = resolve_template(u, name, path, &s);
+        if (!name)
                 return -ENOMEM;
 
-        if ((r = manager_load_unit(u->manager, name, path, NULL, &other)) < 0)
-                goto finish;
+        r = manager_load_unit(u->manager, name, path, NULL, &other);
+        if (r < 0)
+                return r;
 
-        r = unit_add_dependency(u, d, other, add_reference);
-
-finish:
-        free(s);
-        return r;
+        return unit_add_dependency(u, d, other, add_reference);
 }
 
 int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference) {
