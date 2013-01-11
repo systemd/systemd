@@ -1341,20 +1341,25 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
         return r;
 }
 
-static int check_one_unit(DBusConnection *bus, char *name, char **check_states, bool quiet) {
-        DBusMessage *reply = NULL;
+static int check_one_unit(DBusConnection *bus, const char *name, char **check_states, bool quiet) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         DBusMessageIter iter, sub;
         const char
                 *interface = "org.freedesktop.systemd1.Unit",
                 *property = "ActiveState";
-        const char *path = NULL;
-        const char *state;
+        const char *state, *path;
+        _cleanup_free_ char *n = NULL;
+        DBusError error;
         int r;
-        char *n;
 
         assert(name);
 
+        dbus_error_init(&error);
+
         n = unit_name_mangle(name);
+        if (!n)
+                return log_oom();
+
         r = bus_method_call_with_reply (
                         bus,
                         "org.freedesktop.systemd1",
@@ -1362,26 +1367,28 @@ static int check_one_unit(DBusConnection *bus, char *name, char **check_states, 
                         "org.freedesktop.systemd1.Manager",
                         "GetUnit",
                         &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, n ? &n : &name,
+                        &error,
+                        DBUS_TYPE_STRING, &n,
                         DBUS_TYPE_INVALID);
-        free(n);
-        if (r) {
-                if ((r != -ENOMEM) && (!quiet))
+        if (r < 0) {
+                dbus_error_free(&error);
+
+                if (!quiet)
                         puts("unknown");
-                goto finish;
+                return 0;
         }
 
         if (!dbus_message_get_args(reply, NULL,
                                    DBUS_TYPE_OBJECT_PATH, &path,
                                    DBUS_TYPE_INVALID)) {
                 log_error("Failed to parse reply.");
-                r = -EIO;
-                goto finish;
+                return -EIO;
         }
 
         dbus_message_unref(reply);
-        r = bus_method_call_with_reply (
+        reply = NULL;
+
+        r = bus_method_call_with_reply(
                         bus,
                         "org.freedesktop.systemd1",
                         path,
@@ -1392,22 +1399,23 @@ static int check_one_unit(DBusConnection *bus, char *name, char **check_states, 
                         DBUS_TYPE_STRING, &interface,
                         DBUS_TYPE_STRING, &property,
                         DBUS_TYPE_INVALID);
-        if (r)
-                goto finish;
+        if (r < 0) {
+                if (!quiet)
+                        puts("unknown");
+                return 0;
+        }
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
                 log_error("Failed to parse reply.");
-                r = -EIO;
-                goto finish;
+                return r;
         }
 
         dbus_message_iter_recurse(&iter, &sub);
 
         if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING)  {
                 log_error("Failed to parse reply.");
-                r = -EIO;
-                goto finish;
+                return r;
         }
 
         dbus_message_iter_get_basic(&sub, &state);
@@ -1415,16 +1423,7 @@ static int check_one_unit(DBusConnection *bus, char *name, char **check_states, 
         if (!quiet)
                 puts(state);
 
-        if (strv_find(check_states, state))
-                r = 0;
-        else
-                r = 3; /* According to LSB: "program is not running" */
-
-finish:
-        if (reply)
-                dbus_message_unref(reply);
-
-        return r;
+        return strv_find(check_states, state) ? 1 : 0;
 }
 
 static void check_triggering_units(
@@ -1433,7 +1432,6 @@ static void check_triggering_units(
 
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         DBusMessageIter iter, sub;
-        char *service_trigger = NULL;
         const char *interface = "org.freedesktop.systemd1.Unit",
                    *triggered_by_property = "TriggeredBy";
 
@@ -1453,7 +1451,7 @@ static void check_triggering_units(
                 return;
         }
 
-        r = bus_method_call_with_reply (
+        r = bus_method_call_with_reply(
                         bus,
                         "org.freedesktop.systemd1",
                         unit_path,
@@ -1464,7 +1462,7 @@ static void check_triggering_units(
                         DBUS_TYPE_STRING, &interface,
                         DBUS_TYPE_STRING, &triggered_by_property,
                         DBUS_TYPE_INVALID);
-        if (r)
+        if (r < 0)
                 return;
 
         if (!dbus_message_iter_init(reply, &iter) ||
@@ -1478,7 +1476,12 @@ static void check_triggering_units(
         sub = iter;
 
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                char **check_states = NULL;
+                const char * const check_states[] = {
+                        "active",
+                        "reloading",
+                        NULL
+                };
+                const char *service_trigger;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
                         log_error("Failed to parse reply.");
@@ -1487,16 +1490,15 @@ static void check_triggering_units(
 
                 dbus_message_iter_get_basic(&sub, &service_trigger);
 
-                check_states = strv_new("active", "reloading", NULL);
-                r = check_one_unit(bus, service_trigger, check_states, true);
-                strv_free(check_states);
+                r = check_one_unit(bus, service_trigger, (char**) check_states, true);
                 if (r < 0)
                         return;
-                if (r == 0) {
+                if (r > 0) {
                         if (print_warning_label) {
                                 log_warning("Warning: Stopping %s, but it can still be activated by:", unit_name);
                                 print_warning_label = false;
                         }
+
                         log_warning("  %s", service_trigger);
                 }
 
@@ -1930,6 +1932,12 @@ static int start_special(DBusConnection *bus, char **args) {
 }
 
 static int check_unit_active(DBusConnection *bus, char **args) {
+        const char * const check_states[] = {
+                "active",
+                "reloading",
+                NULL
+        };
+
         char **name;
         int r = 3; /* According to LSB: "program is not running" */
 
@@ -1937,12 +1945,12 @@ static int check_unit_active(DBusConnection *bus, char **args) {
         assert(args);
 
         STRV_FOREACH(name, args+1) {
-                char **check_states = strv_new("active", "reloading", NULL);
-                int state = check_one_unit(bus, *name, check_states, arg_quiet);
-                strv_free(check_states);
+                int state;
+
+                state = check_one_unit(bus, *name, (char**) check_states, arg_quiet);
                 if (state < 0)
                         return state;
-                if (state == 0)
+                if (state > 0)
                         r = 0;
         }
 
@@ -1950,6 +1958,11 @@ static int check_unit_active(DBusConnection *bus, char **args) {
 }
 
 static int check_unit_failed(DBusConnection *bus, char **args) {
+        const char * const check_states[] = {
+                "failed",
+                NULL
+        };
+
         char **name;
         int r = 1;
 
@@ -1957,12 +1970,12 @@ static int check_unit_failed(DBusConnection *bus, char **args) {
         assert(args);
 
         STRV_FOREACH(name, args+1) {
-                char **check_states = strv_new("failed", NULL);
-                int state = check_one_unit(bus, *name, check_states, arg_quiet);
-                strv_free(check_states);
+                int state;
+
+                state = check_one_unit(bus, *name, (char**) check_states, arg_quiet);
                 if (state < 0)
                         return state;
-                if (state == 0)
+                if (state > 0)
                         r = 0;
         }
 
@@ -1970,17 +1983,21 @@ static int check_unit_failed(DBusConnection *bus, char **args) {
 }
 
 static int kill_unit(DBusConnection *bus, char **args) {
+        char **name;
         int r = 0;
-        char **name, *n;
 
+        assert(bus);
         assert(args);
 
         if (!arg_kill_who)
                 arg_kill_who = "all";
 
         STRV_FOREACH(name, args+1) {
+                _cleanup_free_ char *n = NULL;
+
                 n = unit_name_mangle(*name);
-                r = bus_method_call_with_reply (
+
+                r = bus_method_call_with_reply(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
@@ -1992,8 +2009,7 @@ static int kill_unit(DBusConnection *bus, char **args) {
                                 DBUS_TYPE_STRING, &arg_kill_who,
                                 DBUS_TYPE_INT32, &arg_signal,
                                 DBUS_TYPE_INVALID);
-                free(n);
-                if (r)
+                if (r < 0)
                         return r;
         }
         return 0;
@@ -3446,6 +3462,7 @@ static int set_environment(DBusConnection *bus, char **args) {
         int r;
 
         assert(bus);
+        assert(args);
 
         dbus_error_init(&error);
 
