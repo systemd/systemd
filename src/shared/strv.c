@@ -370,6 +370,21 @@ fail:
         return NULL;
 }
 
+int strv_extend(char ***l, const char *value) {
+        char **c;
+
+        if (!value)
+                return 0;
+
+        c = strv_append(*l, value);
+        if (!c)
+                return -ENOMEM;
+
+        strv_free(*l);
+        *l = c;
+        return 0;
+}
+
 char **strv_uniq(char **l) {
         char **i;
 

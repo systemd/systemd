@@ -37,6 +37,7 @@ unsigned strv_length(char **l);
 char **strv_merge(char **a, char **b);
 char **strv_merge_concat(char **a, char **b, const char *suffix);
 char **strv_append(char **l, const char *s);
+int strv_extend(char ***l, const char *value);
 
 char **strv_remove(char **l, const char *s);
 char **strv_remove_prefix(char **l, const char *s);
