@@ -168,7 +168,8 @@ int unit_load_dropin(Unit *u) {
         }
 
         if (!strv_isempty(strv)) {
-                _cleanup_strv_free_ char **files = NULL, **f;
+                _cleanup_strv_free_ char **files = NULL;
+                char **f;
 
                 r = conf_files_list_strv(&files, ".conf", (const char**) strv);
                 if (r < 0) {
@@ -182,7 +183,6 @@ int unit_load_dropin(Unit *u) {
                                 return r;
                 }
         }
-
 
         return 0;
 }
