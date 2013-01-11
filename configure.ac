@@ -167,8 +167,10 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         --param=ssp-buffer-size=4])
 AC_SUBST([OUR_CFLAGS], $with_cflags)
 
-CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
-        -Wp,-D_FORTIFY_SOURCE=2])
+AS_CASE([$CFLAGS], [*-O[[12345\ ]]*], [
+        CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
+               -Wp,-D_FORTIFY_SOURCE=2])], [
+        AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
 AC_SUBST([OUR_CPPFLAGS], $with_cppflags)
 
 CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
