@@ -821,7 +821,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
                 log_struct(LOG_NOTICE,
                            "UNIT=%s", u->id,
                            "JOB_TYPE=%s", job_type_to_string(t),
-                           "JOB_RESULT=%s", job_result_to_string(t),
+                           "JOB_RESULT=%s", job_result_to_string(result),
                            "Job %s/%s failed with result '%s'.",
                            u->id,
                            job_type_to_string(t),
