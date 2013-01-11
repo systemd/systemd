@@ -346,7 +346,6 @@ Features:
 * readahead: when bumping /sys readahead variable save mtime and compare later to detect changes
 
 * (attempt to) make Debianites happy:
-        - implement .d/ auto includes for unit files
         - add syntax to reset ExecStart= lists (and similar)
 
 * move passno parsing to fstab generator
