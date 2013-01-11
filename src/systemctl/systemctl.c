@@ -1738,6 +1738,9 @@ static int reboot_with_logind(DBusConnection *bus, enum action a) {
         const char *method;
         dbus_bool_t interactive = true;
 
+        if (!bus)
+                return -EIO;
+
         polkit_agent_open_if_enabled();
 
         switch (a) {
