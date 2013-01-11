@@ -56,6 +56,7 @@
 #include "sd-id128.h"
 #include "dev-setup.h"
 #include "fdset.h"
+#include "build.h"
 
 typedef enum LinkJournal {
         LINK_NO,
@@ -102,6 +103,7 @@ static int help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
                "  -h --help               Show this help\n"
+               "  --version               Print version string\n"
                "  -D --directory=NAME     Root directory for the container\n"
                "  -b --boot               Boot up full system (i.e. invoke init)\n"
                "  -u --user=USER          Run the command under specified user or uid\n"
@@ -120,7 +122,8 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
-                ARG_PRIVATE_NETWORK = 0x100,
+                ARG_VERSION = 0x100,
+                ARG_PRIVATE_NETWORK,
                 ARG_UUID,
                 ARG_READ_ONLY,
                 ARG_CAPABILITY,
@@ -129,6 +132,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         static const struct option options[] = {
                 { "help",            no_argument,       NULL, 'h'                 },
+                { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "directory",       required_argument, NULL, 'D'                 },
                 { "user",            required_argument, NULL, 'u'                 },
                 { "controllers",     required_argument, NULL, 'C'                 },
@@ -152,6 +156,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'h':
                         help();
+                        return 0;
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case 'D':

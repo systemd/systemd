@@ -139,6 +139,13 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Prints a version string
+                                and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--directory=</option></term>
                                 <term><option>-D</option></term>
 
