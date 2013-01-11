@@ -772,7 +772,6 @@ static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
 }
 
 int session_get_idle_hint(Session *s, dual_timestamp *t) {
-        _cleanup_free_ char *p = NULL;
         usec_t atime = 0, n;
         int r;
 
@@ -786,7 +785,7 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
                 return s->idle_hint;
         }
 
-        /* Graphical sessions really should really implement a real
+        /* Graphical sessions should really implement a real
          * idle hint logic */
         if (s->display)
                 goto dont_know;
