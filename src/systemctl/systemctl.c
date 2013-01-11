@@ -78,6 +78,7 @@ static bool arg_no_pager = false;
 static bool arg_no_wtmp = false;
 static bool arg_no_wall = false;
 static bool arg_no_reload = false;
+static bool arg_ignore_inhibitors = false;
 static bool arg_dry = false;
 static bool arg_quiet = false;
 static bool arg_full = false;
@@ -1778,6 +1779,104 @@ static int reboot_with_logind(DBusConnection *bus, enum action a) {
 #endif
 }
 
+static int check_inhibitors(DBusConnection *bus, enum action a) {
+#ifdef HAVE_LOGIND
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        DBusMessageIter iter, sub, sub2;
+        int r;
+        unsigned c = 0;
+
+        if (arg_ignore_inhibitors)
+                return 0;
+
+        if (!on_tty())
+                return 0;
+
+        r = bus_method_call_with_reply(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "ListInhibitors",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_INVALID);
+        if (r < 0)
+                /* If logind is not around, then there are no inhibitors... */
+                return 0;
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT) {
+                log_error("Failed to parse reply.");
+                return -EIO;
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                const char *what, *who, *why, *mode;
+                uint32_t uid, pid;
+                _cleanup_strv_free_ char **sv = NULL;
+                _cleanup_free_ char *comm = NULL;
+
+                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
+                        log_error("Failed to parse reply.");
+                        return -EIO;
+                }
+
+                dbus_message_iter_recurse(&sub, &sub2);
+
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &what, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &who, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &why, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &mode, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &uid, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &pid, false) < 0) {
+                        log_error("Failed to parse reply.");
+                        return -EIO;
+                }
+
+                if (!streq(mode, "block"))
+                        goto next;
+
+                sv = strv_split(what, ":");
+                if (!sv)
+                        return log_oom();
+
+                if (!strv_contains(sv,
+                                  a == ACTION_HALT ||
+                                  a == ACTION_POWEROFF ||
+                                  a == ACTION_REBOOT ||
+                                  a == ACTION_KEXEC ? "shutdown" : "sleep"))
+                        goto next;
+
+                get_process_comm(pid, &comm);
+                log_warning("Operation inhibited by \"%s\" (PID %lu \"%s\", UID %lu), reason is \"%s\".", who, (unsigned long) pid, strna(comm), (unsigned long) uid, why);
+                c++;
+
+        next:
+                dbus_message_iter_next(&sub);
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+
+        if (c <= 0)
+                return 0;
+
+        log_error("Please try again after closing inhibitors or ignore them with 'systemctl %s -i'.",
+                  a == ACTION_HALT ? "halt" :
+                  a == ACTION_POWEROFF ? "poweroff" :
+                  a == ACTION_REBOOT ? "reboot" :
+                  a == ACTION_KEXEC ? "kexec" :
+                  a == ACTION_SUSPEND ? "suspend" :
+                  a == ACTION_HIBERNATE ? "hibernate" : "hybrid-sleep");
+
+        return -EPERM;
+#else
+        return 0;
+#endif
+}
+
 static int start_special(DBusConnection *bus, char **args) {
         enum action a;
         int r;
@@ -1804,6 +1903,12 @@ static int start_special(DBusConnection *bus, char **args) {
              a == ACTION_KEXEC ||
              a == ACTION_EXIT))
                 return daemon_reload(bus, args);
+
+        if (arg_force <= 0) {
+                r = check_inhibitors(bus, a);
+                if (r < 0)
+                        return r;
+        }
 
         /* first try logind, to allow authentication with polkit */
         if (geteuid() != 0 &&
@@ -3895,6 +4000,8 @@ static int systemctl_help(void) {
                "                      pending\n"
                "     --ignore-dependencies\n"
                "                      When queueing a new job, ignore all its dependencies\n"
+               "  -i --ignore-inhibitors\n"
+               "                      When shutting down or sleeping, ignore inhibitors\n"
                "     --kill-who=WHO   Who to send signal to\n"
                "  -s --signal=SIGNAL  Which signal to send\n"
                "  -H --host=[USER@]HOST\n"
@@ -4105,6 +4212,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "full",      no_argument,       NULL, ARG_FULL      },
                 { "fail",      no_argument,       NULL, ARG_FAIL      },
                 { "ignore-dependencies", no_argument, NULL, ARG_IGNORE_DEPENDENCIES },
+                { "ignore-inhibitors", no_argument, NULL, 'i'         },
                 { "user",      no_argument,       NULL, ARG_USER      },
                 { "system",    no_argument,       NULL, ARG_SYSTEM    },
                 { "global",    no_argument,       NULL, ARG_GLOBAL    },
@@ -4134,7 +4242,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ht:p:aqfs:H:Pn:o:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ht:p:aqfs:H:Pn:o:i", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -4298,6 +4406,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 log_error("Unknown output '%s'.", optarg);
                                 return -EINVAL;
                         }
+                        break;
+
+                case 'i':
+                        arg_ignore_inhibitors = true;
                         break;
 
                 case '?':
@@ -5172,6 +5284,12 @@ static _noreturn_ void halt_now(enum action a) {
 static int halt_main(DBusConnection *bus) {
         int r;
 
+        if (arg_when <= 0 && arg_force <= 0) {
+                r = check_inhibitors(bus, arg_action);
+                if (r < 0)
+                        return r;
+        }
+
         if (geteuid() != 0) {
                 /* Try logind if we are a normal user and no special
                  * mode applies. Maybe PolicyKit allows us to shutdown
@@ -5179,7 +5297,7 @@ static int halt_main(DBusConnection *bus) {
 
                 if (arg_when <= 0 &&
                     !arg_dry &&
-                    !arg_force &&
+                    arg_force <= 0 &&
                     (arg_action == ACTION_POWEROFF ||
                      arg_action == ACTION_REBOOT)) {
                         r = reboot_with_logind(bus, arg_action);
