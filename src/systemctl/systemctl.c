@@ -1791,7 +1791,16 @@ static int check_inhibitors(DBusConnection *bus, enum action a) {
         int r;
         unsigned c = 0;
 
-        if (arg_ignore_inhibitors)
+        if (!bus)
+                return 0;
+
+        if (arg_ignore_inhibitors || arg_force > 0)
+                return 0;
+
+        if (arg_when > 0)
+                return 0;
+
+        if (geteuid() == 0)
                 return 0;
 
         if (!on_tty())
@@ -1890,6 +1899,10 @@ static int start_special(DBusConnection *bus, char **args) {
 
         a = verb_to_action(args[0]);
 
+        r = check_inhibitors(bus, a);
+        if (r < 0)
+                return r;
+
         if (arg_force >= 2 && geteuid() != 0) {
                 log_error("Must be root.");
                 return -EPERM;
@@ -1908,12 +1921,6 @@ static int start_special(DBusConnection *bus, char **args) {
              a == ACTION_KEXEC ||
              a == ACTION_EXIT))
                 return daemon_reload(bus, args);
-
-        if (arg_force <= 0) {
-                r = check_inhibitors(bus, a);
-                if (r < 0)
-                        return r;
-        }
 
         /* first try logind, to allow authentication with polkit */
         if (geteuid() != 0 &&
@@ -5304,11 +5311,9 @@ static _noreturn_ void halt_now(enum action a) {
 static int halt_main(DBusConnection *bus) {
         int r;
 
-        if (arg_when <= 0 && arg_force <= 0) {
-                r = check_inhibitors(bus, arg_action);
-                if (r < 0)
-                        return r;
-        }
+        r = check_inhibitors(bus, arg_action);
+        if (r < 0)
+                return r;
 
         if (geteuid() != 0) {
                 /* Try logind if we are a normal user and no special
