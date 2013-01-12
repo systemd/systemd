@@ -1,13 +1,13 @@
 # translation of pl.po to Polish
-# Piotr Drąg <piotrdrag@gmail.com>, 2011.
+# Piotr Drąg <piotrdrag@gmail.com>, 2011, 2013.
 # Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>, 2011.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2011-10-14 16:18+0200\n"
-"PO-Revision-Date: 2011-10-14 16:20+0200\n"
+"POT-Creation-Date: 2013-01-12 19:29+0100\n"
+"PO-Revision-Date: 2013-01-12 19:30+0100\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -15,16 +15,19 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: ../src/org.freedesktop.hostname1.policy.in.h:1
-msgid "Authentication is required to set local machine information."
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby ustawić informacje o lokalnym komputerze."
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
+msgid "Set host name"
+msgstr "Ustawienie nazwy komputera"
 
-#: ../src/org.freedesktop.hostname1.policy.in.h:2
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:2
 msgid "Authentication is required to set the local host name."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić nazwę lokalnego komputera."
 
-#: ../src/org.freedesktop.hostname1.policy.in.h:3
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:3
+msgid "Set static host name"
+msgstr "Ustawienie statycznej nazwy komputera"
+
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
 msgid ""
 "Authentication is required to set the statically configured local host name, "
 "as well as the pretty host name."
@@ -32,117 +35,321 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić statycznie skonfigurowaną nazwę "
 "lokalnego komputera, a także jego ładną nazwę."
 
-#: ../src/org.freedesktop.hostname1.policy.in.h:4
-msgid "Set host name"
-msgstr "Ustawienie nazwy komputera"
-
-#: ../src/org.freedesktop.hostname1.policy.in.h:5
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:5
 msgid "Set machine information"
 msgstr "Ustawienie informacji o komputerze"
 
-#: ../src/org.freedesktop.hostname1.policy.in.h:6
-msgid "Set static host name"
-msgstr "Ustawienie statycznej nazwy komputera"
+#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:6
+msgid "Authentication is required to set local machine information."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby ustawić informacje o lokalnym komputerze."
 
-#: ../src/org.freedesktop.locale1.policy.in.h:1
-msgid "Authentication is required to set the system keyboard settings."
-msgstr "Wymagane jest uwierzytelnienie, aby ustawić klawiaturę systemu."
-
-#: ../src/org.freedesktop.locale1.policy.in.h:2
-msgid "Authentication is required to set the system locale."
-msgstr "Wymagane jest uwierzytelnienie, aby ustawić lokalizację systemu."
-
-#: ../src/org.freedesktop.locale1.policy.in.h:3
-msgid "Set system keyboard settings"
-msgstr "Ustawienie klawiatury systemu"
-
-#: ../src/org.freedesktop.locale1.policy.in.h:4
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:1
 msgid "Set system locale"
 msgstr "Ustawienie lokalizacji systemu"
 
-#: ../src/org.freedesktop.login1.policy.in.h:1
-msgid "Allow attaching devices to seats"
-msgstr "Zezwolenie na podłączanie urządzeń do stanowisk"
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:2
+msgid "Authentication is required to set the system locale."
+msgstr "Wymagane jest uwierzytelnienie, aby ustawić lokalizację systemu."
 
-#: ../src/org.freedesktop.login1.policy.in.h:2
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:3
+msgid "Set system keyboard settings"
+msgstr "Ustawienie klawiatury systemu"
+
+#: ../src/locale/org.freedesktop.locale1.policy.in.h:4
+msgid "Authentication is required to set the system keyboard settings."
+msgstr "Wymagane jest uwierzytelnienie, aby ustawić klawiaturę systemu."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:1
+msgid "Allow applications to inhibit system shutdown"
+msgstr "Zezwolenie programom na wstrzymywanie wyłączenia systemu"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:2
+msgid ""
+"Authentication is required to allow an application to inhibit system "
+"shutdown."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
+"wyłączenia systemu."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:3
+msgid "Allow applications to delay system shutdown"
+msgstr "Zezwolenie programom na opóźnienie wyłączenia systemu"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:4
+msgid ""
+"Authentication is required to allow an application to delay system shutdown."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić programowi na opóźnienie "
+"wyłączenia systemu."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:5
+msgid "Allow applications to inhibit system sleep"
+msgstr "Zezwolenie programom na wstrzymanie uśpienia systemu"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:6
+msgid ""
+"Authentication is required to allow an application to inhibit system sleep."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
+"uśpienia systemu."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:7
+msgid "Allow applications to delay system sleep"
+msgstr "Zezwolenie programom na opóźnienie uśpienia systemu"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:8
+msgid ""
+"Authentication is required to allow an application to delay system sleep."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić programowi na opóźnienie "
+"uśpienia systemu."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:9
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "Zezwolenie programom na wstrzymanie automatycznego uśpienia systemu"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:10
+msgid ""
+"Authentication is required to allow an application to inhibit automatic "
+"system suspend."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
+"automatycznego uśpienia systemu."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:11
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr ""
+"Zezwolenie programom na wstrzymanie obsługi klawisza zasilania przez system"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:12
+msgid ""
+"Authentication is required to allow an application to inhibit system "
+"handling of the power key."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
+"obsługi klawisza zasilania przez system."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:13
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr ""
+"Zezwolenie programom na wstrzymanie obsługi klawisza uśpienia przez system"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:14
+msgid ""
+"Authentication is required to allow an application to inhibit system "
+"handling of the suspend key."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
+"obsługi klawisza uśpienia przez system."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:15
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr ""
+"Zezwolenie programom na wstrzymanie obsługi klawisza hibernacji przez system"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:16
+msgid ""
+"Authentication is required to allow an application to inhibit system "
+"handling of the hibernate key."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
+"obsługi klawisza hibernacji przez system."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:17
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr ""
+"Zezwolenie programom na wstrzymanie obsługi przełącznika pokrywy przez system"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:18
+msgid ""
+"Authentication is required to allow an application to inhibit system "
+"handling of the lid switch."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zezwolić programowi na wstrzymanie "
+"obsługi przełącznika pokrywy przez system."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:19
 msgid "Allow non-logged-in users to run programs"
 msgstr "Zezwolenie niezalogowanym użytkownikom na uruchamianie programów"
 
-#: ../src/org.freedesktop.login1.policy.in.h:3
+#: ../src/login/org.freedesktop.login1.policy.in.h:20
 msgid ""
-"Authentication is required to allow a non-logged-in user to run programs"
+"Authentication is required to allow a non-logged-in user to run programs."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby ustawić zezwolić niezalogowanym "
-"użytkownikom na uruchamianie programów"
+"Wymagane jest uwierzytelnienie, aby zezwolić niezalogowanemu użytkownikowi "
+"na uruchamianie programów."
 
-#: ../src/org.freedesktop.login1.policy.in.h:4
-msgid "Authentication is required to allow attaching a device to a seat"
+#: ../src/login/org.freedesktop.login1.policy.in.h:21
+msgid "Allow attaching devices to seats"
+msgstr "Zezwolenie na podłączanie urządzeń do stanowisk"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:22
+msgid "Authentication is required for attaching a device to a seat."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić na podłączenie urządzenia do "
-"stanowiska"
+"Wymagane jest uwierzytelnienie, aby podłączyć urządzenie do stanowiska."
 
-#: ../src/org.freedesktop.login1.policy.in.h:5
-msgid "Authentication is required to allow powering off the system"
-msgstr "Wymagane jest uwierzytelnienie, aby zezwolić na wyłączanie systemu"
-
-#: ../src/org.freedesktop.login1.policy.in.h:6
-msgid ""
-"Authentication is required to allow powering off the system while other "
-"users are logged in"
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić na wyłączanie systemu, kiedy są "
-"zalogowani inni użytkownicy"
-
-#: ../src/org.freedesktop.login1.policy.in.h:7
-msgid "Authentication is required to allow rebooting the system"
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić na ponowne uruchamianie systemu"
-
-#: ../src/org.freedesktop.login1.policy.in.h:8
-msgid ""
-"Authentication is required to allow rebooting the system while other users "
-"are logged in"
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić na ponowne uruchamianie "
-"systemu, kiedy są zalogowani inni użytkownicy"
-
-#: ../src/org.freedesktop.login1.policy.in.h:9
-msgid ""
-"Authentication is required to allow resetting how devices are attached to "
-"seats"
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby zezwolić na ponowne ustawianie sposobu "
-"podłączenia urządzeń do stanowisk"
-
-#: ../src/org.freedesktop.login1.policy.in.h:10
+#: ../src/login/org.freedesktop.login1.policy.in.h:23
 msgid "Flush device to seat attachments"
 msgstr "Usunięcie podłączenia urządzeń do stanowisk"
 
-#: ../src/org.freedesktop.login1.policy.in.h:11
+#: ../src/login/org.freedesktop.login1.policy.in.h:24
+msgid ""
+"Authentication is required for resetting how devices are attached to seats."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby ponownie ustawić sposób podłączenia "
+"urządzeń do stanowisk."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:25
 msgid "Power off the system"
 msgstr "Wyłączenie systemu"
 
-#: ../src/org.freedesktop.login1.policy.in.h:12
-msgid "Power off the system when other users are logged in"
+#: ../src/login/org.freedesktop.login1.policy.in.h:26
+msgid "Authentication is required for powering off the system."
+msgstr "Wymagane jest uwierzytelnienie, aby wyłączyć system."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:27
+msgid "Power off the system while other users are logged in"
 msgstr "Wyłączenie systemu, kiedy są zalogowani inni użytkownicy"
 
-#: ../src/org.freedesktop.login1.policy.in.h:13
+#: ../src/login/org.freedesktop.login1.policy.in.h:28
+msgid ""
+"Authentication is required for powering off the system while other users are "
+"logged in."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby wyłączyć system, kiedy są zalogowani "
+"inni użytkownicy."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:29
+msgid "Power off the system while an application asked to inhibit it"
+msgstr "Wyłączenie systemu, kiedy program zażądał jego wstrzymania"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:30
+msgid ""
+"Authentication is required for powering off the system while an application "
+"asked to inhibit it."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby wyłączyć system, kiedy program zażądał "
+"jego wstrzymania."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:31
 msgid "Reboot the system"
 msgstr "Ponowne uruchomienie systemu"
 
-#: ../src/org.freedesktop.login1.policy.in.h:14
-msgid "Reboot the system when other users are logged in"
+#: ../src/login/org.freedesktop.login1.policy.in.h:32
+msgid "Authentication is required for rebooting the system."
+msgstr "Wymagane jest uwierzytelnienie, aby ponownie uruchomić system."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:33
+msgid "Reboot the system while other users are logged in"
 msgstr "Ponowne uruchomienie systemu, kiedy są zalogowani inni użytkownicy"
 
-#: ../src/org.freedesktop.timedate1.policy.in.h:1
+#: ../src/login/org.freedesktop.login1.policy.in.h:34
 msgid ""
-"Authentication is required to control whether network time synchronization "
-"shall be enabled."
+"Authentication is required for rebooting the system while other users are "
+"logged in."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
-"czasu przez sieć."
+"Wymagane jest uwierzytelnienie, aby ponownie uruchomić system, kiedy są "
+"zalogowani inni użytkownicy."
 
-#: ../src/org.freedesktop.timedate1.policy.in.h:2
+#: ../src/login/org.freedesktop.login1.policy.in.h:35
+msgid "Reboot the system while an application asked to inhibit it"
+msgstr ""
+"Ponowne uruchomienie systemu, kiedy program poprosił o jego wstrzymanie"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:36
+msgid ""
+"Authentication is required for rebooting the system while an application "
+"asked to inhibit it."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby ponownie uruchomić system, kiedy program "
+"zażądał jego wstrzymania."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:37
+msgid "Suspend the system"
+msgstr "Uśpienie systemu"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:38
+msgid "Authentication is required for suspending the system."
+msgstr "Wymagane jest uwierzytelnienie, aby uśpić system."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:39
+msgid "Suspend the system while other users are logged in"
+msgstr "Uśpienie systemu, kiedy są zalogowani inni użytkownicy"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:40
+msgid ""
+"Authentication is required for suspending the system while other users are "
+"logged in."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby uśpić system, kiedy są zalogowani inni "
+"użytkownicy."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:41
+msgid "Suspend the system while an application asked to inhibit it"
+msgstr "Uśpienie systemu, kiedy program poprosił o jego wstrzymanie"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:42
+msgid ""
+"Authentication is required for suspending the system while an application "
+"asked to inhibit it."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby uśpić system, kiedy program zażądał jego "
+"wstrzymania."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:43
+msgid "Hibernate the system"
+msgstr "Hibernacja systemu"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:44
+msgid "Authentication is required for hibernating the system."
+msgstr "Wymagane jest uwierzytelnienie, aby zahibernować system."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:45
+msgid "Hibernate the system while other users are logged in"
+msgstr "Hibernacja systemu, kiedy są zalogowani inni użytkownicy"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:46
+msgid ""
+"Authentication is required for hibernating the system while other users are "
+"logged in."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zahibernować system, kiedy są zalogowani "
+"inni użytkownicy."
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:47
+msgid "Hibernate the system while an application asked to inhibit it"
+msgstr "Hibernacja systemu, kiedy program zażądał jej wstrzymania"
+
+#: ../src/login/org.freedesktop.login1.policy.in.h:48
+msgid ""
+"Authentication is required for hibernating the system while an application "
+"asked to inhibit it."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zahibernować system, kiedy program "
+"zażądał jej wstrzymania."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
+msgid "Set system time"
+msgstr "Ustawienie czasu systemu"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:2
+msgid "Authentication is required to set the system time."
+msgstr "Wymagane jest uwierzytelnienie, aby ustawić czas systemu."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:3
+msgid "Set system timezone"
+msgstr "Ustawienie strefy czasowej systemu"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:4
+msgid "Authentication is required to set the system timezone."
+msgstr "Wymagane jest uwierzytelnienie, aby ustawić strefę czasową systemu."
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:5
+msgid "Set RTC to local timezone or UTC"
+msgstr "Ustawienie RTC na lokalną strefę czasową lub strefę UTC"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:6
 msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
@@ -150,26 +357,35 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy RTC przechowuje czas "
 "lokalny lub czas UTC."
 
-#: ../src/org.freedesktop.timedate1.policy.in.h:3
-msgid "Authentication is required to set the system time."
-msgstr "Wymagane jest uwierzytelnienie, aby ustawić czas systemu."
-
-#: ../src/org.freedesktop.timedate1.policy.in.h:4
-msgid "Authentication is required to set the system timezone."
-msgstr "Wymagane jest uwierzytelnienie, aby ustawić strefę czasową systemu."
-
-#: ../src/org.freedesktop.timedate1.policy.in.h:5
-msgid "Set RTC to local timezone or UTC"
-msgstr "Ustawienie RTC na lokalną strefę czasową lub strefę UTC"
-
-#: ../src/org.freedesktop.timedate1.policy.in.h:6
-msgid "Set system time"
-msgstr "Ustawienie czasu systemu"
-
-#: ../src/org.freedesktop.timedate1.policy.in.h:7
-msgid "Set system timezone"
-msgstr "Ustawienie strefy czasowej systemu"
-
-#: ../src/org.freedesktop.timedate1.policy.in.h:8
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:7
 msgid "Turn network time synchronization on or off"
 msgstr "Włączenie lub wyłączenie synchronizacji czasu przez sieć"
+
+#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:8
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
+"czasu przez sieć."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+msgid "Send passphrase back to system"
+msgstr "Wysłanie hasła z powrotem do systemu"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby wysłać podane hasło z powrotem do "
+"systemu."
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+msgid "Privileged system and service manager access"
+msgstr "Uprawniony dostęp do menedżera systemu i usług"
+
+#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+msgid "Authentication is required to access the system and service manager."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby uzyskać dostęp do menedżera systemu i "
+"usług."
