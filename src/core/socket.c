@@ -308,7 +308,7 @@ static int socket_add_device_link(Socket *s) {
 
         assert(s);
 
-        if (!s->bind_to_device)
+        if (!s->bind_to_device || streq(s->bind_to_device, "lo"))
                 return 0;
 
         if (asprintf(&t, "/sys/subsystem/net/devices/%s", s->bind_to_device) < 0)
