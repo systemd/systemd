@@ -33,6 +33,7 @@
 #include <sys/prctl.h>
 #include <sys/capability.h>
 #include <getopt.h>
+#include <sys/poll.h>
 #include <sys/epoll.h>
 #include <termios.h>
 #include <sys/signalfd.h>
@@ -1204,12 +1205,11 @@ int main(int argc, char *argv[]) {
 
         for (;;) {
                 siginfo_t status;
+                int pipefd[2];
 
-                if (saved_attr_valid) {
-                        if (tcsetattr(STDIN_FILENO, TCSANOW, &raw_attr) < 0) {
-                                log_error("Failed to set terminal attributes: %m");
-                                goto finish;
-                        }
+                if(pipe2(pipefd, O_NONBLOCK|O_CLOEXEC) < 0) {
+                        log_error("pipe2(): %m");
+                        goto finish;
                 }
 
                 pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_private_network ? CLONE_NEWNET : 0), NULL);
@@ -1224,7 +1224,6 @@ int main(int argc, char *argv[]) {
 
                 if (pid == 0) {
                         /* child */
-
                         const char *home = NULL;
                         uid_t uid = (uid_t) -1;
                         gid_t gid = (gid_t) -1;
@@ -1245,8 +1244,19 @@ int main(int argc, char *argv[]) {
                         envp[2] = strv_find_prefix(environ, "TERM=");
                         n_env = 3;
 
+                        close(pipefd[1]);
+                        fd_wait_for_event(pipefd[0], POLLHUP, -1);
+                        close(pipefd[0]);
+
                         close_nointr_nofail(master);
                         master = -1;
+
+                        if (saved_attr_valid) {
+                                if (tcsetattr(STDIN_FILENO, TCSANOW, &raw_attr) < 0) {
+                                        log_error("Failed to set terminal attributes: %m");
+                                        goto child_fail;
+                                }
+                        }
 
                         close_nointr(STDIN_FILENO);
                         close_nointr(STDOUT_FILENO);
@@ -1481,6 +1491,10 @@ int main(int argc, char *argv[]) {
                 child_fail:
                         _exit(EXIT_FAILURE);
                 }
+
+                log_info("Init process in the container running as PID %d", pid);
+                close(pipefd[0]);
+                close(pipefd[1]);
 
                 fdset_free(fds);
                 fds = NULL;
