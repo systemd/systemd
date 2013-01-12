@@ -326,13 +326,13 @@ static char *sysv_translate_name(const char *name) {
                 return NULL;
 
         if (endswith(name, ".sh"))
-                /* Drop Debian-style .sh suffix */
+                /* Drop .sh suffix */
                 strcpy(stpcpy(r, name) - 3, ".service");
         if (startswith(name, "rc."))
-                /* Drop Frugalware-style rc. prefix */
+                /* Drop rc. prefix */
                 strcpy(stpcpy(r, name + 3), ".service");
         else
-                /* Normal init scripts */
+                /* Normal init script name */
                 strcpy(stpcpy(r, name), ".service");
 
         return r;
