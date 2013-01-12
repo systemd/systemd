@@ -1012,14 +1012,14 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 r = service_load_sysv_path(s, path);
 
                 if (r >= 0 && UNIT(s)->load_state == UNIT_STUB) {
-                        /* Try Debian style *.sh source'able init scripts */
+                        /* Try *.sh source'able init scripts */
                         strcat(path, ".sh");
                         r = service_load_sysv_path(s, path);
                 }
                 free(path);
 
                 if (r >= 0 && UNIT(s)->load_state == UNIT_STUB) {
-                        /* Try Frugalware style rc.* init scripts */
+                        /* Try rc.* init scripts */
 
                         path = strjoin(*p, "/rc.", name, NULL);
                         if (!path)
