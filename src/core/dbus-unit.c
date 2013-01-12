@@ -27,6 +27,9 @@
 #include "bus-errors.h"
 #include "dbus-common.h"
 #include "selinux-access.h"
+#include "cgroup-util.h"
+#include "strv.h"
+#include "path-util.h"
 
 const char bus_unit_interface[] _introspect_("Unit") = BUS_UNIT_INTERFACE;
 
@@ -468,6 +471,69 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 if (!reply)
                         goto oom;
 
+        } else if (streq_ptr(dbus_message_get_member(message), "SetControlGroups")) {
+                DBusMessageIter iter;
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                r = bus_unit_cgroup_set(u, &iter);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (streq_ptr(dbus_message_get_member(message), "UnsetControlGroups")) {
+                DBusMessageIter iter;
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                r = bus_unit_cgroup_set(u, &iter);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+        } else if (streq_ptr(dbus_message_get_member(message), "SetControlGroupAttributes")) {
+                DBusMessageIter iter;
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                r = bus_unit_cgroup_attribute_set(u, &iter);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (streq_ptr(dbus_message_get_member(message), "UnsetControlGroupAttributes")) {
+                DBusMessageIter iter;
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                r = bus_unit_cgroup_attribute_unset(u, &iter);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
         } else if (UNIT_VTABLE(u)->bus_message_handler)
                 return UNIT_VTABLE(u)->bus_message_handler(u, connection, message);
         else
@@ -809,6 +875,180 @@ oom:
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
+int bus_unit_cgroup_set(Unit *u, DBusMessageIter *iter) {
+        int r;
+        _cleanup_strv_free_ char **a = NULL;
+        char **name;
+
+        assert(u);
+        assert(iter);
+
+        if (!unit_get_exec_context(u))
+                return -EINVAL;
+
+        r = bus_parse_strv_iter(iter, &a);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(name, a) {
+                _cleanup_free_ char *controller = NULL, *old_path = NULL, *new_path = NULL;
+                CGroupBonding *b;
+
+                r = cg_split_spec(*name, &controller, &new_path);
+                if (r < 0)
+                        return r;
+
+                b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
+                if (b) {
+                        old_path = strdup(b->path);
+                        if (!old_path)
+                                return -ENOMEM;
+                }
+
+                r = unit_add_cgroup_from_text(u, *name, true, &b);
+                if (r < 0)
+                        return r;
+
+                if (r > 0) {
+                        /* Try to move things to the new place, and clean up the old place */
+                        cgroup_bonding_realize(b);
+                        cgroup_bonding_migrate(b, u->cgroup_bondings);
+
+                        if (old_path)
+                                cg_trim(controller, old_path, true);
+                }
+        }
+
+        return 0;
+}
+
+int bus_unit_cgroup_unset(Unit *u, DBusMessageIter *iter) {
+        _cleanup_strv_free_ char **a = NULL;
+        char **name;
+        int r;
+
+        assert(u);
+        assert(iter);
+
+        if (!unit_get_exec_context(u))
+                return -EINVAL;
+
+        r = bus_parse_strv_iter(iter, &a);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(name, a) {
+                _cleanup_free_ char *controller = NULL, *path = NULL, *target = NULL;
+                CGroupBonding *b;
+
+                r = cg_split_spec(*name, &controller, &path);
+                if (r < 0)
+                        return r;
+
+                b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
+                if (!b)
+                        continue;
+
+                if (path && !path_equal(path, b->path))
+                        continue;
+
+                if (b->essential)
+                        return -EINVAL;
+
+                /* Try to migrate the old group away */
+                if (cg_get_by_pid(controller, 0, &target) >= 0)
+                        cgroup_bonding_migrate_to(u->cgroup_bondings, target, false);
+
+                cgroup_bonding_free(b, true);
+        }
+
+        return 0;
+}
+
+int bus_unit_cgroup_attribute_set(Unit *u, DBusMessageIter *iter) {
+        DBusMessageIter sub, sub2;
+        int r;
+
+        assert(u);
+        assert(iter);
+
+        if (!unit_get_exec_context(u))
+                return -EINVAL;
+
+        if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(iter) != DBUS_TYPE_STRUCT)
+            return -EINVAL;
+
+        dbus_message_iter_recurse(iter, &sub);
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                const char *name, *value;
+                CGroupAttribute *a;
+
+                assert_se(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT);
+
+                dbus_message_iter_recurse(&sub, &sub2);
+
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &name, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &value, false) < 0)
+                        return -EINVAL;
+
+                dbus_message_iter_next(&sub);
+
+                r = unit_add_cgroup_attribute(u, NULL, name, value, NULL, &a);
+                if (r < 0)
+                        return r;
+
+                if (r > 0) {
+                        CGroupBonding *b;
+
+                        b = cgroup_bonding_find_list(u->cgroup_bondings, a->controller);
+                        if (!b) {
+                                /* Doesn't exist yet? Then let's add it */
+                                r = unit_add_cgroup_from_text(u, a->controller, false, &b);
+                                if (r < 0)
+                                        return r;
+
+                                if (r > 0) {
+                                        cgroup_bonding_realize(b);
+                                        cgroup_bonding_migrate(b, u->cgroup_bondings);
+                                }
+                        }
+
+                        /* Make it count */
+                        cgroup_attribute_apply(a, u->cgroup_bondings);
+                }
+        }
+
+        return 0;
+}
+
+int bus_unit_cgroup_attribute_unset(Unit *u, DBusMessageIter *iter) {
+        _cleanup_strv_free_ char **l = NULL;
+        char **name;
+        int r;
+
+        assert(u);
+        assert(iter);
+
+        if (!unit_get_exec_context(u))
+                return -EINVAL;
+
+        r = bus_parse_strv_iter(iter, &l);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(name, l) {
+                CGroupAttribute *a;
+
+                a = cgroup_attribute_find_list(u->cgroup_attributes, NULL, *name);
+                if (a)
+                        cgroup_attribute_free(a);
+        }
+
+        return 0;
+}
+
 const BusProperty bus_unit_properties[] = {
         { "Id",                   bus_property_append_string,         "s", offsetof(Unit, id),                                         true },
         { "Names",                bus_unit_append_names,             "as", 0 },
@@ -864,14 +1104,18 @@ const BusProperty bus_unit_properties[] = {
         { "OnFailureIsolate",     bus_property_append_bool,           "b", offsetof(Unit, on_failure_isolate)                 },
         { "IgnoreOnIsolate",      bus_property_append_bool,           "b", offsetof(Unit, ignore_on_isolate)                  },
         { "IgnoreOnSnapshot",     bus_property_append_bool,           "b", offsetof(Unit, ignore_on_snapshot)                 },
-        { "DefaultControlGroup",  bus_unit_append_default_cgroup,     "s", 0 },
-        { "ControlGroup",         bus_unit_append_cgroups,           "as", 0 },
-        { "ControlGroupAttributes", bus_unit_append_cgroup_attrs,"a(sss)", 0 },
         { "NeedDaemonReload",     bus_unit_append_need_daemon_reload, "b", 0 },
         { "JobTimeoutUSec",       bus_property_append_usec,           "t", offsetof(Unit, job_timeout)                        },
         { "ConditionTimestamp",   bus_property_append_usec,           "t", offsetof(Unit, condition_timestamp.realtime)       },
         { "ConditionTimestampMonotonic", bus_property_append_usec,    "t", offsetof(Unit, condition_timestamp.monotonic)      },
         { "ConditionResult",      bus_property_append_bool,           "b", offsetof(Unit, condition_result)                   },
         { "LoadError",            bus_unit_append_load_error,      "(ss)", 0 },
+        { NULL, }
+};
+
+const BusProperty bus_unit_cgroup_properties[] = {
+        { "DefaultControlGroup",    bus_unit_append_default_cgroup,     "s", 0 },
+        { "ControlGroups",          bus_unit_append_cgroups,           "as", 0 },
+        { "ControlGroupAttributes", bus_unit_append_cgroup_attrs,  "a(sss)", 0 },
         { NULL, }
 };

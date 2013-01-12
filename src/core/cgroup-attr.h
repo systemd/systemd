@@ -33,6 +33,8 @@ struct CGroupAttribute {
         char *name;
         char *value;
 
+        Unit *unit;
+
         CGroupAttributeMapCallback map_callback;
 
         LIST_FIELDS(CGroupAttribute, by_unit);
@@ -43,4 +45,5 @@ int cgroup_attribute_apply_list(CGroupAttribute *first, CGroupBonding *b);
 
 CGroupAttribute *cgroup_attribute_find_list(CGroupAttribute *first, const char *controller, const char *name);
 
+void cgroup_attribute_free(CGroupAttribute *a);
 void cgroup_attribute_free_list(CGroupAttribute *first);

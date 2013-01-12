@@ -1941,8 +1941,9 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
         assert(b->path);
 
         if (!b->controller) {
-                if (!(b->controller = strdup(SYSTEMD_CGROUP_CONTROLLER)))
-                        return -ENOMEM;
+                b->controller = strdup(SYSTEMD_CGROUP_CONTROLLER);
+                if (!b->controller)
+                        return log_oom();
 
                 b->ours = true;
         }
@@ -1956,7 +1957,8 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
                 l = hashmap_get(u->manager->cgroup_bondings, b->path);
                 LIST_PREPEND(CGroupBonding, by_path, l, b);
 
-                if ((r = hashmap_replace(u->manager->cgroup_bondings, b->path, l)) < 0) {
+                r = hashmap_replace(u->manager->cgroup_bondings, b->path, l);
+                if (r < 0) {
                         LIST_REMOVE(CGroupBonding, by_path, l, b);
                         return r;
                 }
@@ -1969,26 +1971,21 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
 }
 
 char *unit_default_cgroup_path(Unit *u) {
-        char *p;
-
         assert(u);
 
         if (u->instance) {
-                char *t;
+                _cleanup_free_ char *t = NULL;
 
                 t = unit_name_template(u->id);
                 if (!t)
                         return NULL;
 
-                p = strjoin(u->manager->cgroup_hierarchy, "/", t, "/", u->instance, NULL);
-                free(t);
+                return strjoin(u->manager->cgroup_hierarchy, "/", t, "/", u->instance, NULL);
         } else
-                p = strjoin(u->manager->cgroup_hierarchy, "/", u->id, NULL);
-
-        return p;
+                return strjoin(u->manager->cgroup_hierarchy, "/", u->id, NULL);
 }
 
-int unit_add_cgroup_from_text(Unit *u, const char *name) {
+int unit_add_cgroup_from_text(Unit *u, const char *name, bool overwrite, CGroupBonding **ret) {
         char *controller = NULL, *path = NULL;
         CGroupBonding *b = NULL;
         bool ours = false;
@@ -1997,7 +1994,8 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
         assert(u);
         assert(name);
 
-        if ((r = cg_split_spec(name, &controller, &path)) < 0)
+        r = cg_split_spec(name, &controller, &path);
+        if (r < 0)
                 return r;
 
         if (!path) {
@@ -2013,16 +2011,42 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
         if (!path || !controller) {
                 free(path);
                 free(controller);
-
-                return -ENOMEM;
+                return log_oom();
         }
 
-        if (cgroup_bonding_find_list(u->cgroup_bondings, controller)) {
+        b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
+        if (b) {
+                if (streq(path, b->path)) {
+                        free(path);
+                        free(controller);
+
+                        if (ret)
+                                *ret = b;
+                        return 0;
+                }
+
+                if (overwrite && !b->essential) {
+                        free(controller);
+
+                        free(b->path);
+                        b->path = path;
+
+                        b->ours = ours;
+                        b->realized = false;
+
+                        if (ret)
+                                *ret = b;
+
+                        return 1;
+                }
+
                 r = -EEXIST;
+                b = NULL;
                 goto fail;
         }
 
-        if (!(b = new0(CGroupBonding, 1))) {
+        b = new0(CGroupBonding, 1);
+        if (!b) {
                 r = -ENOMEM;
                 goto fail;
         }
@@ -2032,10 +2056,14 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
         b->ours = ours;
         b->essential = streq(controller, SYSTEMD_CGROUP_CONTROLLER);
 
-        if ((r = unit_add_cgroup(u, b)) < 0)
+        r = unit_add_cgroup(u, b);
+        if (r < 0)
                 goto fail;
 
-        return 0;
+        if (ret)
+                *ret = b;
+
+        return 1;
 
 fail:
         free(path);
@@ -2057,10 +2085,12 @@ static int unit_add_one_default_cgroup(Unit *u, const char *controller) {
         if (cgroup_bonding_find_list(u->cgroup_bondings, controller))
                 return 0;
 
-        if (!(b = new0(CGroupBonding, 1)))
+        b = new0(CGroupBonding, 1);
+        if (!b)
                 return -ENOMEM;
 
-        if (!(b->controller = strdup(controller)))
+        b->controller = strdup(controller);
+        if (!b)
                 goto fail;
 
         b->path = unit_default_cgroup_path(u);
@@ -2070,7 +2100,8 @@ static int unit_add_one_default_cgroup(Unit *u, const char *controller) {
         b->ours = true;
         b->essential = streq(controller, SYSTEMD_CGROUP_CONTROLLER);
 
-        if ((r = unit_add_cgroup(u, b)) < 0)
+        r = unit_add_cgroup(u, b);
+        if (r < 0)
                 goto fail;
 
         return 0;
@@ -2096,7 +2127,8 @@ int unit_add_default_cgroups(Unit *u) {
         if (!u->manager->cgroup_hierarchy)
                 return 0;
 
-        if ((r = unit_add_one_default_cgroup(u, NULL)) < 0)
+        r = unit_add_one_default_cgroup(u, NULL);
+        if (r < 0)
                 return r;
 
         STRV_FOREACH(c, u->manager->default_controllers)
@@ -2111,12 +2143,18 @@ int unit_add_default_cgroups(Unit *u) {
 CGroupBonding* unit_get_default_cgroup(Unit *u) {
         assert(u);
 
-        return cgroup_bonding_find_list(u->cgroup_bondings, SYSTEMD_CGROUP_CONTROLLER);
+        return cgroup_bonding_find_list(u->cgroup_bondings, NULL);
 }
 
-int unit_add_cgroup_attribute(Unit *u, const char *controller, const char *name, const char *value, CGroupAttributeMapCallback map_callback) {
-        int r;
-        char *c = NULL;
+int unit_add_cgroup_attribute(
+                Unit *u,
+                const char *controller,
+                const char *name,
+                const char *value,
+                CGroupAttributeMapCallback map_callback,
+                CGroupAttribute **ret) {
+
+        _cleanup_free_ char *c = NULL;
         CGroupAttribute *a;
 
         assert(u);
@@ -2137,16 +2175,36 @@ int unit_add_cgroup_attribute(Unit *u, const char *controller, const char *name,
                 controller = c;
         }
 
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
-                r = -EINVAL;
-                goto finish;
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER))
+                return -EINVAL;
+
+        a = cgroup_attribute_find_list(u->cgroup_attributes, controller, name);
+        if (a) {
+                char *v;
+
+                if (streq(value, a->value)) {
+                        if (ret)
+                                *ret = a;
+
+                        return 0;
+                }
+
+                v = strdup(value);
+                if (!v)
+                        return -ENOMEM;
+
+                free(a->value);
+                a->value = v;
+
+                if (ret)
+                        *ret = a;
+
+                return 1;
         }
 
         a = new0(CGroupAttribute, 1);
-        if (!a) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        if (!a)
+                return -ENOMEM;
 
         if (c) {
                 a->controller = c;
@@ -2167,14 +2225,14 @@ int unit_add_cgroup_attribute(Unit *u, const char *controller, const char *name,
         }
 
         a->map_callback = map_callback;
+        a->unit = u;
 
         LIST_PREPEND(CGroupAttribute, by_unit, u->cgroup_attributes, a);
 
-        r = 0;
+        if (ret)
+                *ret = a;
 
-finish:
-        free(c);
-        return r;
+        return 1;
 }
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {

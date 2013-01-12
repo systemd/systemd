@@ -110,7 +110,6 @@ void cgroup_bonding_trim_list(CGroupBonding *first, bool delete_root) {
                 cgroup_bonding_trim(b, delete_root);
 }
 
-
 int cgroup_bonding_install(CGroupBonding *b, pid_t pid, const char *cgroup_suffix) {
         char *p = NULL;
         const char *path;
@@ -149,6 +148,34 @@ int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid, const char *cgr
         }
 
         return 0;
+}
+
+int cgroup_bonding_migrate(CGroupBonding *b, CGroupBonding *list) {
+        CGroupBonding *q;
+        int ret = 0;
+
+        LIST_FOREACH(by_unit, q, list) {
+                int r;
+
+                if (q == b)
+                        continue;
+
+                if (!q->ours)
+                        continue;
+
+                r = cg_migrate_recursive(q->controller, q->path, b->controller, b->path, true, false);
+                if (r < 0 && ret == 0)
+                        ret = r;
+        }
+
+        return ret;
+}
+
+int cgroup_bonding_migrate_to(CGroupBonding *b, const char *target, bool rem) {
+        assert(b);
+        assert(target);
+
+        return cg_migrate_recursive(b->controller, b->path, b->controller, target, true, rem);
 }
 
 int cgroup_bonding_set_group_access(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid) {
@@ -520,7 +547,8 @@ Unit* cgroup_unit_by_pid(Manager *m, pid_t pid) {
 CGroupBonding *cgroup_bonding_find_list(CGroupBonding *first, const char *controller) {
         CGroupBonding *b;
 
-        assert(controller);
+        if (!controller)
+                controller = SYSTEMD_CGROUP_CONTROLLER;
 
         LIST_FOREACH(by_unit, b, first)
                 if (streq(b->controller, controller))

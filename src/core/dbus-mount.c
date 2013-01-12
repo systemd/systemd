@@ -40,6 +40,7 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecRemount")                       \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
+        BUS_UNIT_CGROUP_INTERFACE                                       \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
@@ -159,6 +160,7 @@ DBusHandlerResult bus_mount_message_handler(Unit *u, DBusConnection *c, DBusMess
                 { "org.freedesktop.systemd1.Mount", bus_mount_properties,        m },
                 { "org.freedesktop.systemd1.Mount", bus_exec_context_properties, &m->exec_context },
                 { "org.freedesktop.systemd1.Mount", bus_kill_context_properties, &m->kill_context },
+                { "org.freedesktop.systemd1.Mount", bus_unit_cgroup_properties,  u },
                 { NULL, }
         };
 

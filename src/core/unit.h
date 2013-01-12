@@ -438,10 +438,10 @@ int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDep
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 
 int unit_add_cgroup(Unit *u, CGroupBonding *b);
-int unit_add_cgroup_from_text(Unit *u, const char *name);
+int unit_add_cgroup_from_text(Unit *u, const char *name, bool overwrite, CGroupBonding **ret);
 int unit_add_default_cgroups(Unit *u);
 CGroupBonding* unit_get_default_cgroup(Unit *u);
-int unit_add_cgroup_attribute(Unit *u, const char *controller, const char *name, const char *value, CGroupAttributeMapCallback map_callback);
+int unit_add_cgroup_attribute(Unit *u, const char *controller, const char *name, const char *value, CGroupAttributeMapCallback map_callback, CGroupAttribute **ret);
 
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);

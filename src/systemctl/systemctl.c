@@ -2025,6 +2025,110 @@ static int kill_unit(DBusConnection *bus, char **args) {
         return 0;
 }
 
+static int set_cgroup(DBusConnection *bus, char **args) {
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
+        DBusError error;
+        const char *method;
+        DBusMessageIter iter;
+        int r;
+        _cleanup_free_ char *n = NULL;
+
+        assert(bus);
+        assert(args);
+
+        dbus_error_init(&error);
+
+        method =
+                streq(args[0], "set-cgroup")  ? "SetUnitControlGroups" :
+                streq(args[0], "unset-group") ? "UnsetUnitControlGroups"
+                                              : "UnsetUnitControlGroupAttributes";
+
+        n = unit_name_mangle(args[1]);
+        if (!n)
+                return log_oom();
+
+        m = dbus_message_new_method_call(
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        method);
+        if (!m)
+                return log_oom();
+
+        dbus_message_iter_init_append(m, &iter);
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &n))
+                return log_oom();
+
+        r = bus_append_strv_iter(&iter, args + 2);
+        if (r < 0)
+                return log_oom();
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+                return -EIO;
+        }
+
+        return 0;
+}
+
+static int set_cgroup_attr(DBusConnection *bus, char **args) {
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
+        DBusError error;
+        DBusMessageIter iter, sub, sub2;
+        int r;
+        char **x, **y;
+        _cleanup_free_ char *n = NULL;
+
+        assert(bus);
+        assert(args);
+
+        dbus_error_init(&error);
+
+        if (strv_length(args) % 2 != 0) {
+                log_error("Expecting an uneven number of arguments!");
+                return -EINVAL;
+        }
+
+        n = unit_name_mangle(args[1]);
+        if (!n)
+                return log_oom();
+
+        m = dbus_message_new_method_call(
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "SetUnitControlGroupAttributes");
+        if (!m)
+                return log_oom();
+
+        dbus_message_iter_init_append(m, &iter);
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &n) ||
+            !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ss)", &sub))
+                return log_oom();
+
+        STRV_FOREACH_PAIR(x, y, args + 2) {
+                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, x) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, y) ||
+                    !dbus_message_iter_close_container(&sub, &sub2))
+                        return log_oom();
+        }
+
+        if (!dbus_message_iter_close_container(&iter, &sub))
+                return -ENOMEM;
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+                return -EIO;
+        }
+
+        return 0;
+}
+
 typedef struct ExecStatusInfo {
         char *name;
 
@@ -4076,6 +4180,12 @@ static int systemctl_help(void) {
                "  help [NAME...|PID...]            Show manual for one or more units\n"
                "  reset-failed [NAME...]          Reset failed state for all, one, or more\n"
                "                                  units\n"
+               "  set-cgroup [NAME] [CGROUP...]   Add unit to a control group\n"
+               "  unset-cgroup [NAME] [CGROUP...] Remove unit from a control group\n"
+               "  set-cgroup-attr [NAME] [ATTR] [VALUE] ...\n"
+               "                                  Set control group attribute\n"
+               "  unset-cgroup-attr [NAME] [ATTR...]\n"
+               "                                  Unset control group attribute\n"
                "  load [NAME...]                  Load one or more units\n\n"
                "Unit File Commands:\n"
                "  list-unit-files                 List installed unit files\n"
@@ -5051,6 +5161,10 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "condreload",            MORE,  2, start_unit        }, /* For compatibility with ALTLinux */
                 { "condrestart",           MORE,  2, start_unit        }, /* For compatibility with RH */
                 { "isolate",               EQUAL, 2, start_unit        },
+                { "set-cgroup",            MORE,  2, set_cgroup        },
+                { "unset-cgroup",          MORE,  2, set_cgroup        },
+                { "set-cgroup-attr",       MORE,  2, set_cgroup_attr   },
+                { "unset-cgroup-attr",     MORE,  2, set_cgroup        },
                 { "kill",                  MORE,  2, kill_unit         },
                 { "is-active",             MORE,  2, check_unit_active },
                 { "check",                 MORE,  2, check_unit_active },

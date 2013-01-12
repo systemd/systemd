@@ -984,7 +984,7 @@ int config_parse_unit_cgroup(
                 if (!ku)
                         return -ENOMEM;
 
-                r = unit_add_cgroup_from_text(u, ku);
+                r = unit_add_cgroup_from_text(u, ku, true, NULL);
                 if (r < 0) {
                         log_error("[%s:%u] Failed to parse cgroup value %s, ignoring: %s",
                                   filename, line, k, rvalue);
@@ -1659,7 +1659,7 @@ int config_parse_unit_cgroup_attr(
                 return 0;
         }
 
-        r = unit_add_cgroup_attribute(u, NULL, l[0], l[1], NULL);
+        r = unit_add_cgroup_attribute(u, NULL, l[0], l[1], NULL, NULL);
         strv_free(l);
 
         if (r < 0) {
@@ -1689,7 +1689,7 @@ int config_parse_unit_cpu_shares(const char *filename, unsigned line, const char
         if (asprintf(&t, "%lu", ul) < 0)
                 return -ENOMEM;
 
-        r = unit_add_cgroup_attribute(u, "cpu", "cpu.shares", t, NULL);
+        r = unit_add_cgroup_attribute(u, "cpu", "cpu.shares", t, NULL, NULL);
         free(t);
 
         if (r < 0) {
@@ -1722,7 +1722,7 @@ int config_parse_unit_memory_limit(const char *filename, unsigned line, const ch
         r = unit_add_cgroup_attribute(u,
                                       "memory",
                                       streq(lvalue, "MemorySoftLimit") ? "memory.soft_limit_in_bytes" : "memory.limit_in_bytes",
-                                      t, NULL);
+                                      t, NULL, NULL);
         free(t);
 
         if (r < 0) {
@@ -1821,7 +1821,7 @@ int config_parse_unit_device_allow(const char *filename, unsigned line, const ch
 
         r = unit_add_cgroup_attribute(u, "devices",
                                       streq(lvalue, "DeviceAllow") ? "devices.allow" : "devices.deny",
-                                      rvalue, device_map);
+                                      rvalue, device_map, NULL);
 
         if (r < 0) {
                 log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
@@ -1931,9 +1931,9 @@ int config_parse_unit_blkio_weight(const char *filename, unsigned line, const ch
                 return -ENOMEM;
 
         if (device)
-                r = unit_add_cgroup_attribute(u, "blkio", "blkio.weight_device", t, blkio_map);
+                r = unit_add_cgroup_attribute(u, "blkio", "blkio.weight_device", t, blkio_map, NULL);
         else
-                r = unit_add_cgroup_attribute(u, "blkio", "blkio.weight", t, NULL);
+                r = unit_add_cgroup_attribute(u, "blkio", "blkio.weight", t, NULL, NULL);
         free(t);
 
         if (r < 0) {
@@ -1987,7 +1987,7 @@ int config_parse_unit_blkio_bandwidth(const char *filename, unsigned line, const
 
         r = unit_add_cgroup_attribute(u, "blkio",
                                       streq(lvalue, "BlockIOReadBandwidth") ? "blkio.read_bps_device" : "blkio.write_bps_device",
-                                      t, blkio_map);
+                                      t, blkio_map, NULL);
         free(t);
 
         if (r < 0) {

@@ -58,6 +58,9 @@ void cgroup_bonding_free_list(CGroupBonding *first, bool trim);
 int cgroup_bonding_install(CGroupBonding *b, pid_t pid, const char *suffix);
 int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid, const char *suffix);
 
+int cgroup_bonding_migrate(CGroupBonding *b, CGroupBonding *list);
+int cgroup_bonding_migrate_to(CGroupBonding *b, const char *target, bool rem);
+
 int cgroup_bonding_set_group_access(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid);
 int cgroup_bonding_set_group_access_list(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid);
 

@@ -102,6 +102,26 @@
         "  <method name=\"ResetFailedUnit\">\n"                         \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
+        "  <method name=\"SetUnitControlGroups\">\n"                    \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"UnsetUnitControlGroups\">\n"                  \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"\n/>"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetUnitControlGroupAttributes\">\n"           \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"attributes\" type=\"a(sss)\" direction=\"in\"/>\n" \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"\n/>"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"UnsetUnitControlGroupAttributes\">\n"         \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"attributes\" type=\"a(ss)\" direction=\"in\"/>\n" \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "  </method>\n"                                                 \
         "  <method name=\"GetJob\">\n"                                  \
         "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
@@ -843,6 +863,117 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "reload");
 
                 unit_reset_failed(u);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetUnitControlGroups")) {
+                const char *name;
+                Unit *u;
+                DBusMessageIter iter;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                u = manager_get_unit(m, name);
+                if (!u) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+                }
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
+
+                r = bus_unit_cgroup_set(u, &iter);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetUnitControlGroups")) {
+                const char *name;
+                Unit *u;
+                DBusMessageIter iter;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                u = manager_get_unit(m, name);
+                if (!u) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+                }
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
+
+                r = bus_unit_cgroup_unset(u, &iter);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetUnitControlGroupAttributes")) {
+                const char *name;
+                Unit *u;
+                DBusMessageIter iter;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                u = manager_get_unit(m, name);
+                if (!u) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+                }
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
+                r = bus_unit_cgroup_attribute_set(u, &iter);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetUnitControlGroupAttributes")) {
+                const char *name;
+                Unit *u;
+                DBusMessageIter iter;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                u = manager_get_unit(m, name);
+                if (!u) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+                }
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
+
+                r = bus_unit_cgroup_attribute_unset(u, &iter);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)

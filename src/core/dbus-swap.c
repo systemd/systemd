@@ -38,6 +38,7 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecDeactivate")                    \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
+        BUS_UNIT_CGROUP_INTERFACE                                       \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
         " </interface>\n"
@@ -106,6 +107,7 @@ DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessa
                 { "org.freedesktop.systemd1.Swap", bus_swap_properties,         s },
                 { "org.freedesktop.systemd1.Swap", bus_exec_context_properties, &s->exec_context },
                 { "org.freedesktop.systemd1.Swap", bus_kill_context_properties, &s->kill_context },
+                { "org.freedesktop.systemd1.Swap", bus_unit_cgroup_properties,  u },
                 { NULL, }
         };
 

@@ -374,18 +374,20 @@ int cg_kill_recursive_and_wait(const char *controller, const char *path, bool re
         return 0;
 }
 
-int cg_migrate(const char *controller, const char *from, const char *to, bool ignore_self) {
+int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self) {
         bool done = false;
-        Set *s;
+        _cleanup_set_free_ Set *s = NULL;
         int r, ret = 0;
         pid_t my_pid;
-        FILE *f = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
 
-        assert(controller);
-        assert(from);
-        assert(to);
+        assert(cfrom);
+        assert(pfrom);
+        assert(cto);
+        assert(pto);
 
-        if (!(s = set_new(trivial_hash_func, trivial_compare_func)))
+        s = set_new(trivial_hash_func, trivial_compare_func);
+        if (!s)
                 return -ENOMEM;
 
         my_pid = getpid();
@@ -394,11 +396,12 @@ int cg_migrate(const char *controller, const char *from, const char *to, bool ig
                 pid_t pid = 0;
                 done = true;
 
-                if ((r = cg_enumerate_tasks(controller, from, &f)) < 0) {
+                r = cg_enumerate_tasks(cfrom, pfrom, &f);
+                if (r < 0) {
                         if (ret >= 0 && r != -ENOENT)
                                 ret = r;
 
-                        goto finish;
+                        return ret;
                 }
 
                 while ((r = cg_read_pid(f, &pid)) > 0) {
@@ -412,7 +415,8 @@ int cg_migrate(const char *controller, const char *from, const char *to, bool ig
                         if (set_get(s, LONG_TO_PTR(pid)) == LONG_TO_PTR(pid))
                                 continue;
 
-                        if ((r = cg_attach(controller, to, pid)) < 0) {
+                        r = cg_attach(cto, pto, pid);
+                        if (r < 0) {
                                 if (ret >= 0 && r != -ESRCH)
                                         ret = r;
                         } else if (ret == 0)
@@ -420,11 +424,12 @@ int cg_migrate(const char *controller, const char *from, const char *to, bool ig
 
                         done = false;
 
-                        if ((r = set_put(s, LONG_TO_PTR(pid))) < 0) {
+                        r = set_put(s, LONG_TO_PTR(pid));
+                        if (r < 0) {
                                 if (ret >= 0)
                                         ret = r;
 
-                                goto finish;
+                                return ret;
                         }
                 }
 
@@ -432,56 +437,48 @@ int cg_migrate(const char *controller, const char *from, const char *to, bool ig
                         if (ret >= 0)
                                 ret = r;
 
-                        goto finish;
+                        return ret;
                 }
 
                 fclose(f);
                 f = NULL;
-
         } while (!done);
-
-finish:
-        set_free(s);
-
-        if (f)
-                fclose(f);
 
         return ret;
 }
 
-int cg_migrate_recursive(const char *controller, const char *from, const char *to, bool ignore_self, bool rem) {
+int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self, bool rem) {
         int r, ret = 0;
-        DIR *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         char *fn;
 
-        assert(controller);
-        assert(from);
-        assert(to);
+        assert(cfrom);
+        assert(pfrom);
+        assert(cto);
+        assert(pto);
 
-        ret = cg_migrate(controller, from, to, ignore_self);
+        ret = cg_migrate(cfrom, pfrom, cto, pto, ignore_self);
 
-        if ((r = cg_enumerate_subgroups(controller, from, &d)) < 0) {
+        r = cg_enumerate_subgroups(cfrom, pfrom, &d);
+        if (r < 0) {
                 if (ret >= 0 && r != -ENOENT)
                         ret = r;
-                goto finish;
+                return ret;
         }
 
         while ((r = cg_read_subgroup(d, &fn)) > 0) {
-                char *p = NULL;
+                _cleanup_free_ char *p = NULL;
 
-                r = asprintf(&p, "%s/%s", from, fn);
+                p = strjoin(pfrom, "/", fn, NULL);
                 free(fn);
-
-                if (r < 0) {
+                if (!p) {
                         if (ret >= 0)
                                 ret = -ENOMEM;
 
-                        goto finish;
+                        return ret;
                 }
 
-                r = cg_migrate_recursive(controller, p, to, ignore_self, rem);
-                free(p);
-
+                r = cg_migrate_recursive(cfrom, p, cto, pto, ignore_self, rem);
                 if (r != 0 && ret >= 0)
                         ret = r;
         }
@@ -489,17 +486,11 @@ int cg_migrate_recursive(const char *controller, const char *from, const char *t
         if (r < 0 && ret >= 0)
                 ret = r;
 
-        if (rem)
-                if ((r = cg_rmdir(controller, from, true)) < 0) {
-                        if (ret >= 0 &&
-                            r != -ENOENT &&
-                            r != -EBUSY)
-                                ret = r;
-                }
-
-finish:
-        if (d)
-                closedir(d);
+        if (rem) {
+                r = cg_rmdir(cfrom, pfrom, true);
+                if (r < 0 && ret >= 0 && r != -ENOENT && r != -EBUSY)
+                        return r;
+        }
 
         return ret;
 }
@@ -677,7 +668,7 @@ int cg_delete(const char *controller, const char *path) {
         if ((r = path_get_parent(path, &parent)) < 0)
                 return r;
 
-        r = cg_migrate_recursive(controller, path, parent, false, true);
+        r = cg_migrate_recursive(controller, path, controller, parent, false, true);
         free(parent);
 
         return r == -ENOENT ? 0 : r;
@@ -947,7 +938,6 @@ int cg_is_empty_by_spec(const char *spec, bool ignore_self) {
         return cg_is_empty(controller, path, ignore_self);
 }
 
-
 int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self) {
         int r;
         DIR *d = NULL;
@@ -997,12 +987,12 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
         char *t = NULL, *u = NULL;
 
         assert(spec);
-        assert(controller || path);
 
         if (*spec == '/') {
 
                 if (path) {
-                        if (!(t = strdup(spec)))
+                        t = strdup(spec);
+                        if (!t)
                                 return -ENOMEM;
 
                         *path = t;
@@ -1014,13 +1004,14 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
                 return 0;
         }
 
-        if (!(e = strchr(spec, ':'))) {
-
+        e = strchr(spec, ':');
+        if (!e) {
                 if (strchr(spec, '/') || spec[0] == 0)
                         return -EINVAL;
 
                 if (controller) {
-                        if (!(t = strdup(spec)))
+                        t = strdup(spec);
+                        if (!t)
                                 return -ENOMEM;
 
                         *controller = t;
@@ -1032,20 +1023,23 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
                 return 0;
         }
 
-        if (e[1] != '/' ||
-            e == spec ||
-            memchr(spec, '/', e-spec))
+        if (e[1] != '/' || e == spec || memchr(spec, '/', e-spec))
                 return -EINVAL;
 
-        if (controller)
-                if (!(t = strndup(spec, e-spec)))
+        if (controller) {
+                t = strndup(spec, e-spec);
+                if (!t)
                         return -ENOMEM;
 
-        if (path)
-                if (!(u = strdup(e+1))) {
+        }
+
+        if (path) {
+                u = strdup(e+1);
+                if (!u) {
                         free(t);
                         return -ENOMEM;
                 }
+        }
 
         if (controller)
                 *controller = t;

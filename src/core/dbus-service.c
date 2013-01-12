@@ -50,6 +50,7 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
+        BUS_UNIT_CGROUP_INTERFACE                                       \
         "  <property name=\"PermissionsStartOnly\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RootDirectoryStartOnly\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RemainAfterExit\" type=\"b\" access=\"read\"/>\n" \
@@ -152,6 +153,7 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
                 { "org.freedesktop.systemd1.Service", bus_exec_context_properties,     &s->exec_context },
                 { "org.freedesktop.systemd1.Service", bus_kill_context_properties,     &s->kill_context },
                 { "org.freedesktop.systemd1.Service", bus_exec_main_status_properties, &s->main_exec_status },
+                { "org.freedesktop.systemd1.Service", bus_unit_cgroup_properties,      u },
                 { NULL, }
         };
 

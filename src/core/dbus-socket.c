@@ -39,6 +39,7 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
+        BUS_UNIT_CGROUP_INTERFACE                                       \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"BindToDevice\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
@@ -142,6 +143,7 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMes
                 { "org.freedesktop.systemd1.Socket", bus_socket_properties,       s },
                 { "org.freedesktop.systemd1.Socket", bus_exec_context_properties, &s->exec_context },
                 { "org.freedesktop.systemd1.Socket", bus_kill_context_properties, &s->kill_context },
+                { "org.freedesktop.systemd1.Socket", bus_unit_properties,         u },
                 { NULL, }
         };
 

@@ -71,22 +71,41 @@ int cgroup_attribute_apply_list(CGroupAttribute *first, CGroupBonding *b) {
         return r;
 }
 
-CGroupAttribute *cgroup_attribute_find_list(CGroupAttribute *first, const char *controller, const char *name) {
+CGroupAttribute *cgroup_attribute_find_list(
+                CGroupAttribute *first,
+                const char *controller,
+                const char *name) {
         CGroupAttribute *a;
 
-        assert(controller);
         assert(name);
 
-        LIST_FOREACH(by_unit, a, first)
-                if (streq(a->controller, controller) &&
-                    streq(a->name, name))
-                        return a;
+        LIST_FOREACH(by_unit, a, first) {
+
+
+                if (controller) {
+                        if (streq(a->controller, controller) && streq(a->name, name))
+                                return a;
+
+                } else if (streq(a->name, name)) {
+                        size_t x, y;
+                        x = strlen(a->controller);
+                        y = strlen(name);
+
+                        if (y > x &&
+                            memcmp(a->controller, name, x) == 0 &&
+                            name[x] == '.')
+                                return a;
+                }
+        }
 
         return NULL;
 }
 
-static void cgroup_attribute_free(CGroupAttribute *a) {
+void cgroup_attribute_free(CGroupAttribute *a) {
         assert(a);
+
+        if (a->unit)
+                LIST_REMOVE(CGroupAttribute, by_unit, a->unit->cgroup_attributes, a);
 
         free(a->controller);
         free(a->name);

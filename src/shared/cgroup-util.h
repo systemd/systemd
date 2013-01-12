@@ -39,8 +39,8 @@ int cg_kill(const char *controller, const char *path, int sig, bool sigcont, boo
 int cg_kill_recursive(const char *controller, const char *path, int sig, bool sigcont, bool ignore_self, bool remove, Set *s);
 int cg_kill_recursive_and_wait(const char *controller, const char *path, bool remove);
 
-int cg_migrate(const char *controller, const char *from, const char *to, bool ignore_self);
-int cg_migrate_recursive(const char *controller, const char *from, const char *to, bool ignore_self, bool remove);
+int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self);
+int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self, bool remove);
 
 int cg_split_spec(const char *spec, char **controller, char **path);
 int cg_join_spec(const char *controller, const char *path, char **spec);
