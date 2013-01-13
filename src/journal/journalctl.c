@@ -1077,7 +1077,7 @@ int main(int argc, char *argv[]) {
                                 arg_catalog * OUTPUT_CATALOG;
 
                         r = output_journal(stdout, j, arg_output, 0, flags);
-                        if (r < 0)
+                        if (r < 0 || ferror(stdout))
                                 goto finish;
 
                         need_seek = true;
