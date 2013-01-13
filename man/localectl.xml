@@ -194,7 +194,7 @@
                                 <listitem><para>List available
                                 keyboard mappings for the console,
                                 useful for configuration with
-                                <command>set-keyboard</command>.</para></listitem>
+                                <command>set-keymap</command>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
