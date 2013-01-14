@@ -19,6 +19,11 @@ F18:
 
 Features:
 
+* man: link up systemd.directives better, so that people actually know about it
+
+* fstab: add new mount option x-systemd-after=/foobar/waldo to allow manual dependencies to other mount points
+  https://bugzilla.redhat.com/show_bug.cgi?id=812826
+
 * add "loginctl unlock-sessions" as counterpart for "loginctl lock-sessions"
 
 * extend cgroup attr dbus calls to optionally make changes persistent, and retrieve current kernel values
