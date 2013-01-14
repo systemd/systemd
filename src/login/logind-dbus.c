@@ -979,9 +979,12 @@ static int have_multiple_sessions(
 
         assert(m);
 
-        /* Check for other users' sessions. Greeter sessions do not count. */
+        /* Check for other users' sessions. Greeter sessions do not
+         * count, and non-login sessions do not count either. */
         HASHMAP_FOREACH(session, m->sessions, i)
-                if (session->class == SESSION_USER && session->user->uid != uid)
+                if (session->class == SESSION_USER &&
+                    (session->type == SESSION_TTY || session->type == SESSION_X11) &&
+                    session->user->uid != uid)
                         return true;
 
         return false;
