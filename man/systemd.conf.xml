@@ -134,7 +134,20 @@
                                 'cpu,cpuacct'. Pass an empty string to
                                 ensure that systemd mounts all
                                 controllers in separate
-                                hierarchies.</para></listitem>
+                                hierarchies.</para>
+
+                                <para>Note that this option is only
+                                applied once, at very early boot. If
+                                you use an initial RAM disk (initrd)
+                                that uses systemd it might hence be
+                                necessary to rebuild the initrd if
+                                this option is changed, and make sure
+                                the new configuration file is included
+                                in it. Otherwise the initrd might
+                                mount the controllers in different
+                                configuration than intended, and the
+                                main system cannot remount them
+                                anymore.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
