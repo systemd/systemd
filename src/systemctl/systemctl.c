@@ -2231,6 +2231,12 @@ static void print_status_info(UnitStatusInfo *i) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         const char *path;
+        int flags =
+                arg_all * OUTPUT_SHOW_ALL |
+                (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
+                on_tty() * OUTPUT_COLOR |
+                !arg_quiet * OUTPUT_WARN_CUTOFF |
+                arg_full * OUTPUT_FULL_WIDTH;
 
         assert(i);
 
@@ -2454,17 +2460,11 @@ static void print_status_info(UnitStatusInfo *i) {
                         if (i->control_pid > 0)
                                 extra[k++] = i->control_pid;
 
-                        show_cgroup_and_extra_by_spec(i->default_control_group, "\t\t  ", c, false, arg_all, extra, k);
+                        show_cgroup_and_extra_by_spec(i->default_control_group, "\t\t  ", c, false, extra, k, flags);
                 }
         }
 
         if (i->id && arg_transport != TRANSPORT_SSH) {
-                int flags =
-                        arg_all * OUTPUT_SHOW_ALL |
-                        (!on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
-                        on_tty() * OUTPUT_COLOR |
-                        !arg_quiet * OUTPUT_WARN_CUTOFF;
-
                 printf("\n");
                 show_journal_by_unit(stdout,
                                      i->id,

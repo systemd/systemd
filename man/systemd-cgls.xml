@@ -111,6 +111,14 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--full</option></term>
+
+                                <listitem><para>Do not ellipsize cgroup
+                                members.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-k</option></term>
 
                                 <listitem><para>Include kernel

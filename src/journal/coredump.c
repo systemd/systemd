@@ -205,7 +205,7 @@ int main(int argc, char* argv[]) {
                         IOVEC_SET_STRING(iovec[j++], core_exe);
         }
 
-        if (get_process_cmdline(pid, LINE_MAX, false, &t) >= 0) {
+        if (get_process_cmdline(pid, 0, false, &t) >= 0) {
                 core_cmdline = strappend("COREDUMP_CMDLINE=", t);
                 free(t);
 

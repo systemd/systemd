@@ -556,7 +556,7 @@ static void dispatch_message_real(
                                 IOVEC_SET_STRING(iovec[n++], exe);
                 }
 
-                r = get_process_cmdline(ucred->pid, LINE_MAX, false, &t);
+                r = get_process_cmdline(ucred->pid, 0, false, &t);
                 if (r >= 0) {
                         cmdline = strappend("_CMDLINE=", t);
                         free(t);

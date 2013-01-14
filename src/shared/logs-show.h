@@ -26,28 +26,7 @@
 #include <systemd/sd-journal.h>
 
 #include "util.h"
-
-typedef enum OutputMode {
-        OUTPUT_SHORT,
-        OUTPUT_SHORT_MONOTONIC,
-        OUTPUT_VERBOSE,
-        OUTPUT_EXPORT,
-        OUTPUT_JSON,
-        OUTPUT_JSON_PRETTY,
-        OUTPUT_JSON_SSE,
-        OUTPUT_CAT,
-        _OUTPUT_MODE_MAX,
-        _OUTPUT_MODE_INVALID = -1
-} OutputMode;
-
-typedef enum OutputFlags {
-        OUTPUT_SHOW_ALL       = 1 << 0,
-        OUTPUT_FOLLOW         = 1 << 1,
-        OUTPUT_WARN_CUTOFF    = 1 << 2,
-        OUTPUT_FULL_WIDTH     = 1 << 3,
-        OUTPUT_COLOR          = 1 << 4,
-        OUTPUT_CATALOG        = 1 << 5
-} OutputFlags;
+#include "output-mode.h"
 
 int output_journal(
                 FILE *f,

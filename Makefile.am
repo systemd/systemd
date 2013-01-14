@@ -803,7 +803,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/time-dst.c \
 	src/shared/time-dst.h \
 	src/shared/calendarspec.c \
-	src/shared/calendarspec.h
+	src/shared/calendarspec.h \
+	src/shared/output-mode.h
 
 libsystemd_shared_la_LIBADD = libsystemd-daemon.la
 

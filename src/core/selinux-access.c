@@ -134,7 +134,7 @@ static int bus_get_audit_data(
         if (r < 0)
                 return r;
 
-        r = get_process_cmdline(pid, LINE_MAX, true, &audit->cmdline);
+        r = get_process_cmdline(pid, 0, true, &audit->cmdline);
         if (r < 0)
                 return r;
 
@@ -280,7 +280,7 @@ static int get_audit_data(
         if (r < 0)
                 return r;
 
-        r = get_process_cmdline(ucred.pid, LINE_MAX, true, &audit->cmdline);
+        r = get_process_cmdline(ucred.pid, 0, true, &audit->cmdline);
         if (r < 0)
                 return r;
 

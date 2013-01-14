@@ -40,6 +40,7 @@
 
 static char **arg_property = NULL;
 static bool arg_all = false;
+static bool arg_full = false;
 static bool arg_no_pager = false;
 static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
@@ -402,6 +403,9 @@ static void print_session_status_info(SessionStatusInfo *i) {
 
         if (i->default_control_group) {
                 unsigned c;
+                int output_flags =
+                        arg_all * OUTPUT_SHOW_ALL |
+                        arg_full * OUTPUT_FULL_WIDTH;
 
                 printf("\t  CGroup: %s\n", i->default_control_group);
 
@@ -412,7 +416,10 @@ static void print_session_status_info(SessionStatusInfo *i) {
                         else
                                 c = 0;
 
-                        show_cgroup_and_extra_by_spec(i->default_control_group, "\t\t  ", c, false, arg_all, &i->leader, i->leader > 0 ? 1 : 0);
+                        show_cgroup_and_extra_by_spec(i->default_control_group,
+                                                      "\t\t  ", c, false, &i->leader,
+                                                      i->leader > 0 ? 1 : 0,
+                                                      output_flags);
                 }
         }
 }
@@ -454,6 +461,9 @@ static void print_user_status_info(UserStatusInfo *i) {
 
         if (i->default_control_group) {
                 unsigned c;
+                int output_flags =
+                        arg_all * OUTPUT_SHOW_ALL |
+                        arg_full * OUTPUT_FULL_WIDTH;
 
                 printf("\t  CGroup: %s\n", i->default_control_group);
 
@@ -464,7 +474,8 @@ static void print_user_status_info(UserStatusInfo *i) {
                         else
                                 c = 0;
 
-                        show_cgroup_by_path(i->default_control_group, "\t\t  ", c, false, arg_all);
+                        show_cgroup_by_path(i->default_control_group, "\t\t  ",
+                                            c, false, output_flags);
                 }
         }
 }
@@ -1323,6 +1334,7 @@ static int help(void) {
                "  -p --property=NAME     Show only properties by this name\n"
                "  -a --all               Show all properties, including empty ones\n"
                "     --kill-who=WHO      Who to send signal to\n"
+               "  --full                 Do not ellipsize output\n"
                "  -s --signal=SIGNAL     Which signal to send\n"
                "     --no-ask-password   Don't prompt for password\n"
                "  -H --host=[USER@]HOST  Show information for remote host\n"
@@ -1362,7 +1374,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_KILL_WHO,
-                ARG_NO_ASK_PASSWORD
+                ARG_NO_ASK_PASSWORD,
+                ARG_FULL,
         };
 
         static const struct option options[] = {
@@ -1376,6 +1389,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "host",            required_argument, NULL, 'H'                 },
                 { "privileged",      no_argument,       NULL, 'P'                 },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
+                { "full",            no_argument,       NULL, ARG_FULL            },
                 { NULL,              0,                 NULL, 0                   }
         };
 
@@ -1445,6 +1459,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'H':
                         arg_transport = TRANSPORT_SSH;
                         arg_host = optarg;
+                        break;
+
+                case ARG_FULL:
+                        arg_full = true;
                         break;
 
                 case '?':

@@ -33,10 +33,12 @@
 #include "util.h"
 #include "pager.h"
 #include "build.h"
+#include "output-mode.h"
 
 static bool arg_no_pager = false;
 static bool arg_kernel_threads = false;
 static bool arg_all = false;
+static int arg_full = -1;
 
 static void help(void) {
 
@@ -46,6 +48,7 @@ static void help(void) {
                "     --version        Show package version\n"
                "     --no-pager       Do not pipe output into a pager\n"
                "  -a --all            Show all groups, including empty\n"
+               "  --full              Do not ellipsize output\n"
                "  -k                  Include kernel threads in output\n",
                program_invocation_short_name);
 }
@@ -54,7 +57,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_NO_PAGER = 0x100,
-                ARG_VERSION
+                ARG_VERSION,
+                ARG_FULL,
         };
 
         static const struct option options[] = {
@@ -62,6 +66,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",   no_argument,       NULL, ARG_VERSION  },
                 { "no-pager",  no_argument,       NULL, ARG_NO_PAGER },
                 { "all",       no_argument,       NULL, 'a'          },
+                { "full",      no_argument,       NULL, ARG_FULL     },
                 { NULL,        0,                 NULL, 0            }
         };
 
@@ -91,6 +96,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_all = true;
                         break;
 
+                case ARG_FULL:
+                        arg_full = true;
+                        break;
+
                 case 'k':
                         arg_kernel_threads = true;
                         break;
@@ -109,6 +118,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
         int r = 0, retval = EXIT_FAILURE;
+        int output_flags;
 
         log_parse_environment();
         log_open();
@@ -121,8 +131,17 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (!arg_no_pager)
-                pager_open();
+        if (!arg_no_pager) {
+                r = pager_open();
+                if (r > 0) {
+                        if (arg_full == -1)
+                                arg_full = true;
+                }
+        }
+
+        output_flags =
+                arg_all * OUTPUT_SHOW_ALL |
+                (arg_full > 0) * OUTPUT_FULL_WIDTH;
 
         if (optind < argc) {
                 unsigned i;
@@ -131,7 +150,8 @@ int main(int argc, char *argv[]) {
                         int q;
                         printf("%s:\n", argv[i]);
 
-                        q = show_cgroup_by_path(argv[i], NULL, 0, arg_kernel_threads, arg_all);
+                        q = show_cgroup_by_path(argv[i], NULL, 0,
+                                                arg_kernel_threads, output_flags);
                         if (q < 0)
                                 r = q;
                 }
@@ -147,7 +167,8 @@ int main(int argc, char *argv[]) {
 
                 if (path_startswith(p, "/sys/fs/cgroup")) {
                         printf("Working Directory %s:\n", p);
-                        r = show_cgroup_by_path(p, NULL, 0, arg_kernel_threads, arg_all);
+                        r = show_cgroup_by_path(p, NULL, 0,
+                                                arg_kernel_threads, output_flags);
                 } else {
                         char _cleanup_free_ *root = NULL;
                         const char *t = NULL;
@@ -162,7 +183,8 @@ int main(int argc, char *argv[]) {
                                 t = root[0] ? root : "/";
                         }
 
-                        r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, t, NULL, 0, arg_kernel_threads, arg_all);
+                        r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, t, NULL, 0,
+                                        arg_kernel_threads, output_flags);
                 }
         }
 
