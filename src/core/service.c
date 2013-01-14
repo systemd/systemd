@@ -2926,14 +2926,24 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 s->main_pid = 0;
                 exec_status_exit(&s->main_exec_status, &s->exec_context, pid, code, status);
 
-                /* If this is not a forking service than the main
-                 * process got started and hence we copy the exit
-                 * status so that it is recorded both as main and as
-                 * control process exit status */
                 if (s->main_command) {
+                        /* If this is not a forking service than the
+                         * main process got started and hence we copy
+                         * the exit status so that it is recorded both
+                         * as main and as control process exit
+                         * status */
+
                         s->main_command->exec_status = s->main_exec_status;
 
                         if (s->main_command->ignore)
+                                f = SERVICE_SUCCESS;
+                } else if (s->exec_command[SERVICE_EXEC_START]) {
+
+                        /* If this is a forked process, then we should
+                         * ignore the return value if this was
+                         * configured for the starter process */
+
+                        if (s->exec_command[SERVICE_EXEC_START]->ignore)
                                 f = SERVICE_SUCCESS;
                 }
 
