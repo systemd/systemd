@@ -53,6 +53,7 @@ de-latin1-nodeadkeys	de	pc105		nodeadkeys	terminate:ctrl_alt_bksp
 no			no	pc105		-		terminate:ctrl_alt_bksp
 bg_bds-utf8		bg,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
 dvorak			us	pc105		dvorak		terminate:ctrl_alt_bksp
+dvorak			us	pc105		dvorak-alt-intl	terminate:ctrl_alt_bksp
 ru			ru,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
 cz-lat2			cz	pc105		qwerty		terminate:ctrl_alt_bksp
 pl2			pl	pc105		-		terminate:ctrl_alt_bksp
