@@ -21,11 +21,15 @@ Features:
 
 * add "loginctl unlock-sessions" as counterpart for "loginctl lock-sessions"
 
+* extend cgroup attr dbus calls to optionally make changes persistent, and retrieve current kernel values
+
+* support high-level cgroup setting syntax in systemctl. Example: "systemctl set-cgroup-attr MemoryLimit 5K"
+
 * add a man page "systemdall" that lists all of systemd's man pages, inspired by zsh's "zshall" page
 
 * print a nicer explanation if people use variable/specifier expansion in ExecStart= for the first word
 
-* kernel cmdline switch to turn of predictable network interface names
+* kernel cmdline switch to turn off predictable network interface names
 
 * mount: turn dependency information from /proc/self/mountinfo into dependency information between systemd units.
 
