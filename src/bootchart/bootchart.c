@@ -75,12 +75,10 @@ int main(int argc, char *argv[])
         struct ps_struct *ps;
         char output_file[PATH_MAX];
         char datestr[200];
-        time_t t;
+        time_t t = 0;
         FILE *f;
         int gind;
         int i;
-
-        memset(&t, 0, sizeof(time_t));
 
         rlim.rlim_cur = 4096;
         rlim.rlim_max = 4096;
