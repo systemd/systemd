@@ -3173,17 +3173,19 @@ static int snapshot(DBusConnection *bus, char **args) {
         dbus_bool_t cleanup = FALSE;
         DBusMessageIter iter, sub;
         const char
-                *name = "", *path, *id,
+                *path, *id,
                 *interface = "org.freedesktop.systemd1.Unit",
                 *property = "Id";
         _cleanup_free_ char *n = NULL;
 
         dbus_error_init(&error);
 
-        if (strv_length(args) > 1) {
-                name = args[1];
-                n = unit_name_mangle(name);
-        }
+        if (strv_length(args) > 1)
+                n = snapshot_name_mangle(args[1]);
+        else
+                n = strdup("");
+        if (!n)
+                return log_oom();
 
         r = bus_method_call_with_reply (
                         bus,
@@ -3193,18 +3195,18 @@ static int snapshot(DBusConnection *bus, char **args) {
                         "CreateSnapshot",
                         &reply,
                         NULL,
-                        DBUS_TYPE_STRING, n ? (const char**) &n : &name,
+                        DBUS_TYPE_STRING, &n,
                         DBUS_TYPE_BOOLEAN, &cleanup,
                         DBUS_TYPE_INVALID);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (!dbus_message_get_args(reply, &error,
                                    DBUS_TYPE_OBJECT_PATH, &path,
                                    DBUS_TYPE_INVALID)) {
                 log_error("Failed to parse reply: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
+                dbus_error_free(&error);
+                return -EIO;
         }
 
         dbus_message_unref(reply);
@@ -3222,21 +3224,19 @@ static int snapshot(DBusConnection *bus, char **args) {
                         DBUS_TYPE_STRING, &property,
                         DBUS_TYPE_INVALID);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
                 log_error("Failed to parse reply.");
-                r = -EIO;
-                goto finish;
+                return -EIO;
         }
 
         dbus_message_iter_recurse(&iter, &sub);
 
         if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING)  {
                 log_error("Failed to parse reply.");
-                r = -EIO;
-                goto finish;
+                return -EIO;
         }
 
         dbus_message_iter_get_basic(&sub, &id);
@@ -3244,10 +3244,7 @@ static int snapshot(DBusConnection *bus, char **args) {
         if (!arg_quiet)
                 puts(id);
 
-finish:
-        dbus_error_free(&error);
-
-        return r;
+        return 0;
 }
 
 static int delete_snapshot(DBusConnection *bus, char **args) {
@@ -3259,7 +3256,10 @@ static int delete_snapshot(DBusConnection *bus, char **args) {
                 _cleanup_free_ char *n = NULL;
                 int r;
 
-                n = unit_name_mangle(*name);
+                n = snapshot_name_mangle(*name);
+                if (!n)
+                        return log_oom();
+
                 r = bus_method_call_with_reply(
                                 bus,
                                 "org.freedesktop.systemd1",
@@ -3268,7 +3268,7 @@ static int delete_snapshot(DBusConnection *bus, char **args) {
                                 "RemoveSnapshot",
                                 NULL,
                                 NULL,
-                                DBUS_TYPE_STRING, n ? &n : name,
+                                DBUS_TYPE_STRING, &n,
                                 DBUS_TYPE_INVALID);
                 if (r < 0)
                         return r;
@@ -3302,7 +3302,7 @@ static int daemon_reload(DBusConnection *bus, char **args) {
                                     /* "daemon-reload" */ "Reload";
         }
 
-        r = bus_method_call_with_reply (
+        r = bus_method_call_with_reply(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
@@ -3320,10 +3320,10 @@ static int daemon_reload(DBusConnection *bus, char **args) {
                 /* On reexecution, we expect a disconnect, not
                  * a reply */
                 r = 0;
-        else if (r)
+        else if (r < 0)
                 log_error("Failed to issue method call: %s", bus_error_message(&error));
-        dbus_error_free(&error);
 
+        dbus_error_free(&error);
         return r;
 }
 

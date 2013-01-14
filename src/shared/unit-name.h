@@ -94,3 +94,4 @@ char *unit_name_to_path(const char *name);
 char *unit_dbus_path_from_name(const char *name);
 
 char *unit_name_mangle(const char *name);
+char *snapshot_name_mangle(const char *name);

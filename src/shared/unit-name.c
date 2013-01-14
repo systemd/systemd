@@ -506,6 +506,36 @@ char *unit_name_mangle(const char *name) {
         return r;
 }
 
+char *snapshot_name_mangle(const char *name) {
+        char *r, *t;
+        const char *f;
+
+        assert(name);
+
+        /* Similar to unit_name_mangle(), but is called when we know
+         * that this is about snapshot units. */
+
+        r = new(char, strlen(name) * 4 + 1 + sizeof(".snapshot")-1);
+        if (!r)
+                return NULL;
+
+        for (f = name, t = r; *f; f++) {
+                if (*f == '/')
+                        *(t++) = '-';
+                else if (!strchr(VALID_CHARS, *f))
+                        t = do_escape_char(*f, t);
+                else
+                        *(t++) = *f;
+        }
+
+        if (!endswith(name, ".snapshot"))
+                strcpy(t, ".snapshot");
+        else
+                *t = 0;
+
+        return r;
+}
+
 UnitType unit_name_to_type(const char *n) {
         const char *e;
 
