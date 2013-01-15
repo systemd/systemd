@@ -19,6 +19,8 @@ F18:
 
 Features:
 
+* refuse instantiation of proc.mount and mount units for all other API fs
+
 * "systemctl disable" on a static unit prints no message and does
   nothing. "systemctl enable" does nothing, and gives a bad message
   about it. Should fix both to print nice actionable messages.
