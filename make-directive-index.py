@@ -83,6 +83,15 @@ TEMPLATE = '''\
 
                 <variablelist id='journal-directives' />
         </refsect1>
+
+        <refsect1>
+                <title>bootchart.conf directives</title>
+
+                <para>Directives for configuring the behaviour of the
+                systemd-bootchart process.</para>
+
+                <variablelist id='bootchart-directives' />
+        </refsect1>
 </refentry>
 '''
 
@@ -139,6 +148,7 @@ def make_page(xml_files):
                                      'udev-directives',
                                      'systemd-directives',
                                      'journal-directives',
+                                     'bootchart-directives',
                                      ]}
     for page in xml_files:
         _extract_directives(directive_groups, page)
