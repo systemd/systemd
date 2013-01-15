@@ -33,6 +33,7 @@
 #include <sys/wait.h>
 #include <linux/tiocl.h>
 #include <linux/kd.h>
+#include <linux/vt.h>
 
 #include "util.h"
 #include "log.h"
@@ -84,7 +85,7 @@ static int enable_utf8(int fd) {
         return r;
 }
 
-static int load_keymap(const char *vc, const char *map, const char *map_toggle, bool utf8, pid_t *_pid) {
+static int keymap_load(const char *vc, const char *map, const char *map_toggle, bool utf8, pid_t *_pid) {
         const char *args[8];
         int i = 0;
         pid_t pid;
@@ -119,7 +120,7 @@ static int load_keymap(const char *vc, const char *map, const char *map_toggle, 
         return 0;
 }
 
-static int load_font(const char *vc, const char *font, const char *map, const char *unimap, pid_t *_pid) {
+static int font_load(const char *vc, const char *font, const char *map, const char *unimap, pid_t *_pid) {
         const char *args[9];
         int i = 0;
         pid_t pid;
@@ -157,6 +158,50 @@ static int load_font(const char *vc, const char *font, const char *map, const ch
         return 0;
 }
 
+static void font_copy_to_all_vts(int fd, int from_vt) {
+        struct vt_stat vts;
+        unsigned short bits;
+        int i;
+        int r;
+
+        /* get 16 bit mask of used VT numbers */
+        zero(vts);
+        r = ioctl(fd, VT_GETSTATE, &vts);
+        if (r < 0)
+                return;
+
+        bits = vts.v_state;
+        for (i = 1; i <= 16; i++) {
+                char vtname[16];
+                int vtfd;
+                struct console_font_op cfo;
+                bool used;
+
+                /* skip unused VTs */
+                used = bits & 1;
+                bits >>= 1;
+                if (!used)
+                        continue;
+
+                if (i == from_vt)
+                        continue;
+
+                snprintf(vtname , sizeof(vtname), "/dev/tty%i", i);
+                vtfd = open_terminal(vtname, O_RDWR|O_CLOEXEC);
+                if (vtfd < 0)
+                        continue;
+
+                /* copy font from from_vt to this VT */
+                zero(cfo);
+                cfo.op = KD_FONT_OP_COPY;
+                /* the index numbers seem to start at 0 for tty1 */
+                cfo.height = from_vt - 1;
+                ioctl(vtfd, KDFONTOP, &cfo);
+
+                close_nointr_nofail(vtfd);
+        }
+}
+
 int main(int argc, char **argv) {
         const char *vc;
         char *vc_keymap = NULL;
@@ -166,8 +211,9 @@ int main(int argc, char **argv) {
         char *vc_font_unimap = NULL;
         int fd = -1;
         bool utf8;
-        int r = EXIT_FAILURE;
         pid_t font_pid = 0, keymap_pid = 0;
+        int font_copy_from_vt = 0;
+        int r = EXIT_FAILURE;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -177,8 +223,10 @@ int main(int argc, char **argv) {
 
         if (argv[1])
                 vc = argv[1];
-        else
-                vc = "/dev/tty0";
+        else {
+                vc = "/dev/tty1";
+                font_copy_from_vt = 1;
+        }
 
         fd = open_terminal(vc, O_RDWR|O_CLOEXEC);
         if (fd < 0) {
@@ -223,27 +271,25 @@ int main(int argc, char **argv) {
                         log_warning("Failed to read /etc/vconsole.conf: %s", strerror(-r));
         }
 
-        if (r <= 0) {
-        }
-
-        r = EXIT_FAILURE;
-
         if (utf8)
                 enable_utf8(fd);
         else
                 disable_utf8(fd);
 
-
-        if (load_keymap(vc, vc_keymap, vc_keymap_toggle, utf8, &keymap_pid) >= 0 &&
-            load_font(vc, vc_font, vc_font_map, vc_font_unimap, &font_pid) >= 0)
+        r = EXIT_FAILURE;
+        if (keymap_load(vc, vc_keymap, vc_keymap_toggle, utf8, &keymap_pid) >= 0 &&
+            font_load(vc, vc_font, vc_font_map, vc_font_unimap, &font_pid) >= 0)
                 r = EXIT_SUCCESS;
 
 finish:
         if (keymap_pid > 0)
                 wait_for_terminate_and_warn(KBD_LOADKEYS, keymap_pid);
 
-        if (font_pid > 0)
+        if (font_pid > 0) {
                 wait_for_terminate_and_warn(KBD_SETFONT, font_pid);
+                if (font_copy_from_vt > 0)
+                        font_copy_to_all_vts(fd, font_copy_from_vt);
+        }
 
         free(vc_keymap);
         free(vc_font);
