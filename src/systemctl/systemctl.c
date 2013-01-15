@@ -672,7 +672,7 @@ static int list_unit_files(DBusConnection *bus, char **args) {
                         UnitFileList *u;
                         const char *state;
 
-                        assert(dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT);
+                        assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT);
 
                         if (c >= n_units) {
                                 UnitFileList *w;
