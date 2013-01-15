@@ -158,47 +158,47 @@ static int font_load(const char *vc, const char *font, const char *map, const ch
         return 0;
 }
 
-static void font_copy_to_all_vts(int fd, int from_vt) {
-        struct vt_stat vts;
-        unsigned short bits;
+/*
+ * A newly allocated VT uses the font from the active VT. Here
+ * we update all possibly already allocated VTs with the configured
+ * font. It also allows to restart systemd-vconsole-setup.service,
+ * to apply a new font to all VTs.
+ */
+static void font_copy_to_all_vcs(int fd) {
+        struct vt_stat vcs;
         int i;
         int r;
 
-        /* get 16 bit mask of used VT numbers */
-        zero(vts);
-        r = ioctl(fd, VT_GETSTATE, &vts);
+        /* get active, and 16 bit mask of used VT numbers */
+        zero(vcs);
+        r = ioctl(fd, VT_GETSTATE, &vcs);
         if (r < 0)
                 return;
 
-        bits = vts.v_state;
-        for (i = 1; i <= 16; i++) {
-                char vtname[16];
-                int vtfd;
+        for (i = 1; i <= 15; i++) {
+                char vcname[16];
+                int vcfd;
                 struct console_font_op cfo;
-                bool used;
 
-                /* skip unused VTs */
-                used = bits & 1;
-                bits >>= 1;
-                if (!used)
+                if (i == vcs.v_active)
                         continue;
 
-                if (i == from_vt)
+                /* skip unused VTs above tty6 to avoid allocating them */
+                if (i > 6 && ((vcs.v_state >> i) & 1) == 0)
                         continue;
 
-                snprintf(vtname , sizeof(vtname), "/dev/tty%i", i);
-                vtfd = open_terminal(vtname, O_RDWR|O_CLOEXEC);
-                if (vtfd < 0)
+                snprintf(vcname , sizeof(vcname), "/dev/tty%i", i);
+                vcfd = open_terminal(vcname, O_RDWR|O_CLOEXEC);
+                if (vcfd < 0)
                         continue;
 
-                /* copy font from from_vt to this VT */
+                /* copy font from active VT, where the font was uploaded to */
                 zero(cfo);
                 cfo.op = KD_FONT_OP_COPY;
-                /* the index numbers seem to start at 0 for tty1 */
-                cfo.height = from_vt - 1;
-                ioctl(vtfd, KDFONTOP, &cfo);
+                cfo.height = vcs.v_active-1; /* tty1 == index 0 */
+                ioctl(vcfd, KDFONTOP, &cfo);
 
-                close_nointr_nofail(vtfd);
+                close_nointr_nofail(vcfd);
         }
 }
 
@@ -212,7 +212,7 @@ int main(int argc, char **argv) {
         int fd = -1;
         bool utf8;
         pid_t font_pid = 0, keymap_pid = 0;
-        int font_copy_from_vt = 0;
+        bool font_copy = false;
         int r = EXIT_FAILURE;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -224,8 +224,8 @@ int main(int argc, char **argv) {
         if (argv[1])
                 vc = argv[1];
         else {
-                vc = "/dev/tty1";
-                font_copy_from_vt = 1;
+                vc = "/dev/tty0";
+                font_copy = true;
         }
 
         fd = open_terminal(vc, O_RDWR|O_CLOEXEC);
@@ -287,8 +287,8 @@ finish:
 
         if (font_pid > 0) {
                 wait_for_terminate_and_warn(KBD_SETFONT, font_pid);
-                if (font_copy_from_vt > 0)
-                        font_copy_to_all_vts(fd, font_copy_from_vt);
+                if (font_copy)
+                        font_copy_to_all_vcs(fd);
         }
 
         free(vc_keymap);
