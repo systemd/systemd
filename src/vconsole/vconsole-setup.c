@@ -183,11 +183,12 @@ static void font_copy_to_all_vcs(int fd) {
                 if (i == vcs.v_active)
                         continue;
 
-                /* skip unused VTs above tty6 to avoid allocating them */
-                if (i > 6 && ((vcs.v_state >> i) & 1) == 0)
+                /* skip non-allocated ttys */
+                snprintf(vcname, sizeof(vcname), "/dev/vcs%i", i);
+                if (access(vcname, F_OK) < 0)
                         continue;
 
-                snprintf(vcname , sizeof(vcname), "/dev/tty%i", i);
+                snprintf(vcname, sizeof(vcname), "/dev/tty%i", i);
                 vcfd = open_terminal(vcname, O_RDWR|O_CLOEXEC);
                 if (vcfd < 0)
                         continue;
