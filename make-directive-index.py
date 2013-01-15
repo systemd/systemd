@@ -67,6 +67,23 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
+                <title>Options on the kernel command line</title>
+
+                <para>Kernel boot options for configuring the behaviour of the
+                systemd process.</para>
+
+                <variablelist id='kernel-commandline-directives' />
+        </refsect1>
+
+        <refsect1>
+                <title>Environment variables</title>
+
+                <para>Environment variables understood by the systemd process.</para>
+
+                <variablelist id='environment-variables' />
+        </refsect1>
+
+        <refsect1>
                 <title>UDEV directives</title>
 
                 <para>Directives for configuring systemd units through the

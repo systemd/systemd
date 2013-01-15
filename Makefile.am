@@ -699,6 +699,7 @@ EXTRA_DIST += \
 	man/index.html
 
 XML_DIRECTIVE_FILES = \
+	man/systemd.xml \
 	man/systemd.unit.xml \
 	man/systemd.service.xml \
 	man/systemd.socket.xml \

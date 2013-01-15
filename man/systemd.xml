@@ -877,7 +877,7 @@
         <refsect1>
                 <title>Environment</title>
 
-                <variablelist>
+                <variablelist class='environment-variables'>
                         <varlistentry>
                                 <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
                                 <listitem><para>systemd reads the
@@ -987,7 +987,7 @@
                 <filename>/proc/cmdline</filename>
                 instead.</para></footnote>:</para>
 
-                <variablelist>
+                <variablelist class='kernel-commandline-directives'>
                         <varlistentry>
                                 <term><varname>systemd.unit=</varname></term>
                                 <term><varname>rd.systemd.unit=</varname></term>
