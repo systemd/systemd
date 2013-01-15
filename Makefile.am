@@ -693,7 +693,7 @@ man/index.html: make-man-index.py $(XML_FILES)
 	$(AM_V_GEN)$(PYTHON) $^ > $@
 
 MANPAGES += \
-	man/systemd.directives.5
+	man/systemd.directives.7
 
 EXTRA_DIST += \
 	man/index.html

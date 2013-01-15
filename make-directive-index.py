@@ -40,7 +40,7 @@ TEMPLATE = '''\
 
         <refmeta>
                 <refentrytitle>systemd.directives</refentrytitle>
-                <manvolnum>5</manvolnum>
+                <manvolnum>7</manvolnum>
         </refmeta>
 
         <refnamediv>

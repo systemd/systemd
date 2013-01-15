@@ -23,8 +23,6 @@ Features:
   nothing. "systemctl enable" does nothing, and gives a bad message
   about it. Should fix both to print nice actionable messages.
 
-* man: link up systemd.directives better, so that people actually know about it
-
 * fstab: add new mount option x-systemd-after=/foobar/waldo to allow manual dependencies to other mount points
   https://bugzilla.redhat.com/show_bug.cgi?id=812826
 
