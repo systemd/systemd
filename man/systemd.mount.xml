@@ -153,8 +153,16 @@
                 <literal>h</literal>, <literal>ms</literal>.</para>
 
                 <para>If a mount point is configured in both
-                <filename>/etc/fstab</filename> and a unit file, the
-                configuration in the latter takes precedence.</para>
+                <filename>/etc/fstab</filename> and a unit file that
+                is stored below <filename>/usr</filename> the former
+                will take precedence. If the unit file is stored below
+                <filename>/etc</filename> it will take
+                precedence. This means: native unit files take
+                precedence over traditional configuration files, but
+                this is superseded by the rule that configuration in
+                <filename>/etc</filename> will always take precedence
+                over configuration in
+                <filename>/usr</filename>.</para>
         </refsect1>
 
         <refsect1>
