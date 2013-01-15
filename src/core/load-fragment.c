@@ -1296,7 +1296,7 @@ int config_parse_path_unit(
 
         dbus_error_init(&error);
 
-        p = unit_name_printf(u, rvalue);
+        p = unit_name_printf(UNIT(t), rvalue);
         if (!p)
                 return log_oom();
 
