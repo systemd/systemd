@@ -413,6 +413,16 @@
                                         referring to the
                                         <literal>$network</literal>
                                         facility.</para>
+
+                                        <para>This unit is supposed to
+                                        indicate when the network is
+                                        "up", but it is only very
+                                        losely defined what that is
+                                        supposed to mean. Also see <ulink
+                                        url="http://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
+                                        Services After the Network is
+                                        up</ulink> for more
+                                        information.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
