@@ -106,8 +106,8 @@ def _extract_directives(directive_groups, page):
             text = ''.join(varname.text.partition('=')[:2])
             stor[text].append((pagename, section))
 
-def _make_section(refentry, name, directives):
-    varlist = refentry.find(".//*[@id='{}']".format(name))
+def _make_section(template, name, directives):
+    varlist = template.find(".//*[@id='{}']".format(name))
     for varname, manpages in sorted(directives.items()):
         entry = tree.SubElement(varlist, 'varlistentry')
         a = tree.SubElement(tree.SubElement(entry, 'term'), 'varname')
@@ -125,7 +125,7 @@ def _make_section(refentry, name, directives):
                 d.text = manvolume
         entry.tail = '\n\n'
 
-def _make_page(directive_groups):
+def _make_page(template, directive_groups):
     """Create an XML tree from directive_groups.
 
     directive_groups = {
@@ -134,26 +134,21 @@ def _make_page(directive_groups):
        ...
     }
     """
-    refentry = tree.fromstring(TEMPLATE)
-
     for name, directives in directive_groups.items():
-            _make_section(refentry, name, directives)
+            _make_section(template, name, directives)
 
-    return refentry
+    return template
 
 def make_page(xml_files):
     "Extract directives from xml_files and return XML index tree."
+    template = tree.fromstring(TEMPLATE)
+    names = [vl.get('id') for vl in template.iterfind('.//variablelist')]
     directive_groups = {name:collections.defaultdict(list)
-                        for name in ['unit-directives',
-                                     'udev-directives',
-                                     'systemd-directives',
-                                     'journal-directives',
-                                     'bootchart-directives',
-                                     ]}
+                        for name in names}
     for page in xml_files:
         _extract_directives(directive_groups, page)
 
-    return _make_page(directive_groups)
+    return _make_page(template, directive_groups)
 
 if __name__ == '__main__':
     tree.dump(make_page(sys.argv[1:]))
