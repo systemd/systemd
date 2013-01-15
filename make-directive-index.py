@@ -92,7 +92,17 @@ TEMPLATE = '''\
 
                 <variablelist id='bootchart-directives' />
         </refsect1>
+
+        <refsect1>
+                <title>Colophon</title>
+                <para id='colophon' />
+        </refsect1>
 </refentry>
+'''
+
+COLOPHON = '''\
+This index contains {count} entries in {sections} sections,
+referring to {pages} individual manual pages.
 '''
 
 def _extract_directives(directive_groups, page):
@@ -125,6 +135,19 @@ def _make_section(template, name, directives):
                 d.text = manvolume
         entry.tail = '\n\n'
 
+def _make_colophon(template, groups):
+    count = 0
+    pages = set()
+    for group in groups:
+        count += len(group)
+        for pagelist in group.values():
+            pages |= set(pagelist)
+
+    para = template.find(".//para[@id='colophon']")
+    para.text = COLOPHON.format(count=count,
+                                sections=len(groups),
+                                pages=len(pages))
+
 def _make_page(template, directive_groups):
     """Create an XML tree from directive_groups.
 
@@ -136,6 +159,8 @@ def _make_page(template, directive_groups):
     """
     for name, directives in directive_groups.items():
             _make_section(template, name, directives)
+
+    _make_colophon(template, directive_groups.values())
 
     return template
 
