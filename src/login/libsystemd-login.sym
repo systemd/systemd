@@ -53,3 +53,8 @@ global:
         sd_seat_can_tty;
         sd_seat_can_graphical;
 } LIBSYSTEMD_LOGIN_43;
+
+LIBSYSTEMD_LOGIN_198 {
+global:
+        sd_session_get_tty;
+} LIBSYSTEMD_LOGIN_186;

@@ -409,6 +409,10 @@ _public_ int sd_session_get_seat(const char *session, char **seat) {
         return session_get_string(session, "SEAT", seat);
 }
 
+_public_ int sd_session_get_tty(const char *session, char **tty) {
+        return session_get_string(session, "TTY", tty);
+}
+
 _public_ int sd_session_get_service(const char *session, char **service) {
         return session_get_string(session, "SERVICE", service);
 }

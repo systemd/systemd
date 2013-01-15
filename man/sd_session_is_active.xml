@@ -51,6 +51,7 @@
                 <refname>sd_session_get_type</refname>
                 <refname>sd_session_get_class</refname>
                 <refname>sd_session_get_display</refname>
+                <refname>sd_session_get_tty</refname>
                 <refpurpose>Determine state of a specific session</refpurpose>
         </refnamediv>
 
@@ -103,6 +104,12 @@
                                 <funcdef>int <function>sd_session_get_display</function></funcdef>
                                 <paramdef>const char* <parameter>session</parameter></paramdef>
                                 <paramdef>char** <parameter>display</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_session_get_tty</function></funcdef>
+                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                                <paramdef>char** <parameter>tty</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
@@ -186,6 +193,14 @@
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
+                <para><function>sd_session_get_tty()</function>
+                may be used to determine the TTY device of the
+                session identified by the specified session
+                identifier. The returned string is one of needs to be
+                freed with the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use.</para>
+
                 <para>If the <literal>session</literal> parameter of
                 any of these functions is passed as NULL the operation
                 is executed for the session the calling process is a
@@ -203,8 +218,9 @@
                 <function>sd_session_get_seat()</function>,
                 <function>sd_session_get_service()</function>,
                 <function>sd_session_get_type()</function>,
-                <function>sd_session_get_class()</function> and
-                <function>sd_session_get_display()</function> return 0 or
+                <function>sd_session_get_class()</function>,
+                <function>sd_session_get_display()</function> and
+                <function>sd_session_get_tty()</function> return 0 or
                 a positive integer. On failure, these calls return a
                 negative errno-style error code.</para>
         </refsect1>
@@ -218,10 +234,11 @@
                 <function>sd_session_get_seat()</function>,
                 <function>sd_session_get_service()</function>,
                 <function>sd_session_get_type()</function>,
-                <function>sd_session_get_class()</function> and
-                <function>sd_session_get_display()</function> interfaces
-                are available as shared library, which can be compiled
-                and linked to with the
+                <function>sd_session_get_class()</function>,
+                <function>sd_session_get_display()</function> and
+                <function>sd_session_get_tty()</function>
+                interfaces are available as shared library, which can
+                be compiled and linked to with the
                 <literal>libsystemd-login</literal>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
