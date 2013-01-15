@@ -8,6 +8,7 @@
 [Unit]
 Description=Arbitrary Executable File Formats File System
 Documentation=https://www.kernel.org/doc/Documentation/binfmt_misc.txt
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
 DefaultDependencies=no
 
 [Mount]

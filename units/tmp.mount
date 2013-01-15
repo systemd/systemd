@@ -8,6 +8,7 @@
 [Unit]
 Description=Temporary Directory
 Documentation=man:hier(7)
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
 DefaultDependencies=no
 Conflicts=umount.target
 Before=local-fs.target umount.target
