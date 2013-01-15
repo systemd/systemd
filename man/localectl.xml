@@ -183,7 +183,7 @@
                                 mapping of X11, after converting it to
                                 the closest matching X11 keyboard
                                 mapping. Use
-                                <command>list-locales</command> for a
+                                <command>list-keymaps</command> for a
                                 list of available keyboard mappings
                                 (see below).</para></listitem>
                         </varlistentry>
