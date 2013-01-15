@@ -1042,7 +1042,7 @@ static bool need_daemon_reload(DBusConnection *bus, const char *unit) {
         /* We ignore all errors here, since this is used to show a warning only */
 
         n = unit_name_mangle(unit);
-        if (n)
+        if (!n)
                 return log_oom();
 
         r = bus_method_call_with_reply (
