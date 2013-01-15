@@ -277,7 +277,7 @@ static int output_short(
         } else if ((flags & OUTPUT_FULL_WIDTH) || (message_len + n + 1 < n_columns))
                 fprintf(f, ": %s%.*s%s\n", color_on, (int) message_len, message, color_off);
         else if (n < n_columns && n_columns - n - 2 >= 3) {
-                char *e;
+                char _cleanup_free_ *e;
 
                 e = ellipsize_mem(message, message_len, n_columns - n - 2, 90);
 
@@ -285,8 +285,6 @@ static int output_short(
                         fprintf(f, ": %s%.*s%s\n", color_on, (int) message_len, message, color_off);
                 else
                         fprintf(f, ": %s%s%s\n", color_on, e, color_off);
-
-                free(e);
         } else
                 fputs("\n", f);
 
@@ -305,7 +303,7 @@ static int output_verbose(
 
         const void *data;
         size_t length;
-        char *cursor;
+        char _cleanup_free_ *cursor = NULL;
         uint64_t realtime;
         char ts[FORMAT_TIMESTAMP_MAX];
         int r;
@@ -330,8 +328,6 @@ static int output_verbose(
         fprintf(f, "%s [%s]\n",
                 format_timestamp(ts, sizeof(ts), realtime),
                 cursor);
-
-        free(cursor);
 
         SD_JOURNAL_FOREACH_DATA(j, data, length) {
                 if (!shall_print(data, length, flags)) {
@@ -369,7 +365,7 @@ static int output_export(
         char sid[33];
         int r;
         usec_t realtime, monotonic;
-        char *cursor;
+        char _cleanup_free_ *cursor = NULL;
         const void *data;
         size_t length;
 
@@ -404,8 +400,6 @@ static int output_export(
                 (unsigned long long) realtime,
                 (unsigned long long) monotonic,
                 sd_id128_to_string(boot_id, sid));
-
-        free(cursor);
 
         SD_JOURNAL_FOREACH_DATA(j, data, length) {
 
@@ -500,11 +494,11 @@ static int output_json(
                 OutputFlags flags) {
 
         uint64_t realtime, monotonic;
-        char *cursor, *k;
+        char _cleanup_free_ *cursor = NULL;
         const void *data;
         size_t length;
         sd_id128_t boot_id;
-        char sid[33];
+        char sid[33], *k;
         int r;
         Hashmap *h = NULL;
         bool done, separator;
@@ -556,7 +550,6 @@ static int output_json(
                         (unsigned long long) monotonic,
                         sd_id128_to_string(boot_id, sid));
         }
-        free(cursor);
 
         h = hashmap_new(string_hash_func, string_compare_func);
         if (!h)
