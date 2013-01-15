@@ -21,6 +21,7 @@
 import collections
 import xml.etree.ElementTree as tree
 import sys
+MDASH = ' — ' if sys.version_info.major >= 3 else ' -- '
 
 TEMPLATE = '''\
 <refentry id="systemd.index">
@@ -91,7 +92,7 @@ def add_letter(template, letter, pages):
         d = tree.SubElement(b, 'manvolnum')
         d.text = section
 
-        b.tail = ' — ' + purpose # + ' (' + p + ')'
+        b.tail = MDASH + purpose # + ' (' + p + ')'
 
         tree.SubElement(para, 'sbr')
 
