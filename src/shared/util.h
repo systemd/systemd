@@ -433,6 +433,8 @@ int get_group_creds(const char **groupname, gid_t *gid);
 
 int in_group(const char *name);
 
+char* uid_to_name(uid_t uid);
+
 int glob_exists(const char *path);
 
 int dirent_ensure_type(DIR *d, struct dirent *de);

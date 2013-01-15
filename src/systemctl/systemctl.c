@@ -38,6 +38,7 @@
 
 #include <systemd/sd-daemon.h>
 #include <systemd/sd-shutdown.h>
+#include <systemd/sd-login.h>
 
 #include "log.h"
 #include "util.h"
@@ -1694,6 +1695,8 @@ static int check_inhibitors(DBusConnection *bus, enum action a) {
         DBusMessageIter iter, sub, sub2;
         int r;
         unsigned c = 0;
+        _cleanup_strv_free_ char **sessions = NULL;
+        char **s;
 
         if (!bus)
                 return 0;
@@ -1735,7 +1738,7 @@ static int check_inhibitors(DBusConnection *bus, enum action a) {
                 const char *what, *who, *why, *mode;
                 uint32_t uid, pid;
                 _cleanup_strv_free_ char **sv = NULL;
-                _cleanup_free_ char *comm = NULL;
+                _cleanup_free_ char *comm = NULL, *user = NULL;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
                         log_error("Failed to parse reply.");
@@ -1769,7 +1772,9 @@ static int check_inhibitors(DBusConnection *bus, enum action a) {
                         goto next;
 
                 get_process_comm(pid, &comm);
-                log_warning("Operation inhibited by \"%s\" (PID %lu \"%s\", UID %lu), reason is \"%s\".", who, (unsigned long) pid, strna(comm), (unsigned long) uid, why);
+                user = uid_to_name(uid);
+                log_warning("Operation inhibited by \"%s\" (PID %lu \"%s\", user %s), reason is \"%s\".",
+                            who, (unsigned long) pid, strna(comm), strna(user), why);
                 c++;
 
         next:
@@ -1778,10 +1783,34 @@ static int check_inhibitors(DBusConnection *bus, enum action a) {
 
         dbus_message_iter_recurse(&iter, &sub);
 
+        /* Check for current sessions */
+        sd_get_sessions(&sessions);
+        STRV_FOREACH(s, sessions) {
+                uid_t uid;
+                _cleanup_free_ char *type = NULL, *tty = NULL, *seat = NULL, *user = NULL, *service = NULL, *class = NULL;
+
+                if (sd_session_get_uid(*s, &uid) < 0 || uid == getuid())
+                        continue;
+
+                if (sd_session_get_class(*s, &class) < 0 || !streq(class, "user"))
+                        continue;
+
+                if (sd_session_get_type(*s, &type) < 0 || (!streq(type, "x11") && !streq(type, "tty")))
+                        continue;
+
+                sd_session_get_tty(*s, &tty);
+                sd_session_get_seat(*s, &seat);
+                sd_session_get_service(*s, &service);
+                user = uid_to_name(uid);
+
+                log_warning("User %s is logged in on %s.", strna(user), isempty(tty) ? (isempty(seat) ? strna(service) : seat) : tty);
+                c++;
+        }
+
         if (c <= 0)
                 return 0;
 
-        log_error("Please try again after closing inhibitors or ignore them with 'systemctl %s -i'.",
+        log_error("Please retry operation after closing inhibitors and logging out other users.\nAlternatively, ignore inhibitors and users with 'systemctl %s -i'.",
                   a == ACTION_HALT ? "halt" :
                   a == ACTION_POWEROFF ? "poweroff" :
                   a == ACTION_REBOOT ? "reboot" :

@@ -4444,6 +4444,23 @@ int get_user_creds(
         return 0;
 }
 
+char* uid_to_name(uid_t uid) {
+        struct passwd *p;
+        char *r;
+
+        if (uid == 0)
+                return strdup("root");
+
+        p = getpwuid(uid);
+        if (p)
+                return strdup(p->pw_name);
+
+        if (asprintf(&r, "%lu", (unsigned long) uid) < 0)
+                return NULL;
+
+        return r;
+}
+
 int get_group_creds(const char **groupname, gid_t *gid) {
         struct group *g;
         gid_t id;
