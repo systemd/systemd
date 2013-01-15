@@ -1,8 +1,9 @@
-#  -*- Mode: python; indent-tabs-mode: nil -*- */
+#  -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
 #
 #  This file is part of systemd.
 #
 #  Copyright 2012 Lennart Poettering
+#  Copyright 2013 Zbigniew Jędrzejewski-Szmek
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
@@ -17,79 +18,108 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-from xml.etree.ElementTree import parse, Element, SubElement, tostring
-from sys import argv, stdout
+import collections
+import xml.etree.ElementTree as tree
+import sys
 
-index = {}
+TEMPLATE = '''\
+<refentry id="systemd.index">
 
-def prettify(elem, indent = 0):
-        s = "\n" + indent * "  "
-        if len(elem):
-                if not elem.text or not elem.text.strip():
-                        elem.text = s + "  "
-                for e in elem:
-                        prettify(e, indent + 1)
-                        if not e.tail or not e.tail.strip():
-                                e.tail = s + "  "
-                if not e.tail or not e.tail.strip():
-                        e.tail = s
-        else:
-                if indent and (not elem.tail or not elem.tail.strip()):
-                        elem.tail = s
+  <refentryinfo>
+    <title>systemd.index</title>
+    <productname>systemd</productname>
 
-for p in argv[1:]:
-        t = parse(p)
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.index</refentrytitle>
+    <manvolnum>7</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.index</refname>
+    <refpurpose>List all manpages from the systemd project</refpurpose>
+  </refnamediv>
+</refentry>
+'''
+
+SUMMARY = '''\
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+
+    <para id='counts' />
+  </refsect1>
+'''
+
+COUNTS = '\
+This index contains {count} entries, referring to {pages} individual manual pages.'
+
+def make_index(pages):
+    index = collections.defaultdict(list)
+    for p in pages:
+        t = tree.parse(p)
         section = t.find('./refmeta/manvolnum').text
+        refname = t.find('./refnamediv/refname').text
         purpose = ' '.join(t.find('./refnamediv/refpurpose').text.split())
         for f in t.findall('./refnamediv/refname'):
-                index[f.text] = (p, section, purpose)
+            infos = (f.text, section, purpose, refname)
+            index[f.text[0].upper()].append(infos)
+    return index
 
-html = Element('html')
+def add_letter(template, letter, pages):
+    refsect1 = tree.SubElement(template, 'refsect1')
+    title = tree.SubElement(refsect1, 'title')
+    title.text = letter
+    para = tree.SubElement(refsect1, 'para')
+    for info in sorted(pages, key=lambda info: str.lower(info[0])):
+        refname, section, purpose, realname = info
 
-head = SubElement(html, 'head')
-title = SubElement(head, 'title')
-title.text = 'Manual Page Index'
+        b = tree.SubElement(para, 'citerefentry')
+        c = tree.SubElement(b, 'refentrytitle')
+        c.text = refname
+        d = tree.SubElement(b, 'manvolnum')
+        d.text = section
 
-body = SubElement(html, 'body')
-h1 = SubElement(body, 'h1')
-h1.text = 'Manual Page Index'
+        b.tail = ' — ' + purpose # + ' (' + p + ')'
 
-letter = None
-for n in sorted(index.keys(), key = str.lower):
-        path, section, purpose = index[n]
+        tree.SubElement(para, 'sbr')
 
-        if path.endswith('.xml'):
-                path = path[:-4] + ".html"
+def add_summary(template, indexpages):
+    count = 0
+    pages = set()
+    for group in indexpages:
+        count += len(group)
+        for info in group:
+            refname, section, purpose, realname = info
+            pages.add((realname, section))
 
-        c = path.rfind('/')
-        if c >= 0:
-                path = path[c+1:]
+    refsect1 = tree.fromstring(SUMMARY)
+    template.append(refsect1)
 
-        if letter is None or n[0].upper() != letter:
-                letter = n[0].upper()
+    para = template.find(".//para[@id='counts']")
+    para.text = COUNTS.format(count=count, pages=len(pages))
 
-                h2 = SubElement(body, 'h2')
-                h2.text = letter
+def make_page(xml_files):
+    template = tree.fromstring(TEMPLATE)
+    index = make_index(xml_files)
 
-                ul = SubElement(body, 'ul')
-                ul.set('style', 'list-style-type:none')
+    for letter in sorted(index):
+        add_letter(template, letter, index[letter])
 
-        li = SubElement(ul, 'li')
+    add_summary(template, index.values())
 
-        a = SubElement(li, 'a')
-        a.set('href', path)
-        a.text = n + '(' + section + ')'
-        a.tail = ' -- '
+    return template
 
-        i = SubElement(li, 'i')
-        i.text = purpose
-
-hr = SubElement(body, 'hr')
-
-p = SubElement(body, 'p')
-p.text = "This index contains %s entries, referring to %i individual manual pages." % (len(index), len(argv)-1)
-
-if hasattr(stdout, "buffer"):
-	stdout = stdout.buffer
-prettify(html)
-stdout.write(tostring(html))
+if __name__ == '__main__':
+    tree.dump(make_page(sys.argv[1:]))

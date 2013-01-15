@@ -682,21 +682,9 @@ CLEANFILES += \
 	${XML_FILES:.xml=.html}
 
 if HAVE_PYTHON
-noinst_DATA += \
-	man/index.html
-
-CLEANFILES += \
-	man/index.html
-
-man/index.html: make-man-index.py $(XML_FILES)
-	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(PYTHON) $^ > $@
-
 MANPAGES += \
+	man/systemd.index.7 \
 	man/systemd.directives.7
-
-EXTRA_DIST += \
-	man/index.html
 
 XML_DIRECTIVE_FILES = \
 	man/systemd.xml \
@@ -718,11 +706,16 @@ XML_DIRECTIVE_FILES = \
 	man/systemd.time.xml \
 	man/bootchart.conf.xml
 
+man/systemd.index.xml: make-man-index.py $(filter-out man/systemd.index.xml,$(XML_FILES))
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(PYTHON) $^ > $@
+
 man/systemd.directives.xml: make-directive-index.py $(XML_DIRECTIVE_FILES)
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(PYTHON) $^ > $@
 
 EXTRA_DIST += \
+	man/systemd.index.xml \
 	man/systemd.directives.xml
 
 endif
