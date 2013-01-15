@@ -1287,6 +1287,7 @@ int config_parse_path_unit(
         int r;
         DBusError error;
         Unit *u;
+        _cleanup_free_ char *p = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -1295,13 +1296,18 @@ int config_parse_path_unit(
 
         dbus_error_init(&error);
 
-        if (endswith(rvalue, ".path")) {
-                log_error("[%s:%u] Unit cannot be of type path, ignoring: %s", filename, line, rvalue);
+        p = unit_name_printf(u, rvalue);
+        if (!p)
+                return log_oom();
+
+        if (endswith(p, ".path")) {
+                log_error("[%s:%u] Unit cannot be of type path, ignoring: %s", filename, line, p);
                 return 0;
         }
 
-        if ((r = manager_load_unit(UNIT(t)->manager, rvalue, NULL, &error, &u)) < 0) {
-                log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
+        r = manager_load_unit(UNIT(t)->manager, p, NULL, &error, &u);
+        if (r < 0) {
+                log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, p, bus_error(&error, r));
                 dbus_error_free(&error);
                 return 0;
         }
