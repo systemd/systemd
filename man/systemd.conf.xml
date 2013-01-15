@@ -114,7 +114,16 @@
                                 of controller names. Pass an empty
                                 string to ensure that systemd does not
                                 touch any hierarchies but its
-                                own.</para></listitem>
+                                own.</para>
+
+                                <para>Note that the default value of
+                                'cpu' will make realtime scheduling
+                                unavailable to system services. See
+                                <ulink
+                                url="http://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime">My
+                                Service Can't Get Realtime!</ulink>
+                                for more
+                                information.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -144,10 +153,10 @@
                                 this option is changed, and make sure
                                 the new configuration file is included
                                 in it. Otherwise the initrd might
-                                mount the controllers in different
-                                configuration than intended, and the
-                                main system cannot remount them
-                                anymore.</para></listitem>
+                                mount the controller hierachies in a
+                                different configuration than intended,
+                                and the main system cannot remount
+                                them anymore.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
