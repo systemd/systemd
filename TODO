@@ -19,6 +19,10 @@ F18:
 
 Features:
 
+* logind: make PrepareForSuspend(false) an official api for notification of resumes
+
+* ExecStartPre= with an empty string should reset the list of commands to invoke
+
 * refuse instantiation of proc.mount and mount units for all other API fs
 
 * "systemctl disable" on a static unit prints no message and does
