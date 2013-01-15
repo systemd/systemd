@@ -102,10 +102,18 @@
                 in the file system hierarchy, a dependency between both
                 units is created automatically.</para>
 
-                <para>Mount points created at runtime independent on
-                unit files or <filename>/etc/fstab</filename> will be
+                <para>Mount points created at runtime (independently of
+                unit files or <filename>/etc/fstab</filename>) will be
                 monitored by systemd and appear like any other mount
                 unit in systemd.</para>
+
+                <para>Some file systems have special semantics as API
+                file systems for kernel-to-userspace and
+                userspace-to-userpace interfaces. Some of them may not
+                be changed via mount units, and cannot be disabled.
+                For a longer discussion see <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems">API
+                File Systems</ulink>.</para>
         </refsect1>
 
         <refsect1>
