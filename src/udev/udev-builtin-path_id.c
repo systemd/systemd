@@ -356,7 +356,7 @@ static struct udev_device *handle_scsi(struct udev_device *parent, char **path)
                 goto out;
         }
 
-        /* lousy scsi sysfs does not have a "subsystem" for the transport */
+        /* scsi sysfs does not have a "subsystem" for the transport */
         name = udev_device_get_syspath(parent);
 
         if (strstr(name, "/rport-") != NULL) {
@@ -375,12 +375,15 @@ static struct udev_device *handle_scsi(struct udev_device *parent, char **path)
         }
 
         /*
-         * We do not support the ATA transport class, it creates duplicated link
-         * names as the fake SCSI host adapters are all separated, they are all
-         * re-based as host == 0. ATA should just stop faking two duplicated
-         * hierarchies for a single topology and leave the SCSI stuff alone;
-         * until that happens, there are no by-path/ links for ATA devices behind
-         * an ATA transport class.
+         * We do not support the ATA transport class, it uses global counters
+         * to name the ata devices which numbers spread across multiple
+         * controllers.
+         *
+         * The real link numbers are not exported. Also, possible chains of ports
+         * behind port multipliers cannot be composed that way.
+         *
+         * Until all that is solved at the kernel level, there are no by-path/
+         * links for ATA devices.
          */
         if (strstr(name, "/ata") != NULL) {
                 parent = NULL;
