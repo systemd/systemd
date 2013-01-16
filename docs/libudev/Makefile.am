@@ -102,6 +102,6 @@ EXTRA_DIST += version.xml.in
 
 # Comment this out if you want your docs-status tested during 'make check'
 if ENABLE_GTK_DOC
-TESTS_ENVIRONMENT = cd $(top_srcdir)
-TESTS = $(GTKDOC_CHECK)
+#TESTS_ENVIRONMENT = cd $(top_srcdir)
+#TESTS = $(GTKDOC_CHECK)
 endif

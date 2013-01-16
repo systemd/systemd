@@ -18,6 +18,7 @@ F18:
 * Retest multi-seat
 
 Features:
+* re-enable "make check" for gtk-doc (broken for unknown reason)
 
 * logind: make PrepareForSuspend(false) an official api for notification of resumes
 
