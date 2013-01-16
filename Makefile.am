@@ -291,7 +291,6 @@ dist_systemunit_DATA = \
 	units/quotaon.service \
 	units/systemd-ask-password-wall.path \
 	units/systemd-ask-password-console.path \
-	units/syslog.target \
 	units/systemd-udevd-control.socket \
 	units/systemd-udevd-kernel.socket \
 	units/system-update.target

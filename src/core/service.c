@@ -322,7 +322,8 @@ static void service_done(Unit *u) {
 static char *sysv_translate_name(const char *name) {
         char *r;
 
-        if (!(r = new(char, strlen(name) + sizeof(".service"))))
+        r = new(char, strlen(name) + sizeof(".service"));
+        if (!r)
                 return NULL;
 
         if (endswith(name, ".sh"))
@@ -348,16 +349,12 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
 
         static const char * const table[] = {
                 /* LSB defined facilities */
-                "local_fs",             SPECIAL_LOCAL_FS_TARGET,
-                /* Due to unfortunate name selection in Mandriva,
-                 * $network is provided by network-up which is ordered
-                 * after network which actually starts interfaces.
-                 * To break the loop, just ignore it */
+                "local_fs",             NULL,
                 "network",              SPECIAL_NETWORK_TARGET,
                 "named",                SPECIAL_NSS_LOOKUP_TARGET,
                 "portmap",              SPECIAL_RPCBIND_TARGET,
                 "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
-                "syslog",               SPECIAL_SYSLOG_TARGET,
+                "syslog",               NULL,
                 "time",                 SPECIAL_TIME_SYNC_TARGET,
         };
 
@@ -378,8 +375,9 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 if (!table[i+1])
                         return 0;
 
-                if (!(r = strdup(table[i+1])))
-                        return -ENOMEM;
+                r = strdup(table[i+1]);
+                if (!r)
+                        return log_oom();
 
                 goto finish;
         }

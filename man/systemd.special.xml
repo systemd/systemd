@@ -93,7 +93,6 @@
                 <filename>swap.target</filename>,
                 <filename>sysinit.target</filename>,
                 <filename>syslog.socket</filename>,
-                <filename>syslog.target</filename>,
                 <filename>system-update.target</filename>,
                 <filename>time-sync.target</filename>,
                 <filename>umount.target</filename></para>
@@ -335,15 +334,6 @@
                                         <option>auto</option> and
                                         <option>comment=systemd.mount</option>
                                         mount options set.</para>
-
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        After for this target unit to
-                                        all SysV init script service
-                                        units with an LSB header
-                                        referring to the
-                                        <literal>$local_fs</literal>
-                                        facility.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -677,19 +667,6 @@
                                         url="http://www.freedesktop.org/wiki/Software/systemd/syslog">Syslog
                                         Interface</ulink>
                                         document.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>syslog.target</filename></term>
-                                <listitem>
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        After for this target unit to
-                                        all SysV init script service
-                                        units with an LSB header
-                                        referring to the
-                                        <literal>$syslog</literal>
-                                        facility.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

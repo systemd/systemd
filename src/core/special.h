@@ -46,7 +46,7 @@
 /* Early boot targets */
 #define SPECIAL_SYSINIT_TARGET "sysinit.target"
 #define SPECIAL_SOCKETS_TARGET "sockets.target"
-#define SPECIAL_LOCAL_FS_TARGET "local-fs.target"         /* LSB's $local_fs */
+#define SPECIAL_LOCAL_FS_TARGET "local-fs.target"
 #define SPECIAL_LOCAL_FS_PRE_TARGET "local-fs-pre.target"
 #define SPECIAL_REMOTE_FS_TARGET "remote-fs.target"       /* LSB's $remote_fs */
 #define SPECIAL_REMOTE_FS_PRE_TARGET "remote-fs-pre.target"
@@ -57,7 +57,6 @@
 #define SPECIAL_NETWORK_TARGET "network.target"           /* LSB's $network */
 #define SPECIAL_NSS_LOOKUP_TARGET "nss-lookup.target"     /* LSB's $named */
 #define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
-#define SPECIAL_SYSLOG_TARGET "syslog.target"             /* LSB's $syslog */
 #define SPECIAL_TIME_SYNC_TARGET "time-sync.target"       /* LSB's $time */
 
 /*

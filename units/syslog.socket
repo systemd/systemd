@@ -10,13 +10,10 @@ Description=Syslog Socket
 Documentation=man:systemd.special(7)
 Documentation=http://www.freedesktop.org/wiki/Software/systemd/syslog
 DefaultDependencies=no
-Before=sockets.target syslog.target shutdown.target
+Before=sockets.target shutdown.target
 
 # Don't allow logging until the very end
 Conflicts=shutdown.target
-
-# Pull in syslog.target to tell people that /dev/log is now accessible
-Wants=syslog.target
 
 [Socket]
 ListenDatagram=/run/systemd/journal/syslog
