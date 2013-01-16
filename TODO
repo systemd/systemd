@@ -13,9 +13,10 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
-F18:
-
+Fedora 19:
 * Retest multi-seat
+
+* create /var/log/journal/
 
 Features:
 * turn unused sysv early-boot stuff like $local-fs, $syslog into a NOP. systemd does
