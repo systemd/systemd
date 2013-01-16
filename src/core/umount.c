@@ -233,12 +233,19 @@ static int loopback_list_get(MountPoint **head) {
         udev_list_entry_foreach(item, first) {
                 MountPoint *lb;
                 struct udev_device *d;
+                const char *backing;
                 char *loop;
                 const char *dn;
 
                 if (!(d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item)))) {
                         r = -ENOMEM;
                         goto finish;
+                }
+
+                backing = udev_device_get_sysattr_value(d, "loop/backing_file");
+                if (!backing) {
+                        udev_device_unref(d);
+                        continue;
                 }
 
                 if (!(dn = udev_device_get_devnode(d))) {
