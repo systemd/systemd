@@ -19,9 +19,6 @@ Fedora 19:
 * create /var/log/journal/
 
 Features:
-* turn unused sysv early-boot stuff like $local-fs, $syslog into a NOP. systemd does
-  no longer support sysv early-boot scripts, these facilities can be silently ignored
-
 * re-enable "make check" for gtk-doc (broken for unknown reason)
 
 * logind: make PrepareForSuspend(false) an official api for notification of resumes
@@ -542,7 +539,9 @@ Features:
   - how to develop against journal browsing APIs
   - the journal HTTP iface
   - non-cgroup resource management
+  - dynamic resource management with cgroups
   - refreshed, longer missions statement
+  - celendar time events
 
 * allow port=0 in .socket units
 
