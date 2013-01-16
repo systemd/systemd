@@ -188,7 +188,7 @@
                 <para><function>sd_session_get_display()</function>
                 may be used to determine the X11 display of the
                 session identified by the specified session
-                identifier. The returned string is one of needs to be
+                identifier. The returned string needs to be
                 freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
@@ -196,7 +196,7 @@
                 <para><function>sd_session_get_tty()</function>
                 may be used to determine the TTY device of the
                 session identified by the specified session
-                identifier. The returned string is one of needs to be
+                identifier. The returned string needs to be
                 freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
