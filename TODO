@@ -382,7 +382,16 @@ Features:
 
 * readahead: make use of EXT4_IOC_MOVE_EXT, as used by http://e4rat.sourceforge.net/
 
-* automount: implement expire
+* automount: implement expire:
+   - set superblock timeout AUTOFS_DEV_IOCTL_TIMEOUT_CMD
+   - periodically run AUTOFS_DEV_IOCTL_EXPIRE_CMD
+     - every timeout/4 (original autofs logic)
+     - blocking, needs a thread
+     - run until -EAGAIN
+   - receive expire packet on pipe if kernel tells the timeout is over
+     - call umount
+     - answer expire packet on pipe with AUTOFS_DEV_IOCTL_{READY,FAIL}_CMD
+   - AUTOFS_DEV_IOCTL_EXPIRE_CMD returns
 
 * services which create their own subcgroups break cgroup-empty notification (needs to be fixed in the kernel)
 
