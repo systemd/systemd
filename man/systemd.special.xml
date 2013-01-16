@@ -68,7 +68,6 @@
                 <filename>kexec.target</filename>,
                 <filename>local-fs.target</filename>,
                 <filename>local-fs-pre.target</filename>,
-                <filename>mail-transfer-agent.target</filename>,
                 <filename>multi-user.target</filename>,
                 <filename>network.target</filename>,
                 <filename>nss-lookup.target</filename>,
@@ -214,14 +213,6 @@
                                         <filename>gdm.service</filename>
                                         or a similar display manager
                                         service.</para>
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        After for this target unit to
-                                        all SysV init script service
-                                        units with a LSB header
-                                        referring to the
-                                        <literal>$x-display-manager</literal>
-                                        facility.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -365,25 +356,6 @@
                                         (see above). It can be used to
                                         execute certain units before
                                         all local mounts.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>mail-transfer-agent.target</filename></term>
-                                <listitem>
-                                        <para>The mail transfer agent
-                                        (MTA) service. Usually this
-                                        should pull-in all units
-                                        necessary for
-                                        sending/receiving mails on the
-                                        local host.</para>
-
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        After for this target unit to
-                                        all SysV init script service
-                                        units with an LSB header
-                                        referring to the
-                                        <literal>$mail-transfer-agent</literal>.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

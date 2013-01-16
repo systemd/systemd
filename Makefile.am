@@ -259,7 +259,6 @@ dist_systemunit_DATA = \
 	units/network.target \
 	units/nss-lookup.target \
 	units/nss-user-lookup.target \
-	units/mail-transfer-agent.target \
 	units/hibernate.target \
 	units/hybrid-sleep.target \
 	units/poweroff.target \

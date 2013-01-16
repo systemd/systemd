@@ -59,8 +59,6 @@
 #define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
 #define SPECIAL_SYSLOG_TARGET "syslog.target"             /* LSB's $syslog */
 #define SPECIAL_TIME_SYNC_TARGET "time-sync.target"       /* LSB's $time */
-#define SPECIAL_DISPLAY_MANAGER_SERVICE "display-manager.service" /* Common extension of LSB */
-#define SPECIAL_MAIL_TRANSFER_AGENT_TARGET "mail-transfer-agent.target" /* Common extension of LSB */
 
 /*
  * Rules regarding adding further high level targets like the above:
