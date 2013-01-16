@@ -18,6 +18,9 @@ F18:
 * Retest multi-seat
 
 Features:
+* turn unused sysv early-boot stuff like $local-fs, $syslog into a NOP. systemd does
+  no longer support sysv early-boot scripts, these facilities can be silently ignored
+
 * re-enable "make check" for gtk-doc (broken for unknown reason)
 
 * logind: make PrepareForSuspend(false) an official api for notification of resumes
