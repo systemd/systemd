@@ -142,6 +142,44 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>IdleAction=</varname></term>
+
+                                <listitem><para>Configures the action
+                                to take when the system is idle. Takes
+                                one of <literal>ignore</literal>,
+                                <literal>poweroff</literal>,
+                                <literal>reboot</literal>,
+                                <literal>halt</literal>,
+                                <literal>kexec</literal>,
+                                <literal>suspend</literal>,
+                                <literal>hibernate</literal>,
+                                <literal>hybrid-sleep</literal>,
+                                <literal>lock</literal>. Defaults to
+                                <literal>ignore</literal>.</para>
+
+                                <para>Note that this requires that
+                                user sessions correctly report the
+                                idle status to the system. The system
+                                will execute the action after all
+                                sessions reported that they are idle,
+                                and no idle inhibitor lock is active,
+                                and subsquently the time configured
+                                with <varname>IdleActionSec=</varname>
+                                (see below) has passed.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>IdleActionSec=</varname></term>
+
+                                <listitem><para>Configures the delay
+                                after which the action configured in
+                                <varname>IdleAction=</varname> (see
+                                above) is taken after the system is
+                                idle.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>KillOnlyUsers=</varname></term>
                                 <term><varname>KillExcludeUsers=</varname></term>
 
