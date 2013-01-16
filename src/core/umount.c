@@ -442,9 +442,11 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                 )
                         continue;
 
-                /* Trying to umount. Forcing to umount if busy (only for NFS mounts) */
+                /* Trying to umount. We don't force here since we rely
+                 * on busy NFS and FUSE file systems to return EBUSY
+                 * until we closed everything on top of them. */
                 log_info("Unmounting %s.", m->path);
-                if (umount2(m->path, MNT_FORCE) == 0) {
+                if (umount2(m->path, 0) == 0) {
                         if (changed)
                                 *changed = true;
 
