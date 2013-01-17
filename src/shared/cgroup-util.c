@@ -36,6 +36,7 @@
 #include "util.h"
 #include "path-util.h"
 #include "strv.h"
+#include "unit-name.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
         char *fs;
@@ -1210,10 +1211,75 @@ int cg_pid_get_cgroup(pid_t pid, char **root, char **cgroup) {
         return 0;
 }
 
+static int instance_unit_from_cgroup(char **cgroup){
+        char *at;
+
+        assert(cgroup);
+
+        at = memchr(*cgroup, '@', strlen(*cgroup));
+        if (at && at[1] == '.') {
+                char *i, *s;
+
+                /* This is a templated service */
+                i = memchr(at, '/', strlen(at));
+                if(!i)
+                        return -EIO;
+
+                s = strndup(at + 1, i - at);
+                if (!s)
+                        return -ENOMEM;
+
+                i = strdup(i + 1);
+                if (!i) {
+                        free(s);
+                        return -ENOMEM;
+                }
+
+                strcpy(at + 1, i);
+                strcpy(at + strlen(i) + 1, s);
+                at[strlen(at) - 1] = '\0';
+
+                free(i);
+                free(s);
+        }
+
+        return 0;
+}
+
+static int cgroup_to_unit(char *cgroup, char **unit){
+        int r;
+        char *b, *p;
+        size_t k;
+
+        assert(cgroup);
+        assert(unit);
+
+        r = instance_unit_from_cgroup(&cgroup);
+        if (r < 0)
+                return r;
+
+        p = strrchr(cgroup, '/') + 1;
+        k = strlen(p);
+
+        b = strndup(p, k);
+
+        if (!b)
+                return -ENOMEM;
+
+        r = unit_name_is_valid(b, true);
+        if (!r) {
+                free(b);
+                return -ENOENT;
+        }
+
+        *unit = b;
+
+        return 0;
+}
+
 int cg_pid_get_unit(pid_t pid, char **unit) {
         int r;
-        char *cgroup, *p, *at, *b;
-        size_t k;
+        char *cgroup;
 
         assert(pid >= 0);
         assert(unit);
@@ -1227,38 +1293,40 @@ int cg_pid_get_unit(pid_t pid, char **unit) {
                 return -ENOENT;
         }
 
-        p = cgroup + 8;
-        k = strcspn(p, "/");
-
-        at = memchr(p, '@', k);
-        if (at && at[1] == '.') {
-                size_t j;
-
-                /* This is a templated service */
-                if (p[k] != '/') {
-                        free(cgroup);
-                        return -EIO;
-                }
-
-                j = strcspn(p+k+1, "/");
-
-                b = malloc(k + j + 1);
-
-                if (b) {
-                        memcpy(b, p, at - p + 1);
-                        memcpy(b + (at - p) + 1, p + k + 1, j);
-                        memcpy(b + (at - p) + 1 + j, at + 1, k - (at - p) - 1);
-                        b[k+j] = 0;
-                }
-        } else
-                  b = strndup(p, k);
+        r = cgroup_to_unit(cgroup, unit);
+        if (r < 0){
+                free(cgroup);
+                return r;
+        }
 
         free(cgroup);
 
-        if (!b)
-                return -ENOMEM;
-
-        *unit = b;
         return 0;
+}
 
+int cg_pid_get_user_unit(pid_t pid, char **unit) {
+        int r;
+        char *cgroup;
+
+        assert(pid >= 0);
+        assert(unit);
+
+        r = cg_pid_get_cgroup(pid, NULL, &cgroup);
+        if (r < 0)
+                return r;
+
+        if (!startswith(cgroup, "/user/")) {
+                free(cgroup);
+                return -ENOENT;
+        }
+
+        r = cgroup_to_unit(cgroup, unit);
+        if (r < 0) {
+                free(cgroup);
+                return r;
+        }
+
+        free(cgroup);
+
+        return 0;
 }

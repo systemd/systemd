@@ -601,8 +601,15 @@ static void dispatch_message_real(
                 if (cg_pid_get_unit(ucred->pid, &t) >= 0) {
                         unit = strappend("_SYSTEMD_UNIT=", t);
                         free(t);
-                } else if (unit_id)
-                        unit = strappend("_SYSTEMD_UNIT=", unit_id);
+                } else if (cg_pid_get_user_unit(ucred->pid, &t) >= 0) {
+                        unit = strappend("_SYSTEMD_USER_UNIT=", t);
+                        free(t);
+                } else if (unit_id) {
+                        if (session)
+                                unit = strappend("_SYSTEMD_USER_UNIT=", unit_id);
+                        else
+                                unit = strappend("_SYSTEMD_UNIT=", unit_id);
+                }
 
                 if (unit)
                         IOVEC_SET_STRING(iovec[n++], unit);
