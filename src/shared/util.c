@@ -5648,12 +5648,14 @@ const char *draw_special_char(DrawSpecialChar ch) {
                         [DRAW_TREE_VERT]          = "\342\224\202 ",            /* │  */
                         [DRAW_TREE_BRANCH]        = "\342\224\234\342\224\200", /* ├─ */
                         [DRAW_TREE_RIGHT]         = "\342\224\224\342\224\200", /* └─ */
+                        [DRAW_TREE_SPACE]         = "  ",                       /*    */
                         [DRAW_TRIANGULAR_BULLET]  = "\342\200\243 ",            /* ‣  */
                 },
                 /* ASCII fallback */ {
                         [DRAW_TREE_VERT]          = "| ",
                         [DRAW_TREE_BRANCH]        = "|-",
                         [DRAW_TREE_RIGHT]         = "`-",
+                        [DRAW_TREE_SPACE]         = "  ",
                         [DRAW_TRIANGULAR_BULLET]  = "> ",
                 }
         };

@@ -997,6 +997,17 @@
                                 dependencies.</para></listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><command>list-dependencies [NAME]</command></term>
+
+                                <listitem><para>
+                                Shows required and wanted units of given unit.
+                                Target units are recursively expanded.
+                                When <option>--all</option> is passed
+                                dependency tree is generated for all
+                                subsidiary units.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><command>snapshot [NAME]</command></term>
 
                                 <listitem><para>Create a snapshot. If

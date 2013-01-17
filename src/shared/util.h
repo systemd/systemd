@@ -555,6 +555,7 @@ typedef enum DrawSpecialChar {
         DRAW_TREE_VERT,
         DRAW_TREE_BRANCH,
         DRAW_TREE_RIGHT,
+        DRAW_TREE_SPACE,
         DRAW_TRIANGULAR_BULLET,
         _DRAW_SPECIAL_CHAR_MAX
 } DrawSpecialChar;

@@ -710,6 +710,226 @@ static int list_unit_files(DBusConnection *bus, char **args) {
         return 0;
 }
 
+static int list_dependencies_print(const char *name, int level, unsigned int branches, bool last) {
+        int i;
+        _cleanup_free_ char *n = NULL;
+        size_t len = 0;
+        size_t max_len = MAX(columns(),20);
+
+        for (i = level - 1; i >= 0; i--) {
+                len += 2;
+                if(len > max_len - 3 && !arg_full) {
+                        printf("%s...\n",max_len % 2 ? "" : " ");
+                        return 0;
+                }
+                printf("%s", draw_special_char(branches & (1 << i) ? DRAW_TREE_VERT : DRAW_TREE_SPACE));
+        }
+        len += 2;
+        if(len > max_len - 3 && !arg_full) {
+                printf("%s...\n",max_len % 2 ? "" : " ");
+                return 0;
+        }
+        printf("%s", draw_special_char(last ? DRAW_TREE_RIGHT : DRAW_TREE_BRANCH));
+
+        if(arg_full){
+                printf("%s\n", name);
+                return 0;
+        }
+
+        n = ellipsize(name, max_len-len, 100);
+        if(!n)
+                return log_oom();
+
+        printf("%s\n", n);
+        return 0;
+}
+
+static int list_dependencies_get_dependencies(DBusConnection *bus, const char *name, char ***deps) {
+        static const char * const dependencies[] = {
+                "Requires",
+                "RequiresOverridable",
+                "Requisite",
+                "RequisiteOverridable",
+                "Wants"
+        };
+
+        _cleanup_free_ char *path;
+        const char *interface = "org.freedesktop.systemd1.Unit";
+
+        _cleanup_dbus_message_unref_  DBusMessage *reply = NULL;
+        DBusMessageIter iter, sub, sub2, sub3;
+
+        int r = 0;
+        unsigned int i;
+
+        char **ret = NULL;
+        char **c;
+
+        assert(bus);
+        assert(name);
+        assert(deps);
+
+        path = unit_dbus_path_from_name(name);
+        if (path == NULL) {
+                r = -EINVAL;
+                goto finish;
+        }
+
+        r = bus_method_call_with_reply(
+                bus,
+                "org.freedesktop.systemd1",
+                path,
+                "org.freedesktop.DBus.Properties",
+                "GetAll",
+                &reply,
+                NULL,
+                DBUS_TYPE_STRING, &interface,
+                DBUS_TYPE_INVALID);
+        if (r < 0)
+                goto finish;
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+                dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+                dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_DICT_ENTRY) {
+                log_error("Failed to parse reply.");
+                r = -EIO;
+                goto finish;
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                const char *prop;
+
+                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_DICT_ENTRY) {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_recurse(&sub, &sub2);
+
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &prop, true) < 0) {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT) {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_recurse(&sub2, &sub3);
+
+                dbus_message_iter_next(&sub);
+
+                for (i = 0; i < ELEMENTSOF(dependencies); i++)
+                        if (streq(dependencies[i], prop)) {
+                                break;
+                        }
+
+                if (i == ELEMENTSOF(dependencies))
+                        continue;
+
+                if (dbus_message_iter_get_arg_type(&sub3) == DBUS_TYPE_ARRAY) {
+                        if (dbus_message_iter_get_element_type(&sub3) == DBUS_TYPE_STRING) {
+                                DBusMessageIter sub4;
+                                dbus_message_iter_recurse(&sub3, &sub4);
+
+                                while (dbus_message_iter_get_arg_type(&sub4) != DBUS_TYPE_INVALID) {
+                                        const char *s;
+
+                                        assert(dbus_message_iter_get_arg_type(&sub4) == DBUS_TYPE_STRING);
+                                        dbus_message_iter_get_basic(&sub4, &s);
+                                        c = strv_append(ret, s);
+                                        if (c == NULL) {
+                                                r = log_oom();
+                                                goto finish;
+                                        }
+                                        strv_free(ret);
+                                        ret = c;
+                                        dbus_message_iter_next(&sub4);
+                                }
+                        }
+                }
+        }
+finish:
+        if (r < 0)
+                strv_freep(&ret);
+        *deps = ret;
+        return r;
+}
+
+static int list_dependencies_compare(const void *_a, const void *_b) {
+        const char **a = (const char**) _a, **b = (const char**) _b;
+        if (unit_name_to_type(*a) == UNIT_TARGET && unit_name_to_type(*b) != UNIT_TARGET)
+                return 1;
+        if (unit_name_to_type(*a) != UNIT_TARGET && unit_name_to_type(*b) == UNIT_TARGET)
+                return -1;
+        return strcasecmp(*a, *b);
+}
+
+static int list_dependencies_one(DBusConnection *bus, const char *name, int level, char **units, unsigned int branches) {
+        char **deps = NULL;
+        char **c;
+        char **u = NULL;
+        int r = 0;
+
+        u = strv_append(units, name);
+        if(!u)
+                return log_oom();
+
+        r = list_dependencies_get_dependencies(bus, name, &deps);
+        if (r < 0)
+                goto finish;
+
+        qsort(deps, strv_length(deps), sizeof (char*), list_dependencies_compare);
+
+        STRV_FOREACH(c, deps) {
+                if (strv_contains(u, *c)) {
+                        r = list_dependencies_print("...", level + 1, (branches << 1) | (c[1] == NULL ? 0 : 1), 1);
+                        if(r < 0)
+                                goto finish;
+                        continue;
+                }
+
+                r = list_dependencies_print(*c, level, branches, c[1] == NULL);
+                if(r < 0)
+                        goto finish;
+
+                if (arg_all || unit_name_to_type(*c) == UNIT_TARGET) {
+                       r = list_dependencies_one(bus, *c, level + 1, u, (branches << 1) | (c[1] == NULL ? 0 : 1));
+                       if(r < 0)
+                                goto finish;
+                }
+        }
+        r = 0;
+finish:
+        strv_free(deps);
+        strv_free(u);
+
+        return r;
+}
+
+static int list_dependencies(DBusConnection *bus, char **args) {
+        int r = 0;
+        _cleanup_free_ char *unit = NULL;
+
+        assert(bus);
+        assert(args[1]);
+
+        unit = unit_name_mangle(args[1]);
+        if (!unit)
+                return log_oom();
+
+        pager_open_if_enabled();
+        printf("%s\n", unit);
+        r = list_dependencies_one(bus, unit, 0, NULL, 0);
+        return r;
+}
+
 static int dot_one_property(const char *name, const char *prop, DBusMessageIter *iter) {
 
         static const char * const colors[] = {
@@ -4063,7 +4283,7 @@ static int systemctl_help(void) {
                "  status [NAME...|PID...]         Show runtime status of one or more units\n"
                "  show [NAME...|JOB...]           Show properties of one or more\n"
                "                                  units/jobs or the manager\n"
-               "  help [NAME...|PID...]            Show manual for one or more units\n"
+               "  help [NAME...|PID...]           Show manual for one or more units\n"
                "  reset-failed [NAME...]          Reset failed state for all, one, or more\n"
                "                                  units\n"
                "  set-cgroup [NAME] [CGROUP...]   Add unit to a control group\n"
@@ -4072,7 +4292,9 @@ static int systemctl_help(void) {
                "                                  Set control group attribute\n"
                "  unset-cgroup-attr [NAME] [ATTR...]\n"
                "                                  Unset control group attribute\n"
-               "  load [NAME...]                  Load one or more units\n\n"
+               "  load [NAME...]                  Load one or more units\n"
+               "  list-dependencies [NAME]        Recursively show units which are required\n"
+               "                                  or wanted by this unit\n\n"
                "Unit File Commands:\n"
                "  list-unit-files                 List installed unit files\n"
                "  enable [NAME...]                Enable one or more unit files\n"
@@ -5088,6 +5310,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "unmask",                MORE,  2, enable_unit       },
                 { "link",                  MORE,  2, enable_unit       },
                 { "switch-root",           MORE,  2, switch_root       },
+                { "list-dependencies",     EQUAL, 2, list_dependencies },
         };
 
         int left;
