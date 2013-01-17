@@ -327,10 +327,13 @@ static int names_bcma(struct udev_device *dev, struct netnames *names) {
         if (!bcmadev)
                 return -ENOENT;
 
-        /* bus num, core num */
+        /* bus num:core num */
         if (sscanf(udev_device_get_sysname(bcmadev), "bcma%*d:%d", &core) != 1)
                 return -EINVAL;
-        snprintf(names->bcma_core, sizeof(names->bcma_core), "b%d", core);
+        /* suppress the common core == 0 */
+        if (core > 0)
+                snprintf(names->bcma_core, sizeof(names->bcma_core), "b%d", core);
+
         names->type = NET_BCMA;
         return 0;
 }
