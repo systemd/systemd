@@ -69,11 +69,13 @@
         "  <property name=\"Requisite\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"RequisiteOverridable\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Wants\" type=\"as\" access=\"read\"/>\n"    \
-        "  <property name=\"BindsTo\" type=\"as\" access=\"read\"/>\n"    \
+        "  <property name=\"BindsTo\" type=\"as\" access=\"read\"/>\n"  \
+        "  <property name=\"PartOf\" type=\"as\" access=\"read\"/>\n"   \
         "  <property name=\"RequiredBy\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"RequiredByOverridable\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"WantedBy\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"BoundBy\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"ConsistsOf\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Conflicts\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ConflictedBy\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Before\" type=\"as\" access=\"read\"/>\n"   \
