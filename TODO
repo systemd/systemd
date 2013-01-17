@@ -115,7 +115,9 @@ Features:
   - implement conditional properties (dmi matches)
   - hwdb --filter=ID_DRIVE_*
 
-* if booted in "quiet" mode, and an error happens, turn on status output again, so that the emergency mode isn't totally surprising
+* if booted in "quiet" mode, and an error happens, turn on status
+  output again, so that the emergency mode isn't totally
+  surprising. Also, terminate plymouth.
 
 * localectl: add listing support for X11 keymaps, by parsing /usr/share/X11/xkb/rules/xorg.lst
 
