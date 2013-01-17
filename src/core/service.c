@@ -1521,6 +1521,9 @@ static void service_set_state(Service *s, ServiceState state) {
                 s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
         }
 
+        if (state == SERVICE_FAILED)
+                service_notify_sockets_dead(s, s->result == SERVICE_FAILURE_START_LIMIT);
+
         if (state == SERVICE_DEAD ||
             state == SERVICE_STOP ||
             state == SERVICE_STOP_SIGTERM ||
@@ -1528,7 +1531,6 @@ static void service_set_state(Service *s, ServiceState state) {
             state == SERVICE_STOP_POST ||
             state == SERVICE_FINAL_SIGTERM ||
             state == SERVICE_FINAL_SIGKILL ||
-            state == SERVICE_FAILED ||
             state == SERVICE_AUTO_RESTART)
                 service_notify_sockets_dead(s, false);
 
