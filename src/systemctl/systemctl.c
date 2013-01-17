@@ -760,7 +760,6 @@ static int list_dependencies_get_dependencies(DBusConnection *bus, const char *n
 
         int r = 0;
         char **ret = NULL;
-        char **c;
 
         assert(bus);
         assert(name);
@@ -834,13 +833,13 @@ static int list_dependencies_get_dependencies(DBusConnection *bus, const char *n
 
                                         assert(dbus_message_iter_get_arg_type(&sub4) == DBUS_TYPE_STRING);
                                         dbus_message_iter_get_basic(&sub4, &s);
-                                        c = strv_append(ret, s);
-                                        if (c == NULL) {
-                                                r = log_oom();
+
+                                        r = strv_extend(&ret, s);
+                                        if (r < 0) {
+                                                log_oom();
                                                 goto finish;
                                         }
-                                        strv_free(ret);
-                                        ret = c;
+
                                         dbus_message_iter_next(&sub4);
                                 }
                         }
