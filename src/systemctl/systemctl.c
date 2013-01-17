@@ -2734,13 +2734,23 @@ static void print_status_info(UnitStatusInfo *i) {
 
         if (i->id && arg_transport != TRANSPORT_SSH) {
                 printf("\n");
-                show_journal_by_unit(stdout,
-                                     i->id,
-                                     arg_output,
-                                     0,
-                                     i->inactive_exit_timestamp_monotonic,
-                                     arg_lines,
-                                     flags);
+                if(arg_scope == UNIT_FILE_SYSTEM)
+                        show_journal_by_unit(stdout,
+                                             i->id,
+                                             arg_output,
+                                             0,
+                                             i->inactive_exit_timestamp_monotonic,
+                                             arg_lines,
+                                             flags);
+                else
+                        show_journal_by_user_unit(stdout,
+                                                  i->id,
+                                                  arg_output,
+                                                  0,
+                                                  i->inactive_exit_timestamp_monotonic,
+                                                  arg_lines,
+                                                  getuid(),
+                                                  flags);
         }
 
         if (i->need_daemon_reload)
