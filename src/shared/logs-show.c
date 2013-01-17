@@ -774,72 +774,22 @@ int output_journal(
         return ret;
 }
 
-int show_journal_by_unit(
-                FILE *f,
-                const char *unit,
-                OutputMode mode,
-                unsigned n_columns,
-                usec_t not_before,
-                unsigned how_many,
-                OutputFlags flags) {
+static int show_journal(FILE *f,
+                        sd_journal *j,
+                        OutputMode mode,
+                        unsigned n_columns,
+                        usec_t not_before,
+                        unsigned how_many,
+                        OutputFlags flags) {
 
-        _cleanup_free_ char *m1 = NULL, *m2 = NULL, *m3 = NULL;
-        sd_journal *j = NULL;
         int r;
         unsigned line = 0;
         bool need_seek = false;
         int warn_cutoff = flags & OUTPUT_WARN_CUTOFF;
 
+        assert(j);
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
-        assert(unit);
-
-        if (!endswith(unit, ".service") &&
-            !endswith(unit, ".socket") &&
-            !endswith(unit, ".mount") &&
-            !endswith(unit, ".swap"))
-                return 0;
-
-        if (how_many <= 0)
-                return 0;
-
-        if (asprintf(&m1, "_SYSTEMD_UNIT=%s", unit) < 0 ||
-            asprintf(&m2, "COREDUMP_UNIT=%s", unit) < 0 ||
-            asprintf(&m3, "UNIT=%s", unit) < 0) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM_ONLY);
-        if (r < 0)
-                goto finish;
-
-        /* Look for messages from the service itself */
-        r = sd_journal_add_match(j, m1, 0);
-        if (r < 0)
-                goto finish;
-
-        /* Look for coredumps of the service */
-        r = sd_journal_add_disjunction(j);
-        if (r < 0)
-                goto finish;
-        r = sd_journal_add_match(j, "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1", 0);
-        if (r < 0)
-                goto finish;
-        r = sd_journal_add_match(j, m2, 0);
-        if (r < 0)
-                goto finish;
-
-        /* Look for messages from PID 1 about this service */
-        r = sd_journal_add_disjunction(j);
-        if (r < 0)
-                goto finish;
-        r = sd_journal_add_match(j, "_PID=1", 0);
-        if (r < 0)
-                goto finish;
-        r = sd_journal_add_match(j, m3, 0);
-        if (r < 0)
-                goto finish;
 
         /* Seek to end */
         r = sd_journal_seek_tail(j);
@@ -914,6 +864,145 @@ int show_journal_by_unit(
                         goto finish;
 
         }
+
+finish:
+        return r;
+}
+
+int show_journal_by_unit(
+                FILE *f,
+                const char *unit,
+                OutputMode mode,
+                unsigned n_columns,
+                usec_t not_before,
+                unsigned how_many,
+                OutputFlags flags) {
+
+        _cleanup_free_ char *m1 = NULL, *m2 = NULL, *m3 = NULL;
+        sd_journal *j = NULL;
+        int r;
+
+        assert(mode >= 0);
+        assert(mode < _OUTPUT_MODE_MAX);
+        assert(unit);
+
+        if (!endswith(unit, ".service") &&
+            !endswith(unit, ".socket") &&
+            !endswith(unit, ".mount") &&
+            !endswith(unit, ".swap"))
+                return 0;
+
+        if (how_many <= 0)
+                return 0;
+
+        if (asprintf(&m1, "_SYSTEMD_UNIT=%s", unit) < 0 ||
+            asprintf(&m2, "COREDUMP_UNIT=%s", unit) < 0 ||
+            asprintf(&m3, "UNIT=%s", unit) < 0) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM_ONLY);
+        if (r < 0)
+                goto finish;
+
+        /* Look for messages from the service itself */
+        r = sd_journal_add_match(j, m1, 0);
+        if (r < 0)
+                goto finish;
+
+        /* Look for coredumps of the service */
+        r = sd_journal_add_disjunction(j);
+        if (r < 0)
+                goto finish;
+        r = sd_journal_add_match(j, "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1", 0);
+        if (r < 0)
+                goto finish;
+        r = sd_journal_add_match(j, m2, 0);
+        if (r < 0)
+                goto finish;
+
+        /* Look for messages from PID 1 about this service */
+        r = sd_journal_add_disjunction(j);
+        if (r < 0)
+                goto finish;
+        r = sd_journal_add_match(j, "_PID=1", 0);
+        if (r < 0)
+                goto finish;
+        r = sd_journal_add_match(j, m3, 0);
+        if (r < 0)
+                goto finish;
+
+        r = show_journal(f, j, mode, n_columns, not_before, how_many, flags);
+        if (r < 0)
+                goto finish;
+
+finish:
+        if (j)
+                sd_journal_close(j);
+
+        return r;
+}
+
+int show_journal_by_user_unit(
+                FILE *f,
+                const char *unit,
+                OutputMode mode,
+                unsigned n_columns,
+                usec_t not_before,
+                unsigned how_many,
+                uid_t uid,
+                OutputFlags flags) {
+
+        _cleanup_free_ char *m1 = NULL, *m2 = NULL, *m3 = NULL;
+        sd_journal *j = NULL;
+        int r;
+
+        assert(mode >= 0);
+        assert(mode < _OUTPUT_MODE_MAX);
+        assert(unit);
+
+        if (!endswith(unit, ".service") &&
+            !endswith(unit, ".socket"))
+
+                return 0;
+
+        if (how_many <= 0)
+                return 0;
+
+        if (asprintf(&m1, "_SYSTEMD_USER_UNIT=%s", unit) < 0 ||
+            asprintf(&m2, "USER_UNIT=%s", unit) < 0 ||
+            asprintf(&m3, "_UID=%d", uid) < 0) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
+        if (r < 0)
+                goto finish;
+
+        /* Look for messages from the user service itself */
+        r = sd_journal_add_match(j, m1, 0);
+        if (r < 0)
+                goto finish;
+        r = sd_journal_add_match(j, m3, 0);
+        if (r < 0)
+                goto finish;
+
+        /* Look for messages from systemd about this service */
+        r = sd_journal_add_disjunction(j);
+        if (r < 0)
+                goto finish;
+        r = sd_journal_add_match(j, m2, 0);
+        if (r < 0)
+                goto finish;
+        r = sd_journal_add_match(j, m3, 0);
+        if (r < 0)
+                goto finish;
+
+        r = show_journal(f, j, mode, n_columns, not_before, how_many, flags);
+        if (r < 0)
+                goto finish;
 
 finish:
         if (j)

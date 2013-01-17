@@ -22,6 +22,8 @@
 ***/
 
 #include <stdbool.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 #include <systemd/sd-journal.h>
 
@@ -42,6 +44,16 @@ int show_journal_by_unit(
                 unsigned n_columns,
                 usec_t not_before,
                 unsigned how_many,
+                OutputFlags flags);
+
+int show_journal_by_user_unit(
+                FILE *f,
+                const char *unit,
+                OutputMode mode,
+                unsigned n_columns,
+                usec_t not_before,
+                unsigned how_many,
+                uid_t uid,
                 OutputFlags flags);
 
 void json_escape(
