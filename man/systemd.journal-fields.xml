@@ -212,13 +212,15 @@
                                 <term><varname>_SYSTEMD_CGROUP=</varname></term>
                                 <term><varname>_SYSTEMD_SESSION=</varname></term>
                                 <term><varname>_SYSTEMD_UNIT=</varname></term>
+                                <term><varname>_SYSTEMD_USER_UNIT=</varname></term>
                                 <term><varname>_SYSTEMD_OWNER_UID=</varname></term>
 
                                 <listitem>
                                         <para>The control group path in
                                         the systemd hierarchy, the
                                         systemd session ID (if any),
-                                        the systemd unit name (if any)
+                                        the systemd unit name (if any),
+                                        the systemd user session unit name (if any)
                                         and the owner UID of the
                                         systemd session (if any) of
                                         the process the journal entry
