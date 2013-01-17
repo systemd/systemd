@@ -842,8 +842,9 @@ static int list_dependencies_get_dependencies(DBusConnection *bus, const char *n
         }
 finish:
         if (r < 0)
-                strv_freep(&ret);
-        *deps = ret;
+                strv_free(ret);
+        else
+                *deps = ret;
         return r;
 }
 
