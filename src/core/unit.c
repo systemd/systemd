@@ -2090,7 +2090,7 @@ static int unit_add_one_default_cgroup(Unit *u, const char *controller) {
                 return -ENOMEM;
 
         b->controller = strdup(controller);
-        if (!b)
+        if (!b->controller)
                 goto fail;
 
         b->path = unit_default_cgroup_path(u);
