@@ -372,15 +372,26 @@ fail:
 
 int strv_extend(char ***l, const char *value) {
         char **c;
+        char *v;
+        unsigned n;
 
         if (!value)
                 return 0;
 
-        c = strv_append(*l, value);
-        if (!c)
+        v = strdup(value);
+        if (!v)
                 return -ENOMEM;
 
-        strv_free(*l);
+        n = strv_length(*l);
+        c = realloc(*l, sizeof(char*) * (n + 2));
+        if (!c) {
+                free(v);
+                return -ENOMEM;
+        }
+
+        c[n] = v;
+        c[n+1] = NULL;
+
         *l = c;
         return 0;
 }
