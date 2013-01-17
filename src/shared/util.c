@@ -439,7 +439,6 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
 
         if (!fgets(line, sizeof(line), f)) {
                 r = feof(f) ? -EIO : -errno;
-                fclose(f);
                 return r;
         }
 
