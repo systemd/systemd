@@ -94,6 +94,7 @@ enum netname_type{
         NET_UNDEF,
         NET_PCI,
         NET_USB,
+        NET_BCMA,
 };
 
 struct netnames {
@@ -108,8 +109,9 @@ struct netnames {
         char pci_onboard[IFNAMSIZ];
         const char *pci_onboard_label;
 
-        struct udev_device *usbdev;
         char usb_ports[IFNAMSIZ];
+
+        char bcma_core[IFNAMSIZ];
 };
 
 /* retrieve on-board index number and label from firmware */
@@ -265,6 +267,7 @@ static int names_pci(struct udev_device *dev, struct netnames *names) {
 }
 
 static int names_usb(struct udev_device *dev, struct netnames *names) {
+        struct udev_device *usbdev;
         char name[256];
         char *ports;
         char *config;
@@ -272,12 +275,12 @@ static int names_usb(struct udev_device *dev, struct netnames *names) {
         size_t l;
         char *s;
 
-        names->usbdev = udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_interface");
-        if (!names->usbdev)
+        usbdev = udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_interface");
+        if (!usbdev)
                 return -ENOENT;
 
         /* get USB port number chain, configuration, interface */
-        strscpy(name, sizeof(name), udev_device_get_sysname(names->usbdev));
+        strscpy(name, sizeof(name), udev_device_get_sysname(usbdev));
         s = strchr(name, '-');
         if (!s)
                 return -EINVAL;
@@ -313,6 +316,22 @@ static int names_usb(struct udev_device *dev, struct netnames *names) {
                 return -ENAMETOOLONG;
 
         names->type = NET_USB;
+        return 0;
+}
+
+static int names_bcma(struct udev_device *dev, struct netnames *names) {
+        struct udev_device *bcmadev;
+        unsigned int core;
+
+        bcmadev = udev_device_get_parent_with_subsystem_devtype(dev, "bcma", NULL);
+        if (!bcmadev)
+                return -ENOENT;
+
+        /* bus num, core num */
+        if (sscanf(udev_device_get_sysname(bcmadev), "bcma%*d:%d", &core) != 1)
+                return -EINVAL;
+        snprintf(names->bcma_core, sizeof(names->bcma_core), "b%d", core);
+        names->type = NET_BCMA;
         return 0;
 }
 
@@ -452,7 +471,24 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
                 if (names.pci_slot[0])
                         if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_slot, names.usb_ports) < (int)sizeof(str))
                                 udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+                goto out;
         }
+
+        /* Broadcom bus */
+        err = names_bcma(dev, &names);
+        if (err >= 0 && names.type == NET_BCMA) {
+                char str[IFNAMSIZ];
+
+                if (names.pci_path[0])
+                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_path, names.bcma_core) < (int)sizeof(str))
+                                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+
+                if (names.pci_slot[0])
+                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_slot, names.bcma_core) < (int)sizeof(str))
+                                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+                goto out;
+        }
+
 out:
         return EXIT_SUCCESS;
 }
