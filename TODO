@@ -398,10 +398,6 @@ Features:
   - kill scsi_id
   - add trigger --subsystem-match=usb/usb_device device
 
-* vconsole:
-  - implement setterm -store -foreground xxx --background zzz
-  - allow configuration of console width/height in vconsole.conf
-
 * cleanup syslog 'priority' vs. 'level' wording
 
 * dbus upstream still refers to dbus.target and shouldn't
