@@ -905,20 +905,24 @@ finish:
 }
 
 static int list_dependencies(DBusConnection *bus, char **args) {
-        int r = 0;
         _cleanup_free_ char *unit = NULL;
+        const char *u;
 
         assert(bus);
-        assert(args[1]);
 
-        unit = unit_name_mangle(args[1]);
-        if (!unit)
-                return log_oom();
+        if (args[1]) {
+                unit = unit_name_mangle(args[1]);
+                if (!unit)
+                        return log_oom();
+                u = unit;
+        } else
+                u = SPECIAL_DEFAULT_TARGET;
 
         pager_open_if_enabled();
-        printf("%s\n", unit);
-        r = list_dependencies_one(bus, unit, 0, NULL, 0);
-        return r;
+
+        puts(u);
+
+        return list_dependencies_one(bus, u, 0, NULL, 0);
 }
 
 static int dot_one_property(const char *name, const char *prop, DBusMessageIter *iter) {
@@ -5301,7 +5305,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "unmask",                MORE,  2, enable_unit       },
                 { "link",                  MORE,  2, enable_unit       },
                 { "switch-root",           MORE,  2, switch_root       },
-                { "list-dependencies",     EQUAL, 2, list_dependencies },
+                { "list-dependencies",     LESS,  2, list_dependencies },
         };
 
         int left;
