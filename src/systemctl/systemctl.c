@@ -745,13 +745,12 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
 }
 
 static int list_dependencies_get_dependencies(DBusConnection *bus, const char *name, char ***deps) {
-        static const char * const dependencies[] = {
-                "Requires",
-                "RequiresOverridable",
-                "Requisite",
-                "RequisiteOverridable",
-                "Wants"
-        };
+        static const char dependencies[] =
+                "Requires\0"
+                "RequiresOverridable\0"
+                "Requisite\0"
+                "RequisiteOverridable\0"
+                "Wants\0";
 
         _cleanup_free_ char *path;
         const char *interface = "org.freedesktop.systemd1.Unit";
@@ -760,8 +759,6 @@ static int list_dependencies_get_dependencies(DBusConnection *bus, const char *n
         DBusMessageIter iter, sub, sub2, sub3;
 
         int r = 0;
-        unsigned int i;
-
         char **ret = NULL;
         char **c;
 
@@ -822,15 +819,9 @@ static int list_dependencies_get_dependencies(DBusConnection *bus, const char *n
                 }
 
                 dbus_message_iter_recurse(&sub2, &sub3);
-
                 dbus_message_iter_next(&sub);
 
-                for (i = 0; i < ELEMENTSOF(dependencies); i++)
-                        if (streq(dependencies[i], prop)) {
-                                break;
-                        }
-
-                if (i == ELEMENTSOF(dependencies))
+                if (!nulstr_contains(dependencies, prop))
                         continue;
 
                 if (dbus_message_iter_get_arg_type(&sub3) == DBUS_TYPE_ARRAY) {
