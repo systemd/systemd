@@ -1024,8 +1024,8 @@ int exec_spawn(ExecCommand *command,
 
         r = exec_context_load_environment(context, &files_env);
         if (r < 0) {
-                log_struct(LOG_ERR,
-                           "UNIT=%s", unit_id,
+                log_struct_unit(LOG_ERR,
+                           unit_id,
                            "MESSAGE=Failed to load environment files: %s", strerror(-r),
                            "ERRNO=%d", -r,
                            NULL);
@@ -1039,8 +1039,8 @@ int exec_spawn(ExecCommand *command,
         if (!line)
                 return log_oom();
 
-        log_struct(LOG_DEBUG,
-                   "UNIT=%s", unit_id,
+        log_struct_unit(LOG_DEBUG,
+                   unit_id,
                    "MESSAGE=About to execute %s", line,
                    NULL);
         free(line);
@@ -1512,8 +1512,8 @@ int exec_spawn(ExecCommand *command,
                 _exit(r);
         }
 
-        log_struct(LOG_DEBUG,
-                   "UNIT=%s", unit_id,
+        log_struct_unit(LOG_DEBUG,
+                   unit_id,
                    "MESSAGE=Forked %s as %lu",
                           command->path, (unsigned long) pid,
                    NULL);

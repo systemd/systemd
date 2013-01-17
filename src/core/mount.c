@@ -955,11 +955,11 @@ fail:
 void warn_if_dir_nonempty(const char *unit, const char* where) {
         if (dir_is_empty(where) > 0)
                 return;
-        log_struct(LOG_NOTICE,
+        log_struct_unit(LOG_NOTICE,
+                   unit,
                    "MESSAGE=%s: Directory %s to mount over is not empty, mounting anyway.",
                    unit, where,
                    "WHERE=%s", where,
-                   "_SYSTEMD_UNIT=%s", unit,
                    MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
                    NULL);
 }

@@ -1022,9 +1022,9 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
               t == JOB_STOP  ? SD_MESSAGE_UNIT_STOPPING :
                                SD_MESSAGE_UNIT_RELOADING;
 
-        log_struct(LOG_INFO,
+        log_struct_unit(LOG_INFO,
+                   u->id,
                    MESSAGE_ID(mid),
-                   "UNIT=%s", u->id,
                    "MESSAGE=%s", buf,
                    NULL);
 }
@@ -1438,9 +1438,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         check_unneeded_dependencies(u);
 
                 if (ns != os && ns == UNIT_FAILED) {
-                        log_struct(LOG_NOTICE,
+                        log_struct_unit(LOG_NOTICE,
+                                   u->id,
                                    "MESSAGE=Unit %s entered failed state", u->id,
-                                   "UNIT=%s", u->id,
                                    NULL);
                         unit_trigger_on_failure(u);
                 }

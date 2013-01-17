@@ -713,25 +713,25 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                 sd_id128_t mid;
 
                 mid = result == JOB_DONE ? SD_MESSAGE_UNIT_STARTED : SD_MESSAGE_UNIT_FAILED;
-                log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                log_struct_unit(result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                           u->id,
                            MESSAGE_ID(mid),
-                           "UNIT=%s", u->id,
                            "RESULT=%s", job_result_to_string(result),
                            "MESSAGE=%s", buf,
                            NULL);
 
         } else if (t == JOB_STOP)
-                log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                log_struct_unit(result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                           u->id,
                            MESSAGE_ID(SD_MESSAGE_UNIT_STOPPED),
-                           "UNIT=%s", u->id,
                            "RESULT=%s", job_result_to_string(result),
                            "MESSAGE=%s", buf,
                            NULL);
 
         else if (t == JOB_RELOAD)
-                log_struct(result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                log_struct_unit(result == JOB_DONE ? LOG_INFO : LOG_ERR,
+                           u->id,
                            MESSAGE_ID(SD_MESSAGE_UNIT_RELOADED),
-                           "UNIT=%s", u->id,
                            "RESULT=%s", job_result_to_string(result),
                            "MESSAGE=%s", buf,
                            NULL);
@@ -818,8 +818,8 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
          * this context. And JOB_FAILURE is already handled by the
          * unit itself. */
         if (result == JOB_TIMEOUT || result == JOB_DEPENDENCY) {
-                log_struct(LOG_NOTICE,
-                           "UNIT=%s", u->id,
+                log_struct_unit(LOG_NOTICE,
+                           u->id,
                            "JOB_TYPE=%s", job_type_to_string(t),
                            "JOB_RESULT=%s", job_result_to_string(result),
                            "Job %s/%s failed with result '%s'.",
