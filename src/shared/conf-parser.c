@@ -377,7 +377,8 @@ int config_parse_int(
         assert(rvalue);
         assert(data);
 
-        if ((r = safe_atoi(rvalue, i)) < 0) {
+        r = safe_atoi(rvalue, i);
+        if (r < 0) {
                 log_error("[%s:%u] Failed to parse numeric value, ingoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -403,7 +404,8 @@ int config_parse_long(
         assert(rvalue);
         assert(data);
 
-        if ((r = safe_atoli(rvalue, i)) < 0) {
+        r = safe_atoli(rvalue, i);
+        if (r < 0) {
                 log_error("[%s:%u] Failed to parse numeric value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -429,7 +431,8 @@ int config_parse_uint64(
         assert(rvalue);
         assert(data);
 
-        if ((r = safe_atou64(rvalue, u)) < 0) {
+        r = safe_atou64(rvalue, u);
+        if (r < 0) {
                 log_error("[%s:%u] Failed to parse numeric value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -455,7 +458,8 @@ int config_parse_unsigned(
         assert(rvalue);
         assert(data);
 
-        if ((r = safe_atou(rvalue, u)) < 0) {
+        r = safe_atou(rvalue, u);
+        if (r < 0) {
                 log_error("[%s:%u] Failed to parse numeric value: %s", filename, line, rvalue);
                 return r;
         }
@@ -595,7 +599,7 @@ int config_parse_string(
 
         n = strdup(rvalue);
         if (!n)
-                return -ENOMEM;
+                return log_oom();
 
         if (!utf8_is_valid(n)) {
                 log_error("[%s:%u] String is not UTF-8 clean, ignoring assignment: %s", filename, line, rvalue);
@@ -644,7 +648,7 @@ int config_parse_path(
 
         n = strdup(rvalue);
         if (!n)
-                return -ENOMEM;
+                return log_oom();
 
         path_kill_slashes(n);
 
@@ -677,13 +681,19 @@ int config_parse_strv(
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                strv_free(*sv);
+                *sv = NULL;
+        }
+
         k = strv_length(*sv);
         FOREACH_WORD_QUOTED(w, l, rvalue, state)
                 k++;
 
         n = new(char*, k+1);
         if (!n)
-                return -ENOMEM;
+                return log_oom();
 
         if (*sv)
                 for (k = 0; (*sv)[k]; k++)
@@ -694,7 +704,7 @@ int config_parse_strv(
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 n[k] = cunescape_length(w, l);
                 if (!n[k]) {
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto fail;
                 }
 
@@ -744,13 +754,19 @@ int config_parse_path_strv(
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                strv_free(*sv);
+                *sv = NULL;
+        }
+
         k = strv_length(*sv);
         FOREACH_WORD_QUOTED(w, l, rvalue, state)
                 k++;
 
         n = new(char*, k+1);
         if (!n)
-                return -ENOMEM;
+                return log_oom();
 
         k = 0;
         if (*sv)
@@ -760,7 +776,7 @@ int config_parse_path_strv(
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 n[k] = strndup(w, l);
                 if (!n[k]) {
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto fail;
                 }
 
@@ -956,6 +972,16 @@ int config_parse_set_status(
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+
+                set_free(status_set->signal);
+                set_free(status_set->code);
+
+                status_set->signal = status_set->code = NULL;
+                return 0;
+        }
 
         FOREACH_WORD(w, l, rvalue, state) {
                 int val;

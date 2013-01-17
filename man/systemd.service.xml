@@ -315,14 +315,18 @@
                                 for compatibility with parsers
                                 suitable for XDG
                                 <filename>.desktop</filename> files.
-                                The commands are invoked one by
-                                one sequentially in the order they
-                                appear in the unit file.
-                                When <varname>Type</varname> is
-                                not <option>oneshot</option>, only one
+                                The commands are invoked one by one
+                                sequentially in the order they appear
+                                in the unit file.  When
+                                <varname>Type</varname> is not
+                                <option>oneshot</option>, only one
                                 command may be given. Lone semicolons
                                 may be escaped as
-                                '<literal>\;</literal>'.</para>
+                                '<literal>\;</literal>'. If the empty
+                                string is assigned to this option the
+                                list of commands to start is reset,
+                                prior assignments of this option will
+                                have no effect.</para>
 
                                 <para>Unless
                                 <varname>Type=forking</varname> is
@@ -337,23 +341,6 @@
                                 that the first argument of the command
                                 line (i.e. the program to execute) may
                                 not include specifiers.</para>
-
-                                <para>Optionally, if the absolute file
-                                name is prefixed with
-                                '<literal>@</literal>', the second token
-                                will be passed as
-                                <literal>argv[0]</literal> to the
-                                executed process, followed by the
-                                further arguments specified. If the
-                                absolute file name is prefixed with
-                                '<literal>-</literal>' an exit code of
-                                the command normally considered a
-                                failure (i.e. non-zero exit status or
-                                abnormal exit due to signal) is ignored
-                                and considered success. If both
-                                '<literal>-</literal>' and
-                                '<literal>@</literal>' are used they
-                                can appear in either order.</para>
 
                                 <para>On top of that basic environment
                                 variable substitution is
@@ -375,6 +362,23 @@
                                 may not be a variable, and must be a
                                 literal and absolute path
                                 name.</para>
+
+                                <para>Optionally, if the absolute file
+                                name is prefixed with
+                                '<literal>@</literal>', the second token
+                                will be passed as
+                                <literal>argv[0]</literal> to the
+                                executed process, followed by the
+                                further arguments specified. If the
+                                absolute file name is prefixed with
+                                '<literal>-</literal>' an exit code of
+                                the command normally considered a
+                                failure (i.e. non-zero exit status or
+                                abnormal exit due to signal) is ignored
+                                and considered success. If both
+                                '<literal>-</literal>' and
+                                '<literal>@</literal>' are used they
+                                can appear in either order.</para>
 
                                 <para>Note that this setting does not
                                 directly support shell command
@@ -616,8 +620,14 @@
                                 SIGKILL</literal>", ensures that exit
                                 codes 1, 2, 8 and the termination
                                 signal SIGKILL are considered clean
-                                service
-                                terminations.</para></listitem>
+                                service terminations. This option may
+                                appear more than once in which case
+                                the list of successful exit statuses
+                                is merged. If the empty string is
+                                assigned to this option the list is
+                                reset, all prior assignments of this
+                                option will have no
+                                effect.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -638,9 +648,16 @@
                                 logic. Example:
                                 "<literal>RestartPreventExitStatus=1 6
                                 SIGABRT</literal>", ensures that exit
-                                codes 1 and 6 and the termination signal
-                                SIGABRT will not result in automatic
-                                service restarting.</para></listitem>
+                                codes 1 and 6 and the termination
+                                signal SIGABRT will not result in
+                                automatic service restarting. This
+                                option may appear more than once in
+                                which case the list of restart preventing
+                                statuses is merged. If the empty
+                                string is assigned to this option the
+                                list is reset, all prior assignments
+                                of this option will have no
+                                effect.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -754,13 +771,22 @@
                                 same time. Also note that a different
                                 service may be activated on incoming
                                 traffic than inherits the sockets. Or
-                                in other words: The
+                                in other words: the
                                 <varname>Service=</varname> setting of
                                 <filename>.socket</filename> units
-                                doesn't have to match the inverse of the
-                                <varname>Sockets=</varname> setting of
-                                the <filename>.service</filename> it
-                                refers to.</para></listitem>
+                                doesn't have to match the inverse of
+                                the <varname>Sockets=</varname>
+                                setting of the
+                                <filename>.service</filename> it
+                                refers to.</para>
+
+                                <para>This option may appear more than
+                                once, in which case the list of socket
+                                units is merged. If the empty string
+                                is assigned to this option the list of
+                                sockets is reset, all prior uses of
+                                this setting will have no
+                                effect.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

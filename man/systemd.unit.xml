@@ -254,8 +254,13 @@
                                 reference documentation that explains
                                 what the unit's purpose is, followed
                                 by how it is configured, followed by
-                                any other related
-                                documentation.</para></listitem>
+                                any other related documentation. This
+                                option may be specified more than once
+                                in which case the specified list of
+                                URIs is merged. If the empty string is
+                                assigned to this option the list is
+                                reset and all prior assignments will
+                                have no effect.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -907,8 +912,12 @@
                                 pipe symbol must be passed first, the
                                 exclamation second. Except for
                                 <varname>ConditionPathIsSymbolicLink=</varname>,
-                                all path checks follow
-                                symlinks.</para></listitem>
+                                all path checks follow symlinks. If
+                                any of these options is assigned the
+                                empty string the list of conditions is
+                                reset completely, all previous
+                                condition settings (of any kind) will
+                                have no effect.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

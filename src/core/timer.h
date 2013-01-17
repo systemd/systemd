@@ -84,6 +84,8 @@ struct Timer {
 
 void timer_unit_notify(Unit *u, UnitActiveState new_state);
 
+void timer_free_values(Timer *t);
+
 extern const UnitVTable timer_vtable;
 
 const char *timer_state_to_string(TimerState i);

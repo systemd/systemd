@@ -174,13 +174,13 @@ Service.FsckPassNo,              config_parse_fsck_passno,           0,         
 EXEC_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 m4_dnl
-Socket.ListenStream,             config_parse_socket_listen,         0,                             0
-Socket.ListenDatagram,           config_parse_socket_listen,         0,                             0
-Socket.ListenSequentialPacket,   config_parse_socket_listen,         0,                             0
-Socket.ListenFIFO,               config_parse_socket_listen,         0,                             0
-Socket.ListenNetlink,            config_parse_socket_listen,         0,                             0
-Socket.ListenSpecial,            config_parse_socket_listen,         0,                             0
-Socket.ListenMessageQueue,       config_parse_socket_listen,         0,                             0
+Socket.ListenStream,             config_parse_socket_listen,         SOCKET_SOCKET,                 0
+Socket.ListenDatagram,           config_parse_socket_listen,         SOCKET_SOCKET,                 0
+Socket.ListenSequentialPacket,   config_parse_socket_listen,         SOCKET_SOCKET,                 0
+Socket.ListenFIFO,               config_parse_socket_listen,         SOCKET_FIFO,                   0
+Socket.ListenNetlink,            config_parse_socket_listen,         SOCKET_SOCKET,                 0
+Socket.ListenSpecial,            config_parse_socket_listen,         SOCKET_SPECIAL,                0
+Socket.ListenMessageQueue,       config_parse_socket_listen,         SOCKET_MQUEUE,                 0
 Socket.BindIPv6Only,             config_parse_socket_bind,           0,                             0,
 Socket.Backlog,                  config_parse_unsigned,              0,                             offsetof(Socket, backlog)
 Socket.BindToDevice,             config_parse_socket_bindtodevice,   0,                             0

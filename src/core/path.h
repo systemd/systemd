@@ -98,6 +98,8 @@ void path_unit_notify(Unit *u, UnitActiveState new_state);
  * any of the paths of this path object */
 int path_add_one_mount_link(Path *p, Mount *m);
 
+void path_free_specs(Path *p);
+
 extern const UnitVTable path_vtable;
 
 const char* path_state_to_string(PathState i);

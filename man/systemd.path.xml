@@ -130,13 +130,15 @@
                                 specified. <varname>PathChanged=</varname>
                                 may be used to watch a file or
                                 directory and activate the configured
-                                unit whenever it changes. It is not activated
-                                on every write to the watched file but it is
-                                activated if the file which was open for writing
-                                gets closed. <varname>PathModified=</varname>
-                                is similar, but additionally it is activated
-                                also on simple writes to the watched file.
-
+                                unit whenever it changes. It is not
+                                activated on every write to the
+                                watched file but it is activated if
+                                the file which was open for writing
+                                gets
+                                closed. <varname>PathModified=</varname>
+                                is similar, but additionally it is
+                                activated also on simple writes to the
+                                watched file.
                                 <varname>DirectoryNotEmpty=</varname>
                                 may be used to watch a directory and
                                 activate the configured unit whenever
@@ -148,7 +150,12 @@
 
                                 <para>Multiple directives may be
                                 combined, of the same and of different
-                                types, to watch multiple paths.</para>
+                                types, to watch multiple paths. If the
+                                empty string is assigned to any of
+                                these options the list of paths to
+                                watch is reset, and any prior
+                                assignments of these options will not
+                                have any effect.</para>
 
                                 <para>If a path is already existing
                                 (in case of

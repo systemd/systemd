@@ -102,8 +102,7 @@ static void socket_unwatch_control_pid(Socket *s) {
         s->control_pid = 0;
 }
 
-static void socket_done(Unit *u) {
-        Socket *s = SOCKET(u);
+void socket_free_ports(Socket *s) {
         SocketPort *p;
 
         assert(s);
@@ -119,6 +118,14 @@ static void socket_done(Unit *u) {
                 free(p->path);
                 free(p);
         }
+}
+
+static void socket_done(Unit *u) {
+        Socket *s = SOCKET(u);
+
+        assert(s);
+
+        socket_free_ports(s);
 
         exec_context_done(&s->exec_context);
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);

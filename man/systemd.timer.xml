@@ -115,7 +115,7 @@
                                 machine was booted
                                 up. <varname>OnStartupSec=</varname>
                                 defines a timer relative to when
-                                systemd was
+                                systemd was first
                                 started. <varname>OnUnitActiveSec=</varname>
                                 defines a timer relative to when the
                                 unit the timer is activating was last
@@ -157,7 +157,13 @@
                                 <para>These are monotonic timers,
                                 independent of wall-clock time and timezones. If the
                                 computer is temporarily suspended, the
-                                monotonic clock stops too.</para></listitem>
+                                monotonic clock stops too.</para>
+
+                                <para>If the empty string is assigned
+                                to any of these options the list of
+                                timers is reset, and all prior
+                                assignments will have no
+                                effect.</para></listitem>
 
                         </varlistentry>
 
@@ -169,8 +175,10 @@
                                 event expressions. See
                                 <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for more information on the syntax of
-                                calendar event
-                                expressions.</para></listitem>
+                                calendar event expressions. Otherwise
+                                the semantics are similar to
+                                <varname>OnActiveSec=</varname> and
+                                related settings.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

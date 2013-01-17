@@ -163,6 +163,8 @@ int socket_add_one_mount_link(Socket *s, Mount *m);
 /* Called from the service code when a per-connection service ended */
 void socket_connection_unref(Socket *s);
 
+void socket_free_ports(Socket *s);
+
 extern const UnitVTable socket_vtable;
 
 const char* socket_state_to_string(SocketState i);

@@ -205,19 +205,24 @@
 
                                 <para>These options may be specified
                                 more than once in which case incoming
-                                traffic on any of the sockets will trigger
-                                service activation, and all listed
-                                sockets will be passed to the service,
-                                regardless whether there is incoming
-                                traffic on them or not.</para>
+                                traffic on any of the sockets will
+                                trigger service activation, and all
+                                listed sockets will be passed to the
+                                service, regardless whether there is
+                                incoming traffic on them or not. If
+                                the empty string is assigned to any of
+                                these options, the list of addresses
+                                to listen on is reset, all prior uses
+                                of any of these options will have no
+                                effect.</para>
 
-                                <para>If an IP address is used here, it
-                                is often desirable to listen on it
+                                <para>If an IP address is used here,
+                                it is often desirable to listen on it
                                 before the interface it is configured
                                 on is up and running, and even
                                 regardless whether it will be up and
-                                running ever at all. To deal with this it is
-                                recommended to set the
+                                running ever at all. To deal with this
+                                it is recommended to set the
                                 <varname>FreeBind=</varname> option
                                 described below.</para></listitem>
                         </varlistentry>

@@ -91,11 +91,11 @@ int config_parse_unit_deps(
 
                 t = strndup(w, l);
                 if (!t)
-                        return -ENOMEM;
+                        return log_oom();
 
                 k = unit_name_printf(u, t);
                 if (!k)
-                        return -ENOMEM;
+                        return log_oom();
 
                 r = unit_add_dependency_by_name(u, d, k, NULL, true);
                 if (r < 0)
@@ -117,8 +117,7 @@ int config_parse_unit_string_printf(
                 void *userdata) {
 
         Unit *u = userdata;
-        char *k;
-        int r;
+        _cleanup_free_ char *k = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -127,12 +126,9 @@ int config_parse_unit_string_printf(
 
         k = unit_full_printf(u, rvalue);
         if (!k)
-                return -ENOMEM;
+                return log_oom();
 
-        r = config_parse_string(filename, line, section, lvalue, ltype, k, data, userdata);
-        free (k);
-
-        return r;
+        return config_parse_string(filename, line, section, lvalue, ltype, k, data, userdata);
 }
 
 int config_parse_unit_strv_printf(
@@ -146,8 +142,7 @@ int config_parse_unit_strv_printf(
                 void *userdata) {
 
         Unit *u = userdata;
-        char *k;
-        int r;
+        _cleanup_free_ char *k = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -156,12 +151,9 @@ int config_parse_unit_strv_printf(
 
         k = unit_full_printf(u, rvalue);
         if (!k)
-                return -ENOMEM;
+                return log_oom();
 
-        r = config_parse_strv(filename, line, section, lvalue, ltype, k, data, userdata);
-        free(k);
-
-        return r;
+        return config_parse_strv(filename, line, section, lvalue, ltype, k, data, userdata);
 }
 
 int config_parse_unit_path_printf(
@@ -175,8 +167,7 @@ int config_parse_unit_path_printf(
                 void *userdata) {
 
         Unit *u = userdata;
-        char *k;
-        int r;
+        _cleanup_free_ char *k = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -187,10 +178,7 @@ int config_parse_unit_path_printf(
         if (!k)
                 return log_oom();
 
-        r = config_parse_path(filename, line, section, lvalue, ltype, k, data, userdata);
-        free(k);
-
-        return r;
+        return config_parse_path(filename, line, section, lvalue, ltype, k, data, userdata);
 }
 
 int config_parse_socket_listen(
@@ -213,50 +201,39 @@ int config_parse_socket_listen(
 
         s = SOCKET(data);
 
+        if (isempty(rvalue)) {
+                /* An empty assignment removes all ports */
+                socket_free_ports(s);
+                return 0;
+        }
+
         p = new0(SocketPort, 1);
         if (!p)
-                return -ENOMEM;
+                return log_oom();
 
-        if (streq(lvalue, "ListenFIFO")) {
-                p->type = SOCKET_FIFO;
+        if (ltype != SOCKET_SOCKET) {
 
-                if (!(p->path = unit_full_printf(UNIT(s), rvalue))) {
+                p->type = ltype;
+                p->path = unit_full_printf(UNIT(s), rvalue);
+                if (!p->path) {
                         free(p);
-                        return -ENOMEM;
-                }
-
-                path_kill_slashes(p->path);
-
-        } else if (streq(lvalue, "ListenSpecial")) {
-                p->type = SOCKET_SPECIAL;
-
-                if (!(p->path = unit_full_printf(UNIT(s), rvalue))) {
-                        free(p);
-                        return -ENOMEM;
-                }
-
-                path_kill_slashes(p->path);
-
-        } else if (streq(lvalue, "ListenMessageQueue")) {
-
-                p->type = SOCKET_MQUEUE;
-
-                if (!(p->path = unit_full_printf(UNIT(s), rvalue))) {
-                        free(p);
-                        return -ENOMEM;
+                        return log_oom();
                 }
 
                 path_kill_slashes(p->path);
 
         } else if (streq(lvalue, "ListenNetlink")) {
-                char  *k;
+                _cleanup_free_ char  *k = NULL;
                 int r;
 
                 p->type = SOCKET_SOCKET;
                 k = unit_full_printf(UNIT(s), rvalue);
-                r = socket_address_parse_netlink(&p->address, k);
-                free(k);
+                if (!k) {
+                        free(p);
+                        return log_oom();
+                }
 
+                r = socket_address_parse_netlink(&p->address, k);
                 if (r < 0) {
                         log_error("[%s:%u] Failed to parse address value, ignoring: %s", filename, line, rvalue);
                         free(p);
@@ -264,14 +241,17 @@ int config_parse_socket_listen(
                 }
 
         } else {
-                char *k;
+                _cleanup_free_ char *k = NULL;
                 int r;
 
                 p->type = SOCKET_SOCKET;
                 k = unit_full_printf(UNIT(s), rvalue);
-                r = socket_address_parse(&p->address, k);
-                free(k);
+                if (!k) {
+                        free(p);
+                        return log_oom();
+                }
 
+                r = socket_address_parse(&p->address, k);
                 if (r < 0) {
                         log_error("[%s:%u] Failed to parse address value, ignoring: %s", filename, line, rvalue);
                         free(p);
@@ -430,12 +410,18 @@ int config_parse_exec(
         assert(rvalue);
         assert(e);
 
+        e += ltype;
+
+        if (isempty(rvalue)) {
+                /* An empty assignment resets the list */
+                exec_command_free_list(*e);
+                *e = NULL;
+                return 0;
+        }
+
         /* We accept an absolute path as first argument, or
          * alternatively an absolute prefixed with @ to allow
          * overriding of argv[0]. */
-
-        e += ltype;
-
         for (;;) {
                 int i;
                 char *w;
@@ -480,7 +466,7 @@ int config_parse_exec(
 
                 n = new(char*, k + !honour_argv0);
                 if (!n)
-                        return -ENOMEM;
+                        return log_oom();
 
                 k = 0;
                 FOREACH_WORD_QUOTED(w, l, rvalue, state) {
@@ -494,7 +480,7 @@ int config_parse_exec(
 
                                 path = strndup(w, l);
                                 if (!path) {
-                                        r = -ENOMEM;
+                                        r = log_oom();
                                         goto fail;
                                 }
 
@@ -509,7 +495,7 @@ int config_parse_exec(
 
                                 c = n[k++] = cunescape_length(w, l);
                                 if (!c) {
-                                        r = -ENOMEM;
+                                        r = log_oom();
                                         goto fail;
                                 }
 
@@ -532,7 +518,7 @@ int config_parse_exec(
                 if (!path) {
                         path = strdup(n[0]);
                         if (!path) {
-                                r = -ENOMEM;
+                                r = log_oom();
                                 goto fail;
                         }
                 }
@@ -541,7 +527,7 @@ int config_parse_exec(
 
                 nce = new0(ExecCommand, 1);
                 if (!nce) {
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto fail;
                 }
 
@@ -589,8 +575,9 @@ int config_parse_socket_bindtodevice(
         assert(data);
 
         if (rvalue[0] && !streq(rvalue, "*")) {
-                if (!(n = strdup(rvalue)))
-                        return -ENOMEM;
+                n = strdup(rvalue);
+                if (!n)
+                        return log_oom();
         } else
                 n = NULL;
 
@@ -718,7 +705,6 @@ int config_parse_exec_cpu_sched_prio(
                 return 0;
         }
 
-
         /* On Linux RR/FIFO range from 1 to 99 and OTHER/BATCH may only be 0 */
         min = sched_get_priority_min(c->cpu_sched_policy);
         max = sched_get_priority_max(c->cpu_sched_policy);
@@ -754,6 +740,14 @@ int config_parse_exec_cpu_affinity(
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                /* An empty assignment resets the CPU list */
+                if (c->cpuset)
+                        CPU_FREE(c->cpuset);
+                c->cpuset = NULL;
+                return 0;
+        }
+
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char _cleanup_free_ *t = NULL;
                 int r;
@@ -761,14 +755,14 @@ int config_parse_exec_cpu_affinity(
 
                 t = strndup(w, l);
                 if (!t)
-                        return -ENOMEM;
+                        return log_oom();
 
                 r = safe_atou(t, &cpu);
 
                 if (!c->cpuset) {
                         c->cpuset = cpu_set_malloc(&c->cpuset_ncpus);
                         if (!c->cpuset)
-                                return -ENOMEM;
+                                return log_oom();
                 }
 
                 if (r < 0 || cpu >= c->cpuset_ncpus) {
@@ -801,9 +795,10 @@ int config_parse_exec_capabilities(
         assert(rvalue);
         assert(data);
 
-        if (!(cap = cap_from_text(rvalue))) {
+        cap = cap_from_text(rvalue);
+        if (!cap) {
                 if (errno == ENOMEM)
-                        return -ENOMEM;
+                        return log_oom();
 
                 log_error("[%s:%u] Failed to parse capabilities, ignoring: %s", filename, line, rvalue);
                 return 0;
@@ -835,6 +830,12 @@ int config_parse_exec_secure_bits(
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if (isempty(rvalue)) {
+                /* An empty assignment resets the field */
+                c->secure_bits = 0;
+                return 0;
+        }
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 if (first_word(w, "keep-caps"))
@@ -881,6 +882,12 @@ int config_parse_bounding_set(
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                /* An empty assignment resets */
+                *capability_bounding_set_drop = 0;
+                return 0;
+        }
+
         if (rvalue[0] == '~') {
                 invert = true;
                 rvalue++;
@@ -898,7 +905,7 @@ int config_parse_bounding_set(
 
                 t = strndup(w, l);
                 if (!t)
-                        return -ENOMEM;
+                        return log_oom();
 
                 r = cap_from_name(t, &cap);
                 if (r < 0) {
@@ -945,9 +952,11 @@ int config_parse_limit(
                 return 0;
         }
 
-        if (!*rl)
-                if (!(*rl = new(struct rlimit, 1)))
-                        return -ENOMEM;
+        if (!*rl) {
+                *rl = new(struct rlimit, 1);
+                if (!*rl)
+                        return log_oom();
+        }
 
         (*rl)->rlim_cur = (*rl)->rlim_max = (rlim_t) u;
         return 0;
@@ -968,21 +977,28 @@ int config_parse_unit_cgroup(
         size_t l;
         char *state;
 
+        if (isempty(rvalue)) {
+                /* An empty assignment resets the list */
+                cgroup_bonding_free_list(u->cgroup_bondings, false);
+                u->cgroup_bondings = NULL;
+                return 0;
+        }
+
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char _cleanup_free_ *t = NULL, *k = NULL, *ku = NULL;
                 int r;
 
                 t = strndup(w, l);
                 if (!t)
-                        return -ENOMEM;
+                        return log_oom();
 
                 k = unit_full_printf(u, t);
                 if (!k)
-                        return -ENOMEM;
+                        return log_oom();
 
                 ku = cunescape(k);
                 if (!ku)
-                        return -ENOMEM;
+                        return log_oom();
 
                 r = unit_add_cgroup_from_text(u, ku, true, NULL);
                 if (r < 0) {
@@ -1071,7 +1087,8 @@ int config_parse_kill_signal(
         assert(rvalue);
         assert(sig);
 
-        if ((r = signal_from_string_try_harder(rvalue)) <= 0) {
+        r = signal_from_string_try_harder(rvalue);
+        if (r <= 0) {
                 log_error("[%s:%u] Failed to parse kill signal, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -1106,7 +1123,7 @@ int config_parse_exec_mount_flags(
 
                 t = strndup(w, l);
                 if (!t)
-                        return -ENOMEM;
+                        return log_oom();
 
                 if (streq(t, "shared"))
                         flags |= MS_SHARED;
@@ -1147,6 +1164,12 @@ int config_parse_timer(
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                /* Empty assignment resets list */
+                timer_free_values(t);
+                return 0;
+        }
+
         b = timer_base_from_string(lvalue);
         if (b < 0) {
                 log_error("[%s:%u] Failed to parse timer base, ignoring: %s", filename, line, lvalue);
@@ -1171,7 +1194,7 @@ int config_parse_timer(
 
         v = new0(TimerValue, 1);
         if (!v)
-                return -ENOMEM;
+                return log_oom();
 
         v->base = b;
         v->clock_id = id;
@@ -1197,6 +1220,7 @@ int config_parse_timer_unit(
         int r;
         DBusError error;
         Unit *u;
+        _cleanup_free_ char *p = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -1205,12 +1229,16 @@ int config_parse_timer_unit(
 
         dbus_error_init(&error);
 
-        if (endswith(rvalue, ".timer")) {
+        p = unit_name_printf(UNIT(t), rvalue);
+        if (!p)
+                return log_oom();
+
+        if (endswith(p, ".timer")) {
                 log_error("[%s:%u] Unit cannot be of type timer, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
 
-        r = manager_load_unit(UNIT(t)->manager, rvalue, NULL, NULL, &u);
+        r = manager_load_unit(UNIT(t)->manager, p, NULL, NULL, &u);
         if (r < 0) {
                 log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);
@@ -1241,6 +1269,12 @@ int config_parse_path_spec(
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment clears list */
+                path_free_specs(p);
+                return 0;
+        }
 
         b = path_type_from_string(lvalue);
         if (b < 0) {
@@ -1331,6 +1365,7 @@ int config_parse_socket_service(
         int r;
         DBusError error;
         Unit *x;
+        _cleanup_free_ char *p = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -1339,12 +1374,16 @@ int config_parse_socket_service(
 
         dbus_error_init(&error);
 
-        if (!endswith(rvalue, ".service")) {
+        p = unit_name_printf(UNIT(s), rvalue);
+        if (!p)
+                return log_oom();
+
+        if (!endswith(p, ".service")) {
                 log_error("[%s:%u] Unit must be of type service, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
 
-        r = manager_load_unit(UNIT(s)->manager, rvalue, NULL, &error, &x);
+        r = manager_load_unit(UNIT(s)->manager, p, NULL, &error, &x);
         if (r < 0) {
                 log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);
@@ -1381,11 +1420,11 @@ int config_parse_service_sockets(
 
                 t = strndup(w, l);
                 if (!t)
-                        return -ENOMEM;
+                        return log_oom();
 
                 k = unit_name_printf(UNIT(s), t);
                 if (!k)
-                        return -ENOMEM;
+                        return log_oom();
 
                 if (!endswith(k, ".socket")) {
                         log_error("[%s:%u] Unit must be of type socket, ignoring: %s",
@@ -1425,8 +1464,7 @@ int config_parse_service_timeout(
         assert(s);
 
         r = config_parse_usec(filename, line, section, lvalue, ltype, rvalue, data, userdata);
-
-        if (r)
+        if (r < 0)
                 return r;
 
         if (streq(lvalue, "TimeoutSec")) {
@@ -1457,9 +1495,17 @@ int config_parse_unit_env_file(
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                /* Empty assignment frees the list */
+
+                strv_free(*env);
+                *env = NULL;
+                return 0;
+        }
+
         s = unit_full_printf(u, rvalue);
         if (!s)
-                return -ENOMEM;
+                return log_oom();
 
         if (!path_is_absolute(s[0] == '-' ? s + 1 : s)) {
                 log_error("[%s:%u] Path '%s' is not absolute, ignoring.", filename, line, s);
@@ -1470,7 +1516,7 @@ int config_parse_unit_env_file(
         k = strv_append(*env, s);
         free(s);
         if (!k)
-                return -ENOMEM;
+                return log_oom();
 
         strv_free(*env);
         *env = k;
@@ -1526,6 +1572,13 @@ int config_parse_unit_condition_path(
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                condition_free_list(u->conditions);
+                u->conditions = NULL;
+                return 0;
+        }
+
         trigger = rvalue[0] == '|';
         if (trigger)
                 rvalue++;
@@ -1536,7 +1589,7 @@ int config_parse_unit_condition_path(
 
         p = unit_full_printf(u, rvalue);
         if (!p)
-                return -ENOMEM;
+                return log_oom();
 
         if (!path_is_absolute(p)) {
                 log_error("[%s:%u] Path in condition not absolute, ignoring: %s", filename, line, p);
@@ -1545,7 +1598,7 @@ int config_parse_unit_condition_path(
 
         c = condition_new(cond, p, trigger, negate);
         if (!c)
-                return -ENOMEM;
+                return log_oom();
 
         LIST_PREPEND(Condition, conditions, u->conditions, c);
         return 0;
@@ -1572,6 +1625,13 @@ int config_parse_unit_condition_string(
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                condition_free_list(u->conditions);
+                u->conditions = NULL;
+                return 0;
+        }
+
         trigger = rvalue[0] == '|';
         if (trigger)
                 rvalue++;
@@ -1582,7 +1642,7 @@ int config_parse_unit_condition_string(
 
         s = unit_full_printf(u, rvalue);
         if (!s)
-                return -ENOMEM;
+                return log_oom();
 
         c = condition_new(cond, s, trigger, negate);
         if (!c)
@@ -1612,13 +1672,23 @@ int config_parse_unit_condition_null(
         assert(rvalue);
         assert(data);
 
-        if ((trigger = rvalue[0] == '|'))
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                condition_free_list(u->conditions);
+                u->conditions = NULL;
+                return 0;
+        }
+
+        trigger = rvalue[0] == '|';
+        if (trigger)
                 rvalue++;
 
-        if ((negate = rvalue[0] == '!'))
+        negate = rvalue[0] == '!';
+        if (negate)
                 rvalue++;
 
-        if ((b = parse_boolean(rvalue)) < 0) {
+        b = parse_boolean(rvalue);
+        if (b < 0) {
                 log_error("[%s:%u] Failed to parse boolean value in condition, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -1626,8 +1696,9 @@ int config_parse_unit_condition_null(
         if (!b)
                 negate = !negate;
 
-        if (!(c = condition_new(CONDITION_NULL, NULL, trigger, negate)))
-                return -ENOMEM;
+        c = condition_new(CONDITION_NULL, NULL, trigger, negate);
+        if (!c)
+                return log_oom();
 
         LIST_PREPEND(Condition, conditions, u->conditions, c);
         return 0;
@@ -1647,7 +1718,7 @@ int config_parse_unit_cgroup_attr(
                 void *userdata) {
 
         Unit *u = data;
-        char **l;
+        _cleanup_strv_free_ char **l = NULL;
         int r;
 
         assert(filename);
@@ -1655,19 +1726,23 @@ int config_parse_unit_cgroup_attr(
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                /* Empty assignment clears the list */
+                cgroup_attribute_free_list(u->cgroup_attributes);
+                u->cgroup_attributes = NULL;
+                return 0;
+        }
+
         l = strv_split_quoted(rvalue);
         if (!l)
-                return -ENOMEM;
+                return log_oom();
 
         if (strv_length(l) != 2) {
                 log_error("[%s:%u] Failed to parse cgroup attribute value, ignoring: %s", filename, line, rvalue);
-                strv_free(l);
                 return 0;
         }
 
         r = unit_add_cgroup_attribute(u, NULL, l[0], l[1], NULL, NULL);
-        strv_free(l);
-
         if (r < 0) {
                 log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
                 return 0;
@@ -1680,7 +1755,7 @@ int config_parse_unit_cpu_shares(const char *filename, unsigned line, const char
         Unit *u = data;
         int r;
         unsigned long ul;
-        char *t;
+        _cleanup_free_ char *t = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -1693,11 +1768,9 @@ int config_parse_unit_cpu_shares(const char *filename, unsigned line, const char
         }
 
         if (asprintf(&t, "%lu", ul) < 0)
-                return -ENOMEM;
+                return log_oom();
 
         r = unit_add_cgroup_attribute(u, "cpu", "cpu.shares", t, NULL, NULL);
-        free(t);
-
         if (r < 0) {
                 log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
                 return 0;
@@ -1710,7 +1783,7 @@ int config_parse_unit_memory_limit(const char *filename, unsigned line, const ch
         Unit *u = data;
         int r;
         off_t sz;
-        char *t;
+        _cleanup_free_ char *t = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -1723,14 +1796,12 @@ int config_parse_unit_memory_limit(const char *filename, unsigned line, const ch
         }
 
         if (asprintf(&t, "%llu", (unsigned long long) sz) < 0)
-                return -ENOMEM;
+                return log_oom();
 
         r = unit_add_cgroup_attribute(u,
                                       "memory",
                                       streq(lvalue, "MemorySoftLimit") ? "memory.soft_limit_in_bytes" : "memory.limit_in_bytes",
                                       t, NULL, NULL);
-        free(t);
-
         if (r < 0) {
                 log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
                 return 0;
@@ -1740,7 +1811,7 @@ int config_parse_unit_memory_limit(const char *filename, unsigned line, const ch
 }
 
 static int device_map(const char *controller, const char *name, const char *value, char **ret) {
-        char **l;
+        _cleanup_strv_free_ char **l = NULL;
 
         assert(controller);
         assert(name);
@@ -1756,43 +1827,34 @@ static int device_map(const char *controller, const char *name, const char *valu
         if (streq(l[0], "*")) {
 
                 if (asprintf(ret, "a *:*%s%s",
-                             isempty(l[1]) ? "" : " ", strempty(l[1])) < 0) {
-                        strv_free(l);
+                             isempty(l[1]) ? "" : " ", strempty(l[1])) < 0)
                         return -ENOMEM;
-                }
-
         } else {
                 struct stat st;
 
                 if (stat(l[0], &st) < 0) {
                         log_warning("Couldn't stat device %s", l[0]);
-                        strv_free(l);
                         return -errno;
                 }
 
                 if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
                         log_warning("%s is not a device.", l[0]);
-                        strv_free(l);
                         return -ENODEV;
                 }
 
                 if (asprintf(ret, "%c %u:%u%s%s",
                              S_ISCHR(st.st_mode) ? 'c' : 'b',
                              major(st.st_rdev), minor(st.st_rdev),
-                             isempty(l[1]) ? "" : " ", strempty(l[1])) < 0) {
-
-                        strv_free(l);
+                             isempty(l[1]) ? "" : " ", strempty(l[1])) < 0)
                         return -ENOMEM;
-                }
         }
 
-        strv_free(l);
         return 0;
 }
 
 int config_parse_unit_device_allow(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
         Unit *u = data;
-        char **l;
+        _cleanup_strv_free_ char **l = NULL;
         int r;
         unsigned k;
 
@@ -1803,27 +1865,23 @@ int config_parse_unit_device_allow(const char *filename, unsigned line, const ch
 
         l = strv_split_quoted(rvalue);
         if (!l)
-                return -ENOMEM;
+                return log_oom();
 
         k = strv_length(l);
         if (k < 1 || k > 2) {
                 log_error("[%s:%u] Failed to parse device value, ignoring: %s", filename, line, rvalue);
-                strv_free(l);
                 return 0;
         }
 
         if (!streq(l[0], "*") && !path_startswith(l[0], "/dev")) {
                 log_error("[%s:%u] Device node path not absolute, ignoring: %s", filename, line, rvalue);
-                strv_free(l);
                 return 0;
         }
 
         if (!isempty(l[1]) && !in_charset(l[1], "rwm")) {
                 log_error("[%s:%u] Device access string invalid, ignoring: %s", filename, line, rvalue);
-                strv_free(l);
                 return 0;
         }
-        strv_free(l);
 
         r = unit_add_cgroup_attribute(u, "devices",
                                       streq(lvalue, "DeviceAllow") ? "devices.allow" : "devices.deny",
@@ -1839,7 +1897,7 @@ int config_parse_unit_device_allow(const char *filename, unsigned line, const ch
 
 static int blkio_map(const char *controller, const char *name, const char *value, char **ret) {
         struct stat st;
-        char **l;
+        _cleanup_strv_free_ char **l = NULL;
         dev_t d;
 
         assert(controller);
@@ -1849,13 +1907,12 @@ static int blkio_map(const char *controller, const char *name, const char *value
 
         l = strv_split_quoted(value);
         if (!l)
-                return -ENOMEM;
+                return log_oom();
 
         assert(strv_length(l) == 2);
 
         if (stat(l[0], &st) < 0) {
                 log_warning("Couldn't stat device %s", l[0]);
-                strv_free(l);
                 return -errno;
         }
 
@@ -1871,16 +1928,12 @@ static int blkio_map(const char *controller, const char *name, const char *value
                 block_get_whole_disk(d, &d);
         } else {
                 log_warning("%s is not a block device and file system block device cannot be determined or is not local.", l[0]);
-                strv_free(l);
                 return -ENODEV;
         }
 
-        if (asprintf(ret, "%u:%u %s", major(d), minor(d), l[1]) < 0) {
-                strv_free(l);
+        if (asprintf(ret, "%u:%u %s", major(d), minor(d), l[1]) < 0)
                 return -ENOMEM;
-        }
 
-        strv_free(l);
         return 0;
 }
 
@@ -1890,7 +1943,8 @@ int config_parse_unit_blkio_weight(const char *filename, unsigned line, const ch
         unsigned long ul;
         const char *device = NULL, *weight;
         unsigned k;
-        char *t, **l;
+        _cleanup_free_ char *t = NULL;
+        _cleanup_strv_free_ char **l = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -1899,12 +1953,11 @@ int config_parse_unit_blkio_weight(const char *filename, unsigned line, const ch
 
         l = strv_split_quoted(rvalue);
         if (!l)
-                return -ENOMEM;
+                return log_oom();
 
         k = strv_length(l);
         if (k < 1 || k > 2) {
                 log_error("[%s:%u] Failed to parse weight value, ignoring: %s", filename, line, rvalue);
-                strv_free(l);
                 return 0;
         }
 
@@ -1917,13 +1970,11 @@ int config_parse_unit_blkio_weight(const char *filename, unsigned line, const ch
 
         if (device && !path_is_absolute(device)) {
                 log_error("[%s:%u] Failed to parse block device node value, ignoring: %s", filename, line, rvalue);
-                strv_free(l);
                 return 0;
         }
 
         if (safe_atolu(weight, &ul) < 0 || ul < 10 || ul > 1000) {
                 log_error("[%s:%u] Failed to parse block IO weight value, ignoring: %s", filename, line, rvalue);
-                strv_free(l);
                 return 0;
         }
 
@@ -1931,17 +1982,13 @@ int config_parse_unit_blkio_weight(const char *filename, unsigned line, const ch
                 r = asprintf(&t, "%s %lu", device, ul);
         else
                 r = asprintf(&t, "%lu", ul);
-        strv_free(l);
-
         if (r < 0)
-                return -ENOMEM;
+                return log_oom();
 
         if (device)
                 r = unit_add_cgroup_attribute(u, "blkio", "blkio.weight_device", t, blkio_map, NULL);
         else
                 r = unit_add_cgroup_attribute(u, "blkio", "blkio.weight", t, NULL, NULL);
-        free(t);
-
         if (r < 0) {
                 log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
                 return 0;
@@ -1955,7 +2002,8 @@ int config_parse_unit_blkio_bandwidth(const char *filename, unsigned line, const
         int r;
         off_t bytes;
         unsigned k;
-        char *t, **l;
+        _cleanup_free_ char *t = NULL;
+        _cleanup_strv_free_ char **l = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -1964,38 +2012,31 @@ int config_parse_unit_blkio_bandwidth(const char *filename, unsigned line, const
 
         l = strv_split_quoted(rvalue);
         if (!l)
-                return -ENOMEM;
+                return log_oom();
 
         k = strv_length(l);
         if (k != 2) {
                 log_error("[%s:%u] Failed to parse bandwidth value, ignoring: %s", filename, line, rvalue);
-                strv_free(l);
                 return 0;
         }
 
         if (!path_is_absolute(l[0])) {
                 log_error("[%s:%u] Failed to parse block device node value, ignoring: %s", filename, line, rvalue);
-                strv_free(l);
                 return 0;
         }
 
         if (parse_bytes(l[1], &bytes) < 0 || bytes <= 0) {
                 log_error("[%s:%u] Failed to parse block IO bandwidth value, ignoring: %s", filename, line, rvalue);
-                strv_free(l);
                 return 0;
         }
 
         r = asprintf(&t, "%s %llu", l[0], (unsigned long long) bytes);
-        strv_free(l);
-
         if (r < 0)
-                return -ENOMEM;
+                return log_oom();
 
         r = unit_add_cgroup_attribute(u, "blkio",
                                       streq(lvalue, "BlockIOReadBandwidth") ? "blkio.read_bps_device" : "blkio.write_bps_device",
                                       t, blkio_map, NULL);
-        free(t);
-
         if (r < 0) {
                 log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
                 return 0;
@@ -2053,6 +2094,13 @@ int config_parse_documentation(
         assert(rvalue);
         assert(u);
 
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                strv_free(u->documentation);
+                u->documentation = NULL;
+                return 0;
+        }
+
         r = config_parse_unit_strv_printf(filename, line, section, lvalue, ltype, rvalue, data, userdata);
         if (r < 0)
                 return r;
@@ -2101,6 +2149,13 @@ int config_parse_syscall_filter(
         assert(rvalue);
         assert(u);
 
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                free(c->syscall_filter);
+                c->syscall_filter = NULL;
+                return 0;
+        }
+
         if (rvalue[0] == '~') {
                 invert = true;
                 rvalue++;
@@ -2112,7 +2167,7 @@ int config_parse_syscall_filter(
                 n = (syscall_max() + 31) >> 4;
                 c->syscall_filter = new(uint32_t, n);
                 if (!c->syscall_filter)
-                        return -ENOMEM;
+                        return log_oom();
 
                 memset(c->syscall_filter, invert ? 0xFF : 0, n * sizeof(uint32_t));
 
@@ -2132,10 +2187,9 @@ int config_parse_syscall_filter(
 
                 t = strndup(w, l);
                 if (!t)
-                        return -ENOMEM;
+                        return log_oom();
 
                 id = syscall_from_name(t);
-
                 if (id < 0)  {
                         log_error("[%s:%u] Failed to parse syscall, ignoring: %s",
                                   filename, line, t);

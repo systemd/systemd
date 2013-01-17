@@ -248,20 +248,26 @@ static void path_init(Unit *u) {
         p->directory_mode = 0755;
 }
 
-static void path_done(Unit *u) {
-        Path *p = PATH(u);
+void path_free_specs(Path *p) {
         PathSpec *s;
 
         assert(p);
 
-        unit_ref_unset(&p->unit);
-
         while ((s = p->specs)) {
-                path_spec_unwatch(s, u);
+                path_spec_unwatch(s, UNIT(p));
                 LIST_REMOVE(PathSpec, spec, p->specs, s);
                 path_spec_done(s);
                 free(s);
         }
+}
+
+static void path_done(Unit *u) {
+        Path *p = PATH(u);
+
+        assert(p);
+
+        unit_ref_unset(&p->unit);
+        path_free_specs(p);
 }
 
 int path_add_one_mount_link(Path *p, Mount *m) {

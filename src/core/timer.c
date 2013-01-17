@@ -48,8 +48,7 @@ static void timer_init(Unit *u) {
         watch_init(&t->realtime_watch);
 }
 
-static void timer_done(Unit *u) {
-        Timer *t = TIMER(u);
+void timer_free_values(Timer *t) {
         TimerValue *v;
 
         assert(t);
@@ -62,6 +61,14 @@ static void timer_done(Unit *u) {
 
                 free(v);
         }
+}
+
+static void timer_done(Unit *u) {
+        Timer *t = TIMER(u);
+
+        assert(t);
+
+        timer_free_values(t);
 
         unit_unwatch_timer(u, &t->monotonic_watch);
         unit_unwatch_timer(u, &t->realtime_watch);

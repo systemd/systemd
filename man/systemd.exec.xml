@@ -133,10 +133,15 @@
                                 of group names or IDs. This option may
                                 be specified more than once in which
                                 case all listed groups are set as
-                                supplementary groups. This option does
-                                not override but extends the list of
-                                supplementary groups configured in the
-                                system group database for the
+                                supplementary groups. When the empty
+                                string is assigned the list of
+                                supplementary groups is reset, and all
+                                assignments prior to this one will
+                                have no effect. In any way, this
+                                option does not override, but extends
+                                the list of supplementary groups
+                                configured in the system group
+                                database for the
                                 user.</para></listitem>
                         </varlistentry>
 
@@ -244,7 +249,13 @@
                                 <listitem><para>Controls the CPU
                                 affinity of the executed
                                 processes. Takes a space-separated
-                                list of CPU indexes. See
+                                list of CPU indexes. This option may
+                                be specified more than once in which
+                                case the specificed CPU affinity masks
+                                are merged. If the empty string is
+                                assigned the mask is reset, all
+                                assignments prior to this will have no
+                                effect. See
                                 <citerefentry><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for details.</para></listitem>
                         </varlistentry>
@@ -271,7 +282,11 @@
                                 in which case all listed variables
                                 will be set. If the same variable is
                                 set twice the later setting will
-                                override the earlier setting. See
+                                override the earlier setting. If the
+                                empty string is assigned to this
+                                option the list of environment
+                                variables is reset, all prior
+                                assignments have no effect. See
                                 <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for details.</para></listitem>
                         </varlistentry>
@@ -288,14 +303,22 @@
                                 parser strips leading and
                                 trailing whitespace from the values
                                 of assignments, unless you use
-                                double quotes (").
-                                The
-                                argument passed should be an absolute
-                                file name or wildcard expression, optionally prefixed with
+                                double quotes (").</para>
+
+                                <para>The argument passed should be an
+                                absolute file name or wildcard
+                                expression, optionally prefixed with
                                 "-", which indicates that if the file
                                 does not exist it won't be read and no
-                                error or warning message is
-                                logged. The files listed with this
+                                error or warning message is logged.
+                                This option may be specified more than
+                                once in which case all specified files
+                                are read. If the empty string is
+                                assigned to this option the list of
+                                file to read is reset, all prior
+                                assignments have no effect.</para>
+
+                                <para>The files listed with this
                                 directive will be read shortly before
                                 the process is executed. Settings from
                                 these files override settings made
@@ -305,7 +328,7 @@
                                 these files the files will be read in
                                 the order they are specified and the
                                 later setting will override the
-                                earlier setting. </para></listitem>
+                                earlier setting.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -695,8 +718,13 @@
                                 capability bounding set is not
                                 modified on process execution, hence
                                 no limits on the capabilities of the
-                                process are
-                                enforced.</para></listitem>
+                                process are enforced. This option may
+                                appear more than once in which case
+                                the bounding sets are merged. If the empty
+                                string is assigned to this option the
+                                bounding set is reset, and all prior
+                                settings have no
+                                effect.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -710,8 +738,12 @@
                                 <option>no-setuid-fixup</option>,
                                 <option>no-setuid-fixup-locked</option>,
                                 <option>noroot</option> and/or
-                                <option>noroot-locked</option>.
-                                </para></listitem>
+                                <option>noroot-locked</option>. This
+                                option may appear more than once in
+                                which case the secure bits are
+                                ORed. If the empty string is assigned
+                                to this option the bits are reset to
+                                0.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -739,10 +771,10 @@
                                 groups the executed processes shall be
                                 made members of. Takes a
                                 space-separated list of cgroup
-                                identifiers. A cgroup identifier has a
-                                format like
+                                identifiers. A cgroup identifier is
+                                formatted like
                                 <filename>cpu:/foo/bar</filename>,
-                                where "cpu" identifies the kernel
+                                where "cpu" indicates the kernel
                                 control group controller used, and
                                 <filename>/foo/bar</filename> is the
                                 control group path. The controller
@@ -751,30 +783,50 @@
                                 hierarchy is implied. Alternatively,
                                 the path and ":" may be omitted, in
                                 which case the default control group
-                                path for this unit is implied. This
-                                option may be used to place executed
-                                processes in arbitrary groups in
-                                arbitrary hierarchies -- which can be
-                                configured externally with additional
-                                execution limits. By default systemd
-                                will place all executed processes in
-                                separate per-unit control groups
-                                (named after the unit) in the systemd
-                                named hierarchy. Since every process
-                                can be in one group per hierarchy only
-                                overriding the control group path in
-                                the named systemd hierarchy will
-                                disable automatic placement in the
-                                default group. This option is
-                                primarily intended to place executed
-                                processes in specific paths in
-                                specific kernel controller
-                                hierarchies. It is however not
+                                path for this unit is implied.</para>
+
+                                <para>This option may be used to place
+                                executed processes in arbitrary groups
+                                in arbitrary hierarchies -- which may
+                                then be externally configured with
+                                additional execution limits. By
+                                default systemd will place all
+                                executed processes in separate
+                                per-unit control groups (named after
+                                the unit) in the systemd named
+                                hierarchy. This option is primarily
+                                intended to place executed processes
+                                in specific paths in specific kernel
+                                controller hierarchies. It is not
                                 recommended to manipulate the service
                                 control group path in the systemd
                                 named hierarchy. For details about
                                 control groups see <ulink
-                                url="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>.</para></listitem>
+                                url="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>.</para>
+
+                                <para>This option may appear more than
+                                once, in which case the list of
+                                control group assignments is
+                                merged. If the same hierarchy gets two
+                                different paths assigned only the
+                                later setting will take effect. If the
+                                empty string is assigned to this
+                                option the list of control group
+                                assignments is reset, all previous
+                                assignments will have no
+                                effect.</para>
+
+                                <para>Note that the list of control
+                                group assignments of a unit is
+                                extended implicitly based on the
+                                settings of
+                                <varname>DefaultControllers=</varname>
+                                of
+                                <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                                but a unit's
+                                <varname>ControlGroup=</varname>
+                                setting for a specific controller
+                                takes precedence.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -832,8 +884,8 @@
                                 the controller and the default unit
                                 cgroup path is implied. Thus, using
                                 <varname>ControlGroupAttribute=</varname>
-                                is in most case sufficient to make use
-                                of control group enforcements,
+                                is in most cases sufficient to make
+                                use of control group enforcements,
                                 explicit
                                 <varname>ControlGroup=</varname> are
                                 only necessary in case the implied
@@ -844,7 +896,23 @@
                                 url="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>. This
                                 option may appear more than once, in
                                 order to set multiple control group
-                                attributes.</para></listitem>
+                                attributes. If this option is used
+                                multiple times for the same cgroup
+                                attribute only the later setting takes
+                                effect. If the empty string is
+                                assigned to this option the list of
+                                attributes is reset, all previous
+                                cgroup attribute settings have no
+                                effect, including those done with
+                                <varname>CPUShares=</varname>,
+                                <varname>MemoryLimit=</varname>,
+                                <varname>MemorySoftLimit</varname>,
+                                <varname>DeviceAllow=</varname>,
+                                <varname>DeviceDeny=</varname>,
+                                <varname>BlockIOWeight=</varname>,
+                                <varname>BlockIOReadBandwidth=</varname>,
+                                <varname>BlockIOWriteBandwidth=</varname>.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -988,18 +1056,21 @@
                                 usual file access controls would
                                 permit this. Directories listed in
                                 <varname>InaccessibleDirectories=</varname>
-                                will be made inaccessible for processes
-                                inside the namespace. Note that
-                                restricting access with these options
-                                does not extend to submounts of a
-                                directory. You must list submounts
-                                separately in these settings to
-                                ensure the same limited access. These
-                                options may be specified more than
-                                once in which case all directories
-                                listed will have limited access from
-                                within the
-                                namespace.</para></listitem>
+                                will be made inaccessible for
+                                processes inside the namespace. Note
+                                that restricting access with these
+                                options does not extend to submounts
+                                of a directory. You must list
+                                submounts separately in these settings
+                                to ensure the same limited
+                                access. These options may be specified
+                                more than once in which case all
+                                directories listed will have limited
+                                access from within the namespace. If
+                                the empty string is assigned to this
+                                option the specific list is reset, and
+                                all prior assignments have no
+                                effect.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -1131,8 +1202,13 @@
                                 <function>exit_group</function>,
                                 <function>exit</function> system calls
                                 are implicitly whitelisted and don't
-                                need to be listed
-                                explicitly.</para></listitem>
+                                need to be listed explicitly. This
+                                option may be specified more than once
+                                in which case the filter masks are
+                                merged. If the empty string is
+                                assigned the filter is reset, all
+                                prior assignments will have no
+                                effect.</para></listitem>
                         </varlistentry>
 
                 </variablelist>
