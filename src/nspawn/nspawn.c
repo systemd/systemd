@@ -96,7 +96,9 @@ static uint64_t arg_retain =
         (1ULL << CAP_SYS_PTRACE) |
         (1ULL << CAP_SYS_TTY_CONFIG) |
         (1ULL << CAP_SYS_RESOURCE) |
-        (1ULL << CAP_SYS_BOOT);
+        (1ULL << CAP_SYS_BOOT) |
+        (1ULL << CAP_AUDIT_WRITE) |
+        (1ULL << CAP_AUDIT_CONTROL);
 
 static int help(void) {
 

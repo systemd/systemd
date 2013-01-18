@@ -227,8 +227,8 @@
                                 list of capability names, see
                                 <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for more information. Note that the
-                                following capabilities will be
-                                granted in any way: CAP_CHOWN,
+                                following capabilities will be granted
+                                in any way: CAP_CHOWN,
                                 CAP_DAC_OVERRIDE, CAP_DAC_READ_SEARCH,
                                 CAP_FOWNER, CAP_FSETID, CAP_IPC_OWNER,
                                 CAP_KILL, CAP_LEASE,
@@ -239,7 +239,9 @@
                                 CAP_SETUID, CAP_SYS_ADMIN,
                                 CAP_SYS_CHROOT, CAP_SYS_NICE,
                                 CAP_SYS_PTRACE, CAP_SYS_TTY_CONFIG,
-                                CAP_SYS_RESOURCE, CAP_SYS_BOOT.</para></listitem>
+                                CAP_SYS_RESOURCE, CAP_SYS_BOOT,
+                                CAP_AUDIT_WRITE,
+                                CAP_AUDIT_CONTROL.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
