@@ -1277,9 +1277,9 @@ static int cgroup_to_unit(char *cgroup, char **unit){
         return 0;
 }
 
-int cg_pid_get_unit(pid_t pid, char **unit) {
+static int cg_pid_get(const char *prefix, pid_t pid, char **unit) {
         int r;
-        char *cgroup;
+        char _cleanup_free_ *cgroup = NULL;
 
         assert(pid >= 0);
         assert(unit);
@@ -1288,45 +1288,17 @@ int cg_pid_get_unit(pid_t pid, char **unit) {
         if (r < 0)
                 return r;
 
-        if (!startswith(cgroup, "/system/")) {
-                free(cgroup);
+        if (!startswith(cgroup, prefix))
                 return -ENOENT;
-        }
 
         r = cgroup_to_unit(cgroup, unit);
-        if (r < 0){
-                free(cgroup);
-                return r;
-        }
+        return r;
+}
 
-        free(cgroup);
-
-        return 0;
+int cg_pid_get_unit(pid_t pid, char **unit) {
+        return cg_pid_get("/system/", pid, unit);
 }
 
 int cg_pid_get_user_unit(pid_t pid, char **unit) {
-        int r;
-        char *cgroup;
-
-        assert(pid >= 0);
-        assert(unit);
-
-        r = cg_pid_get_cgroup(pid, NULL, &cgroup);
-        if (r < 0)
-                return r;
-
-        if (!startswith(cgroup, "/user/")) {
-                free(cgroup);
-                return -ENOENT;
-        }
-
-        r = cgroup_to_unit(cgroup, unit);
-        if (r < 0) {
-                free(cgroup);
-                return r;
-        }
-
-        free(cgroup);
-
-        return 0;
+        return cg_pid_get("/user/", pid, unit);
 }
