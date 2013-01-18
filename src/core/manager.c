@@ -157,8 +157,8 @@ static int manager_setup_time_change(Manager *m) {
 
         /* We only care for the cancellation event, hence we set the
          * timeout to the latest possible value. */
-        assert_cc(sizeof(time_t) == sizeof(long));
-        its.it_value.tv_sec = LONG_MAX;
+        assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
+        its.it_value.tv_sec = TIME_T_MAX;
 
         if (timerfd_settime(m->time_change_watch.fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0) {
                 log_debug("Failed to set up TFD_TIMER_CANCEL_ON_SET, ignoring: %m");
