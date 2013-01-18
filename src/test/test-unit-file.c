@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2012 Lennart Poettering
+  Copyright 2013 Zbigniew Jędrzejewski-Szmek
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -23,12 +24,14 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "install.h"
 #include "util.h"
 #include "macro.h"
 #include "hashmap.h"
 #include "load-fragment.h"
+#include "strv.h"
 
 static void test_unit_file_get_set(void) {
         int r;
@@ -174,10 +177,64 @@ static void test_config_parse_exec(void) {
         exec_command_free_list(c);
 }
 
+#define env_file_1 \
+        "a\n"      \
+        "b\\\n"    \
+        "c\n"      \
+        "d\\\n"    \
+        "e\\\n"    \
+        "f\n"      \
+        "g\\ \n"   \
+        "h\n"      \
+        "i\\"
+
+#define env_file_2 \
+        "a\\\n"
+
+static void test_load_env_file_1(void) {
+        char _cleanup_strv_free_ **data = NULL;
+        int r;
+
+        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        int _cleanup_close_ fd = mkstemp(name);
+        assert(fd >= 0);
+        assert_se(write(fd, env_file_1, sizeof(env_file_1)) == sizeof(env_file_1));
+
+        r = load_env_file(name, &data);
+        assert(r == 0);
+        assert(streq(data[0], "a"));
+        assert(streq(data[1], "bc"));
+        assert(streq(data[2], "def"));
+        assert(streq(data[3], "g\\"));
+        assert(streq(data[4], "h"));
+        assert(streq(data[5], "i\\"));
+        assert(data[6] == NULL);
+        unlink(name);
+}
+
+static void test_load_env_file_2(void) {
+        char _cleanup_strv_free_ **data = NULL;
+        int r;
+
+        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        int _cleanup_close_ fd = mkstemp(name);
+        assert(fd >= 0);
+        assert_se(write(fd, env_file_2, sizeof(env_file_2)) == sizeof(env_file_2));
+
+        r = load_env_file(name, &data);
+        assert(r == 0);
+        assert(streq(data[0], "a"));
+        assert(data[1] == NULL);
+        unlink(name);
+}
+
+
 int main(int argc, char *argv[]) {
 
         test_unit_file_get_set();
         test_config_parse_exec();
+        test_load_env_file_1();
+        test_load_env_file_2();
 
         return 0;
 }

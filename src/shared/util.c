@@ -775,20 +775,19 @@ fail:
         return r;
 }
 
-int load_env_file(
-                const char *fname,
-                char ***rl) {
+int load_env_file(const char *fname,
+                  char ***rl) {
 
-        FILE *f;
+        FILE _cleanup_fclose_ *f;
         char *b;
-        char *c = NULL;
-        char **m = NULL;
-        int r;
+        char _cleanup_free_ *c = NULL;
+        char _cleanup_strv_free_ **m = NULL;
 
         assert(fname);
         assert(rl);
 
-        if (!(f = fopen(fname, "re")))
+        f = fopen(fname, "re");
+        if (!f)
                 return -errno;
 
         while (!feof(f)) {
@@ -796,24 +795,19 @@ int load_env_file(
                 char **t;
 
                 if (!fgets(l, sizeof(l), f)) {
-                        if(!feof(f)) {
-                                r = -errno;
-                                goto finish;
-                        }
+                        if (!feof(f))
+                                return -errno;
                         else if (!c)
                                 break;
-
                 }
 
                 cs = endswith(l, "\\\n");
                 if (cs) {
-
                         *cs = '\0';
                         b = strappend(c, l);
-                        if (!b) {
-                               r = log_oom();
-                                goto finish;
-                        }
+                        if (!b)
+                                return log_oom();
+
                         free(c);
                         c = b;
                         *l = '\0';
@@ -822,10 +816,9 @@ int load_env_file(
 
                 if (c) {
                         b = strappend(c, l);
-                        if (!b) {
-                                r = log_oom();
-                                goto finish;
-                        }
+                        if (!b)
+                                return log_oom();
+
                         free(c);
                         c = b;
                 }
@@ -838,39 +831,27 @@ int load_env_file(
                 if (strchr(COMMENTS, *p))
                         continue;
 
-                if (!(u = normalize_env_assignment(p))) {
-                        r = log_oom();
-                        goto finish;
-                }
+                u = normalize_env_assignment(p);
+                if (!u)
+                        return log_oom();
+
                 free(c);
                 c = NULL;
 
                 t = strv_append(m, u);
                 free(u);
 
-                if (!t) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!t)
+                        return log_oom();
 
                 strv_free(m);
                 m = t;
         }
 
-        r = 0;
-
         *rl = m;
         m = NULL;
 
-finish:
-        if (f)
-                fclose(f);
-
-        free(c);
-
-        strv_free(m);
-
-        return r;
+        return 0;
 }
 
 int write_env_file(const char *fname, char **l) {
