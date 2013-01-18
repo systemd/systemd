@@ -166,6 +166,21 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                 </varlistentry>
 
                                 <varlistentry>
+                                        <term><varname>X</varname></term>
+                                        <listitem><para>Ignore a path
+                                        during cleanup. Use this type
+                                        to prevent path removal as
+                                        controlled with the Age parameter.
+                                        Note that if path is a directory,
+                                        content of a directory is not
+                                        excluded from clean-up, only
+                                        directory itself. Lines of this
+                                        type accept shell-style globs
+                                        in place of normal path
+                                        names.</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
                                         <term><varname>r</varname></term>
                                         <listitem><para>Remove a file
                                         or directory if it

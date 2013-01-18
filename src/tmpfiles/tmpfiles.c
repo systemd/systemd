@@ -70,6 +70,7 @@ typedef enum ItemType {
 
         /* These ones take globs */
         IGNORE_PATH = 'x',
+        IGNORE_DIRECTORY_PATH = 'X',
         REMOVE_PATH = 'r',
         RECURSIVE_REMOVE_PATH = 'R',
         RELABEL_PATH = 'z',
@@ -119,7 +120,7 @@ static const char * const conf_file_dirs[] = {
 #define MAX_DEPTH 256
 
 static bool needs_glob(ItemType t) {
-        return t == IGNORE_PATH || t == REMOVE_PATH || t == RECURSIVE_REMOVE_PATH || t == RELABEL_PATH || t == RECURSIVE_RELABEL_PATH;
+        return t == IGNORE_PATH || t == IGNORE_DIRECTORY_PATH || t == REMOVE_PATH || t == RECURSIVE_REMOVE_PATH || t == RELABEL_PATH || t == RECURSIVE_RELABEL_PATH;
 }
 
 static struct Item* find_glob(Hashmap *h, const char *match) {
@@ -218,6 +219,7 @@ static bool unix_socket_alive(const char *fn) {
 }
 
 static int dir_cleanup(
+                Item *i,
                 const char *p,
                 DIR *d,
                 const struct stat *ds,
@@ -297,7 +299,7 @@ static int dir_cleanup(
                                         continue;
                                 }
 
-                                q = dir_cleanup(sub_path, sub_dir, &s, cutoff, rootdev, false, maxdepth-1, false);
+                                q = dir_cleanup(i, sub_path, sub_dir, &s, cutoff, rootdev, false, maxdepth-1, false);
                                 closedir(sub_dir);
 
                                 if (q < 0)
@@ -320,12 +322,14 @@ static int dir_cleanup(
                         if (age >= cutoff)
                                 continue;
 
-                        log_debug("rmdir '%s'\n", sub_path);
+                        if (!i->type == IGNORE_DIRECTORY_PATH || !streq(dent->d_name, p)) {
+                                log_debug("rmdir '%s'\n", sub_path);
 
-                        if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0) {
-                                if (errno != ENOENT && errno != ENOTEMPTY) {
-                                        log_error("rmdir(%s): %m", sub_path);
-                                        r = -errno;
+                                if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0) {
+                                        if (errno != ENOENT && errno != ENOTEMPTY) {
+                                                log_error("rmdir(%s): %m", sub_path);
+                                                r = -errno;
+                                        }
                                 }
                         }
 
@@ -391,68 +395,6 @@ finish:
         }
 
         free(sub_path);
-
-        return r;
-}
-
-static int clean_item(Item *i) {
-        DIR *d;
-        struct stat s, ps;
-        bool mountpoint;
-        int r;
-        usec_t cutoff, n;
-
-        assert(i);
-
-        if (i->type != CREATE_DIRECTORY &&
-            i->type != TRUNCATE_DIRECTORY &&
-            i->type != IGNORE_PATH)
-                return 0;
-
-        if (!i->age_set)
-                return 0;
-
-        n = now(CLOCK_REALTIME);
-        if (n < i->age)
-                return 0;
-
-        cutoff = n - i->age;
-
-        d = opendir(i->path);
-        if (!d) {
-                if (errno == ENOENT)
-                        return 0;
-
-                log_error("Failed to open directory %s: %m", i->path);
-                return -errno;
-        }
-
-        if (fstat(dirfd(d), &s) < 0) {
-                log_error("stat(%s) failed: %m", i->path);
-                r = -errno;
-                goto finish;
-        }
-
-        if (!S_ISDIR(s.st_mode)) {
-                log_error("%s is not a directory.", i->path);
-                r = -ENOTDIR;
-                goto finish;
-        }
-
-        if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0) {
-                log_error("stat(%s/..) failed: %m", i->path);
-                r = -errno;
-                goto finish;
-        }
-
-        mountpoint = s.st_dev != ps.st_dev ||
-                     (s.st_dev == ps.st_dev && s.st_ino == ps.st_ino);
-
-        r = dir_cleanup(i->path, d, &s, cutoff, s.st_dev, mountpoint, MAX_DEPTH, i->keep_first_level);
-
-finish:
-        if (d)
-                closedir(d);
 
         return r;
 }
@@ -669,6 +611,7 @@ static int create_item(Item *i) {
         switch (i->type) {
 
         case IGNORE_PATH:
+        case IGNORE_DIRECTORY_PATH:
         case REMOVE_PATH:
         case RECURSIVE_REMOVE_PATH:
                 return 0;
@@ -852,6 +795,7 @@ static int remove_item_instance(Item *i, const char *instance) {
         case CREATE_BLOCK_DEVICE:
         case CREATE_CHAR_DEVICE:
         case IGNORE_PATH:
+        case IGNORE_DIRECTORY_PATH:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
@@ -896,6 +840,7 @@ static int remove_item(Item *i) {
         case CREATE_CHAR_DEVICE:
         case CREATE_BLOCK_DEVICE:
         case IGNORE_PATH:
+        case IGNORE_DIRECTORY_PATH:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
@@ -905,6 +850,84 @@ static int remove_item(Item *i) {
         case TRUNCATE_DIRECTORY:
         case RECURSIVE_REMOVE_PATH:
                 r = glob_item(i, remove_item_instance);
+                break;
+        }
+
+        return r;
+}
+
+static int clean_item_instance(Item *i, const char* instance) {
+        DIR *d;
+        struct stat s, ps;
+        bool mountpoint;
+        int r;
+        usec_t cutoff, n;
+
+        assert(i);
+
+        if (!i->age_set)
+                return 0;
+
+        n = now(CLOCK_REALTIME);
+        if (n < i->age)
+                return 0;
+
+        cutoff = n - i->age;
+
+        d = opendir(instance);
+        if (!d) {
+                if (errno == ENOENT || errno == ENOTDIR)
+                        return 0;
+
+                log_error("Failed to open directory %s: %m", i->path);
+                return -errno;
+        }
+
+        if (fstat(dirfd(d), &s) < 0) {
+                log_error("stat(%s) failed: %m", i->path);
+                r = -errno;
+                goto finish;
+        }
+
+        if (!S_ISDIR(s.st_mode)) {
+                log_error("%s is not a directory.", i->path);
+                r = -ENOTDIR;
+                goto finish;
+        }
+
+        if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0) {
+                log_error("stat(%s/..) failed: %m", i->path);
+                r = -errno;
+                goto finish;
+        }
+
+        mountpoint = s.st_dev != ps.st_dev ||
+                     (s.st_dev == ps.st_dev && s.st_ino == ps.st_ino);
+
+        r = dir_cleanup(i, instance, d, &s, cutoff, s.st_dev, mountpoint, MAX_DEPTH, i->keep_first_level);
+
+finish:
+        if (d)
+                closedir(d);
+
+        return r;
+}
+
+static int clean_item(Item *i) {
+        int r = 0;
+
+        assert(i);
+
+        switch (i->type) {
+        case CREATE_DIRECTORY:
+        case TRUNCATE_DIRECTORY:
+        case IGNORE_PATH:
+                clean_item_instance(i, i->path);
+                break;
+        case IGNORE_DIRECTORY_PATH:
+                r = glob_item(i, clean_item_instance);
+                break;
+        default:
                 break;
         }
 
@@ -1030,6 +1053,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case TRUNCATE_DIRECTORY:
         case CREATE_FIFO:
         case IGNORE_PATH:
+        case IGNORE_DIRECTORY_PATH:
         case REMOVE_PATH:
         case RECURSIVE_REMOVE_PATH:
         case RELABEL_PATH:
@@ -1266,6 +1290,8 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         FILE *f;
         unsigned v = 0;
         int r = 0;
+        Iterator iterator;
+        Item *i;
 
         assert(fn);
 
@@ -1296,6 +1322,34 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 if ((k = parse_line(fn, v, l)) < 0)
                         if (r == 0)
                                 r = k;
+        }
+
+        /* we have to determine age parameter for each entry of type X */
+        HASHMAP_FOREACH(i, globs, iterator) {
+                Iterator iter;
+                Item *j, *candidate_item = NULL;
+
+                if (i->type != IGNORE_DIRECTORY_PATH)
+                        continue;
+
+                HASHMAP_FOREACH(j, items, iter) {
+                        if (j->type != CREATE_DIRECTORY && j->type != TRUNCATE_DIRECTORY)
+                                continue;
+
+                        if (path_equal(j->path, i->path)) {
+                                candidate_item = j;
+                                break;
+                        }
+
+                        if ((!candidate_item && path_startswith(i->path, j->path)) ||
+                            (candidate_item && path_startswith(j->path, candidate_item->path) && (fnmatch(i->path, j->path, FNM_PATHNAME | FNM_PERIOD) == 0)))
+                                candidate_item = j;
+                }
+
+                if (candidate_item) {
+                        i->age = candidate_item->age;
+                        i->age_set = true;
+                }
         }
 
         if (ferror(f)) {
