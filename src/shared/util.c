@@ -561,9 +561,9 @@ int fchmod_umask(int fd, mode_t m) {
 }
 
 int write_one_line_file_atomic(const char *fn, const char *line) {
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
         int r;
-        char *p;
 
         assert(fn);
         assert(line);
@@ -585,12 +585,9 @@ int write_one_line_file_atomic(const char *fn, const char *line) {
 
         fflush(f);
 
-        if (ferror(f)) {
-                if (errno != 0)
-                        r = -errno;
-                else
-                        r = -EIO;
-        } else {
+        if (ferror(f))
+                r = errno ? -errno : -EIO;
+        else {
                 if (rename(p, fn) < 0)
                         r = -errno;
                 else
@@ -600,9 +597,6 @@ int write_one_line_file_atomic(const char *fn, const char *line) {
 finish:
         if (r < 0)
                 unlink(p);
-
-        fclose(f);
-        free(p);
 
         return r;
 }
@@ -5609,6 +5603,27 @@ bool string_is_safe(const char *p) {
                 if (strchr("\\\"\'", *t))
                         return false;
         }
+
+        return true;
+}
+
+bool path_is_safe(const char *p) {
+
+        if (isempty(p))
+                return false;
+
+        if (streq(p, "..") || startswith(p, "../") || endswith(p, "/..") || strstr(p, "/../"))
+                return false;
+
+        if (strlen(p) > PATH_MAX)
+                return false;
+
+        /* The following two checks are not really dangerous, but hey, they still are confusing */
+        if (streq(p, ".") || startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
+                return false;
+
+        if (strstr(p, "//"))
+                return false;
 
         return true;
 }

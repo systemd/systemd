@@ -2156,26 +2156,27 @@ int unit_add_cgroup_attribute(
 
         _cleanup_free_ char *c = NULL;
         CGroupAttribute *a;
+        int r;
 
         assert(u);
         assert(name);
         assert(value);
 
         if (!controller) {
-                const char *dot;
-
-                dot = strchr(name, '.');
-                if (!dot)
+                r = cg_controller_from_attr(name, &c);
+                if (r < 0)
                         return -EINVAL;
 
-                c = strndup(name, dot - name);
-                if (!c)
-                        return -ENOMEM;
-
                 controller = c;
+        } else {
+                if (!filename_is_safe(name))
+                        return -EINVAL;
+
+                if (!filename_is_safe(controller))
+                        return -EINVAL;
         }
 
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER))
+        if (!controller || streq(controller, SYSTEMD_CGROUP_CONTROLLER))
                 return -EINVAL;
 
         a = cgroup_attribute_find_list(u->cgroup_attributes, controller, name);

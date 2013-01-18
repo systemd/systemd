@@ -990,6 +990,8 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
         assert(spec);
 
         if (*spec == '/') {
+                if (!path_is_safe(spec))
+                        return -EINVAL;
 
                 if (path) {
                         t = strdup(spec);
@@ -1007,7 +1009,7 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
 
         e = strchr(spec, ':');
         if (!e) {
-                if (strchr(spec, '/') || spec[0] == 0)
+                if (!filename_is_safe(spec))
                         return -EINVAL;
 
                 if (controller) {
@@ -1024,29 +1026,34 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
                 return 0;
         }
 
-        if (e[1] != '/' || e == spec || memchr(spec, '/', e-spec))
+        t = strndup(spec, e-spec);
+        if (!t)
+                return -ENOMEM;
+        if (!filename_is_safe(t)) {
+                free(t);
                 return -EINVAL;
-
-        if (controller) {
-                t = strndup(spec, e-spec);
-                if (!t)
-                        return -ENOMEM;
-
         }
 
-        if (path) {
-                u = strdup(e+1);
-                if (!u) {
-                        free(t);
-                        return -ENOMEM;
-                }
+        u = strdup(e+1);
+        if (!u) {
+                free(t);
+                return -ENOMEM;
+        }
+        if (!path_is_safe(u)) {
+                free(t);
+                free(u);
+                return -EINVAL;
         }
 
         if (controller)
                 *controller = t;
+        else
+                free(t);
 
         if (path)
                 *path = u;
+        else
+                free(u);
 
         return 0;
 }
@@ -1289,4 +1296,33 @@ int cg_pid_get_unit(pid_t pid, char **unit) {
 
 int cg_pid_get_user_unit(pid_t pid, char **unit) {
         return cg_pid_get("/user/", pid, unit);
+}
+
+int cg_controller_from_attr(const char *attr, char **controller) {
+        const char *dot;
+        char *c;
+
+        assert(attr);
+        assert(controller);
+
+        if (!filename_is_safe(attr))
+                return -EINVAL;
+
+        dot = strchr(attr, '.');
+        if (!dot) {
+                *controller = NULL;
+                return 0;
+        }
+
+        c = strndup(attr, dot - attr);
+        if (!c)
+                return -ENOMEM;
+
+        if (!filename_is_safe(c)) {
+                free(c);
+                return -EINVAL;
+        }
+
+        *controller = c;
+        return 1;
 }
