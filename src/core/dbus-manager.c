@@ -102,15 +102,10 @@
         "  <method name=\"ResetFailedUnit\">\n"                         \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
-        "  <method name=\"SetUnitControlGroups\">\n"                    \
+        "  <method name=\"GetUnitControlGroupAttributes\">\n"           \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetUnitControlGroups\">\n"                  \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"\n/>"         \
+        "   <arg name=\"attributes\" type=\"as\" direction=\"in\"/>\n"  \
+        "   <arg name=\"values\" type=\"as\" direction=\"out\"/>\n"      \
         "  </method>\n"                                                 \
         "  <method name=\"SetUnitControlGroupAttributes\">\n"           \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
@@ -121,6 +116,16 @@
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"attributes\" type=\"a(ss)\" direction=\"in\"/>\n" \
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetUnitControlGroups\">\n"                    \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"UnsetUnitControlGroups\">\n"                  \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"\n/>"         \
         "  </method>\n"                                                 \
         "  <method name=\"GetJob\">\n"                                  \
         "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
@@ -977,6 +982,38 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnitControlGroupAttributes")) {
+                const char *name;
+                Unit *u;
+                DBusMessageIter iter;
+                _cleanup_strv_free_ char **list = NULL;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                u = manager_get_unit(m, name);
+                if (!u) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+                }
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
+                r = bus_unit_cgroup_attribute_get(u, &iter, &list);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                dbus_message_iter_init_append(reply, &iter);
+                if (bus_append_strv_iter(&iter, list) < 0)
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ListUnits")) {

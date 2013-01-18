@@ -641,6 +641,9 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
         _cleanup_free_ char *buf = NULL;
         struct stat st;
 
+        assert(fn);
+        assert(contents);
+
         f = fopen(fn, "re");
         if (!f)
                 return -errno;

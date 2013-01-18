@@ -127,13 +127,9 @@
         "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroups\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupAttributes\" type=\"a(sss)\" access=\"read\"/>\n" \
-        "  <method name=\"SetControlGroups\">\n"                        \
-        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetControlGroups\">\n"                      \
-        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "  <method name=\"GetControlGroupAttributes\">\n"               \
+        "   <arg name=\"attributes\" type=\"as\" direction=\"in\"/>\n"  \
+        "   <arg name=\"values\" type=\"as\" direction=\"out\"/>\n"     \
         "  </method>\n"                                                 \
         "  <method name=\"SetControlGroupAttributes\">\n"               \
         "   <arg name=\"attributes\" type=\"a(ss)\" direction=\"in\"/>\n" \
@@ -141,6 +137,14 @@
         "  </method>\n"                                                 \
         "  <method name=\"UnsetControlGroupAttributes\">\n"             \
         "   <arg name=\"attributes\" type=\"as\" direction=\"in\"/>\n"  \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetControlGroups\">\n"                        \
+        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"UnsetControlGroups\">\n"                      \
+        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"
 
@@ -164,6 +168,7 @@ DBusHandlerResult bus_unit_queue_job(
 
 int bus_unit_cgroup_set(Unit *u, DBusMessageIter *iter);
 int bus_unit_cgroup_unset(Unit *u, DBusMessageIter *iter);
+int bus_unit_cgroup_attribute_get(Unit *u, DBusMessageIter *iter, char ***_result);
 int bus_unit_cgroup_attribute_set(Unit *u, DBusMessageIter *iter);
 int bus_unit_cgroup_attribute_unset(Unit *u, DBusMessageIter *iter);
 

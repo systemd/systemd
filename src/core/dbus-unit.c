@@ -502,6 +502,27 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
                         goto oom;
+        } else if (streq_ptr(dbus_message_get_member(message), "GetControlGroupAttributes")) {
+                DBusMessageIter iter;
+                _cleanup_strv_free_ char **list = NULL;
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                r = bus_unit_cgroup_attribute_get(u, &iter, &list);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                dbus_message_iter_init_append(reply, &iter);
+                if (bus_append_strv_iter(&iter, list) < 0)
+                        goto oom;
+
         } else if (streq_ptr(dbus_message_get_member(message), "SetControlGroupAttributes")) {
                 DBusMessageIter iter;
 
@@ -961,6 +982,74 @@ int bus_unit_cgroup_unset(Unit *u, DBusMessageIter *iter) {
 
                 cgroup_bonding_free(b, true);
         }
+
+        return 0;
+}
+
+int bus_unit_cgroup_attribute_get(Unit *u, DBusMessageIter *iter, char ***_result) {
+        _cleanup_strv_free_ char **l = NULL, **result = NULL;
+        char **name;
+        int r;
+
+        assert(u);
+        assert(iter);
+        assert(_result);
+
+        if (!unit_get_exec_context(u))
+                return -EINVAL;
+
+        r = bus_parse_strv_iter(iter, &l);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(name, l) {
+                _cleanup_free_ char *controller = NULL;
+                const char *dot;
+                CGroupAttribute *a;
+                CGroupBonding *b;
+
+                dot = strchr(*name, '.');
+                if (dot) {
+                        controller = strndup(*name, dot - *name);
+                        if (!controller)
+                                return -ENOMEM;
+                }
+
+                /* First attempt, read the value from the kernel */
+                b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
+                if (b) {
+                        _cleanup_free_ char *p = NULL, *v = NULL;
+
+                        r = cg_get_path(b->controller, b->path, *name, &p);
+                        if (r < 0)
+                                return r;
+
+                        r = read_full_file(p, &v, NULL);
+                        if (r >= 0) {
+                                r = strv_extend(&result, v);
+                                if (r < 0)
+                                        return r;
+
+                                continue;
+                        } else if (r != -ENOENT)
+                                return r;
+                }
+
+                /* If that didn't work, read our cached value */
+                a = cgroup_attribute_find_list(u->cgroup_attributes, NULL, *name);
+                if (a) {
+                        r = strv_extend(&result, a->value);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
+                return -ENOENT;
+        }
+
+        *_result = result;
+        result = NULL;
 
         return 0;
 }

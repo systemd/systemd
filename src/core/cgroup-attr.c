@@ -25,8 +25,7 @@
 
 int cgroup_attribute_apply(CGroupAttribute *a, CGroupBonding *b) {
         int r;
-        char *path = NULL;
-        char *v = NULL;
+        _cleanup_free_ char *path = NULL, *v = NULL;
 
         assert(a);
 
@@ -41,17 +40,12 @@ int cgroup_attribute_apply(CGroupAttribute *a, CGroupBonding *b) {
         }
 
         r = cg_get_path(a->controller, b->path, a->name, &path);
-        if (r < 0) {
-                free(v);
+        if (r < 0)
                 return r;
-        }
 
         r = write_one_line_file(path, v ? v : a->value);
         if (r < 0)
                 log_warning("Failed to write '%s' to %s: %s", v ? v : a->value, path, strerror(-r));
-
-        free(path);
-        free(v);
 
         return r;
 }

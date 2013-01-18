@@ -2273,6 +2273,64 @@ static int set_cgroup_attr(DBusConnection *bus, char **args) {
         return 0;
 }
 
+static int get_cgroup_attr(DBusConnection *bus, char **args) {
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
+        DBusError error;
+        DBusMessageIter iter;
+        int r;
+        _cleanup_free_ char *n = NULL;
+        _cleanup_strv_free_ char **list = NULL;
+        char **a;
+
+        assert(bus);
+        assert(args);
+
+        dbus_error_init(&error);
+
+        n = unit_name_mangle(args[1]);
+        if (!n)
+                return log_oom();
+
+        m = dbus_message_new_method_call(
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "GetUnitControlGroupAttributes");
+        if (!m)
+                return log_oom();
+
+        dbus_message_iter_init_append(m, &iter);
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &n))
+                return log_oom();
+
+        r = bus_append_strv_iter(&iter, args + 2);
+        if (r < 0)
+                return log_oom();
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+                return -EIO;
+        }
+
+        dbus_message_iter_init(reply, &iter);
+        r = bus_parse_strv_iter(&iter, &list);
+        if (r < 0) {
+                log_error("Failed to parse value list.");
+                return r;
+        }
+
+        STRV_FOREACH(a, list) {
+                if (endswith(*a, "\n"))
+                        fputs(*a, stdout);
+                else
+                        puts(*a);
+        }
+
+        return 0;
+}
+
 typedef struct ExecStatusInfo {
         char *name;
 
@@ -4276,12 +4334,14 @@ static int systemctl_help(void) {
                "  help [NAME...|PID...]           Show manual for one or more units\n"
                "  reset-failed [NAME...]          Reset failed state for all, one, or more\n"
                "                                  units\n"
-               "  set-cgroup [NAME] [CGROUP...]   Add unit to a control group\n"
-               "  unset-cgroup [NAME] [CGROUP...] Remove unit from a control group\n"
+               "  get-cgroup-attr [NAME] [ATTR] ...\n"
+               "                                  Get control group attrubute\n"
                "  set-cgroup-attr [NAME] [ATTR] [VALUE] ...\n"
                "                                  Set control group attribute\n"
                "  unset-cgroup-attr [NAME] [ATTR...]\n"
                "                                  Unset control group attribute\n"
+               "  set-cgroup [NAME] [CGROUP...]   Add unit to a control group\n"
+               "  unset-cgroup [NAME] [CGROUP...] Remove unit from a control group\n"
                "  load [NAME...]                  Load one or more units\n"
                "  list-dependencies [NAME]        Recursively show units which are required\n"
                "                                  or wanted by this unit\n\n"
@@ -5261,6 +5321,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "isolate",               EQUAL, 2, start_unit        },
                 { "set-cgroup",            MORE,  2, set_cgroup        },
                 { "unset-cgroup",          MORE,  2, set_cgroup        },
+                { "get-cgroup-attr",       MORE,  2, get_cgroup_attr   },
                 { "set-cgroup-attr",       MORE,  2, set_cgroup_attr   },
                 { "unset-cgroup-attr",     MORE,  2, set_cgroup        },
                 { "kill",                  MORE,  2, kill_unit         },
