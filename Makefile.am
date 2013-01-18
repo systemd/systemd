@@ -118,8 +118,9 @@ dbusinterface_DATA =
 dist_dbussystemservice_DATA =
 check_PROGRAMS =
 check_DATA =
-noinst_PROGRAMS =
-TESTS =
+noinst_tests=
+noinst_PROGRAMS = $(noinst_tests)
+TESTS = $(noinst_tests)
 udevlibexec_PROGRAMS =
 
 AM_CPPFLAGS = \
@@ -1173,27 +1174,16 @@ CLEANFILES += \
 # ------------------------------------------------------------------------------
 noinst_PROGRAMS += \
 	test-engine \
-	test-job-type \
 	test-ns \
 	test-loopback \
 	test-hostname \
 	test-daemon \
 	test-cgroup \
-	test-env-replace \
-	test-strv \
 	test-install \
 	test-watchdog \
-	test-unit-name \
-	test-log \
-	test-unit-file \
-	test-date \
-	test-sleep \
-	test-replace-var \
-	test-sched-prio \
-	test-calendarspec \
-	test-strip-tab-ansi
+	test-log
 
-TESTS += \
+noinst_tests += \
 	test-job-type \
 	test-env-replace \
 	test-strv \
@@ -2438,10 +2428,7 @@ test_id128_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-id128-internal.la
 
-noinst_PROGRAMS += \
-	test-id128
-
-TESTS += \
+noinst_tests += \
 	test-id128
 
 pkginclude_HEADERS += \
@@ -2731,17 +2718,10 @@ UNINSTALL_DATA_HOOKS += \
 	catalog-remove-hook
 
 noinst_PROGRAMS += \
-	test-journal \
-	test-journal-send \
-	test-journal-syslog \
-	test-journal-match \
 	test-journal-enum \
-	test-journal-stream \
-	test-journal-verify \
-	test-mmap-cache \
 	test-catalog
 
-TESTS += \
+noinst_tests += \
 	test-journal \
 	test-journal-send \
 	test-journal-syslog \
