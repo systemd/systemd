@@ -1194,7 +1194,8 @@ noinst_tests += \
 	test-replace-var \
 	test-sched-prio \
 	test-calendarspec \
-	test-strip-tab-ansi
+	test-strip-tab-ansi \
+	test-cgroup-util
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1308,6 +1309,13 @@ test_cgroup_SOURCES = \
 	src/test/test-cgroup.c
 
 test_cgroup_LDADD = \
+	libsystemd-label.la \
+	libsystemd-shared.la
+
+test_cgroup_util_SOURCES = \
+	src/test/test-cgroup-util.c
+
+test_cgroup_util_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
 

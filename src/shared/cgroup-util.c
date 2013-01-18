@@ -1211,68 +1211,56 @@ int cg_pid_get_cgroup(pid_t pid, char **root, char **cgroup) {
         return 0;
 }
 
-static int instance_unit_from_cgroup(char **cgroup){
+static int instance_unit_from_cgroup(char *cgroup){
         char *at;
 
         assert(cgroup);
 
-        at = memchr(*cgroup, '@', strlen(*cgroup));
-        if (at && at[1] == '.') {
-                char *i, *s;
-
+        at = strstr(cgroup, "@.");
+        if (at) {
                 /* This is a templated service */
-                i = memchr(at, '/', strlen(at));
-                if(!i)
-                        return -EIO;
 
-                s = strndup(at + 1, i - at);
-                if (!s)
+                char *i;
+                char _cleanup_free_ *i2 = NULL, *s = NULL;
+
+                i = strchr(at, '/');
+                if (!i || !i[1]) /* disallow empty instances */
+                        return -EINVAL;
+
+                s = strndup(at + 1, i - at - 1);
+                i2 = strdup(i + 1);
+                if (!s || !i2)
                         return -ENOMEM;
 
-                i = strdup(i + 1);
-                if (!i) {
-                        free(s);
-                        return -ENOMEM;
-                }
-
-                strcpy(at + 1, i);
-                strcpy(at + strlen(i) + 1, s);
-                at[strlen(at) - 1] = '\0';
-
-                free(i);
-                free(s);
+                strcpy(at + 1, i2);
+                strcat(at + 1, s);
         }
 
         return 0;
 }
 
-static int cgroup_to_unit(char *cgroup, char **unit){
+/* non-static only for testing purposes */
+int cgroup_to_unit(char *cgroup, char **unit){
         int r;
-        char *b, *p;
-        size_t k;
+        char *p;
 
         assert(cgroup);
         assert(unit);
 
-        r = instance_unit_from_cgroup(&cgroup);
+        r = instance_unit_from_cgroup(cgroup);
         if (r < 0)
                 return r;
 
-        p = strrchr(cgroup, '/') + 1;
-        k = strlen(p);
+        p = strrchr(cgroup, '/');
+        assert(p);
 
-        b = strndup(p, k);
+        r = unit_name_is_valid(p + 1, true);
+        if (!r)
+                return -EINVAL;
 
-        if (!b)
+        *unit = strdup(p + 1);
+        if (!*unit)
                 return -ENOMEM;
-
-        r = unit_name_is_valid(b, true);
-        if (!r) {
-                free(b);
-                return -ENOENT;
-        }
-
-        *unit = b;
 
         return 0;
 }

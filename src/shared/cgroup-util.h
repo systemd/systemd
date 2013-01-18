@@ -73,4 +73,6 @@ int cg_pid_get_cgroup(pid_t pid, char **root, char **cgroup);
 int cg_pid_get_unit(pid_t pid, char **unit);
 int cg_pid_get_user_unit(pid_t pid, char **unit);
 
+int cgroup_to_unit(char *cgroup, char **unit);
+
 char **cg_shorten_controllers(char **controllers);
