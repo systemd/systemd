@@ -52,7 +52,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsynopsisdiv>
     <para><filename>systemd-journal-gatewayd.service</filename></para>
     <para><filename>systemd-journal-gatewayd.socket</filename></para>
-    <cmdsynopsis><command>/usr/lib/systemd/systemd-journal-gatewayd</command>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-journal-gatewayd</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -61,7 +63,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para><command>systemd-journal-gatewayd</command> serves journal
     events over the network. Clients must connect using
-    HTTP. The server listens on port 19531 by default.</para>
+    HTTP. The server listens on port 19531 by default.
+    If <option>--cert=</option> is specified, the server expects
+    HTTPS connections.</para>
 
     <para>The program is started by
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -69,6 +73,48 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <command>systemctl start systemd-journal-gatewayd.socket</command> to start
     the service, and <command>systemctl enable systemd-journal-gatewayd.socket</command>
     to have it started on boot.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--help</option></term>
+        <term><option>-h</option></term>
+
+        <listitem><para>Prints a short help
+        text and exits.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--version</option></term>
+
+        <listitem><para>Prints a short version
+        string and exits.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cert=</option></term>
+
+        <listitem><para>Specify the path to a file containing a server
+        certificate in PEM format. This option switches
+        <command>systemd-journal-gatewayd</command> into HTTPS mode
+        and must be used together with
+        <option>--key=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--key=</option></term>
+
+        <listitem><para>Specify the path to a file containing a server
+        key in PEM format corresponding to the certificate specified
+        with <option>--cert=</option>.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
   </refsect1>
 
   <refsect1>

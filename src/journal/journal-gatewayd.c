@@ -862,6 +862,19 @@ static int request_handler(
         return respond_error(connection, MHD_HTTP_NOT_FOUND, "Not found.\n");
 }
 
+static int help(void) {
+
+        printf("%s [OPTIONS...] ...\n\n"
+               "HTTP server for journal events.\n\n"
+               "  -h --help           Show this help\n"
+               "     --version        Show package version\n"
+               "     --cert=CERT.PEM  Specify server certificate in PEM format\n"
+               "     --key=KEY.PEM    Specify server key in PEM format\n",
+               program_invocation_short_name);
+
+        return 0;
+}
+
 static char *key_pem = NULL;
 static char *cert_pem = NULL;
 
@@ -875,6 +888,7 @@ static int parse_argv(int argc, char *argv[]) {
         int r, c;
 
         static const struct option options[] = {
+                { "help",    no_argument,       NULL, 'h'         },
                 { "version", no_argument,       NULL, ARG_VERSION },
                 { "key",     required_argument, NULL, ARG_KEY     },
                 { "cert",    required_argument, NULL, ARG_CERT    },
@@ -884,12 +898,15 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
                 switch(c) {
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
                         puts(SYSTEMD_FEATURES);
                         return 0;
+
+                case 'h':
+                        return help();
 
                 case ARG_KEY:
                         if (key_pem) {
