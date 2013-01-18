@@ -298,13 +298,13 @@
         <refsect1>
                 <title>Example 1</title>
 
-                <programlisting># yum --releasever=17 --nogpgcheck --installroot ~/fedora-tree/ install yum passwd vim-minimal rootfiles systemd
-# systemd-nspawn -D ~/fedora-tree /usr/lib/systemd/systemd</programlisting>
+                <programlisting># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
+# systemd-nspawn -bD /srv/mycontainer</programlisting>
 
                 <para>This installs a minimal Fedora distribution into
-                the directory <filename>~/fedora-tree/</filename>
-                and then boots an OS in a namespace container in it,
-                with systemd as init system.</para>
+                the directory <filename>/srv/mycontainer/</filename> and
+                then boots an OS in a namespace container in
+                it.</para>
         </refsect1>
 
         <refsect1>
