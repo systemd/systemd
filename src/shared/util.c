@@ -780,6 +780,8 @@ int load_env_file(
                 char ***rl) {
 
         FILE *f;
+        char *b;
+        char *c = NULL;
         char **m = NULL;
         int r;
 
@@ -790,18 +792,45 @@ int load_env_file(
                 return -errno;
 
         while (!feof(f)) {
-                char l[LINE_MAX], *p, *u;
+                char l[LINE_MAX], *p, *u, *cs;
                 char **t;
 
                 if (!fgets(l, sizeof(l), f)) {
-                        if (feof(f))
+                        if(!feof(f)) {
+                                r = -errno;
+                                goto finish;
+                        }
+                        else if (!c)
                                 break;
 
-                        r = -errno;
-                        goto finish;
                 }
 
-                p = strstrip(l);
+                cs = endswith(l, "\\\n");
+                if (cs) {
+
+                        *cs = '\0';
+                        b = strappend(c, l);
+                        if (!b) {
+                               r = log_oom();
+                                goto finish;
+                        }
+                        free(c);
+                        c = b;
+                        *l = '\0';
+                        continue;
+                }
+
+                if (c) {
+                        b = strappend(c, l);
+                        if (!b) {
+                                r = log_oom();
+                                goto finish;
+                        }
+                        free(c);
+                        c = b;
+                }
+
+                p = strstrip(c ? c : l);
 
                 if (!*p)
                         continue;
@@ -813,6 +842,8 @@ int load_env_file(
                         r = log_oom();
                         goto finish;
                 }
+                free(c);
+                c = NULL;
 
                 t = strv_append(m, u);
                 free(u);
@@ -834,6 +865,8 @@ int load_env_file(
 finish:
         if (f)
                 fclose(f);
+
+        free(c);
 
         strv_free(m);
 

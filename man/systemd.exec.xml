@@ -299,9 +299,11 @@
                                 contain new-line separated variable
                                 assignments. Empty lines and lines
                                 starting with ; or # will be ignored,
-                                which may be used for commenting. The
-                                parser strips leading and
-                                trailing whitespace from the values
+                                which may be used for commenting. A line
+                                ending with a backslash will be concatenated
+                                with the following one, allowing multiline variable
+                                definitions. The parser strips leading
+                                and trailing whitespace from the values
                                 of assignments, unless you use
                                 double quotes (").</para>
 
