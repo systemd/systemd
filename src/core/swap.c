@@ -1382,12 +1382,14 @@ DEFINE_STRING_TABLE_LOOKUP(swap_result, SwapResult);
 
 const UnitVTable swap_vtable = {
         .object_size = sizeof(Swap),
-        .exec_context_offset = offsetof(Swap, exec_context),
 
         .sections =
                 "Unit\0"
                 "Swap\0"
                 "Install\0",
+
+        .exec_context_offset = offsetof(Swap, exec_context),
+        .exec_section = "Swap",
 
         .no_alias = true,
         .no_instances = true,

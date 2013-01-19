@@ -271,6 +271,9 @@ struct UnitVTable {
          * ExecContext is found, if the unit type has that */
         size_t exec_context_offset;
 
+        /* The name of the section with the exec settings of ExecContext */
+        const char *exec_section;
+
         /* Config file sections this unit type understands, separated
          * by NUL chars */
         const char *sections;
@@ -550,6 +553,9 @@ int unit_add_mount_links(Unit *u);
 int unit_exec_context_defaults(Unit *u, ExecContext *c);
 
 ExecContext *unit_get_exec_context(Unit *u);
+
+int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data);
+int unit_remove_drop_in(Unit *u, bool runtime, const char *name);
 
 const char *unit_active_state_to_string(UnitActiveState i);
 UnitActiveState unit_active_state_from_string(const char *s);

@@ -1888,12 +1888,14 @@ DEFINE_STRING_TABLE_LOOKUP(mount_result, MountResult);
 
 const UnitVTable mount_vtable = {
         .object_size = sizeof(Mount),
-        .exec_context_offset = offsetof(Mount, exec_context),
 
         .sections =
                 "Unit\0"
                 "Mount\0"
                 "Install\0",
+
+        .exec_context_offset = offsetof(Mount, exec_context),
+        .exec_section = "Mount",
 
         .no_alias = true,
         .no_instances = true,

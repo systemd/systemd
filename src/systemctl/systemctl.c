@@ -2177,6 +2177,7 @@ static int set_cgroup(DBusConnection *bus, char **args) {
         DBusMessageIter iter;
         int r;
         _cleanup_free_ char *n = NULL;
+        const char *runtime;
 
         assert(bus);
         assert(args);
@@ -2208,6 +2209,10 @@ static int set_cgroup(DBusConnection *bus, char **args) {
         if (r < 0)
                 return log_oom();
 
+        runtime = arg_runtime ? "runtime" : "persistent";
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &runtime))
+                return log_oom();
+
         reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
         if (!reply) {
                 log_error("Failed to issue method call: %s", bus_error_message(&error));
@@ -2224,6 +2229,7 @@ static int set_cgroup_attr(DBusConnection *bus, char **args) {
         DBusMessageIter iter, sub, sub2;
         char **x, **y;
         _cleanup_free_ char *n = NULL;
+        const char *runtime;
 
         assert(bus);
         assert(args);
@@ -2260,8 +2266,10 @@ static int set_cgroup_attr(DBusConnection *bus, char **args) {
                         return log_oom();
         }
 
-        if (!dbus_message_iter_close_container(&iter, &sub))
-                return -ENOMEM;
+        runtime = arg_runtime ? "runtime" : "persistent";
+        if (!dbus_message_iter_close_container(&iter, &sub) ||
+            !dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &runtime))
+                return log_oom();
 
         reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
         if (!reply) {
@@ -3163,7 +3171,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &attr, true) >= 0 &&
                                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &value, false) >= 0) {
 
-                                        printf("ControlGroupAttribute={ controller=%s ; attribute=%s ; value=\"%s\" }\n",
+                                        printf("ControlGroupAttributes={ controller=%s ; attribute=%s ; value=\"%s\" }\n",
                                                controller,
                                                attr,
                                                value);

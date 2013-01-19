@@ -45,6 +45,7 @@
 #include "cgroup-util.h"
 #include "missing.h"
 #include "cgroup-attr.h"
+#include "mkdir.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -2756,6 +2757,54 @@ ExecContext *unit_get_exec_context(Unit *u) {
                 return NULL;
 
         return (ExecContext*) ((uint8_t*) u + offset);
+}
+
+int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data) {
+        _cleanup_free_ char *p = NULL, *q = NULL;
+        assert(u);
+
+        if (u->manager->running_as != SYSTEMD_SYSTEM)
+                return -ENOTSUP;
+
+        if (!filename_is_safe(name))
+                return -EINVAL;
+
+        p = strjoin(runtime ? "/run/systemd/system/" : "/etc/systemd/systemd/", u->id, ".d", NULL);
+        if (!p)
+                return -ENOMEM;
+
+        q = strjoin(p, "/50-", name, ".conf", NULL);
+        if (!q)
+                return -ENOMEM;
+
+        mkdir_p(p, 0755);
+        return write_one_line_file_atomic(q, data);
+}
+
+int unit_remove_drop_in(Unit *u, bool runtime, const char *name) {
+        _cleanup_free_ char *p = NULL, *q = NULL;
+
+        assert(u);
+
+        if (u->manager->running_as != SYSTEMD_SYSTEM)
+                return -ENOTSUP;
+
+        if (!filename_is_safe(name))
+                return -EINVAL;
+
+        p = strjoin(runtime ? "/run/systemd/system/" : "/etc/systemd/systemd/", u->id, ".d", NULL);
+        if (!p)
+                return -ENOMEM;
+
+        q = strjoin(p, "/50-", name, ".conf", NULL);
+        if (!q)
+                return -ENOMEM;
+
+        if (unlink(q) < 0)
+                return -errno;
+
+        rmdir(p);
+        return 0;
 }
 
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {

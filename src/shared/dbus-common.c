@@ -927,6 +927,67 @@ int bus_parse_strv_iter(DBusMessageIter *iter, char ***_l) {
         return 0;
 }
 
+int bus_parse_strv_pairs_iter(DBusMessageIter *iter, char ***_l) {
+        DBusMessageIter sub, sub2;
+        unsigned n = 0, i = 0;
+        char **l;
+
+        assert(iter);
+        assert(_l);
+
+        if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(iter) != DBUS_TYPE_STRUCT)
+            return -EINVAL;
+
+        dbus_message_iter_recurse(iter, &sub);
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                n++;
+                dbus_message_iter_next(&sub);
+        }
+
+        l = new(char*, n*2+1);
+        if (!l)
+                return -ENOMEM;
+
+        dbus_message_iter_recurse(iter, &sub);
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                const char *a, *b;
+
+                assert_se(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT);
+
+                dbus_message_iter_recurse(&sub, &sub2);
+
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &a, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &b, false) < 0)
+                        return -EINVAL;
+
+                l[i] = strdup(a);
+                if (!l[i]) {
+                        strv_free(l);
+                        return -ENOMEM;
+                }
+
+                l[++i] = strdup(b);
+                if (!l[i]) {
+                        strv_free(l);
+                        return -ENOMEM;
+                }
+
+                i++;
+                dbus_message_iter_next(&sub);
+        }
+
+        assert(i == n*2);
+        l[i] = NULL;
+
+        if (_l)
+                *_l = l;
+
+        return 0;
+}
+
 int bus_append_strv_iter(DBusMessageIter *iter, char **l) {
         DBusMessageIter sub;
 
