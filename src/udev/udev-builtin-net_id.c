@@ -24,6 +24,8 @@
  *  - physical/geographical location of the hardware
  *  - the interface's MAC address
  *
+ * http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames
+ *
  * Two character prefixes based on the type of interface:
  *   en -- ethernet
  *   wl -- wlan
