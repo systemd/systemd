@@ -41,6 +41,7 @@
 #include "path-util.h"
 #include "missing.h"
 #include "virt.h"
+#include "efivars.h"
 
 #ifndef TTY_GID
 #define TTY_GID 5

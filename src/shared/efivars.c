@@ -28,6 +28,10 @@
 
 #define EFI_VENDOR_LOADER SD_ID128_MAKE(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)
 
+bool is_efiboot(void) {
+        return access("/sys/firmware/efi", F_OK) >= 0;
+}
+
 int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, void **value, size_t *size) {
         _cleanup_close_ int fd = -1;
         _cleanup_free_ char *p = NULL;
