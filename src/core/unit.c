@@ -2769,7 +2769,7 @@ int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data
         if (!filename_is_safe(name))
                 return -EINVAL;
 
-        p = strjoin(runtime ? "/run/systemd/system/" : "/etc/systemd/systemd/", u->id, ".d", NULL);
+        p = strjoin(runtime ? "/run/systemd/system/" : "/etc/systemd/system/", u->id, ".d", NULL);
         if (!p)
                 return -ENOMEM;
 
@@ -2792,7 +2792,7 @@ int unit_remove_drop_in(Unit *u, bool runtime, const char *name) {
         if (!filename_is_safe(name))
                 return -EINVAL;
 
-        p = strjoin(runtime ? "/run/systemd/system/" : "/etc/systemd/systemd/", u->id, ".d", NULL);
+        p = strjoin(runtime ? "/run/systemd/system/" : "/etc/systemd/system/", u->id, ".d", NULL);
         if (!p)
                 return -ENOMEM;
 
