@@ -747,6 +747,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/util.h \
 	src/shared/virt.c \
 	src/shared/virt.h \
+	src/shared/efivars.c \
+	src/shared/efivars.h \
 	src/shared/path-util.c \
 	src/shared/path-util.h \
 	src/shared/time-util.c \
@@ -1181,7 +1183,8 @@ noinst_PROGRAMS += \
 	test-cgroup \
 	test-install \
 	test-watchdog \
-	test-log
+	test-log \
+	test-efivars
 
 noinst_tests += \
 	test-job-type \
@@ -1245,6 +1248,12 @@ test_hostname_SOURCES = \
 
 test_hostname_LDADD = \
 	libsystemd-core.la
+
+test_efivars_SOURCES = \
+	src/test/test-efivars.c
+
+test_efivars_LDADD = \
+	libsystemd-shared.la
 
 test_unit_name_SOURCES = \
 	src/test/test-unit-name.c

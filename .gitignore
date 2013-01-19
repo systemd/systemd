@@ -79,8 +79,10 @@
 /test-calendarspec
 /test-catalog
 /test-cgroup
+/test-cgroup-util
 /test-daemon
 /test-date
+/test-efivars
 /test-engine
 /test-env-replace
 /test-hostname

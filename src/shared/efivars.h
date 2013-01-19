@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2012 Lennart Poettering
+  Copyright 2013 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,14 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "macro.h"
+#include <sys/types.h>
+#include <inttypes.h>
 
-char *utf8_is_valid(const char *s) _pure_;
-char *ascii_is_valid(const char *s) _pure_;
+#include "sd-id128.h"
 
-char *utf8_is_printable_n(const char* str, size_t length) _pure_;
-
-char *utf8_filter(const char *s);
-char *ascii_filter(const char *s);
-
-char *utf16_to_utf8(const void *s, size_t length);
+int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, void **value, size_t *size);
+int efi_get_boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_timestamp *loader);

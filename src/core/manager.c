@@ -70,6 +70,7 @@
 #include "cgroup-util.h"
 #include "path-util.h"
 #include "audit-fd.h"
+#include "efivars.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -302,6 +303,7 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
 
         dual_timestamp_get(&m->userspace_timestamp);
         dual_timestamp_from_monotonic(&m->kernel_timestamp, 0);
+        efi_get_boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
 
         m->running_as = running_as;
         m->name_data_slot = m->conn_data_slot = m->subscribed_data_slot = -1;

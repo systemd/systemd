@@ -49,6 +49,7 @@
 #include <stdbool.h>
 
 #include "utf8.h"
+#include "util.h"
 
 #define FILTER_CHAR '_'
 
@@ -282,4 +283,40 @@ char *ascii_filter(const char *str) {
         *d = 0;
 
         return r;
+}
+
+char *utf16_to_utf8(const void *s, size_t length) {
+        char *r;
+        const uint8_t *f;
+        uint8_t *t;
+
+        r = new(char, (length*3+1)/2 + 1);
+        if (!r)
+                return NULL;
+
+        t = (uint8_t*) r;
+
+        for (f = s; f < (const uint8_t*) s + length; f += 2) {
+                uint16_t c;
+
+                c = (f[1] << 8) | f[0];
+
+                if (c == 0) {
+                        *t = 0;
+                        return r;
+                } else if (c < 0x80) {
+                        *(t++) = (uint8_t) c;
+                } else if (c < 0x800) {
+                        *(t++) = (uint8_t) (0xc0 | (c >> 6));
+                        *(t++) = (uint8_t) (0x80 | (c & 0x3f));
+                } else {
+                        *(t++) = (uint8_t) (0xe0 | (c >> 12));
+                        *(t++) = (uint8_t) (0x80 | ((c >> 6) & 0x3f));
+                        *(t++) = (uint8_t) (0x80 | (c & 0x3f));
+                }
+        }
+
+        *t = 0;
+        return r;
+
 }
