@@ -123,7 +123,7 @@ static int manager_setup_notify(Manager *m) {
         ev.data.ptr = &m->notify_watch;
 
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->notify_watch.fd, &ev) < 0) {
-                log_error("Failed to add timer change fd to epoll: %m");
+                log_error("Failed to add notification socket fd to epoll: %m");
                 return -errno;
         }
 

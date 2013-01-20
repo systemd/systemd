@@ -745,7 +745,7 @@
                                 open access to the notification socket
                                 when using
                                 <varname>Type=notify</varname> or
-                                <varname>WatchdogUsec=</varname> (see
+                                <varname>WatchdogSec=</varname> (see
                                 above). If those options are used but
                                 <varname>NotifyAccess=</varname> not
                                 configured it will be implicitly set
