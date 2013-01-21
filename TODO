@@ -338,13 +338,8 @@ Features:
 * maybe allow services with ExecStop= set, but no ExecStart=?
 
 * efi:
-  - implement /forcefsck as efi variables thus not requiring file system altering to trigger a file system check
-  - honor language efi variables for default language selection
-  - honor timezone efi variables for default timezone selection
-  - automatically (auto)mount EFI partition to /boot if no such entry exists in /etc/fstab and /boot is empty
-    gummiboot exports the EFI system partion's GPT PARTUUID:
-      $ cat /sys/firmware/efi/efivars/LoaderDevicePartUUID-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
-      1FCBC57F-4BFC-4C2B-91A3-9C84FBCD9AF1
+  - honor language efi variables for default language selection (if there are any?)
+  - honor timezone efi variables for default timezone selection (if there are any?)
   - introduce bootctl (backed by systemd-bootd) to control temporary and persistent default boot goal plus efi variables
 
 * change Requires=basic.target to RequisiteOverride=basic.target
@@ -367,8 +362,6 @@ Features:
 * pam_systemd: try to get old session id from cgroup, if audit sessionid cannot be determined
 
 * pam: when leaving a session explicitly exclude the ReleaseSession() caller process from the killing spree
-
-* maybe introduce ~/.config/locale.conf and apply it within PAM
 
 * readahead: make use of EXT4_IOC_MOVE_EXT, as used by http://e4rat.sourceforge.net/
 
