@@ -25,8 +25,9 @@
 #include "efivars.h"
 #include "path-util.h"
 #include "util.h"
+#include "mkdir.h"
 
-static const char *arg_dest = NULL;
+static const char *arg_dest = "/tmp";
 
 int main(int argc, char *argv[]) {
         int r = EXIT_SUCCESS;
@@ -107,6 +108,8 @@ int main(int argc, char *argv[]) {
                 log_oom();
                 return EXIT_FAILURE;
         }
+
+        mkdir_parents(name, 0755);
 
         if (symlink("../boot.automount", name) < 0) {
                 log_error("Failed to create symlink: %m");
