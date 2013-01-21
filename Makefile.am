@@ -219,7 +219,8 @@ endif
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator \
 	systemd-fstab-generator \
-	systemd-system-update-generator
+	systemd-system-update-generator \
+	systemd-efi-boot-generator
 
 dist_bin_SCRIPTS = \
 	src/analyze/systemd-analyze
@@ -1542,6 +1543,14 @@ systemd_system_update_generator_SOURCES = \
 	src/system-update-generator/system-update-generator.c
 
 systemd_system_update_generator_LDADD = \
+	libsystemd-label.la \
+	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+systemd_efi_boot_generator_SOURCES = \
+	src/efi-boot-generator/efi-boot-generator.c
+
+systemd_efi_boot_generator_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
 

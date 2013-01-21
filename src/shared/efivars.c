@@ -235,3 +235,33 @@ int efi_get_boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, d
 
         return 0;
 }
+
+int efi_get_loader_device_part_uuid(sd_id128_t *u) {
+        _cleanup_free_ void *s = NULL;
+        _cleanup_free_ char *p = NULL;
+        size_t ss;
+        int r, parsed[16];
+        unsigned i;
+
+        assert(u);
+
+        r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderDevicePartUUID", NULL, &s, &ss);
+        if (r < 0)
+                return r;
+
+        p = utf16_to_utf8(s, ss);
+        if (!p)
+                return -ENOMEM;
+
+        if (sscanf(p, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+                   &parsed[0], &parsed[1], &parsed[2], &parsed[3],
+                   &parsed[4], &parsed[5], &parsed[6], &parsed[7],
+                   &parsed[8], &parsed[9], &parsed[10], &parsed[11],
+                   &parsed[12], &parsed[13], &parsed[14], &parsed[15]) != 16)
+                return -EIO;
+
+        for (i = 0; i < ELEMENTSOF(parsed); i++)
+                u->bytes[i] = parsed[i];
+
+        return 0;
+}

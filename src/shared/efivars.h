@@ -23,11 +23,15 @@
 
 #include <sys/types.h>
 #include <inttypes.h>
+#include <stdbool.h>
 
 #include "sd-id128.h"
+#include "time-util.h"
 
 bool is_efiboot(void);
 
 int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, void **value, size_t *size);
 
 int efi_get_boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_timestamp *loader);
+
+int efi_get_loader_device_part_uuid(sd_id128_t *u);

@@ -36,6 +36,7 @@
 /systemd-cryptsetup-generator
 /systemd-delta
 /systemd-detect-virt
+/systemd-efi-boot-generator
 /systemd-fsck
 /systemd-fstab-generator
 /systemd-getty-generator
