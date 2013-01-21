@@ -20,6 +20,10 @@ Fedora 19:
 
 Features:
 
+* write man page for efi boot generator
+
+* document bootloader interface in wiki
+
 * link runlevel targets on install only if sysv compat is enabled
 
 * logind: when executing sleep/shutdown job, keep track of its id, and
