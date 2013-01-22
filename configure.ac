@@ -130,12 +130,10 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wextra \
         -Wno-inline \
         -Wundef \
-        -Wformat=2 \
+        "-Wformat=2 -Wformat-security -Wformat-nonliteral" \
         -Wlogical-op \
         -Wsign-compare \
-        -Wformat-security \
         -Wmissing-include-dirs \
-        -Wformat-nonliteral \
         -Wold-style-definition \
         -Wpointer-arith \
         -Winit-self \
