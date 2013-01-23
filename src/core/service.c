@@ -1550,7 +1550,7 @@ static void service_set_state(Service *s, ServiceState state) {
                 service_connection_unref(s);
         }
 
-        if (state == SERVICE_STOP)
+        if (state == SERVICE_STOP || state == SERVICE_STOP_SIGTERM)
                 service_stop_watchdog(s);
 
         /* For the inactive states unit_notify() will trim the cgroup,
