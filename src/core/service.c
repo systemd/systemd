@@ -3400,7 +3400,8 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         if (strv_find(tags, "WATCHDOG=1")) {
                 log_debug_unit(u->id,
                                "%s: got WATCHDOG=1", u->id);
-                service_reset_watchdog(s);
+                if (dual_timestamp_is_set(&s->watchdog_timestamp))
+                        service_reset_watchdog(s);
         }
 
         /* Notify clients about changed status or main pid */
