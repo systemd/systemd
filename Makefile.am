@@ -4,6 +4,7 @@
 #
 #  Copyright 2010-2012 Lennart Poettering
 #  Copyright 2010-2012 Kay Sievers
+#  Copyright 2013 Zbigniew Jędrzejewski-Szmek
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
@@ -193,6 +194,11 @@ SYSINIT_TARGET_WANTS =
 BASIC_TARGET_WANTS =
 SOCKETS_TARGET_WANTS =
 
+SYSTEM_UNIT_ALIASES =
+USER_UNIT_ALIASES =
+
+GENERAL_ALIASES =
+
 install-target-wants-hook:
 	what="$(RUNLEVEL1_TARGET_WANTS)" && wants=runlevel1.target && $(add-wants)
 	what="$(RUNLEVEL2_TARGET_WANTS)" && wants=runlevel2.target && $(add-wants)
@@ -217,9 +223,27 @@ endef
 install-directories-hook:
 	$(MKDIR_P) $(addprefix $(DESTDIR),$(INSTALL_DIRS))
 
+install-aliases-hook:
+	set -- $(SYSTEM_UNIT_ALIASES) && \
+		dir=$(systemunitdir) && $(install-aliases)
+	set -- $(USER_UNIT_ALIASES) && \
+		dir=$(userunitdir) && $(install-aliases)
+	set -- $(GENERAL_ALIASES) && \
+		dir= && $(install-aliases)
+
+define install-aliases
+	$(MKDIR_P) /$(DESTDIR)$$dir && \
+	while [ -n "$$1" ]; do \
+		rm -f $(DESTDIR)$$dir/$$2 && \
+		ln -s $$1 $(DESTDIR)$$dir/$$2 && \
+		shift 2 || exit $$?; \
+	done
+endef
+
 INSTALL_EXEC_HOOKS += \
 	install-target-wants-hook \
-	install-directories-hook
+	install-directories-hook \
+	install-aliases-hook
 
 # ------------------------------------------------------------------------------
 rootbin_PROGRAMS = \
@@ -3206,13 +3230,8 @@ org.freedesktop.hostname1.xml: systemd-hostnamed
 		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
 		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
-hostnamed-install-data-hook:
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f dbus-org.freedesktop.hostname1.service && \
-		$(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service )
-
-INSTALL_DATA_HOOKS += \
-	hostnamed-install-data-hook
+SYSTEM_UNIT_ALIASES += \
+	systemd-hostnamed.service dbus-org.freedesktop.hostname1.service
 
 MANPAGES += \
 	man/systemd-hostnamed.service.8
@@ -3286,13 +3305,8 @@ org.freedesktop.locale1.xml: systemd-localed
 		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
 		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
-localed-install-data-hook:
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f dbus-org.freedesktop.locale1.service && \
-		$(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service )
-
-INSTALL_DATA_HOOKS += \
-	localed-install-data-hook
+SYSTEM_UNIT_ALIASES += \
+	systemd-localed.service dbus-org.freedesktop.locale1.service
 
 MANPAGES += \
 	man/systemd-localed.service.8
@@ -3374,16 +3388,12 @@ org.freedesktop.timedate1.xml: systemd-timedated
 dbusinterface_DATA += \
 	org.freedesktop.timedate1.xml
 
-timedated-install-data-hook:
-	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(prefix)/lib/systemd/ntp-units.d \
-		$(DESTDIR)$(sysconfdir)/systemd/ntp-units.d
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f dbus-org.freedesktop.timedate1.service  && \
-		$(LN_S) systemd-timedated.service dbus-org.freedesktop.timedate1.service )
+INSTALL_DIRS += \
+	$(prefix)/lib/systemd/ntp-units.d \
+	$(sysconfdir)/systemd/ntp-units.d
 
-INSTALL_DATA_HOOKS += \
-	timedated-install-data-hook
+SYSTEM_UNIT_ALIASES += \
+	systemd-timedated.service dbus-org.freedesktop.timedate1.service
 
 MANPAGES += \
 	man/systemd-timedated.service.8
@@ -3642,13 +3652,8 @@ MULTI_USER_TARGET_WANTS += \
 	systemd-logind.service \
 	systemd-user-sessions.service
 
-logind-install-data-hook:
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f dbus-org.freedesktop.login1.service && \
-		$(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service)
-
-INSTALL_DATA_HOOKS += \
-	logind-install-data-hook
+SYSTEM_UNIT_ALIASES += \
+	systemd-logind.service dbus-org.freedesktop.login1.service
 
 systemd_multi_seat_x_SOURCES = \
 	src/login/multi-seat-x.c
@@ -3995,60 +4000,56 @@ SYSINIT_TARGET_WANTS += \
 BASIC_TARGET_WANTS += \
 	systemd-tmpfiles-clean.timer
 
-systemd-install-data-hook:
-	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(tmpfilesdir) \
-		$(DESTDIR)$(sysconfdir)/tmpfiles.d \
-		$(DESTDIR)$(prefix)/lib/modules-load.d \
-		$(DESTDIR)$(sysconfdir)/modules-load.d \
-		$(DESTDIR)$(prefix)/lib/sysctl.d \
-		$(DESTDIR)$(sysconfdir)/sysctl.d \
-		$(DESTDIR)$(systemshutdowndir) \
-		$(DESTDIR)$(systemsleepdir) \
-		$(DESTDIR)$(systemgeneratordir) \
-		$(DESTDIR)$(usergeneratordir)
-	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(userunitdir) \
-		$(DESTDIR)$(pkgsysconfdir)/system \
-		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
-		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
-		$(DESTDIR)$(pkgsysconfdir)/user \
-		$(DESTDIR)$(dbussessionservicedir) \
-		$(DESTDIR)$(sysconfdir)/xdg/systemd
-	( cd $(DESTDIR)$(sysconfdir)/xdg/systemd/ && \
-		rm -f user && \
-		$(LN_S) $(pkgsysconfdir)/user user )
+SYSTEM_UNIT_ALIASES += \
+	poweroff.target runlevel0.target \
+	rescue.target runlevel1.target \
+	multi-user.target runlevel2.target \
+	multi-user.target runlevel3.target \
+	multi-user.target runlevel4.target \
+	graphical.target runlevel5.target \
+	reboot.target runlevel6.target \
+	graphical.target default.target \
+	reboot.target ctrl-alt-del.target \
+	getty@.service autovt@.service
 
-	( cd $(DESTDIR)$(userunitdir) && \
-		rm -f shutdown.target sockets.target bluetooth.target printer.target sound.target && \
-		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
-		$(LN_S) $(systemunitdir)/sockets.target sockets.target && \
-		$(LN_S) $(systemunitdir)/bluetooth.target bluetooth.target && \
-		$(LN_S) $(systemunitdir)/printer.target printer.target && \
-		$(LN_S) $(systemunitdir)/sound.target sound.target )
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f runlevel0.target runlevel1.target runlevel2.target runlevel3.target runlevel4.target runlevel5.target runlevel6.target && \
-		$(LN_S) poweroff.target runlevel0.target && \
-		$(LN_S) rescue.target runlevel1.target && \
-		$(LN_S) multi-user.target runlevel2.target && \
-		$(LN_S) multi-user.target runlevel3.target && \
-		$(LN_S) multi-user.target runlevel4.target && \
-		$(LN_S) graphical.target runlevel5.target && \
-		$(LN_S) reboot.target runlevel6.target )
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f default.target ctrl-alt-del.target autovt@.service && \
-		$(LN_S) graphical.target default.target && \
-		$(LN_S) reboot.target ctrl-alt-del.target && \
-		$(LN_S) getty@.service autovt@.service )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
-		rm -f getty@tty1.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
-		rm -f remote-fs.target && \
-		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
-	( cd $(DESTDIR)$(dbussessionservicedir) && \
-		rm -f org.freedesktop.systemd1.service && \
-		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )
+USER_UNIT_ALIASES += \
+	$(systemunitdir)/shutdown.target shutdown.target \
+	$(systemunitdir)/sockets.target sockets.target \
+	$(systemunitdir)/bluetooth.target bluetooth.target \
+	$(systemunitdir)/printer.target printer.target \
+	$(systemunitdir)/sound.target sound.target
+
+GENERAL_ALIASES += \
+	$(systemunitdir)/remote-fs.target $(pkgsysconfdir)/system/multi-user.target.wants/remote-fs.target \
+	$(systemunitdir)/getty@.service $(pkgsysconfdir)/system/getty.target.wants/getty@tty1.service \
+	$(pkgsysconfdir)/user $(sysconfdir)/xdg/systemd/user \
+	../system-services/org.freedesktop.systemd1.service $(dbussessionservicedir)/org.freedesktop.systemd1.service
+
+INSTALL_DIRS += \
+	$(systemunitdir)/runlevel1.target.wants \
+	$(systemunitdir)/runlevel2.target.wants \
+	$(systemunitdir)/runlevel3.target.wants \
+	$(systemunitdir)/runlevel4.target.wants \
+	$(systemunitdir)/runlevel5.target.wants \
+	\
+	$(tmpfilesdir) \
+	$(sysconfdir)/tmpfiles.d \
+	$(prefix)/lib/modules-load.d \
+	$(sysconfdir)/modules-load.d \
+	$(prefix)/lib/sysctl.d \
+	$(sysconfdir)/sysctl.d \
+	$(systemshutdowndir) \
+	$(systemsleepdir) \
+	$(systemgeneratordir) \
+	$(usergeneratordir) \
+	\
+	$(userunitdir) \
+	$(pkgsysconfdir)/system \
+	$(pkgsysconfdir)/system/multi-user.target.wants \
+	$(pkgsysconfdir)/system/getty.target.wants \
+	$(pkgsysconfdir)/user \
+	$(dbussessionservicedir) \
+	$(sysconfdir)/xdg/systemd
 
 if HAVE_KMOD
 SYSINIT_TARGET_WANTS += \
@@ -4059,7 +4060,7 @@ install-exec-hook: $(INSTALL_EXEC_HOOKS)
 
 uninstall-hook: $(UNINSTALL_DATA_HOOKS) $(UNINSTALL_EXEC_HOOKS)
 
-install-data-hook: systemd-install-data-hook $(INSTALL_DATA_HOOKS)
+install-data-hook: $(INSTALL_DATA_HOOKS)
 
 distclean-local: $(DISTCLEAN_LOCAL_HOOKS)
 
