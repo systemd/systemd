@@ -179,6 +179,48 @@ define move-to-rootlibdir
 	fi
 endef
 
+INSTALL_DIRS =
+
+RUNLEVEL1_TARGET_WANTS =
+RUNLEVEL2_TARGET_WANTS =
+RUNLEVEL3_TARGET_WANTS =
+RUNLEVEL4_TARGET_WANTS =
+RUNLEVEL5_TARGET_WANTS =
+SHUTDOWN_TARGET_WANTS =
+LOCAL_FS_TARGET_WANTS =
+MULTI_USER_TARGET_WANTS =
+SYSINIT_TARGET_WANTS =
+BASIC_TARGET_WANTS =
+SOCKETS_TARGET_WANTS =
+
+install-target-wants-hook:
+	what="$(RUNLEVEL1_TARGET_WANTS)" && wants=runlevel1.target && $(add-wants)
+	what="$(RUNLEVEL2_TARGET_WANTS)" && wants=runlevel2.target && $(add-wants)
+	what="$(RUNLEVEL3_TARGET_WANTS)" && wants=runlevel3.target && $(add-wants)
+	what="$(RUNLEVEL4_TARGET_WANTS)" && wants=runlevel4.target && $(add-wants)
+	what="$(RUNLEVEL5_TARGET_WANTS)" && wants=runlevel5.target && $(add-wants)
+	what="$(SHUTDOWN_TARGET_WANTS)" && wants=shutdown.target && $(add-wants)
+	what="$(LOCAL_FS_TARGET_WANTS)" && wants=local-fs.target && $(add-wants)
+	what="$(MULTI_USER_TARGET_WANTS)" && wants=multi-user.target && $(add-wants)
+	what="$(SYSINIT_TARGET_WANTS)" && wants=sysinit.target && $(add-wants)
+	what="$(BASIC_TARGET_WANTS)" && wants=basic.target && $(add-wants)
+	what="$(SOCKETS_TARGET_WANTS)" && wants=sockets.target && $(add-wants)
+
+define add-wants
+	dir=$(DESTDIR)$(systemunitdir)/$$wants.wants && \
+	$(MKDIR_P) -m 0755 $$dir && \
+	( cd $$dir && \
+	  rm -f $$what && \
+	  for i in $$what; do ln -s ../$$i . || exit $$? ; done )
+endef
+
+install-directories-hook:
+	$(MKDIR_P) $(addprefix $(DESTDIR),$(INSTALL_DIRS))
+
+INSTALL_EXEC_HOOKS += \
+	install-target-wants-hook \
+	install-directories-hook
+
 # ------------------------------------------------------------------------------
 rootbin_PROGRAMS = \
 	systemctl \
@@ -1893,15 +1935,12 @@ CLEANFILES += \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service
 
-systemd-install-hook:
-	$(MKDIR_P) $(DESTDIR)$(systemunitdir)/sockets.target.wants
-	ln -sf ../systemd-udevd-control.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/systemd-udevd-control.socket
-	ln -sf ../systemd-udevd-kernel.socket $(DESTDIR)$(systemunitdir)/sockets.target.wants/systemd-udevd-kernel.socket
-	$(MKDIR_P) $(DESTDIR)$(systemunitdir)/sysinit.target.wants
-	ln -sf ../systemd-udevd.service $(DESTDIR)$(systemunitdir)/sysinit.target.wants/systemd-udevd.service
-	ln -sf ../systemd-udev-trigger.service $(DESTDIR)$(systemunitdir)/sysinit.target.wants/systemd-udev-trigger.service
-
-INSTALL_DATA_HOOKS += systemd-install-hook
+SOCKETS_TARGET_WANTS += \
+	systemd-udevd-control.socket \
+	systemd-udevd-kernel.socket
+SYSINIT_TARGET_WANTS += \
+	systemd-udevd.service \
+	systemd-udev-trigger.service
 
 bin_PROGRAMS += \
 	udevadm
@@ -2792,20 +2831,11 @@ pkgconfiglib_DATA += \
 dist_catalog_DATA = \
 	catalog/systemd.catalog
 
-journal-install-data-hook:
-	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
-		$(DESTDIR)$(systemunitdir)/sysinit.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/sockets.target.wants && \
-		rm -f systemd-journald.socket && \
-		$(LN_S) ../systemd-journald.socket )
-	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f systemd-journald.service systemd-journal-flush.service && \
-		$(LN_S) ../systemd-journald.service && \
-		$(LN_S) ../systemd-journal-flush.service )
-
-INSTALL_DATA_HOOKS += \
-	journal-install-data-hook
+SOCKETS_TARGET_WANTS += \
+	systemd-journald.socket
+SYSINIT_TARGET_WANTS += \
+	systemd-journald.service \
+	systemd-journal-flush.service
 
 EXTRA_DIST += \
 	src/journal/libsystemd-journal.pc.in \
@@ -2902,19 +2932,13 @@ dist_systemunit_DATA += \
 nodist_systemunit_DATA += \
 	units/systemd-binfmt.service
 
-binfmt-install-data-hook:
-	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(prefix)/lib/binfmt.d \
-		$(DESTDIR)$(sysconfdir)/binfmt.d \
-		$(DESTDIR)$(systemunitdir)/sysinit.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f systemd-binfmt.service \
-			proc-sys-fs-binfmt_misc.automount && \
-		$(LN_S) ../systemd-binfmt.service systemd-binfmt.service && \
-		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount )
+INSTALL_DIRS += \
+	$(prefix)/lib/binfmt.d \
+	$(sysconfdir)/binfmt.d
 
-INSTALL_DATA_HOOKS += \
-	binfmt-install-data-hook
+SYSINIT_TARGET_WANTS += \
+	systemd-binfmt.service \
+	proc-sys-fs-binfmt_misc.automount
 
 MANPAGES += \
 	man/binfmt.d.5 \
@@ -2943,15 +2967,8 @@ rootlibexec_PROGRAMS += \
 nodist_systemunit_DATA += \
 	units/systemd-vconsole-setup.service
 
-vconsole-install-data-hook:
-	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(systemunitdir)/sysinit.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f systemd-vconsole-setup.service && \
-		$(LN_S) ../systemd-vconsole-setup.service systemd-vconsole-setup.service )
-
-INSTALL_DATA_HOOKS += \
-	vconsole-install-data-hook
+SYSINIT_TARGET_WANTS += \
+	systemd-vconsole-setup.service
 
 MANPAGES += \
 	man/vconsole.conf.5 \
@@ -3085,19 +3102,10 @@ systemd_random_seed_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
-randomseed-install-data-hook:
-	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(systemunitdir)/shutdown.target.wants \
-		$(DESTDIR)$(systemunitdir)/sysinit.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/shutdown.target.wants && \
-		rm -f systemd-random-seed-save.service && \
-		$(LN_S) ../systemd-random-seed-save.service systemd-random-seed-save.service )
-	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f systemd-random-seed-load.service && \
-		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service )
-
-INSTALL_DATA_HOOKS += \
-	randomseed-install-data-hook
+SHUTDOWN_TARGET_WANTS += \
+	systemd-random-seed-save.service
+SYSINIT_TARGET_WANTS += \
+	systemd-random-seed-load.service
 
 MANPAGES += \
 	man/systemd-random-seed-load.service.8
@@ -3146,15 +3154,8 @@ systemd_cryptsetup_generator_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
-cryptsetup-install-data-hook:
-	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(systemunitdir)/sysinit.target.wants
-	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f cryptsetup.target && \
-		$(LN_S) ../cryptsetup.target cryptsetup.target )
-
-INSTALL_DATA_HOOKS += \
-	cryptsetup-install-data-hook
+SYSINIT_TARGET_WANTS += \
+	cryptsetup.target
 
 MANPAGES += \
 	man/systemd-cryptsetup@.service.8 \
@@ -3634,17 +3635,17 @@ pkgconfiglib_DATA += \
 polkitpolicy_files += \
 	src/login/org.freedesktop.login1.policy
 
+INSTALL_DIRS += \
+	$(systemdstatedir)
+
+MULTI_USER_TARGET_WANTS += \
+	systemd-logind.service \
+	systemd-user-sessions.service
+
 logind-install-data-hook:
-	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(systemunitdir)/multi-user.target.wants \
-		$(DESTDIR)$(systemdstatedir)
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f dbus-org.freedesktop.login1.service && \
 		$(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service)
-	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f systemd-logind.service systemd-user-sessions.service && \
-		$(LN_S) ../systemd-logind.service systemd-logind.service && \
-		$(LN_S) ../systemd-user-sessions.service systemd-user-sessions.service )
 
 INSTALL_DATA_HOOKS += \
 	logind-install-data-hook
@@ -3959,6 +3960,41 @@ EXTRA_DIST += \
 EXTRA_DIST += \
 	shell-completion/systemd-zsh-completion.zsh
 
+SOCKETS_TARGET_WANTS += \
+	systemd-initctl.socket \
+	systemd-shutdownd.socket
+
+RUNLEVEL1_TARGET_WANTS += \
+	systemd-update-utmp-runlevel.service
+RUNLEVEL2_TARGET_WANTS += \
+	systemd-update-utmp-runlevel.service
+RUNLEVEL3_TARGET_WANTS += \
+	systemd-update-utmp-runlevel.service
+RUNLEVEL4_TARGET_WANTS += \
+	systemd-update-utmp-runlevel.service
+RUNLEVEL5_TARGET_WANTS += \
+	systemd-update-utmp-runlevel.service
+SHUTDOWN_TARGET_WANTS += \
+	systemd-update-utmp-shutdown.service
+LOCAL_FS_TARGET_WANTS += \
+	systemd-remount-fs.service \
+	systemd-fsck-root.service \
+	tmp.mount
+MULTI_USER_TARGET_WANTS += \
+	getty.target \
+	systemd-ask-password-wall.path
+SYSINIT_TARGET_WANTS += \
+	dev-hugepages.mount \
+	dev-mqueue.mount \
+	sys-kernel-config.mount \
+	sys-kernel-debug.mount \
+	sys-fs-fuse-connections.mount \
+	systemd-tmpfiles-setup.service \
+	systemd-sysctl.service \
+	systemd-ask-password-console.path
+BASIC_TARGET_WANTS += \
+	systemd-tmpfiles-clean.timer
+
 systemd-install-data-hook:
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(tmpfilesdir) \
@@ -3972,19 +4008,7 @@ systemd-install-data-hook:
 		$(DESTDIR)$(systemgeneratordir) \
 		$(DESTDIR)$(usergeneratordir)
 	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(systemunitdir) \
 		$(DESTDIR)$(userunitdir) \
-		$(DESTDIR)$(systemunitdir)/sysinit.target.wants \
-		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
-		$(DESTDIR)$(systemunitdir)/basic.target.wants \
-		$(DESTDIR)$(systemunitdir)/shutdown.target.wants \
-		$(DESTDIR)$(systemunitdir)/local-fs.target.wants \
-		$(DESTDIR)$(systemunitdir)/runlevel1.target.wants \
-		$(DESTDIR)$(systemunitdir)/runlevel2.target.wants \
-		$(DESTDIR)$(systemunitdir)/runlevel3.target.wants \
-		$(DESTDIR)$(systemunitdir)/runlevel4.target.wants \
-		$(DESTDIR)$(systemunitdir)/runlevel5.target.wants \
-		$(DESTDIR)$(systemunitdir)/multi-user.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system \
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
@@ -3994,35 +4018,7 @@ systemd-install-data-hook:
 	( cd $(DESTDIR)$(sysconfdir)/xdg/systemd/ && \
 		rm -f user && \
 		$(LN_S) $(pkgsysconfdir)/user user )
-	( cd $(DESTDIR)$(systemunitdir)/sockets.target.wants && \
-		rm -f systemd-initctl.socket systemd-shutdownd.socket && \
-		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket && \
-		$(LN_S) ../systemd-shutdownd.socket systemd-shutdownd.socket )
-	( cd $(DESTDIR)$(systemunitdir)/runlevel1.target.wants && \
-		rm -f systemd-update-utmp-runlevel.service && \
-		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
-	( cd $(DESTDIR)$(systemunitdir)/runlevel2.target.wants && \
-		rm -f systemd-update-utmp-runlevel.service && \
-		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
-	( cd $(DESTDIR)$(systemunitdir)/runlevel3.target.wants && \
-		rm -f systemd-update-utmp-runlevel.service && \
-		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
-	( cd $(DESTDIR)$(systemunitdir)/runlevel4.target.wants && \
-		rm -f systemd-update-utmp-runlevel.service && \
-		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
-	( cd $(DESTDIR)$(systemunitdir)/runlevel5.target.wants && \
-		rm -f systemd-update-utmp-runlevel.service && \
-		$(LN_S) ../systemd-update-utmp-runlevel.service systemd-update-utmp-runlevel.service )
-	( cd $(DESTDIR)$(systemunitdir)/shutdown.target.wants && \
-		rm -f systemd-update-utmp-shutdown.service && \
-		$(LN_S) ../systemd-update-utmp-shutdown.service systemd-update-utmp-shutdown.service )
-	( cd $(DESTDIR)$(systemunitdir)/local-fs.target.wants && \
-		rm -f systemd-remount-fs.service \
-			systemd-fsck-root.service \
-			tmp.mount && \
-		$(LN_S) ../systemd-remount-fs.service systemd-remount-fs.service && \
-		$(LN_S) ../systemd-fsck-root.service systemd-fsck-root.service && \
-		$(LN_S) ../tmp.mount tmp.mount )
+
 	( cd $(DESTDIR)$(userunitdir) && \
 		rm -f shutdown.target sockets.target bluetooth.target printer.target sound.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
@@ -4044,44 +4040,19 @@ systemd-install-data-hook:
 		$(LN_S) graphical.target default.target && \
 		$(LN_S) reboot.target ctrl-alt-del.target && \
 		$(LN_S) getty@.service autovt@.service )
-	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f getty.target systemd-ask-password-wall.path && \
-		$(LN_S) ../getty.target getty.target && \
-		$(LN_S) ../systemd-ask-password-wall.path systemd-ask-password-wall.path)
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
 		rm -f getty@tty1.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f remote-fs.target && \
 		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
-	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f dev-hugepages.mount \
-			dev-mqueue.mount \
-			sys-kernel-config.mount \
-			sys-kernel-debug.mount \
-			sys-fs-fuse-connections.mount \
-			systemd-tmpfiles-setup.service \
-			systemd-sysctl.service \
-			systemd-ask-password-console.path && \
-		$(LN_S) ../dev-hugepages.mount dev-hugepages.mount && \
-		$(LN_S) ../dev-mqueue.mount dev-mqueue.mount && \
-		$(LN_S) ../sys-kernel-config.mount sys-kernel-config.mount && \
-		$(LN_S) ../sys-kernel-debug.mount sys-kernel-debug.mount && \
-		$(LN_S) ../sys-fs-fuse-connections.mount sys-fs-fuse-connections.mount && \
-		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
-		$(LN_S) ../systemd-sysctl.service systemd-sysctl.service && \
-		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path )
-	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
-		rm -f systemd-tmpfiles-clean.timer && \
-		$(LN_S) ../systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.timer )
 	( cd $(DESTDIR)$(dbussessionservicedir) && \
 		rm -f org.freedesktop.systemd1.service && \
 		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )
 
 if HAVE_KMOD
-	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f systemd-modules-load.service && \
-		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service )
+SYSINIT_TARGET_WANTS += \
+	systemd-modules-load.service
 endif
 
 install-exec-hook: $(INSTALL_EXEC_HOOKS)
