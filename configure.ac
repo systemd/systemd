@@ -40,7 +40,6 @@ AC_DEFINE_UNQUOTED([CANONICAL_HOST], "$host", [Canonical host string.])
 AS_IF([test "x$host_cpu" = "xmips" || test "x$host_cpu" = "xmipsel" ||
        test "x$host_cpu" = "xmips64" || test "x$host_cpu" = "xmips64el"],
       [AC_DEFINE(ARCH_MIPS, [], [Whether on mips arch])])
-SD_CHECK_MAX_INT_SIZE([time_t], [#include <time.h>])
 
 LT_PREREQ(2.2)
 LT_INIT([disable-static])

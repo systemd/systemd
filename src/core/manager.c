@@ -81,6 +81,8 @@
 /* Where clients shall send notification messages to */
 #define NOTIFY_SOCKET "@/org/freedesktop/systemd1/notify"
 
+#define TIME_T_MAX (time_t)((1UL << ((sizeof(time_t) << 3) - 1)) - 1)
+
 static int manager_setup_notify(Manager *m) {
         union {
                 struct sockaddr sa;
