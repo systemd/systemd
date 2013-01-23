@@ -93,45 +93,7 @@ int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, v
         return 0;
 }
 
-static int read_bogomips(unsigned long *u) {
-        _cleanup_fclose_ FILE *f = NULL;
-
-        f = fopen("/proc/cpuinfo", "re");
-        if (!f)
-                return -errno;
-
-        while (!feof(f)) {
-                char line[LINE_MAX];
-                char *x;
-                unsigned long a, b;
-
-                if (!fgets(line, sizeof(line), f))
-                        return -EIO;
-
-                char_array_0(line);
-                truncate_nl(line);
-
-                if (!startswith(line, "bogomips"))
-                        continue;
-
-                x = line + 8;
-                x += strspn(x, WHITESPACE);
-                if (*x != ':')
-                        continue;
-                x++;
-                x += strspn(x, WHITESPACE);
-
-                if (sscanf(x, "%lu.%lu", &a, &b) != 2)
-                        continue;
-
-                *u = a * 1000000L + b * 10000L;
-                return 0;
-        }
-
-        return -EIO;
-}
-
-static int read_ticks(sd_id128_t vendor, const char *name, unsigned long speed, usec_t *u) {
+static int read_usec(sd_id128_t vendor, const char *name, usec_t *u) {
         _cleanup_free_ void *i = NULL;
         _cleanup_free_ char *j = NULL;
         size_t is;
@@ -153,38 +115,22 @@ static int read_ticks(sd_id128_t vendor, const char *name, unsigned long speed, 
         if (r < 0)
                 return r;
 
-        *u = USEC_PER_SEC * x / speed;
+        *u = x;
         return 0;
 }
 
 static int get_boot_usec(usec_t *firmware, usec_t *loader) {
         uint64_t x, y;
         int r;
-        unsigned long bogomips;
 
         assert(firmware);
         assert(loader);
 
-        /* Returns the usec after the CPU was turned on. The two
-         * timestamps are: the firmware finished, and the boot loader
-         * finished. */
-
-        /* We assume that the kernel's bogomips value is calibrated to
-         * twice the CPU frequency, and use this to convert the TSC
-         * ticks into usec. Of course, bogomips are only vaguely
-         * defined. If this breaks one day we can come up with
-         * something better. However, for now this saves us from doing
-         * a local calibration loop. */
-
-        r = read_bogomips(&bogomips);
+        r = read_usec(EFI_VENDOR_LOADER, "LoaderTimeInitUsec", &x);
         if (r < 0)
                 return r;
 
-        r = read_ticks(EFI_VENDOR_LOADER, "LoaderTicksInit", bogomips / 2, &x);
-        if (r < 0)
-                return r;
-
-        r = read_ticks(EFI_VENDOR_LOADER, "LoaderTicksExec", bogomips / 2, &y);
+        r = read_usec(EFI_VENDOR_LOADER, "LoaderTimeExecUsec", &y);
         if (r < 0)
                 return r;
 
