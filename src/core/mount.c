@@ -1472,7 +1472,7 @@ static int mount_add_one(
         int r;
         Unit *u;
         bool delete;
-        char *e, *w = NULL, *o = NULL, *f = NULL;
+        char *e, *w = NULL, *o = NULL, *s = NULL, *f = NULL;
         MountParameters *p;
         bool load_extras = false;
 
@@ -1545,6 +1545,7 @@ static int mount_add_one(
 
         if (!(w = strdup(what)) ||
             !(o = strdup(options)) ||
+            !(s = strdup("/proc/self/mountinfo")) ||
             !(f = strdup(fstype))) {
                 r = -ENOMEM;
                 goto fail;
@@ -1558,6 +1559,8 @@ static int mount_add_one(
         }
 
         MOUNT(u)->from_proc_self_mountinfo = true;
+        free(u->source_path);
+        u->source_path = s;
 
         free(p->what);
         p->what = w;
@@ -1583,6 +1586,7 @@ static int mount_add_one(
 fail:
         free(w);
         free(o);
+        free(s);
         free(f);
 
         if (delete && u)
