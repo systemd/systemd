@@ -42,8 +42,6 @@ Features:
 
 * write man page for efi boot generator
 
-* link runlevel targets on install only if sysv compat is enabled
-
 * maybe not install getty@tty1.service symlink in /etc but in /usr?
 
 * re-enable "make check" for gtk-doc (broken for unknown reason)

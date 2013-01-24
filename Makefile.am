@@ -213,9 +213,10 @@ install-target-wants-hook:
 	what="$(SOCKETS_TARGET_WANTS)" && wants=sockets.target && $(add-wants)
 
 define add-wants
-	dir=$(DESTDIR)$(systemunitdir)/$$wants.wants && \
-	$(MKDIR_P) -m 0755 $$dir && \
-	( cd $$dir && \
+	[ -z "$$what" ] || ( \
+	  dir=$(DESTDIR)$(systemunitdir)/$$wants.wants && \
+	  $(MKDIR_P) -m 0755 $$dir && \
+	  cd $$dir && \
 	  rm -f $$what && \
 	  for i in $$what; do ln -s ../$$i . || exit $$? ; done )
 endef
@@ -3969,6 +3970,7 @@ SOCKETS_TARGET_WANTS += \
 	systemd-initctl.socket \
 	systemd-shutdownd.socket
 
+if HAVE_SYSV_COMPAT
 RUNLEVEL1_TARGET_WANTS += \
 	systemd-update-utmp-runlevel.service
 RUNLEVEL2_TARGET_WANTS += \
@@ -3979,6 +3981,7 @@ RUNLEVEL4_TARGET_WANTS += \
 	systemd-update-utmp-runlevel.service
 RUNLEVEL5_TARGET_WANTS += \
 	systemd-update-utmp-runlevel.service
+endif
 SHUTDOWN_TARGET_WANTS += \
 	systemd-update-utmp-shutdown.service
 LOCAL_FS_TARGET_WANTS += \
@@ -4000,6 +4003,7 @@ SYSINIT_TARGET_WANTS += \
 BASIC_TARGET_WANTS += \
 	systemd-tmpfiles-clean.timer
 
+if HAVE_SYSV_COMPAT
 SYSTEM_UNIT_ALIASES += \
 	poweroff.target runlevel0.target \
 	rescue.target runlevel1.target \
@@ -4007,7 +4011,9 @@ SYSTEM_UNIT_ALIASES += \
 	multi-user.target runlevel3.target \
 	multi-user.target runlevel4.target \
 	graphical.target runlevel5.target \
-	reboot.target runlevel6.target \
+	reboot.target runlevel6.target
+endif
+SYSTEM_UNIT_ALIASES += \
 	graphical.target default.target \
 	reboot.target ctrl-alt-del.target \
 	getty@.service autovt@.service
@@ -4025,13 +4031,15 @@ GENERAL_ALIASES += \
 	$(pkgsysconfdir)/user $(sysconfdir)/xdg/systemd/user \
 	../system-services/org.freedesktop.systemd1.service $(dbussessionservicedir)/org.freedesktop.systemd1.service
 
+if HAVE_SYSV_COMPAT
 INSTALL_DIRS += \
 	$(systemunitdir)/runlevel1.target.wants \
 	$(systemunitdir)/runlevel2.target.wants \
 	$(systemunitdir)/runlevel3.target.wants \
 	$(systemunitdir)/runlevel4.target.wants \
-	$(systemunitdir)/runlevel5.target.wants \
-	\
+	$(systemunitdir)/runlevel5.target.wants
+endif
+INSTALL_DIRS += \
 	$(tmpfilesdir) \
 	$(sysconfdir)/tmpfiles.d \
 	$(prefix)/lib/modules-load.d \
