@@ -101,6 +101,7 @@ struct Manager {
         usec_t inhibit_delay_max;
 
         char* action_job;
+        bool send_resumed_after_action_job;
 
         int idle_action_fd; /* the timer_fd */
         usec_t idle_action_usec;

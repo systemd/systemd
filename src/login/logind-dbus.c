@@ -197,6 +197,7 @@
         "   <arg name=\"id\" type=\"s\"/>\n"                            \
         "   <arg name=\"path\" type=\"o\"/>\n"                          \
         "  </signal>\n"                                                 \
+        "  <signal name=\"Resumed\"/>\n"                                \
         "  <signal name=\"PrepareForShutdown\">\n"                      \
         "   <arg name=\"active\" type=\"b\"/>\n"                        \
         "  </signal>\n"                                                 \
@@ -990,7 +991,7 @@ static int have_multiple_sessions(
         return false;
 }
 
-static int send_start_unit(Manager *m, const char *unit_name, DBusError *error) {
+static int send_start_unit(Manager *m, const char *unit_name, bool send_resumed, DBusError *error) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         const char *mode = "replace", *p;
         int r;
@@ -1026,6 +1027,7 @@ static int send_start_unit(Manager *m, const char *unit_name, DBusError *error) 
 
         free(m->action_job);
         m->action_job = c;
+        m->send_resumed_after_action_job = send_resumed;
 
         return 0;
 }
@@ -1037,8 +1039,7 @@ static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
         };
 
         dbus_bool_t active = _active;
-        DBusMessage *message;
-        int r = 0;
+        _cleanup_dbus_message_unref_ DBusMessage *message = NULL;
 
         assert(m);
         assert(w >= 0);
@@ -1051,10 +1052,9 @@ static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
 
         if (!dbus_message_append_args(message, DBUS_TYPE_BOOLEAN, &active, DBUS_TYPE_INVALID) ||
             !dbus_connection_send(m->bus, message, NULL))
-                r = -ENOMEM;
+                return -ENOMEM;
 
-        dbus_message_unref(message);
-        return r;
+        return 0;
 }
 
 static int delay_shutdown_or_sleep(Manager *m, InhibitWhat w, const char *unit_name) {
@@ -1263,7 +1263,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
 
                 /* Shutdown is not delayed, execute it
                  * immediately */
-                r = send_start_unit(m, unit_name, error);
+                r = send_start_unit(m, unit_name, w & INHIBIT_SLEEP, error);
         }
 
         return r;
@@ -2369,6 +2369,14 @@ DBusHandlerResult bus_message_filter(
                         log_info("Action is complete, result is '%s'.", result);
                         free(m->action_job);
                         m->action_job = NULL;
+
+                        if (m->send_resumed_after_action_job) {
+                                _cleanup_dbus_message_unref_ DBusMessage *s = NULL;
+
+                                s = dbus_message_new_signal("/org/freedesktop/login1", "org.freedesktop.login1.Manager", "Resumed");
+                                if (s)
+                                        dbus_connection_send(m->bus, s, NULL);
+                        }
                 }
         }
 
@@ -2428,7 +2436,7 @@ int manager_dispatch_delayed(Manager *manager) {
 
         /* Actually do the shutdown */
         dbus_error_init(&error);
-        r = send_start_unit(manager, unit_name, &error);
+        r = send_start_unit(manager, unit_name, manager->delayed_what & INHIBIT_SLEEP, &error);
         if (r < 0) {
                 log_warning("Failed to send delayed message: %s", bus_error_message_or_strerror(&error, -r));
                 dbus_error_free(&error);
