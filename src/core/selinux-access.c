@@ -308,8 +308,6 @@ static int get_calling_context(
         */
         sender = dbus_message_get_sender(message);
         if (sender) {
-                log_error("SELinux Got Sender %s", sender);
-
                 r = bus_get_selinux_security_context(connection, sender, scon, error);
                 if (r >= 0)
                         return r;
