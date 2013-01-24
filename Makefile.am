@@ -256,6 +256,10 @@ AM_V_XSLT = $(AM_V_XSLT_$(V))
 AM_V_XSLT_ = $(AM_V_XSLT_$(AM_DEFAULT_VERBOSITY))
 AM_V_XSLT_0 = @echo "  XSLT    " $@;
 
+AM_V_GPERF = $(AM_V_GPERF_$(V))
+AM_V_GPERF_ = $(AM_V_GPERF_$(AM_DEFAULT_VERBOSITY))
+AM_V_GPERF_0 = @echo "  GPERF   " $@;
+
 # ------------------------------------------------------------------------------
 rootbin_PROGRAMS = \
 	systemctl \
@@ -1185,7 +1189,7 @@ src/core/syscall-from-name.gperf: src/core/syscall-list.txt Makefile
 
 src/core/syscall-from-name.h: src/core/syscall-from-name.gperf Makefile
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_syscall -H hash_syscall_name -p -C < $< > $@
+	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_syscall -H hash_syscall_name -p -C < $< > $@
 
 src/core/syscall-to-name.h: src/core/syscall-list.txt Makefile
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
@@ -2476,7 +2480,7 @@ src/udev/keymap/keys-from-name.gperf: src/udev/keymap/keys.txt Makefile
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print $$1 ", " $$1 }' < $< > $@
 
 src/udev/keymap/keys-from-name.h: src/udev/keymap/keys-from-name.gperf Makefile
-	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@
+	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@
 
 src/udev/keymap/keys-to-name.h: src/udev/keymap/keys.txt Makefile
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
@@ -3869,7 +3873,7 @@ src/analyze/systemd-analyze: %: %.in Makefile
 
 src/%.c: src/%.gperf
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(GPERF) < $< > $@
+	$(AM_V_GPERF)$(GPERF) < $< > $@
 
 src/%: src/%.m4
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
