@@ -126,11 +126,11 @@ static int get_boot_usec(usec_t *firmware, usec_t *loader) {
         assert(firmware);
         assert(loader);
 
-        r = read_usec(EFI_VENDOR_LOADER, "LoaderTimeInitUsec", &x);
+        r = read_usec(EFI_VENDOR_LOADER, "LoaderTimeInitUSec", &x);
         if (r < 0)
                 return r;
 
-        r = read_usec(EFI_VENDOR_LOADER, "LoaderTimeExecUsec", &y);
+        r = read_usec(EFI_VENDOR_LOADER, "LoaderTimeExecUSec", &y);
         if (r < 0)
                 return r;
 
