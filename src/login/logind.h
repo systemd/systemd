@@ -100,7 +100,9 @@ struct Manager {
 
         usec_t inhibit_delay_max;
 
-        int idle_action_fd;
+        char* action_job;
+
+        int idle_action_fd; /* the timer_fd */
         usec_t idle_action_usec;
         usec_t idle_action_not_before_usec;
         HandleAction idle_action;

@@ -187,6 +187,8 @@ void manager_free(Manager *m) {
         strv_free(m->kill_only_users);
         strv_free(m->kill_exclude_users);
 
+        free(m->action_job);
+
         free(m->cgroup_path);
         free(m);
 }

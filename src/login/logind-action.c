@@ -56,9 +56,14 @@ int manager_handle_action(
         DBusError error;
         int r;
         InhibitWhat inhibit_operation;
-        bool supported = true;
+        bool supported;
 
         assert(m);
+
+        if (m->action_job || m->delayed_unit) {
+                log_debug("Action already in progress, ignoring.");
+                return -EALREADY;
+        }
 
         /* If the key handling is turned off, don't do anything */
         if (handle == HANDLE_IGNORE) {
@@ -74,6 +79,8 @@ int manager_handle_action(
                 supported = can_sleep("disk") > 0 && can_sleep_disk("suspend") > 0;
         else if (handle == HANDLE_KEXEC)
                 supported = access("/sbin/kexec", X_OK) >= 0;
+        else
+                supported = true;
 
         if (!supported) {
                 log_warning("Requested operation not supported, ignoring.");

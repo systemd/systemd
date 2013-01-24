@@ -990,22 +990,44 @@ static int have_multiple_sessions(
         return false;
 }
 
-static int send_start_unit(DBusConnection *connection, const char *unit_name, DBusError *error) {
-        const char *mode = "replace";
+static int send_start_unit(Manager *m, const char *unit_name, DBusError *error) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        const char *mode = "replace", *p;
+        int r;
+        char *c;
 
+        assert(m);
         assert(unit_name);
 
-        return bus_method_call_with_reply (
-                        connection,
+        r = bus_method_call_with_reply(
+                        m->bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "StartUnit",
-                        NULL,
-                        NULL,
+                        &reply,
+                        error,
                         DBUS_TYPE_STRING, &unit_name,
                         DBUS_TYPE_STRING, &mode,
                         DBUS_TYPE_INVALID);
+        if (r < 0)
+                return r;
+
+        if (!dbus_message_get_args(
+                            reply,
+                            error,
+                            DBUS_TYPE_OBJECT_PATH, &p,
+                            DBUS_TYPE_INVALID))
+                return -EINVAL;
+
+        c = strdup(p);
+        if (!c)
+                return -ENOMEM;
+
+        free(m->action_job);
+        m->action_job = c;
+
+        return 0;
 }
 
 static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
@@ -1226,6 +1248,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
         assert(unit_name);
         assert(w >= 0);
         assert(w <= _INHIBIT_WHAT_MAX);
+        assert(!m->action_job);
 
         delayed =
                 m->inhibit_delay_max > 0 &&
@@ -1240,7 +1263,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
 
                 /* Shutdown is not delayed, execute it
                  * immediately */
-                r = send_start_unit(m->bus, unit_name, error);
+                r = send_start_unit(m, unit_name, error);
         }
 
         return r;
@@ -1277,6 +1300,9 @@ static int bus_manager_do_shutdown_or_sleep(
         assert(action_ignore_inhibit);
         assert(error);
         assert(_reply);
+
+        if (m->action_job || m->delayed_unit)
+                return -EALREADY;
 
         if (!dbus_message_get_args(
                             message,
@@ -2327,6 +2353,23 @@ DBusHandlerResult bus_message_filter(
                         log_error("Failed to parse Released message: %s", bus_error_message(&error));
                 else
                         manager_cgroup_notify_empty(m, cgroup);
+
+        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
+                uint32_t id;
+                const char *path, *result, *unit;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_UINT32, &id,
+                                           DBUS_TYPE_OBJECT_PATH, &path,
+                                           DBUS_TYPE_STRING, &unit,
+                                           DBUS_TYPE_STRING, &result,
+                                           DBUS_TYPE_INVALID))
+                        log_error("Failed to parse JobRemoved message: %s", bus_error_message(&error));
+                else if (m->action_job && streq(m->action_job, path)) {
+                        log_info("Action is complete, result is '%s'.", result);
+                        free(m->action_job);
+                        m->action_job = NULL;
+                }
         }
 
         dbus_error_free(&error);
@@ -2376,21 +2419,21 @@ int manager_dispatch_delayed(Manager *manager) {
 
         bus_manager_log_shutdown(manager, manager->delayed_what, manager->delayed_unit);
 
+        /* Tell people about it */
+        send_prepare_for(manager, manager->delayed_what, false);
+
         /* Reset delay data */
         unit_name = manager->delayed_unit;
         manager->delayed_unit = NULL;
 
         /* Actually do the shutdown */
         dbus_error_init(&error);
-        r = send_start_unit(manager->bus, unit_name, &error);
+        r = send_start_unit(manager, unit_name, &error);
         if (r < 0) {
                 log_warning("Failed to send delayed message: %s", bus_error_message_or_strerror(&error, -r));
                 dbus_error_free(&error);
                 return r;
         }
-
-        /* Tell people about it */
-        send_prepare_for(manager, manager->delayed_what, false);
 
         return 1;
 }
