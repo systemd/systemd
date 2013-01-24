@@ -102,6 +102,7 @@
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "  </method>\n"                                                 \
         "  <method name=\"LockSessions\"/>\n"                           \
+        "  <method name=\"UnlockSessions\"/>\n"                         \
         "  <method name=\"KillSession\">\n"                             \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "   <arg name=\"who\" type=\"s\" direction=\"in\"/>\n"          \
@@ -1853,8 +1854,10 @@ static DBusHandlerResult manager_message_handler(
                 if (!reply)
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "LockSessions")) {
-                r = session_send_lock_all(m, true);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "LockSessions") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "UnlockSessions")) {
+
+                r = session_send_lock_all(m, streq(dbus_message_get_member(message), "LockSessions"));
                 if (r < 0)
                         bus_send_error_reply(connection, message, NULL, r);
 

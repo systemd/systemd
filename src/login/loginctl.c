@@ -1287,6 +1287,8 @@ static int flush_devices(DBusConnection *bus, char **args, unsigned n) {
 }
 
 static int lock_sessions(DBusConnection *bus, char **args, unsigned n) {
+        assert(args);
+
         polkit_agent_open_if_enabled();
 
         return bus_method_call_with_reply (
@@ -1294,7 +1296,7 @@ static int lock_sessions(DBusConnection *bus, char **args, unsigned n) {
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
-                        "LockSessions",
+                        streq(args[0], "lock-sessions") ? "LockSessions" : "UnlockSessions",
                         NULL,
                         NULL,
                         DBUS_TYPE_INVALID);
@@ -1348,6 +1350,7 @@ static int help(void) {
                "  lock-session [ID...]            Screen lock one or more sessions\n"
                "  unlock-session [ID...]          Screen unlock one or more sessions\n"
                "  lock-sessions                   Screen lock all current sessions\n"
+               "  unlock-sessions                 Screen unlock all current sessions\n"
                "  terminate-session [ID...]       Terminate one or more sessions\n"
                "  kill-session [ID...]            Send signal to processes of a session\n"
                "  list-users                      List users\n"
@@ -1496,6 +1499,7 @@ static int loginctl_main(DBusConnection *bus, int argc, char *argv[], DBusError 
                 { "lock-session",          MORE,   2, activate         },
                 { "unlock-session",        MORE,   2, activate         },
                 { "lock-sessions",         EQUAL,  1, lock_sessions    },
+                { "unlock-sessions",       EQUAL,  1, lock_sessions    },
                 { "terminate-session",     MORE,   2, activate         },
                 { "kill-session",          MORE,   2, kill_session     },
                 { "list-users",            EQUAL,  1, list_users       },

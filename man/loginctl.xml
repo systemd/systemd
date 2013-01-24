@@ -251,10 +251,12 @@
 
                         <varlistentry>
                                 <term><command>lock-sessions</command></term>
+                                <term><command>unlock-sessions</command></term>
 
-                                <listitem><para>Activate the screen
-                                lock on all current sessions
-                                supporting it.</para></listitem>
+                                <listitem><para>Activates/deactivates
+                                the screen lock on all current
+                                sessions supporting
+                                it.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
