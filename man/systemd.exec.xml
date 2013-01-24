@@ -286,9 +286,24 @@
                                 empty string is assigned to this
                                 option the list of environment
                                 variables is reset, all prior
-                                assignments have no effect. See
+                                assignments have no effect.
+                                Variable expansion is not performed
+                                inside the strings, and $ has no special
+                                meaning.
+                                If you need to assign a value containing spaces
+                                to a variable, use double quotes (")
+                                for the assignment.</para>
+
+                                <para>Example:
+                                <programlisting>Environment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"</programlisting>
+                                gives three variables <literal>VAR1</literal>,
+                                <literal>VAR2</literal>, <literal>VAR3</literal>.
+                                </para>
+
+                                <para>
+                                See
                                 <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                                for details.</para></listitem>
+                                for details about environment variables.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><varname>EnvironmentFile=</varname></term>
