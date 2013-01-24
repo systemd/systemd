@@ -20,6 +20,15 @@ Fedora 19:
 
 Features:
 
+* if we have systemd-analyze in C "systemctl dot" should move there too
+
+* fsck hookup for the ESP mount is missing
+
+* external: maybe it is time to patch procps so that "ps" links to
+  libsystemd-logind to print a pretty service name, seat name, session
+  name in its output. Currently it only shows cgroup membership, but
+  that's sometimes kinda hard to parse.
+
 * write man page for efi boot generator
 
 * document bootloader interface in wiki
