@@ -247,6 +247,12 @@ INSTALL_EXEC_HOOKS += \
 	install-aliases-hook
 
 # ------------------------------------------------------------------------------
+
+AM_V_M4 = $(AM_V_M4_$(V))
+AM_V_M4_ = $(AM_V_M4_$(AM_DEFAULT_VERBOSITY))
+AM_V_M4_0 = @echo "  M4      " $@;
+
+# ------------------------------------------------------------------------------
 rootbin_PROGRAMS = \
 	systemctl \
 	systemd-notify \
@@ -3863,14 +3869,14 @@ src/%.c: src/%.gperf
 
 src/%: src/%.m4
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(M4) -P $(M4_DEFINES) < $< > $@
+	$(AM_V_M4)$(M4) -P $(M4_DEFINES) < $< > $@
 
 M4_PROCESS_SYSTEM = \
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+	$(AM_V_M4)$(MKDIR_P) $(dir $@) && \
 	$(M4) -P $(M4_DEFINES) -DFOR_SYSTEM=1 < $< > $@
 
 M4_PROCESS_USER = \
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+	$(AM_V_M4)$(MKDIR_P) $(dir $@) && \
 	$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@
 
 units/%: units/%.m4 Makefile
