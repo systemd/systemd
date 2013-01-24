@@ -45,6 +45,7 @@ static int show_sysfs_one(
                 struct udev_device *d;
                 const char *sn, *name, *sysfs, *subsystem, *sysname;
                 char *l, *k;
+                bool is_master, uaccess;
 
                 sysfs = udev_list_entry_get_name(*item);
                 if (!path_startswith(sysfs, sub))
@@ -60,12 +61,15 @@ static int show_sysfs_one(
                 if (isempty(sn))
                         sn = "seat0";
 
-                /* fixme, also check for tag 'seat' here */
+                /* Explicitly also check for tag 'seat' here */
                 if (!streq(seat, sn) || !udev_device_has_tag(d, "seat")) {
                         udev_device_unref(d);
                         *item = udev_list_entry_get_next(*item);
                         continue;
                 }
+
+                is_master = udev_device_has_tag(d, "seat-master");
+                uaccess = udev_device_has_tag(d, "uaccess");
 
                 name = udev_device_get_sysattr_value(d, "name");
                 if (!name)
@@ -110,7 +114,8 @@ static int show_sysfs_one(
                 free(k);
 
                 if (asprintf(&l,
-                             "(%s:%s)%s%s%s",
+                             "%s%s%s:%s%s%s%s",
+                             is_master ? "[MASTER] " : "", uaccess ? "[ACL] " : "",
                              subsystem, sysname,
                              name ? " \"" : "", name ? name : "", name ? "\"" : "") < 0) {
                         udev_device_unref(d);
