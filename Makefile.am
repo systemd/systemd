@@ -252,6 +252,10 @@ AM_V_M4 = $(AM_V_M4_$(V))
 AM_V_M4_ = $(AM_V_M4_$(AM_DEFAULT_VERBOSITY))
 AM_V_M4_0 = @echo "  M4      " $@;
 
+AM_V_XSLT = $(AM_V_XSLT_$(V))
+AM_V_XSLT_ = $(AM_V_XSLT_$(AM_DEFAULT_VERBOSITY))
+AM_V_XSLT_0 = @echo "  XSLT    " $@;
+
 # ------------------------------------------------------------------------------
 rootbin_PROGRAMS = \
 	systemctl \
@@ -3911,11 +3915,11 @@ XSLTPROC_FLAGS = \
 	--stringparam man.copyright.section.enabled 0
 
 XSLTPROC_PROCESS_MAN = \
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+	$(AM_V_XSLT)$(MKDIR_P) $(dir $@) && \
 	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
 XSLTPROC_PROCESS_HTML = \
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+	$(AM_V_XSLT)$(MKDIR_P) $(dir $@) && \
 	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $<
 
 man/%.1: man/%.xml
