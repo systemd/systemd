@@ -20,6 +20,17 @@ Fedora 19:
 
 Features:
 
+* unify killing logic of service, socket, mount, swap units
+
+* downgrade selinux log messages
+
+* logind: document new Resume signal and UnlockSessions call in wiki
+
+* logind: when a delay lock is taken, delay method return until we are
+  out of a suspend cycle
+
+* in "loginctl seat-status" we should mark the master device with a "*" or so
+
 * if we have systemd-analyze in C "systemctl dot" should move there too
 
 * fsck hookup for the ESP mount is missing
@@ -31,18 +42,11 @@ Features:
 
 * write man page for efi boot generator
 
-* document bootloader interface in wiki
-
 * link runlevel targets on install only if sysv compat is enabled
-
-* logind: when executing sleep/shutdown job, keep track of its id, and
-  as long as the job is running refuse any further operation.
 
 * maybe not install getty@tty1.service symlink in /etc but in /usr?
 
 * re-enable "make check" for gtk-doc (broken for unknown reason)
-
-* logind: make PrepareForSuspend(false) an official api for notification of resumes
 
 * "systemctl disable" on a static unit prints no message and does
   nothing. "systemctl enable" does nothing, and gives a bad message
@@ -50,8 +54,6 @@ Features:
 
 * fstab: add new mount option x-systemd-after=/foobar/waldo to allow manual dependencies to other mount points
   https://bugzilla.redhat.com/show_bug.cgi?id=812826
-
-* add "loginctl unlock-sessions" as counterpart for "loginctl lock-sessions"
 
 * cgroup attrs:
   - don't filter out duplicate settings
@@ -67,8 +69,6 @@ Features:
 * mount: turn dependency information from /proc/self/mountinfo into dependency information between systemd units.
 
 * logind: optionally, ignore idle-hint logic for autosuspend, block suspend as long as a session is around
-
-* service: when killing a service with SIGKILL always kill all processes, even if for SIGTERM we only killed the main process
 
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
 
@@ -118,8 +118,6 @@ Features:
   This takes care of syncing ntpdate updates to the RTC, and DST updates for localtime
   mode, it will never touch the RTC if the no reliable time source is active or the
   user did not request anything like it.
-
-* When we begin with system shutdown all kind of suspend/hibernation should be prohibited until shutdown/reboot
 
 * When we update the kernel all kind of hibernation should be prohibited until shutdown/reboot
 
