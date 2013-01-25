@@ -104,8 +104,6 @@ static int bus_get_selinux_security_context(
 
         *scon = b;
 
-        log_debug("GetConnectionSELinuxSecurityContext %s (pid %ld)", *scon, (long) bus_get_unix_process_id(connection, name, error));
-
         return 0;
 }
 
@@ -316,7 +314,6 @@ static int get_calling_context(
                 return r;
         }
 
-        log_debug("SELinux No Sender");
         if (!dbus_connection_get_unix_fd(connection, &fd)) {
                 log_error("bus_connection_get_unix_fd failed %m");
                 return -EINVAL;
@@ -360,8 +357,6 @@ int selinux_access_check(
         r = selinux_access_init(error);
         if (r < 0)
                 return r;
-
-        log_debug("SELinux access check for path=%s permission=%s", strna(path), permission);
 
         audit.uid = audit.loginuid = (uid_t) -1;
         audit.gid = (gid_t) -1;
