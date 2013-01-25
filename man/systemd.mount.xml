@@ -105,7 +105,10 @@
                 <para>Mount points created at runtime (independently of
                 unit files or <filename>/etc/fstab</filename>) will be
                 monitored by systemd and appear like any other mount
-                unit in systemd.</para>
+                unit in systemd.
+                See <filename>/proc/self/mountinfo</filename> description
+                in <citerefentry><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                </para>
 
                 <para>Some file systems have special semantics as API
                 file systems for kernel-to-userspace and
@@ -297,6 +300,7 @@
                           <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
