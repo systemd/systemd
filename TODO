@@ -20,16 +20,11 @@ Fedora 19:
 
 Features:
 
+* logind: get rid of Resumed() signal again, instead, move PrepareForSleep(false) after coming back from suspend, and generate it unconditionally
+
 * unify killing logic of service, socket, mount, swap units
 
-* downgrade selinux log messages
-
 * logind: document new Resume signal and UnlockSessions call in wiki
-
-* logind: when a delay lock is taken, delay method return until we are
-  out of a suspend cycle
-
-* in "loginctl seat-status" we should mark the master device with a "*" or so
 
 * if we have systemd-analyze in C "systemctl dot" should move there too
 
@@ -38,7 +33,7 @@ Features:
 * external: maybe it is time to patch procps so that "ps" links to
   libsystemd-logind to print a pretty service name, seat name, session
   name in its output. Currently it only shows cgroup membership, but
-  that's sometimes kinda hard to parse.
+  that's sometimes kinda hard to parse for a human.
 
 * write man page for efi boot generator
 
