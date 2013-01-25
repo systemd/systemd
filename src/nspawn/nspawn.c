@@ -885,8 +885,17 @@ static int process_pty(int master, pid_t pid, sigset_t *mask) {
         signal_ev.events = EPOLLIN;
         signal_ev.data.fd = signal_fd;
 
-        if (epoll_ctl(ep, EPOLL_CTL_ADD, STDOUT_FILENO, &stdout_ev) < 0 ||
-            epoll_ctl(ep, EPOLL_CTL_ADD, master, &master_ev) < 0 ||
+        if (epoll_ctl(ep, EPOLL_CTL_ADD, STDOUT_FILENO, &stdout_ev) < 0) {
+                if (errno != EPERM) {
+                        log_error("Failed to register stdout in epoll: %m");
+                        r = -errno;
+                        goto finish;
+                }
+                /* stdout without epoll support. Likely redirected to regular file. */
+                stdout_writable = true;
+        }
+
+        if (epoll_ctl(ep, EPOLL_CTL_ADD, master, &master_ev) < 0 ||
             epoll_ctl(ep, EPOLL_CTL_ADD, signal_fd, &signal_ev) < 0) {
                 log_error("Failed to register fds in epoll: %m");
                 r = -errno;
