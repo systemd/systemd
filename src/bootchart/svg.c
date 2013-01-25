@@ -22,6 +22,8 @@
 #include <sys/utsname.h>
 
 #include "bootchart.h"
+#include "util.h"
+#include "macro.h"
 
 
 #define time_to_graph(t) ((t) * scale_x)
@@ -702,7 +704,7 @@ static int ps_filter(struct ps_struct *ps)
 
 static void svg_do_initcall(int count_only)
 {
-        FILE *f;
+        FILE _cleanup_pclose_ *f = NULL;
         double t;
         char func[256];
         int ret;
@@ -787,8 +789,6 @@ static void svg_do_initcall(int count_only)
 
                 kcount++;
         }
-
-        fclose(f);
 }
 
 

@@ -3084,6 +3084,9 @@ systemd_bootchart_SOURCES = \
 	src/bootchart/log.c \
 	src/bootchart/svg.c
 
+systemd_bootchart_LDADD = \
+	libsystemd-shared.la
+
 MANPAGES += \
 	man/systemd-bootchart.1 \
 	man/bootchart.conf.5

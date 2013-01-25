@@ -5553,6 +5553,11 @@ void fclosep(FILE **f) {
                 fclose(*f);
 }
 
+void pclosep(FILE **f) {
+        if (*f)
+                pclose(*f);
+}
+
 void closep(int *fd) {
         if (*fd >= 0)
                 close_nointr_nofail(*fd);
