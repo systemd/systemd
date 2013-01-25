@@ -1096,15 +1096,17 @@
                                 <listitem><para>Takes a boolean
                                 argument. If true sets up a new file
                                 system namespace for the executed
-                                processes and mounts a private
-                                <filename>/tmp</filename> directory
-                                inside it, that is not shared by
+                                processes and mounts private
+                                <filename>/tmp</filename> and
+                                <filename>/var/tmp</filename> directories
+                                inside it, that are not shared by
                                 processes outside of the
                                 namespace. This is useful to secure
                                 access to temporary files of the
                                 process, but makes sharing between
                                 processes via
-                                <filename>/tmp</filename>
+                                <filename>/tmp</filename> or
+                                <filename>/var/tmp</filename>
                                 impossible. Defaults to
                                 false.</para></listitem>
                         </varlistentry>
