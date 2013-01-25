@@ -198,7 +198,6 @@
         "   <arg name=\"id\" type=\"s\"/>\n"                            \
         "   <arg name=\"path\" type=\"o\"/>\n"                          \
         "  </signal>\n"                                                 \
-        "  <signal name=\"Resumed\"/>\n"                                \
         "  <signal name=\"PrepareForShutdown\">\n"                      \
         "   <arg name=\"active\" type=\"b\"/>\n"                        \
         "  </signal>\n"                                                 \
@@ -298,9 +297,9 @@ static int bus_manager_append_preparing(DBusMessageIter *i, const char *property
         assert(property);
 
         if (streq(property, "PreparingForShutdown"))
-                b = !!(m->delayed_what & INHIBIT_SHUTDOWN);
+                b = !!(m->action_what & INHIBIT_SHUTDOWN);
         else
-                b = !!(m->delayed_what & INHIBIT_SLEEP);
+                b = !!(m->action_what & INHIBIT_SLEEP);
 
         dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b);
         return 0;
@@ -697,7 +696,13 @@ fail:
         return r;
 }
 
-static int bus_manager_inhibit(Manager *m, DBusConnection *connection, DBusMessage *message, DBusError *error, DBusMessage **_reply) {
+static int bus_manager_inhibit(
+                Manager *m,
+                DBusConnection *connection,
+                DBusMessage *message,
+                DBusError *error,
+                DBusMessage **_reply) {
+
         Inhibitor *i = NULL;
         char *id = NULL;
         const char *who, *why, *what, *mode;
@@ -741,6 +746,15 @@ static int bus_manager_inhibit(Manager *m, DBusConnection *connection, DBusMessa
         /* Delay is only supported for shutdown/sleep */
         if (mm == INHIBIT_DELAY && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP))) {
                 r = -EINVAL;
+                goto fail;
+        }
+
+        /* Don't allow taking delay locks while we are already
+         * executing the operation. We shouldn't create the impression
+         * that the lock was successful if the machine is about to go
+         * down/suspend any moment. */
+        if (m->action_what & w) {
+                r = -EALREADY;
                 goto fail;
         }
 
@@ -992,14 +1006,58 @@ static int have_multiple_sessions(
         return false;
 }
 
-static int send_start_unit(Manager *m, const char *unit_name, bool send_resumed, DBusError *error) {
+static int bus_manager_log_shutdown(
+                Manager *m,
+                InhibitWhat w,
+                const char *unit_name) {
+
+        const char *p, *q;
+
+        assert(m);
+        assert(unit_name);
+
+        if (w != INHIBIT_SHUTDOWN)
+                return 0;
+
+        if (streq(unit_name, SPECIAL_POWEROFF_TARGET)) {
+                p = "MESSAGE=System is powering down.";
+                q = "SHUTDOWN=power-off";
+        } else if (streq(unit_name, SPECIAL_HALT_TARGET)) {
+                p = "MESSAGE=System is halting.";
+                q = "SHUTDOWN=halt";
+        } else if (streq(unit_name, SPECIAL_REBOOT_TARGET)) {
+                p = "MESSAGE=System is rebooting.";
+                q = "SHUTDOWN=reboot";
+        } else if (streq(unit_name, SPECIAL_KEXEC_TARGET)) {
+                p = "MESSAGE=System is rebooting with kexec.";
+                q = "SHUTDOWN=kexec";
+        } else {
+                p = "MESSAGE=System is shutting down.";
+                q = NULL;
+        }
+
+        return log_struct(LOG_NOTICE, MESSAGE_ID(SD_MESSAGE_SHUTDOWN),
+                          p,
+                          q, NULL);
+}
+
+static int execute_shutdown_or_sleep(
+                Manager *m,
+                InhibitWhat w,
+                const char *unit_name,
+                DBusError *error) {
+
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         const char *mode = "replace", *p;
         int r;
         char *c;
 
         assert(m);
+        assert(w >= 0);
+        assert(w < _INHIBIT_WHAT_MAX);
         assert(unit_name);
+
+        bus_manager_log_shutdown(m, w, unit_name);
 
         r = bus_method_call_with_reply(
                         m->bus,
@@ -1026,54 +1084,27 @@ static int send_start_unit(Manager *m, const char *unit_name, bool send_resumed,
         if (!c)
                 return -ENOMEM;
 
+        m->action_unit = unit_name;
         free(m->action_job);
         m->action_job = c;
-        m->send_resumed_after_action_job = send_resumed;
+        m->action_what = w;
 
         return 0;
 }
 
-static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
-        static const char * const signal_name[_INHIBIT_WHAT_MAX] = {
-                [INHIBIT_SHUTDOWN] = "PrepareForShutdown",
-                [INHIBIT_SLEEP] = "PrepareForSleep"
-        };
-
-        dbus_bool_t active = _active;
-        _cleanup_dbus_message_unref_ DBusMessage *message = NULL;
+static int delay_shutdown_or_sleep(
+                Manager *m,
+                InhibitWhat w,
+                const char *unit_name) {
 
         assert(m);
         assert(w >= 0);
         assert(w < _INHIBIT_WHAT_MAX);
-        assert(signal_name[w]);
+        assert(unit_name);
 
-        message = dbus_message_new_signal("/org/freedesktop/login1", "org.freedesktop.login1.Manager", signal_name[w]);
-        if (!message)
-                return -ENOMEM;
-
-        if (!dbus_message_append_args(message, DBUS_TYPE_BOOLEAN, &active, DBUS_TYPE_INVALID) ||
-            !dbus_connection_send(m->bus, message, NULL))
-                return -ENOMEM;
-
-        return 0;
-}
-
-static int delay_shutdown_or_sleep(Manager *m, InhibitWhat w, const char *unit_name) {
-        assert(m);
-        assert(w >= 0);
-        assert(w < _INHIBIT_WHAT_MAX);
-
-        /* Tell everybody to prepare for shutdown/sleep */
-        send_prepare_for(m, w, true);
-
-        /* Update timestamp for timeout */
-        if (!m->delayed_unit)
-                m->delayed_timestamp = now(CLOCK_MONOTONIC);
-
-        /* Remember what we want to do, possibly overriding what kind
-         * of unit we previously queued. */
-        m->delayed_unit = unit_name;
-        m->delayed_what = w;
+        m->action_timestamp = now(CLOCK_MONOTONIC);
+        m->action_unit = unit_name;
+        m->action_what = w;
 
         return 0;
 }
@@ -1201,39 +1232,29 @@ finish:
         return 0;
 }
 
-static int bus_manager_log_shutdown(
-                Manager *m,
-                InhibitWhat w,
-                const char *unit_name) {
+static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
+        static const char * const signal_name[_INHIBIT_WHAT_MAX] = {
+                [INHIBIT_SHUTDOWN] = "PrepareForShutdown",
+                [INHIBIT_SLEEP] = "PrepareForSleep"
+        };
 
-        const char *p, *q;
+        dbus_bool_t active = _active;
+        _cleanup_dbus_message_unref_ DBusMessage *message = NULL;
 
         assert(m);
-        assert(unit_name);
+        assert(w >= 0);
+        assert(w < _INHIBIT_WHAT_MAX);
+        assert(signal_name[w]);
 
-        if (w != INHIBIT_SHUTDOWN)
-                return 0;
+        message = dbus_message_new_signal("/org/freedesktop/login1", "org.freedesktop.login1.Manager", signal_name[w]);
+        if (!message)
+                return -ENOMEM;
 
-        if (streq(unit_name, SPECIAL_POWEROFF_TARGET)) {
-                p = "MESSAGE=System is powering down.";
-                q = "SHUTDOWN=power-off";
-        } else if (streq(unit_name, SPECIAL_HALT_TARGET)) {
-                p = "MESSAGE=System is halting.";
-                q = "SHUTDOWN=halt";
-        } else if (streq(unit_name, SPECIAL_REBOOT_TARGET)) {
-                p = "MESSAGE=System is rebooting.";
-                q = "SHUTDOWN=reboot";
-        } else if (streq(unit_name, SPECIAL_KEXEC_TARGET)) {
-                p = "MESSAGE=System is rebooting with kexec.";
-                q = "SHUTDOWN=kexec";
-        } else {
-                p = "MESSAGE=System is shutting down.";
-                q = NULL;
-        }
+        if (!dbus_message_append_args(message, DBUS_TYPE_BOOLEAN, &active, DBUS_TYPE_INVALID) ||
+            !dbus_connection_send(m->bus, message, NULL))
+                return -ENOMEM;
 
-        return log_struct(LOG_NOTICE, MESSAGE_ID(SD_MESSAGE_SHUTDOWN),
-                          p,
-                          q, NULL);
+        return 0;
 }
 
 int bus_manager_shutdown_or_sleep_now_or_later(
@@ -1251,6 +1272,9 @@ int bus_manager_shutdown_or_sleep_now_or_later(
         assert(w <= _INHIBIT_WHAT_MAX);
         assert(!m->action_job);
 
+        /* Tell everybody to prepare for shutdown/sleep */
+        send_prepare_for(m, w, true);
+
         delayed =
                 m->inhibit_delay_max > 0 &&
                 manager_is_inhibited(m, w, INHIBIT_DELAY, NULL, false, false, 0);
@@ -1259,13 +1283,10 @@ int bus_manager_shutdown_or_sleep_now_or_later(
                 /* Shutdown is delayed, keep in mind what we
                  * want to do, and start a timeout */
                 r = delay_shutdown_or_sleep(m, w, unit_name);
-        else {
-                bus_manager_log_shutdown(m, w, unit_name);
-
+        else
                 /* Shutdown is not delayed, execute it
                  * immediately */
-                r = send_start_unit(m, unit_name, w & INHIBIT_SLEEP, error);
-        }
+                r = execute_shutdown_or_sleep(m, w, unit_name, error);
 
         return r;
 }
@@ -1302,7 +1323,8 @@ static int bus_manager_do_shutdown_or_sleep(
         assert(error);
         assert(_reply);
 
-        if (m->action_job || m->delayed_unit)
+        /* Don't allow multiple jobs being executed at the same time */
+        if (m->action_what)
                 return -EALREADY;
 
         if (!dbus_message_get_args(
@@ -2368,18 +2390,18 @@ DBusHandlerResult bus_message_filter(
                                            DBUS_TYPE_STRING, &result,
                                            DBUS_TYPE_INVALID))
                         log_error("Failed to parse JobRemoved message: %s", bus_error_message(&error));
+
                 else if (m->action_job && streq(m->action_job, path)) {
-                        log_info("Action is complete, result is '%s'.", result);
+
+                        log_info("Operation finished.");
+
+                        /* Tell people that they now may take a lock again */
+                        send_prepare_for(m, m->action_what, false);
+
                         free(m->action_job);
                         m->action_job = NULL;
-
-                        if (m->send_resumed_after_action_job) {
-                                _cleanup_dbus_message_unref_ DBusMessage *s = NULL;
-
-                                s = dbus_message_new_signal("/org/freedesktop/login1", "org.freedesktop.login1.Manager", "Resumed");
-                                if (s)
-                                        dbus_connection_send(m->bus, s, NULL);
-                        }
+                        m->action_unit = NULL;
+                        m->action_what = 0;
                 }
         }
 
@@ -2411,38 +2433,32 @@ finish:
 }
 
 int manager_dispatch_delayed(Manager *manager) {
-        const char *unit_name;
         DBusError error;
-        bool delayed;
         int r;
 
         assert(manager);
 
-        if (!manager->delayed_unit)
+        if (!manager->action_unit || manager->action_job)
                 return 0;
 
         /* Continue delay? */
-        delayed =
-                manager->delayed_timestamp + manager->inhibit_delay_max > now(CLOCK_MONOTONIC) &&
-                manager_is_inhibited(manager, manager->delayed_what, INHIBIT_DELAY, NULL, false, false, 0);
-        if (delayed)
-                return 0;
+        if (manager_is_inhibited(manager, manager->action_what, INHIBIT_DELAY, NULL, false, false, 0)) {
 
-        bus_manager_log_shutdown(manager, manager->delayed_what, manager->delayed_unit);
+                if (manager->action_timestamp + manager->inhibit_delay_max > now(CLOCK_MONOTONIC))
+                        return 0;
 
-        /* Tell people about it */
-        send_prepare_for(manager, manager->delayed_what, false);
+                log_info("Delay lock is active but inhibitor timeout is reached.");
+        }
 
-        /* Reset delay data */
-        unit_name = manager->delayed_unit;
-        manager->delayed_unit = NULL;
-
-        /* Actually do the shutdown */
+        /* Actually do the operation */
         dbus_error_init(&error);
-        r = send_start_unit(manager, unit_name, manager->delayed_what & INHIBIT_SLEEP, &error);
+        r = execute_shutdown_or_sleep(manager, manager->action_what, manager->action_unit, &error);
         if (r < 0) {
                 log_warning("Failed to send delayed message: %s", bus_error_message_or_strerror(&error, -r));
                 dbus_error_free(&error);
+
+                manager->action_unit = NULL;
+                manager->action_what = 0;
                 return r;
         }
 

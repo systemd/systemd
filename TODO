@@ -20,15 +20,13 @@ Fedora 19:
 
 Features:
 
-* logind: get rid of Resumed() signal again, instead, move PrepareForSleep(false) after coming back from suspend, and generate it unconditionally
-
 * add configure switch for enabling/disabling efi stuff
 
 * introduce ExecCondition= in services
 
 * unify killing logic of service, socket, mount, swap units
 
-* logind: document new Resume signal and UnlockSessions call in wiki
+* logind: document new PrepareForSleep(false) semantics and UnlockSessions call in wiki
 
 * if we have systemd-analyze in C "systemctl dot" should move there too
 
@@ -385,8 +383,6 @@ Features:
 * don't delete /tmp/systemd-namespace-* before a process is gone down
 
 * ExecOnFailure=/usr/bin/foo
-
-* fedora: make sshd and pam_loginuid work in nspawn containers
 
 * fix utmp for console logins in containers
 

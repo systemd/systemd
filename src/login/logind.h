@@ -91,17 +91,21 @@ struct Manager {
         Hashmap *inhibitor_fds;
         Hashmap *button_fds;
 
-        /* If a shutdown was delayed due to a inhibitor this contains
-           the unit name we are supposed to start after the delay is
-           over */
-        const char *delayed_unit;
-        InhibitWhat delayed_what;
-        usec_t delayed_timestamp;
-
         usec_t inhibit_delay_max;
 
-        char* action_job;
-        bool send_resumed_after_action_job;
+        /* If an action is currently being executed or is delayed,
+         * this is != 0 and encodes what is being done */
+        InhibitWhat action_what;
+
+        /* If a shutdown/suspend was delayed due to a inhibitor this
+           contains the unit name we are supposed to start after the
+           delay is over */
+        const char *action_unit;
+
+        /* If a shutdown/suspend is currently executed, then this is
+         * the job of it */
+        char *action_job;
+        usec_t action_timestamp;
 
         int idle_action_fd; /* the timer_fd */
         usec_t idle_action_usec;

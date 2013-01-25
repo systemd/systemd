@@ -60,7 +60,7 @@ int manager_handle_action(
 
         assert(m);
 
-        if (m->action_job || m->delayed_unit) {
+        if (m->action_what) {
                 log_debug("Action already in progress, ignoring.");
                 return -EALREADY;
         }

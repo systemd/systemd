@@ -1628,11 +1628,11 @@ int manager_run(Manager *m) {
 
                 manager_gc(m, true);
 
-                if (m->delayed_unit) {
+                if (m->action_what != 0) {
                         usec_t x, y;
 
                         x = now(CLOCK_MONOTONIC);
-                        y = m->delayed_timestamp + m->inhibit_delay_max;
+                        y = m->action_timestamp + m->inhibit_delay_max;
 
                         msec = x >= y ? 0 : (int) ((y - x) / USEC_PER_MSEC);
                 }
