@@ -166,6 +166,7 @@ static void job_merge_into_installed(Job *j, Job *other) {
                 assert(other->type == JOB_NOP);
 
         j->override = j->override || other->override;
+        j->ignore_order = j->ignore_order || other->ignore_order;
 }
 
 Job* job_install(Job *j) {
