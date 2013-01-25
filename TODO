@@ -22,6 +22,10 @@ Features:
 
 * logind: get rid of Resumed() signal again, instead, move PrepareForSleep(false) after coming back from suspend, and generate it unconditionally
 
+* add configure switch for enabling/disabling efi stuff
+
+* introduce ExecCondition= in services
+
 * unify killing logic of service, socket, mount, swap units
 
 * logind: document new Resume signal and UnlockSessions call in wiki
