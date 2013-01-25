@@ -140,7 +140,7 @@ After=multi-user.target
 
 [Service]
 ExecStart=/bin/bash -c 'set -x; systemctl --failed --no-legend --no-pager > /failed ; echo OK > /testok; while : ;do systemd-cat echo "testsuite service waiting for /var/log/journal" ; echo "testsuite service waiting for journal to move to /var/log/journal" > /dev/console ; for i in /var/log/journal/*;do [ -d "\$i" ] && echo "\$i" && break 2; done; sleep 1; done; sleep 1; exit 0;'
-ExecStopPost=/usr/bin/systemctl poweroff
+ExecStopPost=/usr/bin/systemctl poweroff --no-block
 Type=oneshot
 EOF
         mkdir -p $initdir/etc/systemd/system/testsuite.target.wants
