@@ -1,0 +1,6 @@
+[Unit]
+Description=Testsuite target
+Requires=multi-user.target
+After=multi-user.target
+Conflicts=rescue.target
+AllowIsolate=yes

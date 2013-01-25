@@ -123,15 +123,8 @@ EOF
 LABEL=systemd           /       ext3    rw 0 1
 EOF
 
-        # setup the testsuite target
-        cat >$initdir/etc/systemd/system/testsuite.target <<EOF
-[Unit]
-Description=Testsuite target
-Requires=multi-user.target
-After=multi-user.target
-Conflicts=rescue.target
-AllowIsolate=yes
-EOF
+        # setup the testsuite target and the test ending service
+        cp $TEST_BASE_DIR/{testsuite.target,end.service} $initdir/etc/systemd/system/
 
         # setup the testsuite service
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
@@ -141,11 +134,12 @@ After=multi-user.target
 
 [Service]
 ExecStart=/bin/bash -c 'set -x; systemctl --failed --no-legend --no-pager > /failed ; echo OK > /testok; while : ;do echo "testsuite service waiting for journal to move to /var/log/journal" > /dev/console ; for i in /var/log/journal/*;do [ -d "\$i" ] && echo "\$i" && break 2; done; sleep 1; done; sleep 1; exit 0;'
-ExecStopPost=/usr/bin/systemctl poweroff --no-block
 Type=oneshot
 EOF
+
         mkdir -p $initdir/etc/systemd/system/testsuite.target.wants
         ln -fs ../testsuite.service $initdir/etc/systemd/system/testsuite.target.wants/testsuite.service
+        ln -fs ../end.service $initdir/etc/systemd/system/testsuite.target.wants/end.service
 
         # make the testsuite the default target
         ln -fs testsuite.target $initdir/etc/systemd/system/default.target

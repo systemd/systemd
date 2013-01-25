@@ -1,0 +1,6 @@
+[Unit]
+Description=End the test
+After=testsuite.service
+
+[Service]
+ExecStart=/usr/bin/systemctl poweroff --no-block
