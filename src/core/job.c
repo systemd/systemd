@@ -34,6 +34,9 @@
 #include "load-dropin.h"
 #include "log.h"
 #include "dbus-job.h"
+#include "special.h"
+#include "sync.h"
+#include "virt.h"
 
 JobBusClient* job_bus_client_new(DBusConnection *connection, const char *name) {
         JobBusClient *cl;
@@ -1059,6 +1062,29 @@ int job_coldplug(Job *j) {
                 return -errno;
 
         return 0;
+}
+
+void job_shutdown_magic(Job *j) {
+        assert(j);
+
+        /* The shutdown target gets some special treatment here: we
+         * tell the kernel to begin with flushing its disk caches, to
+         * optimize shutdown time a bit. Ideally we wouldn't hardcode
+         * this magic into PID 1. However all other processes aren't
+         * options either since they'd exit much sooner than PID 1 and
+         * asynchronous sync() would cause their exit to be
+         * delayed. */
+
+        if (!unit_has_name(j->unit, SPECIAL_SHUTDOWN_TARGET))
+                return;
+
+        if (j->type != JOB_START)
+                return;
+
+        if (detect_container(NULL) > 0)
+                return;
+
+        asynchronous_sync();
 }
 
 static const char* const job_state_table[_JOB_STATE_MAX] = {

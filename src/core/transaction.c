@@ -620,6 +620,7 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
                 job_add_to_run_queue(j);
                 job_add_to_dbus_queue(j);
                 job_start_timer(j);
+                job_shutdown_magic(j);
         }
 
         return 0;

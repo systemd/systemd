@@ -853,7 +853,9 @@ libsystemd_core_la_SOURCES = \
 	src/core/syscall-list.c \
 	src/core/syscall-list.h \
 	src/core/audit-fd.c \
-	src/core/audit-fd.h
+	src/core/audit-fd.h \
+	src/core/sync.c \
+	src/core/sync.h
 
 if HAVE_KMOD
 libsystemd_core_la_SOURCES += \
@@ -873,7 +875,8 @@ libsystemd_core_la_CFLAGS = \
 	$(LIBWRAP_CFLAGS) \
 	$(PAM_CFLAGS) \
 	$(AUDIT_CFLAGS) \
-	$(KMOD_CFLAGS)
+	$(KMOD_CFLAGS) \
+	-pthread
 
 libsystemd_core_la_LIBADD = \
 	libsystemd-capability.la \

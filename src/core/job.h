@@ -217,6 +217,8 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive);
 
 char *job_dbus_path(Job *j);
 
+void job_shutdown_magic(Job *j);
+
 const char* job_type_to_string(JobType t);
 JobType job_type_from_string(const char *s);
 
