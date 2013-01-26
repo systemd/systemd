@@ -124,13 +124,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <variablelist>
       <varlistentry>
-        <term><option>/browse</option></term>
+        <term><uri>/browse</uri></term>
 
         <listitem><para>Interactive browsing.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>/entries[?option1&amp;option2=value...]</option></term>
+        <term><uri>/entries[?option1&amp;option2=value...]</uri></term>
 
         <listitem><para>Retrieval of events in various formats.</para>
 
@@ -149,7 +149,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><option>/machine</option></term>
+        <term><uri>/machine</uri></term>
 
         <listitem><para>Return a JSON structure describing the machine.</para>
 
@@ -167,7 +167,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><option>/fields/</option><replaceable>FIELD_NAME</replaceable></term>
+        <term><uri>/fields/<replaceable>FIELD_NAME</replaceable></uri></term>
 
         <listitem><para>Return a list of values of this field present in the logs.</para>
         </listitem>
@@ -179,14 +179,14 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Accept header</title>
 
     <para>
-      <option>Accept: </option><replaceable>format</replaceable>
+      <option>Accept: <replaceable>format</replaceable></option>
     </para>
 
     <para>Recognized formats:</para>
 
     <variablelist>
       <varlistentry>
-        <term><option>text/plain</option></term>
+        <term><constant>text/plain</constant></term>
 
         <listitem><para>The default. Plaintext syslog-like output,
         one line per journal entry
@@ -195,7 +195,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><option>application/json</option></term>
+        <term><constant>application/json</constant></term>
 
         <listitem><para>Entries are formatted as JSON data structures,
         one per line
@@ -207,7 +207,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><option>application/event-stream</option></term>
+        <term><constant>application/event-stream</constant></term>
 
         <listitem><para>Entries are formatted as JSON data structures,
         wrapped in a format suitable for <ulink
@@ -219,7 +219,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><option>application/vnd.fdo.journal</option></term>
+        <term><constant>application/vnd.fdo.journal</constant></term>
 
         <listitem><para>Entries are serialized into a binary (but
         mostly text-based) stream suitable for backups and network
@@ -237,7 +237,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Range header</title>
 
     <para>
-      <option>Range: entries=&lt;cursor&gt;[[:&lt;num_skip&gt;]:&lt;num_entries&gt;]</option>
+      <option>Range: entries=<replaceable>cursor</replaceable>[[:<replaceable>num_skip</replaceable>]:<replaceable>num_entries</replaceable>]</option>
     </para>
 
     <para>where
@@ -256,7 +256,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <variablelist>
       <varlistentry>
-        <term><option>follow</option></term>
+        <term><uri>follow</uri></term>
 
         <listitem><para>wait for new events
         (like <command>journalctl --follow</command>, except that
@@ -265,7 +265,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><option>discrete</option></term>
+        <term><uri>discrete</uri></term>
 
         <listitem><para>Test that the specified cursor refers to an
         entry in the journal. Returns just this entry.</para>
@@ -273,14 +273,14 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><option>boot</option></term>
+        <term><uri>boot</uri></term>
 
         <listitem><para>Limit events to the current boot of the system
         (like <command>journalctl --this--boot</command>).</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>&lt;KEY&gt;=&lt;match&gt;</option></term>
+        <term><uri><replaceable>KEY</replaceable>=<replaceable>match</replaceable></uri></term>
 
         <listitem><para>Match journal fields. See
         <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>

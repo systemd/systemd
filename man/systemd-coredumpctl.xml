@@ -162,7 +162,7 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>PID</option></term>
+                                <term><replaceable>PID</replaceable></term>
 
                                 <listitem><para>Process ID of the
                                 process that dumped
@@ -170,7 +170,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>COMM</option></term>
+                                <term><replaceable>COMM</replaceable></term>
 
                                 <listitem><para>Name of the executable
                                 (matches <option>COREDUMP_COMM=</option>).
@@ -179,7 +179,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>EXE</option></term>
+                                <term><replaceable>EXE</replaceable></term>
 
                                 <listitem><para>Path to the executable
                                 (matches <option>COREDUMP_EXE=</option>).
@@ -188,7 +188,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>MATCH</option></term>
+                                <term><replaceable>MATCH</replaceable></term>
 
                                 <listitem><para>General journalctl predicates
                                 (see <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>).

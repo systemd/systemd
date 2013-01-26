@@ -118,7 +118,7 @@
   <refsect1><title>Environment</title>
     <variablelist>
       <varlistentry>
-        <term><varname>UDEV_LOG=</varname></term>
+        <term><varname>$UDEV_LOG=</varname></term>
         <listitem>
           <para>Set the logging priority.</para>
         </listitem>
