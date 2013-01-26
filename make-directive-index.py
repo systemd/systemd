@@ -158,7 +158,7 @@ This index contains {count} entries in {sections} sections,
 referring to {pages} individual manual pages.
 '''
 
-def _extract_directives(directive_groups, page):
+def _extract_directives(directive_groups, formatting, page):
     t = tree.parse(page)
     section = t.find('./refmeta/manvolnum').text
     pagename = t.find('./refmeta/refentrytitle').text
@@ -173,13 +173,19 @@ def _extract_directives(directive_groups, page):
             for name in variablelist.iterfind(xpath):
                 text = re.sub(r'([= ]).*', r'\1', name.text).rstrip()
                 stor[text].append((pagename, section))
+                if text not in formatting:
+                    # use element as formatted display
+                    name.tail = ''
+                    name.text = text
+                    formatting[text] = name
 
-def _make_section(template, name, directives):
+def _make_section(template, name, directives, formatting):
     varlist = template.find(".//*[@id='{}']".format(name))
     for varname, manpages in sorted(directives.items()):
         entry = tree.SubElement(varlist, 'varlistentry')
-        a = tree.SubElement(tree.SubElement(entry, 'term'), 'varname')
-        a.text = varname
+        term = tree.SubElement(entry, 'term')
+        term.append(formatting[varname])
+
         para = tree.SubElement(tree.SubElement(entry, 'listitem'), 'para')
 
         b = None
@@ -206,7 +212,7 @@ def _make_colophon(template, groups):
                                 sections=len(groups),
                                 pages=len(pages))
 
-def _make_page(template, directive_groups):
+def _make_page(template, directive_groups, formatting):
     """Create an XML tree from directive_groups.
 
     directive_groups = {
@@ -216,7 +222,7 @@ def _make_page(template, directive_groups):
     }
     """
     for name, directives in directive_groups.items():
-            _make_section(template, name, directives)
+            _make_section(template, name, directives, formatting)
 
     _make_colophon(template, directive_groups.values())
 
@@ -228,13 +234,14 @@ def make_page(*xml_files):
     names = [vl.get('id') for vl in template.iterfind('.//variablelist')]
     directive_groups = {name:collections.defaultdict(list)
                         for name in names}
+    formatting = {}
     for page in xml_files:
         try:
-            _extract_directives(directive_groups, page)
+            _extract_directives(directive_groups, formatting, page)
         except Exception:
             raise ValueError("failed to process " + page)
 
-    return _make_page(template, directive_groups)
+    return _make_page(template, directive_groups, formatting)
 
 if __name__ == '__main__':
     tree.dump(make_page(*sys.argv[1:]))
