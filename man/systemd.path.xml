@@ -108,7 +108,7 @@
                 monitors. The options specific to the [Path] section
                 of path units are the following:</para>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
                         <varlistentry>
                                 <term><varname>PathExists=</varname></term>
                                 <term><varname>PathExistsGlob=</varname></term>

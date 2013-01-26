@@ -71,7 +71,7 @@
                 <para><filename>systemd-modules-load.service</filename> understands
                 the following kernel command line parameters:</para>
 
-                <variablelist>
+                <variablelist class='kernel-commandline-options'>
 
                         <varlistentry>
                                 <term><varname>modules-load=</varname></term>

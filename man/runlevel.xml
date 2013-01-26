@@ -96,7 +96,7 @@
         <refsect1>
                 <title>Environment</title>
 
-                <variablelist>
+                <variablelist class='environment-variables'>
                         <varlistentry>
                                 <term><varname>$RUNLEVEL</varname></term>
 

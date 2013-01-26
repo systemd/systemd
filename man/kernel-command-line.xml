@@ -74,7 +74,7 @@
         <refsect1>
                 <title>Core OS Command Line Arguments</title>
 
-                <variablelist>
+                <variablelist class='kernel-commandline-options'>
                         <varlistentry>
                                 <term><varname>systemd.unit=</varname></term>
                                 <term><varname>rd.systemd.unit=</varname></term>

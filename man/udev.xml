@@ -148,7 +148,7 @@
       not only the device that has generated the event. If multiple keys that match
       a parent device are specified in a single rule, all these keys must match at
       one and the same parent device.</para>
-      <variablelist>
+      <variablelist class='udev-directives'>
         <varlistentry>
           <term><option>ACTION</option></term>
           <listitem>
@@ -322,7 +322,7 @@
       </variablelist>
 
       <para>The following keys can get values assigned:</para>
-      <variablelist>
+      <variablelist class='udev-directives'>
         <varlistentry>
           <term><option>NAME</option></term>
           <listitem>
@@ -489,7 +489,7 @@
           <term><option>OPTIONS</option></term>
           <listitem>
             <para>Rule and device options:</para>
-            <variablelist>
+            <variablelist class='udev-directives'>
               <varlistentry>
                 <term><option>link_priority=<replaceable>value</replaceable></option></term>
                 <listitem>
@@ -546,7 +546,7 @@
       is executed, allowing for the use of device properties set by earlier matching
       rules. For all other fields, substitutions are performed while the individual rule is
       being processed. The available substitutions are:</para>
-      <variablelist>
+      <variablelist class='udev-directives'>
         <varlistentry>
           <term><option>$kernel</option>, <option>%k</option></term>
           <listitem>

@@ -508,7 +508,7 @@
         <refsect1>
                 <title>Directories</title>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
                         <varlistentry>
                                 <term>System unit directories</term>
 
@@ -987,7 +987,7 @@
                 <filename>/proc/cmdline</filename>
                 instead.</para></footnote>:</para>
 
-                <variablelist class='kernel-commandline-directives'>
+                <variablelist class='kernel-commandline-options'>
                         <varlistentry>
                                 <term><varname>systemd.unit=</varname></term>
                                 <term><varname>rd.systemd.unit=</varname></term>

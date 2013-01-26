@@ -137,7 +137,7 @@
                 <filename>journald.conf</filename> may be overridden on
                 the kernel command line:</para>
 
-                <variablelist>
+                <variablelist class='kernel-commandline-options'>
                         <varlistentry>
                                 <term><varname>systemd.journald.forward_to_syslog=</varname></term>
                                 <term><varname>systemd.journald.forward_to_kmsg=</varname></term>

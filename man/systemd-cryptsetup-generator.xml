@@ -72,7 +72,7 @@
                 <para><filename>systemd-cryptsetup-generator</filename> understands
                 the following kernel command line parameters:</para>
 
-                <variablelist>
+                <variablelist class='kernel-commandline-options'>
                         <varlistentry>
                                 <term><varname>luks=</varname></term>
                                 <term><varname>rd.luks=</varname></term>

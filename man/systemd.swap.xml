@@ -136,7 +136,7 @@
                 options specific to the [Swap] section of swap units
                 are the following:</para>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
 
                         <varlistentry>
                                 <term><varname>What=</varname></term>

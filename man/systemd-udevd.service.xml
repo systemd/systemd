@@ -116,7 +116,7 @@
   </refsect1>
 
   <refsect1><title>Environment</title>
-    <variablelist>
+    <variablelist class='environment-variables'>
       <varlistentry>
         <term><varname>$UDEV_LOG=</varname></term>
         <listitem>
@@ -127,7 +127,7 @@
  </refsect1>
 
   <refsect1><title>Kernel command line</title>
-    <variablelist>
+    <variablelist class='kernel-commandline-options'>
       <para>Parameters starting with "rd." will be read when
       <command>systemd-udevd</command> is used in an initrd.</para>
       <varlistentry>

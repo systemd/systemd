@@ -121,7 +121,7 @@
                 options specific to the <literal>[Service]</literal>
                 section of service units are the following:</para>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
                         <varlistentry>
                                 <term><varname>Type=</varname></term>
 
@@ -887,7 +887,7 @@
                 for compatibility reasons and should not be used in
                 newly written service files.</para>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
                         <varlistentry>
                                 <term><varname>SysVStartPriority=</varname></term>
                                 <listitem><para>Set the SysV start

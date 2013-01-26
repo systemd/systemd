@@ -2,7 +2,7 @@
 #
 #  This file is part of systemd.
 #
-#  Copyright 2012 Zbigniew Jędrzejewski-Szmek
+#  Copyright 2012-2013 Zbigniew Jędrzejewski-Szmek
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
@@ -20,6 +20,7 @@
 import sys
 import collections
 import xml.etree.ElementTree as tree
+import re
 
 TEMPLATE = '''\
 <refentry id="systemd.directives">
@@ -58,27 +59,19 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
-                <title>System manager directives</title>
-
-                <para>Directives for configuring the behaviour of the
-                systemd process.</para>
-
-                <variablelist id='systemd-directives' />
-        </refsect1>
-
-        <refsect1>
                 <title>Options on the kernel command line</title>
 
                 <para>Kernel boot options for configuring the behaviour of the
                 systemd process.</para>
 
-                <variablelist id='kernel-commandline-directives' />
+                <variablelist id='kernel-commandline-options' />
         </refsect1>
 
         <refsect1>
                 <title>Environment variables</title>
 
-                <para>Environment variables understood by the systemd process.</para>
+                <para>Environment variables understood by the systemd
+                manager and other programs.</para>
 
                 <variablelist id='environment-variables' />
         </refsect1>
@@ -93,12 +86,37 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
-                <title>Journal directives</title>
+                <title>Journal fields</title>
 
-                <para>Directives for configuring the behaviour of the
-                journald process.</para>
+                <para>Fields in the journal events with a well known meaning.</para>
 
                 <variablelist id='journal-directives' />
+        </refsect1>
+
+        <refsect1>
+                <title>PAM configuration directives</title>
+
+                <para>Directives for configuring PAM behaviour.</para>
+
+                <variablelist id='pam-directives' />
+        </refsect1>
+
+        <refsect1>
+                <title>crypttab options</title>
+
+                <para>Options which influence mounted filesystems and
+                encrypted volumes.</para>
+
+                <variablelist id='crypttab-options' />
+        </refsect1>
+
+        <refsect1>
+                <title>System manager directives</title>
+
+                <para>Directives for configuring the behaviour of the
+                systemd process.</para>
+
+                <variablelist id='systemd-directives' />
         </refsect1>
 
         <refsect1>
@@ -108,6 +126,24 @@ TEMPLATE = '''\
                 systemd-bootchart process.</para>
 
                 <variablelist id='bootchart-directives' />
+        </refsect1>
+
+        <refsect1>
+                <title>command-line options</title>
+
+                <para>Command-line options accepted by programs in the
+                systemd suite.</para>
+
+                <variablelist id='options' />
+        </refsect1>
+
+        <refsect1>
+                <title>Miscellaneous options and directives</title>
+
+                <para>Other configuration elements which don't fit in
+                any of the above groups.</para>
+
+                <variablelist id='miscellaneous' />
         </refsect1>
 
         <refsect1>
@@ -127,11 +163,16 @@ def _extract_directives(directive_groups, page):
     section = t.find('./refmeta/manvolnum').text
     pagename = t.find('./refmeta/refentrytitle').text
     for variablelist in t.iterfind('.//variablelist'):
-        klass = variablelist.attrib.get('class') or 'unit-directives'
-        stor = directive_groups[klass]
-        for varname in variablelist.iterfind('./varlistentry/term/varname'):
-            text = ''.join(varname.text.partition('=')[:2])
-            stor[text].append((pagename, section))
+        klass = variablelist.attrib.get('class')
+        storvar = directive_groups[klass or 'miscellaneous']
+        storopt = directive_groups['options']
+        # <option>s go in OPTIONS, unless class is specified
+        for xpath, stor in (('./varlistentry/term/varname', storvar),
+                            ('./varlistentry/term/option',
+                             storvar if klass else storopt)):
+            for name in variablelist.iterfind(xpath):
+                text = re.sub(r'([= ]).*', r'\1', name.text).rstrip()
+                stor[text].append((pagename, section))
 
 def _make_section(template, name, directives):
     varlist = template.find(".//*[@id='{}']".format(name))
@@ -142,7 +183,7 @@ def _make_section(template, name, directives):
         para = tree.SubElement(tree.SubElement(entry, 'listitem'), 'para')
 
         b = None
-        for manpage, manvolume in sorted(manpages):
+        for manpage, manvolume in sorted(set(manpages)):
                 if b is not None:
                         b.tail = ', '
                 b = tree.SubElement(para, 'citerefentry')
@@ -181,16 +222,19 @@ def _make_page(template, directive_groups):
 
     return template
 
-def make_page(xml_files):
+def make_page(*xml_files):
     "Extract directives from xml_files and return XML index tree."
     template = tree.fromstring(TEMPLATE)
     names = [vl.get('id') for vl in template.iterfind('.//variablelist')]
     directive_groups = {name:collections.defaultdict(list)
                         for name in names}
     for page in xml_files:
-        _extract_directives(directive_groups, page)
+        try:
+            _extract_directives(directive_groups, page)
+        except Exception:
+            raise ValueError("failed to process " + page)
 
     return _make_page(template, directive_groups)
 
 if __name__ == '__main__':
-    tree.dump(make_page(sys.argv[1:]))
+    tree.dump(make_page(*sys.argv[1:]))

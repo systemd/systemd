@@ -767,31 +767,12 @@ MANPAGES += \
 	man/systemd.index.7 \
 	man/systemd.directives.7
 
-XML_DIRECTIVE_FILES = \
-	man/systemd.xml \
-	man/systemd.unit.xml \
-	man/systemd.service.xml \
-	man/systemd.socket.xml \
-	man/systemd.mount.xml \
-	man/systemd.automount.xml \
-	man/systemd.swap.xml \
-	man/systemd.target.xml \
-	man/systemd.path.xml \
-	man/systemd.timer.xml \
-	man/systemd.snapshot.xml \
-	man/systemd.exec.xml \
-	man/systemd.kill.xml \
-	man/systemd.device.xml \
-	man/systemd.conf.xml \
-	man/systemd.journal-fields.xml \
-	man/systemd.time.xml \
-	man/bootchart.conf.xml
-
-man/systemd.index.xml: make-man-index.py $(filter-out man/systemd.index.xml,$(XML_FILES))
+NON_INDEX_XML_FILES = $(filter-out man/systemd.index.xml,$(XML_FILES))
+man/systemd.index.xml: make-man-index.py $(NON_INDEX_XML_FILES)
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(PYTHON) $^ > $@
 
-man/systemd.directives.xml: make-directive-index.py $(XML_DIRECTIVE_FILES)
+man/systemd.directives.xml: make-directive-index.py $(filter-out man/systemd.directives.xml,$(NON_INDEX_XML_FILES))
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(PYTHON) $^ > $@
 

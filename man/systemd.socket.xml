@@ -143,7 +143,7 @@
                 options specific to the [Socket] section of socket
                 units are the following:</para>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
                         <varlistentry>
                                 <term><varname>ListenStream=</varname></term>
                                 <term><varname>ListenDatagram=</varname></term>

@@ -123,7 +123,7 @@
                 specific to the [Automount] section of automount units
                 are the following:</para>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
 
                         <varlistentry>
                                 <term><varname>Where=</varname></term>

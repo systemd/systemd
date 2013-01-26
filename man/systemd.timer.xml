@@ -97,7 +97,7 @@
                 defines. The options specific to the [Timer] section
                 of timer units are the following:</para>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
                         <varlistentry>
                                 <term><varname>OnActiveSec=</varname></term>
                                 <term><varname>OnBootSec=</varname></term>

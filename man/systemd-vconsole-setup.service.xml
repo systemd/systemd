@@ -76,7 +76,7 @@
                 <filename>vconsole.conf</filename> may be overridden on
                 the kernel command line:</para>
 
-                <variablelist>
+                <variablelist class='kernel-commandline-options'>
                         <varlistentry>
                                 <term><varname>vconsole.keymap=</varname></term>
                                 <term><varname>vconsole.keymap.toggle=</varname></term>

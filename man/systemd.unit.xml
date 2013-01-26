@@ -222,7 +222,7 @@
                 carries generic information about the unit that is not
                 dependent on the type of unit:</para>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
 
                         <varlistentry>
                                 <term><varname>Description=</varname></term>
@@ -944,7 +944,7 @@
                 <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 tool during installation of a unit:</para>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
                         <varlistentry>
                                 <term><varname>Alias=</varname></term>
 

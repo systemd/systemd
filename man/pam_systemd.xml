@@ -118,7 +118,7 @@
 
                 <para>The following options are understood:</para>
 
-                <variablelist>
+                <variablelist class='pam-directives'>
                         <varlistentry>
                                 <term><option>kill-session-processes=</option></term>
 
@@ -247,7 +247,7 @@
 
                 <para>The following environment variables are set for the processes of the user's session:</para>
 
-                <variablelist>
+                <variablelist class='environment-variables'>
                         <varlistentry>
                                 <term><varname>$XDG_SESSION_ID</varname></term>
 

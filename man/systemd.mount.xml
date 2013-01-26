@@ -182,7 +182,7 @@
                 options specific to the [Mount] section of mount
                 units are the following:</para>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
 
                         <varlistentry>
                                 <term><varname>What=</varname></term>
@@ -276,7 +276,7 @@
                 for compatibility reasons and should not be used in
                 newly written mount files.</para>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
                         <varlistentry>
                                 <term><varname>FsckPassNo=</varname></term>
 

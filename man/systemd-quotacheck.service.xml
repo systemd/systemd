@@ -67,7 +67,7 @@
                 <para><filename>systemd-quotacheck</filename> understands
                 one kernel command line parameter:</para>
 
-                <variablelist>
+                <variablelist class='kernel-commandline-options'>
                         <varlistentry>
                                 <term><varname>quotacheck.mode=</varname></term>
 

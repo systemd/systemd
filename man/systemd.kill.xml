@@ -82,7 +82,7 @@
         <refsect1>
                 <title>Options</title>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
 
                         <varlistentry>
                                 <term><varname>KillMode=</varname></term>

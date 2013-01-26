@@ -77,7 +77,7 @@
                 <para><filename>systemd-fsck</filename> understands
                 one kernel command line parameter:</para>
 
-                <variablelist>
+                <variablelist class='kernel-commandline-options'>
                         <varlistentry>
                                 <term><varname>fsck.mode=</varname></term>
 

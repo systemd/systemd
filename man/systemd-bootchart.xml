@@ -65,7 +65,7 @@
 
                 <para>systemd-bootchart can be invoked in several different ways:</para>
 
-                <variablelist class='bootchart-invocation'>
+                <variablelist>
 
                         <varlistentry>
                                 <title>Kernel invocation</title>

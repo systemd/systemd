@@ -518,7 +518,7 @@
         <refsect1>
                 <title>Environment</title>
 
-                <variablelist>
+                <variablelist class='environment-variables'>
                         <varlistentry>
                                 <term><varname>$SYSTEMD_PAGER</varname></term>
                                 <listitem><para>Pager to use when

@@ -103,7 +103,7 @@
                 comma-delimited list of options.  The following
                 options are recognized:</para>
 
-                <variablelist>
+                <variablelist class='crypttab-options'>
                         <varlistentry>
                                 <term><varname>cipher=</varname></term>
 
