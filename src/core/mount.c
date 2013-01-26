@@ -877,56 +877,23 @@ static void mount_enter_mounted(Mount *m, MountResult f) {
 
 static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
         int r;
-        Set *pid_set = NULL;
-        bool wait_for_exit = false;
 
         assert(m);
 
         if (f != MOUNT_SUCCESS)
                 m->result = f;
 
-        if (m->kill_context.kill_mode != KILL_NONE) {
-                int sig = (state == MOUNT_MOUNTING_SIGTERM ||
-                           state == MOUNT_UNMOUNTING_SIGTERM ||
-                           state == MOUNT_REMOUNTING_SIGTERM) ? m->kill_context.kill_signal : SIGKILL;
+        r = unit_kill_context(
+                        UNIT(m),
+                        &m->kill_context,
+                        state != MOUNT_MOUNTING_SIGTERM && state != MOUNT_UNMOUNTING_SIGTERM && state != MOUNT_REMOUNTING_SIGTERM,
+                        -1,
+                        m->control_pid,
+                        false);
+        if (r < 0)
+                goto fail;
 
-                if (m->control_pid > 0) {
-                        if (kill_and_sigcont(m->control_pid, sig) < 0 && errno != ESRCH)
-
-                                log_warning_unit(UNIT(m)->id,
-                                                 "Failed to kill control process %li: %m",
-                                                 (long) m->control_pid);
-                        else
-                                wait_for_exit = true;
-                }
-
-                if (m->kill_context.kill_mode == KILL_CONTROL_GROUP) {
-
-                        if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func))) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        /* Exclude the control pid from being killed via the cgroup */
-                        if (m->control_pid > 0)
-                                if ((r = set_put(pid_set, LONG_TO_PTR(m->control_pid))) < 0)
-                                        goto fail;
-
-                        r = cgroup_bonding_kill_list(UNIT(m)->cgroup_bondings, sig, true, false, pid_set, NULL);
-                        if (r < 0) {
-                                if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
-                                        log_warning_unit(UNIT(m)->id,
-                                                         "Failed to kill control group: %s",
-                                                         strerror(-r));
-                        } else if (r > 0)
-                                wait_for_exit = true;
-
-                        set_free(pid_set);
-                        pid_set = NULL;
-                }
-        }
-
-        if (wait_for_exit) {
+        if (r > 0) {
                 r = unit_watch_timer(UNIT(m), CLOCK_MONOTONIC, true, m->timeout_usec, &m->timer_watch);
                 if (r < 0)
                         goto fail;
@@ -947,14 +914,15 @@ fail:
                 mount_enter_mounted(m, MOUNT_FAILURE_RESOURCES);
         else
                 mount_enter_dead(m, MOUNT_FAILURE_RESOURCES);
-
-        if (pid_set)
-                set_free(pid_set);
 }
 
 void warn_if_dir_nonempty(const char *unit, const char* where) {
+        assert(unit);
+        assert(where);
+
         if (dir_is_empty(where) > 0)
                 return;
+
         log_struct_unit(LOG_NOTICE,
                    unit,
                    "MESSAGE=%s: Directory %s to mount over is not empty, mounting anyway.",

@@ -2807,6 +2807,82 @@ int unit_remove_drop_in(Unit *u, bool runtime, const char *name) {
         return 0;
 }
 
+int unit_kill_context(
+                Unit *u,
+                KillContext *c,
+                bool sigkill,
+                pid_t main_pid,
+                pid_t control_pid,
+                bool main_pid_alien) {
+
+        int sig, wait_for_exit = 0, r;
+
+        assert(u);
+        assert(c);
+
+        if (c->kill_mode == KILL_NONE)
+                return 0;
+
+        sig = sigkill ? SIGKILL : c->kill_signal;
+
+        if (main_pid > 0) {
+                r = kill_and_sigcont(main_pid, sig);
+
+                if (r < 0 && r != -ESRCH) {
+                        _cleanup_free_ char *comm = NULL;
+                        get_process_comm(main_pid, &comm);
+
+                        log_warning_unit(u->id, "Failed to kill main process %li (%s): %s",
+                                         (long) main_pid, strna(comm), strerror(-r));
+                } else
+                        wait_for_exit = !main_pid_alien;
+        }
+
+        if (control_pid > 0) {
+                r = kill_and_sigcont(control_pid, sig);
+
+                if (r < 0 && r != -ESRCH) {
+                        _cleanup_free_ char *comm = NULL;
+                        get_process_comm(control_pid, &comm);
+
+                        log_warning_unit(u->id,
+                                         "Failed to kill control process %li (%s): %s",
+                                         (long) control_pid, strna(comm), strerror(-r));
+                } else
+                        wait_for_exit = true;
+        }
+
+        if (c->kill_mode == KILL_CONTROL_GROUP) {
+                _cleanup_set_free_ Set *pid_set = NULL;
+
+                pid_set = set_new(trivial_hash_func, trivial_compare_func);
+                if (!pid_set)
+                        return -ENOMEM;
+
+                /* Exclude the main/control pids from being killed via the cgroup */
+                if (main_pid > 0) {
+                        r = set_put(pid_set, LONG_TO_PTR(main_pid));
+                        if (r < 0)
+                                return r;
+                }
+
+                if (control_pid > 0) {
+                        r = set_put(pid_set, LONG_TO_PTR(control_pid));
+                        if (r < 0)
+                                return r;
+                }
+
+                r = cgroup_bonding_kill_list(u->cgroup_bondings, sig, true, false, pid_set, NULL);
+                if (r < 0) {
+                        if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                                log_warning_unit(u->id, "Failed to kill control group: %s", strerror(-r));
+                } else if (r > 0)
+                        wait_for_exit = true;
+        }
+
+        return wait_for_exit;
+}
+
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_ACTIVE] = "active",
         [UNIT_RELOADING] = "reloading",

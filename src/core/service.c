@@ -1955,64 +1955,23 @@ fail:
 
 static void service_enter_signal(Service *s, ServiceState state, ServiceResult f) {
         int r;
-        Set *pid_set = NULL;
-        bool wait_for_exit = false;
 
         assert(s);
 
         if (f != SERVICE_SUCCESS)
                 s->result = f;
 
-        if (s->kill_context.kill_mode != KILL_NONE) {
-                int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? s->kill_context.kill_signal : SIGKILL;
+        r = unit_kill_context(
+                        UNIT(s),
+                        &s->kill_context,
+                        state != SERVICE_STOP_SIGTERM && state != SERVICE_FINAL_SIGTERM,
+                        s->main_pid,
+                        s->control_pid,
+                        s->main_pid_alien);
+        if (r < 0)
+                goto fail;
 
-                if (s->main_pid > 0) {
-                        if (kill_and_sigcont(s->main_pid, sig) < 0 && errno != ESRCH)
-                                log_warning_unit(UNIT(s)->id,
-                                                 "Failed to kill main process %li: %m", (long) s->main_pid);
-                        else
-                                wait_for_exit = !s->main_pid_alien;
-                }
-
-                if (s->control_pid > 0) {
-                        if (kill_and_sigcont(s->control_pid, sig) < 0 && errno != ESRCH)
-                                log_warning_unit(UNIT(s)->id,
-                                                 "Failed to kill control process %li: %m", (long) s->control_pid);
-                        else
-                                wait_for_exit = true;
-                }
-
-                if (s->kill_context.kill_mode == KILL_CONTROL_GROUP) {
-
-                        pid_set = set_new(trivial_hash_func, trivial_compare_func);
-                        if (!pid_set) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        /* Exclude the main/control pids from being killed via the cgroup */
-                        if (s->main_pid > 0)
-                                if ((r = set_put(pid_set, LONG_TO_PTR(s->main_pid))) < 0)
-                                        goto fail;
-
-                        if (s->control_pid > 0)
-                                if ((r = set_put(pid_set, LONG_TO_PTR(s->control_pid))) < 0)
-                                        goto fail;
-
-                        r = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, sig, true, false, pid_set, NULL);
-                        if (r < 0) {
-                                if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
-                                        log_warning_unit(UNIT(s)->id,
-                                                         "Failed to kill control group: %s", strerror(-r));
-                        } else if (r > 0)
-                                wait_for_exit = true;
-
-                        set_free(pid_set);
-                        pid_set = NULL;
-                }
-        }
-
-        if (wait_for_exit) {
+        if (r > 0) {
                 if (s->timeout_stop_usec > 0) {
                         r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->timeout_stop_usec, &s->timer_watch);
                         if (r < 0)
@@ -2035,9 +1994,6 @@ fail:
                 service_enter_stop_post(s, SERVICE_FAILURE_RESOURCES);
         else
                 service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
-
-        if (pid_set)
-                set_free(pid_set);
 }
 
 static void service_enter_stop(Service *s, ServiceResult f) {

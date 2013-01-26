@@ -557,6 +557,8 @@ ExecContext *unit_get_exec_context(Unit *u);
 int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data);
 int unit_remove_drop_in(Unit *u, bool runtime, const char *name);
 
+int unit_kill_context(Unit *u, KillContext *c, bool sigkill, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
+
 const char *unit_active_state_to_string(UnitActiveState i);
 UnitActiveState unit_active_state_from_string(const char *s);
 
