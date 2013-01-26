@@ -321,6 +321,17 @@
         </refsect1>
 
         <refsect1>
+                <title>Example 3</title>
+
+                <programlisting># pacstrap -c -d ~/arch-tree/ base
+# systemd-nspawn -bD ~/arch-tree/</programlisting>
+
+                <para>This installs a mimimal Arch Linux distribution into
+                the directory <filename>~/arch-tree/</filename> and then
+                boots an OS in a namespace container in it.</para>
+        </refsect1>
+
+        <refsect1>
                 <title>Exit status</title>
 
                 <para>The exit code of the program executed in the
@@ -334,6 +345,7 @@
                         <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
