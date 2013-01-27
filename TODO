@@ -14,8 +14,9 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Fedora 19:
+* drop no longer needed modprobe.d udlfb file (it does not belong in /etc anyway)
 
-* Retest multi-seat
+* Retest multi-seat (new kms driver for displaylink)
 
 * create /var/log/journal/
 
@@ -55,7 +56,7 @@ Features:
   - honor timezone efi variables for default timezone selection (if there are any?)
   - introduce bootctl (backed by systemd-bootd) to control temporary and persistent default boot goal plus efi variables
 
-* maybe not install getty@tty1.service symlink in /etc but in /usr?
+* maybe do not install getty@tty1.service symlink in /etc but in /usr?
 
 * re-enable "make check" for gtk-doc (broken for unknown reason)
 
