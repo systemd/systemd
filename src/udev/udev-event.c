@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2010 Kay Sievers <kay@vrfy.org>
+ * Copyright (C) 2003-2013 Kay Sievers <kay@vrfy.org>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -861,7 +861,8 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                                 }
                         }
 
-                        udev_node_add(dev, event->mode, event->uid, event->gid);
+                        udev_node_add(dev, event->owner_set || event->group_set || event->mode_set,
+                                      event->mode, event->uid, event->gid);
                 }
 
                 /* preserve old, or get new initialization timestamp */

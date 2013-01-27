@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2010 Kay Sievers <kay@vrfy.org>
+ * Copyright (C) 2003-2013 Kay Sievers <kay@vrfy.org>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -254,7 +254,7 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
         }
 }
 
-static int node_fixup(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
+static int node_permissions_apply(struct udev_device *dev, bool apply, mode_t mode, uid_t uid, gid_t gid)
 {
         const char *devnode = udev_device_get_devnode(dev);
         dev_t devnum = udev_device_get_devnum(dev);
@@ -279,13 +279,7 @@ static int node_fixup(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid
                 goto out;
         }
 
-        /*
-         * Set permissions and selinux file context only on add events. We always
-         * set it on bootup (coldplug) with "trigger --action=add" for all devices
-         * and for any newly added devices (hotplug). We don't want to change it
-         * later, in case something else has applied custom settings in the meantime.
-         */
-        if (strcmp(udev_device_get_action(dev), "add") == 0) {
+        if (apply) {
                 if ((stats.st_mode & 0777) != (mode & 0777) || stats.st_uid != uid || stats.st_gid != gid) {
                         log_debug("set permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
                         chmod(devnode, mode);
@@ -293,7 +287,6 @@ static int node_fixup(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid
                 } else {
                         log_debug("preserve permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
                 }
-
                 label_fix(devnode, true, false);
         }
 
@@ -303,7 +296,7 @@ out:
         return err;
 }
 
-void udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
+void udev_node_add(struct udev_device *dev, bool apply, mode_t mode, uid_t uid, gid_t gid)
 {
         struct udev *udev = udev_device_get_udev(dev);
         char filename[UTIL_PATH_SIZE];
@@ -312,7 +305,7 @@ void udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
         log_debug("handling device node '%s', devnum=%s, mode=%#o, uid=%d, gid=%d\n",
                   udev_device_get_devnode(dev), udev_device_get_id_filename(dev), mode, uid, gid);
 
-        if (node_fixup(dev, mode, uid, gid) < 0)
+        if (node_permissions_apply(dev, apply, mode, uid, gid) < 0)
                 return;
 
         /* always add /dev/{block,char}/$major:$minor */
