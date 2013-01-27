@@ -375,7 +375,7 @@ static int find_symlinks_fd(
                 bool *same_name_link) {
 
         int r = 0;
-        DIR *d;
+        DIR _cleanup_closedir_ *d = NULL;
 
         assert(name);
         assert(fd >= 0);
@@ -395,13 +395,11 @@ static int find_symlinks_fd(
                 union dirent_storage buf;
 
                 k = readdir_r(d, &buf.de, &de);
-                if (k != 0) {
-                        r = -errno;
-                        break;
-                }
+                if (k != 0)
+                        return -errno;
 
                 if (!de)
-                        break;
+                        return r;
 
                 if (ignore_file(de->d_name))
                         continue;
@@ -410,7 +408,7 @@ static int find_symlinks_fd(
 
                 if (de->d_type == DT_DIR) {
                         int nfd, q;
-                        char *p;
+                        char _cleanup_free_ *p = NULL;
 
                         nfd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
                         if (nfd < 0) {
@@ -425,39 +423,31 @@ static int find_symlinks_fd(
                         p = path_make_absolute(de->d_name, path);
                         if (!p) {
                                 close_nointr_nofail(nfd);
-                                r = -ENOMEM;
-                                break;
+                                return -ENOMEM;
                         }
 
                         /* This will close nfd, regardless whether it succeeds or not */
                         q = find_symlinks_fd(name, nfd, p, config_path, same_name_link);
-                        free(p);
 
-                        if (q > 0) {
-                                r = 1;
-                                break;
-                        }
+                        if (q > 0)
+                                return 1;
 
                         if (r == 0)
                                 r = q;
 
                 } else if (de->d_type == DT_LNK) {
-                        char *p, *dest;
+                        char _cleanup_free_ *p = NULL, *dest = NULL;
                         bool found_path, found_dest, b = false;
                         int q;
 
                         /* Acquire symlink name */
                         p = path_make_absolute(de->d_name, path);
-                        if (!p) {
-                                r = -ENOMEM;
-                                break;
-                        }
+                        if (!p)
+                                return -ENOMEM;
 
                         /* Acquire symlink destination */
                         q = readlink_and_canonicalize(p, &dest);
                         if (q < 0) {
-                                free(p);
-
                                 if (q == -ENOENT)
                                         continue;
 
@@ -480,36 +470,24 @@ static int find_symlinks_fd(
                         else
                                 found_dest = streq(path_get_file_name(dest), name);
 
-                        free(dest);
-
                         if (found_path && found_dest) {
-                                char *t;
+                                char _cleanup_free_ *t = NULL;
 
                                 /* Filter out same name links in the main
                                  * config path */
                                 t = path_make_absolute(name, config_path);
-                                if (!t) {
-                                        free(p);
-                                        r = -ENOMEM;
-                                        break;
-                                }
+                                if (!t)
+                                        return -ENOMEM;
 
                                 b = path_equal(t, p);
-                                free(t);
                         }
-
-                        free(p);
 
                         if (b)
                                 *same_name_link = true;
-                        else if (found_path || found_dest) {
-                                r = 1;
-                                break;
-                        }
+                        else if (found_path || found_dest)
+                                return 1;
                 }
         }
-
-        closedir(d);
 
         return r;
 }
