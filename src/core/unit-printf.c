@@ -211,42 +211,6 @@ static char *specifier_user_shell(char specifier, void *data, void *userdata) {
         return strdup(shell);
 }
 
-static char *specifier_machine_id(char specifier, void *data, void *userdata) {
-        sd_id128_t id;
-        char *buf;
-        int r;
-
-        r = sd_id128_get_machine(&id);
-        if (r < 0)
-                return NULL;
-
-        buf = new(char, 33);
-        if (!buf)
-                return NULL;
-
-        return sd_id128_to_string(id, buf);
-}
-
-static char *specifier_boot_id(char specifier, void *data, void *userdata) {
-        sd_id128_t id;
-        char *buf;
-        int r;
-
-        r = sd_id128_get_boot(&id);
-        if (r < 0)
-                return NULL;
-
-        buf = new(char, 33);
-        if (!buf)
-                return NULL;
-
-        return sd_id128_to_string(id, buf);
-}
-
-static char *specifier_host_name(char specifier, void *data, void *userdata) {
-        return gethostname_malloc();
-}
-
 char *unit_name_printf(Unit *u, const char* format) {
 
         /*
