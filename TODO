@@ -14,9 +14,12 @@ Bugfixes:
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 Fedora 19:
+
 * drop no longer needed modprobe.d udlfb file (it does not belong in /etc anyway)
 
 * Retest multi-seat (new kms driver for displaylink)
+
+* make sure pkexec works fine with pam_systemd works fine with audit=0
 
 * create /var/log/journal/
 
@@ -40,11 +43,17 @@ Fedora 19:
 
 * introduce new "journal" group in place of adm?
 
+* localed:
+  - localectl: add listing support for X11 keymaps, by parsing /usr/share/X11/xkb/rules/xorg.lst
+  - localectl: support new converted x11→console keymaps
+
 Features:
 
-* introduce ExecCondition= in services
+* merge service_kill() logic into unit_kill_context() and unify the code paths
 
-* unify killing logic of service, socket, mount, swap units
+* when auto-detecting the main pid of a service, only look for those processes with ppid == 1
+
+* introduce ExecCondition= in services
 
 * if we have systemd-analyze in C "systemctl dot" should move there too
 
@@ -55,6 +64,8 @@ Features:
   - honor language efi variables for default language selection (if there are any?)
   - honor timezone efi variables for default timezone selection (if there are any?)
   - introduce bootctl (backed by systemd-bootd) to control temporary and persistent default boot goal plus efi variables
+
+* polkit: add configure switch to enable/disable polkit client side code
 
 * maybe do not install getty@tty1.service symlink in /etc but in /usr?
 
@@ -178,10 +189,6 @@ Features:
 * if booted in "quiet" mode, and an error happens, turn on status
   output again, so that the emergency mode isn't totally
   surprising. Also, terminate plymouth.
-
-* localed:
-  - localectl: add listing support for X11 keymaps, by parsing /usr/share/X11/xkb/rules/xorg.lst
-  - localectl: support new converted x11→console keymaps
 
 * libunwind support for coredump pattern hook, and includes this in
   the message for coredumps. After all, libunwind is now capable to
