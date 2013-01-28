@@ -42,7 +42,7 @@ ENV{DMI_VENDOR}=="Viooo Corporation", ATTR{[dmi/id]product_name}=="PT17", RUN+="
 # These are all the HP laptops that setup a touchpad toggle key
 ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[pP][aA][vV][iI][lL][iI][oO][nN]*", RUN+="keyboard-force-release.sh $devpath hp-other"
 ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[tT][xX]2*", RUN+="keyboard-force-release.sh $devpath hp-other"
-ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*2510p*|*2530p*|HP G60 Notebook PC", RUN+="keyboard-force-release.sh $devpath hp-other"
+ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*2510p*|*2530p*|HP G60 Notebook PC|HDX9494NR", RUN+="keyboard-force-release.sh $devpath hp-other"
 
 ENV{DMI_VENDOR}=="Zepto", ATTR{[dmi/id]product_name}=="Znote 6615WD", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
 
