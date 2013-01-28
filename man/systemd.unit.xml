@@ -994,6 +994,10 @@
                         </varlistentry>
                 </variablelist>
 
+                <para>The following specifiers are interpreted in the
+                Install section: %n, %N, %p, %i, %U, %u, %m, %H, %b.
+                For their meaning see the next section.
+                </para>
         </refsect1>
 
         <refsect1>

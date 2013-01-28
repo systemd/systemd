@@ -250,12 +250,13 @@ char *unit_full_printf(Unit *u, const char *format) {
          * %r root cgroup path of this systemd instance (e.g. "/user/lennart/shared/systemd-4711")
          * %R parent of root cgroup path (e.g. "/usr/lennart/shared")
          * %t the runtime directory to place sockets in (e.g. "/run" or $XDG_RUNTIME_DIR)
+         * %U the UID of the configured user or running user
          * %u the username of the configured user or running user
          * %h the homedir of the configured user or running user
          * %s the shell of the configured user or running user
          * %m the machine ID of the running system
-         * %b the boot ID of the running system
          * %H the host name of the running system
+         * %b the boot ID of the running system
          */
 
         const Specifier table[] = {
@@ -282,7 +283,6 @@ char *unit_full_printf(Unit *u, const char *format) {
                 { 0, NULL, NULL }
         };
 
-        assert(u);
         assert(format);
 
         return specifier_printf(format, table, u);

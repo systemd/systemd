@@ -901,6 +901,8 @@ noinst_LTLIBRARIES += \
 libsystemd_units_la_SOURCES = \
 	src/shared/install.c \
 	src/shared/install.h \
+	src/shared/install-printf.c \
+	src/shared/install-printf.h \
 	src/shared/path-lookup.c \
 	src/shared/path-lookup.h
 
@@ -1403,7 +1405,8 @@ test_strv_SOURCES = \
 	src/test/test-strv.c
 
 test_strv_LDADD = \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-id128-internal.la
 
 test_install_SOURCES = \
 	src/test/test-install.c
@@ -1415,7 +1418,8 @@ test_install_CFLAGS = \
 test_install_LDADD = \
 	libsystemd-units.la \
 	libsystemd-label.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-id128-internal.la
 
 test_watchdog_SOURCES = \
 	src/test/test-watchdog.c

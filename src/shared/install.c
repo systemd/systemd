@@ -36,15 +36,8 @@
 #include "install.h"
 #include "conf-parser.h"
 #include "conf-files.h"
-
-typedef struct {
-        char *name;
-        char *path;
-
-        char **aliases;
-        char **wanted_by;
-        char **required_by;
-} InstallInfo;
+#include "specifier.h"
+#include "install-printf.h"
 
 typedef struct {
         Hashmap *will_install;
@@ -1177,16 +1170,17 @@ static int install_info_symlink_alias(
         assert(config_path);
 
         STRV_FOREACH(s, i->aliases) {
-                char *alias_path;
+                char _cleanup_free_ *alias_path = NULL, *dst = NULL;
 
-                alias_path = path_make_absolute(*s, config_path);
+                dst = install_full_printf(i, *s);
+                if (!dst)
+                        return -ENOMEM;
 
+                alias_path = path_make_absolute(dst, config_path);
                 if (!alias_path)
                         return -ENOMEM;
 
                 q = create_symlink(i->path, alias_path, force, changes, n_changes);
-                free(alias_path);
-
                 if (r == 0)
                         r = q;
         }
@@ -1208,18 +1202,21 @@ static int install_info_symlink_wants(
         assert(config_path);
 
         STRV_FOREACH(s, i->wanted_by) {
-                char *path;
+                char _cleanup_free_ *path = NULL, *dst = NULL;
 
-                if (!unit_name_is_valid(*s, true)) {
+                dst = install_full_printf(i, *s);
+                if (!dst)
+                        return -ENOMEM;
+
+                if (!unit_name_is_valid(dst, true)) {
                         r = -EINVAL;
                         continue;
                 }
 
-                if (asprintf(&path, "%s/%s.wants/%s", config_path, *s, i->name) < 0)
+                if (asprintf(&path, "%s/%s.wants/%s", config_path, dst, i->name) < 0)
                         return -ENOMEM;
 
                 q = create_symlink(i->path, path, force, changes, n_changes);
-                free(path);
 
                 if (r == 0)
                         r = q;
@@ -1242,18 +1239,21 @@ static int install_info_symlink_requires(
         assert(config_path);
 
         STRV_FOREACH(s, i->required_by) {
-                char *path;
+                char _cleanup_free_ *path = NULL, *dst = NULL;
 
-                if (!unit_name_is_valid(*s, true)) {
+                dst = install_full_printf(i, *s);
+                if (!dst)
+                        return -ENOMEM;
+
+                if (!unit_name_is_valid(dst, true)) {
                         r = -EINVAL;
                         continue;
                 }
 
-                if (asprintf(&path, "%s/%s.requires/%s", config_path, *s, i->name) < 0)
+                if (asprintf(&path, "%s/%s.requires/%s", config_path, dst, i->name) < 0)
                         return -ENOMEM;
 
                 q = create_symlink(i->path, path, force, changes, n_changes);
-                free(path);
 
                 if (r == 0)
                         r = q;

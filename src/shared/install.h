@@ -63,6 +63,15 @@ typedef struct UnitFileList {
         UnitFileState state;
 } UnitFileList;
 
+typedef struct {
+        char *name;
+        char *path;
+
+        char **aliases;
+        char **wanted_by;
+        char **required_by;
+} InstallInfo;
+
 int unit_file_enable(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_disable(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], UnitFileChange **changes, unsigned *n_changes);
 int unit_file_reenable(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], bool force, UnitFileChange **changes, unsigned *n_changes);
