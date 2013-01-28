@@ -60,7 +60,7 @@ static bool arg_follow = false;
 static bool arg_full = false;
 static bool arg_all = false;
 static bool arg_no_pager = false;
-static unsigned arg_lines = 0;
+static int arg_lines = -1;
 static bool arg_no_tail = false;
 static bool arg_quiet = false;
 static bool arg_merge = false;
@@ -239,8 +239,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'n':
                         if (optarg) {
-                                r = safe_atou(optarg, &arg_lines);
-                                if (r < 0 || arg_lines <= 0) {
+                                r = safe_atoi(optarg, &arg_lines);
+                                if (r < 0 || arg_lines < 0) {
                                         log_error("Failed to parse lines '%s'", optarg);
                                         return -EINVAL;
                                 }
@@ -413,7 +413,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_follow && !arg_no_tail && arg_lines <= 0)
+        if (arg_follow && !arg_no_tail && arg_lines < 0)
                 arg_lines = 10;
 
         if (arg_since_set && arg_until_set && arg_since_set > arg_until_set) {
@@ -849,8 +849,8 @@ int main(int argc, char *argv[]) {
         sd_journal *j = NULL;
         bool need_seek = false;
         sd_id128_t previous_boot_id;
-        bool previous_boot_id_valid = false;
-        unsigned n_shown = 0;
+        bool previous_boot_id_valid = false, first_line = true;
+        int n_shown = 0;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
@@ -937,6 +937,11 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        /* Opening the fd now means the first sd_journal_wait() will actually wait */
+        r = sd_journal_get_fd(j);
+        if (r < 0)
+                goto finish;
+
         if (arg_field) {
                 const void *data;
                 size_t size;
@@ -950,7 +955,7 @@ int main(int argc, char *argv[]) {
                 SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
                         const void *eq;
 
-                        if (arg_lines > 0 && n_shown >= arg_lines)
+                        if (arg_lines >= 0 && n_shown >= arg_lines)
                                 break;
 
                         eq = memchr(data, '=', size);
@@ -983,7 +988,7 @@ int main(int argc, char *argv[]) {
                 }
                 r = sd_journal_next(j);
 
-        } else if (arg_lines > 0) {
+        } else if (arg_lines >= 0) {
                 r = sd_journal_seek_tail(j);
                 if (r < 0) {
                         log_error("Failed to seek to tail: %s", strerror(-r));
@@ -1032,7 +1037,7 @@ int main(int argc, char *argv[]) {
         }
 
         for (;;) {
-                while (arg_lines == 0 || arg_follow || n_shown < arg_lines) {
+                while (arg_lines < 0 || n_shown < arg_lines || (arg_follow && !first_line)) {
                         int flags;
 
                         if (need_seek) {
@@ -1092,6 +1097,8 @@ int main(int argc, char *argv[]) {
                         log_error("Couldn't wait for journal event: %s", strerror(-r));
                         goto finish;
                 }
+
+                first_line = false;
         }
 
 finish:
