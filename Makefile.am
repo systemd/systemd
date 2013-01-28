@@ -637,6 +637,8 @@ MANPAGES_ALIAS = \
 	man/SD_JOURNAL_INVALIDATE.3 \
 	man/sd_journal_add_disjunction.3 \
 	man/sd_journal_flush_matches.3 \
+	man/sd_journal_get_data_threshold.3 \
+	man/sd_journal_set_data_threshold.3 \
 	man/sd_journal_seek_tail.3 \
 	man/sd_journal_seek_monotonic_usec.3 \
 	man/sd_journal_seek_realtime_usec.3 \
