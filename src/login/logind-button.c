@@ -33,6 +33,7 @@
 #include "logind-button.h"
 #include "special.h"
 #include "dbus-common.h"
+#include "sd-messages.h"
 
 Button* button_new(Manager *m, const char *name) {
         Button *b;
@@ -188,7 +189,10 @@ int button_process(Button *b) {
 
                 case KEY_POWER:
                 case KEY_POWER2:
-                        log_info("Power key pressed.");
+                        log_struct(LOG_INFO,
+                                   "MESSAGE=Power key pressed.",
+                                   MESSAGE_ID(SD_MESSAGE_POWER_KEY),
+                                   NULL);
                         return button_handle(b, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
 
                 /* The kernel is a bit confused here:
@@ -198,11 +202,17 @@ int button_process(Button *b) {
                 */
 
                 case KEY_SLEEP:
-                        log_info("Suspend key pressed.");
+                        log_struct(LOG_INFO,
+                                   "MESSAGE=Suspend key pressed.",
+                                   MESSAGE_ID(SD_MESSAGE_SUSPEND_KEY),
+                                   NULL);
                         return button_handle(b, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, true);
 
                 case KEY_SUSPEND:
-                        log_info("Hibernate key pressed.");
+                        log_struct(LOG_INFO,
+                                   "MESSAGE=Hibernate key pressed.",
+                                   MESSAGE_ID(SD_MESSAGE_HIBERNATE_KEY),
+                                   NULL);
                         return button_handle(b, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
                 }
 
@@ -211,7 +221,10 @@ int button_process(Button *b) {
                 switch (ev.code) {
 
                 case SW_LID:
-                        log_info("Lid closed.");
+                        log_struct(LOG_INFO,
+                                   "MESSAGE=Lid closed.",
+                                   MESSAGE_ID(SD_MESSAGE_LID_CLOSED),
+                                   NULL);
                         b->lid_close_queued = true;
 
                         return button_handle(b, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, true);
@@ -222,7 +235,10 @@ int button_process(Button *b) {
                 switch (ev.code) {
 
                 case SW_LID:
-                        log_info("Lid opened.");
+                        log_struct(LOG_INFO,
+                                   "MESSAGE=Lid opened.",
+                                   MESSAGE_ID(SD_MESSAGE_LID_OPENED),
+                                   NULL);
                         b->lid_close_queued = false;
                         break;
                 }
