@@ -66,6 +66,7 @@ typedef struct UnitFileList {
 typedef struct {
         char *name;
         char *path;
+        char *user;
 
         char **aliases;
         char **wanted_by;

@@ -956,6 +956,33 @@ static int config_parse_also(
         return 0;
 }
 
+static int config_parse_user(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        InstallInfo *i = data;
+        char* printed;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        printed = install_full_printf(i, rvalue);
+        if (!printed)
+                return -ENOMEM;
+
+        free(i->user);
+        i->user = printed;
+
+        return 0;
+}
+
 static int unit_file_load(
                 InstallContext *c,
                 InstallInfo *info,
@@ -967,6 +994,7 @@ static int unit_file_load(
                 { "Install", "WantedBy",   config_parse_strv, 0, &info->wanted_by   },
                 { "Install", "RequiredBy", config_parse_strv, 0, &info->required_by },
                 { "Install", "Also",       config_parse_also, 0, c                  },
+                { "Exec",    "User",       config_parse_user, 0, info               },
                 { NULL, NULL, NULL, 0, NULL }
         };
 

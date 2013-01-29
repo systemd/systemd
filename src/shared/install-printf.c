@@ -24,6 +24,7 @@
 
 #include "specifier.h"
 #include "unit-name.h"
+#include "util.h"
 #include "install-printf.h"
 
 static char *specifier_prefix_and_instance(char specifier, void *data, void *userdata) {
@@ -56,6 +57,42 @@ static char *specifier_instance(char specifier, void *data, void *userdata) {
                 return strdup("");
 }
 
+static char *specifier_user_name(char specifier, void *data, void *userdata) {
+        InstallInfo *i = userdata;
+        const char *username;
+        char _cleanup_free_ *tmp = NULL;
+        char *printed = NULL;
+
+        assert(i);
+
+        if (i->user)
+                username = i->user;
+        else
+                /* get USER env from env or our own uid */
+                username = tmp = getusername_malloc();
+
+        switch (specifier) {
+        case 'u':
+                printed = strdup(username);
+                break;
+        case 'U': {
+                /* fish username from passwd */
+                uid_t uid;
+                int r;
+
+                r = get_user_creds(&username, &uid, NULL, NULL, NULL);
+                if (r < 0)
+                        return NULL;
+
+                if (asprintf(&printed, "%d", uid) < 0)
+                        return NULL;
+                break;
+        }}
+
+        return printed;
+}
+
+
 char *install_full_printf(InstallInfo *i, const char *format) {
 
         /* This is similar to unit_full_printf() but does not support
@@ -79,8 +116,8 @@ char *install_full_printf(InstallInfo *i, const char *format) {
                 { 'p', specifier_prefix,              NULL },
                 { 'i', specifier_instance,            NULL },
 
-//                { 'U', specifier_user_name,           NULL },
-//                { 'u', specifier_user_name,           NULL },
+                { 'U', specifier_user_name,           NULL },
+                { 'u', specifier_user_name,           NULL },
 
                 { 'm', specifier_machine_id,          NULL },
                 { 'H', specifier_host_name,           NULL },
