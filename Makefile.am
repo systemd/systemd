@@ -1325,6 +1325,10 @@ test_efivars_LDADD = \
 test_unit_name_SOURCES = \
 	src/test/test-unit-name.c
 
+test_unit_name_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
 test_unit_name_LDADD = \
 	libsystemd-core.la
 

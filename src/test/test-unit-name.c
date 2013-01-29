@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2012 Lennart Poettering
+  Copyright 2013 Zbigniew Jędrzejewski-Szmek
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -22,12 +23,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <pwd.h>
 
+#include "manager.h"
+#include "unit.h"
 #include "unit-name.h"
+#include "unit-printf.h"
+#include "install.h"
+#include "specifier.h"
 #include "util.h"
+#include "macro.h"
 
-int main(int argc, char* argv[]) {
-
+static void test_replacements(void) {
 #define expect(pattern, repl, expected)                            \
         {                                                          \
                 char _cleanup_free_ *t =                           \
@@ -96,6 +104,86 @@ int main(int argc, char* argv[]) {
         expect("_____####----.....service");
         expect("_____##@;;;,,,##----.....service");
         expect("xxx@@@@/////\\\\\\\\\\yyy.service");
+
+#undef expect
+}
+
+static void test_unit_printf(void) {
+        Manager *m;
+        Unit *u, *u2;
+
+        char _cleanup_free_ *mid, *bid, *host, *root_uid;
+        struct passwd *root;
+
+        assert_se((mid = specifier_machine_id('m', NULL, NULL)));
+        assert_se((bid = specifier_boot_id('b', NULL, NULL)));
+        assert_se((host = gethostname_malloc()));
+
+        assert_se((root = getpwnam("root")));
+        assert_se(asprintf(&root_uid, "%d", (int) root->pw_uid) > 0);
+
+        assert_se(manager_new(SYSTEMD_SYSTEM, &m) == 0);
+
+#define expect(unit, pattern, expected)                                 \
+        {                                                               \
+                char _cleanup_free_ *t =                                \
+                        unit_full_printf(unit, pattern);                \
+                printf("result: %s\n", t);                              \
+                assert(streq(t, expected));                             \
+        }
+
+        assert_se(setenv("USER", "root", 1) == 0);
+        assert_se(setenv("HOME", "/root", 1) == 0);
+
+        assert_se(u = unit_new(m, sizeof(Service)));
+        assert_se(unit_add_name(u, "blah.service") == 0);
+        assert_se(unit_add_name(u, "blah.service") == 0);
+
+        /* general tests */
+        expect(u, "%%", "%");
+        expect(u, "%%s", "%s");
+        expect(u, "%", "");    // REALLY?
+
+        /* normal unit */
+        expect(u, "%n", "blah.service");
+        expect(u, "%N", "blah");
+        expect(u, "%p", "blah");
+        expect(u, "%P", "blah");
+        expect(u, "%i", "");
+        expect(u, "%I", "");
+        expect(u, "%u", root->pw_name);
+        expect(u, "%U", root_uid);
+        expect(u, "%h", root->pw_dir);
+        expect(u, "%s", root->pw_shell);
+        expect(u, "%m", mid);
+        expect(u, "%b", bid);
+        expect(u, "%H", host);
+        expect(u, "%t", "/run");
+
+        /* templated */
+        assert_se(u2 = unit_new(m, sizeof(Service)));
+        assert_se(unit_add_name(u2, "blah@foo-foo.service") == 0);
+        assert_se(unit_add_name(u2, "blah@foo-foo.service") == 0);
+
+        expect(u2, "%n", "blah@foo-foo.service");
+        expect(u2, "%N", "blah@foo-foo");
+        expect(u2, "%p", "blah");
+        expect(u2, "%P", "blah");
+        expect(u2, "%i", "foo-foo");
+        expect(u2, "%I", "foo/foo");
+        expect(u2, "%u", root->pw_name);
+        expect(u2, "%U", root_uid);
+        expect(u2, "%h", root->pw_dir);
+        expect(u2, "%s", root->pw_shell);
+        expect(u2, "%m", mid);
+        expect(u2, "%b", bid);
+        expect(u2, "%H", host);
+        expect(u2, "%t", "/run");
+}
+
+int main(int argc, char* argv[]) {
+        test_replacements();
+        test_unit_printf();
 
         return 0;
 }
