@@ -26,6 +26,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "unit-printf.h"
+#include "macro.h"
 
 static char *specifier_prefix_and_instance(char specifier, void *data, void *userdata) {
         Unit *u = userdata;
@@ -123,6 +124,7 @@ static char *specifier_user_name(char specifier, void *data, void *userdata) {
         ExecContext *c;
         int r;
         const char *username;
+        char _cleanup_free_ *tmp = NULL;
         uid_t uid;
         char *printed = NULL;
 
@@ -130,12 +132,13 @@ static char *specifier_user_name(char specifier, void *data, void *userdata) {
 
         c = unit_get_exec_context(u);
 
-        /* get USER env from our own env if set */
-        if (!c || !c->user)
-                return getusername_malloc();
+        if (c && c->user)
+                username = c->user;
+        else
+                /* get USER env from env or our own uid */
+                username = tmp = getusername_malloc();
 
         /* fish username from passwd */
-        username = c->user;
         r = get_user_creds(&username, &uid, NULL, NULL, NULL);
         if (r < 0)
                 return NULL;
