@@ -17,7 +17,7 @@
 
 - Do not issue NSS requests (that includes user name and host name
   lookups) from the main daemon as this might trigger deadlocks when
-  we those lookups involve synchronously talking to services that we
+  those lookups involve synchronously talking to services that we
   would need to start up
 
 - Do not access any directories outside of /etc, /dev, /lib from the
