@@ -159,11 +159,10 @@
 
                 <para>Note that while systemd offers a flexible
                 dependency system between units it is recommended to
-                use this functionality only sparsely and instead rely
+                use this functionality only sparingly and instead rely
                 on techniques such as bus-based or socket-based
-                activation which makes dependencies implicit, which
-                both results in a simpler and more flexible
-                system.</para>
+                activation which make dependencies implicit, resulting
+                in a both simpler and more flexible system.</para>
 
                 <para>Some unit names reflect paths existing in the
                 file system name space. Example: a device unit
