@@ -27,151 +27,75 @@
 #include "util.h"
 
 int main(int argc, char* argv[]) {
-        char *t, *k;
 
-        t = unit_name_replace_instance("foo@.service", "waldo");
-        puts(t);
-        free(t);
+#define expect(pattern, repl, expected)                            \
+        {                                                          \
+                char _cleanup_free_ *t =                           \
+                        unit_name_replace_instance(pattern, repl); \
+                puts(t);                                           \
+                assert(streq(t, expected));                        \
+        }
 
-        t = unit_name_replace_instance("foo@xyz.service", "waldo");
-        puts(t);
-        free(t);
+        expect("foo@.service", "waldo", "foo@waldo.service");
+        expect("foo@xyz.service", "waldo", "foo@waldo.service");
+        expect("xyz", "waldo", "xyz");
+        expect("", "waldo", "");
+        expect("foo.service", "waldo", "foo.service");
+        expect(".service", "waldo", ".service");
+        expect("foo@", "waldo", "foo@waldo");
+        expect("@bar", "waldo", "@waldo");
 
-        t = unit_name_replace_instance("xyz", "waldo");
-        puts(t);
-        free(t);
+        puts("-------------------------------------------------");
+#undef expect
+#define expect(path, suffix, expected)                             \
+        {                                                          \
+                char _cleanup_free_ *k, *t =                       \
+                        unit_name_from_path(path, suffix);         \
+                puts(t);                                           \
+                k = unit_name_to_path(t);                          \
+                puts(k);                                           \
+                assert(streq(k, expected ? expected : path));     \
+        }
 
-        t = unit_name_replace_instance("", "waldo");
-        puts(t);
-        free(t);
+        expect("/waldo", ".mount", NULL);
+        expect("/waldo/quuix", ".mount", NULL);
+        expect("/waldo/quuix/", ".mount", "/waldo/quuix");
+        expect("/", ".mount", NULL);
+        expect("///", ".mount", "/");
 
-        t = unit_name_replace_instance("", "");
-        puts(t);
-        free(t);
+        puts("-------------------------------------------------");
+#undef expect
+#define expect(pattern, path, suffix, expected)                         \
+        {                                                               \
+                char _cleanup_free_ *t =                                \
+                        unit_name_from_path_instance(pattern, path, suffix); \
+                puts(t);                                                \
+                assert(streq(t, expected));                             \
+        }
 
-        t = unit_name_replace_instance("foo.service", "waldo");
-        puts(t);
-        free(t);
+        expect("waldo", "/waldo", ".mount", "waldo@waldo.mount");
+        expect("waldo", "/waldo////quuix////", ".mount", "waldo@waldo-quuix.mount");
+        expect("waldo", "/", ".mount", "waldo@-.mount");
+        expect("wa--ldo", "/--", ".mount", "wa--ldo@\\x2d\\x2d.mount");
 
-        t = unit_name_replace_instance(".service", "waldo");
-        puts(t);
-        free(t);
+        puts("-------------------------------------------------");
+#undef expect
+#define expect(pattern)                                                 \
+        {                                                               \
+                char _cleanup_free_ *k, *t;                             \
+                assert_se(t = unit_name_mangle(pattern));               \
+                assert_se(k = unit_name_mangle(t));                     \
+                puts(t);                                                \
+                assert_se(streq(t, k));                                 \
+        }
 
-        t = unit_name_replace_instance("foo@bar", "waldo");
-        puts(t);
-        free(t);
-
-        t = unit_name_replace_instance("foo@", "waldo");
-        puts(t);
-        free(t);
-
-        t = unit_name_replace_instance("@", "waldo");
-        puts(t);
-        free(t);
-
-        t = unit_name_replace_instance("@bar", "waldo");
-        puts(t);
-        free(t);
-
-        t = unit_name_from_path("/waldo", ".mount");
-        puts(t);
-        k = unit_name_to_path(t);
-        puts(k);
-        free(k);
-        free(t);
-
-        t = unit_name_from_path("/waldo/quuix", ".mount");
-        puts(t);
-        k = unit_name_to_path(t);
-        puts(k);
-        free(k);
-        free(t);
-
-        t = unit_name_from_path("/waldo/quuix/", ".mount");
-        puts(t);
-        k = unit_name_to_path(t);
-        puts(k);
-        free(k);
-        free(t);
-
-        t = unit_name_from_path("/", ".mount");
-        puts(t);
-        k = unit_name_to_path(t);
-        puts(k);
-        free(k);
-        free(t);
-
-        t = unit_name_from_path("///", ".mount");
-        puts(t);
-        k = unit_name_to_path(t);
-        puts(k);
-        free(k);
-        free(t);
-
-        t = unit_name_from_path_instance("waldo", "/waldo", ".mount");
-        puts(t);
-        free(t);
-
-        t = unit_name_from_path_instance("waldo", "/waldo////quuix////", ".mount");
-        puts(t);
-        free(t);
-
-        t = unit_name_from_path_instance("waldo", "/", ".mount");
-        puts(t);
-        free(t);
-
-        t = unit_name_from_path_instance("wa--ldo", "/--", ".mount");
-        puts(t);
-        free(t);
-
-        assert_se(t = unit_name_mangle("/home"));
-        assert_se(k = unit_name_mangle(t));
-        puts(t);
-        assert_se(streq(t, k));
-        free(t);
-        free(k);
-
-        assert_se(t = unit_name_mangle("/dev/sda"));
-        assert_se(k = unit_name_mangle(t));
-        puts(t);
-        assert_se(streq(t, k));
-        free(t);
-        free(k);
-
-        assert_se(t = unit_name_mangle("üxknürz.service"));
-        assert_se(k = unit_name_mangle(t));
-        puts(t);
-        assert_se(streq(t, k));
-        free(t);
-        free(k);
-
-        assert_se(t = unit_name_mangle("foobar-meh...waldi.service"));
-        assert_se(k = unit_name_mangle(t));
-        puts(t);
-        assert_se(streq(t, k));
-        free(t);
-        free(k);
-
-        assert_se(t = unit_name_mangle("_____####----.....service"));
-        assert_se(k = unit_name_mangle(t));
-        puts(t);
-        assert_se(streq(t, k));
-        free(t);
-        free(k);
-
-        assert_se(t = unit_name_mangle("_____##@;;;,,,##----.....service"));
-        assert_se(k = unit_name_mangle(t));
-        puts(t);
-        assert_se(streq(t, k));
-        free(t);
-        free(k);
-
-        assert_se(t = unit_name_mangle("xxx@@@@/////\\\\\\\\\\yyy.service"));
-        assert_se(k = unit_name_mangle(t));
-        puts(t);
-        assert_se(streq(t, k));
-        free(t);
-        free(k);
+        expect("/home");
+        expect("/dev/sda");
+        expect("üxknürz.service");
+        expect("foobar-meh...waldi.service");
+        expect("_____####----.....service");
+        expect("_____##@;;;,,,##----.....service");
+        expect("xxx@@@@/////\\\\\\\\\\yyy.service");
 
         return 0;
 }
