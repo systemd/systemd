@@ -49,6 +49,10 @@ Fedora 19:
 
 Features:
 
+* nspawn: investigate whether we can support the same as LXC's
+  lxc.network.type=phys mode, and pass through entire network
+  interfaces to the container
+
 * merge service_kill() logic into unit_kill_context() and unify the code paths
 
 * when auto-detecting the main pid of a service, only look for those processes with ppid == 1
