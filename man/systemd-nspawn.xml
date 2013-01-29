@@ -93,9 +93,10 @@
                 container.</para>
 
                 <para>Use a tool like
-                <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                or
+                <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                or
+                <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 to set up an OS directory tree suitable as file system
                 hierarchy for <command>systemd-nspawn</command>
                 containers.</para>
@@ -344,7 +345,7 @@
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
