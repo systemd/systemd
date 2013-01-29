@@ -27,6 +27,8 @@
 #include <unistd.h>
 
 #include "install.h"
+#include "install-printf.h"
+#include "specifier.h"
 #include "util.h"
 #include "macro.h"
 #include "hashmap.h"
@@ -228,6 +230,74 @@ static void test_load_env_file_2(void) {
         unlink(name);
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnonnull"
+
+static void test_install_printf(void) {
+        char    name[] = "name.service",
+                path[] = "/run/systemd/systemd/name.service",
+                user[] = "xxxx-no-such-user";
+        InstallInfo i = {name, path, user};
+        InstallInfo i2 = {name, path, NULL};
+        char    name3[] = "name@inst.service",
+                path3[] = "/run/systemd/systemd/name.service";
+        InstallInfo i3 = {name3, path3, user};
+        InstallInfo i4 = {name3, path3, NULL};
+
+        char _cleanup_free_ *mid, *bid, *host;
+
+        assert_se((mid = specifier_machine_id('m', NULL, NULL)));
+        assert_se((bid = specifier_boot_id('b', NULL, NULL)));
+        assert_se((host = gethostname_malloc()));
+
+#define expect(src, pattern, result)                                    \
+        {                                                               \
+                char _cleanup_free_ *t = install_full_printf(&src, pattern); \
+                char _cleanup_free_                                     \
+                        *d1 = strdup(i.name),                           \
+                        *d2 = strdup(i.path),                           \
+                        *d3 = strdup(i.user);                           \
+                memzero(i.name, strlen(i.name));                        \
+                memzero(i.path, strlen(i.path));                        \
+                memzero(i.user, strlen(i.user));                        \
+                assert(d1 && d2 && d3);                                 \
+                if (result) {                                           \
+                        printf("%s\n", t);                              \
+                        assert(streq(t, result));                       \
+                } else assert(t == NULL);                               \
+                strcpy(i.name, d1);                                     \
+                strcpy(i.path, d2);                                     \
+                strcpy(i.user, d3);                                     \
+        }
+
+        assert_se(setenv("USER", "root", 1) == 0);
+
+        expect(i, "%n", "name.service");
+        expect(i, "%N", "name");
+        expect(i, "%p", "name");
+        expect(i, "%i", "");
+        expect(i, "%u", "xxxx-no-such-user");
+        expect(i, "%U", NULL);
+        expect(i, "%m", mid);
+        expect(i, "%b", bid);
+        expect(i, "%H", host);
+
+        expect(i2, "%u", "root");
+        expect(i2, "%U", "0");
+
+        expect(i3, "%n", "name@inst.service");
+        expect(i3, "%N", "name@inst");
+        expect(i3, "%p", "name");
+        expect(i3, "%u", "xxxx-no-such-user");
+        expect(i3, "%U", NULL);
+        expect(i3, "%m", mid);
+        expect(i3, "%b", bid);
+        expect(i3, "%H", host);
+
+        expect(i4, "%u", "root");
+        expect(i4, "%U", "0");
+}
+#pragma GCC diagnostic pop
 
 int main(int argc, char *argv[]) {
 
@@ -235,6 +305,7 @@ int main(int argc, char *argv[]) {
         test_config_parse_exec();
         test_load_env_file_1();
         test_load_env_file_2();
+        test_install_printf();
 
         return 0;
 }
