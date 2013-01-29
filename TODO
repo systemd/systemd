@@ -13,6 +13,9 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
+* add 'set -e' to scripts in test/
+* make test in test/ work with separate output dir
+
 Fedora 19:
 
 * drop no longer needed modprobe.d udlfb file (it does not belong in /etc anyway)

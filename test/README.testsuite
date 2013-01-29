@@ -28,8 +28,8 @@ $ sudo make clean setup run
 If you want to log in the testsuite virtual machine, you can specify
 additional kernel command line parameter with $DEBUGFAIL.
 
-$ sudo sh -c 'DEBUGFAIL="systemd.unit=multi-user.target" make clean setup run'
+$ sudo make DEBUGFAIL="systemd.unit=multi-user.target" clean setup run
 
 you can even skip the "clean" and "setup" if you want to run the machine again.
 
-$ sudo sh -c 'DEBUGFAIL="systemd.unit=multi-user.target" make run'
+$ sudo make DEBUGFAIL="systemd.unit=multi-user.target" run

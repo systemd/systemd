@@ -33,7 +33,7 @@ run_qemu() {
 
 
 run_nspawn() {
-    systemd-nspawn -b -D $TESTDIR/nspawn-root --capability=CAP_AUDIT_CONTROL,CAP_AUDIT_WRITE /usr/lib/systemd/systemd
+    ../../systemd-nspawn -b -D $TESTDIR/nspawn-root /usr/lib/systemd/systemd
     ret=1
     [[ -e $TESTDIR/nspawn-root/testok ]] && ret=0
     cp -a $TESTDIR/nspawn-root/failed $TESTDIR
@@ -213,7 +213,7 @@ EOF
         # install ld.so.conf* and run ldconfig
         cp -a /etc/ld.so.conf* $initdir/etc
         ldconfig -r "$initdir"
-        ddebug "Strip binaeries"
+        ddebug "Strip binaries"
         find "$initdir" -perm +111 -type f | xargs strip --strip-unneeded | ddebug
 
         # copy depmod files
@@ -230,7 +230,7 @@ EOF
     ddebug "cp -ar $TESTDIR/root $TESTDIR/nspawn-root"
     cp -ar $TESTDIR/root $TESTDIR/nspawn-root
     # we don't mount in the nspawn root
-    rm -fr $TESTDIR/nspawn-root/etc/fstab
+    rm -f $TESTDIR/nspawn-root/etc/fstab
 
     ddebug "umount $TESTDIR/root"
     umount $TESTDIR/root
