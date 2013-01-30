@@ -6,6 +6,7 @@
 /systemd-hibernate.service
 /systemd-suspend.service
 /console-getty.service
+/console-getty.service.m4
 /systemd-journald.service
 /user@.service
 /systemd-logind.service
@@ -13,9 +14,11 @@
 /systemd-timedated.service
 /systemd-hostnamed.service
 /console-shell.service
+/console-shell.service.m4
 /systemd-sysctl.service
 /systemd-ask-password-console.service
 /rescue.service
+/rescue.service.m4
 /systemd-ask-password-wall.service
 /systemd-quotacheck.service
 /quotaon.service

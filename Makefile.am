@@ -28,6 +28,9 @@ SUBDIRS = . po
 # remove targets if the command fails
 .DELETE_ON_ERROR:
 
+# keep intermediate files
+.SECONDARY:
+
 LIBUDEV_CURRENT=3
 LIBUDEV_REVISION=1
 LIBUDEV_AGE=2
