@@ -644,21 +644,6 @@ MANPAGES_ALIAS = \
 	man/SD_JOURNAL_FOREACH_UNIQUE.3 \
 	man/sd_journal_get_catalog_for_message_id.3
 
-if HAVE_MICROHTTPD
-MANPAGES += \
-	man/systemd-journal-gatewayd.service.8
-MANPAGES_ALIAS += \
-	man/systemd-journal-gatewayd.socket.8 \
-	man/systemd-journal-gatewayd.8
-man/systemd-journal-gatewayd.socket.8: man/systemd-journal-gatewayd.service.8
-man/systemd-journal-gatewayd.8: man/systemd-journal-gatewayd.service.8
-endif
-
-if HAVE_MYHOSTNAME
-MANPAGES += \
-	man/nss-myhostname.8
-endif
-
 man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
 man/init.1: man/systemd.1
@@ -2883,8 +2868,8 @@ EXTRA_DIST += \
 CLEANFILES += \
 	src/journal/journald-gperf.c
 
+# ------------------------------------------------------------------------------
 if HAVE_MICROHTTPD
-
 gatewayddocumentrootdir=$(pkgdatadir)/gatewayd
 
 rootlibexec_PROGRAMS += \
@@ -2917,6 +2902,13 @@ nodist_systemunit_DATA += \
 dist_gatewayddocumentroot_DATA = \
 	src/journal/browse.html
 
+MANPAGES += \
+	man/systemd-journal-gatewayd.service.8
+MANPAGES_ALIAS += \
+	man/systemd-journal-gatewayd.socket.8 \
+	man/systemd-journal-gatewayd.8
+man/systemd-journal-gatewayd.socket.8: man/systemd-journal-gatewayd.service.8
+man/systemd-journal-gatewayd.8: man/systemd-journal-gatewayd.service.8
 endif
 
 EXTRA_DIST += \
@@ -3444,6 +3436,31 @@ EXTRA_DIST += \
 	units/systemd-timedated.service.in
 
 # ------------------------------------------------------------------------------
+if HAVE_MYHOSTNAME
+libnss_myhostname_la_SOURCES = \
+	src/nss-myhostname/nss-myhostname.c \
+	src/nss-myhostname/ifconf.h \
+	src/nss-myhostname/netlink.c
+
+libnss_myhostname_la_CFLAGS = \
+	$(AM_CFLAGS)
+
+libnss_myhostname_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-module \
+	-export-dynamic \
+	-avoid-version \
+	-shared \
+	-shrext .so.2
+
+lib_LTLIBRARIES += \
+	libnss_myhostname.la
+
+MANPAGES += \
+	man/nss-myhostname.8
+endif
+
+# ------------------------------------------------------------------------------
 if ENABLE_LOGIND
 systemd_logind_SOURCES = \
 	src/login/logind.c \
@@ -3601,27 +3618,7 @@ pamlib_LTLIBRARIES = \
 	pam_systemd.la
 endif
 
-if HAVE_MYHOSTNAME
-libnss_myhostname_la_SOURCES = \
-	src/nss-myhostname/nss-myhostname.c \
-	src/nss-myhostname/ifconf.h \
-	src/nss-myhostname/netlink.c
-
-libnss_myhostname_la_CFLAGS = \
-	$(AM_CFLAGS)
-
-libnss_myhostname_la_LDFLAGS = \
-	$(AM_LDFLAGS) \
-	-module \
-	-export-dynamic \
-	-avoid-version \
-	-shared \
-	-shrext .so.2
-
-lib_LTLIBRARIES += \
-	libnss_myhostname.la
-endif
-
+# ------------------------------------------------------------------------------
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-login-install-hook:
 	libname=libsystemd-login.so && $(move-to-rootlibdir)
