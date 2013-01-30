@@ -416,6 +416,9 @@ nodist_systemunit_DATA = \
 if HAVE_KMOD
 nodist_systemunit_DATA += \
 	units/systemd-modules-load.service
+
+EXTRA_DIST += \
+	units/systemd-modules-load.service.in
 endif
 
 dist_userunit_DATA = \
@@ -461,8 +464,10 @@ EXTRA_DIST += \
 	introspect.awk \
 	man/custom-html.xsl
 
-EXTRA_DIST += \
-	units/systemd-modules-load.service.in
+CLEANFILES += \
+	units/console-shell.service.m4 \
+	units/console-getty.service.m4 \
+	units/rescue.service.m4
 
 if HAVE_SYSV_COMPAT
 nodist_systemunit_DATA += \
@@ -1243,7 +1248,8 @@ EXTRA_DIST += \
 	src/core/macros.systemd.in
 
 CLEANFILES += \
-	src/core/macros.systemd
+	src/core/macros.systemd \
+	src/core/org.freedesktop.systemd1.policy.in
 
 # ------------------------------------------------------------------------------
 noinst_PROGRAMS += \
