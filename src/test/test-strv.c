@@ -24,19 +24,25 @@
 #include "util.h"
 #include "specifier.h"
 
-int main(int argc, char *argv[]) {
+static void test_specifier_printf(void) {
+        char *w;
+
         const Specifier table[] = {
                 { 'a', specifier_string, (char*) "AAAA" },
                 { 'b', specifier_string, (char*) "BBBB" },
                 { 0, NULL, NULL }
         };
 
+        w = specifier_printf("xxx a=%a b=%b yyy", table, NULL);
+        printf("<%s>\n", w);
+        free(w);
+}
+
+static void test_foreach_word_quoted(void) {
         char *w, *state;
         size_t l;
         const char test[] = "test a b c 'd' e '' '' hhh '' ''";
-
         printf("<%s>\n", test);
-
         FOREACH_WORD_QUOTED(w, l, test, state) {
                 char *t;
 
@@ -44,7 +50,9 @@ int main(int argc, char *argv[]) {
                 printf("<%s>\n", t);
                 free(t);
         }
+}
 
+static void test_default_term_for_tty(void) {
         printf("%s\n", default_term_for_tty("/dev/tty23"));
         printf("%s\n", default_term_for_tty("/dev/ttyS23"));
         printf("%s\n", default_term_for_tty("/dev/tty0"));
@@ -57,10 +65,12 @@ int main(int argc, char *argv[]) {
         printf("%s\n", default_term_for_tty("pty0"));
         printf("%s\n", default_term_for_tty("pts/0"));
         printf("%s\n", default_term_for_tty("console"));
+}
 
-        w = specifier_printf("xxx a=%a b=%b yyy", table, NULL);
-        printf("<%s>\n", w);
-        free(w);
+int main(int argc, char *argv[]) {
+        test_default_term_for_tty();
+        test_foreach_word_quoted();
+        test_specifier_printf();
 
         return 0;
 }
