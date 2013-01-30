@@ -23,6 +23,7 @@
 
 #include "util.h"
 #include "specifier.h"
+#include "strv.h"
 
 static void test_specifier_printf(void) {
         char *w;
@@ -52,6 +53,49 @@ static void test_foreach_word_quoted(void) {
         }
 }
 
+static void test_strv_join(void) {
+        char *r;
+
+        const char * const input_table_multiple[] = {
+                "one",
+                "two",
+                "three",
+                NULL
+        };
+        const char * const input_table_one[] = {
+                "one",
+                NULL
+        };
+        const char * const input_table_none[] = {
+                NULL
+        };
+
+        r = strv_join((char **)input_table_multiple, ", ");
+        assert_se(streq(r, "one, two, three"));
+        puts(r);
+        free(r);
+
+        r = strv_join((char **)input_table_multiple, ";");
+        assert_se(streq(r, "one;two;three"));
+        puts(r);
+        free(r);
+
+        r = strv_join((char **)input_table_multiple, NULL);
+        assert_se(streq(r, "one two three"));
+        puts(r);
+        free(r);
+
+        r = strv_join((char **)input_table_one, ", ");
+        assert_se(streq(r, "one"));
+        puts(r);
+        free(r);
+
+        r = strv_join((char **)input_table_none, ", ");
+        assert_se(streq(r, ""));
+        puts(r);
+        free(r);
+}
+
 static void test_default_term_for_tty(void) {
         printf("%s\n", default_term_for_tty("/dev/tty23"));
         printf("%s\n", default_term_for_tty("/dev/ttyS23"));
@@ -71,6 +115,7 @@ int main(int argc, char *argv[]) {
         test_default_term_for_tty();
         test_foreach_word_quoted();
         test_specifier_printf();
+        test_strv_join();
 
         return 0;
 }
