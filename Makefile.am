@@ -3877,19 +3877,13 @@ src/%: src/%.m4
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) < $< > $@
 
-M4_PROCESS_SYSTEM = \
-	$(AM_V_M4)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DEFINES) -DFOR_SYSTEM=1 < $< > $@
-
-M4_PROCESS_USER = \
-	$(AM_V_M4)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@
-
 units/%: units/%.m4 Makefile
-	$(M4_PROCESS_SYSTEM)
+	$(AM_V_M4)$(MKDIR_P) $(dir $@)
+	$(AM_V_M4)$(M4) -P $(M4_DEFINES) -DFOR_SYSTEM=1 < $< > $@
 
 units/user/%: units/%.m4 Makefile
-	$(M4_PROCESS_USER)
+	$(AM_V_M4)$(MKDIR_P) $(dir $@)
+	$(AM_V_M4)$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@
 
 nodist_polkitpolicy_DATA = \
 	$(polkitpolicy_files) \
