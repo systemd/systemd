@@ -295,11 +295,6 @@ rootlibexec_PROGRAMS = \
 	systemd-sysctl \
 	systemd-sleep
 
-if HAVE_KMOD
-rootlibexec_PROGRAMS += \
-	systemd-modules-load
-endif
-
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator \
 	systemd-fstab-generator \
@@ -412,14 +407,6 @@ nodist_systemunit_DATA = \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
 	units/debug-shell.service
-
-if HAVE_KMOD
-nodist_systemunit_DATA += \
-	units/systemd-modules-load.service
-
-EXTRA_DIST += \
-	units/systemd-modules-load.service.in
-endif
 
 dist_userunit_DATA = \
 	units/user/default.target \
@@ -656,15 +643,6 @@ MANPAGES_ALIAS = \
 	man/sd_journal_restart_unique.3 \
 	man/SD_JOURNAL_FOREACH_UNIQUE.3 \
 	man/sd_journal_get_catalog_for_message_id.3
-
-if HAVE_KMOD
-MANPAGES += \
-	man/modules-load.d.5 \
-	man/systemd-modules-load.service.8
-MANPAGES_ALIAS += \
-	man/systemd-modules-load.8
-man/systemd-modules-load.8: man/systemd-modules-load.service.8
-endif
 
 if HAVE_MICROHTTPD
 MANPAGES += \
@@ -1508,8 +1486,8 @@ systemd_shutdown_LDADD = \
 	libsystemd-shared.la \
 	libudev.la
 
-if HAVE_KMOD
 # ------------------------------------------------------------------------------
+if HAVE_KMOD
 systemd_modules_load_SOURCES = \
 	src/modules-load/modules-load.c
 
@@ -1520,7 +1498,28 @@ systemd_modules_load_CFLAGS = \
 systemd_modules_load_LDADD = \
 	libsystemd-shared.la \
 	$(KMOD_LIBS)
+
+rootlibexec_PROGRAMS += \
+	systemd-modules-load
+
+nodist_systemunit_DATA += \
+	units/systemd-modules-load.service
+SYSINIT_TARGET_WANTS += \
+	systemd-modules-load.service
+
+dist_udevrules_DATA += \
+	rules/80-drivers.rules
+
+MANPAGES += \
+	man/modules-load.d.5 \
+	man/systemd-modules-load.service.8
+MANPAGES_ALIAS += \
+	man/systemd-modules-load.8
+man/systemd-modules-load.8: man/systemd-modules-load.service.8
 endif
+
+EXTRA_DIST += \
+	units/systemd-modules-load.service.in
 
 # ------------------------------------------------------------------------------
 systemd_tmpfiles_SOURCES = \
@@ -1935,11 +1934,6 @@ dist_udevrules_DATA += \
 	rules/78-sound-card.rules \
 	rules/80-net-name-slot.rules \
 	rules/95-udev-late.rules
-
-if HAVE_KMOD
-dist_udevrules_DATA += \
-	rules/80-drivers.rules
-endif
 
 dist_udevhwdb_DATA = \
 	hwdb/20-pci-vendor-product.hwdb \
@@ -4072,11 +4066,6 @@ INSTALL_DIRS += \
 	$(pkgsysconfdir)/user \
 	$(dbussessionservicedir) \
 	$(sysconfdir)/xdg/systemd
-
-if HAVE_KMOD
-SYSINIT_TARGET_WANTS += \
-	systemd-modules-load.service
-endif
 
 install-exec-hook: $(INSTALL_EXEC_HOOKS)
 
