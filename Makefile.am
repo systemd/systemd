@@ -172,7 +172,6 @@ AM_CFLAGS = $(OUR_CFLAGS)
 AM_LDFLAGS = $(OUR_LDFLAGS)
 
 # ------------------------------------------------------------------------------
-
 define move-to-rootlibdir
 	if test "$(libdir)" != "$(rootlibdir)"; then \
 		$(MKDIR_P) $(DESTDIR)$(rootlibdir) && \
@@ -250,7 +249,6 @@ INSTALL_EXEC_HOOKS += \
 	install-aliases-hook
 
 # ------------------------------------------------------------------------------
-
 AM_V_M4 = $(AM_V_M4_$(V))
 AM_V_M4_ = $(AM_V_M4_$(AM_DEFAULT_VERBOSITY))
 AM_V_M4_0 = @echo "  M4      " $@;
@@ -2340,7 +2338,6 @@ EXTRA_DIST += \
 	src/gudev/seed-example-enum.js \
 	src/gudev/seed-example.js
 
-
 # ------------------------------------------------------------------------------
 if ENABLE_KEYMAP
 keymap_SOURCES = \
@@ -3197,7 +3194,6 @@ MANPAGES_ALIAS += \
 	man/systemd-cryptsetup.8
 
 man/systemd-cryptsetup.8: man/systemd-cryptsetup@.service.8
-
 endif
 
 # ------------------------------------------------------------------------------
@@ -3618,7 +3614,6 @@ pamlib_LTLIBRARIES = \
 	pam_systemd.la
 endif
 
-# ------------------------------------------------------------------------------
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libsystemd-login-install-hook:
 	libname=libsystemd-login.so && $(move-to-rootlibdir)
@@ -3766,9 +3761,7 @@ EXTRA_DIST += \
 	units/systemd-user-sessions.service.in
 
 # ------------------------------------------------------------------------------
-
 if HAVE_PYTHON_DEVEL
-
 pkgpyexec_LTLIBRARIES = \
 	_journal.la
 
@@ -3793,11 +3786,9 @@ _journal_la_LIBADD = \
 dist_pkgpyexec_PYTHON = \
 	src/python-systemd/journal.py \
 	src/python-systemd/__init__.py
-
 endif
 
 # ------------------------------------------------------------------------------
-
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(SED)	-e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
@@ -3900,6 +3891,7 @@ CLEANFILES += \
 	$(pkgconfiglib_DATA) \
 	$(nodist_polkitpolicy_DATA)
 
+# ------------------------------------------------------------------------------
 if ENABLE_MANPAGES
 XSLTPROC_FLAGS = \
 	--nonet \
@@ -3940,6 +3932,7 @@ CLEANFILES += \
 	${XML_FILES:.xml=.html}
 endif
 
+# ------------------------------------------------------------------------------
 DBUS_PREPROCESS = $(CPP) -P $(CFLAGS) $(DBUS_CFLAGS) -imacros dbus/dbus-protocol.h
 
 CLEANFILES += \
@@ -3961,7 +3954,6 @@ docs/var-log/README: docs/var-log/README.in
 CLEANFILES += \
 	docs/sysvinit/README \
 	docs/var-log/README
-
 endif
 
 EXTRA_DIST += \
@@ -4018,6 +4010,7 @@ SYSTEM_UNIT_ALIASES += \
 	graphical.target runlevel5.target \
 	reboot.target runlevel6.target
 endif
+
 SYSTEM_UNIT_ALIASES += \
 	graphical.target default.target \
 	reboot.target ctrl-alt-del.target \
@@ -4044,6 +4037,7 @@ INSTALL_DIRS += \
 	$(systemunitdir)/runlevel4.target.wants \
 	$(systemunitdir)/runlevel5.target.wants
 endif
+
 INSTALL_DIRS += \
 	$(tmpfilesdir) \
 	$(sysconfdir)/tmpfiles.d \
