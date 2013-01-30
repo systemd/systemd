@@ -214,7 +214,7 @@
                 specified it should consist of one or more english
                 language week day names, either in the abbreviated
                 (Wed) or non-abbreviated (Wednesday) form (case does
-                not matter), separated by colons. Specifying two week
+                not matter), separated by commas. Specifying two week
                 days separated by "-" refers to a range of continuous
                 week days. "," and "-" may be combined freely.</para>
 
@@ -222,7 +222,7 @@
                 component may be specified as "*" in which case any
                 value will match. Alternatively, each component can be
                 specified as list of values separated by
-                colons. Values may also be suffixed with "/" and a
+                commas. Values may also be suffixed with "/" and a
                 repetition value, which indicates that the value and
                 all values plus multiples of the repetition value are
                 matched.</para>
