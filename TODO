@@ -51,7 +51,18 @@ Fedora 19:
   - localectl: add listing support for X11 keymaps, by parsing /usr/share/X11/xkb/rules/xorg.lst
   - localectl: support new converted x11→console keymaps
 
+* The tag "seat-master" in udev is badly named, as it might conflict with
+  actual seat names.
+
 Features:
+
+* Honour "-" for InaccessibleDirectories= and ReadOnlyDirectories= to
+  suppress errors of the specified path doesn't exist
+
+* dev-setup.c: when running in a container, create a tiny stub udev
+  database with the systemd tag set for all network interfaces found,
+  so that libudev reports them as present, and systemd's .device units
+  will be activated.
 
 * nspawn: investigate whether we can support the same as LXC's
   lxc.network.type=phys mode, and pass through entire network
