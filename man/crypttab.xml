@@ -182,7 +182,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>read-only</varname></term>
+                                <term><varname>read-only</varname></term><term><varname>readonly</varname></term>
 
                                 <listitem><para>Set up the encrypted
                                 block device in read-only

@@ -111,7 +111,7 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
-        } else if (streq(option, "readonly"))
+        } else if (streq(option, "readonly") || streq(option, "read-only"))
                 opt_readonly = true;
         else if (streq(option, "verify"))
                 opt_verify = true;
