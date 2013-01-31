@@ -275,19 +275,6 @@ static bool avoid_bus(void) {
         return false;
 }
 
-struct unit_info {
-        const char *id;
-        const char *description;
-        const char *load_state;
-        const char *active_state;
-        const char *sub_state;
-        const char *following;
-        const char *unit_path;
-        uint32_t job_id;
-        const char *job_type;
-        const char *job_path;
-};
-
 static int compare_unit_info(const void *a, const void *b) {
         const char *d1, *d2;
         const struct unit_info *u = a, *v = b;

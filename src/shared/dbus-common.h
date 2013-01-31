@@ -199,6 +199,19 @@ int bus_parse_strv(DBusMessage *m, char ***_l);
 int bus_parse_strv_iter(DBusMessageIter *iter, char ***_l);
 int bus_parse_strv_pairs_iter(DBusMessageIter *iter, char ***_l);
 
+struct unit_info {
+        const char *id;
+        const char *description;
+        const char *load_state;
+        const char *active_state;
+        const char *sub_state;
+        const char *following;
+        const char *unit_path;
+        uint32_t job_id;
+        const char *job_type;
+        const char *job_path;
+};
+
 int bus_append_strv_iter(DBusMessageIter *iter, char **l);
 
 int bus_iter_get_basic_and_next(DBusMessageIter *iter, int type, void *data, bool next);
