@@ -435,7 +435,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 static int list_units(DBusConnection *bus, char **args) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         _cleanup_free_ struct unit_info *unit_infos = NULL;
-        DBusMessageIter iter, sub, sub2;
+        DBusMessageIter iter, sub;
         unsigned c = 0, n_units = 0;
         int r;
 
@@ -465,8 +465,6 @@ static int list_units(DBusConnection *bus, char **args) {
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                 struct unit_info *u;
 
-                assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT);
-
                 if (c >= n_units) {
                         struct unit_info *w;
 
@@ -480,21 +478,7 @@ static int list_units(DBusConnection *bus, char **args) {
 
                 u = unit_infos + c;
 
-                dbus_message_iter_recurse(&sub, &sub2);
-
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->id, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->description, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->load_state, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->active_state, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->sub_state, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->following, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &u->unit_path, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &u->job_id, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->job_type, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &u->job_path, false) < 0) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
+                bus_parse_unit_info(&sub, u);
 
                 dbus_message_iter_next(&sub);
                 c++;
@@ -966,19 +950,19 @@ static int dot_one_property(const char *name, const char *prop, DBusMessageIter 
         return 0;
 }
 
-static int dot_one(DBusConnection *bus, const char *name, const char *path) {
+static int dot_one(DBusConnection *bus, const struct unit_info *u) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         const char *interface = "org.freedesktop.systemd1.Unit";
         int r;
         DBusMessageIter iter, sub, sub2, sub3;
 
         assert(bus);
-        assert(path);
+        assert(u);
 
         r = bus_method_call_with_reply(
                         bus,
                         "org.freedesktop.systemd1",
-                        path,
+                        u->unit_path,
                         "org.freedesktop.DBus.Properties",
                         "GetAll",
                         &reply,
@@ -1010,7 +994,7 @@ static int dot_one(DBusConnection *bus, const char *name, const char *path) {
                 }
 
                 dbus_message_iter_recurse(&sub2, &sub3);
-                r = dot_one_property(name, prop, &sub3);
+                r = dot_one_property(u->id, prop, &sub3);
                 if (r < 0)
                         return r;
 
@@ -1022,7 +1006,7 @@ static int dot_one(DBusConnection *bus, const char *name, const char *path) {
 
 static int dot(DBusConnection *bus, char **args) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        DBusMessageIter iter, sub, sub2;
+        DBusMessageIter iter, sub;
         int r;
 
         r = bus_method_call_with_reply(
@@ -1048,31 +1032,17 @@ static int dot(DBusConnection *bus, char **args) {
 
         dbus_message_iter_recurse(&iter, &sub);
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *id, *description, *load_state, *active_state, *sub_state, *following, *unit_path;
+                struct unit_info u;
 
-                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
-                        log_error("Failed to parse reply.");
+                r = bus_parse_unit_info(&sub, &u);
+                if (r < 0)
                         return -EIO;
-                }
 
-                dbus_message_iter_recurse(&sub, &sub2);
-
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &id, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &description, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &load_state, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &active_state, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &sub_state, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &following, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &unit_path, true) < 0) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                r = dot_one(bus, id, unit_path);
+                r = dot_one(bus, &u);
                 if (r < 0)
                         return r;
 
-                /* printf("\t\"%s\";\n", id); */
+                /* printf("\t\"%s\";\n", u.id); */
                 dbus_message_iter_next(&sub);
         }
 
