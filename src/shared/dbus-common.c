@@ -988,6 +988,34 @@ int bus_parse_strv_pairs_iter(DBusMessageIter *iter, char ***_l) {
         return 0;
 }
 
+int bus_parse_unit_info(DBusMessageIter *iter, struct unit_info *u) {
+        DBusMessageIter sub;
+
+        assert(iter);
+        assert(u);
+
+        if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_STRUCT)
+                return -EINVAL;
+
+        dbus_message_iter_recurse(iter, &sub);
+
+        if (bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &u->id, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &u->description, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &u->load_state, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &u->active_state, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &u->sub_state, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &u->following, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub, DBUS_TYPE_OBJECT_PATH, &u->unit_path, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub, DBUS_TYPE_UINT32, &u->job_id, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &u->job_type, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub, DBUS_TYPE_OBJECT_PATH, &u->job_path, false) < 0) {
+                log_error("Failed to parse reply.");
+                return -EIO;
+        }
+
+        return 0;
+}
+
 int bus_append_strv_iter(DBusMessageIter *iter, char **l) {
         DBusMessageIter sub;
 
