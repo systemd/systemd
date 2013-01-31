@@ -274,9 +274,6 @@ Features:
     https://bugs.freedesktop.org/show_bug.cgi?id=54982
   - when key file cannot be found, read it from kbd in cryptsetup
 
-* instantiated [Install] for target units
-  https://bugs.freedesktop.org/show_bug.cgi?id=54377
-
 * move debug shell to tty6 and make sure this doesn't break the gettys on tty6
 
 * hw watchdog: optionally try to use the preset watchdog timeout instead of always overriding it
