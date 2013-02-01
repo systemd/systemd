@@ -641,16 +641,6 @@
                                 <listitem>
                                         <para>A special target unit
                                         covering early boot-up scripts.</para>
-                                        <para>systemd automatically
-                                        adds dependencies of the types
-                                        Wants and After for all
-                                        SysV service units configured
-                                        for runlevels that are not 0
-                                        to 6 to this target unit.
-                                        This covers the special
-                                        boot-up runlevels some
-                                        distributions have, such as S
-                                        or b.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
