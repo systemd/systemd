@@ -214,26 +214,6 @@ char **path_strv_canonicalize(char **l) {
         return l;
 }
 
-char **path_strv_remove_empty(char **l) {
-        char **f, **t;
-
-        if (!l)
-                return NULL;
-
-        for (f = t = l; *f; f++) {
-
-                if (dir_is_empty(*f) > 0) {
-                        free(*f);
-                        continue;
-                }
-
-                *(t++) = *f;
-        }
-
-        *t = NULL;
-        return l;
-}
-
 char *path_kill_slashes(char *path) {
         char *f, *t;
         bool slash = false;
