@@ -239,7 +239,6 @@ int lookup_paths_init(
                 const char *generator_late) {
 
         const char *e;
-        char *t;
 
         assert(p);
 
@@ -318,14 +317,12 @@ int lookup_paths_init(
         strv_uniq(p->unit_path);
 
         if (!strv_isempty(p->unit_path)) {
-
-                t = strv_join(p->unit_path, "\n\t");
+                char _cleanup_free_ *t = strv_join(p->unit_path, "\n\t");
                 if (!t)
                         return -ENOMEM;
-                log_debug("Looking for unit files in:\n\t%s", t);
-                free(t);
+                log_info("Looking for unit files in (higher priority first):\n\t%s", t);
         } else {
-                log_debug("Ignoring unit files.");
+                log_info("Ignoring unit files.");
                 strv_free(p->unit_path);
                 p->unit_path = NULL;
         }
@@ -380,33 +377,30 @@ int lookup_paths_init(
                 strv_uniq(p->sysvrcnd_path);
 
                 if (!strv_isempty(p->sysvinit_path)) {
-
-                        t = strv_join(p->sysvinit_path, "\n\t");
+                        char _cleanup_free_ *t = strv_join(p->sysvinit_path, "\n\t");
                         if (!t)
                                 return -ENOMEM;
-                        log_debug("Looking for SysV init scripts in:\n\t%s", t);
-                        free(t);
+                        log_info("Looking for SysV init scripts in:\n\t%s", t);
                 } else {
-                        log_debug("Ignoring SysV init scripts.");
+                        log_info("Ignoring SysV init scripts.");
                         strv_free(p->sysvinit_path);
                         p->sysvinit_path = NULL;
                 }
 
                 if (!strv_isempty(p->sysvrcnd_path)) {
-
-                        t = strv_join(p->sysvrcnd_path, "\n\t");
+                        char _cleanup_free_ *t =
+                                strv_join(p->sysvrcnd_path, "\n\t");
                         if (!t)
                                 return -ENOMEM;
 
                         log_debug("Looking for SysV rcN.d links in:\n\t%s", t);
-                        free(t);
                 } else {
                         log_debug("Ignoring SysV rcN.d links.");
                         strv_free(p->sysvrcnd_path);
                         p->sysvrcnd_path = NULL;
                 }
 #else
-                log_debug("Disabled SysV init scripts and rcN.d links support");
+                log_info("SysV init scripts and rcN.d links support disabled");
 #endif
         }
 

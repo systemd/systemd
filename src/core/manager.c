@@ -2263,7 +2263,8 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
 
                 r = mkdir_p_label(p, 0755);
                 if (r < 0) {
-                        log_error("Failed to create generator directory: %s", strerror(-r));
+                        log_error("Failed to create generator directory %s: %s",
+                                  p, strerror(-r));
                         free(p);
                         return r;
                 }
@@ -2274,7 +2275,8 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
 
                 if (!mkdtemp(p)) {
                         free(p);
-                        log_error("Failed to create generator directory: %m");
+                        log_error("Failed to create generator directory %s: %m",
+                                  p);
                         return -errno;
                 }
         }
@@ -2313,7 +2315,8 @@ void manager_run_generators(Manager *m) {
                 if (errno == ENOENT)
                         return;
 
-                log_error("Failed to enumerate generator directory: %m");
+                log_error("Failed to enumerate generator directory %s: %m",
+                          generator_path);
                 return;
         }
 
