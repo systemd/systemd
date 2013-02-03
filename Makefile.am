@@ -478,246 +478,11 @@ dist_doc_DATA = \
 @INTLTOOL_POLICY_RULE@
 
 # ------------------------------------------------------------------------------
-MANPAGES = \
-	man/systemd.1 \
-	man/systemctl.1 \
-	man/systemd-cgls.1 \
-	man/systemd-delta.1 \
-	man/systemd-cgtop.1 \
-	man/systemd-nspawn.1 \
-	man/systemd-tmpfiles.8 \
-	man/systemd-notify.1 \
-	man/systemd.unit.5 \
-	man/systemd.service.5 \
-	man/systemd.socket.5 \
-	man/systemd.mount.5 \
-	man/systemd.automount.5 \
-	man/systemd.swap.5 \
-	man/systemd.timer.5 \
-	man/systemd.path.5 \
-	man/systemd.target.5 \
-	man/systemd.device.5 \
-	man/systemd.snapshot.5 \
-	man/systemd.exec.5 \
-	man/systemd.kill.5 \
-	man/systemd.special.7 \
-	man/systemd.journal-fields.7 \
-	man/systemd.time.7 \
-	man/kernel-command-line.7 \
-	man/daemon.7 \
-	man/bootup.7 \
-	man/runlevel.8 \
-	man/telinit.8 \
-	man/halt.8 \
-	man/shutdown.8 \
-	man/pam_systemd.8 \
-	man/systemd.conf.5 \
-	man/tmpfiles.d.5 \
-	man/hostname.5 \
-	man/localtime.5 \
-	man/machine-id.5 \
-	man/locale.conf.5 \
-	man/os-release.5 \
-	man/machine-info.5 \
-	man/sysctl.d.5 \
-	man/systemd-sysctl.service.8 \
-	man/systemd-ask-password.1 \
-	man/systemd-cat.1 \
-	man/systemd-machine-id-setup.1 \
-	man/systemd-detect-virt.1 \
-	man/journald.conf.5 \
-	man/systemd-journald.service.8 \
-	man/journalctl.1 \
-	man/systemd-coredumpctl.1 \
-	man/systemd-inhibit.1 \
-	man/systemd-remount-fs.service.8 \
-	man/systemd-update-utmp-runlevel.service.8 \
-	man/systemd-initctl.service.8 \
-	man/systemd-shutdownd.service.8 \
-	man/systemd-suspend.service.8 \
-	man/systemd-halt.service.8 \
-	man/systemd-fsck@.service.8 \
-	man/systemd-ask-password-console.service.8 \
-	man/systemd-analyze.1 \
-	man/systemd-tty-ask-password-agent.1 \
-	man/systemd-getty-generator.8 \
-	man/systemd-system-update-generator.8 \
-	man/systemd-fstab-generator.8 \
-	man/systemd.preset.5 \
-	man/sd-id128.3 \
-	man/sd_id128_to_string.3 \
-	man/sd_id128_randomize.3 \
-	man/sd_id128_get_machine.3 \
-	man/sd-journal.3 \
-	man/sd_journal_print.3 \
-	man/sd_journal_stream_fd.3 \
-	man/sd_journal_open.3 \
-	man/sd_journal_next.3 \
-	man/sd_journal_get_data.3 \
-	man/sd_journal_get_realtime_usec.3 \
-	man/sd_journal_get_cutoff_realtime_usec.3 \
-	man/sd_journal_get_cursor.3 \
-	man/sd_journal_get_fd.3 \
-	man/sd_journal_get_usage.3 \
-	man/sd_journal_add_match.3 \
-	man/sd_journal_seek_head.3 \
-	man/sd_journal_query_unique.3 \
-	man/sd_journal_get_catalog.3
 
-MANPAGES_ALIAS = \
-	man/reboot.8 \
-	man/poweroff.8 \
-	man/init.1 \
-	man/systemd-sysctl.8 \
-	man/systemd-journald.socket.8 \
-	man/systemd-journald.8 \
-	man/systemd-remount-fs.8 \
-	man/systemd-update-utmp-shutdown.service.8 \
-	man/systemd-update-utmp.8 \
-	man/systemd-initctl.socket.8 \
-	man/systemd-initctl.8 \
-	man/systemd-shutdownd.socket.8 \
-	man/systemd-shutdownd.8 \
-	man/systemd-hibernate.service.8 \
-	man/systemd-hybrid-sleep.service.8 \
-	man/systemd-sleep.8 \
-	man/systemd-shutdown.8 \
-	man/systemd-poweroff.service.8 \
-	man/systemd-reboot.service.8 \
-	man/systemd-kexec.service.8 \
-	man/systemd-fsck.8 \
-	man/systemd-fsck-root.service.8 \
-	man/systemd-ask-password-console.path.8 \
-	man/systemd-ask-password-wall.service.8 \
-	man/systemd-ask-password-wall.path.8 \
-	man/systemd-tmpfiles-setup.service.8 \
-	man/systemd-tmpfiles-clean.service.8 \
-	man/systemd-tmpfiles-clean.timer.8 \
-	man/sd_id128_t.3 \
-	man/SD_ID128_MAKE.3 \
-	man/SD_ID128_CONST_STR.3 \
-	man/SD_ID128_FORMAT_STR.3 \
-	man/SD_ID128_FORMAT_VAL.3 \
-	man/sd_id128_equal.3 \
-	man/sd_id128_from_string.3 \
-	man/sd_id128_get_boot.3 \
-	man/sd_journal_printv.3 \
-	man/sd_journal_send.3 \
-	man/sd_journal_sendv.3 \
-	man/sd_journal_perror.3 \
-	man/SD_JOURNAL_SUPPRESS_LOCATION.3 \
-	man/sd_journal_open_directory.3 \
-	man/sd_journal_close.3 \
-	man/sd_journal.3 \
-	man/SD_JOURNAL_RUNTIME_ONLY.3 \
-	man/SD_JOURNAL_SYSTEM_ONLY.3 \
-	man/SD_JOURNAL_LOCAL_ONLY.3 \
-	man/sd_journal_previous.3 \
-	man/sd_journal_next_skip.3 \
-	man/sd_journal_previous_skip.3 \
-	man/SD_JOURNAL_FOREACH.3 \
-	man/SD_JOURNAL_FOREACH_BACKWARDS.3 \
-	man/sd_journal_enumerate_data.3 \
-	man/sd_journal_restart_data.3 \
-	man/SD_JOURNAL_FOREACH_DATA.3 \
-	man/sd_journal_get_monotonic_usec.3 \
-	man/sd_journal_get_cutoff_monotonic_usec.3 \
-	man/sd_journal_reliable_fd.3 \
-	man/sd_journal_process.3 \
-	man/sd_journal_wait.3 \
-	man/SD_JOURNAL_NOP.3 \
-	man/SD_JOURNAL_APPEND.3 \
-	man/SD_JOURNAL_INVALIDATE.3 \
-	man/sd_journal_add_disjunction.3 \
-	man/sd_journal_flush_matches.3 \
-	man/sd_journal_get_data_threshold.3 \
-	man/sd_journal_set_data_threshold.3 \
-	man/sd_journal_seek_tail.3 \
-	man/sd_journal_seek_monotonic_usec.3 \
-	man/sd_journal_seek_realtime_usec.3 \
-	man/sd_journal_seek_cursor.3 \
-	man/sd_journal_test_cursor.3 \
-	man/sd_journal_enumerate_unique.3 \
-	man/sd_journal_restart_unique.3 \
-	man/SD_JOURNAL_FOREACH_UNIQUE.3 \
-	man/sd_journal_get_catalog_for_message_id.3
+MANPAGES =
+MANPAGES_ALIAS =
 
-man/reboot.8: man/halt.8
-man/poweroff.8: man/halt.8
-man/init.1: man/systemd.1
-man/systemd-sysctl.8: man/systemd-sysctl.service.8
-man/systemd-journald.socket.8: man/systemd-journald.service.8
-man/systemd-journald.8: man/systemd-journald.service.8
-man/systemd-remount-fs.8: man/systemd-remount-fs.service.8
-man/systemd-update-utmp-shutdown.service.8: man/systemd-update-utmp-runlevel.service.8
-man/systemd-update-utmp.8: man/systemd-update-utmp-runlevel.service.8
-man/systemd-initctl.socket.8: man/systemd-initctl.service.8
-man/systemd-initctl.8: man/systemd-initctl.service.8
-man/systemd-shutdownd.socket.8: man/systemd-shutdownd.service.8
-man/systemd-shutdownd.8: man/systemd-shutdownd.service.8
-man/systemd-hibernate.service.8: man/systemd-suspend.service.8
-man/systemd-hybrid-sleep.service.8: man/systemd-suspend.service.8
-man/systemd-sleep.8: man/systemd-suspend.service.8
-man/systemd-shutdown.8: man/systemd-halt.service.8
-man/systemd-poweroff.service.8: man/systemd-halt.service.8
-man/systemd-reboot.service.8: man/systemd-halt.service.8
-man/systemd-kexec.service.8: man/systemd-halt.service.8
-man/systemd-fsck.8: man/systemd-fsck@.service.8
-man/systemd-fsck-root.service.8: man/systemd-fsck@.service.8
-man/systemd-ask-password-console.path.8: man/systemd-ask-password-console.service.8
-man/systemd-ask-password-wall.service.8: man/systemd-ask-password-console.service.8
-man/systemd-ask-password-wall.path.8: man/systemd-ask-password-console.service.8
-man/systemd-tmpfiles-setup.service.8: man/systemd-tmpfiles.8
-man/systemd-tmpfiles-clean.service.8: man/systemd-tmpfiles.8
-man/systemd-tmpfiles-clean.timer.8: man/systemd-tmpfiles.8
-man/sd_id128_t.3: man/sd-id128.3
-man/SD_ID128_MAKE.3: man/sd-id128.3
-man/SD_ID128_CONST_STR.3: man/sd-id128.3
-man/SD_ID128_FORMAT_STR.3: man/sd-id128.3
-man/SD_ID128_FORMAT_VAL.3: man/sd-id128.3
-man/sd_id128_equal.3: man/sd-id128.3
-man/sd_id128_from_string.3: man/sd_id128_to_string.3
-man/sd_id128_get_boot.3: man/sd_id128_get_machine.3
-man/sd_journal_printv.3: man/sd_journal_print.3
-man/sd_journal_send.3: man/sd_journal_print.3
-man/sd_journal_sendv.3: man/sd_journal_print.3
-man/sd_journal_perror.3: man/sd_journal_print.3
-man/SD_JOURNAL_SUPPRESS_LOCATION.3: man/sd_journal_print.3
-man/sd_journal_open_directory.3: man/sd_journal_open.3
-man/sd_journal_close.3: man/sd_journal_open.3
-man/sd_journal.3: man/sd_journal_open.3
-man/SD_JOURNAL_RUNTIME_ONLY.3: man/sd_journal_open.3
-man/SD_JOURNAL_SYSTEM_ONLY.3: man/sd_journal_open.3
-man/SD_JOURNAL_LOCAL_ONLY.3: man/sd_journal_open.3
-man/sd_journal_previous.3: man/sd_journal_next.3
-man/sd_journal_next_skip.3: man/sd_journal_next.3
-man/sd_journal_previous_skip.3: man/sd_journal_next.3
-man/SD_JOURNAL_FOREACH.3: man/sd_journal_next.3
-man/SD_JOURNAL_FOREACH_BACKWARDS.3: man/sd_journal_next.3
-man/sd_journal_enumerate_data.3: man/sd_journal_get_data.3
-man/sd_journal_restart_data.3: man/sd_journal_get_data.3
-man/SD_JOURNAL_FOREACH_DATA.3: man/sd_journal_get_data.3
-man/sd_journal_get_monotonic_usec.3: man/sd_journal_get_realtime_usec.3
-man/sd_journal_get_cutoff_monotonic_usec.3: man/sd_journal_get_cutoff_realtime_usec.3
-man/sd_journal_reliable_fd.3: man/sd_journal_get_fd.3
-man/sd_journal_process.3: man/sd_journal_get_fd.3
-man/sd_journal_wait.3: man/sd_journal_get_fd.3
-man/SD_JOURNAL_NOP.3: man/sd_journal_get_fd.3
-man/SD_JOURNAL_APPEND.3: man/sd_journal_get_fd.3
-man/SD_JOURNAL_INVALIDATE.3: man/sd_journal_get_fd.3
-man/sd_journal_add_disjunction.3: man/sd_journal_add_match.3
-man/sd_journal_get_data_threshold.3: man/sd_journal_get_data.3
-man/sd_journal_set_data_threshold.3: man/sd_journal_get_data.3
-man/sd_journal_flush_matches.3: man/sd_journal_add_match.3
-man/sd_journal_seek_tail.3: man/sd_journal_seek_head.3
-man/sd_journal_seek_monotonic_usec.3: man/sd_journal_seek_head.3
-man/sd_journal_seek_realtime_usec.3: man/sd_journal_seek_head.3
-man/sd_journal_seek_cursor.3: man/sd_journal_seek_head.3
-man/sd_journal_test_cursor.3: man/sd_journal_get_cursor.3
-man/sd_journal_enumerate_unique.3: man/sd_journal_query_unique.3
-man/sd_journal_restart_unique.3: man/sd_journal_query_unique.3
-man/SD_JOURNAL_FOREACH_UNIQUE.3: man/sd_journal_query_unique.3
-man/sd_journal_get_catalog_for_message_id.3: man/sd_journal_get_catalog.3
+include Makefile-man.am
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
@@ -736,10 +501,6 @@ CLEANFILES += \
 	${XML_FILES:.xml=.html}
 
 if HAVE_PYTHON
-MANPAGES += \
-	man/systemd.index.7 \
-	man/systemd.directives.7
-
 NON_INDEX_XML_FILES = $(filter-out man/systemd.index.xml,$(XML_FILES))
 man/systemd.index.xml: make-man-index.py $(NON_INDEX_XML_FILES)
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
@@ -1503,12 +1264,6 @@ SYSINIT_TARGET_WANTS += \
 dist_udevrules_DATA += \
 	rules/80-drivers.rules
 
-MANPAGES += \
-	man/modules-load.d.5 \
-	man/systemd-modules-load.service.8
-MANPAGES_ALIAS += \
-	man/systemd-modules-load.8
-man/systemd-modules-load.8: man/systemd-modules-load.service.8
 endif
 
 EXTRA_DIST += \
@@ -1777,44 +1532,6 @@ lib_LTLIBRARIES += \
 pkgconfiglib_DATA += \
 	src/libsystemd-daemon/libsystemd-daemon.pc
 
-MANPAGES += \
-	man/sd-daemon.3 \
-	man/sd_notify.3 \
-	man/sd_listen_fds.3 \
-	man/sd_is_fifo.3 \
-	man/sd_booted.3
-
-MANPAGES_ALIAS += \
-	man/sd_is_socket.3 \
-	man/sd_is_socket_unix.3 \
-	man/sd_is_socket_inet.3 \
-	man/sd_is_mq.3 \
-	man/sd_notifyf.3 \
-	man/SD_LISTEN_FDS_START.3 \
-	man/SD_EMERG.3 \
-	man/SD_ALERT.3 \
-	man/SD_CRIT.3 \
-	man/SD_ERR.3 \
-	man/SD_WARNING.3 \
-	man/SD_NOTICE.3 \
-	man/SD_INFO.3 \
-	man/SD_DEBUG.3
-
-man/sd_is_socket.3: man/sd_is_fifo.3
-man/sd_is_socket_unix.3: man/sd_is_fifo.3
-man/sd_is_socket_inet.3: man/sd_is_fifo.3
-man/sd_is_mq.3: man/sd_is_fifo.3
-man/sd_notifyf.3: man/sd_notify.3
-man/SD_LISTEN_FDS_START.3: man/sd_listen_fds.3
-man/SD_EMERG.3: man/sd-daemon.3
-man/SD_ALERT.3: man/sd-daemon.3
-man/SD_CRIT.3: man/sd-daemon.3
-man/SD_ERR.3: man/sd-daemon.3
-man/SD_WARNING.3: man/sd-daemon.3
-man/SD_NOTICE.3: man/sd-daemon.3
-man/SD_INFO.3: man/sd-daemon.3
-man/SD_DEBUG.3: man/sd-daemon.3
-
 EXTRA_DIST += \
 	src/libsystemd-daemon/libsystemd-daemon.pc.in \
 	src/libsystemd-daemon/libsystemd-daemon.sym
@@ -1892,20 +1609,6 @@ libudev_private_la_LIBADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
-MANPAGES += \
-	man/udev.7 \
-	man/udevadm.8 \
-	man/systemd-udevd.service.8
-
-MANPAGES_ALIAS += \
-	man/systemd-udevd.8 \
-	man/systemd-udevd-control.socket.8 \
-	man/systemd-udevd-kernel.socket.8
-
-man/systemd-udevd.8: man/systemd-udevd.service.8
-man/systemd-udevd-control.socket.8: man/systemd-udevd.service.8
-man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
-
 INSTALL_DIRS += \
 	$(sysconfdir)/udev/rules.d \
 	$(sysconfdir)/udev/hwdb.d
@@ -2907,13 +2610,6 @@ nodist_systemunit_DATA += \
 dist_gatewayddocumentroot_DATA = \
 	src/journal/browse.html
 
-MANPAGES += \
-	man/systemd-journal-gatewayd.service.8
-MANPAGES_ALIAS += \
-	man/systemd-journal-gatewayd.socket.8 \
-	man/systemd-journal-gatewayd.8
-man/systemd-journal-gatewayd.socket.8: man/systemd-journal-gatewayd.service.8
-man/systemd-journal-gatewayd.8: man/systemd-journal-gatewayd.service.8
 endif
 
 EXTRA_DIST += \
@@ -2973,14 +2669,6 @@ SYSINIT_TARGET_WANTS += \
 	systemd-binfmt.service \
 	proc-sys-fs-binfmt_misc.automount
 
-MANPAGES += \
-	man/binfmt.d.5 \
-	man/systemd-binfmt.service.8
-
-MANPAGES_ALIAS +=  \
-	man/systemd-binfmt.8
-
-man/systemd-binfmt.8: man/systemd-binfmt.service.8
 endif
 
 EXTRA_DIST += \
@@ -3002,15 +2690,6 @@ nodist_systemunit_DATA += \
 
 SYSINIT_TARGET_WANTS += \
 	systemd-vconsole-setup.service
-
-MANPAGES += \
-	man/vconsole.conf.5 \
-	man/systemd-vconsole-setup.service.8
-
-MANPAGES_ALIAS += \
-	man/systemd-vconsole-setup.8
-
-man/systemd-vconsole-setup.8: man/systemd-vconsole-setup.service.8
 endif
 
 EXTRA_DIST += \
@@ -3047,22 +2726,6 @@ nodist_systemunit_DATA += \
 	units/systemd-readahead-replay.service \
 	units/systemd-readahead-done.service
 
-MANPAGES += \
-	man/sd_readahead.3 \
-	man/sd-readahead.3 \
-	man/systemd-readahead-replay.service.8
-
-MANPAGES_ALIAS += \
-	man/systemd-readahead-collect.service.8 \
-	man/systemd-readahead-done.service.8 \
-	man/systemd-readahead-done.timer.8 \
-	man/systemd-readahead.8
-
-man/systemd-readahead-collect.service.8: man/systemd-readahead-replay.service.8
-man/systemd-readahead-done.service.8: man/systemd-readahead-replay.service.8
-man/systemd-readahead-done.timer.8: man/systemd-readahead-replay.service.8
-man/systemd-readahead.8: man/systemd-readahead-replay.service.8
-
 endif
 
 EXTRA_DIST += \
@@ -3080,10 +2743,6 @@ systemd_bootchart_SOURCES = \
 
 systemd_bootchart_LDADD = \
 	libsystemd-shared.la
-
-MANPAGES += \
-	man/systemd-bootchart.1 \
-	man/bootchart.conf.5
 
 rootlibexec_PROGRAMS += \
 	systemd-bootchart
@@ -3105,15 +2764,6 @@ systemd_quotacheck_SOURCES = \
 
 systemd_quotacheck_LDADD = \
 	libsystemd-shared.la
-
-MANPAGES += \
-	man/systemd-quotacheck.service.8
-
-MANPAGES_ALIAS += \
-	man/systemd-quotacheck.8
-
-man/systemd-quotacheck.8: man/systemd-quotacheck.service.8
-
 endif
 
 EXTRA_DIST += \
@@ -3142,16 +2792,6 @@ SHUTDOWN_TARGET_WANTS += \
 	systemd-random-seed-save.service
 SYSINIT_TARGET_WANTS += \
 	systemd-random-seed-load.service
-
-MANPAGES += \
-	man/systemd-random-seed-load.service.8
-
-MANPAGES_ALIAS +=  \
-	man/systemd-random-seed-save.service.8 \
-	man/systemd-random-seed.8
-
-man/systemd-random-seed-save.service.8: man/systemd-random-seed-load.service.8
-man/systemd-random-seed.8: man/systemd-random-seed-load.service.8
 
 endif
 
@@ -3193,15 +2833,6 @@ systemd_cryptsetup_generator_LDADD = \
 SYSINIT_TARGET_WANTS += \
 	cryptsetup.target
 
-MANPAGES += \
-	man/systemd-cryptsetup@.service.8 \
-	man/systemd-cryptsetup-generator.8 \
-	man/crypttab.5
-
-MANPAGES_ALIAS += \
-	man/systemd-cryptsetup.8
-
-man/systemd-cryptsetup.8: man/systemd-cryptsetup@.service.8
 endif
 
 # ------------------------------------------------------------------------------
@@ -3244,14 +2875,6 @@ org.freedesktop.hostname1.xml: systemd-hostnamed
 SYSTEM_UNIT_ALIASES += \
 	systemd-hostnamed.service dbus-org.freedesktop.hostname1.service
 
-MANPAGES += \
-	man/systemd-hostnamed.service.8
-
-MANPAGES_ALIAS += \
-	man/systemd-hostnamed.8
-
-man/systemd-hostnamed.8: man/systemd-hostnamed.service.8
-
 hostnamectl_SOURCES = \
 	src/hostname/hostnamectl.c
 
@@ -3266,9 +2889,6 @@ hostnamectl_LDADD = \
 
 bin_PROGRAMS += \
 	hostnamectl
-
-MANPAGES += \
-	man/hostnamectl.1
 
 endif
 
@@ -3319,14 +2939,6 @@ org.freedesktop.locale1.xml: systemd-localed
 SYSTEM_UNIT_ALIASES += \
 	systemd-localed.service dbus-org.freedesktop.locale1.service
 
-MANPAGES += \
-	man/systemd-localed.service.8
-
-MANPAGES_ALIAS += \
-	man/systemd-localed.8
-
-man/systemd-localed.8: man/systemd-localed.service.8
-
 dist_pkgdata_DATA += \
 	src/locale/kbd-model-map
 
@@ -3350,9 +2962,6 @@ localectl_LDADD = \
 
 bin_PROGRAMS += \
 	localectl
-
-MANPAGES += \
-	man/localectl.1
 
 endif
 
@@ -3406,14 +3015,6 @@ INSTALL_DIRS += \
 SYSTEM_UNIT_ALIASES += \
 	systemd-timedated.service dbus-org.freedesktop.timedate1.service
 
-MANPAGES += \
-	man/systemd-timedated.service.8
-
-MANPAGES_ALIAS += \
-	man/systemd-timedated.8
-
-man/systemd-timedated.8: man/systemd-timedated.service.8
-
 timedatectl_SOURCES = \
 	src/timedate/timedatectl.c
 
@@ -3427,9 +3028,6 @@ timedatectl_LDADD = \
 
 bin_PROGRAMS += \
 	timedatectl
-
-MANPAGES += \
-	man/timedatectl.1
 
 endif
 
@@ -3459,9 +3057,6 @@ libnss_myhostname_la_LDFLAGS = \
 
 lib_LTLIBRARIES += \
 	libnss_myhostname.la
-
-MANPAGES += \
-	man/nss-myhostname.8
 endif
 
 # ------------------------------------------------------------------------------
@@ -3687,68 +3282,6 @@ dist_udevrules_DATA += \
 nodist_udevrules_DATA += \
 	src/login/71-seat.rules \
 	src/login/73-seat-late.rules
-
-MANPAGES += \
-	man/systemd-logind.service.8 \
-	man/logind.conf.5 \
-	man/sd-login.3 \
-	man/loginctl.1 \
-	man/sd_login_monitor_new.3 \
-	man/sd_pid_get_session.3 \
-	man/sd_uid_get_state.3 \
-	man/sd_session_is_active.3 \
-	man/sd_seat_get_active.3 \
-	man/sd_get_seats.3 \
-	man/systemd-user-sessions.service.8
-
-MANPAGES_ALIAS += \
-	man/sd_login_monitor_unref.3 \
-	man/sd_login_monitor_flush.3 \
-	man/sd_login_monitor_get_fd.3 \
-	man/sd_login_monitor.3 \
-	man/sd_session_get_uid.3 \
-	man/sd_session_get_seat.3 \
-	man/sd_session_get_service.3 \
-	man/sd_session_get_state.3 \
-	man/sd_session_get_type.3 \
-	man/sd_session_get_class.3 \
-	man/sd_session_get_display.3 \
-	man/sd_session_get_tty.3 \
-	man/sd_pid_get_owner_uid.3 \
-	man/sd_pid_get_unit.3 \
-	man/sd_uid_is_on_seat.3 \
-	man/sd_uid_get_sessions.3 \
-	man/sd_uid_get_seats.3 \
-	man/sd_seat_get_sessions.3 \
-	man/sd_seat_can_multi_session.3 \
-	man/sd_get_sessions.3 \
-	man/sd_get_uids.3 \
-	man/systemd-logind.8 \
-	man/systemd-user-sessions.8
-
-man/systemd-logind.8: man/systemd-logind.service.8
-man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
-man/sd_login_monitor_flush.3: man/sd_login_monitor_new.3
-man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
-man/sd_login_monitor.3: man/sd_login_monitor_new.3
-man/sd_session_get_uid.3: man/sd_session_is_active.3
-man/sd_session_get_seat.3: man/sd_session_is_active.3
-man/sd_session_get_service.3: man/sd_session_is_active.3
-man/sd_session_get_state.3: man/sd_session_is_active.3
-man/sd_session_get_type.3: man/sd_session_is_active.3
-man/sd_session_get_class.3: man/sd_session_is_active.3
-man/sd_session_get_display.3: man/sd_session_is_active.3
-man/sd_session_get_tty.3: man/sd_session_is_active.3
-man/sd_pid_get_owner_uid.3: man/sd_pid_get_session.3
-man/sd_pid_get_unit.3: man/sd_pid_get_session.3
-man/sd_uid_is_on_seat.3: man/sd_uid_get_state.3
-man/sd_uid_get_sessions.3: man/sd_uid_get_state.3
-man/sd_uid_get_seats.3: man/sd_uid_get_state.3
-man/sd_seat_get_sessions.3: man/sd_seat_get_active.3
-man/sd_seat_can_multi_session.3: man/sd_seat_get_active.3
-man/sd_get_sessions.3: man/sd_get_seats.3
-man/sd_get_uids.3: man/sd_get_seats.3
-man/systemd-user-sessions.8: man/systemd-user-sessions.service.8
 
 CLEANFILES += \
 	src/login/logind-gperf.c \
