@@ -23,7 +23,7 @@ import xml.etree.ElementTree as tree
 import re
 
 TEMPLATE = '''\
-<refentry id="systemd.directives">
+<refentry id="systemd.directives" conditional="HAVE_PYTHON">
 
         <refentryinfo>
                 <title>systemd.directives</title>

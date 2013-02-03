@@ -21,7 +21,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-journal-gatewayd.service">
+<refentry id="systemd-journal-gatewayd.service" conditional='HAVE_MICROHTTPD'>
 
   <refentryinfo>
     <title>systemd-journal-gatewayd.service</title>

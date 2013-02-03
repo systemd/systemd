@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_uid_get_state">
+<refentry id="sd_uid_get_state" conditional='HAVE_PAM'>
 
         <refentryinfo>
                 <title>sd_uid_get_state</title>

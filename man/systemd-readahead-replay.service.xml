@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-readahead-replay.service">
+<refentry id="systemd-readahead-replay.service" conditional='ENABLE_READAHEAD'>
 
         <refentryinfo>
                 <title>systemd-readahead-replay.service</title>

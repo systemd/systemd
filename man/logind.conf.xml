@@ -22,7 +22,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="logind.conf">
+<refentry id="logind.conf" conditional='HAVE_PAM'>
         <refentryinfo>
                 <title>logind.conf</title>
                 <productname>systemd</productname>

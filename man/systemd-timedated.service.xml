@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-timedated.service">
+<refentry id="systemd-timedated.service" conditional='ENABLE_TIMEDATED'>
 
         <refentryinfo>
                 <title>systemd-timedated.service</title>

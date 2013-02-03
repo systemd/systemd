@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_pid_get_session">
+<refentry id="sd_pid_get_session" conditional='HAVE_PAM'>
 
         <refentryinfo>
                 <title>sd_pid_get_session</title>

@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="hostnamectl">
+<refentry id="hostnamectl" conditional='ENABLE_HOSTNAMED'>
 
         <refentryinfo>
                 <title>hostnamectl</title>

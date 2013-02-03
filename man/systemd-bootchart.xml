@@ -25,7 +25,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-bootchart">
+<refentry id="systemd-bootchart" conditional='ENABLE_BOOTCHART'>
         <refentryinfo>
                 <title>systemd-bootchart</title>
                 <productname>systemd</productname>

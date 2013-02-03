@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-localed.service">
+<refentry id="systemd-localed.service" conditional='ENABLE_LOCALED'>
 
         <refentryinfo>
                 <title>systemd-localed.service</title>

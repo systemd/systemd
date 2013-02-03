@@ -22,7 +22,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="vconsole.conf">
+<refentry id="vconsole.conf" conditional='ENABLE_VCONSOLE'>
         <refentryinfo>
                 <title>vconsole.conf</title>
                 <productname>systemd</productname>

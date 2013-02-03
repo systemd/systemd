@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_login_monitor_new">
+<refentry id="sd_login_monitor_new" conditional='HAVE_PAM'>
 
         <refentryinfo>
                 <title>sd_login_monitor_new</title>

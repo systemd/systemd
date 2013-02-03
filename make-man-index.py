@@ -24,7 +24,7 @@ import sys
 MDASH = ' — ' if sys.version_info.major >= 3 else ' -- '
 
 TEMPLATE = '''\
-<refentry id="systemd.index">
+<refentry id="systemd.index" conditional="HAVE_PYTHON">
 
   <refentryinfo>
     <title>systemd.index</title>

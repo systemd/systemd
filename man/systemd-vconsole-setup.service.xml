@@ -19,7 +19,7 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="systemd-vconsole-setup.service">
+<refentry id="systemd-vconsole-setup.service" conditional='ENABLE_VCONSOLE'>
 
         <refentryinfo>
                 <title>systemd-vconsole-setup.service</title>

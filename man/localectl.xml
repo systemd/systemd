@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="localectl">
+<refentry id="localectl" conditional='ENABLE_LOCALED'>
 
         <refentryinfo>
                 <title>localectl</title>

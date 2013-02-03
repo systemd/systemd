@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_notify">
+<refentry id="sd_notify" conditional='ENABLE_READAHEAD'>
 
         <refentryinfo>
                 <title>sd_readahead</title>

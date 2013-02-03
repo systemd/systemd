@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-hostnamed.service">
+<refentry id="systemd-hostnamed.service" conditional='ENABLE_HOSTNAMED'>
 
         <refentryinfo>
                 <title>systemd-hostnamed.service</title>
