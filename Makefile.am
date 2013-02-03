@@ -1906,11 +1906,9 @@ man/systemd-udevd.8: man/systemd-udevd.service.8
 man/systemd-udevd-control.socket.8: man/systemd-udevd.service.8
 man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
 
-udev-confdirs:
-	-$(MKDIR_P) $(DESTDIR)$(sysconfdir)/udev/rules.d
-	-$(MKDIR_P) $(DESTDIR)$(sysconfdir)/udev/hwdb.d
-
-INSTALL_DATA_HOOKS += udev-confdirs
+INSTALL_DIRS += \
+	$(sysconfdir)/udev/rules.d \
+	$(sysconfdir)/udev/hwdb.d
 
 dist_udevrules_DATA += \
 	rules/99-systemd.rules \
