@@ -886,12 +886,6 @@ int show_journal_by_unit(
         assert(mode < _OUTPUT_MODE_MAX);
         assert(unit);
 
-        if (!endswith(unit, ".service") &&
-            !endswith(unit, ".socket") &&
-            !endswith(unit, ".mount") &&
-            !endswith(unit, ".swap"))
-                return 0;
-
         if (how_many <= 0)
                 return 0;
 
@@ -961,11 +955,6 @@ int show_journal_by_user_unit(
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
         assert(unit);
-
-        if (!endswith(unit, ".service") &&
-            !endswith(unit, ".socket"))
-
-                return 0;
 
         if (how_many <= 0)
                 return 0;
