@@ -3,8 +3,6 @@ Bugfixes:
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
-* make anaconda write timeout=0 for encrypted devices
-
 * Dangling symlinks of .automount unit files in .wants/ directories, set up
   automount points even when the original .automount file did not exist
   anymore. Only the .mount unit was still around.
@@ -16,7 +14,10 @@ Bugfixes:
 * add 'set -e' to scripts in test/
 * make test in test/ work with separate output dir
 
+* suppress log output on shutdown when "quiet" is used
+
 Fedora 19:
+* make anaconda write timeout=0 for encrypted devices
 
 * drop no longer needed modprobe.d udlfb file (it does not belong in /etc anyway)
 
