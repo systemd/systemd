@@ -3345,6 +3345,8 @@ SED_PROCESS = \
 		-e 's,@SYSTEMCTL\@,$(rootbindir)/systemctl,g' \
 		-e 's,@SYSTEMD_NOTIFY\@,$(rootbindir)/systemd-notify,g' \
 		-e 's,@pkgsysconfdir\@,$(pkgsysconfdir),g' \
+		-e 's,@SYSTEM_CONFIG_UNIT_PATH\@,$(pkgsysconfdir)/system,g' \
+		-e 's,@USER_CONFIG_UNIT_PATH\@,$(pkgsysconfdir)/user,g' \
 		-e 's,@pkgdatadir\@,$(pkgdatadir),g' \
 		-e 's,@systemunitdir\@,$(systemunitdir),g' \
 		-e 's,@userunitdir\@,$(userunitdir),g' \

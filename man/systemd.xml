@@ -535,7 +535,9 @@
                                 <command>disable</command> commands of
                                 the
                                 <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                                tool.</para></listitem>
+                                tool. Full list of directories is provided in
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                                </para></listitem>
                         </varlistentry>
                 </variablelist>
 
@@ -564,7 +566,9 @@
                                 tool can handle both global (i.e. for
                                 all users) and private (for one user)
                                 enabling/disabling of
-                                units.</para></listitem>
+                                units. Full list of directories is provided in
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                                </para></listitem>
                         </varlistentry>
                 </variablelist>
 

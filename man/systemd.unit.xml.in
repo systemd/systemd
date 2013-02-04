@@ -48,16 +48,28 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd.service</filename>,
-                <filename>systemd.socket</filename>,
-                <filename>systemd.device</filename>,
-                <filename>systemd.mount</filename>,
-                <filename>systemd.automount</filename>,
-                <filename>systemd.swap</filename>,
-                <filename>systemd.target</filename>,
-                <filename>systemd.path</filename>,
-                <filename>systemd.timer</filename>,
-                <filename>systemd.snapshot</filename></para>
+                <para><filename><replaceable>service</replaceable>.service</filename>,
+                <filename><replaceable>socket</replaceable>.socket</filename>,
+                <filename><replaceable>device</replaceable>.device</filename>,
+                <filename><replaceable>mount</replaceable>.mount</filename>,
+                <filename><replaceable>automount</replaceable>.automount</filename>,
+                <filename><replaceable>swap</replaceable>.swap</filename>,
+                <filename><replaceable>target</replaceable>.target</filename>,
+                <filename><replaceable>path</replaceable>.path</filename>,
+                <filename><replaceable>timer</replaceable>.timer</filename>,
+                <filename><replaceable>snapshot</replaceable>.snapshot</filename></para>
+
+                <para><literallayout><filename>/etc/systemd/system/*</filename>
+<filename>/run/systemd/system/*</filename>
+<filename>/usr/lib/systemd/system/*</filename>
+<filename>...</filename>
+                </literallayout></para>
+
+                <para><literallayout><filename>/etc/systemd/user/*</filename>
+<filename>/run/systemd/user/*</filename>
+<filename>/usr/lib/systemd/user/*</filename>
+<filename>...</filename>
+                </literallayout></para>
         </refsynopsisdiv>
 
         <refsect1>
@@ -66,7 +78,7 @@
                 <para>A unit configuration file encodes information
                 about a service, a socket, a device, a mount point, an
                 automount point, a swap file or partition, a start-up
-                target, a file system path or a timer controlled and
+                target, a file system path, or a timer controlled and
                 supervised by
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
                 syntax is inspired by <ulink
@@ -84,7 +96,22 @@
                 sections described here, each unit may have a
                 type-specific section, e.g. [Service] for a service
                 unit. See the respective man pages for more
-                information.</para>
+                information:
+                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                </para>
+
+                <para>Unit files are loaded from a set of paths
+                determined during compilation, described in the next section.
+                </para>
 
                 <para>Unit files may contain additional options on top
                 of those listed here. If systemd encounters an unknown
@@ -212,6 +239,153 @@
                 url="http://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
                 Stability Promise</ulink>.</para>
 
+        </refsect1>
+
+        <refsect1>
+                <title>Unit load path</title>
+
+                <para>Unit files are loaded from a set of paths
+                determined during compilation, described in the two
+                tables below. Unit files found in directories higher
+                in the hierarchy override files with the same name
+                lower in the hierarchy, thus allowing overrides.
+                </para>
+
+                <para>When systemd is running in session mode
+                (<option>--user</option>) and the variable
+                <varname>$SYSTEMD_UNIT_PATH</varname> is set, this
+                contents of this variable overrides the unit load
+                path.
+                </para>
+
+                <table>
+                  <title>
+                    Load path when running in system mode (<option>--system</option>).
+                  </title>
+
+                  <tgroup cols='2'>
+                    <colspec colname='path' />
+                    <colspec colname='expl' />
+                    <thead>
+                      <row>
+                        <entry>Path</entry>
+                        <entry>Description</entry>
+                      </row>
+                    </thead>
+                    <tbody>
+                      <row>
+                        <entry><filename>/run/systemd/generator.early</filename></entry>
+                        <entry>Generated units</entry>
+                      </row>
+                      <row>
+                        <entry><filename>@SYSTEM_CONFIG_UNIT_PATH@</filename></entry>
+                        <entry morerows='1'>Local configuration</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/etc/systemd/system</filename></entry>
+                      </row>
+                      <row>
+                        <entry><filename>/run/systemd/systemd</filename></entry>
+                        <entry>Volatile units</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/run/systemd/generator</filename></entry>
+                        <entry>Generated units</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/usr/local/lib/systemd/system</filename></entry>
+                        <entry>Units for local packages</entry>
+                      </row>
+                      <row>
+                        <entry><filename>@systemunitdir@</filename></entry>
+                        <entry>Systemd package configuration</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/usr/lib/systemd/system</filename></entry>
+                        <entry morerows='1'>Units for installed packages</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/lib/systemd/system</filename></entry>
+                      </row>
+                      <row>
+                        <entry><filename>/run/systemd/generator.late</filename></entry>
+                        <entry>Generated units</entry>
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
+
+                <table>
+                  <title>
+                    Load path when running in session mode (<option>--user</option>).
+                  </title>
+
+                  <tgroup cols='2'>
+                    <colspec colname='path' />
+                    <colspec colname='expl' />
+                    <thead>
+                      <row>
+                        <entry>Path</entry>
+                        <entry>Description</entry>
+                      </row>
+                    </thead>
+                    <tbody>
+                      <row>
+                        <entry><filename>/tmp/systemd-generator.early.<replaceable>XXXXXX</replaceable></filename></entry>
+                        <entry>Generated units</entry>
+                      </row>
+                      <row>
+                        <entry><filename>@USER_CONFIG_UNIT_PATH@</filename></entry>
+                        <entry morerows='1'>Local configuration</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/etc/systemd/user</filename></entry>
+                      </row>
+                      <row>
+                        <entry><filename>/run/systemd/user</filename></entry>
+                        <entry>Volatile units</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/tmp/systemd-generator.<replaceable>XXXXXX</replaceable></filename></entry>
+                        <entry>Generated units</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/usr/local/lib/systemd/user</filename></entry>
+                        <entry morerows='1'>Units for local packages</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/usr/local/share/systemd/user</filename></entry>
+                      </row>
+                      <row>
+                        <entry><filename>@userunitdir@</filename></entry>
+                        <entry>Systemd package configuration</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/usr/lib/systemd/user</filename></entry>
+                        <entry morerows='1'>Units for installed packages</entry>
+                      </row>
+                      <row>
+                        <entry><filename>/usr/share/systemd/user</filename></entry>
+                      </row>
+                      <row>
+                        <entry><filename>/tmp/systemd-generator.late.<replaceable>XXXXXX</replaceable></filename></entry>
+                        <entry>Generated units</entry>
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
+
+                <para>Note: the paths listed above are set at
+                compilation time and differ between distributions. The
+                "authorative" list is printed by
+                <command>systemd</command> at during start and daemon
+                reconfiguration.</para>
+
+                <para>Additional units might be loaded into systemd
+                ("linked") from directories not on the unit load
+                path. See the <command>link</command> command for
+                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+                </para>
         </refsect1>
 
         <refsect1>
