@@ -219,6 +219,7 @@ sub oui {
 
         open(IN, "<", "iab.txt");
         while (my $line = <IN>) {
+                $line =~ s/^ +//;
                 $line =~ s/\s+$//;
                 $line =~ m/^([0-9A-F]{2})-([0-9A-F]{2})-([0-9A-F]{2})\s*\(hex\)\s*.+$/;
                 if (defined $1) {
@@ -241,6 +242,7 @@ sub oui {
 
         open(IN, "<", "oui.txt");
         while (my $line = <IN>) {
+                $line =~ s/^ +//;
                 $line =~ s/\s+$//;
                 $line =~ m/^([0-9A-F]{6})\s*\(base 16\)\s*(.+)$/;
                 if (defined $1) {
