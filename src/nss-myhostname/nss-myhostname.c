@@ -176,7 +176,11 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         /* Verify the size matches */
         assert(idx == ms);
 
-        *pat = r_tuple_prev;
+        /* Nscd expects us to store the first record in **pat. */
+        if (*pat)
+                **pat = *r_tuple_prev;
+        else
+                *pat = r_tuple_prev;
 
         if (ttlp)
                 *ttlp = 0;
