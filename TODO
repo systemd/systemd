@@ -56,6 +56,9 @@ Fedora 19:
 
 Features:
 
+* We should not set KDSKBMODE to K_UNICODE in vconsole-setup if the
+  kbd is currently in raw/off state.
+
 * Honour "-" for InaccessibleDirectories= and ReadOnlyDirectories= to
   suppress errors of the specified path doesn't exist
 
