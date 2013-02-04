@@ -954,7 +954,7 @@ int show_journal_by_user_unit(
                 uid_t uid,
                 OutputFlags flags) {
 
-        _cleanup_free_ char *m1 = NULL, *m2 = NULL, *m3 = NULL;
+        _cleanup_free_ char *m1 = NULL, *m2 = NULL, *m3 = NULL, *m4 = NULL;
         sd_journal *j = NULL;
         int r;
 
@@ -972,7 +972,8 @@ int show_journal_by_user_unit(
 
         if (asprintf(&m1, "_SYSTEMD_USER_UNIT=%s", unit) < 0 ||
             asprintf(&m2, "USER_UNIT=%s", unit) < 0 ||
-            asprintf(&m3, "_UID=%d", uid) < 0) {
+            asprintf(&m3, "COREDUMP_USER_UNIT=%s", unit) < 0 ||
+            asprintf(&m4, "_UID=%d", uid) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }
@@ -985,7 +986,7 @@ int show_journal_by_user_unit(
         r = sd_journal_add_match(j, m1, 0);
         if (r < 0)
                 goto finish;
-        r = sd_journal_add_match(j, m3, 0);
+        r = sd_journal_add_match(j, m4, 0);
         if (r < 0)
                 goto finish;
 
@@ -996,7 +997,18 @@ int show_journal_by_user_unit(
         r = sd_journal_add_match(j, m2, 0);
         if (r < 0)
                 goto finish;
+        r = sd_journal_add_match(j, m4, 0);
+        if (r < 0)
+                goto finish;
+
+        /* Look for coredumps of the service */
+        r = sd_journal_add_disjunction(j);
+        if (r < 0)
+                goto finish;
         r = sd_journal_add_match(j, m3, 0);
+        if (r < 0)
+                goto finish;
+        r = sd_journal_add_match(j, m4, 0);
         if (r < 0)
                 goto finish;
 

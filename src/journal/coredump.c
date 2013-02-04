@@ -144,10 +144,13 @@ int main(int argc, char* argv[]) {
 
                 core_unit = strappend("COREDUMP_UNIT=", t);
                 free(t);
-
-                if (core_unit)
-                        IOVEC_SET_STRING(iovec[j++], core_unit);
+        } else if (cg_pid_get_user_unit(pid, &t) >= 0) {
+                core_unit = strappend("COREDUMP_USER_UNIT=", t);
+                free(t);
         }
+
+        if (core_unit)
+                IOVEC_SET_STRING(iovec[j++], core_unit);
 
         /* OK, now we know it's not the journal, hence make use of
          * it */
