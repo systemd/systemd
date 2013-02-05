@@ -32,6 +32,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "macro.h"
 #include "mkdir.h"
 #include "special.h"
 #include "cgroup-util.h"
@@ -49,8 +50,7 @@ enum {
 };
 
 static int divert_coredump(void) {
-        FILE *f;
-        int r;
+        _cleanup_fclose_ FILE *f = NULL;
 
         log_info("Detected coredump of the journal daemon itself, diverting coredump to /var/lib/systemd/coredump/.");
 
@@ -70,19 +70,16 @@ static int divert_coredump(void) {
                 if (l <= 0) {
                         if (ferror(f)) {
                                 log_error("Failed to read coredump: %m");
-                                r = -errno;
-                                goto finish;
+                                return -errno;
                         }
 
-                        r = 0;
                         break;
                 }
 
                 q = fwrite(buffer, 1, l, f);
                 if (q != l) {
                         log_error("Failed to write coredump: %m");
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
         }
 
@@ -90,25 +87,23 @@ static int divert_coredump(void) {
 
         if (ferror(f)) {
                 log_error("Failed to write coredump: %m");
-                r = -errno;
+                return -errno;
         }
 
-finish:
-        fclose(f);
-        return r;
+        return 0;
 }
 
 int main(int argc, char* argv[]) {
         int r, j = 0;
-        char *p = NULL;
+        _cleanup_free_ char *p = NULL;
         ssize_t n;
         pid_t pid;
         uid_t uid;
         gid_t gid;
         struct iovec iovec[14];
-        char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
+        _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
                 *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
-                *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *t;
+                *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *t = NULL;
 
         prctl(PR_SET_DUMPABLE, 0);
 
@@ -143,11 +138,8 @@ int main(int argc, char* argv[]) {
                 }
 
                 core_unit = strappend("COREDUMP_UNIT=", t);
-                free(t);
-        } else if (cg_pid_get_user_unit(pid, &t) >= 0) {
+        } else if (cg_pid_get_user_unit(pid, &t) >= 0)
                 core_unit = strappend("COREDUMP_USER_UNIT=", t);
-                free(t);
-        }
 
         if (core_unit)
                 IOVEC_SET_STRING(iovec[j++], core_unit);
@@ -264,18 +256,5 @@ int main(int argc, char* argv[]) {
                 log_error("Failed to send coredump: %s", strerror(-r));
 
 finish:
-        free(p);
-        free(core_pid);
-        free(core_uid);
-        free(core_gid);
-        free(core_signal);
-        free(core_timestamp);
-        free(core_comm);
-        free(core_exe);
-        free(core_cmdline);
-        free(core_unit);
-        free(core_session);
-        free(core_message);
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
