@@ -477,3 +477,6 @@ MANPAGES_ALIAS += \
 	#
 
 endif
+
+CLEANFILES += \
+	man/systemd.unit.xml

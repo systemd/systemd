@@ -44,6 +44,12 @@ HEADER = '''\
 
 '''
 
+CLEANFILES = '''\
+
+CLEANFILES += \\
+	{cleanfiles}
+'''
+
 def man(page, number):
     return 'man/{}.{}'.format(page, number)
 
@@ -76,7 +82,7 @@ def create_rules(*xml_files):
 def mjoin(files):
     return ' \\\n\t'.join(sorted(files) or '#')
 
-def make_makefile(rules):
+def make_makefile(rules, cleanfiles):
     return HEADER + '\n'.join(
         (CONDITIONAL if conditional else SECTION).format(
             manpages=mjoin(set(rulegroup.values())),
@@ -85,8 +91,12 @@ def make_makefile(rules):
                             for k,v in sorted(rulegroup.items())
                             if k != v),
             conditional=conditional)
-        for conditional,rulegroup in sorted(rules.items()))
+        for conditional,rulegroup in sorted(rules.items())) + \
+        CLEANFILES.format(cleanfiles=mjoin(cleanfiles))
 
 if __name__ == '__main__':
-    rules = create_rules(*sys.argv[1:])
-    print(make_makefile(rules), end='')
+    sources = set(sys.argv[1:])
+    spares = set([source for source in sources
+                  if source + '.in' in sources])
+    rules = create_rules(*(sources - spares))
+    print(make_makefile(rules, spares), end='')
