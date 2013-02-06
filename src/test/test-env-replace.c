@@ -58,10 +58,7 @@ int main(int argc, char *argv[]) {
         strv_free(a);
 
         r = replace_env_argv((char**) line, (char**) env);
-
-        STRV_FOREACH(i, r)
-                printf("%s\n", *i);
-
+        strv_print(r);
         strv_free(r);
 
         t = normalize_env_assignment("foo=bar");
@@ -127,16 +124,13 @@ int main(int argc, char *argv[]) {
         strv_free(a);
         strv_free(b);
 
-        STRV_FOREACH(i, r)
-                printf("%s\n", *i);
+        strv_print(r);
 
         printf("CLEANED UP:\n");
 
         r = strv_env_clean(r);
 
-        STRV_FOREACH(i, r)
-                printf("%s\n", *i);
-
+        strv_print(r);
         strv_free(r);
 
         return 0;

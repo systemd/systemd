@@ -432,7 +432,6 @@ static int add_locales_from_libdir (Set *locales) {
 static int list_locales(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_set_free_ Set *locales;
         _cleanup_strv_free_ char **l = NULL;
-        char **j;
         int r;
 
         locales = set_new(string_hash_func, string_compare_func);
@@ -455,8 +454,7 @@ static int list_locales(DBusConnection *bus, char **args, unsigned n) {
 
         pager_open_if_enabled();
 
-        STRV_FOREACH(j, l)
-                puts(*j);
+        strv_print(l);
 
         return 0;
 }
@@ -539,7 +537,6 @@ static int nftw_cb(
 
 static int list_vconsole_keymaps(DBusConnection *bus, char **args, unsigned n) {
         char _cleanup_strv_free_ **l = NULL;
-        char **i;
 
         keymaps = set_new(string_hash_func, string_compare_func);
         if (!keymaps)
@@ -566,9 +563,7 @@ static int list_vconsole_keymaps(DBusConnection *bus, char **args, unsigned n) {
 
         pager_open_if_enabled();
 
-        STRV_FOREACH(i, l)
-                puts(*i);
-
+        strv_print(l);
 
         return 0;
 }

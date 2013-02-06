@@ -425,7 +425,6 @@ static int list_timezones(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
         size_t n_zones = 0;
-        char **i;
 
         assert(args);
         assert(n == 1);
@@ -487,8 +486,7 @@ static int list_timezones(DBusConnection *bus, char **args, unsigned n) {
         pager_open_if_enabled();
 
         strv_sort(zones);
-        STRV_FOREACH(i, zones)
-                puts(*i);
+        strv_print(zones);
 
         return 0;
 }

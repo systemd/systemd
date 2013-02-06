@@ -774,3 +774,13 @@ char **strv_sort(char **l) {
         qsort(l, strv_length(l), sizeof(char*), str_compare);
         return l;
 }
+
+void strv_print(char **l) {
+        char **s;
+
+        if (!l)
+                return;
+
+        STRV_FOREACH(s, l)
+                puts(*s);
+}

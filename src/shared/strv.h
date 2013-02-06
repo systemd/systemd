@@ -87,3 +87,4 @@ bool strv_overlap(char **a, char **b);
 
 
 char **strv_sort(char **l);
+void strv_print(char **l);
