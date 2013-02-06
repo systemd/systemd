@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
 
         /* prepare the test */
         assert_se(set_unit_path(TEST_DIR) >= 0);
-        assert_se(manager_new(SYSTEMD_SYSTEM, &m) >= 0);
+        assert_se(manager_new(SYSTEMD_USER, &m) >= 0);
         assert_se(manager_startup(m, serial, fdset) >= 0);
 
         /* load idle ok */

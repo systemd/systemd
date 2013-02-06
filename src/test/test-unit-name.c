@@ -122,14 +122,18 @@ static void test_unit_printf(void) {
         assert_se((root = getpwnam("root")));
         assert_se(asprintf(&root_uid, "%d", (int) root->pw_uid) > 0);
 
-        assert_se(manager_new(SYSTEMD_SYSTEM, &m) == 0);
+        assert_se(manager_new(SYSTEMD_USER, &m) == 0);
 
 #define expect(unit, pattern, expected)                                 \
         {                                                               \
+                char *e;                                                \
                 char _cleanup_free_ *t =                                \
                         unit_full_printf(unit, pattern);                \
                 printf("result: %s\n", t);                              \
-                assert(streq(t, expected));                             \
+                if ((e = endswith(expected, "*")))                      \
+                        assert(strncmp(t, e, e-expected));              \
+                else                                                    \
+                        assert(streq(t, expected));                     \
         }
 
         assert_se(setenv("USER", "root", 1) == 0);
@@ -158,7 +162,7 @@ static void test_unit_printf(void) {
         expect(u, "%m", mid);
         expect(u, "%b", bid);
         expect(u, "%H", host);
-        expect(u, "%t", "/run");
+        expect(u, "%t", "/run/user/*");
 
         /* templated */
         assert_se(u2 = unit_new(m, sizeof(Service)));
@@ -178,7 +182,7 @@ static void test_unit_printf(void) {
         expect(u2, "%m", mid);
         expect(u2, "%b", bid);
         expect(u2, "%H", host);
-        expect(u2, "%t", "/run");
+        expect(u2, "%t", "/run/user/*");
 }
 
 int main(int argc, char* argv[]) {
