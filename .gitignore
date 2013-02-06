@@ -112,6 +112,7 @@
 /test-udev
 /test-unit-file
 /test-unit-name
+/test-util
 /test-watchdog
 /timedatectl
 /udevadm

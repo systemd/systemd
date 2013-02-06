@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
+  Copyright 2013 Thomas H.P. Andersen
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -39,22 +40,35 @@ static void test_specifier_printf(void) {
         free(w);
 }
 
-static void test_foreach_word_quoted(void) {
-        char *w, *state;
-        size_t l;
-        const char test[] = "test a b c 'd' e '' '' hhh '' ''";
-        printf("<%s>\n", test);
-        FOREACH_WORD_QUOTED(w, l, test, state) {
-                char *t;
+static void test_strv_find(void) {
+        const char * const input_table[] = {
+                "one",
+                "two",
+                "three",
+                NULL
+        };
 
-                assert_se(t = strndup(w, l));
-                printf("<%s>\n", t);
-                free(t);
-        }
+        assert(strv_find((char **)input_table, "three"));
+        assert(!strv_find((char **)input_table, "four"));
+}
+
+static void test_strv_find_prefix(void) {
+        const char * const input_table[] = {
+                "one",
+                "two",
+                "three",
+                NULL
+        };
+
+        assert(strv_find_prefix((char **)input_table, "o"));
+        assert(strv_find_prefix((char **)input_table, "one"));
+        assert(strv_find_prefix((char **)input_table, ""));
+        assert(!strv_find_prefix((char **)input_table, "xxx"));
+        assert(!strv_find_prefix((char **)input_table, "onee"));
 }
 
 static void test_strv_join(void) {
-        char *r;
+        _cleanup_free_ char *p = NULL, *q = NULL, *r = NULL, *s = NULL, *t = NULL;
 
         const char * const input_table_multiple[] = {
                 "one",
@@ -70,52 +84,70 @@ static void test_strv_join(void) {
                 NULL
         };
 
-        r = strv_join((char **)input_table_multiple, ", ");
-        assert_se(streq(r, "one, two, three"));
-        puts(r);
-        free(r);
+        p = strv_join((char **)input_table_multiple, ", ");
+        assert(streq(p, "one, two, three"));
 
-        r = strv_join((char **)input_table_multiple, ";");
-        assert_se(streq(r, "one;two;three"));
-        puts(r);
-        free(r);
+        q = strv_join((char **)input_table_multiple, ";");
+        assert(streq(q, "one;two;three"));
 
         r = strv_join((char **)input_table_multiple, NULL);
-        assert_se(streq(r, "one two three"));
-        puts(r);
-        free(r);
+        assert(streq(r, "one two three"));
 
-        r = strv_join((char **)input_table_one, ", ");
-        assert_se(streq(r, "one"));
-        puts(r);
-        free(r);
+        s = strv_join((char **)input_table_one, ", ");
+        assert(streq(s, "one"));
 
-        r = strv_join((char **)input_table_none, ", ");
-        assert_se(streq(r, ""));
-        puts(r);
-        free(r);
+        t = strv_join((char **)input_table_none, ", ");
+        assert(streq(t, ""));
 }
 
-static void test_default_term_for_tty(void) {
-        printf("%s\n", default_term_for_tty("/dev/tty23"));
-        printf("%s\n", default_term_for_tty("/dev/ttyS23"));
-        printf("%s\n", default_term_for_tty("/dev/tty0"));
-        printf("%s\n", default_term_for_tty("/dev/pty0"));
-        printf("%s\n", default_term_for_tty("/dev/pts/0"));
-        printf("%s\n", default_term_for_tty("/dev/console"));
-        printf("%s\n", default_term_for_tty("tty23"));
-        printf("%s\n", default_term_for_tty("ttyS23"));
-        printf("%s\n", default_term_for_tty("tty0"));
-        printf("%s\n", default_term_for_tty("pty0"));
-        printf("%s\n", default_term_for_tty("pts/0"));
-        printf("%s\n", default_term_for_tty("console"));
+static void test_strv_overlap(void) {
+        const char * const input_table[] = {
+                "one",
+                "two",
+                "three",
+                NULL
+        };
+        const char * const input_table_overlap[] = {
+                "two",
+                NULL
+        };
+        const char * const input_table_unique[] = {
+                "four",
+                "five",
+                "six",
+                NULL
+        };
+
+        assert(strv_overlap((char **)input_table, (char**)input_table_overlap));
+        assert(!strv_overlap((char **)input_table, (char**)input_table_unique));
+}
+
+static void test_strv_sort(void) {
+        const char * const input_table[] = {
+                "durian",
+                "apple",
+                "citrus",
+                 "CAPITAL LETTERS FIRST",
+                "banana",
+                NULL
+        };
+
+        strv_sort((char **)input_table);
+
+        assert(streq(input_table[0], "CAPITAL LETTERS FIRST"));
+        assert(streq(input_table[1], "apple"));
+        assert(streq(input_table[2], "banana"));
+        assert(streq(input_table[3], "citrus"));
+        assert(streq(input_table[4], "durian"));
 }
 
 int main(int argc, char *argv[]) {
-        test_default_term_for_tty();
-        test_foreach_word_quoted();
         test_specifier_printf();
+        test_strv_find();
+        test_strv_find_prefix();
         test_strv_join();
+        test_strv_overlap();
+        test_strv_sort();
 
         return 0;
 }

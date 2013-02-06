@@ -1231,6 +1231,7 @@ noinst_tests += \
 	test-strv \
 	test-unit-name \
 	test-unit-file \
+	test-util \
 	test-date \
 	test-sleep \
 	test-replace-var \
@@ -1312,6 +1313,15 @@ test_unit_file_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 test_unit_file_LDADD = \
+	libsystemd-core.la
+
+test_util_SOURCES = \
+	src/test/test-util.c
+
+test_util_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_util_LDADD = \
 	libsystemd-core.la
 
 test_log_SOURCES = \
