@@ -47,15 +47,7 @@ int main(int argc, char *argv[]) {
                 NULL
         };
 
-        char **i, **r, *t, **a, **b;
-        const char nulstr[] = "fuck\0fuck2\0fuck3\0\0fuck5\0\0xxx";
-
-        a = strv_parse_nulstr(nulstr, sizeof(nulstr)-1);
-
-        STRV_FOREACH(i, a)
-                printf("nulstr--%s\n", *i);
-
-        strv_free(a);
+        char **r, *t, **a, **b;
 
         r = replace_env_argv((char**) line, (char**) env);
         strv_print(r);

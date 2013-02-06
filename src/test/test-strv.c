@@ -100,6 +100,23 @@ static void test_strv_join(void) {
         assert(streq(t, ""));
 }
 
+static void test_strv_parse_nulstr(void) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char nulstr[] = "fuck\0fuck2\0fuck3\0\0fuck5\0\0xxx";
+
+        l = strv_parse_nulstr(nulstr, sizeof(nulstr)-1);
+        puts("Parse nulstr:");
+        strv_print(l);
+
+        assert(streq(l[0], "fuck"));
+        assert(streq(l[1], "fuck2"));
+        assert(streq(l[2], "fuck3"));
+        assert(streq(l[3], ""));
+        assert(streq(l[4], "fuck5"));
+        assert(streq(l[5], ""));
+        assert(streq(l[6], "xxx"));
+}
+
 static void test_strv_overlap(void) {
         const char * const input_table[] = {
                 "one",
@@ -146,6 +163,7 @@ int main(int argc, char *argv[]) {
         test_strv_find();
         test_strv_find_prefix();
         test_strv_join();
+        test_strv_parse_nulstr();
         test_strv_overlap();
         test_strv_sort();
 
