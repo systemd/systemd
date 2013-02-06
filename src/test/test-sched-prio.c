@@ -30,10 +30,16 @@ int main(int argc, char *argv[]) {
         Service *ser;
         FILE *serial = NULL;
         FDSet *fdset = NULL;
+        int r;
 
         /* prepare the test */
         assert_se(set_unit_path(TEST_DIR) >= 0);
-        assert_se(manager_new(SYSTEMD_USER, &m) >= 0);
+        r = manager_new(SYSTEMD_USER, &m);
+        if (r == -EPERM) {
+                puts("manager_new: Permission denied. Skipping test.");
+                return EXIT_SUCCESS;
+        }
+        assert(r >= 0);
         assert_se(manager_startup(m, serial, fdset) >= 0);
 
         /* load idle ok */
@@ -82,5 +88,5 @@ int main(int argc, char *argv[]) {
         assert_se(ser->exec_context.cpu_sched_policy == SCHED_RR);
         assert_se(ser->exec_context.cpu_sched_priority == 99);
 
-        return 0;
+        return EXIT_SUCCESS;
 }

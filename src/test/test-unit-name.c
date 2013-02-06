@@ -111,6 +111,7 @@ static void test_replacements(void) {
 static void test_unit_printf(void) {
         Manager *m;
         Unit *u, *u2;
+        int r;
 
         char _cleanup_free_ *mid, *bid, *host, *root_uid;
         struct passwd *root;
@@ -122,14 +123,19 @@ static void test_unit_printf(void) {
         assert_se((root = getpwnam("root")));
         assert_se(asprintf(&root_uid, "%d", (int) root->pw_uid) > 0);
 
-        assert_se(manager_new(SYSTEMD_USER, &m) == 0);
+        r = manager_new(SYSTEMD_USER, &m);
+        if (r == -EPERM) {
+                puts("manager_new: Permission denied. Skipping test.");
+                return;
+        }
+        assert(r == 0);
 
 #define expect(unit, pattern, expected)                                 \
         {                                                               \
                 char *e;                                                \
                 char _cleanup_free_ *t =                                \
                         unit_full_printf(unit, pattern);                \
-                printf("result: %s\n", t);                              \
+                printf("result: %s\nexpect: %s\n", t, expected);        \
                 if ((e = endswith(expected, "*")))                      \
                         assert(strncmp(t, e, e-expected));              \
                 else                                                    \
