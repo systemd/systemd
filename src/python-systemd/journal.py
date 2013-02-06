@@ -1,8 +1,10 @@
-#  -*- Mode: python; indent-tabs-mode: nil -*- */
+#  -*- Mode: python; coding:utf-8; indent-tabs-mode: nil -*- */
 #
 #  This file is part of systemd.
 #
-#  Copyright 2012 David Strauss
+#  Copyright 2012 David Strauss <david@davidstrauss.net>
+#  Copyright 2012 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>
+#  Copyright 2012 Marti Raudsepp <marti@juffo.org>
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
@@ -120,7 +122,7 @@ class JournalHandler(_logging.Handler):
         """Journal handler class for the Python logging framework.
 
         Please see the Python logging module documentation for an
-        overview: http://docs.python.org/library/logging.html
+        overview: http://docs.python.org/library/logging.html.
 
         To create a custom logger whose messages go only to journal:
 

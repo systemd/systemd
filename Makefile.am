@@ -3380,7 +3380,8 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 if HAVE_PYTHON_DEVEL
 pkgpyexec_LTLIBRARIES = \
-	_journal.la
+	_journal.la \
+	id128.la
 
 _journal_la_SOURCES = \
 	src/python-systemd/_journal.c
@@ -3400,9 +3401,36 @@ _journal_la_LIBADD = \
 	$(PYTHON_LIBS) \
 	libsystemd-journal.la
 
+id128_la_SOURCES = \
+	src/python-systemd/id128.c \
+	src/python-systemd/id128-constants.h
+
+id128_la_CFLAGS = \
+	$(AM_CFLAGS) \
+        -fvisibility=default \
+	$(PYTHON_CFLAGS) \
+	-I$(top_builddir)/src/python-systemd
+
+id128_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-shared \
+	-module \
+	-avoid-version
+
+id128_la_LIBADD = \
+	$(PYTHON_LIBS) \
+	libsystemd-id128.la
+
 dist_pkgpyexec_PYTHON = \
 	src/python-systemd/journal.py \
 	src/python-systemd/__init__.py
+
+src/python-systemd/id128-constants.h: src/systemd/sd-messages.h Makefile
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(SED) -n -r 's/,//g; s/#define (SD_MESSAGE_[A-Z0-9_]+)\s.*/add_id(m, "\1", \1);/p' <$< >$@
+
+BUILT_SOURCES += \
+	src/python-systemd/id128-constants.h
 endif
 
 # ------------------------------------------------------------------------------
