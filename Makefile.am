@@ -1587,7 +1587,8 @@ libudev_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/libudev/libudev.sym
 
 libudev_la_LIBADD = \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-id128.la
 
 pkgconfiglib_DATA += \
 	src/libudev/libudev.pc
