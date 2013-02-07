@@ -2424,6 +2424,7 @@ libsystemd_journal_la_LDFLAGS = \
 libsystemd_journal_la_LIBADD = \
 	libsystemd-shared.la \
 	libsystemd-label.la \
+	libsystemd-daemon-internal.la \
 	libsystemd-id128-internal.la
 
 libsystemd_journal_internal_la_SOURCES = \
