@@ -1077,18 +1077,33 @@ static int bus_init_private(Manager *m) {
         } else {
                 const char *e;
                 char *p;
+                char *escaped;
 
                 e = secure_getenv("XDG_RUNTIME_DIR");
                 if (!e)
                         return 0;
 
-                if (asprintf(&p, "unix:path=%s/systemd/private", e) < 0) {
+                if (asprintf(&p, "%s/systemd/private", e) < 0) {
                         r = log_oom();
                         goto fail;
                 }
 
-                mkdir_parents_label(p+10, 0755);
-                unlink(p+10);
+                mkdir_parents_label(p, 0755);
+                unlink(p);
+                free(p);
+
+                escaped = dbus_address_escape_value(e);
+                if (!escaped) {
+                        r = log_oom();
+                        goto fail;
+                }
+                if (asprintf(&p, "unix:path=%s/systemd/private", escaped) < 0) {
+                        dbus_free(escaped);
+                        r = log_oom();
+                        goto fail;
+                }
+                dbus_free(escaped);
+
                 m->private_bus = dbus_server_listen(p, &error);
                 free(p);
         }
