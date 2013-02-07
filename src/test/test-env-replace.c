@@ -25,6 +25,46 @@
 #include "util.h"
 #include "strv.h"
 
+static void test_strv_env_delete(void) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
+
+        a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF", NULL);
+        b = strv_new("PIEP", "FOO", NULL);
+        c = strv_new("SCHLUMPF", NULL);
+
+        d = strv_env_delete(a, 2, b, c);
+
+        assert(streq(d[0], "WALDO=WALDO"));
+        assert(streq(d[1], "WALDO="));
+        assert(strv_length(d) == 2);
+}
+
+static void test_strv_env_unset(void) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        l = strv_new("PIEP", "SCHLUMPF=SMURFF", "NANANANA=YES", NULL);
+
+        strv_env_unset(l, "SCHLUMPF");
+
+        assert(streq(l[0], "PIEP"));
+        assert(streq(l[1], "NANANANA=YES"));
+        assert(strv_length(l) == 2);
+}
+
+static void test_strv_env_set(void) {
+        _cleanup_strv_free_ char **l = NULL, **r = NULL;
+
+        l = strv_new("PIEP", "SCHLUMPF=SMURFF", "NANANANA=YES", NULL);
+
+        r = strv_env_set(l, "WALDO=WALDO");
+
+        assert(streq(r[0], "PIEP"));
+        assert(streq(r[1], "SCHLUMPF=SMURFF"));
+        assert(streq(r[2], "NANANANA=YES"));
+        assert(streq(r[3], "WALDO=WALDO"));
+        assert(strv_length(r) == 4);
+}
+
 static void test_strv_env_merge(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **r = NULL;
 
@@ -106,6 +146,9 @@ static void test_normalize_env_assignment(void) {
 }
 
 int main(int argc, char *argv[]) {
+        test_strv_env_delete();
+        test_strv_env_unset();
+        test_strv_env_set();
         test_strv_env_merge();
         test_replace_env_arg();
         test_normalize_env_assignment();
