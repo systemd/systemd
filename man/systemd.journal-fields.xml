@@ -315,9 +315,9 @@
                 messages originating in the kernel and stored in the
                 journal.</para>
 
-                <variablelist>
+                <variablelist class='journal-directives'>
                         <varlistentry>
-                                <term>_KERNEL_DEVICE=</term>
+                                <term><varname>_KERNEL_DEVICE=</varname></term>
                                 <listitem>
                                         <para>The kernel device
                                         name. If the entry is
@@ -336,13 +336,13 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term>_KERNEL_SUBSYSTEM=</term>
+                                <term><varname>_KERNEL_SUBSYSTEM=</varname></term>
                                 <listitem>
                                         <para>The kernel subsystem name.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term>_UDEV_SYSNAME=</term>
+                                <term><varname>_UDEV_SYSNAME=</varname></term>
                                 <listitem>
                                         <para>The kernel device name
                                         as it shows up in the device
@@ -351,7 +351,7 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term>_UDEV_DEVNODE=</term>
+                                <term><varname>_UDEV_DEVNODE=</varname></term>
                                 <listitem>
                                         <para>The device node path of
                                         this device in
@@ -359,13 +359,36 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term>_UDEV_DEVLINK=</term>
+                                <term><varname>_UDEV_DEVLINK=</varname></term>
                                 <listitem>
                                         <para>Additional symlink names
                                         pointing to the device node in
                                         <filename>/dev</filename>. This
                                         field is frequently set more
                                         than once per entry.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Special Journal Fields</title>
+
+                <para>Fields used by the <command>systemd-coredump</command>
+                coredump kernel helper.
+                </para>
+
+                <variablelist class='journal-directives'>
+                        <varlistentry>
+                                <term><varname>COREDUMP_UNIT=</varname></term>
+                                <term><varname>COREDUMP_USER_UNIT=</varname></term>
+                                <listitem>
+                                        <para>Used to annotate
+                                        messages containing coredumps from
+                                        system and session units.
+                                        See
+                                        <citerefentry><refentrytitle>systemd-coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+                                        </para>
                                 </listitem>
                         </varlistentry>
                 </variablelist>
@@ -446,6 +469,7 @@
                           <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                   </para>
         </refsect1>
