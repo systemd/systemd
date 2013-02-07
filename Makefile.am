@@ -622,8 +622,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/calendarspec.h \
 	src/shared/output-mode.h
 
-libsystemd_shared_la_LIBADD = libsystemd-daemon.la
-
 #-------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
 	libsystemd-dbus.la
@@ -1519,6 +1517,9 @@ systemd_tty_ask_password_agent_LDADD = \
 libsystemd_daemon_la_SOURCES = \
 	src/libsystemd-daemon/sd-daemon.c
 
+libsystemd_daemon_internal_la_SOURCES = \
+        $(libsystemd_daemon_la_SOURCES)
+
 libsystemd_daemon_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	-fvisibility=hidden \
@@ -1545,6 +1546,9 @@ UNINSTALL_EXEC_HOOKS += libsystemd-daemon-uninstall-hook
 
 lib_LTLIBRARIES += \
 	libsystemd-daemon.la
+
+noinst_LTLIBRARIES += \
+        libsystemd-daemon-internal.la
 
 pkgconfiglib_DATA += \
 	src/libsystemd-daemon/libsystemd-daemon.pc
@@ -1588,7 +1592,8 @@ libudev_la_LDFLAGS = \
 
 libudev_la_LIBADD = \
 	libsystemd-shared.la \
-	libsystemd-id128.la
+	libsystemd-daemon-internal.la \
+	libsystemd-id128-internal.la
 
 pkgconfiglib_DATA += \
 	src/libudev/libudev.pc
