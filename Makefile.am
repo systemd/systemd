@@ -71,7 +71,6 @@ sysvrcnddir=$(SYSTEM_SYSVRCND_PATH)
 varlogdir=$(localstatedir)/log
 systemdstatedir=$(localstatedir)/lib/systemd
 catalogstatedir=$(systemdstatedir)/catalog
-hwdb_bin=/etc/udev/hwdb.bin
 
 # Our own, non-special dirs
 pkgsysconfdir=$(sysconfdir)/systemd
@@ -138,7 +137,6 @@ AM_CPPFLAGS = \
 	-DUSER_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/user\" \
 	-DUSER_DATA_UNIT_PATH=\"$(userunitdir)\" \
 	-DCATALOG_PATH=\"$(catalogstatedir)\" \
-	-DHWDB_BIN=\"$(hwdb_bin)\" \
 	-DSYSTEMD_CGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
 	-DSYSTEMD_BINARY_PATH=\"$(rootlibexecdir)/systemd\" \
 	-DSYSTEMD_SHUTDOWN_BINARY_PATH=\"$(rootlibexecdir)/systemd-shutdown\" \
@@ -1786,7 +1784,7 @@ INSTALL_DATA_HOOKS += \
 	hwdb-update-hook
 
 hwdb-remove-hook:
-	-test -n "$(DESTDIR)" || rm -f $(HWDB_BIN)
+	-test -n "$(DESTDIR)" || rm -f /etc/udev/hwdb.bin
 
 # ------------------------------------------------------------------------------
 TESTS += \
