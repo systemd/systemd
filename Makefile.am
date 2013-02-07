@@ -501,6 +501,15 @@ CLEANFILES += \
 	${XML_FILES:.xml=.html}
 
 if HAVE_PYTHON
+noinst_DATA += \
+	man/index.html
+
+CLEANFILES += \
+       man/index.html
+
+man/index.html:
+	$(AM_V_GEN)$(LN_S) systemd.index.html $@
+
 NON_INDEX_XML_FILES = $(filter-out man/systemd.index.xml,$(XML_FILES))
 
 XML_GLOB = $(wildcard $(top_srcdir)/man/*.xml $(top_srcdir)/man/*.xml.in)
@@ -519,6 +528,7 @@ man/systemd.directives.xml: make-directive-index.py $(filter-out man/systemd.dir
 
 EXTRA_DIST += \
 	man/systemd.index.xml \
+	man/index.html \
 	man/systemd.directives.xml
 
 endif
