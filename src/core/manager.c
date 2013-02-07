@@ -621,14 +621,15 @@ int manager_coldplug(Manager *m) {
 
 static void manager_build_unit_path_cache(Manager *m) {
         char **i;
-        DIR *d = NULL;
+        DIR _cleanup_free_ *d = NULL;
         int r;
 
         assert(m);
 
         set_free_free(m->unit_path_cache);
 
-        if (!(m->unit_path_cache = set_new(string_hash_func, string_compare_func))) {
+        m->unit_path_cache = set_new(string_hash_func, string_compare_func);
+        if (!m->unit_path_cache) {
                 log_error("Failed to allocate unit path cache.");
                 return;
         }
@@ -641,7 +642,8 @@ static void manager_build_unit_path_cache(Manager *m) {
 
                 d = opendir(*i);
                 if (!d) {
-                        log_error("Failed to open directory: %m");
+                        if (errno != ENOENT)
+                                log_error("Failed to open directory %s: %m", *i);
                         continue;
                 }
 
@@ -657,7 +659,8 @@ static void manager_build_unit_path_cache(Manager *m) {
                                 goto fail;
                         }
 
-                        if ((r = set_put(m->unit_path_cache, p)) < 0) {
+                        r = set_put(m->unit_path_cache, p);
+                        if (r < 0) {
                                 free(p);
                                 goto fail;
                         }
@@ -674,9 +677,6 @@ fail:
 
         set_free_free(m->unit_path_cache);
         m->unit_path_cache = NULL;
-
-        if (d)
-                closedir(d);
 }
 
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {

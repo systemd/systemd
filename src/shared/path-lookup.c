@@ -316,7 +316,6 @@ int lookup_paths_init(
                 return -ENOMEM;
 
         strv_uniq(p->unit_path);
-        path_strv_remove_empty(p->unit_path);
 
         if (!strv_isempty(p->unit_path)) {
 
@@ -379,8 +378,6 @@ int lookup_paths_init(
 
                 strv_uniq(p->sysvinit_path);
                 strv_uniq(p->sysvrcnd_path);
-                path_strv_remove_empty(p->sysvinit_path);
-                path_strv_remove_empty(p->sysvrcnd_path);
 
                 if (!strv_isempty(p->sysvinit_path)) {
 

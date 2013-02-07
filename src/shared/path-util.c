@@ -190,13 +190,17 @@ char **path_strv_canonicalize(char **l) {
 
                 errno = 0;
                 u = canonicalize_file_name(t);
-                free(t);
 
                 if (!u) {
-                        if (errno == ENOMEM || !errno)
-                                enomem = true;
+                        if (errno == ENOENT)
+                                u = t;
+                        else {
+                                free(t);
+                                if (errno == ENOMEM || !errno)
+                                        enomem = true;
 
-                        continue;
+                                continue;
+                        }
                 }
 
                 l[k++] = u;
