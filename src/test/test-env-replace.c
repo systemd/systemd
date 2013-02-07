@@ -23,17 +23,36 @@
 #include <string.h>
 
 #include "util.h"
-#include "log.h"
 #include "strv.h"
 
-int main(int argc, char *argv[]) {
+static void test_strv_env_merge(void) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL, **r = NULL;
 
+        a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF", NULL);
+        b = strv_new("FOO=KKK", "FOO=", "PIEP=", "SCHLUMPF=SMURFF", "NANANANA=YES", NULL);
+
+        r = strv_env_merge(2, a, b);
+        assert(streq(r[0], "FOO="));
+        assert(streq(r[1], "WALDO="));
+        assert(streq(r[2], "PIEP"));
+        assert(streq(r[3], "SCHLUMPF=SMURFF"));
+        assert(streq(r[4], "PIEP="));
+        assert(streq(r[5], "NANANANA=YES"));
+        assert(strv_length(r) == 6);
+
+        strv_env_clean(r);
+        assert(streq(r[0], "PIEP"));
+        assert(streq(r[1], "SCHLUMPF=SMURFF"));
+        assert(streq(r[2], "NANANANA=YES"));
+        assert(strv_length(r) == 3);
+}
+
+static void test_replace_env_arg(void) {
         const char *env[] = {
                 "FOO=BAR BAR",
                 "BAR=waldo",
                 NULL
         };
-
         const char *line[] = {
                 "FOO$FOO",
                 "FOO$FOOFOO",
@@ -46,84 +65,50 @@ int main(int argc, char *argv[]) {
                 "${FOO",
                 NULL
         };
-
-        char **r, *t, **a, **b;
+        _cleanup_strv_free_ char **r = NULL;
 
         r = replace_env_argv((char**) line, (char**) env);
-        strv_print(r);
-        strv_free(r);
+        assert(streq(r[0], "FOO$FOO"));
+        assert(streq(r[1], "FOO$FOOFOO"));
+        assert(streq(r[2], "FOOBAR BAR$FOO"));
+        assert(streq(r[3], "FOOBAR BAR"));
+        assert(streq(r[4], "BAR BAR"));
+        assert(streq(r[5], "BAR"));
+        assert(streq(r[6], "BAR"));
+        assert(streq(r[7], "BAR BARwaldo"));
+        assert(streq(r[8], "${FOO"));
+        assert(strv_length(r) == 9);
+}
 
-        t = normalize_env_assignment("foo=bar");
-        printf("%s\n", t);
-        free(t);
+static void test_one_normalize(const char *input, const char *output)
+{
+        _cleanup_free_ char *t;
 
-        t = normalize_env_assignment("=bar");
-        printf("%s\n", t);
-        free(t);
+        t = normalize_env_assignment(input);
+        assert(streq(t, output));
+}
 
-        t = normalize_env_assignment("foo=");
-        printf("%s\n", t);
-        free(t);
+static void test_normalize_env_assignment(void) {
+        test_one_normalize("foo=bar", "foo=bar");
+        test_one_normalize("=bar", "=bar");
+        test_one_normalize("foo=", "foo=");
+        test_one_normalize("=", "=");
+        test_one_normalize("", "");
+        test_one_normalize("a=\"waldo\"", "a=waldo");
+        test_one_normalize("a=\"waldo", "a=\"waldo");
+        test_one_normalize("a=waldo\"", "a=waldo\"");
+        test_one_normalize("a=\'", "a='");
+        test_one_normalize("a=\'\'", "a=");
+        test_one_normalize(" xyz  ", "xyz");
+        test_one_normalize(" xyz = bar  ", "xyz=bar");
+        test_one_normalize(" xyz = 'bar ' ", "xyz=bar ");
+        test_one_normalize(" ' xyz' = 'bar ' ", "' xyz'=bar ");
+}
 
-        t = normalize_env_assignment("=");
-        printf("%s\n", t);
-        free(t);
-
-        t = normalize_env_assignment("");
-        printf("%s\n", t);
-        free(t);
-
-        t = normalize_env_assignment("a=\"waldo\"");
-        printf("%s\n", t);
-        free(t);
-
-        t = normalize_env_assignment("a=\"waldo");
-        printf("%s\n", t);
-        free(t);
-
-        t = normalize_env_assignment("a=waldo\"");
-        printf("%s\n", t);
-        free(t);
-
-        t = normalize_env_assignment("a=\'");
-        printf("%s\n", t);
-        free(t);
-
-        t = normalize_env_assignment("a=\'\'");
-        printf("%s\n", t);
-        free(t);
-
-        t = normalize_env_assignment(" xyz  ");
-        printf("<%s>\n", t);
-        free(t);
-
-        t = normalize_env_assignment(" xyz = bar  ");
-        printf("<%s>\n", t);
-        free(t);
-
-        t = normalize_env_assignment(" xyz = 'bar ' ");
-        printf("<%s>\n", t);
-        free(t);
-
-        t = normalize_env_assignment(" ' xyz' = 'bar ' ");
-        printf("<%s>\n", t);
-        free(t);
-
-        a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF", NULL);
-        b = strv_new("FOO=KKK", "FOO=", "PIEP=", "SCHLUMPF=SMURFF", "NANANANA=YES", NULL);
-
-        r = strv_env_merge(2, a, b);
-        strv_free(a);
-        strv_free(b);
-
-        strv_print(r);
-
-        printf("CLEANED UP:\n");
-
-        r = strv_env_clean(r);
-
-        strv_print(r);
-        strv_free(r);
+int main(int argc, char *argv[]) {
+        test_strv_env_merge();
+        test_replace_env_arg();
+        test_normalize_env_assignment();
 
         return 0;
 }
