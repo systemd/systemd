@@ -821,6 +821,13 @@ AS_IF([test "x${enable_split_usr}" = "xyes"], [
         AC_DEFINE(HAVE_SPLIT_USR, 1, [Define if /bin, /sbin aren't symlinks into /usr])
 ])
 
+# Work around intltoolize and gtk-doc problems in VPATH builds
+AM_CONDITIONAL([ENABLE_GTK_DOC_TESTS], [test "x$0" = "x./configure"],
+                                       [Define to do gtk-doc tests])
+AS_IF([test "x$0" != "x./configure"], [
+        AC_SUBST([INTLTOOL_UPDATE], [/bin/true])
+])
+
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
