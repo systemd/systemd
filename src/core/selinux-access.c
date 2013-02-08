@@ -256,7 +256,7 @@ static int get_audit_data(
         const char *sender;
         int r, fd;
         struct ucred ucred;
-        socklen_t len;
+        socklen_t len = sizeof(ucred);
 
         sender = dbus_message_get_sender(message);
         if (sender)
