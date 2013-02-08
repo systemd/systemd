@@ -317,6 +317,6 @@ char *utf16_to_utf8(const void *s, size_t length) {
         }
 
         *t = 0;
-        return r;
 
+        return r;
 }

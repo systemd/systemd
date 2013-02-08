@@ -3069,7 +3069,6 @@ timedatectl_LDADD = \
 
 bin_PROGRAMS += \
 	timedatectl
-
 endif
 
 polkitpolicy_in_files += \
@@ -3077,6 +3076,21 @@ polkitpolicy_in_files += \
 
 EXTRA_DIST += \
 	units/systemd-timedated.service.in
+
+# ------------------------------------------------------------------------------
+bootctl_SOURCES = \
+	src/boot/boot.h \
+	src/boot/boot-loader.h \
+	src/boot/bootctl.c \
+	src/boot/boot-loader.c \
+	src/boot/boot-efi.c
+
+bootctl_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-id128.la
+
+bin_PROGRAMS += \
+	bootctl
 
 # ------------------------------------------------------------------------------
 if HAVE_MYHOSTNAME

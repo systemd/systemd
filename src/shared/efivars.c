@@ -20,13 +20,12 @@
 ***/
 
 #include <unistd.h>
+#include <string.h>
 #include <fcntl.h>
 
 #include "util.h"
 #include "utf8.h"
 #include "efivars.h"
-
-#define EFI_VENDOR_LOADER SD_ID128_MAKE(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)
 
 bool is_efiboot(void) {
         return access("/sys/firmware/efi", F_OK) >= 0;
@@ -90,6 +89,188 @@ int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, v
         if (attribute)
                 *attribute = a;
 
+        return 0;
+}
+
+char *efi_get_variable_string(sd_id128_t vendor, const char *name) {
+        _cleanup_free_ void *s = NULL;
+        size_t ss;
+        int err;
+
+        err = efi_get_variable(vendor, name, NULL, &s, &ss);
+        if (err < 0)
+                return NULL;
+        return utf16_to_utf8(s, ss);
+}
+
+static size_t utf16_size(const uint16_t *s) {
+        size_t l = 0;
+
+        while (s[l] > 0)
+                l++;
+        return (l+1) * sizeof(uint16_t);
+}
+
+static void efi_guid_to_id128(const void *guid, sd_id128_t *id128) {
+        struct uuid {
+                uint32_t u1;
+                uint16_t u2;
+                uint16_t u3;
+                uint8_t u4[8];
+        } _packed_;
+        const struct uuid *uuid = guid;
+
+        id128->bytes[0] = (uuid->u1 >> 24) & 0xff;
+        id128->bytes[1] = (uuid->u1 >> 16) & 0xff;
+        id128->bytes[2] = (uuid->u1 >> 8) & 0xff;
+        id128->bytes[3] = (uuid->u1) & 0xff;
+        id128->bytes[4] = (uuid->u2 >> 8) & 0xff;
+        id128->bytes[5] = (uuid->u2) & 0xff;
+        id128->bytes[6] = (uuid->u3 >> 8) & 0xff;
+        id128->bytes[7] = (uuid->u3) & 0xff;
+        memcpy(&id128->bytes[8], uuid->u4, sizeof(uuid->u4));
+}
+
+int efi_get_boot_option(uint32_t id, uint32_t *attributes, char **title, sd_id128_t *part_uuid, char **path, char **data, size_t *data_size) {
+        struct boot_option {
+                uint32_t attr;
+                uint16_t path_len;
+                uint16_t title[];
+        } _packed_;
+
+        struct drive_path {
+                uint32_t part_nr;
+                uint64_t part_start;
+                uint64_t part_size;
+                char signature[16];
+                uint8_t mbr_type;
+                uint8_t signature_type;
+        } _packed_;
+
+        struct device_path {
+                uint8_t type;
+                uint8_t sub_type;
+                uint16_t length;
+                union {
+                        uint16_t path[0];
+                        struct drive_path drive;
+                };
+        } _packed_;
+
+        char boot_id[32];
+        _cleanup_free_ char *buf = NULL;
+        size_t l;
+        struct boot_option *header;
+        size_t title_size;
+        char *s = NULL;
+        char *p = NULL;
+        sd_id128_t p_uuid = SD_ID128_NULL;
+        char *d = NULL;
+        size_t d_size = 0;
+        int err;
+
+        snprintf(boot_id, sizeof(boot_id), "Boot%04X", id);
+        err = efi_get_variable(EFI_VENDOR_GLOBAL, boot_id, NULL, (void **)&buf, &l);
+        if (err < 0)
+                return err;
+
+        if (l < sizeof(struct boot_option))
+                return -ENOENT;
+
+        header = (struct boot_option *)buf;
+        title_size = utf16_size(header->title);
+        if (title_size > l - offsetof(struct boot_option, title))
+                return -EINVAL;
+
+        s = utf16_to_utf8(header->title, title_size);
+        if (!s) {
+                err = -ENOMEM;
+                goto err;
+        }
+
+        if (header->path_len > 0) {
+                char *dbuf;
+                size_t dnext;
+
+                dbuf = buf + offsetof(struct boot_option, title) + title_size;
+                dnext = 0;
+                while (dnext < header->path_len) {
+                        struct device_path *dpath;
+
+                        dpath = (struct device_path *)(dbuf + dnext);
+                        if (dpath->length < 4)
+                                break;
+
+                        /* Type 0x7F – End of Hardware Device Path, Sub-Type 0xFF – End Entire Device Path */
+                        if (dpath->type == 0x7f && dpath->sub_type == 0xff)
+                                break;
+
+                        dnext += dpath->length;
+
+                        /* Type 0x04 – Media Device Path */
+                        if (dpath->type != 0x04)
+                                continue;
+
+                        /* Sub-Type 1 – Hard Drive */
+                        if (dpath->sub_type == 0x01) {
+                                /* 0x02 – GUID Partition Table */
+                                if (dpath->drive.mbr_type != 0x02)
+                                        continue;
+
+                                /* 0x02 – GUID signature */
+                                if (dpath->drive.signature_type != 0x02)
+                                        continue;
+
+                                efi_guid_to_id128(dpath->drive.signature, &p_uuid);
+                                continue;
+                        }
+
+                        /* Sub-Type 4 – File Path */
+                        if (dpath->sub_type == 0x04) {
+                                p = utf16_to_utf8(dpath->path, dpath->length-4);
+                                continue;
+                        }
+                }
+        }
+
+        *title = s;
+        if (part_uuid)
+                *part_uuid = p_uuid;
+        if (path)
+                *path = p;
+        if (data)
+                *data = d;
+        if (data_size)
+                *data_size = d_size;
+        return 0;
+err:
+        free(s);
+        free(p);
+        free(d);
+        return err;
+}
+
+int efi_get_boot_order(uint16_t **order, size_t *count) {
+        void *buf;
+        size_t l;
+        int err;
+
+        err = efi_get_variable(EFI_VENDOR_GLOBAL, "BootOrder", NULL, &buf, &l);
+        if (err < 0)
+                return err;
+
+        if (l == 0) {
+                free(buf);
+                return -ENOENT;
+        }
+
+        if ((l % sizeof(uint16_t) > 0)) {
+                free(buf);
+                return -EINVAL;
+        }
+
+        *order = buf;
+        *count = l / sizeof(uint16_t);
         return 0;
 }
 
