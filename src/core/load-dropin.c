@@ -171,7 +171,7 @@ int unit_load_dropin(Unit *u) {
                 _cleanup_strv_free_ char **files = NULL;
                 char **f;
 
-                r = conf_files_list_strv(&files, ".conf", (const char**) strv);
+                r = conf_files_list_strv(&files, ".conf", NULL, (const char**) strv);
                 if (r < 0) {
                         log_error("Failed to get list of configuration files: %s", strerror(-r));
                         return r;

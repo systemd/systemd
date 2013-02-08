@@ -1435,7 +1435,7 @@ int main(int argc, char *argv[]) {
         } else {
                 char **files, **f;
 
-                r = conf_files_list_strv(&files, ".conf", (const char **)conf_file_dirs);
+                r = conf_files_list_strv(&files, ".conf", NULL, (const char **)conf_file_dirs);
                 if (r < 0) {
                         log_error("Failed to enumerate tmpfiles.d files: %s", strerror(-r));
                         r = EXIT_FAILURE;

@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
         } else {
                 char **files, **f;
 
-                r = conf_files_list(&files, ".conf",
+                r = conf_files_list(&files, ".conf", NULL,
                                     "/etc/binfmt.d",
                                     "/run/binfmt.d",
                                     "/usr/local/lib/binfmt.d",

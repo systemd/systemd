@@ -198,7 +198,7 @@ int main(int argc, char *argv[]) {
                         r = EXIT_FAILURE;
         }
 
-        k = conf_files_list(&files, ".conf",
+        k = conf_files_list(&files, ".conf", NULL,
                             "/etc/modules-load.d",
                             "/run/modules-load.d",
                             "/usr/local/lib/modules-load.d",

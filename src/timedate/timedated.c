@@ -280,7 +280,7 @@ static char** get_ntp_services(void) {
         char **r = NULL, **files, **i;
         int k;
 
-        k = conf_files_list(&files, ".list",
+        k = conf_files_list(&files, ".list", NULL,
                             "/etc/systemd/ntp-units.d",
                             "/run/systemd/ntp-units.d",
                             "/usr/local/lib/systemd/ntp-units.d",

@@ -1658,7 +1658,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *name) {
         assert(name);
 
         if (scope == UNIT_FILE_SYSTEM)
-                r = conf_files_list(&files, ".preset",
+                r = conf_files_list(&files, ".preset", NULL,
                                     "/etc/systemd/system-preset",
                                     "/usr/local/lib/systemd/system-preset",
                                     "/usr/lib/systemd/system-preset",
@@ -1667,7 +1667,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *name) {
 #endif
                                     NULL);
         else if (scope == UNIT_FILE_GLOBAL)
-                r = conf_files_list(&files, ".preset",
+                r = conf_files_list(&files, ".preset", NULL,
                                     "/etc/systemd/user-preset",
                                     "/usr/local/lib/systemd/user-preset",
                                     "/usr/lib/systemd/user-preset",

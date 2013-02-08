@@ -296,7 +296,7 @@ int catalog_update(void) {
                 goto finish;
         }
 
-        r = conf_files_list_strv(&files, ".catalog", (const char **) conf_file_dirs);
+        r = conf_files_list_strv(&files, ".catalog", NULL, (const char **) conf_file_dirs);
         if (r < 0) {
                 log_error("Failed to get catalog files: %s", strerror(-r));
                 goto finish;

@@ -1619,7 +1619,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
                 return udev_rules_unref(rules);
         udev_rules_check_timestamp(rules);
 
-        r = conf_files_list_strv(&files, ".rules", (const char **)rules->dirs);
+        r = conf_files_list_strv(&files, ".rules", NULL, (const char **)rules->dirs);
         if (r < 0) {
                 log_error("failed to enumerate rules files: %s\n", strerror(-r));
                 return udev_rules_unref(rules);
