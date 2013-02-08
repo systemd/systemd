@@ -1715,8 +1715,7 @@ libudev_core_la_SOURCES = \
 	src/udev/udev-builtin-input_id.c \
 	src/udev/udev-builtin-net_id.c \
 	src/udev/udev-builtin-path_id.c \
-	src/udev/udev-builtin-usb_id.c \
-	src/libsystemd-daemon/sd-daemon.c
+	src/udev/udev-builtin-usb_id.c
 
 libudev_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1726,6 +1725,7 @@ libudev_core_la_CFLAGS = \
 libudev_core_la_LIBADD = \
 	libudev-private.la \
 	libsystemd-label.la \
+	libsystemd-daemon-internal.la \
 	libsystemd-shared.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
