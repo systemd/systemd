@@ -25,6 +25,8 @@ import logging as _logging
 from syslog import (LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR,
                     LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG)
 from ._journal import sendv, stream_fd
+from ._reader import (Journal, NOP, APPEND, INVALIDATE,
+                      LOCAL_ONLY, RUNTIME_ONLY, SYSTEM_ONLY)
 
 def _make_line(field, value):
         if isinstance(value, bytes):
