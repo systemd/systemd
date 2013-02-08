@@ -38,10 +38,13 @@
 #include "conf-files.h"
 
 static int files_add(Hashmap *h, const char *root, const char *path, const char *suffix) {
-        DIR *dir;
-        int r = 0;
+        _cleanup_closedir_ DIR *dir;
+        _cleanup_free_ char *dirpath = NULL;
 
-        dir = opendir(path);
+        if (asprintf(&dirpath, "%s%s", root ? root : "", path) < 0)
+                return -ENOMEM;
+
+        dir = opendir(dirpath);
         if (!dir) {
                 if (errno == ENOENT)
                         return 0;
@@ -51,14 +54,12 @@ static int files_add(Hashmap *h, const char *root, const char *path, const char 
         for (;;) {
                 struct dirent *de;
                 union dirent_storage buf;
-                int k;
                 char *p;
+                int err;
 
-                k = readdir_r(dir, &buf.de, &de);
-                if (k != 0) {
-                        r = -k;
-                        goto finish;
-                }
+                err = readdir_r(dir, &buf.de, &de);
+                if (err != 0)
+                        return err;
 
                 if (!de)
                         break;
@@ -66,10 +67,8 @@ static int files_add(Hashmap *h, const char *root, const char *path, const char 
                 if (!dirent_is_file_with_suffix(de, suffix))
                         continue;
 
-                if (asprintf(&p, "%s/%s", path, de->d_name) < 0) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (asprintf(&p, "%s/%s", dirpath, de->d_name) < 0)
+                        return -ENOMEM;
 
                 if (hashmap_put(h, path_get_file_name(p), p) <= 0) {
                         log_debug("Skip overridden file: %s.", p);
@@ -77,9 +76,7 @@ static int files_add(Hashmap *h, const char *root, const char *path, const char 
                 }
         }
 
-finish:
-        closedir(dir);
-        return r;
+        return 0;
 }
 
 static int base_cmp(const void *a, const void *b) {
