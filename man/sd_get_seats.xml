@@ -65,7 +65,7 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_get_uids</function></funcdef>
-                                <paramdef>char*** <parameter>sessions</parameter></paramdef>
+                                <paramdef>uid_t** <parameter>users</parameter></paramdef>
                         </funcprototype>
 
                 </funcsynopsis>
