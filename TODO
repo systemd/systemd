@@ -56,10 +56,16 @@ Fedora 19:
 
 Features:
 
+* support --root in msgcatalog and hwdb
+
+* document in wiki how to map ical recurrence events to systemd timer unit calendar specifications
+
+* Support 2012-02~4 as syntax for specifying the fourth to last day of the month.
+
 * We should not set KDSKBMODE to K_UNICODE in vconsole-setup if the
   kbd is currently in raw/off state.
 
-* Honour "-" for InaccessibleDirectories= and ReadOnlyDirectories= to
+* Honour "-" prefix for InaccessibleDirectories= and ReadOnlyDirectories= to
   suppress errors of the specified path doesn't exist
 
 * dev-setup.c: when running in a container, create a tiny stub udev
@@ -70,6 +76,8 @@ Features:
 * nspawn: investigate whether we can support the same as LXC's
   lxc.network.type=phys mode, and pass through entire network
   interfaces to the container
+* nspawn: maybe add a way to drop additional caps, in addition to add additional caps
+* nspawn: maybe explicitly reset loginuid?
 
 * merge service_kill() logic into unit_kill_context() and unify the code paths
 
