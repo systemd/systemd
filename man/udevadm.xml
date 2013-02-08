@@ -443,6 +443,12 @@
             retrieved properties.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><option>--root=<replaceable>string</replaceable></option></term>
+          <listitem>
+            <para>Alternative root path in the filesystem for reading and writing files.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
