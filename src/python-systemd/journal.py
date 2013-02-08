@@ -19,14 +19,60 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
+import datetime
+import functools
+import sys
 import traceback as _traceback
 import os as _os
 import logging as _logging
 from syslog import (LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR,
                     LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG)
 from ._journal import sendv, stream_fd
-from ._reader import (Journal, NOP, APPEND, INVALIDATE,
+from ._reader import (_Journal, NOP, APPEND, INVALIDATE,
                       LOCAL_ONLY, RUNTIME_ONLY, SYSTEM_ONLY)
+
+class Journal(_Journal):
+    def __new__(cls, *args, **kwargs):
+        self = _Journal.__new__(cls, *args, **kwargs)
+        if sys.version_info[0] >= 3:
+            self.default_call = functools.partial(str, encoding='utf-8')
+        else:
+            self.default_call = functools.partial(unicode, encoding='utf-8')
+        self.call_dict = {
+            'PRIORITY': int,
+            'LEADER': int,
+            'SESSION_ID': int,
+            'USERSPACE_USEC': int,
+            'INITRD_USEC': int,
+            'KERNEL_USEC': int,
+            '_UID': int,
+            '_GID': int,
+            '_PID': int,
+            'SYSLOG_FACILITY': int,
+            'SYSLOG_PID': int,
+            '_AUDIT_SESSION': int,
+            '_AUDIT_LOGINUID': int,
+            '_SYSTEMD_SESSION': int,
+            '_SYSTEMD_OWNER_UID': int,
+            'CODE_LINE': int,
+            'ERRNO': int,
+            'EXIT_STATUS': int,
+            '_SOURCE_REALTIME_TIMESTAMP': lambda x: datetime.datetime.fromtimestamp(float(x)/1E6),
+            '__REALTIME_TIMESTAMP': lambda x: datetime.datetime.fromtimestamp(float(x)/1E6),
+            '_SOURCE_MONOTONIC_TIMESTAMP': lambda x: datetime.timedelta(microseconds=float(x)),
+            '__MONOTONIC_TIMESTAMP': lambda x: datetime.timedelta(microseconds=float(x)),
+            'COREDUMP_PID': int,
+            'COREDUMP_UID': int,
+            'COREDUMP_GID': int,
+            'COREDUMP_SESSION': int,
+            'COREDUMP_SIGNAL': int,
+            'COREDUMP_TIMESTAMP': lambda x: datetime.datetime.fromtimestamp(float(x)/1E6),
+        }
+        if sys.version_info[0] >= 3:
+            self.call_dict['COREDUMP'] = bytes
+        else:
+            self.call_dict['COREDUMP'] = str
+        return self
 
 def _make_line(field, value):
         if isinstance(value, bytes):

@@ -46,57 +46,8 @@ Journal_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     self = (Journal *)type->tp_alloc(type, 0);
     if (self != NULL) {
-        PyObject *globals, *temp;
-
-        globals = PyEval_GetBuiltins();
-        temp = PyImport_ImportModule("functools");
-        PyDict_SetItemString(globals, "functools", temp);
-        Py_DECREF(temp);
-        temp = PyImport_ImportModule("datetime");
-        PyDict_SetItemString(globals, "datetime", temp);
-        Py_DECREF(temp);
-
-#if PY_MAJOR_VERSION >=3
-        self->default_call = PyRun_String("functools.partial(str, encoding='utf-8')", Py_eval_input, globals, NULL);
-#else
-        self->default_call = PyRun_String("functools.partial(unicode, encoding='utf-8')", Py_eval_input, globals, NULL);
-#endif
-
-        self->call_dict = PyRun_String("{"
-            "'PRIORITY': int,"
-            "'LEADER': int,"
-            "'SESSION_ID': int,"
-            "'USERSPACE_USEC': int,"
-            "'INITRD_USEC': int,"
-            "'KERNEL_USEC': int,"
-            "'_UID': int,"
-            "'_GID': int,"
-            "'_PID': int,"
-            "'SYSLOG_FACILITY': int,"
-            "'SYSLOG_PID': int,"
-            "'_AUDIT_SESSION': int,"
-            "'_AUDIT_LOGINUID': int,"
-            "'_SYSTEMD_SESSION': int,"
-            "'_SYSTEMD_OWNER_UID': int,"
-            "'CODE_LINE': int,"
-            "'ERRNO': int,"
-            "'EXIT_STATUS': int,"
-            "'_SOURCE_REALTIME_TIMESTAMP': lambda x: datetime.datetime.fromtimestamp(float(x)/1E6),"
-            "'__REALTIME_TIMESTAMP': lambda x: datetime.datetime.fromtimestamp(float(x)/1E6),"
-            "'_SOURCE_MONOTONIC_TIMESTAMP': lambda x: datetime.timedelta(microseconds=float(x)),"
-            "'__MONOTONIC_TIMESTAMP': lambda x: datetime.timedelta(microseconds=float(x)),"
-#if PY_MAJOR_VERSION >=3
-            "'COREDUMP': bytes,"
-#else
-            "'COREDUMP': str,"
-#endif
-            "'COREDUMP_PID': int,"
-            "'COREDUMP_UID': int,"
-            "'COREDUMP_GID': int,"
-            "'COREDUMP_SESSION': int,"
-            "'COREDUMP_SIGNAL': int,"
-            "'COREDUMP_TIMESTAMP': lambda x: datetime.datetime.fromtimestamp(float(x)/1E6),"
-            "}", Py_eval_input, globals, NULL);
+        self->call_dict = PyDict_New();
+        self->default_call = Py_None;
     }
 
     return (PyObject *) self;
@@ -1149,7 +1100,7 @@ init_reader(void)
 #endif
 
     Py_INCREF(&JournalType);
-    PyModule_AddObject(m, "Journal", (PyObject *)&JournalType);
+    PyModule_AddObject(m, "_Journal", (PyObject *)&JournalType);
     PyModule_AddIntConstant(m, "NOP", SD_JOURNAL_NOP);
     PyModule_AddIntConstant(m, "APPEND", SD_JOURNAL_APPEND);
     PyModule_AddIntConstant(m, "INVALIDATE", SD_JOURNAL_INVALIDATE);
