@@ -108,6 +108,7 @@
 /test-sched-prio
 /test-sleep
 /test-strip-tab-ansi
+/test-strbuf
 /test-strv
 /test-udev
 /test-unit-file

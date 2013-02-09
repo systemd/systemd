@@ -1002,6 +1002,7 @@ noinst_PROGRAMS += \
 noinst_tests += \
 	test-job-type \
 	test-env-replace \
+	test-strbuf \
 	test-strv \
 	test-unit-name \
 	test-unit-file \
@@ -1159,6 +1160,12 @@ test_env_replace_SOURCES = \
 	src/test/test-env-replace.c
 
 test_env_replace_LDADD = \
+	libsystemd-shared.la
+
+test_strbuf_SOURCES = \
+	src/test/test-strbuf.c
+
+test_strbuf_LDADD = \
 	libsystemd-shared.la
 
 test_strv_SOURCES = \
