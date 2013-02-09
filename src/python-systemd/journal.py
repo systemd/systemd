@@ -35,30 +35,29 @@ def _make_line(field, value):
 def send(MESSAGE, MESSAGE_ID=None,
          CODE_FILE=None, CODE_LINE=None, CODE_FUNC=None,
          **kwargs):
-        r"""Send a message to journald.
+        r"""Send a message to the journal.
 
         >>> journal.send('Hello world')
         >>> journal.send('Hello, again, world', FIELD2='Greetings!')
         >>> journal.send('Binary message', BINARY=b'\xde\xad\xbe\xef')
 
         Value of the MESSAGE argument will be used for the MESSAGE=
-        field.
+        field. MESSAGE must be a string and will be sent as UTF-8 to
+        the journal.
 
         MESSAGE_ID can be given to uniquely identify the type of
-        message.
-
-        Other parts of the message can be specified as keyword
-        arguments.
-
-        Both MESSAGE and MESSAGE_ID, if present, must be strings, and
-        will be sent as UTF-8 to journal. Other arguments can be
-        bytes, in which case they will be sent as-is to journal.
+        message. It must be a string or a uuid.UUID object.
 
         CODE_LINE, CODE_FILE, and CODE_FUNC can be specified to
         identify the caller. Unless at least on of the three is given,
         values are extracted from the stack frame of the caller of
         send(). CODE_FILE and CODE_FUNC must be strings, CODE_LINE
         must be an integer.
+
+        Additional fields for the journal entry can only be specified
+        as keyword arguments. The payload can be either a string or
+        bytes. A string will be sent as UTF-8, and bytes will be sent
+        as-is to the journal.
 
         Other useful fields include PRIORITY, SYSLOG_FACILITY,
         SYSLOG_IDENTIFIER, SYSLOG_PID.
@@ -67,7 +66,8 @@ def send(MESSAGE, MESSAGE_ID=None,
         args = ['MESSAGE=' + MESSAGE]
 
         if MESSAGE_ID is not None:
-                args.append('MESSAGE_ID=' + MESSAGE_ID)
+                id = getattr(MESSAGE_ID, 'hex', MESSAGE_ID)
+                args.append('MESSAGE_ID=' + id)
 
         if CODE_LINE == CODE_FILE == CODE_FUNC == None:
                 CODE_FILE, CODE_LINE, CODE_FUNC = \
@@ -138,8 +138,9 @@ class JournalHandler(_logging.Handler):
 
         To attach journal MESSAGE_ID, an extra field is supported:
 
-        >>> log.warn("Message with ID",
-        >>>     extra={'MESSAGE_ID': '22bb01335f724c959ac4799627d1cb61'})
+        >>> import uuid
+        >>> mid = uuid.UUID('0123456789ABCDEF0123456789ABCDEF')
+        >>> log.warn("Message with ID", extra={'MESSAGE_ID': mid})
 
         To redirect all logging messages to journal regardless of where
         they come from, attach it to the root logger:
