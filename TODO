@@ -51,9 +51,6 @@ Fedora 19:
 
 * logind: Class property should probably know "background" or so as value for cron jobs, and the inhibition checks should filter those out too.
 
-* We should not set KDSKBMODE to K_UNICODE in vconsole-setup if the
-  kbd is currently in raw/off state.
-
 Features:
 
 * support --root= in msgcatalog compiler
