@@ -68,9 +68,22 @@ static int disable_utf8(int fd) {
 
 static int enable_utf8(int fd) {
         int r = 0, k;
+        long current = 0;
 
-        if (ioctl(fd, KDSKBMODE, K_UNICODE) < 0)
-                r = -errno;
+        if (ioctl(fd, KDGKBMODE, &current) < 0 || current == K_XLATE) {
+                /*
+                 * Change the current keyboard to unicode, unless it
+                 * is currently in raw or off mode anyway. We
+                 * shouldn't interfere with X11's processing of the
+                 * key events.
+                 *
+                 * http://lists.freedesktop.org/archives/systemd-devel/2013-February/008573.html
+                 *
+                 */
+
+                if (ioctl(fd, KDSKBMODE, K_UNICODE) < 0)
+                        r = -errno;
+        }
 
         if (loop_write(fd, "\033%G", 3, false) < 0)
                 r = -errno;
