@@ -27,8 +27,6 @@ Fedora 19:
 
 * create /var/log/journal/
 
-* logind: document new PrepareForSleep(false) semantics and UnlockSessions call in wiki
-
 * external: maybe it is time to patch procps so that "ps" links to
   libsystemd-logind to print a pretty service name, seat name, session
   name in its output. Currently it only shows cgroup membership, but
@@ -54,16 +52,14 @@ Fedora 19:
 * The tag "seat-master" in udev is badly named, as it might conflict with
   actual seat names.
 
-Features:
-
-* support --root in msgcatalog and hwdb
-
-* document in wiki how to map ical recurrence events to systemd timer unit calendar specifications
-
-* Support 2012-02~4 as syntax for specifying the fourth to last day of the month.
+* logind: Class property should probably know "background" or so as value for cron jobs, and the inhibition checks should filter those out too.
 
 * We should not set KDSKBMODE to K_UNICODE in vconsole-setup if the
   kbd is currently in raw/off state.
+
+Features:
+
+* support --root= in msgcatalog compiler
 
 * Honour "-" prefix for InaccessibleDirectories= and ReadOnlyDirectories= to
   suppress errors of the specified path doesn't exist
@@ -73,15 +69,7 @@ Features:
   so that libudev reports them as present, and systemd's .device units
   will be activated.
 
-* nspawn: investigate whether we can support the same as LXC's
-  lxc.network.type=phys mode, and pass through entire network
-  interfaces to the container
-* nspawn: maybe add a way to drop additional caps, in addition to add additional caps
-* nspawn: maybe explicitly reset loginuid?
-
 * merge service_kill() logic into unit_kill_context() and unify the code paths
-
-* when auto-detecting the main pid of a service, only look for those processes with ppid == 1
 
 * introduce ExecCondition= in services
 
@@ -119,6 +107,7 @@ Features:
   - logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
   - pam_systemd: try to get old session id from cgroup, if audit sessionid cannot be determined
   - pam: when leaving a session explicitly exclude the ReleaseSession() caller process from the killing spree
+  - logind: GetSessionByPID() should accept 0 as PID value
 
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
 
@@ -174,6 +163,7 @@ Features:
   - document the exit codes when services fail before they are exec()ed
   - document that %% can be used to write % in a string that is specifier extended
   - document that service reload may be implemented as service reexec
+  - document in wiki how to map ical recurrence events to systemd timer unit calendar specifications
 
 * systemctl:
   - systemctl list-jobs - show dependencies
@@ -202,6 +192,7 @@ Features:
   - timer units should get the ability to trigger when:
     o CLOCK_REALTIME makes jumps (TFD_TIMER_CANCEL_ON_SET)
     o DST changes
+  - Support 2012-02~4 as syntax for specifying the fourth to last day of the month.
 
 * update the kernel's TZ (sys_tz) when DST changes
 
@@ -273,6 +264,11 @@ Features:
   - nspawn: --read-only is not applied recursively to submounts
   - nspawn: make use of device cgroup controller by default
   - bind mount read-only the cgroup tree higher than nspawn
+  - nspawn: investigate whether we can support the same as LXC's
+    lxc.network.type=phys mode, and pass through entire network
+    interfaces to the container
+  - nspawn: maybe add a way to drop additional caps, in addition to add additional caps
+  - nspawn: maybe explicitly reset loginuid?
 
 * cryptsetup:
   - cryptsetup-generator: warn if the password files are world-readable
