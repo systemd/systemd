@@ -75,7 +75,7 @@
                 <option>ExecStartPre=</option>,
                 <option>ExecStartPost=</option>,
                 <option>ExecStopPre=</option> and
-                <option>ExecStoptPost=</option> commands are executed
+                <option>ExecStopPost=</option> commands are executed
                 in, and in
                 <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 which define the way the processes are
