@@ -461,7 +461,7 @@ int manager_enumerate_devices(Manager *m) {
                 goto finish;
         }
 
-        r = udev_enumerate_add_match_tag(e, "seat-master");
+        r = udev_enumerate_add_match_tag(e, "master-of-seat");
         if (r < 0)
                 goto finish;
 
@@ -1293,7 +1293,7 @@ static int manager_connect_udev(Manager *m) {
         if (!m->udev_seat_monitor)
                 return -ENOMEM;
 
-        r = udev_monitor_filter_add_match_tag(m->udev_seat_monitor, "seat-master");
+        r = udev_monitor_filter_add_match_tag(m->udev_seat_monitor, "master-of-seat");
         if (r < 0)
                 return r;
 

@@ -49,9 +49,6 @@ Fedora 19:
   - localectl: add listing support for X11 keymaps, by parsing /usr/share/X11/xkb/rules/xorg.lst
   - localectl: support new converted x11→console keymaps
 
-* The tag "seat-master" in udev is badly named, as it might conflict with
-  actual seat names.
-
 * logind: Class property should probably know "background" or so as value for cron jobs, and the inhibition checks should filter those out too.
 
 * We should not set KDSKBMODE to K_UNICODE in vconsole-setup if the

@@ -68,7 +68,7 @@ static int show_sysfs_one(
                         continue;
                 }
 
-                is_master = udev_device_has_tag(d, "seat-master");
+                is_master = udev_device_has_tag(d, "master-of-seat");
 
                 name = udev_device_get_sysattr_value(d, "name");
                 if (!name)
