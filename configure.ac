@@ -180,6 +180,19 @@ AS_IF([test "x$with_python" != "xno"], [
 ])
 AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
 
+AC_ARG_ENABLE(sphinx, AS_HELP_STRING([--enable-sphinx],
+              [use sphinx to build documentation for python-systemd]))
+AS_IF([test "x$enable_sphinx" = "xyes"], [
+        AC_PATH_PROGS(SPHINX_BUILD, sphinx-build-${PYTHON_VERSION} sphinx-build)
+        AS_IF([test -z "$SPHINX_BUILD"], [
+              AC_MSG_ERROR([*** sphinx build requested, but sphinx-build not found])
+        ])
+        AS_IF([test "x$have_python_devel" != "xyes"], [
+              AC_MSG_ERROR([*** sphinx build requested, but python support not enabled])
+        ])
+])
+AM_CONDITIONAL(ENABLE_SPHINX, [test "x$enable_sphinx" = "xyes"])
+
 # ------------------------------------------------------------------------------
 
 AC_SEARCH_LIBS([mq_open], [rt], [], [AC_MSG_ERROR([*** POSIX RT library not found])])
@@ -902,6 +915,7 @@ AC_MSG_RESULT([
         Python Headers:          ${have_python_devel}
         man pages:               ${have_manpages}
         gtk-doc:                 ${enable_gtk_doc}
+        sphinx documentation:    ${enable_sphinx}
         Split /usr:              ${enable_split_usr}
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
 

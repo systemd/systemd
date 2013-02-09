@@ -1,0 +1,7 @@
+`systemd.id128` module
+======================
+
+.. automodule:: systemd.id128
+   :members:
+   :undoc-members:
+   :inherited-members:

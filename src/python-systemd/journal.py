@@ -96,19 +96,20 @@ def stream(identifier, priority=LOG_DEBUG, level_prefix=False):
         <open file '<fdopen>', mode 'w' at 0x...>
         >>> stream.write('message...\n')
 
-        will produce the following message in the journal:
+        will produce the following message in the journal::
 
-        PRIORITY=7
-        SYSLOG_IDENTIFIER=myapp
-        MESSAGE=message...
+          PRIORITY=7
+          SYSLOG_IDENTIFIER=myapp
+          MESSAGE=message...
 
         Using the interface with print might be more convinient:
 
         >>> from __future__ import print_function
         >>> print('message...', file=stream)
 
-        priority is the syslog priority, one of LOG_EMERG, LOG_ALERT,
-        LOG_CRIT, LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG.
+        priority is the syslog priority, one of `LOG_EMERG`,
+        `LOG_ALERT`, `LOG_CRIT`, `LOG_ERR`, `LOG_WARNING`,
+        `LOG_NOTICE`, `LOG_INFO`, `LOG_DEBUG`.
 
         level_prefix is a boolean. If true, kernel-style log priority
         level prefixes (such as '<1>') are interpreted. See
@@ -131,8 +132,8 @@ class JournalHandler(_logging.Handler):
         >>> log.addHandler(journal.JournalHandler())
         >>> log.warn("Some message: %s", detail)
 
-        Note that by default, message levels INFO and DEBUG are ignored
-        by the logging framework. To enable those log levels:
+        Note that by default, message levels `INFO` and `DEBUG` are
+        ignored by the logging framework. To enable those log levels:
 
         >>> log.setLevel(logging.DEBUG)
 
@@ -147,16 +148,15 @@ class JournalHandler(_logging.Handler):
 
         >>> logging.root.addHandler(journal.JournalHandler())
 
-        For more complex configurations when using dictConfig or
-        fileConfig, specify 'systemd.journal.JournalHandler' as the
+        For more complex configurations when using `dictConfig` or
+        `fileConfig`, specify `systemd.journal.JournalHandler` as the
         handler class.  Only standard handler configuration options
-        are supported: level, formatter, filters.
+        are supported: `level`, `formatter`, `filters`.
 
         The following journal fields will be sent:
-
-        MESSAGE, PRIORITY, THREAD_NAME, CODE_FILE, CODE_LINE,
-        CODE_FUNC, LOGGER (name as supplied to getLogger call),
-        MESSAGE_ID (optional, see above).
+        `MESSAGE`, `PRIORITY`, `THREAD_NAME`, `CODE_FILE`, `CODE_LINE`,
+        `CODE_FUNC`, `LOGGER` (name as supplied to getLogger call),
+        `MESSAGE_ID` (optional, see above).
         """
 
         def emit(self, record):

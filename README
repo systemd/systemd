@@ -81,6 +81,7 @@ REQUIREMENTS:
         gperf
         gtkdocize (optional)
         python (optional)
+        sphinx (optional)
 
         When systemd-hostnamed is used it is strongly recommended to
         install nss-myhostname to ensure that in a world of
@@ -92,6 +93,12 @@ REQUIREMENTS:
         results in a cyclic build dependency. To accommodate for this
         please build D-Bus without systemd first, then build systemd,
         then rebuild D-Bus with systemd support.
+
+        To build HTML documentation for python-systemd using sphinx,
+        please first install systemd (using 'make install'), and then
+        invoke sphinx-build with 'make sphinx-<target>', with <target>
+        being 'html' or 'latexpdf'. If using DESTDIR for installation,
+        pass the same DESTDIR to 'make sphinx-html' invocation.
 
 WARNINGS:
         systemd will warn you during boot if /etc/mtab is not a
