@@ -32,7 +32,7 @@ static ssize_t add_string(struct strbuf *sb, const char *s) {
 
 static void test_strbuf(void) {
         struct strbuf *sb;
-       _cleanup_strv_free_ char **l;
+        _cleanup_strv_free_ char **l;
         ssize_t a, b, c, d, e, f, g;
 
         sb = strbuf_new();

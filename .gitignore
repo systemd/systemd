@@ -110,6 +110,7 @@
 /test-strip-tab-ansi
 /test-strbuf
 /test-strv
+/test-strxcpyx
 /test-udev
 /test-unit-file
 /test-unit-name
