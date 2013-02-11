@@ -195,6 +195,15 @@ static void test_env_clean(void) {
         assert_se(e[5] == NULL);
 }
 
+static void test_env_name_is_valid(void) {
+        assert_se(env_name_is_valid("test"));
+
+        assert_se(!env_name_is_valid(NULL));
+        assert_se(!env_name_is_valid(""));
+        assert_se(!env_name_is_valid("5_starting_with_a_number_is_wrong"));
+        assert_se(!env_name_is_valid("#¤%&?_only_numbers_letters_and_underscore_allowed"));
+}
+
 int main(int argc, char *argv[]) {
         test_strv_env_delete();
         test_strv_env_unset();
@@ -203,6 +212,7 @@ int main(int argc, char *argv[]) {
         test_replace_env_arg();
         test_normalize_env_assignment();
         test_env_clean();
+        test_env_name_is_valid();
 
         return 0;
 }

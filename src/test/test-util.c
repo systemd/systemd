@@ -25,22 +25,47 @@
 #include "util.h"
 
 static void test_streq_ptr(void) {
-        assert(streq_ptr(NULL, NULL));
-        assert(!streq_ptr("abc", "cdef"));
+        assert_se(streq_ptr(NULL, NULL));
+        assert_se(!streq_ptr("abc", "cdef"));
 }
 
 static void test_first_word(void) {
-        assert(first_word("Hello", ""));
-        assert(first_word("Hello", "Hello"));
-        assert(first_word("Hello world", "Hello"));
-        assert(first_word("Hello\tworld", "Hello"));
-        assert(first_word("Hello\nworld", "Hello"));
-        assert(first_word("Hello\rworld", "Hello"));
-        assert(first_word("Hello ", "Hello"));
+        assert_se(first_word("Hello", ""));
+        assert_se(first_word("Hello", "Hello"));
+        assert_se(first_word("Hello world", "Hello"));
+        assert_se(first_word("Hello\tworld", "Hello"));
+        assert_se(first_word("Hello\nworld", "Hello"));
+        assert_se(first_word("Hello\rworld", "Hello"));
+        assert_se(first_word("Hello ", "Hello"));
 
-        assert(!first_word("Hello", "Hellooo"));
-        assert(!first_word("Hello", "xxxxx"));
-        assert(!first_word("Hellooo", "Hello"));
+        assert_se(!first_word("Hello", "Hellooo"));
+        assert_se(!first_word("Hello", "xxxxx"));
+        assert_se(!first_word("Hellooo", "Hello"));
+}
+
+static void test_parse_boolean(void) {
+        assert_se(parse_boolean("1") == 1);
+        assert_se(parse_boolean("y") == 1);
+        assert_se(parse_boolean("Y") == 1);
+        assert_se(parse_boolean("yes") == 1);
+        assert_se(parse_boolean("YES") == 1);
+        assert_se(parse_boolean("true") == 1);
+        assert_se(parse_boolean("TRUE") == 1);
+        assert_se(parse_boolean("on") == 1);
+        assert_se(parse_boolean("ON") == 1);
+
+        assert_se(parse_boolean("0") == 0);
+        assert_se(parse_boolean("n") == 0);
+        assert_se(parse_boolean("N") == 0);
+        assert_se(parse_boolean("no") == 0);
+        assert_se(parse_boolean("NO") == 0);
+        assert_se(parse_boolean("false") == 0);
+        assert_se(parse_boolean("FALSE") == 0);
+        assert_se(parse_boolean("off") == 0);
+        assert_se(parse_boolean("OFF") == 0);
+
+        assert_se(parse_boolean("garbage") < 0);
+        assert_se(parse_boolean("") < 0);
 }
 
 static void test_foreach_word_quoted(void) {
@@ -75,6 +100,7 @@ static void test_default_term_for_tty(void) {
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
+        test_parse_boolean();
         test_default_term_for_tty();
         test_foreach_word_quoted();
 
