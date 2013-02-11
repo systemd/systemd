@@ -62,6 +62,7 @@ char **strv_split_quoted(const char *s) _malloc_;
 char *strv_join(char **l, const char *separator) _malloc_;
 
 char **strv_parse_nulstr(const char *s, size_t l);
+char **strv_split_nulstr(const char *s);
 
 bool strv_overlap(char **a, char **b);
 

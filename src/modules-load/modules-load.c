@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 #include <limits.h>
 #include <dirent.h>
+#include <getopt.h>
 #include <libkmod.h>
 
 #include "log.h"
@@ -35,6 +36,16 @@
 #include "virt.h"
 
 static char **arg_proc_cmdline_modules = NULL;
+
+static const char conf_file_dirs[] =
+        "/etc/modules-load.d\0"
+        "/run/modules-load.d\0"
+        "/usr/local/lib/modules-load.d\0"
+        "/usr/lib/modules-load.d\0"
+#ifdef HAVE_SPLIT_USR
+        "/lib/modules-load.d\0"
+#endif
+        ;
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
@@ -46,14 +57,14 @@ static void systemd_kmod_log(void *data, int priority, const char *file, int lin
 #pragma GCC diagnostic pop
 
 static int add_modules(const char *p) {
-        char **t, **k;
+        char **t;
+        _cleanup_strv_free_ char **k = NULL;
 
         k = strv_split(p, ",");
         if (!k)
                 return log_oom();
 
         t = strv_merge(arg_proc_cmdline_modules, k);
-        strv_free(k);
         if (!t)
                 return log_oom();
 
@@ -162,15 +173,98 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
         return r;
 }
 
+static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(ctx);
+        assert(path);
+
+        r = search_and_fopen_nulstr(path, "re", conf_file_dirs, &f);
+        if (r < 0) {
+                if (ignore_enoent && r == -ENOENT)
+                        return 0;
+
+                log_error("Failed to open %s, ignoring: %s", path, strerror(-r));
+                return r;
+        }
+
+        log_debug("apply: %s\n", path);
+        for (;;) {
+                char line[LINE_MAX], *l;
+                int k;
+
+                if (!fgets(line, sizeof(line), f)) {
+                        if (feof(f))
+                                break;
+
+                        log_error("Failed to read file '%s', ignoring: %m", path);
+                        return -errno;
+                }
+
+                l = strstrip(line);
+                if (!*l)
+                        continue;
+                if (strchr(COMMENTS, *l))
+                        continue;
+
+                k = load_module(ctx, l);
+                if (k < 0 && r == 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+static int help(void) {
+
+        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
+               "Loads statically configured kernel modules.\n\n"
+               "  -h --help             Show this help\n",
+               program_invocation_short_name);
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+
+        static const struct option options[] = {
+                { "help",      no_argument,       NULL, 'h'           },
+                { NULL,        0,                 NULL, 0             }
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+
+                switch (c) {
+
+                case 'h':
+                        help();
+                        return 0;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        log_error("Unknown option code %c", c);
+                        return -EINVAL;
+                }
+        }
+
+        return 1;
+}
+
 int main(int argc, char *argv[]) {
-        int r = EXIT_FAILURE, k;
-        char **files = NULL, **fn, **i;
+        int r, k;
         struct kmod_ctx *ctx;
 
-        if (argc > 1) {
-                log_error("This program takes no argument.");
-                return EXIT_FAILURE;
-        }
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -190,70 +284,43 @@ int main(int argc, char *argv[]) {
         kmod_load_resources(ctx);
         kmod_set_log_fn(ctx, systemd_kmod_log, NULL);
 
-        r = EXIT_SUCCESS;
+        r = 0;
 
-        STRV_FOREACH(i, arg_proc_cmdline_modules) {
-                k = load_module(ctx, *i);
-                if (k < 0)
-                        r = EXIT_FAILURE;
-        }
+        if (argc > optind) {
+                int i;
 
-        k = conf_files_list(&files, ".conf", NULL,
-                            "/etc/modules-load.d",
-                            "/run/modules-load.d",
-                            "/usr/local/lib/modules-load.d",
-                            "/usr/lib/modules-load.d",
-#ifdef HAVE_SPLIT_USR
-                            "/lib/modules-load.d",
-#endif
-                            NULL);
-        if (k < 0) {
-                log_error("Failed to enumerate modules-load.d files: %s", strerror(-k));
-                r = EXIT_FAILURE;
-                goto finish;
-        }
-
-        STRV_FOREACH(fn, files) {
-                FILE *f;
-
-                f = fopen(*fn, "re");
-                if (!f) {
-                        if (errno == ENOENT)
-                                continue;
-
-                        log_error("Failed to open %s: %m", *fn);
-                        r = EXIT_FAILURE;
-                        continue;
+                for (i = optind; i < argc; i++) {
+                        k = apply_file(ctx, argv[i], false);
+                        if (k < 0 && r == 0)
+                                r = k;
                 }
 
-                log_debug("apply: %s\n", *fn);
-                for (;;) {
-                        char line[LINE_MAX], *l;
+        } else {
+                _cleanup_free_ char **files = NULL;
+                char **fn, **i;
 
-                        if (!fgets(line, sizeof(line), f))
-                                break;
-
-                        l = strstrip(line);
-                        if (*l == '#' || *l == 0)
-                                continue;
-
-                        k = load_module(ctx, l);
+                STRV_FOREACH(i, arg_proc_cmdline_modules) {
+                        k = load_module(ctx, *i);
                         if (k < 0)
                                 r = EXIT_FAILURE;
                 }
 
-                if (ferror(f)) {
-                        log_error("Failed to read from file: %m");
-                        r = EXIT_FAILURE;
+                r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
+                if (r < 0) {
+                        log_error("Failed to enumerate modules-load.d files: %s", strerror(-r));
+                        goto finish;
                 }
 
-                fclose(f);
+                STRV_FOREACH(fn, files) {
+                        k = apply_file(ctx, *fn, true);
+                        if (k < 0 && r == 0)
+                                r = k;
+                }
         }
 
 finish:
-        strv_free(files);
         kmod_unref(ctx);
         strv_free(arg_proc_cmdline_modules);
 
-        return r;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

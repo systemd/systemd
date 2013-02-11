@@ -568,6 +568,9 @@ char *strip_tab_ansi(char **p, size_t *l);
 
 int on_ac_power(void);
 
+int search_and_fopen(const char *path, const char *mode, const char **search, FILE **_f);
+int search_and_fopen_nulstr(const char *path, const char *mode, const char *search, FILE **_f);
+
 #define FOREACH_LINE(f, line, on_error)                         \
         for (char line[LINE_MAX]; !feof(f); )                   \
                 if (!fgets(line, sizeof(line), f)) {            \

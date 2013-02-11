@@ -504,6 +504,22 @@ char **strv_parse_nulstr(const char *s, size_t l) {
         return v;
 }
 
+char **strv_split_nulstr(const char *s) {
+        const char *i;
+        char **r = NULL;
+
+        NULSTR_FOREACH(i, s)
+                if (strv_extend(&r, i) < 0) {
+                        strv_free(r);
+                        return NULL;
+                }
+
+        if (!r)
+                return strv_new(NULL, NULL);
+
+        return r;
+}
+
 bool strv_overlap(char **a, char **b) {
         char **i, **j;
 

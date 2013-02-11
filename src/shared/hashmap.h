@@ -50,6 +50,7 @@ int uint64_compare_func(const void *a, const void *b);
 Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func);
 void hashmap_free(Hashmap *h);
 void hashmap_free_free(Hashmap *h);
+void hashmap_free_free_free(Hashmap *h);
 Hashmap *hashmap_copy(Hashmap *h);
 int hashmap_ensure_allocated(Hashmap **h, hash_func_t hash_func, compare_func_t compare_func);
 
@@ -77,6 +78,7 @@ void *hashmap_iterate_skip(Hashmap *h, const void *key, Iterator *i);
 
 void hashmap_clear(Hashmap *h);
 void hashmap_clear_free(Hashmap *h);
+void hashmap_clear_free_free(Hashmap *h);
 
 void *hashmap_steal_first(Hashmap *h);
 void *hashmap_steal_first_key(Hashmap *h);

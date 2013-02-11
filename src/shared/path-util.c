@@ -215,6 +215,16 @@ char **path_strv_canonicalize(char **l) {
         return l;
 }
 
+char **path_strv_canonicalize_uniq(char **l) {
+        if (strv_isempty(l))
+                return l;
+
+        if (!path_strv_canonicalize(l))
+                return NULL;
+
+        return strv_uniq(l);
+}
+
 char *path_kill_slashes(char *path) {
         char *f, *t;
         bool slash = false;

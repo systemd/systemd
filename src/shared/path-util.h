@@ -37,6 +37,7 @@ bool path_equal(const char *a, const char *b);
 
 char **path_strv_make_absolute_cwd(char **l);
 char **path_strv_canonicalize(char **l);
+char **path_strv_canonicalize_uniq(char **l);
 
 int path_is_mount_point(const char *path, bool allow_symlink);
 int path_is_read_only_fs(const char *path);

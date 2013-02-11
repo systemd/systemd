@@ -5909,3 +5909,82 @@ int on_ac_power(void) {
 
         return found_online || !found_offline;
 }
+
+static int search_and_fopen_internal(const char *path, const char *mode, char **search, FILE **_f) {
+        char **i;
+
+        assert(path);
+        assert(mode);
+        assert(_f);
+
+        if (!path_strv_canonicalize_uniq(search))
+                return -ENOMEM;
+
+        STRV_FOREACH(i, search) {
+                _cleanup_free_ char *p = NULL;
+                FILE *f;
+
+                p = strjoin(*i, "/", path, NULL);
+                if (!p)
+                        return -ENOMEM;
+
+                f = fopen(p, mode);
+                if (f) {
+                        *_f = f;
+                        return 0;
+                }
+
+                if (errno != ENOENT)
+                        return -errno;
+        }
+
+        return -ENOENT;
+}
+
+int search_and_fopen(const char *path, const char *mode, const char **search, FILE **_f) {
+        _cleanup_strv_free_ char **copy = NULL;
+
+        assert(path);
+        assert(mode);
+        assert(_f);
+
+        if (path_is_absolute(path)) {
+                FILE *f;
+
+                f = fopen(path, mode);
+                if (f) {
+                        *_f = f;
+                        return 0;
+                }
+
+                return -errno;
+        }
+
+        copy = strv_copy((char**) search);
+        if (!copy)
+                return -ENOMEM;
+
+        return search_and_fopen_internal(path, mode, copy, _f);
+}
+
+int search_and_fopen_nulstr(const char *path, const char *mode, const char *search, FILE **_f) {
+        _cleanup_strv_free_ char **s = NULL;
+
+        if (path_is_absolute(path)) {
+                FILE *f;
+
+                f = fopen(path, mode);
+                if (f) {
+                        *_f = f;
+                        return 0;
+                }
+
+                return -errno;
+        }
+
+        s = strv_split_nulstr(search);
+        if (!s)
+                return -ENOMEM;
+
+        return search_and_fopen_internal(path, mode, s, _f);
+}

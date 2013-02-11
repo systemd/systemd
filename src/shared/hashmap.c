@@ -309,6 +309,17 @@ void hashmap_free_free(Hashmap *h) {
         hashmap_free(h);
 }
 
+void hashmap_free_free_free(Hashmap *h) {
+
+        /* Free the hashmap and all data and key objects in it */
+
+        if (!h)
+                return;
+
+        hashmap_clear_free_free(h);
+        hashmap_free(h);
+}
+
 void hashmap_clear(Hashmap *h) {
         if (!h)
                 return;
@@ -326,6 +337,22 @@ void hashmap_clear_free(Hashmap *h) {
         while ((p = hashmap_steal_first(h)))
                 free(p);
 }
+
+void hashmap_clear_free_free(Hashmap *h) {
+        if (!h)
+                return;
+
+        while (h->iterate_list_head) {
+                void *a, *b;
+
+                a = h->iterate_list_head->value;
+                b = (void*) h->iterate_list_head->key;
+                remove_entry(h, h->iterate_list_head);
+                free(a);
+                free(b);
+        }
+}
+
 
 static struct hashmap_entry *hash_scan(Hashmap *h, unsigned hash, const void *key) {
         struct hashmap_entry *e;

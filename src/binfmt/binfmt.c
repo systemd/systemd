@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <getopt.h>
 
 #include "log.h"
 #include "hashmap.h"
@@ -33,28 +34,34 @@
 #include "util.h"
 #include "conf-files.h"
 
+static const char conf_file_dirs[] =
+        "/etc/binfmt.d\0"
+        "/run/binfmt.d\0"
+        "/usr/local/lib/binfmt.d\0"
+        "/usr/lib/binfmt.d\0"
+#ifdef HAVE_SPLIT_USR
+        "/lib/binfmt.d\0"
+#endif
+        ;
+
 static int delete_rule(const char *rule) {
-        char *x, *fn = NULL, *e;
-        int r;
+        _cleanup_free_ char *x = NULL, *fn = NULL;
+        char *e;
 
         assert(rule[0]);
 
-        if (!(x = strdup(rule)))
+        x = strdup(rule);
+        if (!x)
                 return log_oom();
 
         e = strchrnul(x+1, x[0]);
         *e = 0;
 
-        asprintf(&fn, "/proc/sys/fs/binfmt_misc/%s", x+1);
-        free(x);
-
+        fn = strappend("/proc/sys/fs/binfmt_misc/", x+1);
         if (!fn)
                 return log_oom();
 
-        r = write_one_line_file(fn, "-1");
-        free(fn);
-
-        return r;
+        return write_one_line_file(fn, "-1");
 }
 
 static int apply_rule(const char *rule) {
@@ -62,7 +69,8 @@ static int apply_rule(const char *rule) {
 
         delete_rule(rule);
 
-        if ((r = write_one_line_file("/proc/sys/fs/binfmt_misc/register", rule)) < 0) {
+        r = write_one_line_file("/proc/sys/fs/binfmt_misc/register", rule);
+        if (r < 0) {
                 log_error("Failed to add binary format: %s", strerror(-r));
                 return r;
         }
@@ -71,21 +79,22 @@ static int apply_rule(const char *rule) {
 }
 
 static int apply_file(const char *path, bool ignore_enoent) {
-        FILE *f;
-        int r = 0;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
 
         assert(path);
 
-        if (!(f = fopen(path, "re"))) {
-                if (ignore_enoent && errno == ENOENT)
+        r = search_and_fopen_nulstr(path, "re", conf_file_dirs, &f);
+        if (r < 0) {
+                if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error("Failed to open file '%s', ignoring: %m", path);
-                return -errno;
+                log_error("Failed to open file '%s', ignoring: %s", path, strerror(-r));
+                return r;
         }
 
         log_debug("apply: %s\n", path);
-        while (!feof(f)) {
+        for (;;) {
                 char l[LINE_MAX], *p;
                 int k;
 
@@ -94,30 +103,71 @@ static int apply_file(const char *path, bool ignore_enoent) {
                                 break;
 
                         log_error("Failed to read file '%s', ignoring: %m", path);
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
 
                 p = strstrip(l);
-
                 if (!*p)
                         continue;
-
                 if (strchr(COMMENTS, *p))
                         continue;
 
-                if ((k = apply_rule(p)) < 0 && r == 0)
+                k = apply_rule(p);
+                if (k < 0 && r == 0)
                         r = k;
         }
-
-finish:
-        fclose(f);
 
         return r;
 }
 
+static int help(void) {
+
+        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
+               "Registers binary formats.\n\n"
+               "  -h --help             Show this help\n",
+               program_invocation_short_name);
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+
+        static const struct option options[] = {
+                { "help",      no_argument,       NULL, 'h'           },
+                { NULL,        0,                 NULL, 0             }
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+
+                switch (c) {
+
+                case 'h':
+                        help();
+                        return 0;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        log_error("Unknown option code %c", c);
+                        return -EINVAL;
+                }
+        }
+
+        return 1;
+}
+
 int main(int argc, char *argv[]) {
-        int r = 0;
+        int r, k;
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -125,28 +175,21 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (argc > 1) {
+        r = 0;
+
+        if (argc > optind) {
                 int i;
 
-                for (i = 1; i < argc; i++) {
-                        int k;
-
+                for (i = optind; i < argc; i++) {
                         k = apply_file(argv[i], false);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
         } else {
-                char **files, **f;
+                _cleanup_strv_free_ char **files = NULL;
+                char **f;
 
-                r = conf_files_list(&files, ".conf", NULL,
-                                    "/etc/binfmt.d",
-                                    "/run/binfmt.d",
-                                    "/usr/local/lib/binfmt.d",
-                                    "/usr/lib/binfmt.d",
-#ifdef HAVE_SPLIT_USR
-                                    "/lib/binfmt.d",
-#endif
-                                    NULL);
+                r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
                 if (r < 0) {
                         log_error("Failed to enumerate binfmt.d files: %s", strerror(-r));
                         goto finish;
@@ -156,15 +199,12 @@ int main(int argc, char *argv[]) {
                 write_one_line_file("/proc/sys/fs/binfmt_misc/status", "-1");
 
                 STRV_FOREACH(f, files) {
-                        int k;
-
                         k = apply_file(*f, true);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
-
-                strv_free(files);
         }
+
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

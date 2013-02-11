@@ -106,16 +106,15 @@ static bool arg_remove = false;
 
 static const char *arg_prefix = NULL;
 
-static const char * const conf_file_dirs[] = {
-        "/etc/tmpfiles.d",
-        "/run/tmpfiles.d",
-        "/usr/local/lib/tmpfiles.d",
-        "/usr/lib/tmpfiles.d",
+static const char conf_file_dirs[] =
+        "/etc/tmpfiles.d\0"
+        "/run/tmpfiles.d\0"
+        "/usr/local/lib/tmpfiles.d\0"
+        "/usr/lib/tmpfiles.d\0"
 #ifdef HAVE_SPLIT_USR
-        "/lib/tmpfiles.d",
+        "/lib/tmpfiles.d\0"
 #endif
-        NULL
-};
+        ;
 
 #define MAX_DEPTH 256
 
@@ -1289,20 +1288,19 @@ static int parse_argv(int argc, char *argv[]) {
 static int read_config_file(const char *fn, bool ignore_enoent) {
         FILE *f;
         unsigned v = 0;
-        int r = 0;
+        int r;
         Iterator iterator;
         Item *i;
 
         assert(fn);
 
-        f = fopen(fn, "re");
-        if (!f) {
-
-                if (ignore_enoent && errno == ENOENT)
+        r = search_and_fopen_nulstr(fn, "re", conf_file_dirs, &f);
+        if (r < 0) {
+                if (ignore_enoent && r == -ENOENT)
                         return 0;
 
-                log_error("Failed to open %s: %m", fn);
-                return -errno;
+                log_error("Failed to open '%s', ignoring: %s", fn, strerror(-r));
+                return r;
         }
 
         log_debug("apply: %s\n", fn);
@@ -1363,32 +1361,8 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         return r;
 }
 
-static char *resolve_fragment(const char *fragment, const char **search_paths) {
-        const char **p;
-        char *resolved_path;
-
-        if (is_path(fragment))
-                return strdup(fragment);
-
-        STRV_FOREACH(p, search_paths) {
-                resolved_path = strjoin(*p, "/", fragment, NULL);
-                if (resolved_path == NULL) {
-                        log_oom();
-                        return NULL;
-                }
-
-                if (access(resolved_path, F_OK) == 0)
-                        return resolved_path;
-
-                free(resolved_path);
-        }
-
-        errno = ENOENT;
-        return NULL;
-}
-
 int main(int argc, char *argv[]) {
-        int r;
+        int r, k;
         Item *i;
         Iterator iterator;
 
@@ -1408,46 +1382,36 @@ int main(int argc, char *argv[]) {
         globs = hashmap_new(string_hash_func, string_compare_func);
 
         if (!items || !globs) {
-                log_oom();
-                r = EXIT_FAILURE;
+                r = log_oom();
                 goto finish;
         }
 
-        r = EXIT_SUCCESS;
+        r = 0;
 
         if (optind < argc) {
                 int j;
 
                 for (j = optind; j < argc; j++) {
-                        char *fragment;
-
-                        fragment = resolve_fragment(argv[j], (const char **)conf_file_dirs);
-                        if (!fragment) {
-                                log_error("Failed to find a %s file: %m", argv[j]);
-                                r = EXIT_FAILURE;
-                                goto finish;
-                        }
-                        if (read_config_file(fragment, false) < 0)
-                                r = EXIT_FAILURE;
-                        free(fragment);
+                        k = read_config_file(argv[j], false);
+                        if (k < 0 && r == 0)
+                                r = k;
                 }
 
         } else {
-                char **files, **f;
+                _cleanup_strv_free_ char **files = NULL;
+                char **f;
 
-                r = conf_files_list_strv(&files, ".conf", NULL, (const char **)conf_file_dirs);
+                r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
                 if (r < 0) {
                         log_error("Failed to enumerate tmpfiles.d files: %s", strerror(-r));
-                        r = EXIT_FAILURE;
                         goto finish;
                 }
 
                 STRV_FOREACH(f, files) {
-                        if (read_config_file(*f, true) < 0)
-                                r = EXIT_FAILURE;
+                        k = read_config_file(*f, true);
+                        if (k < 0 && r == 0)
+                                r = k;
                 }
-
-                strv_free(files);
         }
 
         HASHMAP_FOREACH(i, globs, iterator)
@@ -1470,5 +1434,5 @@ finish:
 
         label_finish();
 
-        return r;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

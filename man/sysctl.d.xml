@@ -92,7 +92,7 @@
                 alphabetical order, regardless in which of the
                 directories they reside, to guarantee that a specific
                 configuration file takes precedence over another file
-                with an alphabetically earlier name, if both files
+                with an alphabetically later name, if both files
                 contain the same variable setting.</para>
 
                 <para>If the administrator wants to disable a

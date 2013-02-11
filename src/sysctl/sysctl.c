@@ -35,27 +35,41 @@
 #include "path-util.h"
 #include "conf-files.h"
 
-#define PROC_SYS_PREFIX "/proc/sys/"
+static char **arg_prefixes = NULL;
 
-static char **arg_prefixes;
-static Hashmap *sysctl_options;
+static const char conf_file_dirs[] =
+        "/etc/sysctl.d\0"
+        "/run/sysctl.d\0"
+        "/usr/local/lib/sysctl.d\0"
+        "/usr/lib/sysctl.d\0"
+#ifdef HAVE_SPLIT_USR
+        "/lib/sysctl.d\0"
+#endif
+        ;
+
+static char *normalize_sysctl(char *s) {
+        char *n;
+
+        for (n = s; *n; n++)
+                if (*n == '.')
+                        *n = '/';
+
+        return s;
+}
 
 static int apply_sysctl(const char *property, const char *value) {
-        char *p, *n;
+        _cleanup_free_ char *p = NULL;
+        char *n;
         int r = 0, k;
 
         log_debug("Setting '%s' to '%s'", property, value);
 
-        p = new(char, sizeof(PROC_SYS_PREFIX) + strlen(property));
+        p = new(char, sizeof("/proc/sys/") + strlen(property));
         if (!p)
                 return log_oom();
 
-        n = stpcpy(p, PROC_SYS_PREFIX);
+        n = stpcpy(p, "/proc/sys/");
         strcpy(n, property);
-
-        for (; *n; n++)
-                if (*n == '.')
-                        *n = '/';
 
         if (!strv_isempty(arg_prefixes)) {
                 char **i;
@@ -69,14 +83,12 @@ static int apply_sysctl(const char *property, const char *value) {
 
                 if (!good) {
                         log_debug("Skipping %s", p);
-                        free(p);
                         return 0;
                 }
         }
 
         k = write_one_line_file(p, value);
         if (k < 0) {
-
                 log_full(k == -ENOENT ? LOG_DEBUG : LOG_WARNING,
                          "Failed to write '%s' to '%s': %s", value, p, strerror(-k));
 
@@ -84,15 +96,15 @@ static int apply_sysctl(const char *property, const char *value) {
                         r = k;
         }
 
-        free(p);
-
         return r;
 }
 
-static int apply_all(void) {
+static int apply_all(Hashmap *sysctl_options) {
         int r = 0;
         char *property, *value;
         Iterator i;
+
+        assert(sysctl_options);
 
         HASHMAP_FOREACH_KEY(value, property, sysctl_options, i) {
                 int k;
@@ -104,36 +116,35 @@ static int apply_all(void) {
         return r;
 }
 
-static int parse_file(const char *path, bool ignore_enoent) {
-        FILE *f;
-        int r = 0;
+static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_enoent) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
 
         assert(path);
 
-        f = fopen(path, "re");
-        if (!f) {
-                if (ignore_enoent && errno == ENOENT)
+        r = search_and_fopen_nulstr(path, "re", conf_file_dirs, &f);
+        if (r < 0) {
+                if (ignore_enoent && errno == -ENOENT)
                         return 0;
 
-                log_error("Failed to open file '%s', ignoring: %m", path);
-                return -errno;
+                log_error("Failed to open file '%s', ignoring: %s", path, strerror(-r));
+                return r;
         }
 
         log_debug("parse: %s\n", path);
         while (!feof(f)) {
-                char l[LINE_MAX], *p, *value, *new_value, *property;
+                char l[LINE_MAX], *p, *value, *new_value, *property, *existing;
+                int k;
 
                 if (!fgets(l, sizeof(l), f)) {
                         if (feof(f))
                                 break;
 
                         log_error("Failed to read file '%s', ignoring: %m", path);
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
 
                 p = strstrip(l);
-
                 if (!*p)
                         continue;
 
@@ -152,39 +163,35 @@ static int parse_file(const char *path, bool ignore_enoent) {
                 *value = 0;
                 value++;
 
-                property = strdup(strstrip(p));
-                if (!property) {
-                        r = log_oom();
-                        goto finish;
+                p = normalize_sysctl(strstrip(p));
+                value = strstrip(value);
+
+                existing = hashmap_get(sysctl_options, p);
+                if (existing) {
+                        if (!streq(value, existing))
+                                log_warning("Two ore more conflicting assignments of %s, ignoring.", property);
+
+                        continue;
                 }
 
-                new_value = strdup(strstrip(value));
+                property = strdup(p);
+                if (!property)
+                        return log_oom();
+
+                new_value = strdup(value);
                 if (!new_value) {
                         free(property);
-                        r = log_oom();
-                        goto finish;
+                        return log_oom();
                 }
 
-                r = hashmap_put(sysctl_options, property, new_value);
-                if (r < 0) {
-                        if (r == -EEXIST) {
-                                /* ignore this "error" to avoid returning it
-                                 * for the function when this is the last key
-                                 * in the file being parsed. */
-                                r = 0;
-                                log_debug("Skipping previously assigned sysctl variable %s", property);
-                        } else
-                                log_error("Failed to add sysctl variable %s to hashmap: %s", property, strerror(-r));
-
+                k = hashmap_put(sysctl_options, property, new_value);
+                if (k < 0) {
+                        log_error("Failed to add sysctl variable %s to hashmap: %s", property, strerror(-r));
                         free(property);
                         free(new_value);
-                        if (r != 0)
-                                goto finish;
+                        return k;
                 }
         }
-
-finish:
-        fclose(f);
 
         return r;
 }
@@ -257,8 +264,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
         int r = 0, k;
-        char *property, *value;
-        Iterator it;
+        Hashmap *sysctl_options;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -282,54 +288,35 @@ int main(int argc, char *argv[]) {
                 int i;
 
                 for (i = optind; i < argc; i++) {
-                        k = parse_file(argv[i], false);
-                        if (k < 0)
+                        k = parse_file(sysctl_options, argv[i], false);
+                        if (k < 0 && r == 0)
                                 r = k;
                 }
         } else {
-                char **files, **f;
+                _cleanup_strv_free_ char **files = NULL;
+                char **f;
 
-                r = conf_files_list(&files, ".conf", NULL,
-                                    "/etc/sysctl.d",
-                                    "/run/sysctl.d",
-                                    "/usr/local/lib/sysctl.d",
-                                    "/usr/lib/sysctl.d",
-#ifdef HAVE_SPLIT_USR
-                                    "/lib/sysctl.d",
-#endif
-                                    NULL);
+                r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
                 if (r < 0) {
                         log_error("Failed to enumerate sysctl.d files: %s", strerror(-r));
                         goto finish;
                 }
 
-                /* We parse the files in decreasing order of precedence.
-                 * parse_file() will skip keys that were already assigned. */
+                r = parse_file(sysctl_options, "/etc/sysctl.conf", true);
 
-                r = parse_file("/etc/sysctl.conf", true);
-
-                f = files + strv_length(files) - 1;
-                STRV_FOREACH_BACKWARDS(f, files) {
-                        k = parse_file(*f, true);
-                        if (k < 0)
+                STRV_FOREACH(f, files) {
+                        k = parse_file(sysctl_options, *f, true);
+                        if (k < 0 && r == 0)
                                 r = k;
                 }
-
-                strv_free(files);
         }
 
-        k = apply_all();
-        if (k < 0)
+        k = apply_all(sysctl_options);
+        if (k < 0 && r == 0)
                 r = k;
 
 finish:
-        HASHMAP_FOREACH_KEY(value, property, sysctl_options, it) {
-                hashmap_remove(sysctl_options, property);
-                free(property);
-                free(value);
-        }
-        hashmap_free(sysctl_options);
-
+        hashmap_free_free_free(sysctl_options);
         strv_free(arg_prefixes);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
