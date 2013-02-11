@@ -30,64 +30,77 @@ static void test_strv_env_delete(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
 
         a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF", NULL);
+        assert_se(a);
+
         b = strv_new("PIEP", "FOO", NULL);
+        assert_se(b);
+
         c = strv_new("SCHLUMPF", NULL);
+        assert_se(c);
 
         d = strv_env_delete(a, 2, b, c);
+        assert_se(d);
 
-        assert(streq(d[0], "WALDO=WALDO"));
-        assert(streq(d[1], "WALDO="));
-        assert(strv_length(d) == 2);
+        assert_se(streq(d[0], "WALDO=WALDO"));
+        assert_se(streq(d[1], "WALDO="));
+        assert_se(strv_length(d) == 2);
 }
 
 static void test_strv_env_unset(void) {
         _cleanup_strv_free_ char **l = NULL;
 
         l = strv_new("PIEP", "SCHLUMPF=SMURFF", "NANANANA=YES", NULL);
+        assert_se(l);
 
-        strv_env_unset(l, "SCHLUMPF");
+        assert_se(strv_env_unset(l, "SCHLUMPF") == l);
 
-        assert(streq(l[0], "PIEP"));
-        assert(streq(l[1], "NANANANA=YES"));
-        assert(strv_length(l) == 2);
+        assert_se(streq(l[0], "PIEP"));
+        assert_se(streq(l[1], "NANANANA=YES"));
+        assert_se(strv_length(l) == 2);
 }
 
 static void test_strv_env_set(void) {
         _cleanup_strv_free_ char **l = NULL, **r = NULL;
 
         l = strv_new("PIEP", "SCHLUMPF=SMURFF", "NANANANA=YES", NULL);
+        assert_se(l);
 
         r = strv_env_set(l, "WALDO=WALDO");
+        assert_se(r);
 
-        assert(streq(r[0], "PIEP"));
-        assert(streq(r[1], "SCHLUMPF=SMURFF"));
-        assert(streq(r[2], "NANANANA=YES"));
-        assert(streq(r[3], "WALDO=WALDO"));
-        assert(strv_length(r) == 4);
+        assert_se(streq(r[0], "PIEP"));
+        assert_se(streq(r[1], "SCHLUMPF=SMURFF"));
+        assert_se(streq(r[2], "NANANANA=YES"));
+        assert_se(streq(r[3], "WALDO=WALDO"));
+        assert_se(strv_length(r) == 4);
 }
 
 static void test_strv_env_merge(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **r = NULL;
 
         a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF", NULL);
+        assert_se(a);
+
         b = strv_new("FOO=KKK", "FOO=", "PIEP=", "SCHLUMPF=SMURFF", "NANANANA=YES", NULL);
+        assert_se(b);
 
         r = strv_env_merge(2, a, b);
-        assert(streq(r[0], "FOO="));
-        assert(streq(r[1], "WALDO="));
-        assert(streq(r[2], "PIEP"));
-        assert(streq(r[3], "SCHLUMPF=SMURFF"));
-        assert(streq(r[4], "PIEP="));
-        assert(streq(r[5], "NANANANA=YES"));
-        assert(strv_length(r) == 6);
+        assert_se(r);
+        assert_se(streq(r[0], "FOO="));
+        assert_se(streq(r[1], "WALDO="));
+        assert_se(streq(r[2], "PIEP"));
+        assert_se(streq(r[3], "SCHLUMPF=SMURFF"));
+        assert_se(streq(r[4], "PIEP="));
+        assert_se(streq(r[5], "NANANANA=YES"));
+        assert_se(strv_length(r) == 6);
 
-        strv_env_clean(r);
-        assert(streq(r[0], "FOO="));
-        assert(streq(r[1], "WALDO="));
-        assert(streq(r[2], "SCHLUMPF=SMURFF"));
-        assert(streq(r[3], "PIEP="));
-        assert(streq(r[4], "NANANANA=YES"));
-        assert(strv_length(r) == 5);
+        assert_se(strv_env_clean(r) == r);
+        assert_se(streq(r[0], "FOO="));
+        assert_se(streq(r[1], "WALDO="));
+        assert_se(streq(r[2], "SCHLUMPF=SMURFF"));
+        assert_se(streq(r[3], "PIEP="));
+        assert_se(streq(r[4], "NANANANA=YES"));
+        assert_se(strv_length(r) == 5);
 }
 
 static void test_replace_env_arg(void) {
@@ -111,24 +124,25 @@ static void test_replace_env_arg(void) {
         _cleanup_strv_free_ char **r = NULL;
 
         r = replace_env_argv((char**) line, (char**) env);
-        assert(streq(r[0], "FOO$FOO"));
-        assert(streq(r[1], "FOO$FOOFOO"));
-        assert(streq(r[2], "FOOBAR BAR$FOO"));
-        assert(streq(r[3], "FOOBAR BAR"));
-        assert(streq(r[4], "BAR BAR"));
-        assert(streq(r[5], "BAR"));
-        assert(streq(r[6], "BAR"));
-        assert(streq(r[7], "BAR BARwaldo"));
-        assert(streq(r[8], "${FOO"));
-        assert(strv_length(r) == 9);
+        assert_se(r);
+        assert_se(streq(r[0], "FOO$FOO"));
+        assert_se(streq(r[1], "FOO$FOOFOO"));
+        assert_se(streq(r[2], "FOOBAR BAR$FOO"));
+        assert_se(streq(r[3], "FOOBAR BAR"));
+        assert_se(streq(r[4], "BAR BAR"));
+        assert_se(streq(r[5], "BAR"));
+        assert_se(streq(r[6], "BAR"));
+        assert_se(streq(r[7], "BAR BARwaldo"));
+        assert_se(streq(r[8], "${FOO"));
+        assert_se(strv_length(r) == 9);
 }
 
-static void test_one_normalize(const char *input, const char *output)
-{
+static void test_one_normalize(const char *input, const char *output) {
         _cleanup_free_ char *t;
 
         t = normalize_env_assignment(input);
-        assert(streq(t, output));
+        assert_se(t);
+        assert_se(streq(t, output));
 }
 
 static void test_normalize_env_assignment(void) {
@@ -149,7 +163,6 @@ static void test_normalize_env_assignment(void) {
 }
 
 static void test_env_clean(void) {
-
         _cleanup_strv_free_ char **e;
 
         e = strv_new("FOOBAR=WALDO",
@@ -169,8 +182,10 @@ static void test_env_clean(void) {
                      "another=one",
                      "another=final one",
                      NULL);
-
-        assert_se(strv_env_clean(e));
+        assert_se(e);
+        assert_se(!strv_env_is_valid(e));
+        assert_se(strv_env_clean(e) == e);
+        assert_se(strv_env_is_valid(e));
 
         assert_se(streq(e[0], "FOOBAR=WALDO"));
         assert_se(streq(e[1], "X="));
