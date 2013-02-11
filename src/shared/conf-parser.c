@@ -668,12 +668,8 @@ int config_parse_strv(
                 void *data,
                 void *userdata) {
 
-        char*** sv = data;
-        char **n;
-        char *w;
-        unsigned k;
+        char *** sv = data, *w, *state;
         size_t l;
-        char *state;
         int r;
 
         assert(filename);
@@ -685,50 +681,27 @@ int config_parse_strv(
                 /* Empty assignment resets the list */
                 strv_free(*sv);
                 *sv = NULL;
+                return 0;
         }
 
-        k = strv_length(*sv);
-        FOREACH_WORD_QUOTED(w, l, rvalue, state)
-                k++;
-
-        n = new(char*, k+1);
-        if (!n)
-                return log_oom();
-
-        if (*sv)
-                for (k = 0; (*sv)[k]; k++)
-                        n[k] = (*sv)[k];
-        else
-                k = 0;
-
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                n[k] = cunescape_length(w, l);
-                if (!n[k]) {
-                        r = log_oom();
-                        goto fail;
-                }
+                _cleanup_free_ char *n;
 
-                if (!utf8_is_valid(n[k])) {
-                        log_error("[%s:%u] String is not UTF-8 clean, ignoring assignment: %s", filename, line, rvalue);
-                        free(n[k]);
+                n = cunescape_length(w, l);
+                if (!n)
+                        return log_oom();
+
+                if (!utf8_is_valid(n)) {
+                        log_error("[%s:%u] String is not UTF-8 clean, ignoring: %s", filename, line, rvalue);
                         continue;
                 }
 
-                k++;
+                r = strv_extend(sv, n);
+                if (r < 0)
+                        return log_oom();
         }
 
-        n[k] = NULL;
-        free(*sv);
-        *sv = n;
-
         return 0;
-
-fail:
-        for (; k > 0; k--)
-                free(n[k-1]);
-        free(n);
-
-        return r;
 }
 
 int config_parse_path_strv(
@@ -741,12 +714,8 @@ int config_parse_path_strv(
                 void *data,
                 void *userdata) {
 
-        char*** sv = data;
-        char **n;
-        char *w;
-        unsigned k;
+        char*** sv = data, *w, *state;
         size_t l;
-        char *state;
         int r;
 
         assert(filename);
@@ -758,56 +727,33 @@ int config_parse_path_strv(
                 /* Empty assignment resets the list */
                 strv_free(*sv);
                 *sv = NULL;
+                return 0;
         }
-
-        k = strv_length(*sv);
-        FOREACH_WORD_QUOTED(w, l, rvalue, state)
-                k++;
-
-        n = new(char*, k+1);
-        if (!n)
-                return log_oom();
-
-        k = 0;
-        if (*sv)
-                for (; (*sv)[k]; k++)
-                        n[k] = (*sv)[k];
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                n[k] = strndup(w, l);
-                if (!n[k]) {
-                        r = log_oom();
-                        goto fail;
-                }
+                _cleanup_free_ char *n;
 
-                if (!utf8_is_valid(n[k])) {
+                n = strndup(w, l);
+                if (!n)
+                        return log_oom();
+
+                if (!utf8_is_valid(n)) {
                         log_error("[%s:%u] Path is not UTF-8 clean, ignoring assignment: %s", filename, line, rvalue);
-                        free(n[k]);
                         continue;
                 }
 
-                if (!path_is_absolute(n[k])) {
+                if (!path_is_absolute(n)) {
                         log_error("[%s:%u] Not an absolute path, ignoring: %s", filename, line, rvalue);
-                        free(n[k]);
                         continue;
                 }
 
-                path_kill_slashes(n[k]);
-                k++;
+                path_kill_slashes(n);
+                r = strv_extend(sv, n);
+                if (r < 0)
+                        return log_oom();
         }
 
-        n[k] = NULL;
-        free(*sv);
-        *sv = n;
-
         return 0;
-
-fail:
-        for (; k > 0; k--)
-                free(n[k-1]);
-        free(n);
-
-        return r;
 }
 
 int config_parse_usec(

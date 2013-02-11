@@ -31,7 +31,7 @@ $1.CPUSchedulingPriority,        config_parse_exec_cpu_sched_prio,   0,         
 $1.CPUSchedulingResetOnFork,     config_parse_bool,                  0,                             offsetof($1, exec_context.cpu_sched_reset_on_fork)
 $1.CPUAffinity,                  config_parse_exec_cpu_affinity,     0,                             offsetof($1, exec_context)
 $1.UMask,                        config_parse_mode,                  0,                             offsetof($1, exec_context.umask)
-$1.Environment,                  config_parse_unit_strv_printf,      0,                             offsetof($1, exec_context.environment)
+$1.Environment,                  config_parse_environ,               0,                             offsetof($1, exec_context.environment)
 $1.EnvironmentFile,              config_parse_unit_env_file,         0,                             offsetof($1, exec_context.environment_files)
 $1.StandardInput,                config_parse_input,                 0,                             offsetof($1, exec_context.std_input)
 $1.StandardOutput,               config_parse_output,                0,                             offsetof($1, exec_context.std_output)

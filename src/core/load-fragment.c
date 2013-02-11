@@ -48,6 +48,7 @@
 #include "utf8.h"
 #include "path-util.h"
 #include "syscall-list.h"
+#include "env-util.h"
 
 #ifndef HAVE_SYSV_COMPAT
 int config_parse_warn_compat(
@@ -1486,9 +1487,10 @@ int config_parse_unit_env_file(
                 void *data,
                 void *userdata) {
 
-        char ***env = data, **k;
+        char ***env = data;
         Unit *u = userdata;
-        char *s;
+        _cleanup_free_ char *s = NULL;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1497,7 +1499,6 @@ int config_parse_unit_env_file(
 
         if (isempty(rvalue)) {
                 /* Empty assignment frees the list */
-
                 strv_free(*env);
                 *env = NULL;
                 return 0;
@@ -1509,17 +1510,67 @@ int config_parse_unit_env_file(
 
         if (!path_is_absolute(s[0] == '-' ? s + 1 : s)) {
                 log_error("[%s:%u] Path '%s' is not absolute, ignoring.", filename, line, s);
-                free(s);
                 return 0;
         }
 
-        k = strv_append(*env, s);
-        free(s);
+        r = strv_extend(env, s);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+int config_parse_environ(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = userdata;
+        char*** env = data, *w, *state;
+        size_t l;
+        _cleanup_free_ char *k = NULL;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(u);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                strv_free(*env);
+                *env = NULL;
+                return 0;
+        }
+
+        k = unit_full_printf(u, rvalue);
         if (!k)
                 return log_oom();
 
-        strv_free(*env);
-        *env = k;
+        FOREACH_WORD_QUOTED(w, l, k, state) {
+                _cleanup_free_ char *n;
+                char **x;
+
+                n = cunescape_length(w, l);
+                if (!n)
+                        return log_oom();
+
+                if (!env_assignment_is_valid(n)) {
+                        log_error("[%s:%u] Invalid environment assignment, ignoring: %s", filename, line, rvalue);
+                        continue;
+                }
+
+                x = strv_env_set(*env, n);
+                if (!x)
+                        return log_oom();
+
+                strv_free(*env);
+                *env = x;
+        }
 
         return 0;
 }
