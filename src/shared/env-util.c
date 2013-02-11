@@ -135,6 +135,21 @@ bool strv_env_is_valid(char **e) {
         return true;
 }
 
+bool strv_env_name_or_assignment_is_valid(char **l) {
+        char **p, **q;
+
+        STRV_FOREACH(p, l) {
+                if (!env_assignment_is_valid(*p) && !env_name_is_valid(*p))
+                        return false;
+
+                STRV_FOREACH(q, p + 1)
+                        if (streq(*p, *q))
+                                return false;
+        }
+
+        return true;
+}
+
 static int env_append(char **r, char ***k, char **a) {
         assert(r);
         assert(k);

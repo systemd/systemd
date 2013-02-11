@@ -1542,7 +1542,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 m->exit_code = MANAGER_SWITCH_ROOT;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetEnvironment")) {
-                char **l = NULL, **e = NULL;
+                _cleanup_strv_free_ char **l = NULL;
+                char **e = NULL;
 
                 SELINUX_ACCESS_CHECK(connection, message, "reboot");
 
@@ -1551,9 +1552,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
+                if (!strv_env_is_valid(l))
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
 
                 e = strv_env_merge(2, m->environment, l);
-                strv_free(l);
                 if (!e)
                         goto oom;
 
@@ -1567,7 +1569,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 m->environment = e;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetEnvironment")) {
-                char **l = NULL, **e = NULL;
+                _cleanup_strv_free_ char **l = NULL;
+                char **e = NULL;
 
                 SELINUX_ACCESS_CHECK(connection, message, "reboot");
 
@@ -1576,10 +1579,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
+                if (!strv_env_name_or_assignment_is_valid(l))
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
 
                 e = strv_env_delete(m->environment, 1, l);
-                strv_free(l);
-
                 if (!e)
                         goto oom;
 
@@ -1593,7 +1596,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 m->environment = e;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetAndSetEnvironment")) {
-                char **l_set = NULL, **l_unset = NULL, **e = NULL, **f = NULL;
+                _cleanup_strv_free_ char **l_set = NULL, **l_unset = NULL, **e = NULL;
+                char **f = NULL;
                 DBusMessageIter iter;
 
                 SELINUX_ACCESS_CHECK(connection, message, "reboot");
@@ -1606,33 +1610,25 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
-
-                if (!dbus_message_iter_next(&iter)) {
-                        strv_free(l_unset);
+                if (!strv_env_name_or_assignment_is_valid(l_unset))
                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
-                }
+
+                if (!dbus_message_iter_next(&iter))
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
 
                 r = bus_parse_strv_iter(&iter, &l_set);
-                if (r < 0) {
-                        strv_free(l_unset);
-                        if (r == -ENOMEM)
-                                goto oom;
-
+                if (r == -ENOMEM)
+                        goto oom;
+                if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
-                }
+                if (!strv_env_is_valid(l_set))
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
 
                 e = strv_env_delete(m->environment, 1, l_unset);
-                strv_free(l_unset);
-
-                if (!e) {
-                        strv_free(l_set);
+                if (!e)
                         goto oom;
-                }
 
                 f = strv_env_merge(2, e, l_set);
-                strv_free(l_set);
-                strv_free(e);
-
                 if (!f)
                         goto oom;
 
