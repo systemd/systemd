@@ -71,6 +71,7 @@
 #include "path-util.h"
 #include "audit-fd.h"
 #include "efivars.h"
+#include "env-util.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -289,6 +290,9 @@ static void manager_strip_environment(Manager *m) {
          * the initrd interface:
          * http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface */
         strv_remove_prefix(m->environment, "RD_");
+
+        /* Drop invalid entries */
+        strv_env_clean(m->environment);
 }
 
 int manager_new(SystemdRunningAs running_as, Manager **_m) {
