@@ -85,7 +85,7 @@ int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, v
         ((char*) r)[st.st_size - 4 + 1] = 0;
 
         *value = r;
-        *size = (size_t) st.st_size;
+        *size = (size_t) st.st_size - 4;
 
         if (attribute)
                 *attribute = a;
