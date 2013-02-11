@@ -135,7 +135,8 @@ char *path_make_absolute_cwd(const char *p) {
         if (path_is_absolute(p))
                 return strdup(p);
 
-        if (!(cwd = get_current_dir_name()))
+        cwd = get_current_dir_name();
+        if (!cwd)
                 return NULL;
 
         r = path_make_absolute(p, cwd);
@@ -190,7 +191,6 @@ char **path_strv_canonicalize(char **l) {
 
                 errno = 0;
                 u = canonicalize_file_name(t);
-
                 if (!u) {
                         if (errno == ENOENT)
                                 u = t;
@@ -201,7 +201,8 @@ char **path_strv_canonicalize(char **l) {
 
                                 continue;
                         }
-                }
+                } else
+                        free(t);
 
                 l[k++] = u;
         }
