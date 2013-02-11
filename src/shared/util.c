@@ -766,77 +766,82 @@ fail:
         return r;
 }
 
-int load_env_file(const char *fname,
-                  char ***rl) {
+int load_env_file(const char *fname, char ***rl) {
 
-        FILE _cleanup_fclose_ *f;
-        char *b;
-        char _cleanup_free_ *c = NULL;
-        char _cleanup_strv_free_ **m = NULL;
+        _cleanup_fclose_ FILE *f;
+        _cleanup_strv_free_ char **m = NULL;
+        _cleanup_free_ char *c = NULL;
 
         assert(fname);
         assert(rl);
+
+        /* This reads an environment file, but will not complain about
+         * any invalid assignments, that needs to be done by the
+         * caller */
 
         f = fopen(fname, "re");
         if (!f)
                 return -errno;
 
         while (!feof(f)) {
-                char l[LINE_MAX], *p, *u, *cs;
-                char **t;
+                char l[LINE_MAX], *p, *cs, *b;
 
                 if (!fgets(l, sizeof(l), f)) {
-                        if (!feof(f))
+                        if (ferror(f))
                                 return -errno;
-                        else if (!c)
-                                break;
+
+                        /* The previous line was a continuation line?
+                         * Let's process it now, before we leave the
+                         * loop */
+                        if (c)
+                                goto process;
+
+                        break;
                 }
 
+                /* Is this a continuation line? If so, just append
+                 * this to c, and go to next line right-away */
                 cs = endswith(l, "\\\n");
                 if (cs) {
                         *cs = '\0';
                         b = strappend(c, l);
                         if (!b)
-                                return log_oom();
+                                return -ENOMEM;
 
                         free(c);
                         c = b;
-                        *l = '\0';
                         continue;
                 }
 
+                /* If the previous line was a continuation line,
+                 * append the current line to it */
                 if (c) {
                         b = strappend(c, l);
                         if (!b)
-                                return log_oom();
+                                return -ENOMEM;
 
                         free(c);
                         c = b;
                 }
 
+        process:
                 p = strstrip(c ? c : l);
 
-                if (!*p)
-                        continue;
+                if (*p && !strchr(COMMENTS, *p)) {
+                        _cleanup_free_ char *u;
+                        int k;
 
-                if (strchr(COMMENTS, *p))
-                        continue;
+                        u = normalize_env_assignment(p);
+                        if (!u)
+                                return -ENOMEM;
 
-                u = normalize_env_assignment(p);
-                if (!u)
-                        return log_oom();
+                        k = strv_extend(&m, u);
+                        if (k < 0)
+                                return -ENOMEM;
+                }
 
                 free(c);
                 c = NULL;
-
-                t = strv_append(m, u);
-                free(u);
-
-                if (!t)
-                        return log_oom();
-
-                strv_free(m);
-                m = t;
         }
 
         *rl = m;
