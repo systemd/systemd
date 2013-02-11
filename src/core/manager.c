@@ -1856,6 +1856,7 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool serialize_jobs) {
         Iterator i;
         Unit *u;
         const char *t;
+        char **e;
         int r;
 
         assert(m);
@@ -1877,6 +1878,14 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool serialize_jobs) {
         if (!in_initrd()) {
                 dual_timestamp_serialize(f, "userspace-timestamp", &m->userspace_timestamp);
                 dual_timestamp_serialize(f, "finish-timestamp", &m->finish_timestamp);
+        }
+
+        STRV_FOREACH(e, m->environment) {
+                _cleanup_free_ char *ce;
+
+                ce = cescape(*e);
+                if (ce)
+                        fprintf(f, "env=%s\n", *e);
         }
 
         fputc('\n', f);
@@ -1979,7 +1988,25 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         dual_timestamp_deserialize(l+20, &m->userspace_timestamp);
                 else if (startswith(l, "finish-timestamp="))
                         dual_timestamp_deserialize(l+17, &m->finish_timestamp);
-                else
+                else if (startswith(l, "env=")) {
+                        _cleanup_free_ char *uce = NULL;
+                        char **e;
+
+                        uce = cunescape(l+4);
+                        if (!uce) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        e = strv_env_set(m->environment, uce);
+                        if (!e) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        strv_free(m->environment);
+                        m->environment = e;
+                } else
                         log_debug("Unknown serialization item '%s'", l);
         }
 
