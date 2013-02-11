@@ -462,14 +462,17 @@ static int generate_new_id128(void) {
                "As UUID:\n"
                "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n\n"
                "As macro:\n"
-              "#define MESSAGE_XYZ SD_ID128_MAKE(",
+               "#define MESSAGE_XYZ SD_ID128_MAKE(",
                SD_ID128_FORMAT_VAL(id),
                SD_ID128_FORMAT_VAL(id));
-
         for (i = 0; i < 16; i++)
                 printf("%02x%s", id.bytes[i], i != 15 ? "," : "");
+        fputs(")\n\n", stdout);
 
-        fputs(")\n", stdout);
+        printf("As Python constant:\n"
+               ">>> import uuid\n"
+               ">>> MESSAGE_XYZ = uuid.UUID('" SD_ID128_FORMAT_STR "')\n",
+               SD_ID128_FORMAT_VAL(id));
 
         return 0;
 }
