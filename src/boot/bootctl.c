@@ -153,14 +153,16 @@ static int show_status(char **args, unsigned n) {
                 if (info->fw_entries[info->fw_entry_active].path)
                         printf("                %s\n", info->fw_entries[info->fw_entry_active].path);
                 if (!sd_id128_equal(info->fw_entries[info->fw_entry_active].part_uuid, SD_ID128_NULL))
-                        printf("                %s\n", sd_id128_to_string(info->fw_entries[info->fw_entry_active].part_uuid, buf));
+                        printf("                /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+                               SD_ID128_FORMAT_VAL(info->fw_entries[info->fw_entry_active].part_uuid));
         }
 
         if (info->loader) {
                 printf("        Loader: %s\n", info->loader);
                 printf("                %s\n", strna(info->loader_image_path));
                 if (!sd_id128_equal(info->loader_part_uuid, SD_ID128_NULL))
-                        printf("                %s\n", sd_id128_to_string(info->loader_part_uuid, buf));
+                        printf("                /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+                               SD_ID128_FORMAT_VAL(info->loader_part_uuid));
 
                 if (info->loader_entry_active >= 0) {
                         printf("  Loader entry: %s\n", info->loader_entries[info->loader_entry_active].title);
