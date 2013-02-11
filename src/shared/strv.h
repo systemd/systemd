@@ -61,17 +61,6 @@ char **strv_split_quoted(const char *s) _malloc_;
 
 char *strv_join(char **l, const char *separator) _malloc_;
 
-char **strv_env_merge(unsigned n_lists, ...);
-char **strv_env_delete(char **x, unsigned n_lists, ...);
-
-char **strv_env_set(char **x, const char *p);
-char **strv_env_unset(char **l, const char *p);
-
-char *strv_env_get_with_length(char **l, const char *name, size_t k);
-char *strv_env_get(char **x, const char *n);
-
-char **strv_env_clean(char **l);
-
 char **strv_parse_nulstr(const char *s, size_t l);
 
 bool strv_overlap(char **a, char **b);

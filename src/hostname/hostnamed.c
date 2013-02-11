@@ -32,6 +32,7 @@
 #include "polkit.h"
 #include "def.h"
 #include "virt.h"
+#include "env-util.h"
 
 #define INTERFACE \
         " <interface name=\"org.freedesktop.hostname1\">\n"             \

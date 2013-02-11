@@ -36,6 +36,7 @@
 #include "path-util.h"
 #include "dbus-unit.h"
 #include "virt.h"
+#include "env-util.h"
 
 #define BUS_MANAGER_INTERFACE_BEGIN                                     \
         " <interface name=\"org.freedesktop.systemd1.Manager\">\n"

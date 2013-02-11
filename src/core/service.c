@@ -42,6 +42,7 @@
 #include "path-util.h"
 #include "util.h"
 #include "utf8.h"
+#include "env-util.h"
 
 #ifdef HAVE_SYSV_COMPAT
 

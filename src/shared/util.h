@@ -544,6 +544,7 @@ _malloc_ static inline void *memdup_multiply(const void *p, size_t a, size_t b) 
 bool filename_is_safe(const char *p);
 bool path_is_safe(const char *p);
 bool string_is_safe(const char *p);
+bool string_has_cc(const char *p);
 
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  int (*compar) (const void *, const void *, void *),

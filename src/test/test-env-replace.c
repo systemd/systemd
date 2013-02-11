@@ -24,6 +24,7 @@
 
 #include "util.h"
 #include "strv.h"
+#include "env-util.h"
 
 static void test_strv_env_delete(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
@@ -81,10 +82,12 @@ static void test_strv_env_merge(void) {
         assert(strv_length(r) == 6);
 
         strv_env_clean(r);
-        assert(streq(r[0], "PIEP"));
-        assert(streq(r[1], "SCHLUMPF=SMURFF"));
-        assert(streq(r[2], "NANANANA=YES"));
-        assert(strv_length(r) == 3);
+        assert(streq(r[0], "FOO="));
+        assert(streq(r[1], "WALDO="));
+        assert(streq(r[2], "SCHLUMPF=SMURFF"));
+        assert(streq(r[3], "PIEP="));
+        assert(streq(r[4], "NANANANA=YES"));
+        assert(strv_length(r) == 5);
 }
 
 static void test_replace_env_arg(void) {
@@ -145,6 +148,38 @@ static void test_normalize_env_assignment(void) {
         test_one_normalize(" ' xyz' = 'bar ' ", "' xyz'=bar ");
 }
 
+static void test_env_clean(void) {
+
+        _cleanup_strv_free_ char **e;
+
+        e = strv_new("FOOBAR=WALDO",
+                     "FOOBAR=WALDO",
+                     "FOOBAR",
+                     "F",
+                     "X=",
+                     "F=F",
+                     "=",
+                     "=F",
+                     "",
+                     "0000=000",
+                     "äöüß=abcd",
+                     "abcd=äöüß",
+                     "xyz\n=xyz",
+                     "xyz=xyz\n",
+                     "another=one",
+                     "another=final one",
+                     NULL);
+
+        assert_se(strv_env_clean(e));
+
+        assert_se(streq(e[0], "FOOBAR=WALDO"));
+        assert_se(streq(e[1], "X="));
+        assert_se(streq(e[2], "F=F"));
+        assert_se(streq(e[3], "abcd=äöüß"));
+        assert_se(streq(e[4], "another=final one"));
+        assert_se(e[5] == NULL);
+}
+
 int main(int argc, char *argv[]) {
         test_strv_env_delete();
         test_strv_env_unset();
@@ -152,6 +187,7 @@ int main(int argc, char *argv[]) {
         test_strv_env_merge();
         test_replace_env_arg();
         test_normalize_env_assignment();
+        test_env_clean();
 
         return 0;
 }

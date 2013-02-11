@@ -31,6 +31,7 @@
 #include "dbus-common.h"
 #include "polkit.h"
 #include "def.h"
+#include "env-util.h"
 
 #define INTERFACE                                                       \
         " <interface name=\"org.freedesktop.locale1\">\n"               \

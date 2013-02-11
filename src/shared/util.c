@@ -70,6 +70,7 @@
 #include "path-util.h"
 #include "exit-status.h"
 #include "hashmap.h"
+#include "env-util.h"
 
 int saved_argc = 0;
 char **saved_argv = NULL;
@@ -3341,10 +3342,10 @@ char *replace_env(const char *format, char **env) {
                         if (*e == '}') {
                                 const char *t;
 
-                                if (!(t = strv_env_get_with_length(env, word+2, e-word-2)))
-                                        t = "";
+                                t = strempty(strv_env_get_n(env, word+2, e-word-2));
 
-                                if (!(k = strappend(r, t)))
+                                k = strappend(r, t);
+                                if (!k)
                                         goto fail;
 
                                 free(r);
@@ -3385,7 +3386,8 @@ char **replace_env_argv(char **argv, char **env) {
                         char **w, **m;
                         unsigned q;
 
-                        if ((e = strv_env_get(env, *i+1))) {
+                        e = strv_env_get(env, *i+1);
+                        if (e) {
 
                                 if (!(m = strv_split_quoted(e))) {
                                         r[k] = NULL;
@@ -5606,6 +5608,18 @@ bool string_is_safe(const char *p) {
         }
 
         return true;
+}
+
+bool string_has_cc(const char *p) {
+        const char *t;
+
+        assert(p);
+
+        for (t = p; *t; t++)
+                if (*t > 0 && *t < ' ')
+                        return true;
+
+        return false;
 }
 
 bool path_is_safe(const char *p) {

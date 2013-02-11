@@ -573,6 +573,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/fdset.h \
 	src/shared/strv.c \
 	src/shared/strv.h \
+	src/shared/env-util.c \
+	src/shared/env-util.h \
 	src/shared/strbuf.c \
 	src/shared/strbuf.h \
 	src/shared/strxcpyx.c \
