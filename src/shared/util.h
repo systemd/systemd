@@ -567,3 +567,12 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
 char *strip_tab_ansi(char **p, size_t *l);
 
 int on_ac_power(void);
+
+#define FOREACH_LINE(f, line, on_error)                         \
+        for (char line[LINE_MAX]; !feof(f); )                   \
+                if (!fgets(line, sizeof(line), f)) {            \
+                        if (ferror(f)) {                        \
+                                on_error;                       \
+                        }                                       \
+                        break;                                  \
+                } else

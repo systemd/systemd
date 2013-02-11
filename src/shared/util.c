@@ -1063,10 +1063,10 @@ int get_process_exe(pid_t pid, char **name) {
 }
 
 static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
-        char *p;
-        FILE *f;
-        int r;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
 
+        assert(field);
         assert(uid);
 
         if (pid == 0)
@@ -1076,21 +1076,11 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
                 return -ENOMEM;
 
         f = fopen(p, "re");
-        free(p);
-
         if (!f)
                 return -errno;
 
-        while (!feof(f)) {
-                char line[LINE_MAX], *l;
-
-                if (!fgets(line, sizeof(line), f)) {
-                        if (feof(f))
-                                break;
-
-                        r = -errno;
-                        goto finish;
-                }
+        FOREACH_LINE(f, line, return -errno) {
+                char *l;
 
                 l = strstrip(line);
 
@@ -1100,17 +1090,11 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
 
                         l[strcspn(l, WHITESPACE)] = 0;
 
-                        r = parse_uid(l, uid);
-                        goto finish;
+                        return parse_uid(l, uid);
                 }
         }
 
-        r = -EIO;
-
-finish:
-        fclose(f);
-
-        return r;
+        return -EIO;
 }
 
 int get_process_uid(pid_t pid, uid_t *uid) {
