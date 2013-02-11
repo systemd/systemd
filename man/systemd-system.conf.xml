@@ -22,9 +22,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd.conf">
+<refentry id="systemd-system.conf">
         <refentryinfo>
-                <title>systemd.conf</title>
+                <title>systemd-system.conf</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -38,13 +38,14 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd.conf</refentrytitle>
+                <refentrytitle>systemd-system.conf</refentrytitle>
                 <manvolnum>5</manvolnum>
         </refmeta>
 
         <refnamediv>
-                <refname>systemd.conf</refname>
-                <refpurpose>System and service manager configuration file</refpurpose>
+                <refname>systemd-system.conf</refname>
+                <refname>systemd-user.conf</refname>
+                <refpurpose>System and session service manager configuration file</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>

@@ -78,7 +78,7 @@
                 <literal>blkio</literal> and <literal>memory</literal>
                 to the <varname>DefaultControllers=</varname> setting
                 in <filename>/etc/systemd/system.conf</filename> (see
-                <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for details). Alternatively, it is possible to enable
                 resource accounting individually for services, by
                 making use of the <varname>ControlGroup=</varname>

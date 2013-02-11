@@ -108,7 +108,7 @@ bool env_assignment_is_valid(const char *e) {
 
         /* POSIX says the overall size of the environment block cannot
          * be > ARG_MAX, hence the individual variable assignments
-         * cannot be either, but let's room for one trailing NUL
+         * cannot be either, but let's leave room for one trailing NUL
          * byte. */
         if (strlen(e) > ARG_MAX - 1)
                 return false;

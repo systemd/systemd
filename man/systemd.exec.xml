@@ -462,7 +462,7 @@
                                 with
                                 <option>DefaultStandardOutput=</option>
                                 in
-                                <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                                <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                                 which defaults to
                                 <option>journal</option>.</para></listitem>
                         </varlistentry>
@@ -481,7 +481,7 @@
                                 setting defaults to the value set with
                                 <option>DefaultStandardError=</option>
                                 in
-                                <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                                <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                                 which defaults to
                                 <option>inherit</option>.</para></listitem>
                         </varlistentry>
@@ -839,7 +839,7 @@
                                 settings of
                                 <varname>DefaultControllers=</varname>
                                 of
-                                <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                                <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                                 but a unit's
                                 <varname>ControlGroup=</varname>
                                 setting for a specific controller
