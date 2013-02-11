@@ -93,36 +93,6 @@ if test -z "$GPERF" ; then
         AC_MSG_ERROR([*** gperf not found])
 fi
 
-# we use python to build the man page index, and for systemd-python
-have_python=no
-have_python_devel=no
-
-AC_ARG_WITH([python],
-        [AS_HELP_STRING([--without-python], [Disable building the man page index and systemd-python (default: test)])])
-
-AS_IF([test "x$with_python" != "xno"], [
-        AM_PATH_PYTHON(,, [:])
-        AS_IF([test "$PYTHON" != :], [have_python=yes])
-])
-AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
-AS_IF([test "x$PYTHON_BINARY" = "x"],
-      [AS_IF([test "x$have_python" = "xyes"],
-             [PYTHON_BINARY="`which "$PYTHON"`"],
-             [PYTHON_BINARY=/usr/bin/python])])
-AC_ARG_VAR(PYTHON_BINARY, [Python binary used to launch installed scripts])
-
-AS_IF([test "x$with_python" != "xno"], [
-        AC_PATH_PROG(PYTHON_CONFIG, python${PYTHON_VERSION}-config)
-        AS_IF([test -n "$PYTHON_CONFIG"], [
-              have_python_devel=yes
-              PYTHON_CFLAGS="`$PYTHON_CONFIG --cflags`"
-              PYTHON_LIBS="`$PYTHON_CONFIG --ldflags`"
-              AC_SUBST(PYTHON_CFLAGS)
-              AC_SUBST(PYTHON_LIBS)
-        ])
-])
-AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
-
 CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -pipe \
         -Wall \
@@ -168,6 +138,7 @@ AC_SUBST([OUR_CFLAGS], $with_cflags)
 AS_CASE([$CFLAGS], [*-O[[12345\ ]]*], [
         CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
                -Wp,-D_FORTIFY_SOURCE=2])], [
+        python_extra_cflags=-Wp,-U_FORTIFY_SOURCE
         AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
 AC_SUBST([OUR_CPPFLAGS], $with_cppflags)
 
@@ -177,6 +148,39 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,-z,relro \
         -Wl,-z,now])
 AC_SUBST([OUR_LDFLAGS], $with_ldflags)
+
+# ------------------------------------------------------------------------------
+# we use python to build the man page index, and for systemd-python
+have_python=no
+have_python_devel=no
+
+AC_ARG_WITH([python],
+        [AS_HELP_STRING([--without-python], [Disable building the man page index and systemd-python (default: test)])])
+
+AS_IF([test "x$with_python" != "xno"], [
+        AM_PATH_PYTHON(,, [:])
+        AS_IF([test "$PYTHON" != :], [have_python=yes])
+])
+AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
+AS_IF([test "x$PYTHON_BINARY" = "x"],
+      [AS_IF([test "x$have_python" = "xyes"],
+             [PYTHON_BINARY="`which "$PYTHON"`"],
+             [PYTHON_BINARY=/usr/bin/python])])
+AC_ARG_VAR(PYTHON_BINARY, [Python binary used to launch installed scripts])
+
+AS_IF([test "x$with_python" != "xno"], [
+        AC_PATH_PROG(PYTHON_CONFIG, python${PYTHON_VERSION}-config)
+        AS_IF([test -n "$PYTHON_CONFIG"], [
+              have_python_devel=yes
+              PYTHON_CFLAGS="`$PYTHON_CONFIG --cflags` $python_extra_cflags"
+              PYTHON_LIBS="`$PYTHON_CONFIG --ldflags`"
+              AC_SUBST(PYTHON_CFLAGS)
+              AC_SUBST(PYTHON_LIBS)
+        ])
+])
+AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
+
+# ------------------------------------------------------------------------------
 
 AC_SEARCH_LIBS([mq_open], [rt], [], [AC_MSG_ERROR([*** POSIX RT library not found])])
 AC_SEARCH_LIBS([dlsym], [dl], [], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
