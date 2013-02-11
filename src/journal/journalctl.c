@@ -244,8 +244,25 @@ static int parse_argv(int argc, char *argv[]) {
                                         log_error("Failed to parse lines '%s'", optarg);
                                         return -EINVAL;
                                 }
-                        } else
-                                arg_lines = 10;
+                        } else {
+                                int n;
+
+                                /* Hmm, no argument? Maybe the next
+                                 * word on the command line is
+                                 * supposed to be the argument? Let's
+                                 * see if there is one, and is
+                                 * parsable as a positive
+                                 * integer... */
+
+                                if (optind < argc &&
+                                    safe_atoi(argv[optind], &n) >= 0 &&
+                                    n >= 0) {
+
+                                        arg_lines = n;
+                                        optind++;
+                                } else
+                                        arg_lines = 10;
+                        }
 
                         break;
 
