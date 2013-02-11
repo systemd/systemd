@@ -52,6 +52,9 @@
 #include "switch-root.h"
 #include "capability.h"
 #include "killall.h"
+#include "env-util.h"
+#include "hwclock.h"
+#include "sd-daemon.h"
 
 #include "mount-setup.h"
 #include "loopback-setup.h"
@@ -61,10 +64,8 @@
 #include "hostname-setup.h"
 #include "machine-id-setup.h"
 #include "locale-setup.h"
-#include "hwclock.h"
 #include "selinux-setup.h"
 #include "ima-setup.h"
-#include "sd-daemon.h"
 
 static enum {
         ACTION_RUN,
@@ -342,7 +343,8 @@ static int parse_proc_cmdline_word(const char *word) {
                 else
                         arg_default_std_error = r;
         } else if (startswith(word, "systemd.setenv=")) {
-                char *cenv, *eq;
+                _cleanup_free_ char *cenv = NULL;
+                char *eq;
                 int r;
 
                 cenv = strdup(word + 15);
@@ -351,16 +353,23 @@ static int parse_proc_cmdline_word(const char *word) {
 
                 eq = strchr(cenv, '=');
                 if (!eq) {
-                        r = unsetenv(cenv);
-                        if (r < 0)
-                                log_warning("unsetenv failed %m. Ignoring.");
+                        if (!env_name_is_valid(cenv))
+                                log_warning("Environment variable name '%s' is not valid. Ignoring.", cenv);
+                        else  {
+                                r = unsetenv(cenv);
+                                if (r < 0)
+                                        log_warning("Unsetting environment variable '%s' failed, ignoring: %m", cenv);
+                        }
                 } else {
-                        *eq = 0;
-                        r = setenv(cenv, eq + 1, 1);
-                        if (r < 0)
-                                log_warning("setenv failed %m. Ignoring.");
+                        if (!env_assignment_is_valid(cenv))
+                                log_warning("Environment variable assignment '%s' is not valid. Ignoring.", cenv);
+                        else {
+                                *eq = 0;
+                                r = setenv(cenv, eq + 1, 1);
+                                if (r < 0)
+                                        log_warning("Setting environment variable '%s=%s' failed, ignoring: %m", cenv, eq + 1);
+                        }
                 }
-                free(cenv);
 
         } else if (startswith(word, "systemd.") ||
                    (in_initrd() && startswith(word, "rd.systemd."))) {
