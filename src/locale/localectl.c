@@ -609,7 +609,7 @@ static int set_x11_keymap(DBusConnection *bus, char **args, unsigned n) {
 static int help(void) {
 
         printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "Query or change system time and date settings.\n\n"
+               "Query or change system locale and keyboard settings.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "     --no-convert        Don't convert keyboard mappings\n"
