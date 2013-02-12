@@ -47,7 +47,7 @@ struct cpu_stat_struct cpustat[MAXCPUS];
 int pscount;
 int cpus;
 double interval;
-FILE *of;
+FILE *of = NULL;
 int overrun = 0;
 static int exiting = 0;
 
@@ -64,7 +64,7 @@ double scale_x = 100.0; /* 100px = 1sec */
 double scale_y = 20.0;  /* 16px = 1 process bar */
 
 char init_path[PATH_MAX] = "/sbin/init";
-char output_path[PATH_MAX] = "/var/log";
+char output_path[PATH_MAX] = "/run/log";
 
 static struct rlimit rlim;
 
@@ -235,6 +235,7 @@ int main(int argc, char *argv[])
                         execl(init_path, init_path, NULL);
                 }
         }
+	argv[0][0] = '@';
 
         /* start with empty ps LL */
         ps_first = calloc(1, sizeof(struct ps_struct));
@@ -263,6 +264,14 @@ int main(int argc, char *argv[])
                 double timeleft;
 
                 sampletime[samples] = gettime_ns();
+
+                if (!of && (access(output_path, R_OK|W_OK|X_OK) == 0)) {
+                        t = time(NULL);
+                        strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
+                        snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", output_path, datestr);
+                        of = fopen(output_file, "w");
+                }
+
 
                 /* wait for /proc to become available, discarding samples */
                 if (!(graph_start > 0.0))
@@ -323,11 +332,13 @@ int main(int argc, char *argv[])
         }
         closedir(proc);
 
-        t = time(NULL);
-        strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
-        snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", output_path, datestr);
+        if (!of) {
+                t = time(NULL);
+                strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
+                snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", output_path, datestr);
+                of = fopen(output_file, "w");
+        }
 
-        of = fopen(output_file, "w");
         if (!of) {
                 perror("open output_file");
                 exit (EXIT_FAILURE);

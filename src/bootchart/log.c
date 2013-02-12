@@ -43,7 +43,7 @@
  */
 static char smaps_buf[4096];
 DIR *proc;
-
+int procfd=-1;
 
 double gettime_ns(void)
 {
@@ -62,6 +62,7 @@ void log_uptime(void)
         double uptime;
 
         f = fopen("/proc/uptime", "r");
+
         if (!f)
                 return;
         if (!fscanf(f, "%s %*s", str)) {
@@ -113,10 +114,22 @@ void log_sample(int sample)
         ssize_t s;
         ssize_t n;
         struct dirent *ent;
+        int fd;
+
+        /* all the per-process stuff goes here */
+        if (!proc) {
+                /* find all processes */
+                proc = opendir("/proc");
+                if (!proc)
+                        return;
+                procfd = dirfd(proc);
+        } else {
+                rewinddir(proc);
+        }
 
         if (!vmstat) {
                 /* block stuff */
-                vmstat = open("/proc/vmstat", O_RDONLY);
+                vmstat = openat(procfd, "vmstat", O_RDONLY);
                 if (vmstat == -1) {
                         perror("open /proc/vmstat");
                         exit (EXIT_FAILURE);
@@ -148,7 +161,7 @@ vmstat_next:
 
         if (!schedstat) {
                 /* overall CPU utilization */
-                schedstat = open("/proc/schedstat", O_RDONLY);
+                schedstat = openat(procfd, "schedstat", O_RDONLY);
                 if (schedstat == -1) {
                         perror("open /proc/schedstat");
                         exit (EXIT_FAILURE);
@@ -186,7 +199,7 @@ schedstat_next:
 
         if (entropy) {
                 if (!e_fd) {
-                        e_fd = open("/proc/sys/kernel/random/entropy_avail", O_RDONLY);
+                        e_fd = openat(procfd, "sys/kernel/random/entropy_avail", O_RDONLY);
                 }
 
                 if (e_fd) {
@@ -196,16 +209,6 @@ schedstat_next:
                                 entropy_avail[sample] = atoi(buf);
                         }
                 }
-        }
-
-        /* all the per-process stuff goes here */
-        if (!proc) {
-                /* find all processes */
-                proc = opendir("/proc");
-                if (!proc)
-                        return;
-        } else {
-                rewinddir(proc);
         }
 
         while ((ent = readdir(proc)) != NULL) {
@@ -254,8 +257,8 @@ schedstat_next:
 
                         /* get name, start time */
                         if (!ps->sched) {
-                                sprintf(filename, "/proc/%d/sched", pid);
-                                ps->sched = open(filename, O_RDONLY);
+                                sprintf(filename, "%d/sched", pid);
+                                ps->sched = openat(procfd, filename, O_RDONLY);
                                 if (ps->sched == -1)
                                         continue;
                         }
@@ -286,8 +289,9 @@ schedstat_next:
                         ps->starttime = strtod(t, NULL) / 1000.0;
 
                         /* ppid */
-                        sprintf(filename, "/proc/%d/stat", pid);
-                        st = fopen(filename, "r");
+                        sprintf(filename, "%d/stat", pid);
+                        fd = openat(procfd, filename, O_RDONLY);
+                        st = fdopen(fd, "r");
                         if (!st)
                                 continue;
                         if (!fscanf(st, "%*s %*s %*s %i", &p)) {
@@ -342,8 +346,8 @@ schedstat_next:
 
                 /* rt, wt */
                 if (!ps->schedstat) {
-                        sprintf(filename, "/proc/%d/schedstat", pid);
-                        ps->schedstat = open(filename, O_RDONLY);
+                        sprintf(filename, "%d/schedstat", pid);
+                        ps->schedstat = openat(procfd, filename, O_RDONLY);
                         if (ps->schedstat == -1)
                                 continue;
                 }
@@ -374,8 +378,9 @@ schedstat_next:
                         goto catch_rename;
                 /* Pss */
                 if (!ps->smaps) {
-                        sprintf(filename, "/proc/%d/smaps", pid);
-                        ps->smaps = fopen(filename, "r");
+                        sprintf(filename, "%d/smaps", pid);
+                        fd = openat(procfd, filename, O_RDONLY);
+                        ps->smaps = fdopen(fd, "r");
                         if (!ps->smaps)
                                 continue;
                         setvbuf(ps->smaps, smaps_buf, _IOFBF, sizeof(smaps_buf));
@@ -408,8 +413,8 @@ catch_rename:
                         /* re-fetch name */
                         /* get name, start time */
                         if (!ps->sched) {
-                                sprintf(filename, "/proc/%d/sched", pid);
-                                ps->sched = open(filename, O_RDONLY);
+                                sprintf(filename, "%d/sched", pid);
+                                ps->sched = openat(procfd, filename, O_RDONLY);
                                 if (ps->sched == -1)
                                         continue;
                         }
