@@ -38,8 +38,6 @@ struct boot_info_entry {
         char *title;
         sd_id128_t part_uuid;
         char *path;
-        char *data;
-        size_t data_size;
 };
 
 struct boot_info {

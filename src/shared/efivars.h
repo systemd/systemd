@@ -31,13 +31,14 @@
 #define EFI_VENDOR_LOADER SD_ID128_MAKE(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)
 #define EFI_VENDOR_GLOBAL SD_ID128_MAKE(8b,e4,df,61,93,ca,11,d2,aa,0d,00,e0,98,03,2b,8c)
 
-bool is_efiboot(void);
+bool is_efi_boot(void);
 
 int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, void **value, size_t *size);
-char *efi_get_variable_string(sd_id128_t vendor, const char *name);
+int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p);
 
-int efi_get_boot_option(uint32_t nr, uint32_t *attributes, char **title, sd_id128_t *partuuid, char **path, char **data, size_t *data_size);
-int efi_get_boot_order(uint16_t **order, size_t *count);
+int efi_get_boot_option(uint16_t nr, char **title, sd_id128_t *partuuid, char **path);
+int efi_get_boot_order(uint16_t **order);
+int efi_get_boot_options(uint16_t **options);
 
 int efi_get_boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_timestamp *loader);
 

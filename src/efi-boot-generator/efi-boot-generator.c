@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (!is_efiboot())
+        if (!is_efi_boot())
                 return EXIT_SUCCESS;
 
         if (dir_is_empty("/boot") <= 0)
