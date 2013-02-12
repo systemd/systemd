@@ -65,6 +65,8 @@ size_t page_size(void);
 
 #define streq(a,b) (strcmp((a),(b)) == 0)
 #define strneq(a, b, n) (strncmp((a), (b), (n)) == 0)
+#define strcaseeq(a,b) (strcasecmp((a),(b)) == 0)
+#define strncaseeq(a, b, n) (strncasecmp((a), (b), (n)) == 0)
 
 bool streq_ptr(const char *a, const char *b);
 

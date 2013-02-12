@@ -653,7 +653,7 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         if (!c)
                 return -ENOMEM;
 
-        if (strcasecmp(p, "hourly") == 0) {
+        if (strcaseeq(p, "hourly")) {
                 r = const_chain(0, &c->minute);
                 if (r < 0)
                         goto fail;
@@ -661,7 +661,7 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                 if (r < 0)
                         goto fail;
 
-        } else if (strcasecmp(p, "daily") == 0) {
+        } else if (strcaseeq(p, "daily")) {
                 r = const_chain(0, &c->hour);
                 if (r < 0)
                         goto fail;
@@ -672,7 +672,7 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                 if (r < 0)
                         goto fail;
 
-        } else if (strcasecmp(p, "monthly") == 0) {
+        } else if (strcaseeq(p, "monthly")) {
                 r = const_chain(1, &c->day);
                 if (r < 0)
                         goto fail;
@@ -686,7 +686,7 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                 if (r < 0)
                         goto fail;
 
-        } else if (strcasecmp(p, "weekly") == 0) {
+        } else if (strcaseeq(p, "weekly")) {
 
                 c->weekdays_bits = 1;
 

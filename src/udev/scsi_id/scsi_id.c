@@ -227,7 +227,7 @@ static int get_file_options(struct udev *udev,
                         continue;
 
                 str1 = strsep(&buf, "=");
-                if (str1 && strcasecmp(str1, "VENDOR") == 0) {
+                if (str1 && strcaseeq(str1, "VENDOR")) {
                         str1 = get_value(&buf);
                         if (!str1) {
                                 retval = log_oom();
@@ -236,7 +236,7 @@ static int get_file_options(struct udev *udev,
                         vendor_in = str1;
 
                         str1 = strsep(&buf, "=");
-                        if (str1 && strcasecmp(str1, "MODEL") == 0) {
+                        if (str1 && strcaseeq(str1, "MODEL")) {
                                 str1 = get_value(&buf);
                                 if (!str1) {
                                         retval = log_oom();
@@ -247,7 +247,7 @@ static int get_file_options(struct udev *udev,
                         }
                 }
 
-                if (str1 && strcasecmp(str1, "OPTIONS") == 0) {
+                if (str1 && strcaseeq(str1, "OPTIONS")) {
                         str1 = get_value(&buf);
                         if (!str1) {
                                 retval = log_oom();
