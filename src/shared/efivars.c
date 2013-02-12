@@ -22,16 +22,23 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
+#include <ctype.h>
 
 #include "util.h"
 #include "utf8.h"
 #include "efivars.h"
 
-bool is_efiboot(void) {
+bool is_efi_boot(void) {
         return access("/sys/firmware/efi", F_OK) >= 0;
 }
 
-int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, void **value, size_t *size) {
+int efi_get_variable(
+                sd_id128_t vendor,
+                const char *name,
+                uint32_t *attribute,
+                void **value,
+                size_t *size) {
+
         _cleanup_close_ int fd = -1;
         _cleanup_free_ char *p = NULL;
         uint32_t a;
@@ -61,7 +68,7 @@ int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, v
 
         n = read(fd, &a, sizeof(a));
         if (n < 0)
-                return (int) n;
+                return -errno;
         if (n != sizeof(a))
                 return -EIO;
 
@@ -92,15 +99,22 @@ int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, v
         return 0;
 }
 
-char *efi_get_variable_string(sd_id128_t vendor, const char *name) {
+int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p) {
         _cleanup_free_ void *s = NULL;
         size_t ss;
-        int err;
+        int r;
+        char *x;
 
-        err = efi_get_variable(vendor, name, NULL, &s, &ss);
-        if (err < 0)
-                return NULL;
-        return utf16_to_utf8(s, ss);
+        r = efi_get_variable(vendor, name, NULL, &s, &ss);
+        if (r < 0)
+                return r;
+
+        x = utf16_to_utf8(s, ss);
+        if (!x)
+                return -ENOMEM;
+
+        *p = x;
+        return 0;
 }
 
 static size_t utf16_size(const uint16_t *s) {
@@ -108,6 +122,7 @@ static size_t utf16_size(const uint16_t *s) {
 
         while (s[l] > 0)
                 l++;
+
         return (l+1) * sizeof(uint16_t);
 }
 
@@ -131,7 +146,12 @@ static void efi_guid_to_id128(const void *guid, sd_id128_t *id128) {
         memcpy(&id128->bytes[8], uuid->u4, sizeof(uuid->u4));
 }
 
-int efi_get_boot_option(uint32_t id, uint32_t *attributes, char **title, sd_id128_t *part_uuid, char **path, char **data, size_t *data_size) {
+int efi_get_boot_option(
+                uint16_t id,
+                char **title,
+                sd_id128_t *part_uuid,
+                char **path) {
+
         struct boot_option {
                 uint32_t attr;
                 uint16_t path_len;
@@ -157,23 +177,20 @@ int efi_get_boot_option(uint32_t id, uint32_t *attributes, char **title, sd_id12
                 };
         } _packed_;
 
-        char boot_id[32];
-        _cleanup_free_ char *buf = NULL;
+        char boot_id[9];
+        _cleanup_free_ uint8_t *buf = NULL;
         size_t l;
         struct boot_option *header;
         size_t title_size;
         char *s = NULL;
         char *p = NULL;
         sd_id128_t p_uuid = SD_ID128_NULL;
-        char *d = NULL;
-        size_t d_size = 0;
         int err;
 
         snprintf(boot_id, sizeof(boot_id), "Boot%04X", id);
         err = efi_get_variable(EFI_VENDOR_GLOBAL, boot_id, NULL, (void **)&buf, &l);
         if (err < 0)
                 return err;
-
         if (l < sizeof(struct boot_option))
                 return -ENOENT;
 
@@ -189,7 +206,7 @@ int efi_get_boot_option(uint32_t id, uint32_t *attributes, char **title, sd_id12
         }
 
         if (header->path_len > 0) {
-                char *dbuf;
+                uint8_t *dbuf;
                 size_t dnext;
 
                 dbuf = buf + offsetof(struct boot_option, title) + title_size;
@@ -233,45 +250,92 @@ int efi_get_boot_option(uint32_t id, uint32_t *attributes, char **title, sd_id12
                 }
         }
 
-        *title = s;
+        if (title)
+                *title = s;
         if (part_uuid)
                 *part_uuid = p_uuid;
         if (path)
                 *path = p;
-        if (data)
-                *data = d;
-        if (data_size)
-                *data_size = d_size;
+
         return 0;
 err:
         free(s);
         free(p);
-        free(d);
         return err;
 }
 
-int efi_get_boot_order(uint16_t **order, size_t *count) {
+int efi_get_boot_order(uint16_t **order) {
         void *buf;
         size_t l;
-        int err;
+        int r;
 
-        err = efi_get_variable(EFI_VENDOR_GLOBAL, "BootOrder", NULL, &buf, &l);
-        if (err < 0)
-                return err;
+        r = efi_get_variable(EFI_VENDOR_GLOBAL, "BootOrder", NULL, &buf, &l);
+        if (r < 0)
+                return r;
 
-        if (l == 0) {
+        if (l <= 0) {
                 free(buf);
                 return -ENOENT;
         }
 
-        if ((l % sizeof(uint16_t) > 0)) {
+        if ((l % sizeof(uint16_t) > 0) ||
+            (l / sizeof(uint16_t) > INT_MAX)) {
                 free(buf);
                 return -EINVAL;
         }
 
         *order = buf;
-        *count = l / sizeof(uint16_t);
-        return 0;
+        return (int) (l / sizeof(uint16_t));
+}
+
+int efi_get_boot_options(uint16_t **options) {
+        _cleanup_closedir_ DIR *dir = NULL;
+        struct dirent *de;
+        uint16_t *list = NULL;
+        int count = 0;
+
+        assert(options);
+
+        dir = opendir("/sys/firmware/efi/efivars/");
+        if (!dir)
+                return -errno;
+
+        while ((de = readdir(dir))) {
+                size_t n;
+                int a, b, c, d;
+                uint16_t *t;
+
+                if (strncmp(de->d_name, "Boot", 4) != 0)
+                        continue;
+
+                n = strlen(de->d_name);
+                if (n != 45)
+                        continue;
+
+                if (strcmp(de->d_name + 8, "-8be4df61-93ca-11d2-aa0d-00e098032b8c") != 0)
+                        continue;
+
+                a = de->d_name[4];
+                b = de->d_name[5];
+                c = de->d_name[6];
+                d = de->d_name[7];
+
+                if (!isdigit(a) || !isdigit(b) || !isdigit(c) || !isdigit(d))
+                        continue;
+
+                t = realloc(list, (count + 1) * sizeof(uint16_t));
+                if (!t) {
+                        free(list);
+                        return -ENOMEM;
+                }
+
+                list = t;
+                list[count ++] = (a - '0') * 1000 + (b - '0') * 100 + (c - '0') * 10 + (d - '0');
+
+        }
+
+        *options = list;
+        return count;
 }
 
 static int read_usec(sd_id128_t vendor, const char *name, usec_t *u) {

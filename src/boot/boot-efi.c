@@ -66,7 +66,7 @@ static int get_boot_entries(struct boot_info *info) {
                 memset(e, 0, sizeof(struct boot_info_entry));
                 e->order = -1;
 
-                err = efi_get_boot_option(id, NULL, &e->title, &e->part_uuid, &e->path, &e->data, &e->data_size);
+                err = efi_get_boot_option(id, &e->title, &e->part_uuid, &e->path);
                 if (err < 0)
                         break;
                 e->id = id;
@@ -103,11 +103,13 @@ static int find_active_entry(struct boot_info *info) {
 
 static int get_boot_order(struct boot_info *info) {
         size_t i, k;
-        int err;
+        int r;
 
-        err = efi_get_boot_order(&info->fw_entries_order, &info->fw_entries_order_count);
-        if (err < 0)
-                return err;
+        r = efi_get_boot_order(&info->fw_entries_order);
+        if (r < 0)
+                return r;
+
+        info->fw_entries_order_count = r;
 
         for (i = 0; i < info->fw_entries_order_count; i++) {
                 for (k = 0; k < info->fw_entries_count; k++) {
@@ -142,9 +144,9 @@ static int entry_cmp(const void *a, const void *b) {
 int boot_info_query(struct boot_info *info) {
         char str[64];
         char buf[64];
-        char *loader_active;
+        char *loader_active = NULL;
 
-        info->loader = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderInfo");
+        efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderInfo", &info->loader);
 
         get_boot_entries(info);
         if (info->fw_entries_count > 0) {
@@ -153,19 +155,20 @@ int boot_info_query(struct boot_info *info) {
                 find_active_entry(info);
         }
 
-        info->fw_type = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderFirmwareType");
-        info->fw_info = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderFirmwareInfo");
-        info->loader_image_path = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderImageIdentifier");
+        efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderFirmwareType", &info->fw_type);
+        efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderFirmwareInfo", &info->fw_info);
+        efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderImageIdentifier", &info->loader_image_path);
         efi_get_loader_device_part_uuid(&info->loader_part_uuid);
 
         boot_loader_read_entries(info);
-        loader_active = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntrySelected");
+        efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntrySelected", &loader_active);
         if (loader_active) {
                 boot_loader_find_active_entry(info, loader_active);
                 free(loader_active);
         }
 
         snprintf(str, sizeof(str), "LoaderEntryOptions-%s", sd_id128_to_string(info->machine_id, buf));
-        info->loader_options_added = efi_get_variable_string(EFI_VENDOR_LOADER, str);
+        efi_get_variable_string(EFI_VENDOR_LOADER, str, &info->loader_options_added);
+
         return 0;
 }
