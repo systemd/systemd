@@ -128,7 +128,7 @@ bool strv_env_is_valid(char **e) {
                 /* Check if there are duplicate assginments */
                 k = strcspn(*p, "=");
                 STRV_FOREACH(q, p + 1)
-                        if (strncmp(*p, *q, k) == 0 && (*q)[k] == '=')
+                        if (strneq(*p, *q, k) && (*q)[k] == '=')
                                 return false;
         }
 
@@ -171,7 +171,7 @@ static int env_append(char **r, char ***k, char **a) {
                         n++;
 
                 for (j = r; j < *k; j++)
-                        if (strncmp(*j, *a, n) == 0)
+                        if (strneq(*j, *a, n))
                                 break;
 
                 if (j >= *k)
@@ -247,7 +247,7 @@ static bool env_match(const char *t, const char *pattern) {
         if (!strchr(pattern, '=')) {
                 size_t l = strlen(pattern);
 
-                return strncmp(t, pattern, l) == 0 && t[l] == '=';
+                return strneq(t, pattern, l) && t[l] == '=';
         }
 
         return false;
@@ -363,7 +363,7 @@ char *strv_env_get_n(char **l, const char *name, size_t k) {
                 return NULL;
 
         STRV_FOREACH(i, l)
-                if (strncmp(*i, name, k) == 0 &&
+                if (strneq(*i, name, k) &&
                     (*i)[k] == '=')
                         return *i + k + 1;
 
@@ -391,7 +391,7 @@ char **strv_env_clean(char **e) {
 
                 n = strcspn(*p, "=");
                 STRV_FOREACH(q, p + 1)
-                        if (strncmp(*p, *q, n) == 0 && (*q)[n] == '=') {
+                        if (strneq(*p, *q, n) && (*q)[n] == '=') {
                                 duplicate = true;
                                 break;
                         }

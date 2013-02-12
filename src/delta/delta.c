@@ -312,17 +312,17 @@ static int parse_flags(const char *flag_str, int flags) {
         size_t l;
 
         FOREACH_WORD(w, l, flag_str, state) {
-                if (strncmp("masked", w, l) == 0)
+                if (strneq("masked", w, l))
                         flags |= SHOW_MASKED;
-                else if (strncmp ("equivalent", w, l) == 0)
+                else if (strneq ("equivalent", w, l))
                         flags |= SHOW_EQUIVALENT;
-                else if (strncmp("redirected", w, l) == 0)
+                else if (strneq("redirected", w, l))
                         flags |= SHOW_REDIRECTED;
-                else if (strncmp("overridden", w, l) == 0)
+                else if (strneq("overridden", w, l))
                         flags |= SHOW_OVERRIDDEN;
-                else if (strncmp("unchanged", w, l) == 0)
+                else if (strneq("unchanged", w, l))
                         flags |= SHOW_UNCHANGED;
-                else if (strncmp("default", w, l) == 0)
+                else if (strneq("default", w, l))
                         flags |= SHOW_DEFAULTS;
                 else
                         return -EINVAL;

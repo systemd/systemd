@@ -1737,7 +1737,7 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
                                 if (next != NULL) {
                                         size_t matchlen = (size_t)(next - s);
 
-                                        match = (matchlen == len && strncmp(s, val, matchlen) == 0);
+                                        match = (matchlen == len && strneq(s, val, matchlen));
                                         if (match)
                                                 break;
                                 } else {

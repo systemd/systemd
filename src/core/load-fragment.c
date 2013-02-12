@@ -459,7 +459,7 @@ int config_parse_exec(
 
                 k = 0;
                 FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                        if (strncmp(w, ";", MAX(l, 1U)) == 0)
+                        if (strneq(w, ";", MAX(l, 1U)))
                                 break;
 
                         k++;
@@ -471,9 +471,9 @@ int config_parse_exec(
 
                 k = 0;
                 FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                        if (strncmp(w, ";", MAX(l, 1U)) == 0)
+                        if (strneq(w, ";", MAX(l, 1U)))
                                 break;
-                        else if (strncmp(w, "\\;", MAX(l, 1U)) == 0)
+                        else if (strneq(w, "\\;", MAX(l, 1U)))
                                 w ++;
 
                         if (honour_argv0 && w == rvalue) {
@@ -2670,7 +2670,7 @@ void unit_dump_config_items(FILE *f) {
                 prefix_len = dot-i;
 
                 if (dot)
-                        if (!prev || strncmp(prev, i, prefix_len+1) != 0) {
+                        if (!prev || !strneq(prev, i, prefix_len+1)) {
                                 if (prev)
                                         fputc('\n', f);
 

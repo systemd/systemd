@@ -436,7 +436,7 @@ static int do_scsi_page0_inquiry(struct udev *udev,
                  * If the vendor id appears in the page assume the page is
                  * invalid.
                  */
-                if (!strncmp((char *)&buffer[VENDOR_LENGTH], dev_scsi->vendor, VENDOR_LENGTH)) {
+                if (strneq((char *)&buffer[VENDOR_LENGTH], dev_scsi->vendor, VENDOR_LENGTH)) {
                         log_debug("%s: invalid page0 data\n", dev_scsi->kernel);
                         return 1;
                 }

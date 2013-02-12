@@ -223,7 +223,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 snprintf(str, sizeof(str), "%s/%s/address", slots, dent->d_name);
                 if (read_one_line_file(str, &address) >= 0) {
                         /* match slot address with device by stripping the function */
-                        if (strncmp(address, udev_device_get_sysname(names->pcidev), strlen(address)) == 0)
+                        if (strneq(address, udev_device_get_sysname(names->pcidev), strlen(address)))
                                 hotplug_slot = i;
                         free(address);
                 }

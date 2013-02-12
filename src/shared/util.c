@@ -720,7 +720,7 @@ int parse_env_file(
                                 value = va_arg(ap, char **);
 
                                 n = strlen(key);
-                                if (strncmp(p, key, n) != 0 ||
+                                if (!strneq(p, key, n) ||
                                     p[n] != '=')
                                         continue;
 

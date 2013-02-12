@@ -69,16 +69,16 @@ static size_t patch_in_line(char *line, size_t l, size_t left) {
         } else
                 r = 0;
 
-        if (l == 5 && strncmp(line, "BEGIN", 5) == 0) {
+        if (l == 5 && strneq(line, "BEGIN", 5)) {
                 r += l;
                 auth_over = true;
 
-        } else if (l == 17 && strncmp(line, "NEGOTIATE_UNIX_FD", 17) == 0) {
+        } else if (l == 17 && strneq(line, "NEGOTIATE_UNIX_FD", 17)) {
                 memmove(line + 13, line + 17, left);
                 memcpy(line, "NEGOTIATE_NOP", 13);
                 r += 13;
 
-        } else if (l >= 14 && strncmp(line, "AUTH EXTERNAL ", 14) == 0) {
+        } else if (l >= 14 && strneq(line, "AUTH EXTERNAL ", 14)) {
                 char uid[20*2 + 1];
                 size_t len;
 

@@ -196,7 +196,7 @@ _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) 
         }
 
         FOREACH_WORD(w, l, s, state) {
-                if (strncmp(t, w, l) == 0) {
+                if (strneq(t, w, l)) {
                         free(s);
                         free(t);
 

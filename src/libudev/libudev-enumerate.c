@@ -309,7 +309,7 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                         }
 
                         if (move_later &&
-                            strncmp(entry->syspath, move_later->syspath, move_later_prefix) != 0) {
+                             !strneq(entry->syspath, move_later->syspath, move_later_prefix)) {
 
                                 udev_list_entry_add(&udev_enumerate->devices_list, move_later->syspath, NULL);
                                 move_later = NULL;

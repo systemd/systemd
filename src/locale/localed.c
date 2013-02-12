@@ -854,7 +854,7 @@ static int convert_x11_to_vconsole(DBusConnection *connection) {
                                  * layout stripped off. */
                                 if (x > 0 &&
                                     strlen(a[1]) == x &&
-                                    strncmp(state.x11_layout, a[1], x) == 0)
+                                    strneq(state.x11_layout, a[1], x))
                                         matching = 5;
                                 else  {
                                         size_t w;

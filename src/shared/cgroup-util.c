@@ -811,7 +811,7 @@ int cg_get_by_pid(const char *controller, pid_t pid, char **path) {
                         continue;
 
                 l++;
-                if (strncmp(l, controller, cs) != 0)
+                if (!strneq(l, controller, cs))
                         continue;
 
                 if (l[cs] != ':')

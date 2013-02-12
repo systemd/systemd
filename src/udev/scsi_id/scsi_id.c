@@ -267,10 +267,10 @@ static int get_file_options(struct udev *udev,
                 if (vendor == NULL) {
                         if (vendor_in == NULL)
                                 break;
-                } else if ((vendor_in && strncmp(vendor, vendor_in,
-                                                 strlen(vendor_in)) == 0) &&
-                           (!model_in || (strncmp(model, model_in,
-                                                  strlen(model_in)) == 0))) {
+                } else if ((vendor_in && strneq(vendor, vendor_in,
+                                                 strlen(vendor_in))) &&
+                           (!model_in || (strneq(model, model_in,
+                                                  strlen(model_in))))) {
                                 /*
                                  * Matched vendor and optionally model.
                                  *
