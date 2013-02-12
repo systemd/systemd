@@ -196,6 +196,14 @@ static inline pid_t gettid(void) {
 #define MS_STRICTATIME (1<<24)
 #endif
 
+#ifndef MS_REC
+#define MS_REC 16384
+#endif
+
+#ifndef MS_SHARED
+#define MS_SHARED (1<<20)
+#endif
+
 #ifndef PR_SET_NO_NEW_PRIVS
 #define PR_SET_NO_NEW_PRIVS 38
 #endif
