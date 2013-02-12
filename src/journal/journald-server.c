@@ -515,6 +515,8 @@ static void dispatch_message_real(
         int r;
         char *t;
         uid_t loginuid = 0, realuid = 0;
+        uid_t journal_uid;
+        bool loginuid_valid = false;
 
         assert(s);
         assert(iovec);
@@ -571,9 +573,11 @@ static void dispatch_message_real(
                                 IOVEC_SET_STRING(iovec[n++], audit_session);
 
                 r = audit_loginuid_from_pid(ucred->pid, &loginuid);
-                if (r >= 0)
+                if (r >= 0) {
+                        loginuid_valid = true;
                         if (asprintf(&audit_loginuid, "_AUDIT_LOGINUID=%lu", (unsigned long) loginuid) >= 0)
                                 IOVEC_SET_STRING(iovec[n++], audit_loginuid);
+                }
 
                 t = shortened_cgroup_path(ucred->pid);
                 if (t) {
@@ -666,10 +670,14 @@ static void dispatch_message_real(
 
         assert(n <= m);
 
-        write_to_journal(s,
-                         s->split_mode == SPLIT_NONE ? 0 :
-                         (s->split_mode == SPLIT_UID ? realuid :
-                          (realuid == 0 ? 0 : loginuid)), iovec, n);
+        if (s->split_mode == SPLIT_NONE)
+                journal_uid = 0;
+        else if (s->split_mode == SPLIT_UID || realuid == 0 || !loginuid_valid)
+                journal_uid = realuid;
+        else
+                journal_uid = loginuid;
+
+        write_to_journal(s, journal_uid, iovec, n);
 }
 
 void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) {
