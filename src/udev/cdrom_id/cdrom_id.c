@@ -513,6 +513,8 @@ static int cd_profiles_old_mmc(struct udev *udev, int fd)
                 if (cd_media == 1) {
                         log_debug("no current profile, but disc is present; assuming CD-ROM\n");
                         cd_media_cd_rom = 1;
+                        cd_media_track_count = 1;
+                        cd_media_track_count_data = 1;
                         return 0;
                 } else {
                         log_debug("no current profile, assuming no media\n");
