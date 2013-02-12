@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
+#include <ctype.h>
 
 #include "util.h"
 #include "utf8.h"
