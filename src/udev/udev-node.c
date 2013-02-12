@@ -31,15 +31,13 @@
 
 #include "udev.h"
 
-#define TMP_FILE_EXT                ".udev-tmp"
-
-static int node_symlink(struct udev *udev, const char *node, const char *slink)
+static int node_symlink(struct udev_device *dev, const char *node, const char *slink)
 {
         struct stat stats;
         char target[UTIL_PATH_SIZE];
         char *s;
         size_t l;
-        char slink_tmp[UTIL_PATH_SIZE + sizeof(TMP_FILE_EXT)];
+        char slink_tmp[UTIL_PATH_SIZE + 32];
         int i = 0;
         int tail = 0;
         int err = 0;
@@ -101,7 +99,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
         }
 
         log_debug("atomically replace '%s'\n", slink);
-        strscpyl(slink_tmp, sizeof(slink_tmp), slink, TMP_FILE_EXT, NULL);
+        strscpyl(slink_tmp, sizeof(slink_tmp), slink, ".tmp-", udev_device_get_id_filename(dev), NULL);
         unlink(slink_tmp);
         do {
                 err = mkdir_parents_label(slink_tmp, 0755);
@@ -204,7 +202,7 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
                         util_delete_path(udev, slink);
         } else {
                 log_debug("creating link '%s' to '%s'\n", slink, target);
-                node_symlink(udev, target, slink);
+                node_symlink(dev, target, slink);
         }
 
         if (add) {
@@ -298,7 +296,6 @@ out:
 
 void udev_node_add(struct udev_device *dev, bool apply, mode_t mode, uid_t uid, gid_t gid)
 {
-        struct udev *udev = udev_device_get_udev(dev);
         char filename[UTIL_PATH_SIZE];
         struct udev_list_entry *list_entry;
 
@@ -312,7 +309,7 @@ void udev_node_add(struct udev_device *dev, bool apply, mode_t mode, uid_t uid, 
         snprintf(filename, sizeof(filename), "/dev/%s/%u:%u",
                  strcmp(udev_device_get_subsystem(dev), "block") == 0 ? "block" : "char",
                  major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)));
-        node_symlink(udev, udev_device_get_devnode(dev), filename);
+        node_symlink(dev, udev_device_get_devnode(dev), filename);
 
         /* create/update symlinks, add symlinks to name index */
         udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev))
