@@ -190,6 +190,19 @@ static void test_strv_merge(void) {
          assert(strv_length(c) == 6);
 }
 
+static void test_strv_append(void) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL;
+
+        a = strv_new("test", "test1", NULL);
+        b = strv_append(a, "test2");
+        c = strv_append(NULL, "test3");
+
+        assert(streq(b[0], "test"));
+        assert(streq(b[1], "test1"));
+        assert(streq(b[2], "test2"));
+        assert(streq(c[0], "test3"));
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_find();
@@ -200,6 +213,7 @@ int main(int argc, char *argv[]) {
         test_strv_sort();
         test_strv_merge();
         test_strv_merge_concat();
+        test_strv_append();
 
         return 0;
 }
