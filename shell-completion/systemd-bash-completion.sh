@@ -60,7 +60,7 @@ _systemctl () {
         local -A OPTS=(
                [STANDALONE]='--all -a --defaults --fail --ignore-dependencies --failed --force -f --full --global
                              --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall
-                             --order --require --quiet -q --privileged -P --system --user --version --runtime'
+                             --quiet -q --privileged -P --system --user --version --runtime'
                       [ARG]='--host -H --kill-mode --kill-who --property -p --signal -s --type -t --root'
         )
 
@@ -113,7 +113,7 @@ _systemctl () {
                      [JOBS]='cancel'
                 [SNAPSHOTS]='delete'
                      [ENVS]='set-environment unset-environment'
-               [STANDALONE]='daemon-reexec daemon-reload default dot dump
+               [STANDALONE]='daemon-reexec daemon-reload default dump
                              emergency exit halt hibernate hybrid-sleep kexec list-jobs
                              list-units list-unit-files poweroff reboot rescue
                              show-environment suspend'

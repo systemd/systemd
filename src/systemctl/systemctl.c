@@ -116,11 +116,6 @@ static enum action {
         ACTION_CANCEL_SHUTDOWN,
         _ACTION_MAX
 } arg_action = ACTION_SYSTEMCTL;
-static enum dot {
-        DOT_ALL,
-        DOT_ORDER,
-        DOT_REQUIRE
-} arg_dot = DOT_ALL;
 static enum transport {
         TRANSPORT_NORMAL,
         TRANSPORT_SSH,
@@ -889,176 +884,6 @@ static int list_dependencies(DBusConnection *bus, char **args) {
         puts(u);
 
         return list_dependencies_one(bus, u, 0, NULL, 0);
-}
-
-static int dot_one_property(const char *name, const char *prop, DBusMessageIter *iter) {
-
-        static const char * const colors[] = {
-                "Requires",              "[color=\"black\"]",
-                "RequiresOverridable",   "[color=\"black\"]",
-                "Requisite",             "[color=\"darkblue\"]",
-                "RequisiteOverridable",  "[color=\"darkblue\"]",
-                "Wants",                 "[color=\"grey66\"]",
-                "Conflicts",             "[color=\"red\"]",
-                "ConflictedBy",          "[color=\"red\"]",
-                "After",                 "[color=\"green\"]"
-        };
-
-        const char *c = NULL;
-        unsigned i;
-
-        assert(name);
-        assert(prop);
-        assert(iter);
-
-        for (i = 0; i < ELEMENTSOF(colors); i += 2)
-                if (streq(colors[i], prop)) {
-                        c = colors[i+1];
-                        break;
-                }
-
-        if (!c)
-                return 0;
-
-        if (arg_dot != DOT_ALL)
-                if ((arg_dot == DOT_ORDER) != streq(prop, "After"))
-                        return 0;
-
-        switch (dbus_message_iter_get_arg_type(iter)) {
-
-        case DBUS_TYPE_ARRAY:
-
-                if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING) {
-                        DBusMessageIter sub;
-
-                        dbus_message_iter_recurse(iter, &sub);
-
-                        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                                const char *s;
-
-                                assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING);
-                                dbus_message_iter_get_basic(&sub, &s);
-                                printf("\t\"%s\"->\"%s\" %s;\n", name, s, c);
-
-                                dbus_message_iter_next(&sub);
-                        }
-
-                        return 0;
-                }
-        }
-
-        return 0;
-}
-
-static int dot_one(DBusConnection *bus, const struct unit_info *u) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        const char *interface = "org.freedesktop.systemd1.Unit";
-        int r;
-        DBusMessageIter iter, sub, sub2, sub3;
-
-        assert(bus);
-        assert(u);
-
-        r = bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        u->unit_path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, &interface,
-                        DBUS_TYPE_INVALID);
-        if (r < 0)
-                return r;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_DICT_ENTRY)  {
-                log_error("Failed to parse reply.");
-                return -EIO;
-        }
-
-        dbus_message_iter_recurse(&iter, &sub);
-
-        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *prop;
-
-                assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_DICT_ENTRY);
-                dbus_message_iter_recurse(&sub, &sub2);
-
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &prop, true) < 0 ||
-                    dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                dbus_message_iter_recurse(&sub2, &sub3);
-                r = dot_one_property(u->id, prop, &sub3);
-                if (r < 0)
-                        return r;
-
-                dbus_message_iter_next(&sub);
-        }
-
-        return 0;
-}
-
-static int dot(DBusConnection *bus, char **args) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        DBusMessageIter iter, sub;
-        int r;
-
-        r = bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "ListUnits",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_INVALID);
-        if (r < 0)
-                return r;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)  {
-                log_error("Failed to parse reply.");
-                return -EIO;
-        }
-
-        printf("digraph systemd {\n");
-
-        dbus_message_iter_recurse(&iter, &sub);
-        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                struct unit_info u;
-
-                r = bus_parse_unit_info(&sub, &u);
-                if (r < 0)
-                        return -EIO;
-
-                r = dot_one(bus, &u);
-                if (r < 0)
-                        return r;
-
-                /* printf("\t\"%s\";\n", u.id); */
-                dbus_message_iter_next(&sub);
-        }
-
-        printf("}\n");
-
-        log_info("   Color legend: black     = Requires\n"
-                 "                 dark blue = Requisite\n"
-                 "                 dark grey = Wants\n"
-                 "                 red       = Conflicts\n"
-                 "                 green     = After\n");
-
-        if (on_tty())
-                log_notice("-- You probably want to process this output with graphviz' dot tool.\n"
-                           "-- Try a shell pipeline like 'systemctl dot | dot -Tsvg > systemd.svg'!\n");
-
-        return 0;
 }
 
 static int list_jobs(DBusConnection *bus, char **args) {
@@ -4276,8 +4101,6 @@ static int systemctl_help(void) {
                "     --no-pager       Do not pipe output into a pager\n"
                "     --no-ask-password\n"
                "                      Do not ask for system passwords\n"
-               "     --order          When generating graph for dot, show only order\n"
-               "     --require        When generating graph for dot, show only requirement\n"
                "     --system         Connect to system manager\n"
                "     --user           Connect to user service manager\n"
                "     --global         Enable/disable unit files globally\n"
@@ -4337,7 +4160,6 @@ static int systemctl_help(void) {
                "  cancel [JOB...]                 Cancel all, one, or more jobs\n\n"
                "Status Commands:\n"
                "  dump                            Dump server status\n"
-               "  dot                             Dump dependency graph for dot(1)\n\n"
                "Snapshot Commands:\n"
                "  snapshot [NAME]                 Create a snapshot\n"
                "  delete [NAME...]                Remove one or more snapshots\n\n"
@@ -4460,8 +4282,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_NO_PAGER,
                 ARG_NO_WALL,
-                ARG_ORDER,
-                ARG_REQUIRE,
                 ARG_ROOT,
                 ARG_FULL,
                 ARG_NO_RELOAD,
@@ -4491,8 +4311,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL   },
                 { "quiet",     no_argument,       NULL, 'q'           },
-                { "order",     no_argument,       NULL, ARG_ORDER     },
-                { "require",   no_argument,       NULL, ARG_REQUIRE   },
                 { "root",      required_argument, NULL, ARG_ROOT      },
                 { "force",     no_argument,       NULL, ARG_FORCE     },
                 { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
@@ -4597,14 +4415,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_WALL:
                         arg_no_wall = true;
-                        break;
-
-                case ARG_ORDER:
-                        arg_dot = DOT_ORDER;
-                        break;
-
-                case ARG_REQUIRE:
-                        arg_dot = DOT_REQUIRE;
                         break;
 
                 case ARG_ROOT:
@@ -5307,7 +5117,6 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "status",                MORE,  2, show              },
                 { "help",                  MORE,  2, show              },
                 { "dump",                  EQUAL, 1, dump              },
-                { "dot",                   EQUAL, 1, dot               },
                 { "snapshot",              LESS,  2, snapshot          },
                 { "delete",                MORE,  2, delete_snapshot   },
                 { "daemon-reload",         EQUAL, 1, daemon_reload     },

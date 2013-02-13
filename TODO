@@ -80,8 +80,6 @@ Features:
 
 * introduce ExecCondition= in services
 
-* if we have systemd-analyze in C "systemctl dot" should move there too
-
 * EFI:
   - fsck hookup for the ESP mount is missing
   - write man page for efi boot generator

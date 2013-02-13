@@ -27,8 +27,6 @@ _ctls()
                 '--no-legend[Do not print a legend, i.e. the column headers and the footer with hints]' \
                 '--no-pager[Do not pipe output into a pager]' \
                 '--no-ask-password[Do not ask for system passwords]' \
-                '--order[When generating graph for dot, show only order]' \
-                '--require[When generating graph for dot, show only requirement]' \
                 '--system[Connect to system manager]' \
                 '--user[Connect to user service manager]' \
                 '--global[Enable/disable unit files globally]' \
@@ -136,6 +134,8 @@ _ctls()
             _arguments \
                 {-h,--help}'[Show help text.]' \
                 '--user[Shows performance data of user sessions instead of the system manager.]' \
+                '--order[When generating graph for dot, show only order]' \
+                '--require[When generating graph for dot, show only requirement]' \
                 '*::systemd-analyze commands:_systemd_analyze_command'
         ;;
         systemd-ask-password)
@@ -293,6 +293,7 @@ _systemd_analyze_command(){
         'time:Print the time taken to start'
         'blame:prints a list of all running units, ordered by the time they took to initialize'
         'plot:prints an SVG graphic detailing which system services have been started at what time'
+        'dot:Dump dependency graph for dot(1)'
     )
 
     if (( CURRENT == 1 )); then
@@ -352,7 +353,6 @@ _outputmodes() {
     "list-jobs:List jobs"
     "cancel:Cancel all, one, or more jobs"
     "dump:Dump server status"
-    "dot:Dump dependency graph for dot(1)"
     "snapshot:Create a snapshot"
     "delete:Remove one or more snapshots"
     "show-environment:Dump environment"
@@ -575,7 +575,7 @@ done
 (( $+functions[_systemctl_link] )) || _systemctl_link() { _files }
 
 # no systemctl completion for:
-#    [STANDALONE]='daemon-reexec daemon-reload default dot dump
+#    [STANDALONE]='daemon-reexec daemon-reload default dump
 #                  emergency exit halt kexec list-jobs list-units
 #                  list-unit-files poweroff reboot rescue show-environment'
 #         [NAME]='snapshot load'

@@ -57,6 +57,9 @@
                 <cmdsynopsis>
                         <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> plot <arg choice="opt">&gt; file.svg</arg></command>
                 </cmdsynopsis>
+                <cmdsynopsis>
+                        <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> dot </command>
+                </cmdsynopsis>
         </refsynopsisdiv>
 
         <refsect1>
@@ -90,6 +93,17 @@
                 been started at what time, highlighting the time they
                 spent on initialization.</para>
 
+                <para><command>systemd-analyze dot</command>
+                Generate textual dependency graph description in dot
+                format for further processing with the GraphViz
+                <citerefentry><refentrytitle>dot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                tool. Use a command line like <command>systemd-analyze
+                dot | dot -Tsvg > systemd.svg</command> to generate
+                a graphical dependency tree. Unless
+                <option>--order</option> or <option>--require</option>
+                is passed the generated graph will show both ordering
+                and requirement dependencies.</para>
+
                 <para>If no command is passed <command>systemd-analyze
                 time</command> is implied.</para>
 
@@ -115,6 +129,32 @@
                                 <listitem><para>Shows performance data
                                 of user sessions instead of the system
                                 manager.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--order</option></term>
+                                <term><option>--require</option></term>
+
+                                <listitem><para>When used in
+                                conjunction with the
+                                <command>dot</command> command (see
+                                above), selects which dependencies are
+                                shown in the dependency graph. If
+                                <option>--order</option> is passed
+                                only dependencies of type
+                                <varname>After=</varname> or
+                                <varname>Before=</varname> are
+                                shown. If <option>--require</option>
+                                is passed only dependencies of type
+                                <varname>Requires=</varname>,
+                                <varname>RequiresOverridable=</varname>,
+                                <varname>Requisite=</varname>,
+                                <varname>RequisiteOverridable=</varname>,
+                                <varname>Wants=</varname> and
+                                <varname>Conflicts=</varname> are
+                                shown. If neither is passed, shows
+                                dependencies of all these
+                                types.</para></listitem>
                         </varlistentry>
                 </variablelist>
 

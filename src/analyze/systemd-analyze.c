@@ -46,6 +46,11 @@
         } while(false)
 
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
+static enum dot {
+        DEP_ALL,
+        DEP_ORDER,
+        DEP_REQUIRE
+} arg_dot = DEP_ALL;
 
 double scale_x = 0.1;   // pixels per ms
 double scale_y = 20.0;
@@ -532,6 +537,166 @@ static int analyze_time(DBusConnection *bus)
         return 0;
 }
 
+static int graph_one_property(const char *name, const char *prop, DBusMessageIter *iter) {
+
+        static const char * const colors[] = {
+                "Requires",              "[color=\"black\"]",
+                "RequiresOverridable",   "[color=\"black\"]",
+                "Requisite",             "[color=\"darkblue\"]",
+                "RequisiteOverridable",  "[color=\"darkblue\"]",
+                "Wants",                 "[color=\"grey66\"]",
+                "Conflicts",             "[color=\"red\"]",
+                "ConflictedBy",          "[color=\"red\"]",
+                "After",                 "[color=\"green\"]"
+        };
+
+        const char *c = NULL;
+        unsigned i;
+
+        assert(name);
+        assert(prop);
+        assert(iter);
+
+        for (i = 0; i < ELEMENTSOF(colors); i += 2)
+                if (streq(colors[i], prop)) {
+                        c = colors[i+1];
+                        break;
+                }
+
+        if (!c)
+                return 0;
+
+        if (arg_dot != DEP_ALL)
+                if ((arg_dot == DEP_ORDER) != streq(prop, "After"))
+                        return 0;
+
+        if (dbus_message_iter_get_arg_type(iter) == DBUS_TYPE_ARRAY &&
+            dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING) {
+                DBusMessageIter sub;
+
+                dbus_message_iter_recurse(iter, &sub);
+
+                for (dbus_message_iter_recurse(iter, &sub);
+                     dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID;
+                     dbus_message_iter_next(&sub)) {
+                        const char *s;
+
+                        assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING);
+                        dbus_message_iter_get_basic(&sub, &s);
+                        printf("\t\"%s\"->\"%s\" %s;\n", name, s, c);
+                }
+        }
+
+        return 0;
+}
+
+static int graph_one(DBusConnection *bus, const struct unit_info *u) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        const char *interface = "org.freedesktop.systemd1.Unit";
+        int r;
+        DBusMessageIter iter, sub, sub2, sub3;
+
+        assert(bus);
+        assert(u);
+
+        r = bus_method_call_with_reply(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        u->unit_path,
+                        "org.freedesktop.DBus.Properties",
+                        "GetAll",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_INVALID);
+        if (r < 0)
+                return r;
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_DICT_ENTRY)  {
+                log_error("Failed to parse reply.");
+                return -EIO;
+        }
+
+        for (dbus_message_iter_recurse(&iter, &sub);
+             dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID;
+             dbus_message_iter_next(&sub)) {
+                const char *prop;
+
+                assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_DICT_ENTRY);
+                dbus_message_iter_recurse(&sub, &sub2);
+
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &prop, true) < 0 ||
+                    dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT) {
+                        log_error("Failed to parse reply.");
+                        return -EIO;
+                }
+
+                dbus_message_iter_recurse(&sub2, &sub3);
+                r = graph_one_property(u->id, prop, &sub3);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int dot(DBusConnection *bus) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        DBusMessageIter iter, sub;
+        int r;
+
+        r = bus_method_call_with_reply(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "ListUnits",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_INVALID);
+        if (r < 0)
+                return r;
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)  {
+                log_error("Failed to parse reply.");
+                return -EIO;
+        }
+
+        printf("digraph systemd {\n");
+
+        for (dbus_message_iter_recurse(&iter, &sub);
+             dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID;
+             dbus_message_iter_next(&sub)) {
+                struct unit_info u;
+
+                r = bus_parse_unit_info(&sub, &u);
+                if (r < 0)
+                        return -EIO;
+
+                r = graph_one(bus, &u);
+                if (r < 0)
+                        return r;
+        }
+
+        printf("}\n");
+
+        log_info("   Color legend: black     = Requires\n"
+                 "                 dark blue = Requisite\n"
+                 "                 dark grey = Wants\n"
+                 "                 red       = Conflicts\n"
+                 "                 green     = After\n");
+
+        if (on_tty())
+                log_notice("-- You probably want to process this output with graphviz' dot tool.\n"
+                           "-- Try a shell pipeline like 'systemd-analyze dot | dot -Tsvg > systemd.svg'!\n");
+
+        return 0;
+}
+
 static void analyze_help(void)
 {
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
@@ -539,11 +704,14 @@ static void analyze_help(void)
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
                "     --system         Connect to system manager\n"
-               "     --user           Connect to user service manager\n\n"
+               "     --user           Connect to user service manager\n"
+               "     --order          When generating a dependency graph, show only order\n"
+               "     --require        When generating a dependency graph, show only requirement\n\n"
                "Commands:\n"
-               "  time      print time spent in the kernel before reaching userspace\n"
-               "  blame     print list of running units ordered by time to init\n"
-               "  plot      output SVG graphic showing service initialization\n\n",
+               "  time                Print time spent in the kernel before reaching userspace\n"
+               "  blame               Print list of running units ordered by time to init\n"
+               "  plot                Output SVG graphic showing service initialization\n"
+               "  dot                 Dump dependency graph (in dot(1) format)\n\n",
                program_invocation_short_name);
 }
 
@@ -551,6 +719,8 @@ static int parse_argv(int argc, char *argv[])
 {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_ORDER,
+                ARG_REQUIRE,
                 ARG_USER,
                 ARG_SYSTEM
         };
@@ -558,6 +728,8 @@ static int parse_argv(int argc, char *argv[])
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'           },
                 { "version",   no_argument,       NULL, ARG_VERSION   },
+                { "order",     no_argument,       NULL, ARG_ORDER     },
+                { "require",   no_argument,       NULL, ARG_REQUIRE   },
                 { "user",      no_argument,       NULL, ARG_USER      },
                 { "system",    no_argument,       NULL, ARG_SYSTEM    },
                 { NULL,        0,                 NULL, 0             }
@@ -579,6 +751,12 @@ static int parse_argv(int argc, char *argv[])
                                 break;
                         case ARG_SYSTEM:
                                 arg_scope = UNIT_FILE_SYSTEM;
+                                break;
+                        case ARG_ORDER:
+                                arg_dot = DEP_ORDER;
+                                break;
+                        case ARG_REQUIRE:
+                                arg_dot = DEP_REQUIRE;
                                 break;
                         case -1:
                                 return 1;
@@ -614,6 +792,8 @@ int main(int argc, char *argv[]) {
                 r = analyze_blame(bus);
         else if (streq(argv[optind], "plot"))
                 r = analyze_plot(bus);
+        else if (streq(argv[optind], "dot"))
+                r = dot(bus);
         else
                 log_error("Unknown operation '%s'.", argv[optind]);
 
