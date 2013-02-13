@@ -37,6 +37,18 @@
 #include "efivars.h"
 #include "conf-files.h"
 
+static char *tilt_slashes(char *s) {
+        char *p;
+
+        if (!s)
+                return NULL;
+
+        for (p = s; *p; p++)
+                if (*p == '\\')
+                        *p = '/';
+        return s;
+}
+
 static int get_boot_entries(struct boot_info *info) {
         uint16_t *list;
         int i, n;
@@ -63,7 +75,7 @@ static int get_boot_entries(struct boot_info *info) {
                 err = efi_get_boot_option(list[i], &e->title, &e->part_uuid, &e->path);
                 if (err < 0)
                         continue;
-
+                tilt_slashes(e->path);
                 e->id = list[i];
                 info->fw_entries_count++;
         }
@@ -152,6 +164,7 @@ int boot_info_query(struct boot_info *info) {
         efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderFirmwareType", &info->fw_type);
         efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderFirmwareInfo", &info->fw_info);
         efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderImageIdentifier", &info->loader_image_path);
+        tilt_slashes(info->loader_image_path);
         efi_get_loader_device_part_uuid(&info->loader_part_uuid);
 
         boot_loader_read_entries(info);
