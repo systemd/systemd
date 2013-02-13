@@ -46,7 +46,7 @@ bool ratelimit_test(RateLimit *r) {
                 goto good;
         }
 
-        if (r->num <= r->burst)
+        if (r->num < r->burst)
                 goto good;
 
         return false;
