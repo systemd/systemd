@@ -193,6 +193,11 @@ static void test_config_parse_exec(void) {
 #define env_file_2 \
         "a\\\n"
 
+#define env_file_3 \
+        "#SPAMD_ARGS=\"-d --socketpath=/var/lib/bulwark/spamd \\\n" \
+        "#--nouser-config                                     \\\n" \
+        "normal=line"
+
 static void test_load_env_file_1(void) {
         char _cleanup_strv_free_ **data = NULL;
         int r;
@@ -227,6 +232,21 @@ static void test_load_env_file_2(void) {
         assert(r == 0);
         assert(streq(data[0], "a"));
         assert(data[1] == NULL);
+        unlink(name);
+}
+
+static void test_load_env_file_3(void) {
+        char _cleanup_strv_free_ **data = NULL;
+        int r;
+
+        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        int _cleanup_close_ fd = mkstemp(name);
+        assert(fd >= 0);
+        assert_se(write(fd, env_file_3, sizeof(env_file_3)) == sizeof(env_file_3));
+
+        r = load_env_file(name, &data);
+        assert(r == 0);
+        assert(data == NULL);
         unlink(name);
 }
 
@@ -305,6 +325,7 @@ int main(int argc, char *argv[]) {
         test_config_parse_exec();
         test_load_env_file_1();
         test_load_env_file_2();
+        test_load_env_file_3();
         test_install_printf();
 
         return 0;
