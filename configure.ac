@@ -627,6 +627,15 @@ fi
 AM_CONDITIONAL(ENABLE_COREDUMP, [test "$have_coredump" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_polkit=no
+AC_ARG_ENABLE(polkit, AS_HELP_STRING([--disable-polkit], [disable PolicyKit support]))
+if test "x$enable_polkit" != "xno"; then
+        AC_DEFINE(ENABLE_POLKIT, 1, [Define if PolicyKit support is to be enabled])
+        have_polkit=yes
+fi
+AM_CONDITIONAL(ENABLE_POLKIT, [test "x$have_polkit" = "xyes"])
+
+# ------------------------------------------------------------------------------
 AC_ARG_WITH(rc-local-script-path-start,
         AS_HELP_STRING([--with-rc-local-script-path-start=PATH],
                 [Path to /etc/rc.local]),
@@ -872,6 +881,7 @@ AC_MSG_RESULT([
         timedated:               ${have_timedated}
         localed:                 ${have_localed}
         coredump:                ${have_coredump}
+        polkit:                  ${have_polkit}
         kmod:                    ${have_kmod}
         blkid:                   ${have_blkid}
         nss-myhostname:          ${have_myhostname}

@@ -33,6 +33,7 @@
 #include "util.h"
 #include "spawn-polkit-agent.h"
 
+#ifdef ENABLE_POLKIT
 static pid_t agent_pid = 0;
 
 int polkit_agent_open(void) {
@@ -84,3 +85,14 @@ void polkit_agent_close(void) {
         wait_for_terminate(agent_pid, NULL);
         agent_pid = 0;
 }
+
+#else
+
+int polkit_agent_open(void) {
+        return 0;
+}
+
+void polkit_agent_close(void) {
+}
+
+#endif

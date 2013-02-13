@@ -109,6 +109,7 @@ noinst_LTLIBRARIES =
 lib_LTLIBRARIES =
 include_HEADERS =
 pkgconfiglib_DATA =
+polkitpolicy_in_in_files =
 polkitpolicy_in_files =
 polkitpolicy_files =
 dist_udevrules_DATA =
@@ -969,7 +970,7 @@ dbusinterface_DATA += \
 	org.freedesktop.systemd1.Swap.xml \
 	org.freedesktop.systemd1.Path.xml
 
-polkitpolicy_in_in_files = \
+polkitpolicy_in_in_files += \
 	src/core/org.freedesktop.systemd1.policy.in.in
 
 org.freedesktop.systemd1.%.xml: systemd
@@ -3474,9 +3475,11 @@ units/user/%: units/%.m4 Makefile
 	$(AM_V_M4)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@
 
+if ENABLE_POLKIT
 nodist_polkitpolicy_DATA = \
 	$(polkitpolicy_files) \
 	$(polkitpolicy_in_in_files:.policy.in.in=.policy)
+endif
 
 EXTRA_DIST += \
 	$(polkitpolicy_in_files) \

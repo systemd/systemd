@@ -35,9 +35,10 @@ int verify_polkit(
                 bool *_challenge,
                 DBusError *error) {
 
+
+#ifdef ENABLE_POLKIT
         DBusMessage *m = NULL, *reply = NULL;
         const char *unix_process = "unix-process", *pid = "pid", *starttime = "start-time", *cancel_id = "";
-        const char *sender;
         uint32_t flags = interactive ? 1 : 0;
         pid_t pid_raw;
         uint32_t pid_u32;
@@ -46,6 +47,8 @@ int verify_polkit(
         DBusMessageIter iter_msg, iter_struct, iter_array, iter_dict, iter_variant;
         int r;
         dbus_bool_t authorized = FALSE, challenge = FALSE;
+#endif
+        const char *sender;
         unsigned long ul;
 
         assert(c);
@@ -62,6 +65,8 @@ int verify_polkit(
         /* Shortcut things for root, to avoid the PK roundtrip and dependency */
         if (ul == 0)
                 return 1;
+
+#ifdef ENABLE_POLKIT
 
         pid_raw = bus_get_unix_process_id(c, sender, error);
         if (pid_raw == 0)
@@ -163,4 +168,7 @@ finish:
                 dbus_message_unref(reply);
 
         return r;
+#else
+        return -EPERM;
+#endif
 }
