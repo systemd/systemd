@@ -115,9 +115,9 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
 
         if (name == NULL)
                 group = UDEV_MONITOR_NONE;
-        else if (strcmp(name, "udev") == 0)
+        else if (streq(name, "udev"))
                 group = UDEV_MONITOR_UDEV;
-        else if (strcmp(name, "kernel") == 0)
+        else if (streq(name, "kernel"))
                 group = UDEV_MONITOR_KERNEL;
         else
                 return NULL;
@@ -467,7 +467,7 @@ static int passes_filter(struct udev_monitor *udev_monitor, struct udev_device *
                 const char *devtype;
                 const char *ddevtype;
 
-                if (strcmp(dsubsys, subsys) != 0)
+                if (!streq(dsubsys, subsys))
                         continue;
 
                 devtype = udev_list_entry_get_value(list_entry);
@@ -476,7 +476,7 @@ static int passes_filter(struct udev_monitor *udev_monitor, struct udev_device *
                 ddevtype = udev_device_get_devtype(udev_device);
                 if (ddevtype == NULL)
                         continue;
-                if (strcmp(ddevtype, devtype) == 0)
+                if (streq(ddevtype, devtype))
                         goto tag;
         }
         return 0;

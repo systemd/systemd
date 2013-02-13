@@ -74,7 +74,7 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
                         len = readlink(slink, buf, sizeof(buf));
                         if (len > 0 && len < (int)sizeof(buf)) {
                                 buf[len] = '\0';
-                                if (strcmp(target, buf) == 0) {
+                                if (streq(target, buf)) {
                                         log_debug("preserve already existing symlink '%s' to '%s'\n", slink, target);
                                         label_fix(slink, true, false);
                                         utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
@@ -154,7 +154,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
                 log_debug("found '%s' claiming '%s'\n", dent->d_name, stackdir);
 
                 /* did we find ourself? */
-                if (strcmp(dent->d_name, udev_device_get_id_filename(dev)) == 0)
+                if (streq(dent->d_name, udev_device_get_id_filename(dev)))
                         continue;
 
                 dev_db = udev_device_new_from_device_id(udev, dent->d_name);
@@ -238,7 +238,7 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
                 udev_list_entry_foreach(list_entry_current, udev_device_get_devlinks_list_entry(dev)) {
                         const char *name_current = udev_list_entry_get_name(list_entry_current);
 
-                        if (strcmp(name, name_current) == 0) {
+                        if (streq(name, name_current)) {
                                 found = 1;
                                 break;
                         }
@@ -259,7 +259,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply, mode_t mo
         struct stat stats;
         int err = 0;
 
-        if (strcmp(udev_device_get_subsystem(dev), "block") == 0)
+        if (streq(udev_device_get_subsystem(dev), "block"))
                 mode |= S_IFBLK;
         else
                 mode |= S_IFCHR;
@@ -307,7 +307,7 @@ void udev_node_add(struct udev_device *dev, bool apply, mode_t mode, uid_t uid, 
 
         /* always add /dev/{block,char}/$major:$minor */
         snprintf(filename, sizeof(filename), "/dev/%s/%u:%u",
-                 strcmp(udev_device_get_subsystem(dev), "block") == 0 ? "block" : "char",
+                 streq(udev_device_get_subsystem(dev), "block") ? "block" : "char",
                  major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)));
         node_symlink(dev, udev_device_get_devnode(dev), filename);
 
@@ -327,7 +327,7 @@ void udev_node_remove(struct udev_device *dev)
 
         /* remove /dev/{block,char}/$major:$minor */
         snprintf(filename, sizeof(filename), "/dev/%s/%u:%u",
-                 strcmp(udev_device_get_subsystem(dev), "block") == 0 ? "block" : "char",
+                 streq(udev_device_get_subsystem(dev), "block") ? "block" : "char",
                  major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)));
         unlink(filename);
 }

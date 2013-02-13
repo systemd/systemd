@@ -78,7 +78,7 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
         if (!ctx)
                 return 0;
 
-        if (argc < 3 || strcmp(argv[1], "load")) {
+        if (argc < 3 || !streq(argv[1], "load")) {
                 log_error("expect: %s load <module>\n", argv[0]);
                 return EXIT_FAILURE;
         }

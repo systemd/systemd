@@ -121,7 +121,7 @@ int boot_loader_find_active_entry(struct boot_info *info, const char *loader_act
                 return -ENOMEM;
 
         for (i = 0; i < info->loader_entries_count; i++) {
-                if (strcmp(fn, info->loader_entries[i].path) == 0) {
+                if (streq(fn, info->loader_entries[i].path)) {
                         info->loader_entry_active = i;
                         break;
                 }

@@ -784,7 +784,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
         if (udev_device_get_subsystem(dev) == NULL)
                 return -1;
 
-        if (strcmp(udev_device_get_action(dev), "remove") == 0) {
+        if (streq(udev_device_get_action(dev), "remove")) {
                 udev_device_read_db(dev, NULL);
                 udev_device_delete_db(dev);
                 udev_device_tag_index(dev, NULL, false);
@@ -812,8 +812,8 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                 udev_rules_apply_to_event(rules, event, sigmask);
 
                 /* rename a new network interface, if needed */
-                if (udev_device_get_ifindex(dev) > 0 && strcmp(udev_device_get_action(dev), "add") == 0 &&
-                    event->name != NULL && strcmp(event->name, udev_device_get_sysname(dev)) != 0) {
+                if (udev_device_get_ifindex(dev) > 0 && streq(udev_device_get_action(dev), "add") &&
+                    event->name != NULL && !streq(event->name, udev_device_get_sysname(dev))) {
                         char syspath[UTIL_PATH_SIZE];
                         char *pos;
 

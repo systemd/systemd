@@ -115,7 +115,7 @@ enum udev_builtin_cmd udev_builtin_lookup(const char *command)
         if (pos)
                 pos[0] = '\0';
         for (i = 0; i < ELEMENTSOF(builtins); i++)
-                if (strcmp(builtins[i]->name, name) == 0)
+                if (streq(builtins[i]->name, name))
                         return i;
         return UDEV_BUILTIN_MAX;
 }

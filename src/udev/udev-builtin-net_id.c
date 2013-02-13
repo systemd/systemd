@@ -413,7 +413,7 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         p = udev_device_get_sysattr_value(dev, "iflink");
         if (!p)
                 return EXIT_FAILURE;
-        if (strcmp(s, p) != 0)
+        if (!streq(s, p))
                 return 0;
 
         devtype = udev_device_get_devtype(dev);

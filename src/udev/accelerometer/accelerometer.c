@@ -122,7 +122,7 @@ string_to_orientation (const char *orientation)
         if (orientation == NULL)
                 return ORIENTATION_UNDEFINED;
         for (i = 0; orientations[i] != NULL; i++) {
-                if (strcmp (orientation, orientations[i]) == 0)
+                if (streq (orientation, orientations[i]))
                         return i;
         }
         return ORIENTATION_UNDEFINED;

@@ -140,12 +140,12 @@ int main(int argc, char *argv[])
         if (udev_device_get_devnode(dev) != NULL) {
                 mode_t mode = 0600;
 
-                if (strcmp(udev_device_get_subsystem(dev), "block") == 0)
+                if (streq(udev_device_get_subsystem(dev), "block"))
                         mode |= S_IFBLK;
                 else
                         mode |= S_IFCHR;
 
-                if (strcmp(action, "remove") != 0) {
+                if (!streq(action, "remove")) {
                         mkdir_parents_label(udev_device_get_devnode(dev), 0755);
                         mknod(udev_device_get_devnode(dev), mode, udev_device_get_devnum(dev));
                 } else {

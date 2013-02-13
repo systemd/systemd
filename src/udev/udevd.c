@@ -499,7 +499,7 @@ static bool is_devpath_busy(struct event *event)
                         return true;
 
                 /* check our old name */
-                if (event->devpath_old != NULL && strcmp(loop_event->devpath, event->devpath_old) == 0) {
+                if (event->devpath_old != NULL && streq(loop_event->devpath, event->devpath_old)) {
                         event->delaying_seqnum = loop_event->seqnum;
                         return true;
                 }
@@ -1117,11 +1117,11 @@ int main(int argc, char *argv[])
                         udev_set_log_priority(udev, LOG_DEBUG);
                         break;
                 case 'N':
-                        if (strcmp (optarg, "early") == 0) {
+                        if (streq(optarg, "early")) {
                                 resolve_names = 1;
-                        } else if (strcmp (optarg, "late") == 0) {
+                        } else if (streq(optarg, "late")) {
                                 resolve_names = 0;
-                        } else if (strcmp (optarg, "never") == 0) {
+                        } else if (streq(optarg, "never")) {
                                 resolve_names = -1;
                         } else {
                                 fprintf(stderr, "resolve-names must be early, late or never\n");

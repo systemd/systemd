@@ -467,7 +467,7 @@ _public_ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_qu
                         udev_list_entry_add(&udev_queue->queue_list, syspath, seqnum_str);
                 } else {
                         udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_queue->queue_list)) {
-                                if (strcmp(seqnum_str, udev_list_entry_get_value(list_entry)) == 0) {
+                                if (streq(seqnum_str, udev_list_entry_get_value(list_entry))) {
                                         udev_list_entry_delete(list_entry);
                                         break;
                                 }

@@ -122,9 +122,9 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                         dry_run = 1;
                         break;
                 case 't':
-                        if (strcmp(optarg, "devices") == 0) {
+                        if (streq(optarg, "devices")) {
                                 device_type = TYPE_DEVICES;
-                        } else if (strcmp(optarg, "subsystems") == 0) {
+                        } else if (streq(optarg, "subsystems")) {
                                 device_type = TYPE_SUBSYSTEMS;
                         } else {
                                 log_error("unknown type --type=%s\n", optarg);

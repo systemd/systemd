@@ -45,7 +45,7 @@ static bool skip_attribute(const char *name)
         unsigned int i;
 
         for (i = 0; i < ELEMENTSOF(skip); i++)
-                if (strcmp(name, skip[i]) == 0)
+                if (streq(name, skip[i]))
                         return true;
         return false;
 }
@@ -393,15 +393,15 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
                         break;
                 case 'q':
                         action = ACTION_QUERY;
-                        if (strcmp(optarg, "property") == 0 || strcmp(optarg, "env") == 0) {
+                        if (streq(optarg, "property") || streq(optarg, "env")) {
                                 query = QUERY_PROPERTY;
-                        } else if (strcmp(optarg, "name") == 0) {
+                        } else if (streq(optarg, "name")) {
                                 query = QUERY_NAME;
-                        } else if (strcmp(optarg, "symlink") == 0) {
+                        } else if (streq(optarg, "symlink")) {
                                 query = QUERY_SYMLINK;
-                        } else if (strcmp(optarg, "path") == 0) {
+                        } else if (streq(optarg, "path")) {
                                 query = QUERY_PATH;
-                        } else if (strcmp(optarg, "all") == 0) {
+                        } else if (streq(optarg, "all")) {
                                 query = QUERY_ALL;
                         } else {
                                 fprintf(stderr, "unknown query type\n");

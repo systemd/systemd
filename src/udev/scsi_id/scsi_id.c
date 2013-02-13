@@ -372,11 +372,11 @@ static int set_options(struct udev *udev,
                         exit(0);
 
                 case 'p':
-                        if (strcmp(optarg, "0x80") == 0) {
+                        if (streq(optarg, "0x80")) {
                                 default_page_code = PAGE_80;
-                        } else if (strcmp(optarg, "0x83") == 0) {
+                        } else if (streq(optarg, "0x83")) {
                                 default_page_code = PAGE_83;
-                        } else if (strcmp(optarg, "pre-spc3-83") == 0) {
+                        } else if (streq(optarg, "pre-spc3-83")) {
                                 default_page_code = PAGE_83_PRE_SPC3;
                         } else {
                                 log_error("Unknown page code '%s'\n", optarg);
@@ -449,11 +449,11 @@ static int per_dev_options(struct udev *udev,
                         break;
 
                 case 'p':
-                        if (strcmp(optarg, "0x80") == 0) {
+                        if (streq(optarg, "0x80")) {
                                 *page_code = PAGE_80;
-                        } else if (strcmp(optarg, "0x83") == 0) {
+                        } else if (streq(optarg, "0x83")) {
                                 *page_code = PAGE_83;
-                        } else if (strcmp(optarg, "pre-spc3-83") == 0) {
+                        } else if (streq(optarg, "pre-spc3-83")) {
                                 *page_code = PAGE_83_PRE_SPC3;
                         } else {
                                 log_error("Unknown page code '%s'\n", optarg);

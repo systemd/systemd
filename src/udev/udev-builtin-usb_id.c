@@ -273,7 +273,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool 
         instance_str[0] = '\0';
 
         /* shortcut, if we are called directly for a "usb_device" type */
-        if (udev_device_get_devtype(dev) != NULL && strcmp(udev_device_get_devtype(dev), "usb_device") == 0) {
+        if (udev_device_get_devtype(dev) != NULL && streq(udev_device_get_devtype(dev), "usb_device")) {
                 dev_if_packed_info(dev, packed_if_str, sizeof(packed_if_str));
                 dev_usb = dev;
                 goto fallback;
