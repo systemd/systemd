@@ -1517,7 +1517,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         /* Maybe we finished startup and are now ready for being
          * stopped because unneeded? */
-        unit_check_unneeded(u);
+        if (u->manager->n_reloading <= 0)
+                unit_check_unneeded(u);
 
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
