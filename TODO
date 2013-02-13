@@ -535,6 +535,10 @@ External:
 
 * kernel: add device_type = "fb", "fbcon" to class "graphics"
 
+* bootchart:
+   - use conf_parser for bootchart.conf
+   - change config options to CamelCase
+
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()
