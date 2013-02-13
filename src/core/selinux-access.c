@@ -181,13 +181,18 @@ static int log_callback(int type, const char *fmt, ...) {
 
 #ifdef HAVE_AUDIT
         if (get_audit_fd() >= 0) {
-                char buf[LINE_MAX];
+                _cleanup_free_ char *buf = NULL;
+                int r;
 
-                vsnprintf(buf, sizeof(buf), fmt, ap);
-                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_AVC, buf, NULL, NULL, NULL, 0);
+                r = vasprintf(&buf, fmt, ap);
                 va_end(ap);
 
-                return 0;
+                if (r >= 0) {
+                        audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_AVC, buf, NULL, NULL, NULL, 0);
+                        return 0;
+                }
+
+                va_start(ap, fmt);
         }
 #endif
         log_metav(LOG_USER | LOG_INFO, __FILE__, __LINE__, __FUNCTION__, fmt, ap);
