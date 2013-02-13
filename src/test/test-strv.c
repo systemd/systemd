@@ -48,8 +48,8 @@ static void test_strv_find(void) {
                 NULL
         };
 
-        assert(strv_find((char **)input_table, "three"));
-        assert(!strv_find((char **)input_table, "four"));
+        assert_se(strv_find((char **)input_table, "three"));
+        assert_se(!strv_find((char **)input_table, "four"));
 }
 
 static void test_strv_find_prefix(void) {
@@ -60,11 +60,11 @@ static void test_strv_find_prefix(void) {
                 NULL
         };
 
-        assert(strv_find_prefix((char **)input_table, "o"));
-        assert(strv_find_prefix((char **)input_table, "one"));
-        assert(strv_find_prefix((char **)input_table, ""));
-        assert(!strv_find_prefix((char **)input_table, "xxx"));
-        assert(!strv_find_prefix((char **)input_table, "onee"));
+        assert_se(strv_find_prefix((char **)input_table, "o"));
+        assert_se(strv_find_prefix((char **)input_table, "one"));
+        assert_se(strv_find_prefix((char **)input_table, ""));
+        assert_se(!strv_find_prefix((char **)input_table, "xxx"));
+        assert_se(!strv_find_prefix((char **)input_table, "onee"));
 }
 
 static void test_strv_join(void) {
@@ -85,19 +85,19 @@ static void test_strv_join(void) {
         };
 
         p = strv_join((char **)input_table_multiple, ", ");
-        assert(streq(p, "one, two, three"));
+        assert_se(streq(p, "one, two, three"));
 
         q = strv_join((char **)input_table_multiple, ";");
-        assert(streq(q, "one;two;three"));
+        assert_se(streq(q, "one;two;three"));
 
         r = strv_join((char **)input_table_multiple, NULL);
-        assert(streq(r, "one two three"));
+        assert_se(streq(r, "one two three"));
 
         s = strv_join((char **)input_table_one, ", ");
-        assert(streq(s, "one"));
+        assert_se(streq(s, "one"));
 
         t = strv_join((char **)input_table_none, ", ");
-        assert(streq(t, ""));
+        assert_se(streq(t, ""));
 }
 
 static void test_strv_parse_nulstr(void) {
@@ -108,13 +108,13 @@ static void test_strv_parse_nulstr(void) {
         puts("Parse nulstr:");
         strv_print(l);
 
-        assert(streq(l[0], "fuck"));
-        assert(streq(l[1], "fuck2"));
-        assert(streq(l[2], "fuck3"));
-        assert(streq(l[3], ""));
-        assert(streq(l[4], "fuck5"));
-        assert(streq(l[5], ""));
-        assert(streq(l[6], "xxx"));
+        assert_se(streq(l[0], "fuck"));
+        assert_se(streq(l[1], "fuck2"));
+        assert_se(streq(l[2], "fuck3"));
+        assert_se(streq(l[3], ""));
+        assert_se(streq(l[4], "fuck5"));
+        assert_se(streq(l[5], ""));
+        assert_se(streq(l[6], "xxx"));
 }
 
 static void test_strv_overlap(void) {
@@ -135,8 +135,8 @@ static void test_strv_overlap(void) {
                 NULL
         };
 
-        assert(strv_overlap((char **)input_table, (char**)input_table_overlap));
-        assert(!strv_overlap((char **)input_table, (char**)input_table_unique));
+        assert_se(strv_overlap((char **)input_table, (char**)input_table_overlap));
+        assert_se(!strv_overlap((char **)input_table, (char**)input_table_unique));
 }
 
 static void test_strv_sort(void) {
@@ -151,43 +151,43 @@ static void test_strv_sort(void) {
 
         strv_sort((char **)input_table);
 
-        assert(streq(input_table[0], "CAPITAL LETTERS FIRST"));
-        assert(streq(input_table[1], "apple"));
-        assert(streq(input_table[2], "banana"));
-        assert(streq(input_table[3], "citrus"));
-        assert(streq(input_table[4], "durian"));
+        assert_se(streq(input_table[0], "CAPITAL LETTERS FIRST"));
+        assert_se(streq(input_table[1], "apple"));
+        assert_se(streq(input_table[2], "banana"));
+        assert_se(streq(input_table[3], "citrus"));
+        assert_se(streq(input_table[4], "durian"));
 }
 
 static void test_strv_merge_concat(void) {
-          _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL;
+         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL;
 
-         a = strv_new("without", "suffix", NULL);
-         b = strv_new("with", "suffix", NULL);
+        a = strv_new("without", "suffix", NULL);
+        b = strv_new("with", "suffix", NULL);
 
-         c = strv_merge_concat(a, b, "_suffix");
+        c = strv_merge_concat(a, b, "_suffix");
 
-         assert(streq(c[0], "without"));
-         assert(streq(c[1], "suffix"));
-         assert(streq(c[2], "with_suffix"));
-         assert(streq(c[3], "suffix_suffix"));
+        assert_se(streq(c[0], "without"));
+        assert_se(streq(c[1], "suffix"));
+        assert_se(streq(c[2], "with_suffix"));
+        assert_se(streq(c[3], "suffix_suffix"));
 }
 
 static void test_strv_merge(void) {
          _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL;
 
-         a = strv_new("abc", "def", "ghi", NULL);
-         b = strv_new("jkl", "mno", "pqr", NULL);
+        a = strv_new("abc", "def", "ghi", NULL);
+        b = strv_new("jkl", "mno", "pqr", NULL);
 
-         c = strv_merge(a, b);
+        c = strv_merge(a, b);
 
-         assert(streq(c[0], "abc"));
-         assert(streq(c[1], "def"));
-         assert(streq(c[2], "ghi"));
-         assert(streq(c[3], "jkl"));
-         assert(streq(c[4], "mno"));
-         assert(streq(c[5], "pqr"));
+        assert_se(streq(c[0], "abc"));
+        assert_se(streq(c[1], "def"));
+        assert_se(streq(c[2], "ghi"));
+        assert_se(streq(c[3], "jkl"));
+        assert_se(streq(c[4], "mno"));
+        assert_se(streq(c[5], "pqr"));
 
-         assert(strv_length(c) == 6);
+        assert_se(strv_length(c) == 6);
 }
 
 static void test_strv_append(void) {
@@ -197,10 +197,10 @@ static void test_strv_append(void) {
         b = strv_append(a, "test2");
         c = strv_append(NULL, "test3");
 
-        assert(streq(b[0], "test"));
-        assert(streq(b[1], "test1"));
-        assert(streq(b[2], "test2"));
-        assert(streq(c[0], "test3"));
+        assert_se(streq(b[0], "test"));
+        assert_se(streq(b[1], "test1"));
+        assert_se(streq(b[2], "test2"));
+        assert_se(streq(c[0], "test3"));
 }
 
 int main(int argc, char *argv[]) {
