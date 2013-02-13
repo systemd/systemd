@@ -158,6 +158,20 @@ static void test_strv_sort(void) {
         assert(streq(input_table[4], "durian"));
 }
 
+static void test_strv_merge_concat(void) {
+          _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL;
+
+         a = strv_new("without", "suffix", NULL);
+         b = strv_new("with", "suffix", NULL);
+
+         c = strv_merge_concat(a, b, "_suffix");
+
+         assert(streq(c[0], "without"));
+         assert(streq(c[1], "suffix"));
+         assert(streq(c[2], "with_suffix"));
+         assert(streq(c[3], "suffix_suffix"));
+}
+
 static void test_strv_merge(void) {
          _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL;
 
@@ -185,6 +199,7 @@ int main(int argc, char *argv[]) {
         test_strv_overlap();
         test_strv_sort();
         test_strv_merge();
+        test_strv_merge_concat();
 
         return 0;
 }
