@@ -10,6 +10,7 @@
 
   Authors:
     Auke Kok <auke-jan.h.kok@intel.com>
+    William Giokas <1007380@gmail.com>
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -91,9 +92,94 @@
         <refsect1>
                 <title>Options</title>
 
-                <para>Please read systemd-bootchart --help or the bootchart.conf manual
-                page for information about the various options that influence how
-                systemd-bootchart operates.</para>
+                <variablelist class='bootchart-directives'>
+
+                        <varlistentry>
+                                <term><option>-n</option></term>
+                                <term><option>--sample N</option></term>
+                                <listitem><para>Specify the amount of samples to
+                                record total before bootchart exits. Each sample will
+                                record at intervals defined by --freq.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-f</option></term>
+                                <term><option>--freq N</option></term>
+                                <listitem><para>Specify the sample log frequency.
+                                This can be a fractional number, but must be larger than
+                                0.0. Most systems can cope with values under 25-50 without
+                                impacting boot time severely.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-r</option></term>
+                                <term><option>--rel</option></term>
+                                <listitem><para>Use relative times instead of absolute
+                                times. This is useful for using bootchart at post-boot
+                                time to profile an already booted system, otherwise the
+                                graph would become extremely large. If set, the
+                                horizontal axis starts at the first recorded sample
+                                instead of time=0.0.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-F</option></term>
+                                <term><option>--filter</option></term>
+                                <listitem><para>Disable filtering of tasks tasks that
+                                did not contribute significantly to the boot. Processes
+                                that are too short-lived (only seen in one sample) or
+                                that do not consume any significant CPU time (less than
+                                0.001sec) will not be displayed in the output graph.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-o</option></term>
+                                <term><option>--output [path]</option></term>
+                                <listitem><para>Configures the output folder for writing
+                                the graphs. By default, bootchart writes the graphs to
+                                <filename>/var/log</filename>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-i</option></term>
+                                <term><option>--init [path]</option></term>
+                                <listitem><para>Set init binary to run. Defaults to
+                                <filename>/sbin/init</filename>.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-p</option></term>
+                                <term><option>--pss</option></term>
+                                <listitem><para>Enable logging and graphing
+                                of processes PSS memory consumption.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-e</option></term>
+                                <term><option>--entropy</option></term>
+                                <listitem><para>Enable logging and graphing
+                                of the kernel random entropy pool size.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-x</option></term>
+                                <term><option>--scale-x N</option></term>
+                                <listitem><para>Horizontal scaling factor for all variable
+                                graph components.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-y</option></term>
+                                <term><option>--scale-y N</option></term>
+                                <listitem><para>Vertical scaling factor for all variable
+                                graph components.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
+
+
         </refsect1>
 
         <refsect1>
