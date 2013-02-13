@@ -81,7 +81,6 @@ static int ask_password_plymouth(
                 }
 
                 if (inotify_add_watch(notify, flag_file, IN_ATTRIB /* for the link count */) < 0) {
-                        log_error("Failed to add watch on %s: %m", flag_file);
                         r = -errno;
                         goto finish;
                 }
@@ -578,7 +577,6 @@ static int watch_passwords(void) {
         }
 
         if (inotify_add_watch(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO) < 0) {
-                log_error("Failed to add watch on /run/systemd/ask-password: %m");
                 r = -errno;
                 goto finish;
         }

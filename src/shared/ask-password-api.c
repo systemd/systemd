@@ -78,7 +78,6 @@ int ask_password_tty(
                 }
 
                 if (inotify_add_watch(notify, flag_file, IN_ATTRIB /* for the link count */) < 0) {
-                        log_error("Failed to add watch on %s: %m", flag_file);
                         r = -errno;
                         goto finish;
                 }
