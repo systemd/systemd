@@ -348,22 +348,16 @@ int efi_get_boot_options(uint16_t **options) {
 }
 
 static int read_usec(sd_id128_t vendor, const char *name, usec_t *u) {
-        _cleanup_free_ void *i = NULL;
         _cleanup_free_ char *j = NULL;
-        size_t is;
         int r;
         uint64_t x;
 
         assert(name);
         assert(u);
 
-        r = efi_get_variable(EFI_VENDOR_LOADER, name, NULL, &i, &is);
+        r = efi_get_variable_string(EFI_VENDOR_LOADER, name, &j);
         if (r < 0)
                 return r;
-
-        j = utf16_to_utf8(i, is);
-        if (!j)
-                return -ENOMEM;
 
         r = safe_atou64(j, &x);
         if (r < 0)
@@ -437,21 +431,15 @@ int efi_get_boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, d
 }
 
 int efi_get_loader_device_part_uuid(sd_id128_t *u) {
-        _cleanup_free_ void *s = NULL;
         _cleanup_free_ char *p = NULL;
-        size_t ss;
         int r, parsed[16];
         unsigned i;
 
         assert(u);
 
-        r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderDevicePartUUID", NULL, &s, &ss);
+        r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderDevicePartUUID", &p);
         if (r < 0)
                 return r;
-
-        p = utf16_to_utf8(s, ss);
-        if (!p)
-                return -ENOMEM;
 
         if (sscanf(p, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
                    &parsed[0], &parsed[1], &parsed[2], &parsed[3],
