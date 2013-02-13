@@ -32,6 +32,7 @@
 #include <sys/mount.h>
 #include <sys/signalfd.h>
 
+#include "missing.h"
 #include "udev.h"
 
 void udev_main_log(struct udev *udev, int priority,
