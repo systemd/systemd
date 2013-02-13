@@ -104,6 +104,7 @@ int boot_loader_read_entries(struct boot_info *info) {
                 }
                 info->loader_entries_count++;
         }
+
         return 0;
 }
 

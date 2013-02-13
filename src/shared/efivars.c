@@ -288,6 +288,21 @@ int efi_get_boot_order(uint16_t **order) {
         return (int) (l / sizeof(uint16_t));
 }
 
+static int boot_id_hex(const char s[4]) {
+        int i;
+        int id = 0;
+
+        for (i = 0; i < 4; i++)
+                if (s[i] >= '0' && s[i] <= '9')
+                        id |= (s[i] - '0') << (3 - i) * 4;
+                else if (s[i] >= 'A' && s[i] <= 'F')
+                        id |= (s[i] - 'A' + 10) << (3 - i) * 4;
+                else
+                        return -1;
+
+        return id;
+}
+
 int efi_get_boot_options(uint16_t **options) {
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *de;
@@ -301,26 +316,20 @@ int efi_get_boot_options(uint16_t **options) {
                 return -errno;
 
         while ((de = readdir(dir))) {
-                size_t n;
-                int a, b, c, d;
+                int id;
                 uint16_t *t;
 
                 if (strncmp(de->d_name, "Boot", 4) != 0)
                         continue;
 
-                n = strlen(de->d_name);
-                if (n != 45)
+                if (strlen(de->d_name) != 45)
                         continue;
 
                 if (strcmp(de->d_name + 8, "-8be4df61-93ca-11d2-aa0d-00e098032b8c") != 0)
                         continue;
 
-                a = de->d_name[4];
-                b = de->d_name[5];
-                c = de->d_name[6];
-                d = de->d_name[7];
-
-                if (!isdigit(a) || !isdigit(b) || !isdigit(c) || !isdigit(d))
+                id = boot_id_hex(de->d_name + 4);
+                if (id < 0)
                         continue;
 
                 t = realloc(list, (count + 1) * sizeof(uint16_t));
@@ -330,7 +339,7 @@ int efi_get_boot_options(uint16_t **options) {
                 }
 
                 list = t;
-                list[count ++] = (a - '0') * 1000 + (b - '0') * 100 + (c - '0') * 10 + (d - '0');
+                list[count ++] = id;
 
         }
 

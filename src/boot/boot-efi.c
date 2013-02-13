@@ -38,27 +38,21 @@
 #include "conf-files.h"
 
 static int get_boot_entries(struct boot_info *info) {
-        DIR *d = NULL;
-        struct dirent *dent;
+        uint16_t *list;
+        int i, n;
         int err = 0;
 
-        d = opendir("/sys/firmware/efi/efivars");
-        if (!d)
-                return -errno;
+        n = efi_get_boot_options(&list);
+        if (n < 0)
+                return n;
 
-        for (dent = readdir(d); dent != NULL; dent = readdir(d)) {
-                unsigned int id;
+        for (i = 0; i < n; i++) {
                 struct boot_info_entry *e;
-
-                if (dent->d_name[0] == '.')
-                        continue;
-                if (sscanf(dent->d_name, "Boot%04X-8be4df61-93ca-11d2-aa0d-00e098032b8c", &id) != 1)
-                        continue;
 
                 e = realloc(info->fw_entries, (info->fw_entries_count+1) * sizeof(struct boot_info_entry));
                 if (!e) {
                         err = -ENOMEM;
-                        break;
+                                break;
                 }
                 info->fw_entries = e;
 
@@ -66,15 +60,15 @@ static int get_boot_entries(struct boot_info *info) {
                 memset(e, 0, sizeof(struct boot_info_entry));
                 e->order = -1;
 
-                err = efi_get_boot_option(id, &e->title, &e->part_uuid, &e->path);
+                err = efi_get_boot_option(list[i], &e->title, &e->part_uuid, &e->path);
                 if (err < 0)
-                        break;
-                e->id = id;
+                        continue;
 
+                e->id = list[i];
                 info->fw_entries_count++;
         }
-        closedir(d);
 
+        free(list);
         return err;
 }
 
