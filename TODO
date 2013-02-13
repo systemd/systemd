@@ -56,6 +56,10 @@ Fedora 19:
 
 Features:
 
+* use "log level" rather than "log priority" everywhere
+
+* unit_name_mangle() is currently not used on "systemctl enable" and friends, only on "systemctl start"
+
 * ensure sd_journal_seek_monotonic actually works properly.
 
 * timedate: have global on/off switches for auto-time (NTP), and auto-timezone that connman can subscribe to.
