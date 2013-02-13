@@ -573,11 +573,22 @@ int on_ac_power(void);
 int search_and_fopen(const char *path, const char *mode, const char **search, FILE **_f);
 int search_and_fopen_nulstr(const char *path, const char *mode, const char *search, FILE **_f);
 
-#define FOREACH_LINE(f, line, on_error)                         \
-        for (char line[LINE_MAX]; !feof(f); )                   \
+#define FOREACH_LINE(line, f, on_error)                         \
+        for (;;)                                                \
                 if (!fgets(line, sizeof(line), f)) {            \
                         if (ferror(f)) {                        \
                                 on_error;                       \
                         }                                       \
                         break;                                  \
                 } else
+
+#define FOREACH_DIRENT(de, d, on_error)                                 \
+        for (errno = 0, de = readdir(d);; errno = 0, de = readdir(d))   \
+                if (!de) {                                              \
+                        if (errno != 0) {                               \
+                                on_error;                               \
+                        }                                               \
+                        break;                                          \
+                } else if (ignore_file((de)->d_name))                   \
+                        continue;                                       \
+                else

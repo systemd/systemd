@@ -1077,6 +1077,7 @@ int get_process_exe(pid_t pid, char **name) {
 static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
+        char line[LINE_MAX];
 
         assert(field);
         assert(uid);
@@ -1091,7 +1092,7 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
         if (!f)
                 return -errno;
 
-        FOREACH_LINE(f, line, return -errno) {
+        FOREACH_LINE(line, f, return -errno) {
                 char *l;
 
                 l = strstrip(line);

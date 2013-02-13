@@ -303,11 +303,22 @@ static int boot_id_hex(const char s[4]) {
         return id;
 }
 
+static int cmp_uint16(const void *_a, const void *_b) {
+        const uint16_t *a = _a, *b = _b;
+
+        if (*a < *b)
+                return -1;
+        if (*a > *b)
+                return 1;
+
+        return 0;
+}
+
 int efi_get_boot_options(uint16_t **options) {
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *de;
         uint16_t *list = NULL;
-        int count = 0;
+        int count = 0, r;
 
         assert(options);
 
@@ -315,7 +326,7 @@ int efi_get_boot_options(uint16_t **options) {
         if (!dir)
                 return -errno;
 
-        while ((de = readdir(dir))) {
+        FOREACH_DIRENT(de, dir, r = -errno; goto fail) {
                 int id;
                 uint16_t *t;
 
@@ -334,17 +345,22 @@ int efi_get_boot_options(uint16_t **options) {
 
                 t = realloc(list, (count + 1) * sizeof(uint16_t));
                 if (!t) {
-                        free(list);
-                        return -ENOMEM;
+                        r = -ENOMEM;
+                        goto fail;
                 }
 
                 list = t;
                 list[count ++] = id;
-
         }
+
+        qsort(list, count, sizeof(uint16_t), cmp_uint16);
 
         *options = list;
         return count;
+
+fail:
+        free(list);
+        return r;
 }
 
 static int read_usec(sd_id128_t vendor, const char *name, usec_t *u) {
