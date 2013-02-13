@@ -227,7 +227,7 @@ int open_inotify(void) {
         mkdir("/run/systemd/readahead", 0755);
 
         if (inotify_add_watch(fd, "/run/systemd/readahead", IN_CREATE) < 0) {
-                log_error("Failed to watch /run/systemd/readahead: %m");
+                log_error("Failed to add watch on /run/systemd/readahead: %m");
                 close_nointr_nofail(fd);
                 return -errno;
         }

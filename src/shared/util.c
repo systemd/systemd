@@ -2220,6 +2220,7 @@ int acquire_terminal(
                 wd = inotify_add_watch(notify, name, IN_CLOSE);
                 if (wd < 0) {
                         r = -errno;
+                        log_error("Failed to add watch on %s: %m", name);
                         goto fail;
                 }
         }
