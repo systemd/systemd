@@ -101,7 +101,7 @@
 
                 <para><function>sd_journal_seek_monotonic_usec()</function>
                 seeks to the entry with the specified monotonic
-                timestamp, i.e. CLOCK_MONOOTONIC. Since monotonic time
+                timestamp, i.e. CLOCK_MONOTONIC. Since monotonic time
                 restarts on every reboot a boot ID needs to be
                 specified as well.</para>
 
