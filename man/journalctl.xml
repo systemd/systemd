@@ -114,8 +114,8 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>--help</option></term>
                                 <term><option>-h</option></term>
+                                <term><option>--help</option></term>
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
@@ -143,8 +143,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--all</option></term>
                                 <term><option>-a</option></term>
+                                <term><option>--all</option></term>
 
                                 <listitem><para>Show all fields in
                                 full, even if they include unprintable
@@ -153,8 +153,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--follow</option></term>
                                 <term><option>-f</option></term>
+                                <term><option>--follow</option></term>
 
                                 <listitem><para>Show only the most recent
                                 journal entries, and continuously print
@@ -163,8 +163,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--lines=</option></term>
                                 <term><option>-n</option></term>
+                                <term><option>--lines=</option></term>
 
                                 <listitem><para>Show the most recent
                                 journal events and limit the number of
@@ -185,8 +185,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--output=</option></term>
                                 <term><option>-o</option></term>
+                                <term><option>--output=</option></term>
 
                                 <listitem><para>Controls the
                                 formatting of the journal entries that
@@ -240,8 +240,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--catalog</option></term>
                                 <term><option>-x</option></term>
+                                <term><option>--catalog</option></term>
 
                                 <listitem><para>Augment log lines with
                                 explanation texts from the message
@@ -264,8 +264,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--quiet</option></term>
                                 <term><option>-q</option></term>
+                                <term><option>--quiet</option></term>
 
                                 <listitem><para>Suppresses any warning
                                 message regarding inaccessible system
@@ -274,8 +274,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--merge</option></term>
                                 <term><option>-m</option></term>
+                                <term><option>--merge</option></term>
 
                                 <listitem><para>Show entries
                                 interleaved from all available
@@ -284,8 +284,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--this-boot</option></term>
                                 <term><option>-b</option></term>
+                                <term><option>--this-boot</option></term>
 
                                 <listitem><para>Show data only from
                                 current boot. This will add a match
@@ -295,8 +295,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--unit=</option></term>
                                 <term><option>-u</option></term>
+                                <term><option>--unit=</option></term>
 
                                 <listitem><para>Show data only of the
                                 specified unit. This will add a match
@@ -341,8 +341,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--cursor=</option></term>
                                 <term><option>-c</option></term>
+                                <term><option>--cursor=</option></term>
 
                                 <listitem><para>Start showing entries
                                 from the location in the journal
@@ -381,8 +381,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--field=</option></term>
                                 <term><option>-F</option></term>
+                                <term><option>--field=</option></term>
 
                                 <listitem><para>Print all possible
                                 data values the specified field can
@@ -391,8 +391,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--directory=</option></term>
                                 <term><option>-D</option></term>
+                                <term><option>--directory=</option></term>
 
                                 <listitem><para>Takes an absolute
                                 directory path as argument. If

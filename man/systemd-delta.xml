@@ -100,8 +100,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--type=</option></term>
                                 <term><option>-t</option></term>
+                                <term><option>--type=</option></term>
 
                                 <listitem><para>When listing the
                                 differences, only list those that are

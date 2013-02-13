@@ -71,8 +71,8 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>--help</option></term>
                                 <term><option>-h</option></term>
+                                <term><option>--help</option></term>
 
                                 <listitem><para>Print a short help
                                 text and exit.</para></listitem>
@@ -86,8 +86,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--field=</option></term>
                                 <term><option>-F</option></term>
+                                <term><option>--field=</option></term>
 
                                 <listitem><para>Print all possible
                                 data values the specified field
@@ -96,8 +96,8 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-o</option></term>
                                 <term><option>--output=FILE</option></term>
-                                <term><option>-o FILE</option></term>
 
                                 <listitem><para>Write the core to
                                 <option>FILE</option>.</para></listitem>

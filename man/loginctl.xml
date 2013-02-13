@@ -69,8 +69,8 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>--help</option></term>
                                 <term><option>-h</option></term>
+                                <term><option>--help</option></term>
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
@@ -84,8 +84,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--property=</option></term>
                                 <term><option>-p</option></term>
+                                <term><option>--property=</option></term>
 
                                 <listitem><para>When showing
                                 session/user properties, limit
@@ -101,8 +101,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--all</option></term>
                                 <term><option>-a</option></term>
+                                <term><option>--all</option></term>
 
                                 <listitem><para>When showing
                                 unit/job/manager properties, show all
@@ -148,8 +148,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--signal=</option></term>
                                 <term><option>-s</option></term>
+                                <term><option>--signal=</option></term>
 
                                 <listitem><para>When used with
                                 <command>kill-session</command> or

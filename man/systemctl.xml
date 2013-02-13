@@ -69,8 +69,8 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>--help</option></term>
                                 <term><option>-h</option></term>
+                                <term><option>--help</option></term>
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
@@ -84,8 +84,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--type=</option></term>
                                 <term><option>-t</option></term>
+                                <term><option>--type=</option></term>
 
                                 <listitem><para>The argument should
                                 be a unit type name such as
@@ -115,8 +115,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--property=</option></term>
                                 <term><option>-p</option></term>
+                                <term><option>--property=</option></term>
 
                                 <listitem><para>When showing
                                 unit/job/manager properties, limit
@@ -132,8 +132,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--all</option></term>
                                 <term><option>-a</option></term>
+                                <term><option>--all</option></term>
 
                                 <listitem><para>When listing units,
                                 show all units, regardless of their
@@ -218,8 +218,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--quiet</option></term>
                                 <term><option>-q</option></term>
+                                <term><option>--quiet</option></term>
 
                                 <listitem><para>Suppress output to
                                 STDOUT in
@@ -370,8 +370,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--signal=</option></term>
                                 <term><option>-s</option></term>
+                                <term><option>--signal=</option></term>
 
                                 <listitem><para>When used with
                                 <command>kill</command>, choose which
@@ -384,8 +384,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--force</option></term>
                                 <term><option>-f</option></term>
+                                <term><option>--force</option></term>
 
                                 <listitem><para>When used with
                                 <command>enable</command>, overwrite any
@@ -463,8 +463,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--lines=</option></term>
                                 <term><option>-n</option></term>
+                                <term><option>--lines=</option></term>
 
                                 <listitem><para>When used with
                                 <command>status</command> controls the
@@ -476,8 +476,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--output=</option></term>
                                 <term><option>-o</option></term>
+                                <term><option>--output=</option></term>
 
                                 <listitem><para>When used with
                                 <command>status</command> controls the

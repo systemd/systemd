@@ -132,8 +132,8 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>--help</option></term>
                                 <term><option>-h</option></term>
+                                <term><option>--help</option></term>
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
@@ -147,8 +147,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--directory=</option></term>
                                 <term><option>-D</option></term>
+                                <term><option>--directory=</option></term>
 
                                 <listitem><para>Directory to use as
                                 file system root for the namespace
@@ -158,8 +158,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--boot</option></term>
                                 <term><option>-b</option></term>
+                                <term><option>--boot</option></term>
 
                                 <listitem><para>Automatically search
                                 for an init binary and invoke it
@@ -168,8 +168,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--user=</option></term>
                                 <term><option>-u</option></term>
+                                <term><option>--user=</option></term>
 
                                 <listitem><para>Run the command
                                 under specified user, create home
@@ -192,8 +192,8 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--controllers=</option></term>
                                 <term><option>-C</option></term>
+                                <term><option>--controllers=</option></term>
 
                                 <listitem><para>Makes the container appear in
                                 other hierarchies than the name=systemd:/ one.
