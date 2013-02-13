@@ -295,8 +295,7 @@ rootlibexec_PROGRAMS = \
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator \
 	systemd-fstab-generator \
-	systemd-system-update-generator \
-	systemd-efi-boot-generator
+	systemd-system-update-generator
 
 dist_bin_SCRIPTS = \
 	src/analyze/systemd-analyze
@@ -1002,8 +1001,7 @@ noinst_PROGRAMS += \
 	test-cgroup \
 	test-install \
 	test-watchdog \
-	test-log \
-	test-efivars
+	test-log
 
 noinst_tests += \
 	test-job-type \
@@ -1071,11 +1069,16 @@ test_hostname_SOURCES = \
 test_hostname_LDADD = \
 	libsystemd-core.la
 
+if ENABLE_EFI
+noinst_PROGRAMS += \
+	test-efivars
+
 test_efivars_SOURCES = \
 	src/test/test-efivars.c
 
 test_efivars_LDADD = \
 	libsystemd-shared.la
+endif
 
 test_unit_name_SOURCES = \
 	src/test/test-unit-name.c
@@ -1410,12 +1413,17 @@ systemd_system_update_generator_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
+if ENABLE_EFI
+systemgenerator_PROGRAMS +=  \
+	systemd-efi-boot-generator
+
 systemd_efi_boot_generator_SOURCES = \
 	src/efi-boot-generator/efi-boot-generator.c
 
 systemd_efi_boot_generator_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
+endif
 
 # ------------------------------------------------------------------------------
 systemd_rc_local_generator_SOURCES = \
@@ -3079,6 +3087,7 @@ EXTRA_DIST += \
 	units/systemd-timedated.service.in
 
 # ------------------------------------------------------------------------------
+if ENABLE_EFI
 bootctl_SOURCES = \
 	src/boot/boot.h \
 	src/boot/boot-loader.h \
@@ -3093,6 +3102,7 @@ bootctl_LDADD = \
 
 bin_PROGRAMS += \
 	bootctl
+endif
 
 # ------------------------------------------------------------------------------
 if HAVE_MYHOSTNAME

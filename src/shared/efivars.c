@@ -28,6 +28,8 @@
 #include "utf8.h"
 #include "efivars.h"
 
+#ifdef ENABLE_EFI
+
 bool is_efi_boot(void) {
         return access("/sys/firmware/efi", F_OK) >= 0;
 }
@@ -469,3 +471,5 @@ int efi_get_loader_device_part_uuid(sd_id128_t *u) {
 
         return 0;
 }
+
+#endif

@@ -636,6 +636,15 @@ fi
 AM_CONDITIONAL(ENABLE_POLKIT, [test "x$have_polkit" = "xyes"])
 
 # ------------------------------------------------------------------------------
+have_efi=no
+AC_ARG_ENABLE(efi, AS_HELP_STRING([--disable-efi], [disable EFI support]))
+if test "x$enable_efi" != "xno"; then
+        AC_DEFINE(ENABLE_EFI, 1, [Define if EFI support is to be enabled])
+        have_efi=yes
+fi
+AM_CONDITIONAL(ENABLE_EFI, [test "x$have_efi" = "xyes"])
+
+# ------------------------------------------------------------------------------
 AC_ARG_WITH(rc-local-script-path-start,
         AS_HELP_STRING([--with-rc-local-script-path-start=PATH],
                 [Path to /etc/rc.local]),
@@ -882,6 +891,7 @@ AC_MSG_RESULT([
         localed:                 ${have_localed}
         coredump:                ${have_coredump}
         polkit:                  ${have_polkit}
+        efi:                     ${have_efi}
         kmod:                    ${have_kmod}
         blkid:                   ${have_blkid}
         nss-myhostname:          ${have_myhostname}
