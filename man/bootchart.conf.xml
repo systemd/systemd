@@ -109,7 +109,7 @@
                                 <term><varname>output=[path]</varname></term>
                                 <listitem><para>Configures the output folder for writing
                                 the graphs. By default, bootchart writes the graphs to
-                                <filename>/var/log</filename>.</para></listitem>
+                                <filename>/run/log</filename>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

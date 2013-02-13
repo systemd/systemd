@@ -18,7 +18,7 @@ where possible problems exist in the startup sequence of the system.
 Of course, bootchart can also be used at any moment in time to collect and
 graph some data for an amount of time. Bootchart does not even require root
 privileges to do so, and will happily run as a normal user. Bootchart graphs
-are by default written time-stamped in /var/log.
+are by default written time-stamped in /run/log.
 
 --
 
