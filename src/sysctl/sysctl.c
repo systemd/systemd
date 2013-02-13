@@ -169,7 +169,8 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 existing = hashmap_get(sysctl_options, p);
                 if (existing) {
                         if (!streq(value, existing))
-                                log_warning("Two ore more conflicting assignments of %s, ignoring.", property);
+                                log_warning("Duplicate assignment of %s in file '%s', ignoring.",
+                                            p, path);
 
                         continue;
                 }
