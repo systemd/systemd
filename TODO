@@ -56,6 +56,8 @@ Fedora 19:
 
 Features:
 
+* figure out what we do about hostnames/fqdn in hostnamectl/hostnamed
+
 * use "log level" rather than "log priority" everywhere
 
 * unit_name_mangle() is currently not used on "systemctl enable" and friends, only on "systemctl start"
