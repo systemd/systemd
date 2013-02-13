@@ -3087,7 +3087,8 @@ bootctl_SOURCES = \
 
 bootctl_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-id128.la
+	libsystemd-id128.la \
+	libsystemd-daemon.la
 
 bin_PROGRAMS += \
 	bootctl
