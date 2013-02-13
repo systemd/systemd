@@ -24,6 +24,7 @@
 /systemctl
 /systemd
 /systemd-ac-power
+/systemd-analyze
 /systemd-ask-password
 /systemd-binfmt
 /systemd-bootchart
