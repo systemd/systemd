@@ -158,6 +158,24 @@ static void test_strv_sort(void) {
         assert(streq(input_table[4], "durian"));
 }
 
+static void test_strv_merge(void) {
+         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL;
+
+         a = strv_new("abc", "def", "ghi", NULL);
+         b = strv_new("jkl", "mno", "pqr", NULL);
+
+         c = strv_merge(a, b);
+
+         assert(streq(c[0], "abc"));
+         assert(streq(c[1], "def"));
+         assert(streq(c[2], "ghi"));
+         assert(streq(c[3], "jkl"));
+         assert(streq(c[4], "mno"));
+         assert(streq(c[5], "pqr"));
+
+         assert(strv_length(c) == 6);
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_find();
@@ -166,6 +184,7 @@ int main(int argc, char *argv[]) {
         test_strv_parse_nulstr();
         test_strv_overlap();
         test_strv_sort();
+        test_strv_merge();
 
         return 0;
 }
