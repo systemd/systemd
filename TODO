@@ -51,7 +51,12 @@ Fedora 19:
 
 * logind: Class property should probably know "background" or so as value for cron jobs, and the inhibition checks should filter those out too.
 
+* timer logic is confused by units which are skipped due to failing condition
+  http://lists.freedesktop.org/archives/systemd-devel/2013-February/008816.html
+
 Features:
+
+* ensure sd_journal_seek_monotonic actually works properly.
 
 * timedate: have global on/off switches for auto-time (NTP), and auto-timezone that connman can subscribe to.
 
