@@ -352,7 +352,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 id_len = max_id_len;
 
         for (u = unit_infos; u < unit_infos + c; u++) {
-                char *e;
+                char _cleanup_free_ *e = NULL;
                 const char *on_loaded, *off_loaded;
                 const char *on_active, *off_active;
 
@@ -396,8 +396,6 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                         printf("%.*s\n", desc_len, u->description);
                 else
                         printf("%s\n", u->description);
-
-                free(e);
         }
 
         if (!arg_no_legend) {
@@ -539,7 +537,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 printf("%-*s %-*s\n", id_cols, "UNIT FILE", state_cols, "STATE");
 
         for (u = units; u < units + c; u++) {
-                char *e;
+                char _cleanup_free_ *e = NULL;
                 const char *on, *off;
                 const char *id;
 
@@ -567,8 +565,6 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 printf("%-*s %s%-*s%s\n",
                        id_cols, e ? e : id,
                        on, state_cols, unit_file_state_to_string(u->state), off);
-
-                free(e);
         }
 
         if (!arg_no_legend)
@@ -825,45 +821,40 @@ static int list_dependencies_compare(const void *_a, const void *_b) {
 }
 
 static int list_dependencies_one(DBusConnection *bus, const char *name, int level, char **units, unsigned int branches) {
-        char **deps = NULL;
+        char _cleanup_strv_free_ **deps = NULL, **u;
         char **c;
-        char **u = NULL;
         int r = 0;
 
         u = strv_append(units, name);
-        if(!u)
+        if (!u)
                 return log_oom();
 
         r = list_dependencies_get_dependencies(bus, name, &deps);
         if (r < 0)
-                goto finish;
+                return r;
 
         qsort(deps, strv_length(deps), sizeof (char*), list_dependencies_compare);
 
         STRV_FOREACH(c, deps) {
                 if (strv_contains(u, *c)) {
                         r = list_dependencies_print("...", level + 1, (branches << 1) | (c[1] == NULL ? 0 : 1), 1);
-                        if(r < 0)
-                                goto finish;
+                        if (r < 0)
+                                return r;
                         continue;
                 }
 
                 r = list_dependencies_print(*c, level, branches, c[1] == NULL);
-                if(r < 0)
-                        goto finish;
+                if (r < 0)
+                        return r;
 
                 if (arg_all || unit_name_to_type(*c) == UNIT_TARGET) {
                        r = list_dependencies_one(bus, *c, level + 1, u, (branches << 1) | (c[1] == NULL ? 0 : 1));
                        if(r < 0)
-                                goto finish;
+                               return r;
                 }
         }
-        r = 0;
-finish:
-        strv_free(deps);
-        strv_free(u);
 
-        return r;
+        return 0;
 }
 
 static int list_dependencies(DBusConnection *bus, char **args) {
@@ -922,7 +913,7 @@ static int list_jobs(DBusConnection *bus, char **args) {
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                 const char *name, *type, *state, *job_path, *unit_path;
                 uint32_t id;
-                char *e;
+                char _cleanup_free_ *e = NULL;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
                         log_error("Failed to parse reply.");
@@ -943,7 +934,6 @@ static int list_jobs(DBusConnection *bus, char **args) {
 
                 e = arg_full ? NULL : ellipsize(name, 25, 33);
                 printf("%4u %-25s %-15s %-7s\n", id, e ? e : name, type, state);
-                free(e);
 
                 k++;
 
@@ -1093,14 +1083,14 @@ typedef struct WaitData {
 } WaitData;
 
 static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *message, void *data) {
-        DBusError error;
+        DBusError _cleanup_dbus_error_free_ error;
         WaitData *d = data;
+
+        dbus_error_init(&error);
 
         assert(connection);
         assert(message);
         assert(d);
-
-        dbus_error_init(&error);
 
         log_debug("Got D-Bus request: %s.%s() on %s",
                   dbus_message_get_interface(message),
@@ -1130,7 +1120,7 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
                         if (!isempty(unit))
                                 d->name = strdup(unit);
 
-                        goto finish;
+                        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
                 }
 #ifndef LEGACY
                 dbus_error_free(&error);
@@ -1147,15 +1137,13 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
                         if (*result)
                                 d->result = strdup(result);
 
-                        goto finish;
+                        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
                 }
 #endif
 
                 log_error("Failed to parse message: %s", bus_error_message(&error));
         }
 
-finish:
-        dbus_error_free(&error);
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
@@ -1525,8 +1513,8 @@ static int start_unit(DBusConnection *bus, char **args) {
 
         int r, ret = 0;
         const char *method, *mode, *one_name;
-        Set *s = NULL;
-        DBusError error;
+        Set _cleanup_set_free_free_ *s = NULL;
+        DBusError _cleanup_dbus_error_free_ error;
         char **name;
 
         dbus_error_init(&error);
@@ -1580,14 +1568,12 @@ static int start_unit(DBusConnection *bus, char **args) {
                 ret = enable_wait_for_jobs(bus);
                 if (ret < 0) {
                         log_error("Could not watch jobs: %s", strerror(-ret));
-                        goto finish;
+                        return ret;
                 }
 
                 s = set_new(string_hash_func, string_compare_func);
-                if (!s) {
-                        ret = log_oom();
-                        goto finish;
-                }
+                if (!s)
+                        return log_oom();
         }
 
         if (one_name) {
@@ -1606,10 +1592,8 @@ static int start_unit(DBusConnection *bus, char **args) {
 
         if (!arg_no_block) {
                 r = wait_for_jobs(bus, s);
-                if (r < 0) {
-                        ret = r;
-                        goto finish;
-                }
+                if (r < 0)
+                        return r;
 
                 /* When stopping units, warn if they can still be triggered by
                  * another active unit (socket, path, timer) */
@@ -1621,10 +1605,6 @@ static int start_unit(DBusConnection *bus, char **args) {
                                         check_triggering_units(bus, *name);
                 }
         }
-
-finish:
-        set_free_free(s);
-        dbus_error_free(&error);
 
         return ret;
 }
@@ -2566,7 +2546,7 @@ static void show_unit_help(UnitStatusInfo *i) {
                 if (startswith(*p, "man:")) {
                         size_t k;
                         char *e = NULL;
-                        char *page = NULL, *section = NULL;
+                        char _cleanup_free_ *page = NULL, *section = NULL;
                         const char *args[4] = { "man", NULL, NULL, NULL };
                         pid_t pid;
 
@@ -2577,14 +2557,8 @@ static void show_unit_help(UnitStatusInfo *i) {
 
                         if (e) {
                                 page = strndup((*p) + 4, e - *p - 4);
-                                if (!page) {
-                                        log_oom();
-                                        return;
-                                }
-
                                 section = strndup(e + 1, *p + k - e - 2);
-                                if (!section) {
-                                        free(page);
+                                if (!page || !section) {
                                         log_oom();
                                         return;
                                 }
@@ -2597,8 +2571,6 @@ static void show_unit_help(UnitStatusInfo *i) {
                         pid = fork();
                         if (pid < 0) {
                                 log_error("Failed to fork: %m");
-                                free(page);
-                                free(section);
                                 continue;
                         }
 
@@ -2608,9 +2580,6 @@ static void show_unit_help(UnitStatusInfo *i) {
                                 log_error("Failed to execute man: %m");
                                 _exit(EXIT_FAILURE);
                         }
-
-                        free(page);
-                        free(section);
 
                         wait_for_terminate(pid, NULL);
                 } else
@@ -2975,7 +2944,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                                 zero(info);
                                 if (exec_status_info_deserialize(&sub, &info) >= 0) {
                                         char timestamp1[FORMAT_TIMESTAMP_MAX], timestamp2[FORMAT_TIMESTAMP_MAX];
-                                        char *t;
+                                        char _cleanup_free_ *t;
 
                                         t = strv_join(info.argv, " ");
 
@@ -2991,8 +2960,6 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                                                info.status,
                                                info.code == CLD_EXITED ? "" : "/",
                                                strempty(info.code == CLD_EXITED ? NULL : signal_to_string(info.status)));
-
-                                        free(t);
                                 }
 
                                 free(info.path);
@@ -3110,7 +3077,7 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
 static int show_one_by_pid(const char *verb, DBusConnection *bus, uint32_t pid, bool *new_line) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         const char *path = NULL;
-        DBusError error;
+        DBusError _cleanup_dbus_error_free_ error;
         int r;
 
         dbus_error_init(&error);
@@ -3126,21 +3093,16 @@ static int show_one_by_pid(const char *verb, DBusConnection *bus, uint32_t pid, 
                         DBUS_TYPE_UINT32, &pid,
                         DBUS_TYPE_INVALID);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (!dbus_message_get_args(reply, &error,
                                    DBUS_TYPE_OBJECT_PATH, &path,
                                    DBUS_TYPE_INVALID)) {
                 log_error("Failed to parse reply: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
+                return -EIO;
         }
 
         r = show_one(verb, bus, path, false, new_line);
-
-finish:
-        dbus_error_free(&error);
-
         return r;
 }
 
@@ -3777,10 +3739,12 @@ static int enable_unit(DBusConnection *bus, char **args) {
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0, i;
         int carries_install_info = -1;
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage _cleanup_dbus_message_unref_ *m = NULL, *reply = NULL;
         int r;
-        DBusError error;
-        char **mangled_names = NULL;
+        DBusError _cleanup_dbus_error_free_ error;
+        char _cleanup_strv_free_ **mangled_names = NULL;
+
+        dbus_error_init(&error);
 
         r = enable_sysv_units(args);
         if (r < 0)
@@ -3788,8 +3752,6 @@ static int enable_unit(DBusConnection *bus, char **args) {
 
         if (!args[1])
                 return 0;
-
-        dbus_error_init(&error);
 
         if (!bus || avoid_bus()) {
                 if (streq(verb, "enable")) {
@@ -3971,25 +3933,15 @@ static int enable_unit(DBusConnection *bus, char **args) {
 "   D-Bus, udev, scripted systemctl call, ...).\n");
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
         unit_file_changes_free(changes, n_changes);
-
-        dbus_error_free(&error);
-
-        strv_free(mangled_names);
 
         return r;
 }
 
 static int unit_is_enabled(DBusConnection *bus, char **args) {
-        DBusError error;
+        DBusError _cleanup_dbus_error_free_ error;
         int r;
-        DBusMessage *reply = NULL;
+        DBusMessage _cleanup_dbus_message_unref_ *reply = NULL;
         bool enabled;
         char **name;
 
@@ -4007,10 +3959,8 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
                         UnitFileState state;
 
                         state = unit_file_get_state(arg_scope, arg_root, *name);
-                        if (state < 0) {
-                                r = state;
-                                goto finish;
-                        }
+                        if (state < 0)
+                                return state;
 
                         if (state == UNIT_FILE_ENABLED ||
                             state == UNIT_FILE_ENABLED_RUNTIME ||
@@ -4036,14 +3986,13 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
                                         DBUS_TYPE_STRING, name,
                                         DBUS_TYPE_INVALID);
                         if (r)
-                                goto finish;
+                                return r;
 
                         if (!dbus_message_get_args(reply, &error,
                                                    DBUS_TYPE_STRING, &s,
                                                    DBUS_TYPE_INVALID)) {
                                 log_error("Failed to parse reply: %s", bus_error_message(&error));
-                                r = -EIO;
-                                goto finish;
+                                return -EIO;
                         }
 
                         dbus_message_unref(reply);
@@ -4059,14 +4008,7 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
                 }
         }
 
-        r = enabled ? 0 : 1;
-
-finish:
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
-        return r;
+        return enabled ? 0 : 1;
 }
 
 static int systemctl_help(void) {
@@ -4945,8 +4887,8 @@ static int action_to_runlevel(void) {
 }
 
 static int talk_upstart(void) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
+        DBusMessage _cleanup_dbus_message_unref_ *m = NULL, *reply = NULL;
+        DBusError _cleanup_dbus_error_free_ error;
         int previous, rl, r;
         char
                 env1_buf[] = "RUNLEVEL=X",
@@ -5023,19 +4965,11 @@ static int talk_upstart(void) {
         r = 1;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
         if (bus) {
                 dbus_connection_flush(bus);
                 dbus_connection_close(bus);
                 dbus_connection_unref(bus);
         }
-
-        dbus_error_free(&error);
 
         return r;
 }
@@ -5246,7 +5180,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
 }
 
 static int send_shutdownd(usec_t t, char mode, bool dry_run, bool warn, const char *message) {
-        int fd;
+        int _cleanup_close_ fd;
         struct msghdr msghdr;
         struct iovec iovec[2];
         union sockaddr_union sockaddr;
@@ -5283,12 +5217,9 @@ static int send_shutdownd(usec_t t, char mode, bool dry_run, bool warn, const ch
         }
         msghdr.msg_iov = iovec;
 
-        if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) < 0) {
-                close_nointr_nofail(fd);
+        if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) < 0)
                 return -errno;
-        }
 
-        close_nointr_nofail(fd);
         return 0;
 }
 
@@ -5394,7 +5325,7 @@ static int halt_main(DBusConnection *bus) {
         }
 
         if (arg_when > 0) {
-                char *m;
+                char _cleanup_free_ *m;
 
                 m = strv_join(arg_wall, " ");
                 r = send_shutdownd(arg_when,
@@ -5405,7 +5336,6 @@ static int halt_main(DBusConnection *bus) {
                                    arg_dry,
                                    !arg_no_wall,
                                    m);
-                free(m);
 
                 if (r < 0)
                         log_warning("Failed to talk to shutdownd, proceeding with immediate shutdown: %s", strerror(-r));
@@ -5458,7 +5388,7 @@ static int runlevel_main(void) {
 int main(int argc, char*argv[]) {
         int r, retval = EXIT_FAILURE;
         DBusConnection *bus = NULL;
-        DBusError error;
+        DBusError _cleanup_dbus_error_free_ error;
 
         dbus_error_init(&error);
 
@@ -5560,8 +5490,6 @@ finish:
                 dbus_connection_close(bus);
                 dbus_connection_unref(bus);
         }
-
-        dbus_error_free(&error);
 
         dbus_shutdown();
 
