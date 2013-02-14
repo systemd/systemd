@@ -43,6 +43,7 @@
 #include "macro.h"
 #include "conf-parser.h"
 #include "strxcpyx.h"
+#include "path-util.h"
 
 double graph_start;
 double log_start;
@@ -131,17 +132,17 @@ int main(int argc, char *argv[])
 
         while (1) {
                 static struct option opts[] = {
-                        {"rel", 0, NULL, 'r'},
-                        {"freq", 1, NULL, 'f'},
-                        {"samples", 1, NULL, 'n'},
-                        {"pss", 0, NULL, 'p'},
-                        {"output", 1, NULL, 'o'},
-                        {"init", 1, NULL, 'i'},
-                        {"filter", 0, NULL, 'F'},
-                        {"help", 0, NULL, 'h'},
-                        {"scale-x", 1, NULL, 'x'},
-                        {"scale-y", 1, NULL, 'y'},
-                        {"entropy", 0, NULL, 'e'},
+                        {"rel",      no_argument,        NULL,  'r'},
+                        {"freq",     required_argument,  NULL,  'f'},
+                        {"samples",  required_argument,  NULL,  'n'},
+                        {"pss",      no_argument,        NULL,  'p'},
+                        {"output",   required_argument,  NULL,  'o'},
+                        {"init",     required_argument,  NULL,  'i'},
+                        {"filter",   no_argument,        NULL,  'F'},
+                        {"help",     no_argument,        NULL,  'h'},
+                        {"scale-x",  required_argument,  NULL,  'x'},
+                        {"scale-y",  required_argument,  NULL,  'y'},
+                        {"entropy",  no_argument,        NULL,  'e'},
                         {NULL, 0, NULL, 0}
                 };
 
@@ -155,28 +156,30 @@ int main(int argc, char *argv[])
                         relative = true;
                         break;
                 case 'f':
-                        hz = atof(optarg);
+                        safe_atod(optarg, &hz);
                         break;
                 case 'F':
                         filter = false;
                         break;
                 case 'n':
-                        len = atoi(optarg);
+                        safe_atoi(optarg, &len);
                         break;
                 case 'o':
-                        strncpy(output_path, optarg, PATH_MAX - 1);
+                        path_kill_slashes(optarg);
+                        strscpy(output_path, sizeof(output_path), optarg);
                         break;
                 case 'i':
-                        strncpy(init_path, optarg, PATH_MAX - 1);
+                        path_kill_slashes(optarg);
+                        strscpy(init_path, sizeof(init_path), optarg);
                         break;
                 case 'p':
                         pss = true;
                         break;
                 case 'x':
-                        scale_x = atof(optarg);
+                        safe_atod(optarg, &scale_x);
                         break;
                 case 'y':
-                        scale_y = atof(optarg);
+                        safe_atod(optarg, &scale_y);
                         break;
                 case 'e':
                         entropy = true;
@@ -225,7 +228,7 @@ int main(int argc, char *argv[])
                         execl(init_path, init_path, NULL);
                 }
         }
-	argv[0][0] = '@';
+        argv[0][0] = '@';
 
         /* start with empty ps LL */
         ps_first = calloc(1, sizeof(struct ps_struct));
