@@ -1244,9 +1244,9 @@ int main(int argc, char *argv[]) {
                         envp[2] = strv_find_prefix(environ, "TERM=");
                         n_env = 3;
 
-                        close(pipefd[1]);
+                        close_nointr_nofail(pipefd[1]);
                         fd_wait_for_event(pipefd[0], POLLHUP, -1);
-                        close(pipefd[0]);
+                        close_nointr_nofail(pipefd[0]);
 
                         close_nointr_nofail(master);
                         master = -1;
@@ -1493,8 +1493,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 log_info("Init process in the container running as PID %d", pid);
-                close(pipefd[0]);
-                close(pipefd[1]);
+                close_nointr_nofail(pipefd[0]);
+                close_nointr_nofail(pipefd[1]);
 
                 fdset_free(fds);
                 fds = NULL;
