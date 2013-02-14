@@ -35,6 +35,7 @@
 #include "microhttpd-util.h"
 #include "virt.h"
 #include "build.h"
+#include "fileio.h"
 
 typedef struct RequestMeta {
         sd_journal *journal;

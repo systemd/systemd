@@ -29,6 +29,7 @@
 #include "mkdir.h"
 #include "virt.h"
 #include "strv.h"
+#include "fileio.h"
 
 static const char *arg_dest = "/tmp";
 static bool arg_enabled = true;
