@@ -140,7 +140,7 @@ static void svg_header(void)
 }
 
 
-static void svg_title(void)
+static void svg_title(const char *build)
 {
         char cmdline[256] = "";
         char filename[PATH_MAX];
@@ -149,7 +149,6 @@ static void svg_title(void)
         char model[256] = "Unknown";
         char date[256] = "Unknown";
         char cpu[256] = "Unknown";
-        char build[256] = "Unknown";
         char *c;
         FILE *f;
         time_t t;
@@ -198,14 +197,6 @@ static void svg_title(void)
                                 break;
                         }
                 }
-                fclose(f);
-        }
-
-        /* Build - 1st line from /etc/system-release */
-        f = fopen("/etc/system-release", "r");
-        if (f) {
-                if (fgets(buf, 255, f))
-                        strncpy(build, buf, 255);
                 fclose(f);
         }
 
@@ -1053,7 +1044,7 @@ static void svg_top_ten_pss(void)
 }
 
 
-void svg_do(void)
+void svg_do(const char *build)
 {
         struct ps_struct *ps;
 
@@ -1106,7 +1097,7 @@ void svg_do(void)
         svg("</g>\n\n");
 
         svg("<g transform=\"translate(10,  0)\">\n");
-        svg_title();
+        svg_title(build);
         svg("</g>\n\n");
 
         svg("<g transform=\"translate(10,200)\">\n");

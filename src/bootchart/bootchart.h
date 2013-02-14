@@ -124,4 +124,4 @@ extern double gettime_ns(void);
 extern void log_uptime(void);
 extern void log_sample(int sample);
 
-extern void svg_do(void);
+extern void svg_do(const char *build);

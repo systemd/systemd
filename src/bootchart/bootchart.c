@@ -82,6 +82,7 @@ static void signal_handler(int sig)
 
 int main(int argc, char *argv[])
 {
+        _cleanup_free_ char *build = NULL;
         struct sigaction sig;
         struct ps_struct *ps;
         char output_file[PATH_MAX];
@@ -280,6 +281,12 @@ int main(int argc, char *argv[])
                         sysfd = open("/sys", O_RDONLY);
                 }
 
+                if (!build) {
+                        parse_env_file("/etc/os-release", NEWLINE,
+                                       "PRETTY_NAME", &build,
+                                       NULL);
+                }
+
                 /* wait for /proc to become available, discarding samples */
                 if (!(graph_start > 0.0))
                         log_uptime();
@@ -350,7 +357,7 @@ int main(int argc, char *argv[])
                 exit (EXIT_FAILURE);
         }
 
-        svg_do();
+        svg_do(build);
 
         fprintf(stderr, "bootchartd: Wrote %s\n", output_file);
         fclose(of);
