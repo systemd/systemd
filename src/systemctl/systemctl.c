@@ -1841,7 +1841,7 @@ static int start_special(DBusConnection *bus, char **args) {
         }
 
         r = start_unit(bus, args);
-        if (r >= 0)
+        if (r == EXIT_SUCCESS)
                 warn_wall(a);
 
         return r;
