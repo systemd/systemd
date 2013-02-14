@@ -48,7 +48,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd.device</filename></para>
+                <para><filename><replaceable>device</replaceable>.device</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

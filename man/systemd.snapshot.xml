@@ -48,7 +48,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd.snapshot</filename></para>
+                <para><filename><replaceable>snapshot</replaceable>.snapshot</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

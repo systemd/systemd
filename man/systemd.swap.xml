@@ -48,7 +48,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd.swap</filename></para>
+                <para><filename><replaceable>swap</replaceable>.swap</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

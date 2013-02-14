@@ -262,13 +262,13 @@
                                 not linked. If <literal>host</literal>,
                                 the journal files are stored on the
                                 host file system (beneath
-                                <filename>/var/log/journal/&lt;machine-id&gt;</filename>)
+                                <filename>/var/log/journal/<replaceable>machine-id</replaceable></filename>)
                                 and the subdirectory is bind-mounted
                                 into the container at the same
                                 location. If <literal>guest</literal>,
                                 the journal files are stored on the
                                 guest file system (beneath
-                                <filename>/var/log/journal/&lt;machine-id&gt;</filename>)
+                                <filename>/var/log/journal/<replaceable>machine-id</replaceable></filename>)
                                 and the subdirectory is symlinked into the host
                                 at the same location. If
                                 <literal>auto</literal> (the default),

@@ -48,10 +48,10 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd.service</filename>,
-                <filename>systemd.socket</filename>,
-                <filename>systemd.mount</filename>,
-                <filename>systemd.swap</filename></para>
+                <para><filename><replaceable>service</replaceable>.service</filename>,
+                <filename><replaceable>socket</replaceable>.socket</filename>,
+                <filename><replaceable>mount</replaceable>.mount</filename>,
+                <filename><replaceable>swap</replaceable>.swap</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

@@ -50,9 +50,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <cmdsynopsis>
-                        <command>nss-myhostname.la</command>
-                </cmdsynopsis>
+                <para><filename>nss-myhostname.la</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

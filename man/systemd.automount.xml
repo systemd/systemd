@@ -48,7 +48,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd.automount</filename></para>
+                <para><filename><replaceable>automount</replaceable>.automount</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

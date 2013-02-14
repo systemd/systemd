@@ -48,7 +48,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd.socket</filename></para>
+                <para><filename><replaceable>socket</replaceable>.socket</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

@@ -76,7 +76,7 @@
                 as delimiter in binary format rules.</para>
 
                 <para>Each configuration file shall be named in the
-                style of <filename>&lt;program&gt;.conf</filename>.
+                style of <filename><replaceable>program</replaceable>.conf</filename>.
                 Files in <filename>/etc/</filename> override files
                 with the same name in <filename>/usr/lib/</filename>
                 and <filename>/run/</filename>. Files in

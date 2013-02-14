@@ -48,7 +48,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd.target</filename></para>
+                <para><filename><replaceable>target</replaceable>.target</filename></para>
         </refsynopsisdiv>
 
         <refsect1>

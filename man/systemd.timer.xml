@@ -48,7 +48,7 @@
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd.timer</filename></para>
+                <para><filename><replaceable>timer</replaceable>.timer</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
