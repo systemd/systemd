@@ -147,6 +147,15 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
+                <title>Files and directories</title>
+
+                <para>Paths and file names referred to in the
+                documentation.</para>
+
+                <variablelist id='filenames' />
+        </refsect1>
+
+        <refsect1>
                 <title>Colophon</title>
                 <para id='colophon' />
         </refsect1>
@@ -162,10 +171,11 @@ def _extract_directives(directive_groups, formatting, page):
     t = tree.parse(page)
     section = t.find('./refmeta/manvolnum').text
     pagename = t.find('./refmeta/refentrytitle').text
+
+    storopt = directive_groups['options']
     for variablelist in t.iterfind('.//variablelist'):
         klass = variablelist.attrib.get('class')
         storvar = directive_groups[klass or 'miscellaneous']
-        storopt = directive_groups['options']
         # <option>s go in OPTIONS, unless class is specified
         for xpath, stor in (('./varlistentry/term/varname', storvar),
                             ('./varlistentry/term/option',
@@ -178,6 +188,26 @@ def _extract_directives(directive_groups, formatting, page):
                     name.tail = ''
                     name.text = text
                     formatting[text] = name
+
+    storfile = directive_groups['filenames']
+    for xpath in ('.//refsynopsisdiv//filename',
+                  './/refsynopsisdiv//command'):
+        for name in t.iterfind(xpath):
+            name.tail = ''
+            if name.text:
+                if not name.text.startswith('.'):
+                    text = name.text.partition(' ')[0]
+                    if text != name.text:
+                        name.clear()
+                        name.text = text
+                    storfile[text].append((pagename, section))
+                    if text not in formatting:
+                        # use element as formatted display
+                        formatting[text] = name
+            else:
+                text = ' '.join(name.itertext())
+                storfile[text].append((pagename, section))
+                formatting[text] = name
 
 def _make_section(template, name, directives, formatting):
     varlist = template.find(".//*[@id='{}']".format(name))
