@@ -542,8 +542,6 @@ External:
 * kernel: add device_type = "fb", "fbcon" to class "graphics"
 
 * bootchart:
-   - use conf_parser for bootchart.conf
-   - change config options to CamelCase
    - plot per-process IO utilization
    - group processes based on service association (cgroups)
 

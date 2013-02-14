@@ -1463,7 +1463,7 @@ int manager_dispatch_idle_action(Manager *m) {
 
         r = manager_get_idle_hint(m, &since);
         if (r <= 0)
-                /* Not idle. Let's check if after a timeout it it might be idle then. */
+                /* Not idle. Let's check if after a timeout it might be idle then. */
                 timespec_store(&its.it_value, n + m->idle_action_usec);
         else {
                 /* Idle! Let's see if it's time to do something, or if
