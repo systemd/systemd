@@ -165,18 +165,19 @@ static void svg_title(const char *build)
         }
 
         /* extract root fs so we can find disk model name in sysfs */
+        /* FIXME: this works only in the simple case */
         c = strstr(cmdline, "root=/dev/");
         if (c) {
                 strncpy(rootbdev, &c[10], 3);
                 rootbdev[3] = '\0';
-        }
-        sprintf(filename, "block/%s/device/model", rootbdev);
-        fd = openat(sysfd, filename, O_RDONLY);
-        f = fdopen(fd, "r");
-        if (f) {
-                if (!fgets(model, 255, f))
-                        fprintf(stderr, "Error reading disk model for %s\n", rootbdev);
-                fclose(f);
+                sprintf(filename, "block/%s/device/model", rootbdev);
+                fd = openat(sysfd, filename, O_RDONLY);
+                f = fdopen(fd, "r");
+                if (f) {
+                        if (!fgets(model, 255, f))
+                                fprintf(stderr, "Error reading disk model for %s\n", rootbdev);
+                        fclose(f);
+                }
         }
 
         /* various utsname parameters */
