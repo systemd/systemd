@@ -23,6 +23,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -32,6 +33,7 @@
 #include <getopt.h>
 #include <limits.h>
 #include <errno.h>
+#include <fcntl.h>
 
 
 #include "bootchart.h"
@@ -51,6 +53,7 @@ double interval;
 FILE *of = NULL;
 int overrun = 0;
 static int exiting = 0;
+int sysfd=-1;
 
 /* graph defaults */
 int entropy = 0;
@@ -273,6 +276,9 @@ int main(int argc, char *argv[])
                         of = fopen(output_file, "w");
                 }
 
+                if (sysfd < 0) {
+                        sysfd = open("/sys", O_RDONLY);
+                }
 
                 /* wait for /proc to become available, discarding samples */
                 if (!(graph_start > 0.0))
@@ -331,7 +337,6 @@ int main(int argc, char *argv[])
                 if (ps->smaps)
                         fclose(ps->smaps);
         }
-        closedir(proc);
 
         if (!of) {
                 t = time(NULL);
@@ -349,6 +354,9 @@ int main(int argc, char *argv[])
 
         fprintf(stderr, "bootchartd: Wrote %s\n", output_file);
         fclose(of);
+
+        closedir(proc);
+        close(sysfd);
 
         /* nitpic cleanups */
         ps = ps_first;

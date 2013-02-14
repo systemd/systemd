@@ -28,6 +28,8 @@
 #include <limits.h>
 #include <unistd.h>
 #include <sys/utsname.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "bootchart.h"
 #include "util.h"
@@ -151,10 +153,12 @@ static void svg_title(void)
         char *c;
         FILE *f;
         time_t t;
+        int fd;
         struct utsname uts;
 
         /* grab /proc/cmdline */
-        f = fopen("/proc/cmdline", "r");
+        fd = openat(procfd, "cmdline", O_RDONLY);
+        f = fdopen(fd, "r");
         if (f) {
                 if (!fgets(cmdline, 255, f))
                         sprintf(cmdline, "Unknown");
@@ -167,8 +171,9 @@ static void svg_title(void)
                 strncpy(rootbdev, &c[10], 3);
                 rootbdev[3] = '\0';
         }
-        sprintf(filename, "/sys/block/%s/device/model", rootbdev);
-        f = fopen(filename, "r");
+        sprintf(filename, "block/%s/device/model", rootbdev);
+        fd = openat(sysfd, filename, O_RDONLY);
+        f = fdopen(fd, "r");
         if (f) {
                 if (!fgets(model, 255, f))
                         fprintf(stderr, "Error reading disk model for %s\n", rootbdev);
@@ -184,7 +189,8 @@ static void svg_title(void)
         strftime(date, sizeof(date), "%a, %d %b %Y %H:%M:%S %z", localtime(&t));
 
         /* CPU type */
-        f = fopen("/proc/cpuinfo", "r");
+        fd = openat(procfd, "cpuinfo", O_RDONLY);
+        f = fdopen(fd, "r");
         if (f) {
                 while (fgets(buf, 255, f)) {
                         if (strstr(buf, "model name")) {

@@ -117,6 +117,8 @@ extern char init_path[PATH_MAX];
 
 extern FILE *of;
 extern DIR *proc;
+extern int procfd;
+extern int sysfd;
 
 extern double gettime_ns(void);
 extern void log_uptime(void);
