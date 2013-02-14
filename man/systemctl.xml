@@ -471,7 +471,10 @@
                         <varlistentry>
                                 <term><command>list-units</command></term>
 
-                                <listitem><para>List known units.</para></listitem>
+                                <listitem><para>List known units (subject to limitations
+                                specified with <option>-t</option>).</para>
+
+                                <para>This is the default command.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>start [NAME...]</command></term>
@@ -619,15 +622,19 @@
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
-                                units, followed by its most recent log
-                                data from the journal. This function
-                                is intended to generate human-readable
-                                output. If you are looking for
-                                computer-parsable output, use
-                                <command>show</command> instead. If a
-                                PID is passed information about the
-                                unit the process of the PID belongs to
-                                is shown.</para></listitem>
+                                units, followed by most recent log
+                                data from the journal. If no units are
+                                specified, show all units (subject to
+                                limitations specified with
+                                <option>-t</option>). If a PID is
+                                passed show information about the unit
+                                the process belongs to.</para>
+
+                                <para>This function is intended to
+                                generate human-readable output. If you
+                                are looking for computer-parsable
+                                output, use <command>show</command>
+                                instead.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>show [NAME...|JOB...]</command></term>

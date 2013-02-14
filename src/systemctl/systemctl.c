@@ -426,14 +426,15 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
         }
 }
 
-static int list_units(DBusConnection *bus, char **args) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        _cleanup_free_ struct unit_info *unit_infos = NULL;
+static int get_unit_list(DBusConnection *bus, DBusMessage **reply,
+                         struct unit_info **unit_infos, unsigned *c) {
         DBusMessageIter iter, sub;
-        unsigned c = 0, n_units = 0;
+        unsigned n_units = 0;
         int r;
 
-        pager_open_if_enabled();
+        assert(bus);
+        assert(unit_infos);
+        assert(c);
 
         r = bus_method_call_with_reply(
                         bus,
@@ -441,13 +442,13 @@ static int list_units(DBusConnection *bus, char **args) {
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "ListUnits",
-                        &reply,
+                        reply,
                         NULL,
                         DBUS_TYPE_INVALID);
         if (r < 0)
                 return r;
 
-        if (!dbus_message_iter_init(reply, &iter) ||
+        if (!dbus_message_iter_init(*reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
             dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)  {
                 log_error("Failed to parse reply.");
@@ -459,29 +460,45 @@ static int list_units(DBusConnection *bus, char **args) {
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                 struct unit_info *u;
 
-                if (c >= n_units) {
+                if (*c >= n_units) {
                         struct unit_info *w;
 
-                        n_units = MAX(2*c, 16);
-                        w = realloc(unit_infos, sizeof(struct unit_info) * n_units);
+                        n_units = MAX(2 * *c, 16);
+                        w = realloc(*unit_infos, sizeof(struct unit_info) * n_units);
                         if (!w)
                                 return log_oom();
 
-                        unit_infos = w;
+                        *unit_infos = w;
                 }
 
-                u = unit_infos + c;
+                u = *unit_infos + *c;
 
                 bus_parse_unit_info(&sub, u);
 
                 dbus_message_iter_next(&sub);
-                c++;
+                (*c)++;
         }
 
-        if (c > 0) {
-                qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
+        if (*c > 0)
+                qsort(*unit_infos, *c, sizeof(struct unit_info), compare_unit_info);
+
+        return 0;
+}
+
+static int list_units(DBusConnection *bus, char **args) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        _cleanup_free_ struct unit_info *unit_infos = NULL;
+        unsigned c = 0;
+        int r;
+
+        pager_open_if_enabled();
+
+        r = get_unit_list(bus, &reply, &unit_infos, &c);
+        if (r < 0)
+                return r;
+
+        if (c > 0)
                 output_units_list(unit_infos, c);
-        }
 
         return 0;
 }
@@ -3106,15 +3123,47 @@ static int show_one_by_pid(const char *verb, DBusConnection *bus, uint32_t pid, 
         return r;
 }
 
+static int show_all(const char* verb, DBusConnection *bus, bool show_properties, bool *new_line) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        _cleanup_free_ struct unit_info *unit_infos = NULL;
+        unsigned c = 0;
+        const struct unit_info *u;
+        int r;
+
+        r = get_unit_list(bus, &reply, &unit_infos, &c);
+        if (r < 0)
+                return r;
+
+        for (u = unit_infos; u < unit_infos + c; u++) {
+                char _cleanup_free_ *p = NULL;
+
+                if (!output_show_unit(u))
+                        continue;
+
+                p = unit_dbus_path_from_name(u->id);
+                if (!p)
+                        return log_oom();
+
+                printf("%s -> '%s'\n", u->id, p);
+
+                r = show_one(verb, bus, p, show_properties, new_line);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int show(DBusConnection *bus, char **args) {
         int r, ret = 0;
-        bool show_properties, new_line = false;
+        bool show_properties, show_status, new_line = false;
         char **name;
 
         assert(bus);
         assert(args);
 
         show_properties = streq(args[0], "show");
+        show_status = streq(args[0], "status");
 
         if (show_properties)
                 pager_open_if_enabled();
@@ -3123,6 +3172,9 @@ static int show(DBusConnection *bus, char **args) {
 
         if (show_properties && strv_length(args) <= 1)
                 return show_one(args[0], bus, "/org/freedesktop/systemd1", show_properties, &new_line);
+
+        if (show_status && strv_length(args) <= 1)
+                return show_all(args[0], bus, false, &new_line);
 
         STRV_FOREACH(name, args+1) {
                 uint32_t id;
@@ -5049,7 +5101,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "check",                 MORE,  2, check_unit_active },
                 { "is-failed",             MORE,  2, check_unit_failed },
                 { "show",                  MORE,  1, show              },
-                { "status",                MORE,  2, show              },
+                { "status",                MORE,  1, show              },
                 { "help",                  MORE,  2, show              },
                 { "dump",                  EQUAL, 1, dump              },
                 { "snapshot",              LESS,  2, snapshot          },
