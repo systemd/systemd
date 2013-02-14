@@ -33,6 +33,7 @@
 #include "readahead-common.h"
 #include "util.h"
 #include "missing.h"
+#include "fileio.h"
 
 int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st) {
         assert(fd >= 0);

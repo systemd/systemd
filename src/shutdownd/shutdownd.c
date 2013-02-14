@@ -38,6 +38,7 @@
 #include "util.h"
 #include "utmp-wtmp.h"
 #include "mkdir.h"
+#include "fileio.h"
 
 union shutdown_buffer {
         struct sd_shutdown_command command;

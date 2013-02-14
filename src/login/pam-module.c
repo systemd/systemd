@@ -41,6 +41,7 @@
 #include "dbus-common.h"
 #include "def.h"
 #include "socket-util.h"
+#include "fileio.h"
 
 static int parse_argv(pam_handle_t *handle,
                       int argc, const char **argv,

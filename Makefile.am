@@ -623,6 +623,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/time-dst.h \
 	src/shared/calendarspec.c \
 	src/shared/calendarspec.h \
+	src/shared/fileio.c \
+	src/shared/fileio.h \
 	src/shared/output-mode.h
 
 #-------------------------------------------------------------------------------
@@ -675,6 +677,8 @@ libsystemd_label_la_SOURCES = \
 	src/shared/mkdir.h \
 	src/shared/ask-password-api.c \
 	src/shared/ask-password-api.h \
+	src/shared/fileio-label.c \
+	src/shared/fileio-label.h \
 	src/shared/dev-setup.c \
 	src/shared/dev-setup.h
 
@@ -2898,6 +2902,7 @@ systemd_hostnamed_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_hostnamed_LDADD = \
+	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
 	libsystemd-dbus.la
@@ -3034,6 +3039,7 @@ systemd_timedated_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_timedated_LDADD = \
+	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
 	libsystemd-dbus.la

@@ -33,6 +33,8 @@
 #include "special.h"
 #include "systemd/sd-id128.h"
 #include "systemd/sd-messages.h"
+#include "fileio-label.h"
+#include "label.h"
 
 #define BUS_MANAGER_INTERFACE                                           \
         " <interface name=\"org.freedesktop.login1.Manager\">\n"        \
@@ -937,7 +939,8 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         }
 
         mkdir_p_label("/etc/udev/rules.d", 0755);
-        r = write_one_line_file_atomic(file, rule);
+        label_init("/etc");
+        r = write_one_line_file_atomic_label(file, rule);
         if (r < 0)
                 goto finish;
 

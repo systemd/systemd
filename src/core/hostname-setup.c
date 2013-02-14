@@ -29,6 +29,7 @@
 #include "macro.h"
 #include "util.h"
 #include "log.h"
+#include "fileio.h"
 
 static int read_and_strip_hostname(const char *path, char **hn) {
         char *s;

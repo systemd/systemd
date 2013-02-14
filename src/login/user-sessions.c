@@ -26,6 +26,7 @@
 #include "log.h"
 #include "util.h"
 #include "cgroup-util.h"
+#include "fileio.h"
 
 int main(int argc, char*argv[]) {
         int ret = EXIT_FAILURE;

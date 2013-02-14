@@ -34,6 +34,7 @@
 #include "capability.h"
 #include "util.h"
 #include "log.h"
+#include "fileio.h"
 
 int have_effective_cap(int value) {
         cap_t cap;

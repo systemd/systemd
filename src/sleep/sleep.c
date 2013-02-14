@@ -27,6 +27,7 @@
 #include "util.h"
 #include "systemd/sd-id128.h"
 #include "systemd/sd-messages.h"
+#include "fileio.h"
 
 int main(int argc, char *argv[]) {
         const char *verb;

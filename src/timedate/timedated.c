@@ -35,6 +35,8 @@
 #include "hwclock.h"
 #include "conf-files.h"
 #include "path-util.h"
+#include "fileio-label.h"
+#include "label.h"
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
@@ -269,8 +271,8 @@ static int write_data_local_rtc(void) {
                         return 0;
                 }
         }
-
-        r = write_one_line_file_atomic("/etc/adjtime", w);
+        label_init("/etc");
+        r = write_one_line_file_atomic_label("/etc/adjtime", w);
         free(w);
 
         return r;

@@ -39,6 +39,7 @@
 #include "log.h"
 #include "macro.h"
 #include "virt.h"
+#include "fileio.h"
 
 static bool is_vconsole(int fd) {
         unsigned char data[1];

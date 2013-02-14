@@ -30,6 +30,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "logind-inhibit.h"
+#include "fileio.h"
 
 Inhibitor* inhibitor_new(Manager *m, const char* id) {
         Inhibitor *i;

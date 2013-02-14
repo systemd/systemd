@@ -33,6 +33,7 @@
 #include "strv.h"
 #include "util.h"
 #include "conf-files.h"
+#include "fileio.h"
 
 static const char conf_file_dirs[] =
         "/etc/binfmt.d\0"

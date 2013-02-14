@@ -43,6 +43,7 @@
 #include "util.h"
 #include "utf8.h"
 #include "env-util.h"
+#include "fileio.h"
 
 #ifdef HAVE_SYSV_COMPAT
 

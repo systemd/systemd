@@ -34,6 +34,7 @@
 #include "hashmap.h"
 #include "path-util.h"
 #include "conf-files.h"
+#include "fileio.h"
 
 static char **arg_prefixes = NULL;
 

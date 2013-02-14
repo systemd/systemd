@@ -37,6 +37,7 @@
 #include "path-util.h"
 #include "strv.h"
 #include "unit-name.h"
+#include "fileio.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
         char *fs;

@@ -33,6 +33,7 @@
 #include "path-util.h"
 #include "cgroup-util.h"
 #include "logind-session.h"
+#include "fileio.h"
 
 Session* session_new(Manager *m, User *u, const char *id) {
         Session *s;

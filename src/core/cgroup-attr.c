@@ -22,6 +22,7 @@
 #include "cgroup-attr.h"
 #include "cgroup-util.h"
 #include "list.h"
+#include "fileio.h"
 
 int cgroup_attribute_apply(CGroupAttribute *a, CGroupBonding *b) {
         int r;

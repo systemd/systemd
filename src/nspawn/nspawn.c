@@ -57,6 +57,7 @@
 #include "dev-setup.h"
 #include "fdset.h"
 #include "build.h"
+#include "fileio.h"
 
 typedef enum LinkJournal {
         LINK_NO,

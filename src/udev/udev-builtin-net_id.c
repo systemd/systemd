@@ -91,6 +91,7 @@
 #include <linux/pci_regs.h>
 
 #include "udev.h"
+#include "fileio.h"
 
 enum netname_type{
         NET_UNDEF,

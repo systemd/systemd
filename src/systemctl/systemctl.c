@@ -66,6 +66,7 @@
 #include "logs-show.h"
 #include "path-util.h"
 #include "socket-util.h"
+#include "fileio.h"
 
 static const char *arg_type = NULL;
 static const char *arg_load_state = NULL;

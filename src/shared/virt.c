@@ -25,6 +25,7 @@
 
 #include "util.h"
 #include "virt.h"
+#include "fileio.h"
 
 /* Returns a short identifier for the various VM implementations */
 int detect_vm(const char **id) {

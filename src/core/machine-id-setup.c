@@ -35,6 +35,7 @@
 #include "mkdir.h"
 #include "log.h"
 #include "virt.h"
+#include "fileio.h"
 
 static int shorten_uuid(char destination[36], const char *source) {
         unsigned i, j;

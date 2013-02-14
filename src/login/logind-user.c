@@ -29,6 +29,7 @@
 #include "cgroup-util.h"
 #include "hashmap.h"
 #include "strv.h"
+#include "fileio.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         User *u;

@@ -46,6 +46,8 @@
 #include "missing.h"
 #include "cgroup-attr.h"
 #include "mkdir.h"
+#include "label.h"
+#include "fileio-label.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -2778,7 +2780,7 @@ int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data
                 return -ENOMEM;
 
         mkdir_p(p, 0755);
-        return write_one_line_file_atomic(q, data);
+        return write_one_line_file_atomic_label(q, data);
 }
 
 int unit_remove_drop_in(Unit *u, bool runtime, const char *name) {

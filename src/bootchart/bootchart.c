@@ -36,6 +36,7 @@
 
 #include "bootchart.h"
 #include "util.h"
+#include "fileio.h"
 
 double graph_start;
 double log_start;

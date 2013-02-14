@@ -34,6 +34,7 @@
 #include <systemd/sd-login.h>
 #endif
 
+#include "fileio.h"
 #include "mkdir.h"
 #include "hashmap.h"
 #include "journal-file.h"

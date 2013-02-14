@@ -33,6 +33,7 @@
 #include "audit.h"
 #include "util.h"
 #include "log.h"
+#include "fileio.h"
 
 int audit_session_from_pid(pid_t pid, uint32_t *id) {
         char *s;

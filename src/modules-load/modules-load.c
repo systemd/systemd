@@ -34,6 +34,7 @@
 #include "strv.h"
 #include "conf-files.h"
 #include "virt.h"
+#include "fileio.h"
 
 static char **arg_proc_cmdline_modules = NULL;
 

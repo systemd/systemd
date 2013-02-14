@@ -45,3 +45,7 @@ int label_mkdir(const char *path, mode_t mode, bool apply);
 void label_retest_selinux(void);
 
 int label_bind(int fd, const struct sockaddr *addr, socklen_t addrlen);
+
+int label_write_one_line_file_atomic(const char *fn, const char *line);
+int label_write_env_file(const char *fname, char **l);
+int label_fopen_temporary(const char *path, FILE **_f, char **_temp_path);

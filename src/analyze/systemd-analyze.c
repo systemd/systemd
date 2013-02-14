@@ -31,6 +31,7 @@
 #include "build.h"
 #include "util.h"
 #include "strxcpyx.h"
+#include "fileio.h"
 
 #define compare(a, b) (((a) > (b))? 1 : (((b) > (a))? -1 : 0))
 #define svg(...) printf(__VA_ARGS__)

@@ -66,6 +66,7 @@
 #include "locale-setup.h"
 #include "selinux-setup.h"
 #include "ima-setup.h"
+#include "fileio.h"
 
 static enum {
         ACTION_RUN,

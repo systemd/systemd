@@ -36,6 +36,7 @@
 #include "strv.h"
 #include "sd-id128.h"
 #include "virt.h"
+#include "fileio.h"
 
 static enum transport {
         TRANSPORT_NORMAL,

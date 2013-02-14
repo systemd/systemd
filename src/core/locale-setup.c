@@ -27,6 +27,7 @@
 #include "util.h"
 #include "macro.h"
 #include "virt.h"
+#include "fileio.h"
 
 enum {
         /* We don't list LC_ALL here on purpose. People should be

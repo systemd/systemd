@@ -33,6 +33,8 @@
 #include "def.h"
 #include "virt.h"
 #include "env-util.h"
+#include "fileio-label.h"
+#include "label.h"
 
 #define INTERFACE \
         " <interface name=\"org.freedesktop.hostname1\">\n"             \
@@ -287,8 +289,7 @@ static int write_data_static_hostname(void) {
 
                 return 0;
         }
-
-        return write_one_line_file_atomic("/etc/hostname", data[PROP_STATIC_HOSTNAME]);
+        return write_one_line_file_atomic_label("/etc/hostname", data[PROP_STATIC_HOSTNAME]);
 }
 
 static int write_data_other(void) {
@@ -338,7 +339,7 @@ static int write_data_other(void) {
                 return 0;
         }
 
-        r = write_env_file("/etc/machine-info", l);
+        r = write_env_file_label("/etc/machine-info", l);
         strv_free(l);
 
         return r;
@@ -683,6 +684,7 @@ int main(int argc, char *argv[]) {
         log_open();
 
         umask(0022);
+        label_init("/etc");
 
         if (argc == 2 && streq(argv[1], "--introspect")) {
                 fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE

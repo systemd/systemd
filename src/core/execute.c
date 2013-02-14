@@ -65,6 +65,7 @@
 #include "path-util.h"
 #include "syscall-list.h"
 #include "env-util.h"
+#include "fileio.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 

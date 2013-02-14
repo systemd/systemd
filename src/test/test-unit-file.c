@@ -34,6 +34,7 @@
 #include "hashmap.h"
 #include "load-fragment.h"
 #include "strv.h"
+#include "fileio.h"
 
 static void test_unit_file_get_set(void) {
         int r;

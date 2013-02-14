@@ -41,6 +41,7 @@
 #include "log.h"
 #include "strv.h"
 #include "hwclock.h"
+#include "fileio.h"
 
 static int rtc_open(int flags) {
         int fd;

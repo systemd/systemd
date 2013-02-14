@@ -48,6 +48,7 @@
 #include "sd-daemon.h"
 #include "cgroup-util.h"
 #include "dev-setup.h"
+#include "fileio.h"
 
 static bool debug;
 

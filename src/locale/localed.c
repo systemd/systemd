@@ -32,6 +32,9 @@
 #include "polkit.h"
 #include "def.h"
 #include "env-util.h"
+#include "fileio.h"
+#include "fileio-label.h"
+#include "label.h"
 
 #define INTERFACE                                                       \
         " <interface name=\"org.freedesktop.locale1\">\n"               \
@@ -390,7 +393,7 @@ static int write_data_locale(void) {
                 return 0;
         }
 
-        r = write_env_file("/etc/locale.conf", l);
+        r = write_env_file_label("/etc/locale.conf", l);
         strv_free(l);
 
         return r;
@@ -546,7 +549,7 @@ static int write_data_vconsole(void) {
                 return 0;
         }
 
-        r = write_env_file("/etc/vconsole.conf", l);
+        r = write_env_file_label("/etc/vconsole.conf", l);
         strv_free(l);
 
         return r;
@@ -1364,7 +1367,7 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
-
+        label_init("/etc");
         umask(0022);
 
         if (argc == 2 && streq(argv[1], "--introspect")) {

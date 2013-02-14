@@ -30,6 +30,7 @@
 #include "cgroup-util.h"
 #include "strv.h"
 #include "path-util.h"
+#include "fileio.h"
 
 const char bus_unit_interface[] _introspect_("Unit") = BUS_UNIT_INTERFACE;
 

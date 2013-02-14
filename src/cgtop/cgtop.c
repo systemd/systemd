@@ -31,6 +31,7 @@
 #include "hashmap.h"
 #include "cgroup-util.h"
 #include "build.h"
+#include "fileio.h"
 
 typedef struct Group {
         char *path;

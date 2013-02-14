@@ -29,6 +29,7 @@
 #include "strv.h"
 #include "dbus-common.h"
 #include "syscall-list.h"
+#include "fileio.h"
 
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_input, exec_input, ExecInput);
 DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_output, exec_output, ExecOutput);

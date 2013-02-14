@@ -28,6 +28,7 @@
 #include "mkdir.h"
 #include "unit-name.h"
 #include "virt.h"
+#include "fileio.h"
 
 static const char *arg_dest = "/tmp";
 
