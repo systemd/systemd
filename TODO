@@ -544,6 +544,8 @@ External:
 * bootchart:
    - use conf_parser for bootchart.conf
    - change config options to CamelCase
+   - plot per-process IO utilization
+   - group processes based on service association (cgroups)
 
 Regularly:
 
