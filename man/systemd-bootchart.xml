@@ -54,10 +54,19 @@
         <refsect1>
                 <title>Description</title>
 
-                <para>Systemd-bootchart is an boot time analysis tool. It represents
-                various aspects of the system as graph elements. These graph
-                elements allow the user to determine resource usage, efficiency
-                and performance issues.</para>
+                <para>systemd-bootchart is a tool used to analyze a boot sequence.
+                It collects system information pertaining to the CPU and disk load, as
+                well as per-process information, and then creates a chart with this
+                information. Usually it is invoked by setting the init to
+                <filename>systemd-bootchart</filename> on the kernel command line. It
+                be run after boot to analyze running processes, though it is recommended
+                to use the <option>--rel</option> switch when doing this.</para>
+
+                <para>After collecting a certain amount of data (default: 20 seconds) it
+                will write the SVG chart to <filename>/run/log</filename>. This chart
+                can be used to find problems in the start up sequence and where these
+                problems exist. It is essentially a more detailed version of the
+                systemd-analyze plot function.</para>
 
         </refsect1>
 
@@ -69,15 +78,15 @@
                 <variablelist>
 
                         <varlistentry>
-                                <title>Kernel invocation</title>
+                                <term><emphasis>Kernel invocation</emphasis></term>
                                 <listitem><para>The kernel can invoke systemd-bootchart
                                 instead of the init process. In itself, systemd-bootchart
                                 will invoke <filename>/sbin/init</filename> if invoked in
-                                this matter.</para></listitem>
+                                this manner.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <title>Started as a standalone program</title>
+                                <term><emphasis>Started as a standalone program</emphasis></term>
                                 <listitem><para>One can execute systemd-bootchart as
                                 normal application from the commandline. In this mode
                                 it is highly recommended to pass the "-r" flag in order
@@ -92,12 +101,15 @@
         <refsect1>
                 <title>Options</title>
 
-                <variablelist class='bootchart-directives'>
+                <para>These options can be set globally in the <filename>/etc/systemd/bootchart.conf</filename>
+                file.</para>
+
+                <variablelist>
 
                         <varlistentry>
                                 <term><option>-n</option></term>
                                 <term><option>--sample N</option></term>
-                                <listitem><para>Specify the amount of samples to
+                                <listitem><para>Specify the amount of samples, N, to
                                 record total before bootchart exits. Each sample will
                                 record at intervals defined by --freq.</para></listitem>
                         </varlistentry>
@@ -105,10 +117,10 @@
                         <varlistentry>
                                 <term><option>-f</option></term>
                                 <term><option>--freq N</option></term>
-                                <listitem><para>Specify the sample log frequency.
+                                <listitem><para>Specify the sample log frequency, N.
                                 This can be a fractional number, but must be larger than
                                 0.0. Most systems can cope with values under 25-50 without
-                                impacting boot time severely.</para></listitem>
+                                creating too much overhead.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -185,19 +197,73 @@
         <refsect1>
                 <title>Output</title>
 
-                <para>Systemd-bootchart generates SVG graphs. In order to render these
+                <para>systemd-bootchart generates SVG graphs. In order to render these
                 on a graphical display any SVG capable viewer can be used. It should be
                 noted that the SVG render engines in most browsers (including Chrome
                 and Firefox) are many times faster than dedicated graphical applications
-                like Gimp and Inkscape.  Just point your browser at "file:///var/log"!
+                like Gimp and Inkscape.  Just point your browser at "file:///run/log"!
                 </para>
         </refsect1>
 
         <refsect1>
-                  <title>See Also</title>
-                  <para>
-                          <citerefentry><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                  </para>
+                <title>History</title>
+
+                <para>This version of bootchart was implemented from scratch, but inspired
+                  by former bootchart incantations:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><emphasis>Original bash</emphasis></term>
+                                <listitem><para>The original bash/shell code implemented
+                                bootchart. This version created a compressed tarball for
+                                processing with external applications. This version did
+                                not graph anything, only generated data.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><emphasis>Ubuntu C Implementation</emphasis></term>
+                                <listitem><para>This version replaced the shell version with
+                                a fast and efficient data logger, but also did not graph
+                                the data.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><emphasis>Java bootchart</emphasis></term>
+                                <listitem><para>This was the original graphing application
+                                for charting the data, written in java.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><emphasis>pybootchartgui.py</emphasis></term>
+                                <listitem><para>pybootchart created a graph from the data
+                                collected by either the bash or C version.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+                <para>The version of bootchart you are using now combines both the data
+                collection and the charting into a single application, making it more
+                efficient and simpler. There are no longer any timing issues with the data
+                collector and the grapher, as the graphing cannot be run until the data
+                has been collected. Also, the data kept in memory is reduced to the absolute
+                minimum needed.</para>
+
+
+        </refsect1>
+
+        <refsect1>
+                <title>See Also</title>
+                <para>
+                        <citerefentry><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                </para>
+        </refsect1>
+
+        <refsect1>
+                <title>Bugs</title>
+                <para>For bugs, please contact the author or current maintainer:</para>
+                <varlistentry>
+                        <term>Auke Kok</term>
+                        <term><emphasis>auke-jan.h.kok@intel.com</emphasis></term>
+                </varlistentry>
         </refsect1>
 
 </refentry>
