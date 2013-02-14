@@ -70,14 +70,14 @@
                 <variablelist class='bootchart-directives'>
 
                         <varlistentry>
-                                <term><varname>samples=500</varname></term>
+                                <term><varname>Samples=500</varname></term>
                                 <listitem><para>Configure the amount of samples to
                                 record total before bootchart exits. Each sample will
-                                record at intervals defined by freq=.</para></listitem>
+                                record at intervals defined by Frequency=.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>freq=25</varname></term>
+                                <term><varname>Frequency=25</varname></term>
                                 <listitem><para>Configure the sample log frequency.
                                 This can be a fractional number, but must be larger than
                                 0.0. Most systems can cope with values under 25-50 without
@@ -85,18 +85,18 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>rel=0</varname></term>
+                                <term><varname>Relative=no</varname></term>
                                 <listitem><para>Configures whether the left axis of the
                                 output graph equals time=0.0 (CLOCK_MONOTONIC start). This
                                 is useful for using bootchart at post-boot time to profile
                                 an already booted system, otherwise the graph would become
-                                extremely large. If set to a non-zero value, the horizontal
-                                axis starts at the first recorded sample instead of time=0.0.
+                                extremely large. If set to yes, the horizontal axis starts
+                                at the first recorded sample instead of time=0.0.
                                 </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>filter=0</varname></term>
+                                <term><varname>Filter=no</varname></term>
                                 <listitem><para>Configures whether the resulting graph
                                 should omit tasks that did not contribute significantly
                                 to the boot. Processes that are too short-lived (only
@@ -106,14 +106,14 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>output=[path]</varname></term>
+                                <term><varname>Output=[path]</varname></term>
                                 <listitem><para>Configures the output folder for writing
                                 the graphs. By default, bootchart writes the graphs to
                                 <filename>/run/log</filename>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>init=[path]</varname></term>
+                                <term><varname>Init=[path]</varname></term>
                                 <listitem><para>Configures bootchart to run a non-standard
                                 binary instead of <filename>/sbin/init</filename>. This
                                 option is only relevant if bootchart was invoked from the
@@ -122,25 +122,25 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>pss=0</varname></term>
-                                <listitem><para>If set to 1, enables logging and graphing
+                                <term><varname>PlotMemoryUsage=no</varname></term>
+                                <listitem><para>If set to yes, enables logging and graphing
                                 of processes PSS memory consumption.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>entropy=0</varname></term>
-                                <listitem><para>If set to 1, enables logging and graphing
+                                <term><varname>PlotEntropyGraph=no</varname></term>
+                                <listitem><para>If set to yes, enables logging and graphing
                                 of the kernel random entropy pool size.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>scale_x=100</varname></term>
+                                <term><varname>ScaleX=100</varname></term>
                                 <listitem><para>Horizontal scaling factor for all variable
                                 graph components.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>scale_y=20</varname></term>
+                                <term><varname>ScaleY=20</varname></term>
                                 <listitem><para>Vertical scaling factor for all variable
                                 graph components.</para></listitem>
                         </varlistentry>
