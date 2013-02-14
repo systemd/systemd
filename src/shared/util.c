@@ -353,6 +353,23 @@ int safe_atolli(const char *s, long long int *ret_lli) {
         return 0;
 }
 
+int safe_atod(const char *s, double *ret_d) {
+        char *x = NULL;
+        double d;
+
+        assert(s);
+        assert(ret_d);
+
+        errno = 0;
+        d = strtod(s, &x);
+
+        if (!x || x == s || *x || errno)
+                return errno ? -errno : -EINVAL;
+
+        *ret_d = (double) d;
+        return 0;
+}
+
 /* Split a string into words. */
 char *split(const char *c, size_t *l, const char *separator, char **state) {
         char *current;

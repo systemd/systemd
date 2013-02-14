@@ -21,6 +21,7 @@
  ***/
 
 #include <dirent.h>
+#include <stdbool.h>
 
 #define MAXCPUS        16
 #define MAXPIDS     65535
@@ -98,11 +99,11 @@ extern struct ps_struct *ps_first;
 extern struct block_stat_struct blockstat[];
 extern struct cpu_stat_struct cpustat[];
 extern int pscount;
-extern int relative;
-extern int filter;
-extern int pss;
-extern int entropy;
-extern int initcall;
+extern bool relative;
+extern bool filter;
+extern bool pss;
+extern bool entropy;
+extern bool initcall;
 extern int samples;
 extern int cpus;
 extern int len;

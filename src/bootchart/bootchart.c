@@ -34,11 +34,15 @@
 #include <limits.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdbool.h>
 
 
 #include "bootchart.h"
 #include "util.h"
 #include "fileio.h"
+#include "macro.h"
+#include "conf-parser.h"
+#include "strxcpyx.h"
 
 double graph_start;
 double log_start;
@@ -56,11 +60,11 @@ static int exiting = 0;
 int sysfd=-1;
 
 /* graph defaults */
-int entropy = 0;
-int initcall = 1;
-int relative;
-int filter = 1;
-int pss = 0;
+bool entropy = false;
+bool initcall = true;
+bool relative = false;
+bool filter = true;
+bool pss = false;
 int samples;
 int len = 500; /* we record len+1 (1 start sample) */
 double hz = 25.0;   /* 20 seconds log time */
@@ -88,60 +92,41 @@ int main(int argc, char *argv[])
         char output_file[PATH_MAX];
         char datestr[200];
         time_t t = 0;
-        FILE *f;
+        const char *fn;
+        _cleanup_fclose_ FILE *f;
         int gind;
-        int i;
+        int i, r;
+        char *init = NULL, *output = NULL;
+
+        const ConfigTableItem items[] = {
+                { "Bootchart", "Samples",          config_parse_int,    0, &len      },
+                { "Bootchart", "Frequency",        config_parse_double, 0, &hz       },
+                { "Bootchart", "Relative",         config_parse_bool,   0, &relative },
+                { "Bootchart", "Filter",           config_parse_bool,   0, &filter   },
+                { "Bootchart", "Output",           config_parse_path,   0, &output   },
+                { "Bootchart", "Init",             config_parse_path,   0, &init     },
+                { "Bootchart", "PlotMemoryUsage",  config_parse_bool,   0, &pss      },
+                { "Bootchart", "PlotEntropyGraph", config_parse_bool,   0, &entropy  },
+                { "Bootchart", "ScaleX",           config_parse_double, 0, &scale_x  },
+                { "Bootchart", "ScaleY",           config_parse_double, 0, &scale_y  },
+                { NULL, NULL, NULL, 0, NULL }
+        };
 
         rlim.rlim_cur = 4096;
         rlim.rlim_max = 4096;
         (void) setrlimit(RLIMIT_NOFILE, &rlim);
 
-        f = fopen("/etc/systemd/bootchart.conf", "r");
+        fn = "/etc/systemd/bootchart.conf";
+        f = fopen(fn, "re");
         if (f) {
-                char buf[256];
-                char *key;
-                char *val;
+            r = config_parse(fn, f, NULL, config_item_table_lookup, (void*) items, true, NULL);
+            if (r < 0)
+                    log_warning("Failed to parse configuration file: %s", strerror(-r));
 
-                while (fgets(buf, 80, f) != NULL) {
-                        char *c;
-
-                        c = strchr(buf, '\n');
-                        if (c) *c = 0; /* remove trailing \n */
-
-                        if (buf[0] == '#')
-                                continue; /* comment line */
-
-                        key = strtok(buf, "=");
-                        if (!key)
-                                continue;
-                        val = strtok(NULL, "=");
-                        if (!val)
-                                continue;
-
-                        // todo: filter leading/trailing whitespace
-
-                        if (streq(key, "samples"))
-                                len = atoi(val);
-                        if (streq(key, "freq"))
-                                hz = atof(val);
-                        if (streq(key, "rel"))
-                                relative = atoi(val);
-                        if (streq(key, "filter"))
-                                filter = atoi(val);
-                        if (streq(key, "pss"))
-                                pss = atoi(val);
-                        if (streq(key, "output"))
-                                strncpy(output_path, val, PATH_MAX - 1);
-                        if (streq(key, "init"))
-                                strncpy(init_path, val, PATH_MAX - 1);
-                        if (streq(key, "scale_x"))
-                                scale_x = atof(val);
-                        if (streq(key, "scale_y"))
-                                scale_y = atof(val);
-                        if (streq(key, "entropy"))
-                                entropy = atoi(val);
-                }
-                fclose(f);
+            if (init != NULL)
+                    strscpy(init_path, sizeof(init_path), init);
+            if (output != NULL)
+                    strscpy(output_path, sizeof(output_path), output);
         }
 
         while (1) {
@@ -167,13 +152,13 @@ int main(int argc, char *argv[])
                         break;
                 switch (i) {
                 case 'r':
-                        relative = 1;
+                        relative = true;
                         break;
                 case 'f':
                         hz = atof(optarg);
                         break;
                 case 'F':
-                        filter = 0;
+                        filter = false;
                         break;
                 case 'n':
                         len = atoi(optarg);
@@ -185,7 +170,7 @@ int main(int argc, char *argv[])
                         strncpy(init_path, optarg, PATH_MAX - 1);
                         break;
                 case 'p':
-                        pss = 1;
+                        pss = true;
                         break;
                 case 'x':
                         scale_x = atof(optarg);
@@ -194,7 +179,7 @@ int main(int argc, char *argv[])
                         scale_y = atof(optarg);
                         break;
                 case 'e':
-                        entropy = 1;
+                        entropy = true;
                         break;
                 case 'h':
                         fprintf(stderr, "Usage: %s [OPTIONS]\n", argv[0]);

@@ -467,6 +467,33 @@ int config_parse_unsigned(
         return 0;
 }
 
+int config_parse_double(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        double *d = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = safe_atod(rvalue, d);
+        if (r < 0) {
+                log_error("[%s:%u] Failed to parse numeric value: %s", filename, line, rvalue);
+                return r;
+        }
+
+        return 0;
+}
+
 int config_parse_bytes_size(
                 const char *filename,
                 unsigned line,
