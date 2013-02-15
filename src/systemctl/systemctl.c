@@ -1336,7 +1336,9 @@ static void check_triggering_units(
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         DBusMessageIter iter, sub;
         const char *interface = "org.freedesktop.systemd1.Unit",
-                   *triggered_by_property = "TriggeredBy";
+                   *load_state_property = "LoadState",
+                   *triggered_by_property = "TriggeredBy",
+                   *state;
         char _cleanup_free_ *unit_path = NULL, *n = NULL;
         bool print_warning_label = true;
         int r;
@@ -1352,6 +1354,41 @@ static void check_triggering_units(
                 log_oom();
                 return;
         }
+
+        r = bus_method_call_with_reply(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        unit_path,
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_STRING, &load_state_property,
+                        DBUS_TYPE_INVALID);
+        if (r < 0)
+                return;
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
+                log_error("Failed to parse reply.");
+                return;
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+
+        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING)  {
+            log_error("Failed to parse reply.");
+            return;
+        }
+
+        dbus_message_iter_get_basic(&sub, &state);
+
+        if (streq(state, "masked"))
+            return;
+
+        dbus_message_unref(reply);
+        reply = NULL;
 
         r = bus_method_call_with_reply(
                         bus,
