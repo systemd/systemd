@@ -671,36 +671,6 @@ Journal_query_unique(Journal *self, PyObject *args)
 }
 #endif //def SD_JOURNAL_FOREACH_UNIQUE
 
-PyDoc_STRVAR(Journal_log_level__doc__,
-"log_level(level) -> None\n\n"
-"Sets maximum log level by setting matches for PRIORITY.");
-static PyObject *
-Journal_log_level(Journal *self, PyObject *args)
-{
-    int level;
-    if (! PyArg_ParseTuple(args, "i", &level))
-        return NULL;
-
-    if (level < 0 || level > 7) {
-        PyErr_SetString(PyExc_ValueError, "Log level should be 0 <= level <= 7");
-        return NULL;
-    }
-    int i;
-    char level_str[2];
-    PyObject *arg, *keywds;
-    for(i = 0; i <= level; i++) {
-        sprintf(level_str, "%i", i);
-        arg = PyTuple_New(0);
-        keywds = Py_BuildValue("{s:s}", "PRIORITY", level_str);
-        Journal_add_match(self, arg, keywds);
-        Py_DECREF(arg);
-        Py_DECREF(keywds);
-        if (PyErr_Occurred())
-            return NULL;
-    }
-    Py_RETURN_NONE;
-}
-
 PyDoc_STRVAR(Journal_this_boot__doc__,
 "this_boot() -> None\n\n"
 "Sets match filter for the current _BOOT_ID.");
@@ -848,8 +818,6 @@ static PyMethodDef Journal_methods[] = {
     {"query_unique", (PyCFunction)Journal_query_unique, METH_VARARGS,
     Journal_query_unique__doc__},
 #endif
-    {"log_level", (PyCFunction)Journal_log_level, METH_VARARGS,
-    Journal_log_level__doc__},
     {"this_boot", (PyCFunction)Journal_this_boot, METH_NOARGS,
     Journal_this_boot__doc__},
     {"this_machine", (PyCFunction)Journal_this_machine, METH_NOARGS,

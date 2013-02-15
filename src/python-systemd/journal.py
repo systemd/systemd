@@ -115,6 +115,14 @@ class Journal(_Journal):
         return set(self._convert_field(key, value)
             for value in super(Journal, self).query_unique(key, *args, **kwargs))
 
+    def log_level(self, level):
+        """Sets maximum log level by setting matches for PRIORITY."""
+        if 0 <= level <= 7:
+            for i in range(level+1):
+                self.add_match(PRIORITY="%s" % i)
+        else:
+            raise ValueError("Log level must be 0 <= level <= 7")
+
 def _make_line(field, value):
         if isinstance(value, bytes):
                 return field.encode('utf-8') + b'=' + value
