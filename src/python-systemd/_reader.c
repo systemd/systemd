@@ -25,8 +25,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 typedef struct {
     PyObject_HEAD
     sd_journal *j;
-    PyObject *default_call;
-    PyObject *call_dict;
 } Journal;
 static PyTypeObject JournalType;
 
@@ -34,27 +32,11 @@ static void
 Journal_dealloc(Journal* self)
 {
     sd_journal_close(self->j);
-    Py_XDECREF(self->default_call);
-    Py_XDECREF(self->call_dict);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-static PyObject *
-Journal_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-    Journal *self;
-
-    self = (Journal *)type->tp_alloc(type, 0);
-    if (self != NULL) {
-        self->call_dict = PyDict_New();
-        self->default_call = Py_None;
-    }
-
-    return (PyObject *) self;
-}
-
 PyDoc_STRVAR(Journal__doc__,
-"Journal([flags][, default_call][, call_dict][,path]) -> ...\n"
+"Journal([flags][,path]) -> ...\n"
 "Journal instance\n\n"
 "Returns instance of Journal, which allows filtering and return\n"
 "of journal entries.\n"
@@ -63,13 +45,6 @@ PyDoc_STRVAR(Journal__doc__,
 "journal on local machine only; RUNTIME_ONLY opens only\n"
 "volatile journal files; and SYSTEM_ONLY opens only\n"
 "journal files of system services and the kernel.\n"
-"Argument `default_call` must be a callable that accepts one\n"
-"argument which is string/bytes value of a field and returns\n"
-"python object.\n"
-"Argument `call_dict` is a dictionary where the key represents\n"
-"a field name, and value is a callable as per `default_call`.\n"
-"A set of sane defaults for `default_call` and `call_dict` are\n"
-"present.\n"
 "Argument `path` is the directory of journal files. Note that\n"
 "currently flags are ignored when `path` is present as they are\n"
 " not relevant.");
@@ -78,37 +53,11 @@ Journal_init(Journal *self, PyObject *args, PyObject *keywds)
 {
     int flags=SD_JOURNAL_LOCAL_ONLY;
     char *path=NULL;
-    PyObject *default_call=NULL, *call_dict=NULL;
 
-    static char *kwlist[] = {"flags", "default_call", "call_dict", "path", NULL};
-    if (! PyArg_ParseTupleAndKeywords(args, keywds, "|iOOs", kwlist,
-                                      &flags, &default_call, &call_dict, &path))
+    static char *kwlist[] = {"flags", NULL};
+    if (! PyArg_ParseTupleAndKeywords(args, keywds, "|is", kwlist,
+                                      &flags, &path))
         return 1;
-
-    if (default_call) {
-        if (PyCallable_Check(default_call) || default_call == Py_None) {
-            Py_DECREF(self->default_call);
-            self->default_call = default_call;
-            Py_INCREF(self->default_call);
-        }else{
-            PyErr_SetString(PyExc_TypeError, "Default call not callable");
-            return 1;
-        }
-    }
-
-    if (call_dict) {
-        if (PyDict_Check(call_dict)) {
-            Py_DECREF(self->call_dict);
-            self->call_dict = call_dict;
-            Py_INCREF(self->call_dict);
-        }else if (call_dict == Py_None) {
-            Py_DECREF(self->call_dict);
-            self->call_dict = PyDict_New();
-        }else{
-            PyErr_SetString(PyExc_TypeError, "Call dictionary must be dict type");
-            return 1;
-        }
-    }
 
     int r;
     if (path) {
@@ -130,42 +79,6 @@ Journal_init(Journal *self, PyObject *args, PyObject *keywds)
     }
 
     return 0;
-}
-
-static PyObject *
-Journal___process_field(Journal *self, PyObject *key, const void *value, ssize_t value_len)
-{
-    PyObject *callable=NULL, *return_value=NULL;
-    if (PyDict_Check(self->call_dict))
-        callable = PyDict_GetItem(self->call_dict, key);
-
-    if (PyCallable_Check(callable)) {
-#if PY_MAJOR_VERSION >=3
-        return_value = PyObject_CallFunction(callable, "y#", value, value_len);
-#else
-        return_value = PyObject_CallFunction(callable, "s#", value, value_len);
-#endif
-        if (!return_value)
-            PyErr_Clear();
-    }
-    if (!return_value && PyCallable_Check(self->default_call))
-#if PY_MAJOR_VERSION >=3
-        return_value = PyObject_CallFunction(self->default_call, "y#", value, value_len);
-#else
-        return_value = PyObject_CallFunction(self->default_call, "s#", value, value_len);
-#endif
-    if (!return_value) {
-        PyErr_Clear();
-#if PY_MAJOR_VERSION >=3
-        return_value = PyBytes_FromStringAndSize(value, value_len);
-#else
-        return_value = PyString_FromStringAndSize(value, value_len);
-#endif
-    }
-    if (!return_value) {
-        return_value = Py_None;
-    }
-    return return_value;
 }
 
 PyDoc_STRVAR(Journal_get_next__doc__,
@@ -223,10 +136,10 @@ Journal_get_next(Journal *self, PyObject *args)
 #else
         key = PyString_FromStringAndSize(msg, delim_ptr - (const char*) msg);
 #endif
-        value = Journal___process_field(self, key, delim_ptr + 1, (const char*) msg + msg_len - (delim_ptr + 1) );
+        value = PyBytes_FromStringAndSize(delim_ptr + 1, (const char*) msg + msg_len - (delim_ptr + 1) );
         if (PyDict_Contains(dict, key)) {
             cur_value = PyDict_GetItem(dict, key);
-            if (PyList_CheckExact(cur_value) && PyList_Size(cur_value) > 1) {
+            if (PyList_CheckExact(cur_value)) {
                 PyList_Append(cur_value, value);
             }else{
                 tmp_list = PyList_New(0);
@@ -252,7 +165,7 @@ Journal_get_next(Journal *self, PyObject *args)
 #else
         key = PyString_FromString("__REALTIME_TIMESTAMP");
 #endif
-        value = Journal___process_field(self, key, realtime_str, strlen(realtime_str));
+        value = PyBytes_FromString(realtime_str);
         PyDict_SetItem(dict, key, value);
         Py_DECREF(key);
         Py_DECREF(value);
@@ -268,7 +181,7 @@ Journal_get_next(Journal *self, PyObject *args)
 #else
         key = PyString_FromString("__MONOTONIC_TIMESTAMP");
 #endif
-        value = Journal___process_field(self, key, monotonic_str, strlen(monotonic_str));
+        value = PyBytes_FromString(monotonic_str);
 
         PyDict_SetItem(dict, key, value);
         Py_DECREF(key);
@@ -282,7 +195,7 @@ Journal_get_next(Journal *self, PyObject *args)
 #else
         key = PyString_FromString("__CURSOR");
 #endif
-        value = Journal___process_field(self, key, cursor, strlen(cursor));
+        value = PyBytes_FromString(cursor);
         PyDict_SetItem(dict, key, value);
         free(cursor);
         Py_DECREF(key);
@@ -303,11 +216,7 @@ Journal_get_previous(Journal *self, PyObject *args)
     if (! PyArg_ParseTuple(args, "|L", &skip))
         return NULL;
 
-    PyObject *dict, *arg;
-    arg = Py_BuildValue("(L)", -skip);
-    dict = Journal_get_next(self, arg);
-    Py_DECREF(arg);
-    return dict;
+    return PyObject_CallMethod((PyObject *)self, "get_next", "L", -skip);
 }
 
 PyDoc_STRVAR(Journal_add_match__doc__,
@@ -485,14 +394,10 @@ Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
             return NULL;
         }
         if (offset > 0LL) {
-            arg = Py_BuildValue("(L)", offset);
-            Py_DECREF(Journal_get_next(self, arg));
-            Py_DECREF(arg);
+            Py_DECREF(PyObject_CallMethod((PyObject *)self, "get_next", "L", offset));
         }
     }else if (whence == SEEK_CUR){
-        arg = Py_BuildValue("(L)", offset);
-        Py_DECREF(Journal_get_next(self, arg));
-        Py_DECREF(arg);
+        Py_DECREF(PyObject_CallMethod((PyObject *)self, "get_next", "L", offset));
     }else if (whence == SEEK_END){
         int r;
         Py_BEGIN_ALLOW_THREADS
@@ -502,13 +407,9 @@ Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
             PyErr_SetString(PyExc_RuntimeError, "Error seeking to tail");
             return NULL;
         }
-        arg = Py_BuildValue("(L)", -1LL);
-        Py_DECREF(Journal_get_next(self, arg));
-        Py_DECREF(arg);
+        Py_DECREF(PyObject_CallMethod((PyObject *)self, "get_next", "L", -1LL));
         if (offset < 0LL) {
-            arg = Py_BuildValue("(L)", offset);
-            Py_DECREF(Journal_get_next(self, arg));
-            Py_DECREF(arg);
+            Py_DECREF(PyObject_CallMethod((PyObject *)self, "get_next", "L", offset));
         }
     }else{
         PyErr_SetString(PyExc_ValueError, "Invalid value for whence");
@@ -706,13 +607,10 @@ Journal_iter(PyObject *self)
 static PyObject *
 Journal_iternext(PyObject *self)
 {
-    Journal *iter = (Journal *)self;
     PyObject *dict, *arg;
     Py_ssize_t dict_size;
 
-    arg =  Py_BuildValue("()");
-    dict = Journal_get_next(iter, arg);
-    Py_DECREF(arg);
+    dict = PyObject_CallMethod(self, "get_next", "");
     dict_size = PyDict_Size(dict);
     if ((int64_t) dict_size > 0LL) {
         return dict;
@@ -764,7 +662,7 @@ Journal_query_unique(Journal *self, PyObject *args)
 
     SD_JOURNAL_FOREACH_UNIQUE(self->j, uniq, uniq_len) {
         delim_ptr = memchr(uniq, '=', uniq_len);
-        value = Journal___process_field(self, key, delim_ptr + 1, (const char*) uniq + uniq_len - (delim_ptr + 1));
+        value = PyBytes_FromStringAndSize(delim_ptr + 1, (const char*) uniq + uniq_len - (delim_ptr + 1));
         PySet_Add(value_set, value);
         Py_DECREF(value);
     }
@@ -868,56 +766,6 @@ Journal_this_machine(Journal *self, PyObject *args)
 }
 
 static PyObject *
-Journal_get_default_call(Journal *self, void *closure)
-{
-    Py_INCREF(self->default_call);
-    return self->default_call;
-}
-
-static int
-Journal_set_default_call(Journal *self, PyObject *value, void *closure)
-{
-    if (value == NULL) {
-        PyErr_SetString(PyExc_TypeError, "Cannot delete default_call");
-        return -1;
-    }
-    if (! PyCallable_Check(value)) {
-        PyErr_SetString(PyExc_TypeError, "default_call must be callable");
-        return -1;
-    }
-    Py_DECREF(self->default_call);
-    Py_INCREF(value);
-    self->default_call = value;
-
-    return 0;
-}
-
-static PyObject *
-Journal_get_call_dict(Journal *self, void *closure)
-{
-    Py_INCREF(self->call_dict);
-    return self->call_dict;
-}
-
-static int
-Journal_set_call_dict(Journal *self, PyObject *value, void *closure)
-{
-    if (value == NULL) {
-        PyErr_SetString(PyExc_TypeError, "Cannot delete call_dict");
-        return -1;
-    }
-    if (! PyDict_Check(value)) {
-        PyErr_SetString(PyExc_TypeError, "call_dict must be dict type");
-        return -1;
-    }
-    Py_DECREF(self->call_dict);
-    Py_INCREF(value);
-    self->call_dict = value;
-
-    return 0;
-}
-
-static PyObject *
 Journal_get_data_threshold(Journal *self, void *closure)
 {
     size_t cvalue;
@@ -971,16 +819,6 @@ static PyGetSetDef Journal_getseters[] = {
     (getter)Journal_get_data_threshold,
     (setter)Journal_set_data_threshold,
     "data threshold",
-    NULL},
-    {"call_dict",
-    (getter)Journal_get_call_dict,
-    (setter)Journal_set_call_dict,
-    "dictionary of calls for each field",
-    NULL},
-    {"default_call",
-    (getter)Journal_get_default_call,
-    (setter)Journal_set_default_call,
-    "default call for values for fields",
     NULL},
     {NULL}
 };
@@ -1057,7 +895,7 @@ static PyTypeObject JournalType = {
     0,                                /* tp_dictoffset */
     (initproc)Journal_init,           /* tp_init */
     0,                                /* tp_alloc */
-    Journal_new,                      /* tp_new */
+    PyType_GenericNew,                /* tp_new */
 };
 
 #if PY_MAJOR_VERSION >= 3

@@ -32,49 +32,88 @@ from ._journal import sendv, stream_fd
 from ._reader import (_Journal, NOP, APPEND, INVALIDATE,
                       LOCAL_ONLY, RUNTIME_ONLY, SYSTEM_ONLY)
 
+_MONOTONIC_CONVERTER = lambda x: datetime.timedelta(microseconds=float(x))
+_REALTIME_CONVERTER = lambda x: datetime.datetime.fromtimestamp(float(x)/1E6)
+DEFAULT_CONVERTERS = {
+    'MESSAGE_ID': uuid.UUID,
+    'PRIORITY': int,
+    'LEADER': int,
+    'SESSION_ID': int,
+    'USERSPACE_USEC': int,
+    'INITRD_USEC': int,
+    'KERNEL_USEC': int,
+    '_UID': int,
+    '_GID': int,
+    '_PID': int,
+    'SYSLOG_FACILITY': int,
+    'SYSLOG_PID': int,
+    '_AUDIT_SESSION': int,
+    '_AUDIT_LOGINUID': int,
+    '_SYSTEMD_SESSION': int,
+    '_SYSTEMD_OWNER_UID': int,
+    'CODE_LINE': int,
+    'ERRNO': int,
+    'EXIT_STATUS': int,
+    '_SOURCE_REALTIME_TIMESTAMP': _REALTIME_CONVERTER,
+    '__REALTIME_TIMESTAMP': _REALTIME_CONVERTER,
+    '_SOURCE_MONOTONIC_TIMESTAMP': _MONOTONIC_CONVERTER,
+    '__MONOTONIC_TIMESTAMP': _MONOTONIC_CONVERTER,
+    'COREDUMP': bytes,
+    'COREDUMP_PID': int,
+    'COREDUMP_UID': int,
+    'COREDUMP_GID': int,
+    'COREDUMP_SESSION': int,
+    'COREDUMP_SIGNAL': int,
+    'COREDUMP_TIMESTAMP': _REALTIME_CONVERTER,
+}
+
+if sys.version_info >= (3,):
+    _convert_unicode = functools.partial(str, encoding='utf-8')
+else:
+    _convert_unicode = functools.partial(unicode, encoding='utf-8')
+
 class Journal(_Journal):
-    def __new__(cls, *args, **kwargs):
-        self = _Journal.__new__(cls, *args, **kwargs)
-        if sys.version_info[0] >= 3:
-            self.default_call = functools.partial(str, encoding='utf-8')
+    def __init__(self, converters=None, *args, **kwargs):
+        super(Journal, self).__init__(*args, **kwargs)
+        if sys.version_info >= (3,3):
+            self.converters = ChainMap()
+            if converters is not None:
+                self.converters.maps.append(converters)
+            self.converters.maps.append(DEFAULT_CONVERTERS)
         else:
-            self.default_call = functools.partial(unicode, encoding='utf-8')
-        self.call_dict = {
-            'MESSAGE_ID': uuid.UUID,
-            'PRIORITY': int,
-            'LEADER': int,
-            'SESSION_ID': int,
-            'USERSPACE_USEC': int,
-            'INITRD_USEC': int,
-            'KERNEL_USEC': int,
-            '_UID': int,
-            '_GID': int,
-            '_PID': int,
-            'SYSLOG_FACILITY': int,
-            'SYSLOG_PID': int,
-            '_AUDIT_SESSION': int,
-            '_AUDIT_LOGINUID': int,
-            '_SYSTEMD_SESSION': int,
-            '_SYSTEMD_OWNER_UID': int,
-            'CODE_LINE': int,
-            'ERRNO': int,
-            'EXIT_STATUS': int,
-            '_SOURCE_REALTIME_TIMESTAMP': lambda x: datetime.datetime.fromtimestamp(float(x)/1E6),
-            '__REALTIME_TIMESTAMP': lambda x: datetime.datetime.fromtimestamp(float(x)/1E6),
-            '_SOURCE_MONOTONIC_TIMESTAMP': lambda x: datetime.timedelta(microseconds=float(x)),
-            '__MONOTONIC_TIMESTAMP': lambda x: datetime.timedelta(microseconds=float(x)),
-            'COREDUMP_PID': int,
-            'COREDUMP_UID': int,
-            'COREDUMP_GID': int,
-            'COREDUMP_SESSION': int,
-            'COREDUMP_SIGNAL': int,
-            'COREDUMP_TIMESTAMP': lambda x: datetime.datetime.fromtimestamp(float(x)/1E6),
-        }
-        if sys.version_info[0] >= 3:
-            self.call_dict['COREDUMP'] = bytes
-        else:
-            self.call_dict['COREDUMP'] = str
-        return self
+            # suitable fallback, e.g.
+            self.converters = DEFAULT_CONVERTERS.copy()
+            if converters is not None:
+                self.converters.update(converters)
+
+    def _convert_field(self, key, value):
+        try:
+            result = self.converters[key](value)
+        except KeyError:
+            # Default conversion in unicode
+            try:
+                result = _convert_unicode(value)
+            except:
+                # Leave in default bytes
+                result = value
+        return result
+
+    def _convert_entry(self, entry):
+        result = {}
+        for key, value in entry.iteritems():
+            if isinstance(value, list):
+                result[key] = [self._convert_field(key, val) for val in value]
+            else:
+                result[key] = self._convert_field(key, value)
+        return result
+
+    def get_next(self, *args, **kwargs):
+        return self._convert_entry(
+            super(Journal, self).get_next(*args, **kwargs))
+
+    def query_unique(self, key, *args, **kwargs):
+        return set(self._convert_field(key, value)
+            for value in super(Journal, self).query_unique(key, *args, **kwargs))
 
 def _make_line(field, value):
         if isinstance(value, bytes):
