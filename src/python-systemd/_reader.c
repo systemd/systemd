@@ -671,70 +671,6 @@ Journal_query_unique(Journal *self, PyObject *args)
 }
 #endif //def SD_JOURNAL_FOREACH_UNIQUE
 
-PyDoc_STRVAR(Journal_this_boot__doc__,
-"this_boot() -> None\n\n"
-"Sets match filter for the current _BOOT_ID.");
-static PyObject *
-Journal_this_boot(Journal *self, PyObject *args)
-{
-    sd_id128_t sd_id;
-    int r;
-    r = sd_id128_get_boot(&sd_id);
-    if (r == -EIO) {
-        PyErr_SetString(PyExc_IOError, "Error getting current boot ID");
-        return NULL;
-    } else if (r < 0) {
-        PyErr_SetString(PyExc_RuntimeError, "Error getting current boot ID");
-        return NULL;
-    }
-
-    char bootid[33];
-    sd_id128_to_string(sd_id, bootid);
-
-    PyObject *arg, *keywds;
-    arg = PyTuple_New(0);
-    keywds = Py_BuildValue("{s:s}", "_BOOT_ID", bootid);
-    Journal_add_match(self, arg, keywds);
-    Py_DECREF(arg);
-    Py_DECREF(keywds);
-    if (PyErr_Occurred())
-        return NULL;
-
-    Py_RETURN_NONE;
-}
-
-PyDoc_STRVAR(Journal_this_machine__doc__,
-"this_machine() -> None\n\n"
-"Sets match filter for the current _MACHINE_ID.");
-static PyObject *
-Journal_this_machine(Journal *self, PyObject *args)
-{
-    sd_id128_t sd_id;
-    int r;
-    r = sd_id128_get_machine(&sd_id);
-    if (r == -EIO) {
-        PyErr_SetString(PyExc_IOError, "Error getting current boot ID");
-        return NULL;
-    } else if (r < 0) {
-        PyErr_SetString(PyExc_RuntimeError, "Error getting current boot ID");
-        return NULL;
-    }
-
-    char machineid[33];
-    sd_id128_to_string(sd_id, machineid);
-
-    PyObject *arg, *keywds;
-    arg = PyTuple_New(0);
-    keywds = Py_BuildValue("{s:s}", "_MACHINE_ID", machineid);
-    Journal_add_match(self, arg, keywds);
-    Py_DECREF(arg);
-    Py_DECREF(keywds);
-    if (PyErr_Occurred())
-        return NULL;
-
-    Py_RETURN_NONE;
-}
-
 static PyObject *
 Journal_get_data_threshold(Journal *self, void *closure)
 {
@@ -818,10 +754,6 @@ static PyMethodDef Journal_methods[] = {
     {"query_unique", (PyCFunction)Journal_query_unique, METH_VARARGS,
     Journal_query_unique__doc__},
 #endif
-    {"this_boot", (PyCFunction)Journal_this_boot, METH_NOARGS,
-    Journal_this_boot__doc__},
-    {"this_machine", (PyCFunction)Journal_this_machine, METH_NOARGS,
-    Journal_this_machine__doc__},
     {NULL}  /* Sentinel */
 };
 

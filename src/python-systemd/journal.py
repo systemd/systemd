@@ -31,6 +31,7 @@ from syslog import (LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR,
 from ._journal import sendv, stream_fd
 from ._reader import (_Journal, NOP, APPEND, INVALIDATE,
                       LOCAL_ONLY, RUNTIME_ONLY, SYSTEM_ONLY)
+from . import id128 as _id128
 
 _MONOTONIC_CONVERTER = lambda x: datetime.timedelta(microseconds=float(x))
 _REALTIME_CONVERTER = lambda x: datetime.datetime.fromtimestamp(float(x)/1E6)
@@ -122,6 +123,14 @@ class Journal(_Journal):
                 self.add_match(PRIORITY="%s" % i)
         else:
             raise ValueError("Log level must be 0 <= level <= 7")
+
+    def this_boot(self):
+        """Add match for _BOOT_ID equal to current boot ID."""
+        self.add_match(_BOOT_ID=_id128.get_boot().hex)
+
+    def this_machine(self):
+        """Add match for _MACHINE_ID equal to the ID of this machine."""
+        self.add_match(_MACHINE_ID=_id128.get_machine().hex)
 
 def _make_line(field, value):
         if isinstance(value, bytes):
