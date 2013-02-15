@@ -389,9 +389,12 @@ static int setup_output(const ExecContext *context, int fileno, int socket_fd, c
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
                 r = connect_logger_as(context, o, ident, unit_id, fileno);
                 if (r < 0) {
-                        log_error("Failed to connect std%s of %s to the journal socket: %s",
+                        log_struct_unit(LOG_CRIT, unit_id,
+                                "MESSAGE=Failed to connect std%s of %s to the journal socket: %s",
                                 fileno == STDOUT_FILENO ? "out" : "err",
-                                unit_id, strerror(-r));
+                                unit_id, strerror(-r),
+                                "ERRNO=%d", -r,
+                                NULL);
                         r = open_null_as(O_WRONLY, fileno);
                 }
                 return r;
