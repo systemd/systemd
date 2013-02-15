@@ -323,6 +323,7 @@ static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty
 static int setup_output(const ExecContext *context, int socket_fd, const char *ident, const char *unit_id, bool apply_tty_stdin) {
         ExecOutput o;
         ExecInput i;
+        int r;
 
         assert(context);
         assert(ident);
@@ -367,7 +368,12 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
         case EXEC_OUTPUT_KMSG_AND_CONSOLE:
         case EXEC_OUTPUT_JOURNAL:
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
-                return connect_logger_as(context, o, ident, unit_id, STDOUT_FILENO);
+                r = connect_logger_as(context, o, ident, unit_id, STDOUT_FILENO);
+                if (r < 0) {
+                        log_error("Failed to connect stdout of %s to the journal socket: %s", unit_id, strerror(-r));
+                        r = open_null_as(O_WRONLY, STDOUT_FILENO);
+                }
+                return r;
 
         case EXEC_OUTPUT_SOCKET:
                 assert(socket_fd >= 0);
@@ -381,6 +387,7 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
 static int setup_error(const ExecContext *context, int socket_fd, const char *ident, const char *unit_id, bool apply_tty_stdin) {
         ExecOutput o, e;
         ExecInput i;
+        int r;
 
         assert(context);
         assert(ident);
@@ -422,7 +429,12 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
         case EXEC_OUTPUT_KMSG_AND_CONSOLE:
         case EXEC_OUTPUT_JOURNAL:
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
-                return connect_logger_as(context, e, ident, unit_id, STDERR_FILENO);
+                r = connect_logger_as(context, e, ident, unit_id, STDERR_FILENO);
+                if (r < 0) {
+                        log_error("Failed to connect stderr of %s to the journal socket: %s", unit_id, strerror(-r));
+                        r = open_null_as(O_WRONLY, STDERR_FILENO);
+                }
+                return r;
 
         case EXEC_OUTPUT_SOCKET:
                 assert(socket_fd >= 0);
