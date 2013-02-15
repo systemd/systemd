@@ -541,11 +541,11 @@ static int log_dispatch(
 
                         k = write_to_journal(level, file, line, func,
                                              object_name, object, buffer);
-                        if (k < 0) {
-                                if (k != -EAGAIN)
+                        if (k <= 0) {
+                                if (k < 0 && k != -EAGAIN)
                                         log_close_journal();
                                 log_open_kmsg();
-                        } else if (k > 0)
+                        } else
                                 r++;
                 }
 
@@ -554,11 +554,11 @@ static int log_dispatch(
 
                         k = write_to_syslog(level, file, line, func,
                                             object_name, object, buffer);
-                        if (k < 0) {
-                                if (k != -EAGAIN)
+                        if (k <= 0) {
+                                if (k < 0 && k != -EAGAIN)
                                         log_close_syslog();
                                 log_open_kmsg();
-                        } else if (k > 0)
+                        } else
                                 r++;
                 }
 
@@ -571,10 +571,11 @@ static int log_dispatch(
 
                         k = write_to_kmsg(level, file, line, func,
                                           object_name, object, buffer);
-                        if (k < 0) {
-                                log_close_kmsg();
+                        if (k <= 0) {
+                                if (k < 0 && k != -EAGAIN)
+                                        log_close_kmsg();
                                 log_open_console();
-                        } else if (k > 0)
+                        } else
                                 r++;
                 }
 
