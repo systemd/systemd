@@ -320,7 +320,7 @@ static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty
         }
 }
 
-static int setup_output(const ExecContext *context, int socket_fd, const char *ident, const char *unit_id, bool apply_tty_stdin) {
+static int setup_output(const ExecContext *context, int fileno, int socket_fd, const char *ident, const char *unit_id, bool apply_tty_stdin) {
         ExecOutput o;
         ExecInput i;
         int r;
@@ -331,97 +331,55 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
         i = fixup_input(context->std_input, socket_fd, apply_tty_stdin);
         o = fixup_output(context->std_output, socket_fd);
 
-        /* This expects the input is already set up */
+        if (fileno == STDERR_FILENO) {
+                ExecOutput e;
+                e = fixup_output(context->std_error, socket_fd);
 
-        switch (o) {
+                /* This expects the input and output are already set up */
 
-        case EXEC_OUTPUT_INHERIT:
+                /* Don't change the stderr file descriptor if we inherit all
+                 * the way and are not on a tty */
+                if (e == EXEC_OUTPUT_INHERIT &&
+                    o == EXEC_OUTPUT_INHERIT &&
+                    i == EXEC_INPUT_NULL &&
+                    !is_terminal_input(context->std_input) &&
+                    getppid () != 1)
+                        return fileno;
 
+                /* Duplicate from stdout if possible */
+                if (e == o || e == EXEC_OUTPUT_INHERIT)
+                        return dup2(STDOUT_FILENO, fileno) < 0 ? -errno : fileno;
+
+                o = e;
+
+        } else if (o == EXEC_OUTPUT_INHERIT) {
                 /* If input got downgraded, inherit the original value */
                 if (i == EXEC_INPUT_NULL && is_terminal_input(context->std_input))
-                        return open_terminal_as(tty_path(context), O_WRONLY, STDOUT_FILENO);
+                        return open_terminal_as(tty_path(context), O_WRONLY, fileno);
 
                 /* If the input is connected to anything that's not a /dev/null, inherit that... */
                 if (i != EXEC_INPUT_NULL)
-                        return dup2(STDIN_FILENO, STDOUT_FILENO) < 0 ? -errno : STDOUT_FILENO;
+                        return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
 
                 /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
                 if (getppid() != 1)
-                        return STDOUT_FILENO;
+                        return fileno;
 
-                /* We need to open /dev/null here anew, to get the
-                 * right access mode. So we fall through */
-
-        case EXEC_OUTPUT_NULL:
-                return open_null_as(O_WRONLY, STDOUT_FILENO);
-
-        case EXEC_OUTPUT_TTY:
-                if (is_terminal_input(i))
-                        return dup2(STDIN_FILENO, STDOUT_FILENO) < 0 ? -errno : STDOUT_FILENO;
-
-                /* We don't reset the terminal if this is just about output */
-                return open_terminal_as(tty_path(context), O_WRONLY, STDOUT_FILENO);
-
-        case EXEC_OUTPUT_SYSLOG:
-        case EXEC_OUTPUT_SYSLOG_AND_CONSOLE:
-        case EXEC_OUTPUT_KMSG:
-        case EXEC_OUTPUT_KMSG_AND_CONSOLE:
-        case EXEC_OUTPUT_JOURNAL:
-        case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
-                r = connect_logger_as(context, o, ident, unit_id, STDOUT_FILENO);
-                if (r < 0) {
-                        log_error("Failed to connect stdout of %s to the journal socket: %s", unit_id, strerror(-r));
-                        r = open_null_as(O_WRONLY, STDOUT_FILENO);
-                }
-                return r;
-
-        case EXEC_OUTPUT_SOCKET:
-                assert(socket_fd >= 0);
-                return dup2(socket_fd, STDOUT_FILENO) < 0 ? -errno : STDOUT_FILENO;
-
-        default:
-                assert_not_reached("Unknown output type");
+                /* We need to open /dev/null here anew, to get the right access mode. */
+                return open_null_as(O_WRONLY, fileno);
         }
-}
 
-static int setup_error(const ExecContext *context, int socket_fd, const char *ident, const char *unit_id, bool apply_tty_stdin) {
-        ExecOutput o, e;
-        ExecInput i;
-        int r;
-
-        assert(context);
-        assert(ident);
-
-        i = fixup_input(context->std_input, socket_fd, apply_tty_stdin);
-        o = fixup_output(context->std_output, socket_fd);
-        e = fixup_output(context->std_error, socket_fd);
-
-        /* This expects the input and output are already set up */
-
-        /* Don't change the stderr file descriptor if we inherit all
-         * the way and are not on a tty */
-        if (e == EXEC_OUTPUT_INHERIT &&
-            o == EXEC_OUTPUT_INHERIT &&
-            i == EXEC_INPUT_NULL &&
-            !is_terminal_input(context->std_input) &&
-            getppid () != 1)
-                return STDERR_FILENO;
-
-        /* Duplicate from stdout if possible */
-        if (e == o || e == EXEC_OUTPUT_INHERIT)
-                return dup2(STDOUT_FILENO, STDERR_FILENO) < 0 ? -errno : STDERR_FILENO;
-
-        switch (e) {
+        switch (o) {
 
         case EXEC_OUTPUT_NULL:
-                return open_null_as(O_WRONLY, STDERR_FILENO);
+                return open_null_as(O_WRONLY, fileno);
 
         case EXEC_OUTPUT_TTY:
                 if (is_terminal_input(i))
-                        return dup2(STDIN_FILENO, STDERR_FILENO) < 0 ? -errno : STDERR_FILENO;
+                        return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
 
                 /* We don't reset the terminal if this is just about output */
-                return open_terminal_as(tty_path(context), O_WRONLY, STDERR_FILENO);
+                return open_terminal_as(tty_path(context), O_WRONLY, fileno);
 
         case EXEC_OUTPUT_SYSLOG:
         case EXEC_OUTPUT_SYSLOG_AND_CONSOLE:
@@ -429,16 +387,18 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
         case EXEC_OUTPUT_KMSG_AND_CONSOLE:
         case EXEC_OUTPUT_JOURNAL:
         case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
-                r = connect_logger_as(context, e, ident, unit_id, STDERR_FILENO);
+                r = connect_logger_as(context, o, ident, unit_id, fileno);
                 if (r < 0) {
-                        log_error("Failed to connect stderr of %s to the journal socket: %s", unit_id, strerror(-r));
-                        r = open_null_as(O_WRONLY, STDERR_FILENO);
+                        log_error("Failed to connect std%s of %s to the journal socket: %s",
+                                fileno == STDOUT_FILENO ? "out" : "err",
+                                unit_id, strerror(-r));
+                        r = open_null_as(O_WRONLY, fileno);
                 }
                 return r;
 
         case EXEC_OUTPUT_SOCKET:
                 assert(socket_fd >= 0);
-                return dup2(socket_fd, STDERR_FILENO) < 0 ? -errno : STDERR_FILENO;
+                return dup2(socket_fd, fileno) < 0 ? -errno : fileno;
 
         default:
                 assert_not_reached("Unknown error type");
@@ -1179,13 +1139,13 @@ int exec_spawn(ExecCommand *command,
                         goto fail_child;
                 }
 
-                err = setup_output(context, socket_fd, path_get_file_name(command->path), unit_id, apply_tty_stdin);
+                err = setup_output(context, STDOUT_FILENO, socket_fd, path_get_file_name(command->path), unit_id, apply_tty_stdin);
                 if (err < 0) {
                         r = EXIT_STDOUT;
                         goto fail_child;
                 }
 
-                err = setup_error(context, socket_fd, path_get_file_name(command->path), unit_id, apply_tty_stdin);
+                err = setup_output(context, STDERR_FILENO, socket_fd, path_get_file_name(command->path), unit_id, apply_tty_stdin);
                 if (err < 0) {
                         r = EXIT_STDERR;
                         goto fail_child;
