@@ -616,9 +616,11 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         /* If syslog or kernel logging is requested, make sure our own
          * logging daemon is run first. */
 
-        if (u->manager->running_as == SYSTEMD_SYSTEM)
-                if ((r = unit_add_two_dependencies_by_name(u, UNIT_REQUIRES, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, NULL, true)) < 0)
+        if (u->manager->running_as == SYSTEMD_SYSTEM) {
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, NULL, true);
+                if (r < 0)
                         return r;
+        }
 
         return 0;
 }
