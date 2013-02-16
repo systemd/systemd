@@ -426,34 +426,12 @@ PyDoc_STRVAR(Journal_seek_realtime__doc__,
 static PyObject *
 Journal_seek_realtime(Journal *self, PyObject *args)
 {
-    PyObject *arg;
-    if (! PyArg_ParseTuple(args, "O", &arg))
+    uint64_t timestamp;
+    if (! PyArg_ParseTuple(args, "K", &timestamp))
         return NULL;
 
-    uint64_t timestamp=-1LL;
-    if (PyDateTime_Check(arg)) {
-        PyObject *temp;
-        char *timestamp_str;
-        temp = PyObject_CallMethod(arg, "strftime", "s", "%s%f");
-#if PY_MAJOR_VERSION >=3
-        PyObject *temp2;
-        temp2 = PyUnicode_AsUTF8String(temp);
-        timestamp_str = PyBytes_AsString(temp2);
-        Py_DECREF(temp2);
-#else
-        timestamp_str = PyString_AsString(temp);
-#endif
-        Py_DECREF(temp);
-        timestamp = strtoull(timestamp_str, NULL, 10);
-    }else if (PyLong_Check(arg)) {
-        timestamp = PyLong_AsUnsignedLongLong(arg);
-#if PY_MAJOR_VERSION <3
-    }else if (PyInt_Check(arg)) {
-        timestamp = PyInt_AsUnsignedLongLongMask(arg);
-#endif
-    }
     if ((int64_t) timestamp < 0LL) {
-        PyErr_SetString(PyExc_ValueError, "Time must be positive integer or datetime instance");
+        PyErr_SetString(PyExc_ValueError, "Time must be positive integer");
         return NULL;
     }
 
@@ -479,30 +457,16 @@ PyDoc_STRVAR(Journal_seek_monotonic__doc__,
 static PyObject *
 Journal_seek_monotonic(Journal *self, PyObject *args)
 {
-    PyObject *arg;
+    double timedouble;
     char *bootid=NULL;
-    if (! PyArg_ParseTuple(args, "O|s", &arg, &bootid))
+    if (! PyArg_ParseTuple(args, "d|z", &timedouble, &bootid))
         return NULL;
 
-    uint64_t timestamp=-1LL;
-    if PyDelta_Check(arg) {
-        PyObject *temp;
-        temp = PyObject_CallMethod(arg, "total_seconds", NULL);
-        timestamp = (uint64_t) (PyFloat_AsDouble(temp) * 1E6);
-        Py_DECREF(temp);
-    }else if (PyFloat_Check(arg)) {
-        timestamp = (uint64_t) (PyFloat_AsDouble(arg) * 1E6);
-    }else if (PyLong_Check(arg)) {
-        timestamp = PyLong_AsUnsignedLongLong(arg) * (uint64_t) 1E6;
-#if PY_MAJOR_VERSION <3
-    }else if (PyInt_Check(arg)) {
-        timestamp = PyInt_AsUnsignedLongLongMask(arg) * (uint64_t) 1E6;
-#endif
-
-    }
+    uint64_t timestamp;
+    timestamp = (uint64_t) (timedouble * 1.0E6);
 
     if ((int64_t) timestamp < 0LL) {
-        PyErr_SetString(PyExc_ValueError, "Time must be positive number or timedelta instance");
+        PyErr_SetString(PyExc_ValueError, "Time must be positive number");
         return NULL;
     }
 

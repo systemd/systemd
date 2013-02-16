@@ -123,6 +123,16 @@ class Journal(_Journal):
         return set(self._convert_field(key, value)
             for value in super(Journal, self).query_unique(key))
 
+    def seek_realtime(self, timestamp):
+        if isinstance(timestamp, datetime.datetime):
+            timestamp = int(timestamp.strftime("%s%f"))
+        return super(Journal, self).seek_realtime(timestamp)
+
+    def seek_monotonic(self, timestamp, bootid=None):
+        if isinstance(timestamp, datetime.timedelta):
+            timestamp = timestamp.totalseconds()
+        return super(Journal, self).seek_monotonic(timestamp, bootid)
+
     def log_level(self, level):
         """Sets maximum log level by setting matches for PRIORITY."""
         if 0 <= level <= 7:
