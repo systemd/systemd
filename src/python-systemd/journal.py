@@ -113,7 +113,8 @@ class Journal(_Journal):
     def add_match(self, *args, **kwargs):
         args = list(args)
         args.extend(_make_line(key, val) for key, val in kwargs.items())
-        super(Journal, self).add_match(*args)
+        for arg in args:
+            super(Journal, self).add_match(arg)
 
     def get_next(self, skip=1):
         return self._convert_entry(

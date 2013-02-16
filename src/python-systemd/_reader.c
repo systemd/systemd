@@ -97,7 +97,7 @@ Journal_get_next(Journal *self, PyObject *args)
         return NULL;
     }
 
-    int r;
+    int r = -EINVAL;
     Py_BEGIN_ALLOW_THREADS
     if (skip == 1LL) {
         r = sd_journal_next(self->j);
@@ -226,106 +226,20 @@ PyDoc_STRVAR(Journal_add_match__doc__,
 static PyObject *
 Journal_add_match(Journal *self, PyObject *args, PyObject *keywds)
 {
-    Py_ssize_t arg_match_len;
-    char *arg_match;
-    int i, r;
-    for (i = 0; i < PySequence_Size(args); i++) {
-#if PY_MAJOR_VERSION >=3
-        PyObject *arg;
-        arg = PySequence_Fast_GET_ITEM(args, i);
-        if (PyUnicode_Check(arg)) {
-#if PY_MINOR_VERSION >=3
-            arg_match = PyUnicode_AsUTF8AndSize(arg, &arg_match_len);
-#else
-            PyObject *temp;
-            temp = PyUnicode_AsUTF8String(arg);
-            PyBytes_AsStringAndSize(temp, &arg_match, &arg_match_len);
-            Py_DECREF(temp);
-#endif
-        }else if (PyBytes_Check(arg)) {
-            PyBytes_AsStringAndSize(arg, &arg_match, &arg_match_len);
-        }else{
-            PyErr_SetString(PyExc_TypeError, "expected bytes or string");
-        }
-#else
-        PyString_AsStringAndSize(PySequence_Fast_GET_ITEM(args, i), &arg_match, &arg_match_len);
-#endif
-        if (PyErr_Occurred())
-            return NULL;
-        r = sd_journal_add_match(self->j, arg_match, arg_match_len);
-        if (r < 0) {
-            errno = -r;
-            PyObject *errtype = r == -EINVAL ? PyExc_ValueError :
-                                r == -ENOMEM ? PyExc_MemoryError :
-                                PyExc_OSError;
-            PyErr_SetFromErrno(errtype);
-            return NULL;
-        }
-    }
-
-    if (! keywds)
-        Py_RETURN_NONE;
-
-    PyObject *key, *value;
-    Py_ssize_t pos=0, match_key_len, match_value_len;
+    char *match;
     int match_len;
-    char *match_key, *match_value;
-    void *match;
-    while (PyDict_Next(keywds, &pos, &key, &value)) {
-#if PY_MAJOR_VERSION >=3
-        if (PyUnicode_Check(key)) {
-#if PY_MINOR_VERSION >=3
-            match_key = PyUnicode_AsUTF8AndSize(key, &match_key_len);
-#else
-            PyObject *temp2;
-            temp2 = PyUnicode_AsUTF8String(key);
-            PyBytes_AsStringAndSize(temp2, &match_key, &match_key_len);
-            Py_DECREF(temp2);
-#endif
-        }else if (PyBytes_Check(key)) {
-            PyBytes_AsStringAndSize(key, &match_key, &match_key_len);
-        }else{
-            PyErr_SetString(PyExc_TypeError, "expected bytes or string");
-        }
-        if (PyUnicode_Check(value)) {
-#if PY_MINOR_VERSION >=3
-            match_value = PyUnicode_AsUTF8AndSize(value, &match_value_len);
-#else
-            PyObject *temp3;
-            temp3 = PyUnicode_AsUTF8String(value);
-            PyBytes_AsStringAndSize(temp3, &match_value, &match_value_len);
-            Py_DECREF(temp3);
-#endif
-        }else if (PyBytes_Check(value)) {
-            PyBytes_AsStringAndSize(value, &match_value, &match_value_len);
-        }else{
-            PyErr_SetString(PyExc_TypeError, "expected bytes or string");
-        }
-#else
-        PyString_AsStringAndSize(key, &match_key, &match_key_len);
-        PyString_AsStringAndSize(value, &match_value, &match_value_len);
-#endif
-        if (PyErr_Occurred())
-            return NULL;
+    if (! PyArg_ParseTuple(args, "s#", &match, &match_len))
+        return NULL;
 
-        match_len = match_key_len + 1 + match_value_len;
-        match = malloc(match_len);
-        memcpy(match, match_key, match_key_len);
-        memcpy(match + match_key_len, "=", 1);
-        memcpy(match + match_key_len + 1, match_value, match_value_len);
-
-        r = sd_journal_add_match(self->j, match, match_len);
-        free(match);
-        if (r == -EINVAL) {
-            PyErr_SetString(PyExc_ValueError, "Invalid match");
-            return NULL;
-        }else if (r == -ENOMEM) {
-            PyErr_SetString(PyExc_MemoryError, "Not enough memory");
-            return NULL;
-        }else if (r < 0) {
-            PyErr_SetString(PyExc_RuntimeError, "Error adding match");
-            return NULL;
-        }
+    int r;
+    r = sd_journal_add_match(self->j, match, match_len);
+    if (r < 0) {
+        errno = -r;
+        PyObject *errtype = r == -EINVAL ? PyExc_ValueError :
+                            r == -ENOMEM ? PyExc_MemoryError :
+                            PyExc_OSError;
+        PyErr_SetFromErrno(errtype);
+        return NULL;
     }
 
     Py_RETURN_NONE;
