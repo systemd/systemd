@@ -20,6 +20,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
+/***
+
+  Many thanks to those who contributed ideas and code:
+  - Ziga Mahkovec - Original bootchart author
+  - Anders Norgaard - PyBootchartgui
+  - Michael Meeks - bootchart2
+  - Scott James Remnant - Ubuntu C-based logger
+  - Arjan van der Ven - for the idea to merge bootgraph.pl functionality
+
+ ***/
+
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/resource.h>

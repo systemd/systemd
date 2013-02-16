@@ -48,52 +48,84 @@
 
         <refnamediv>
                 <refname>systemd-bootchart</refname>
-                <refpurpose>Boot performance analysis graphing tool</refpurpose>
+                <refpurpose>Boot performance graphing tool</refpurpose>
         </refnamediv>
 
         <refsect1>
                 <title>Description</title>
-
-                <para>systemd-bootchart is a tool used to analyze a boot sequence.
-                It collects system information pertaining to the CPU and disk load, as
-                well as per-process information, and then creates a chart with this
-                information. Usually it is invoked by setting the init to
-                <filename>systemd-bootchart</filename> on the kernel command line. It
-                be run after boot to analyze running processes, though it is recommended
-                to use the <option>--rel</option> switch when doing this.</para>
-
-                <para>After collecting a certain amount of data (default: 20 seconds) it
-                will write the SVG chart to <filename>/run/log</filename>. This chart
-                can be used to find problems in the start up sequence and where these
-                problems exist. It is essentially a more detailed version of the
-                systemd-analyze plot function.</para>
+                <para>
+                        <command>systemd-bootchart</command> is a
+                        tool, usually run at system startup, that
+                        collects the CPU load, disk load, memory
+                        usage, as well as per-process information from
+                        a running system. Collected results are output
+                        as an SVG graph. Normally, systemd-bootchart
+                        is invoked by the kernel by passing
+                        <option>init=<filename>/usr/lib/systemd/systemd-bootchart</filename></option>
+                        on the kernel commandline. systemd-bootchart will then
+                        fork the real init off to resume normal system
+                        startup, while monitoring and logging startup
+                        information in the background.
+                </para>
+                <para>
+                        After collecting a certain amount of data
+                        (usually 15-30 seconds, default 20 s) the
+                        logging stops and a graph is generated from
+                        the logged information. This graph contains
+                        vital clues as to which resources are being used,
+                        in which order, and where possible problems
+                        exist in the startup sequence of the system.
+                        It is essentially a more detailed version of
+                        the <command>systemd-analyze</command>
+                        <command>plot</command> function.
+                </para>
+                <para>
+                        Of course, bootchart can also be used at any
+                        moment in time to collect and graph some data
+                        for an amount of time. It is
+                        recommended to use the <option>--rel</option>
+                        switch in this case.
+                </para>
+                <para>
+                        Bootchart does not require root privileges,
+                        and will happily run as a normal user.
+                </para>
+                <para>
+                        Bootchart graphs are by default written
+                        time-stamped in <filename>/run/log</filename>.
+                </para>
 
         </refsect1>
 
         <refsect1>
                 <title>Invocation</title>
 
-                <para>systemd-bootchart can be invoked in several different ways:</para>
+                <para><command>systemd-bootchart</command> can be invoked in several different ways:</para>
 
                 <variablelist>
 
                         <varlistentry>
                                 <term><emphasis>Kernel invocation</emphasis></term>
-                                <listitem><para>The kernel can invoke systemd-bootchart
-                                instead of the init process. In itself, systemd-bootchart
-                                will invoke <filename>/sbin/init</filename> if invoked in
-                                this manner.</para></listitem>
+                                <listitem><para>The kernel can invoke
+                                <command>systemd-bootchart</command>
+                                instead of the init process. In turn,
+                                <command>systemd-bootchart</command>
+                                will invoke <command>/sbin/init</command>.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><emphasis>Started as a standalone program</emphasis></term>
-                                <listitem><para>One can execute systemd-bootchart as
-                                normal application from the commandline. In this mode
-                                it is highly recommended to pass the "-r" flag in order
-                                to not graph the time elapsed since boot and before
-                                systemd-bootchart was started, as it may result in
-                                extremely large graphs.
-                                </para></listitem>
+                                <listitem><para>One can execute
+                                <command>systemd-bootchart</command>
+                                as normal application from the
+                                commandline. In this mode it is highly
+                                recommended to pass the
+                                <option>-r</option> flag in order to
+                                not graph the time elapsed since boot
+                                and before systemd-bootchart was
+                                started, as it may result in extremely
+                                large graphs.  </para></listitem>
                         </varlistentry>
                 </variablelist>
         </refsect1>
@@ -101,25 +133,30 @@
         <refsect1>
                 <title>Options</title>
 
-                <para>These options can be set globally in the <filename>/etc/systemd/bootchart.conf</filename>
-                file.</para>
+                <para>These options can also be set in the
+                <filename>/etc/systemd/bootchart.conf</filename>
+                file. See
+                <citerefentry><refentrytitle>bootchart.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                </para>
 
                 <variablelist>
 
                         <varlistentry>
                                 <term><option>-n</option></term>
-                                <term><option>--sample N</option></term>
-                                <listitem><para>Specify the amount of samples, N, to
-                                record total before bootchart exits. Each sample will
-                                record at intervals defined by --freq.</para></listitem>
+                                <term><option>--sample <replaceable>N</replaceable></option></term>
+                                <listitem><para>Specify the number of
+                                samples, <replaceable>N</replaceable>,
+                                to record. Samples will be recorded at
+                                intervals defined with <option>--freq</option>.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><option>-f</option></term>
-                                <term><option>--freq N</option></term>
-                                <listitem><para>Specify the sample log frequency, N.
-                                This can be a fractional number, but must be larger than
-                                0.0. Most systems can cope with values under 25-50 without
+                                <term><option>--freq <replaceable>f</replaceable></option></term>
+                                <listitem><para>Specify the sample log
+                                frequency, a positive real <replaceable>f</replaceable>, in Hz.
+                                Most systems can cope with values up to 25-50 without
                                 creating too much overhead.</para></listitem>
                         </varlistentry>
 
@@ -128,36 +165,36 @@
                                 <term><option>--rel</option></term>
                                 <listitem><para>Use relative times instead of absolute
                                 times. This is useful for using bootchart at post-boot
-                                time to profile an already booted system, otherwise the
-                                graph would become extremely large. If set, the
+                                time to profile an already booted system. Without this
+                                option the graph would become extremely large. If set, the
                                 horizontal axis starts at the first recorded sample
-                                instead of time=0.0.</para></listitem>
+                                instead of time 0.0.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><option>-F</option></term>
                                 <term><option>--filter</option></term>
-                                <listitem><para>Disable filtering of tasks tasks that
+                                <listitem><para>Disable filtering of tasks that
                                 did not contribute significantly to the boot. Processes
                                 that are too short-lived (only seen in one sample) or
                                 that do not consume any significant CPU time (less than
-                                0.001sec) will not be displayed in the output graph.
+                                0.001 s) will not be displayed in the output graph.
                                 </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><option>-o</option></term>
-                                <term><option>--output [path]</option></term>
-                                <listitem><para>Configures the output folder for writing
-                                the graphs. By default, bootchart writes the graphs to
+                                <term><option>--output <replaceable>path</replaceable></option></term>
+                                <listitem><para>Specify the output folder for the
+                                graphs. By default, bootchart writes the graphs to
                                 <filename>/run/log</filename>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><option>-i</option></term>
-                                <term><option>--init [path]</option></term>
-                                <listitem><para>Set init binary to run. Defaults to
-                                <filename>/sbin/init</filename>.
+                                <term><option>--init <replaceable>path</replaceable></option></term>
+                                <listitem><para>Use this init binary. Defaults to
+                                <command>/sbin/init</command>.
                                 </para></listitem>
                         </varlistentry>
 
@@ -165,7 +202,11 @@
                                 <term><option>-p</option></term>
                                 <term><option>--pss</option></term>
                                 <listitem><para>Enable logging and graphing
-                                of processes PSS memory consumption.</para></listitem>
+                                of processes' PSS (Proportional Set Size)
+                                memory consumption. See <filename>filesystems/proc.txt</filename>
+                                in the kernel documentation for an
+                                explanation of this field.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -177,14 +218,14 @@
 
                         <varlistentry>
                                 <term><option>-x</option></term>
-                                <term><option>--scale-x N</option></term>
+                                <term><option>--scale-x <replaceable>N</replaceable></option></term>
                                 <listitem><para>Horizontal scaling factor for all variable
                                 graph components.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><option>-y</option></term>
-                                <term><option>--scale-y N</option></term>
+                                <term><option>--scale-y <replaceable>N</replaceable></option></term>
                                 <listitem><para>Vertical scaling factor for all variable
                                 graph components.</para></listitem>
                         </varlistentry>
@@ -197,19 +238,20 @@
         <refsect1>
                 <title>Output</title>
 
-                <para>systemd-bootchart generates SVG graphs. In order to render these
+                <para><command>systemd-bootchart</command> generates SVG graphs. In order to render those
                 on a graphical display any SVG capable viewer can be used. It should be
                 noted that the SVG render engines in most browsers (including Chrome
                 and Firefox) are many times faster than dedicated graphical applications
-                like Gimp and Inkscape.  Just point your browser at "file:///run/log"!
+                like Gimp and Inkscape.  Just point your browser at <ulink url="file:///run/log/" />!
                 </para>
         </refsect1>
 
         <refsect1>
                 <title>History</title>
 
-                <para>This version of bootchart was implemented from scratch, but inspired
-                  by former bootchart incantations:</para>
+                <para>This version of bootchart was implemented from
+                scratch, but is inspired by former bootchart
+                incantations:</para>
 
                 <variablelist>
                         <varlistentry>
@@ -247,7 +289,6 @@
                 has been collected. Also, the data kept in memory is reduced to the absolute
                 minimum needed.</para>
 
-
         </refsect1>
 
         <refsect1>
@@ -259,11 +300,10 @@
 
         <refsect1>
                 <title>Bugs</title>
-                <para>For bugs, please contact the author or current maintainer:</para>
-                <varlistentry>
-                        <term>Auke Kok</term>
-                        <term><emphasis>auke-jan.h.kok@intel.com</emphasis></term>
-                </varlistentry>
+                <para>For bugs, please contact the author and current maintainer:</para>
+                <simplelist>
+                        <member>Auke Kok <email>auke-jan.h.kok@intel.com</email></member>
+                </simplelist>
         </refsect1>
 
 </refentry>
