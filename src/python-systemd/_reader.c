@@ -217,12 +217,11 @@ Journal_get_previous(Journal *self, PyObject *args)
 }
 
 PyDoc_STRVAR(Journal_add_match__doc__,
-"add_match(match, ..., field=value, ...) -> None\n\n"
+"add_match(match) -> None\n\n"
 "Add a match to filter journal log entries. All matches of different\n"
-"field are combined in logical AND, and matches of the same field\n"
+"fields are combined in logical AND, and matches of the same field\n"
 "are automatically combined in logical OR.\n"
-"Matches can be passed as strings \"field=value\", or keyword\n"
-"arguments field=\"value\".");
+"Match is string of form \"field=value\".");
 static PyObject *
 Journal_add_match(Journal *self, PyObject *args, PyObject *keywds)
 {
@@ -337,8 +336,7 @@ Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
 PyDoc_STRVAR(Journal_seek_realtime__doc__,
 "seek_realtime(realtime) -> None\n\n"
 "Seek to nearest matching journal entry to `realtime`. Argument\n"
-"`realtime` can be an integer unix timestamp in usecs or a "
-"datetime instance.");
+"`realtime` can must be an integer unix timestamp in usecs.");
 static PyObject *
 Journal_seek_realtime(Journal *self, PyObject *args)
 {
@@ -366,8 +364,7 @@ Journal_seek_realtime(Journal *self, PyObject *args)
 PyDoc_STRVAR(Journal_seek_monotonic__doc__,
 "seek_monotonic(monotonic[, bootid]) -> None\n\n"
 "Seek to nearest matching journal entry to `monotonic`. Argument\n"
-"`monotonic` is an timestamp from boot in secs, or a\n"
-"timedelta instance.\n"
+"`monotonic` is an timestamp from boot in seconds.\n"
 "Argument `bootid` is a string representing which boot the\n"
 "monotonic time is reference to. Defaults to current bootid.");
 static PyObject *
