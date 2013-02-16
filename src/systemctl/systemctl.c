@@ -4394,18 +4394,33 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         log_info("Use -t help to see a list of allowed values.");
                         return -EINVAL;
                 case 'p': {
-                        char **l;
+                        char *word, *state;
+                        size_t size;
+                        /* Make sure that if the empty property list
+                           was specified, we won't show any properties. */
+                        const char *source = isempty(optarg) ? " " : optarg;
 
-                        if (!(l = strv_append(arg_property, optarg)))
-                                return -ENOMEM;
+                        FOREACH_WORD_SEPARATOR(word, size, source, ",", state) {
+                                char _cleanup_free_ *prop;
+                                char **tmp;
 
-                        strv_free(arg_property);
-                        arg_property = l;
+                                prop = strndup(word, size);
+                                if (!prop)
+                                        return -ENOMEM;
+
+                                tmp = strv_append(arg_property, prop);
+                                if (!tmp)
+                                        return -ENOMEM;
+
+                                strv_free(arg_property);
+                                arg_property = tmp;
+                        }
 
                         /* If the user asked for a particular
                          * property, show it to him, even if it is
                          * empty. */
                         arg_all = true;
+
                         break;
                 }
 
