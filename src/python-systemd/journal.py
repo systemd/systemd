@@ -26,6 +26,8 @@ import uuid
 import traceback as _traceback
 import os as _os
 import logging as _logging
+if sys.version_info >= (3,):
+    from collections import ChainMap
 from syslog import (LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR,
                     LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG)
 from ._journal import sendv, stream_fd
@@ -90,7 +92,7 @@ class Journal(_Journal):
     def _convert_field(self, key, value):
         try:
             result = self.converters[key](value)
-        except KeyError:
+        except:
             # Default conversion in unicode
             try:
                 result = _convert_unicode(value)
@@ -101,12 +103,17 @@ class Journal(_Journal):
 
     def _convert_entry(self, entry):
         result = {}
-        for key, value in entry.iteritems():
+        for key, value in entry.items():
             if isinstance(value, list):
                 result[key] = [self._convert_field(key, val) for val in value]
             else:
                 result[key] = self._convert_field(key, value)
         return result
+
+    def add_match(self, *args, **kwargs):
+        args = list(args)
+        args.extend(_make_line(key, val) for key, val in kwargs.items())
+        super(Journal, self).add_match(*args)
 
     def get_next(self, *args, **kwargs):
         return self._convert_entry(
