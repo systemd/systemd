@@ -336,13 +336,16 @@ Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
 PyDoc_STRVAR(Journal_seek_realtime__doc__,
 "seek_realtime(realtime) -> None\n\n"
 "Seek to nearest matching journal entry to `realtime`. Argument\n"
-"`realtime` can must be an integer unix timestamp in usecs.");
+"`realtime` can must be an integer unix timestamp.");
 static PyObject *
 Journal_seek_realtime(Journal *self, PyObject *args)
 {
-    uint64_t timestamp;
-    if (! PyArg_ParseTuple(args, "K", &timestamp))
+    double timedouble;
+    if (! PyArg_ParseTuple(args, "d", &timedouble))
         return NULL;
+
+    uint64_t timestamp;
+    timestamp = (uint64_t) (timedouble * 1.0E6);
 
     if ((int64_t) timestamp < 0LL) {
         PyErr_SetString(PyExc_ValueError, "Time must be positive integer");

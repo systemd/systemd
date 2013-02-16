@@ -126,7 +126,7 @@ class Journal(_Journal):
 
     def seek_realtime(self, timestamp):
         if isinstance(timestamp, datetime.datetime):
-            timestamp = int(timestamp.strftime("%s%f"))
+            timestamp = float(timestamp.strftime("%s.%f"))
         return super(Journal, self).seek_realtime(timestamp)
 
     def seek_monotonic(self, timestamp, bootid=None):
