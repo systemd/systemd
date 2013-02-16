@@ -115,13 +115,13 @@ class Journal(_Journal):
         args.extend(_make_line(key, val) for key, val in kwargs.items())
         super(Journal, self).add_match(*args)
 
-    def get_next(self, *args, **kwargs):
+    def get_next(self, skip=1):
         return self._convert_entry(
-            super(Journal, self).get_next(*args, **kwargs))
+            super(Journal, self).get_next(skip))
 
-    def query_unique(self, key, *args, **kwargs):
+    def query_unique(self, key):
         return set(self._convert_field(key, value)
-            for value in super(Journal, self).query_unique(key, *args, **kwargs))
+            for value in super(Journal, self).query_unique(key))
 
     def log_level(self, level):
         """Sets maximum log level by setting matches for PRIORITY."""
