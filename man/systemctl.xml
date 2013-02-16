@@ -1,1289 +1,1157 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
-  This file is part of systemd.
+This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
+Copyright 2010 Lennart Poettering
 
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
 
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemctl">
 
-        <refentryinfo>
-                <title>systemctl</title>
-                <productname>systemd</productname>
-
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Lennart</firstname>
-                                <surname>Poettering</surname>
-                                <email>lennart@poettering.net</email>
-                        </author>
-                </authorgroup>
-        </refentryinfo>
-
-        <refmeta>
-                <refentrytitle>systemctl</refentrytitle>
-                <manvolnum>1</manvolnum>
-        </refmeta>
-
-        <refnamediv>
-                <refname>systemctl</refname>
-                <refpurpose>Control the systemd system and service manager</refpurpose>
-        </refnamediv>
-
-        <refsynopsisdiv>
-                <cmdsynopsis>
-                        <command>systemctl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
-                </cmdsynopsis>
-        </refsynopsisdiv>
-
-        <refsect1>
-                <title>Description</title>
-
-                <para><command>systemctl</command> may be used to
-                introspect and control the state of the
-                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                system and service manager.</para>
-        </refsect1>
-
-        <refsect1>
-                <title>Options</title>
-
-                <para>The following options are understood:</para>
-
-                <variablelist>
-                        <varlistentry>
-                                <term><option>-h</option></term>
-                                <term><option>--help</option></term>
-
-                                <listitem><para>Prints a short help
-                                text and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--version</option></term>
-
-                                <listitem><para>Prints a short version
-                                string and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-t</option></term>
-                                <term><option>--type=</option></term>
-
-                                <listitem><para>The argument should
-                                be a unit type name such as
-                                <option>service</option> and
-                                <option>socket</option>,
-                                or a unit load state such as
-                                <option>loaded</option> and
-                                <option>masked</option>.
-                                </para>
-
-                                <para>If the argument is a unit type,
-                                when listing units, limit display to
-                                certain unit types. If not specified
-                                units of all types will be shown.</para>
-
-                                <para>If the argument is a unit load state,
-                                when listing units, limit display to
-                                certain unit types. If not specified
-                                units of in all load states will be
-                                shown.</para>
-
-                                <para>As a special case, if the argument
-                                is <option>help</option>, a list of
-                                allowed values will be printed and the
-                                program will exit.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-p</option></term>
-                                <term><option>--property=</option></term>
-
-                                <listitem><para>When showing
-                                unit/job/manager properties, limit
-                                display to certain properties as
-                                specified as argument. If not
-                                specified all set properties are
-                                shown. The argument should be a
-                                property name, such as
-                                <literal>MainPID</literal>. If
-                                specified more than once all
-                                properties with the specified names
-                                are shown.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-a</option></term>
-                                <term><option>--all</option></term>
-
-                                <listitem><para>When listing units,
-                                show all units, regardless of their
-                                state, including inactive units. When
-                                showing unit/job/manager properties,
-                                show all properties regardless whether
-                                they are set or not.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--failed</option></term>
-
-                                <listitem><para>When listing units,
-                                show only failed units. Do not confuse
-                                with
-                                <option>--fail</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--full</option></term>
-
-                                <listitem><para>Do not ellipsize unit
-                                names, cgroup members, and truncate unit descriptions
-                                in the output of
-                                <command>list-units</command> and
-                                <command>list-jobs</command>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--fail</option></term>
-
-                                <listitem><para>If the requested
-                                operation conflicts with a pending
-                                unfinished job, fail the command. If
-                                this is not specified the requested
-                                operation will replace the pending job,
-                                if necessary. Do not confuse
-                                with
-                                <option>--failed</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--ignore-dependencies</option></term>
-
-                                <listitem><para>When enqueuing a new
-                                job ignore all its dependencies and
-                                execute it immediately. If passed no
-                                required units of the unit passed will
-                                be pulled in, and no ordering
-                                dependencies will be honored. This is
-                                mostly a debugging and rescue tool for
-                                the administrator and should not be
-                                used by
-                                applications.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-i</option></term>
-                                <term><option>--ignore-inhibitors</option></term>
-
-                                <listitem><para>When system shutdown
-                                or a sleep state is requested, ignore
-                                inhibitor locks. Applications can
-                                establish inhibitor locks to avoid
-                                that certain important operations
-                                (such as CD burning or suchlike) are
-                                interrupted by system shutdown or a
-                                sleep state. Any user may take these
-                                locks and privileged users may
-                                override these locks. If any locks are
-                                taken, shutdown and sleep state
-                                requests will normally fail
-                                (regardless if privileged or not) and
-                                list of active locks is
-                                printed. However if
-                                <option>--ignore-inhibitors</option>
-                                is specified the locks are ignored and
-                                not printed, and the operation
-                                attempted anyway, possibly requiring
-                                additional
-                                privileges.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-q</option></term>
-                                <term><option>--quiet</option></term>
-
-                                <listitem><para>Suppress output to
-                                STDOUT in
-                                <command>snapshot</command>,
-                                <command>is-active</command>,
-                                <command>is-failed</command>,
-                                <command>enable</command> and
-                                <command>disable</command>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--no-block</option></term>
-
-                                <listitem><para>Do not synchronously wait for
-                                the requested operation to finish. If this is
-                                not specified the job will be verified,
-                                enqueued and <command>systemctl</command> will
-                                wait until it is completed. By passing this
-                                argument it is only verified and
-                                enqueued.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--no-legend</option></term>
-
-                                <listitem><para>Do not print a legend, i.e.
-                                the column headers and the footer with hints.
-                                </para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--no-pager</option></term>
-
-                                <listitem><para>Do not pipe output into a
-                                pager.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--system</option></term>
-
-                                <listitem><para>Talk to the systemd
-                                system manager. (Default)</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--user</option></term>
-
-                                <listitem><para>Talk to the systemd
-                                manager of the calling user.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--no-wall</option></term>
-
-                                <listitem><para>Don't send wall
-                                message before
-                                halt, power-off, reboot.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--global</option></term>
-
-                                <listitem><para>When used with
-                                <command>enable</command> and
-                                <command>disable</command>, operate on the
-                                global user configuration
-                                directory, thus enabling or disabling
-                                a unit file globally for all future
-                                logins of all users.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--no-reload</option></term>
-
-                                <listitem><para>When used with
-                                <command>enable</command> and
-                                <command>disable</command>, do not
-                                implicitly reload daemon configuration
-                                after executing the
-                                changes.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--no-ask-password</option></term>
-
-                                <listitem><para>When used with
-                                <command>start</command> and related
-                                commands, disables asking for
-                                passwords. Background services may
-                                require input of a password or
-                                passphrase string, for example to
-                                unlock system hard disks or
-                                cryptographic certificates. Unless
-                                this option is specified and the
-                                command is invoked from a terminal
-                                <command>systemctl</command> will
-                                query the user on the terminal for the
-                                necessary secrets. Use this option to
-                                switch this behavior off. In this case
-                                the password must be supplied by some
-                                other means (for example graphical
-                                password agents) or the service might
-                                fail. This also disables querying the
-                                user for authentication for privileged
-                                operations.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--kill-who=</option></term>
-
-                                <listitem><para>When used with
-                                <command>kill</command>, choose which
-                                processes to kill. Must be one of
-                                <option>main</option>,
-                                <option>control</option> or
-                                <option>all</option> to select whether
-                                to kill only the main process of the
-                                unit, the control process or all
-                                processes of the unit. If omitted
-                                defaults to
-                                <option>all</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-s</option></term>
-                                <term><option>--signal=</option></term>
-
-                                <listitem><para>When used with
-                                <command>kill</command>, choose which
-                                signal to send to selected
-                                processes. Must be one of the well
-                                known signal specifiers such as
-                                SIGTERM, SIGINT or SIGSTOP. If
-                                omitted defaults to
-                                <option>SIGTERM</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-f</option></term>
-                                <term><option>--force</option></term>
-
-                                <listitem><para>When used with
-                                <command>enable</command>, overwrite any
-                                existing conflicting
-                                symlinks.</para></listitem>
-
-                                <listitem><para>When used with
-                                <command>halt</command>,
-                                <command>poweroff</command>,
-                                <command>reboot</command> or
-                                <command>kexec</command> execute the
-                                selected operation without shutting
-                                down all units. However, all processes
-                                will be killed forcibly and all file
-                                systems are unmounted or remounted
-                                read-only. This is hence a drastic but
-                                relatively safe option to request an
-                                immediate reboot. If
-                                <option>--force</option> is specified
-                                twice for these operations, they will
-                                be executed immediately without
-                                terminating any processes or umounting
-                                any file systems. Warning: specifying
-                                <option>--force</option> twice with
-                                any of these operations might result
-                                in data loss.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--root=</option></term>
-
-                                <listitem><para>When used with
-                                <command>enable</command>/<command>disable</command>/<command>is-enabled</command> (and
-                                related commands), use alternative
-                                root path when looking for unit
-                                files.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--runtime</option></term>
-
-                                <listitem><para>When used with
-                                <command>enable</command>/<command>disable</command>/<command>is-enabled</command> (and related commands), make
-                                changes only temporarily, so that they
-                                are dropped on the next reboot. This
-                                will have the effect that changes are
-                                not made in subdirectories of
-                                <filename>/etc</filename> but in
-                                <filename>/run</filename>, with
-                                identical immediate effects, however,
-                                since the latter is lost on reboot,
-                                the changes are lost
-                                too.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-H</option></term>
-                                <term><option>--host</option></term>
-
-                                <listitem><para>Execute operation
-                                remotely. Specify a hostname, or
-                                username and hostname separated by @,
-                                to connect to. This will use SSH to
-                                talk to the remote systemd
-                                instance.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-P</option></term>
-                                <term><option>--privileged</option></term>
-
-                                <listitem><para>Acquire privileges via
-                                PolicyKit before executing the
-                                operation.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-n</option></term>
-                                <term><option>--lines=</option></term>
-
-                                <listitem><para>When used with
-                                <command>status</command> controls the
-                                number of journal lines to show,
-                                counting from the most recent
-                                ones. Takes a positive integer
-                                argument. Defaults to
-                                10.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-o</option></term>
-                                <term><option>--output=</option></term>
-
-                                <listitem><para>When used with
-                                <command>status</command> controls the
-                                formatting of the journal entries that
-                                are shown. For the available choices
-                                see
-                                <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Defaults
-                                to
-                                <literal>short</literal>.</para></listitem>
-                        </varlistentry>
-
-                </variablelist>
-
-                <para>The following commands are understood:</para>
-
-                <variablelist>
-                        <varlistentry>
-                                <term><command>list-units</command></term>
-
-                                <listitem><para>List known units (subject to limitations
-                                specified with <option>-t</option>).</para>
-
-                                <para>This is the default command.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>start [NAME...]</command></term>
-
-                                <listitem><para>Start (activate) one
-                                or more units specified on the command
-                                line.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>stop [NAME...]</command></term>
-
-                                <listitem><para>Stop (deactivate) one
-                                or more units specified on the command
-                                line.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>reload [NAME...]</command></term>
-
-                                <listitem><para>Asks all units listed
-                                on the command line to reload their
-                                configuration. Note that this will
-                                reload the service-specific
-                                configuration, not the unit
-                                configuration file of systemd. If you
-                                want systemd to reload the
-                                configuration file of a unit use the
-                                <command>daemon-reload</command>
-                                command. In other words: for the
-                                example case of Apache, this will
-                                reload Apache's
-                                <filename>httpd.conf</filename> in the
-                                web server, not the
-                                <filename>apache.service</filename>
-                                systemd unit file. </para>
-
-                                <para>This command should not be
-                                confused with the
-                                <command>daemon-reload</command> or
-                                <command>load</command>
-                                commands.</para></listitem>
-
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>restart [NAME...]</command></term>
-
-                                <listitem><para>Restart one or more
-                                units specified on the command
-                                line. If the units are not running yet
-                                they will be
-                                started.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>try-restart [NAME...]</command></term>
-
-                                <listitem><para>Restart one or more
-                                units specified on the command
-                                line if the units are running. Do
-                                nothing if units are not running.
-                                Note that for compatibility
-                                with Red Hat init scripts
-                                <command>condrestart</command> is
-                                equivalent to this command.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>reload-or-restart [NAME...]</command></term>
-
-                                <listitem><para>Reload one or more
-                                units if they support it. If not,
-                                restart them instead. If the units
-                                are not running yet they will be
-                                started.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>reload-or-try-restart [NAME...]</command></term>
-
-                                <listitem><para>Reload one or more
-                                units if they support it. If not,
-                                restart them instead. Do nothing if
-                                the units are not running. Note that
-                                for compatibility with SysV init
-                                scripts
-                                <command>force-reload</command> is
-                                equivalent to this
-                                command.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>isolate [NAME]</command></term>
-
-                                <listitem><para>Start the unit
-                                specified on the command line and its
-                                dependencies and stop all others.</para>
-
-                                <para>This is similar to changing the
-                                runlevel in a traditional init system. The
-                                <command>isolate</command> command will
-                                immediately stop processes that are not
-                                enabled in the new unit, possibly including
-                                the graphical environment or terminal you
-                                are currently using.</para>
-
-                                <para>Note that this works only on units
-                                where <option>AllowIsolate=</option> is
-                                enabled. See
-                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                for details.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>kill [NAME...]</command></term>
-
-                                <listitem><para>Send a signal to one
-                                or more processes of the unit. Use
-                                <option>--kill-who=</option> to select
-                                which process to kill. Use
-                                <option>--kill-mode=</option> to
-                                select the kill mode and
-                                <option>--signal=</option> to select
-                                the signal to send.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>is-active [NAME...]</command></term>
-
-                                <listitem><para>Check whether any of
-                                the specified units are active
-                                (i.e. running). Returns an exit code
-                                0 if at least one is active, non-zero
-                                otherwise. Unless
-                                <option>--quiet</option> is specified
-                                this will also print the current unit
-                                state to STDOUT.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>is-failed [NAME...]</command></term>
-
-                                <listitem><para>Check whether any of
-                                the specified units are failed.
-                                Returns an exit code
-                                0 if at least one is failed, non-zero
-                                otherwise. Unless
-                                <option>--quiet</option> is specified
-                                this will also print the current unit
-                                state to STDOUT.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>status [NAME...|PID...]</command></term>
-
-                                <listitem><para>Show terse runtime
-                                status information about one or more
-                                units, followed by most recent log
-                                data from the journal. If no units are
-                                specified, show all units (subject to
-                                limitations specified with
-                                <option>-t</option>). If a PID is
-                                passed show information about the unit
-                                the process belongs to.</para>
-
-                                <para>This function is intended to
-                                generate human-readable output. If you
-                                are looking for computer-parsable
-                                output, use <command>show</command>
-                                instead.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>show [NAME...|JOB...]</command></term>
-
-                                <listitem><para>Show properties of one
-                                or more units, jobs or the manager
-                                itself. If no argument is specified
-                                properties of the manager will be
-                                shown. If a unit name is specified
-                                properties of the unit is shown, and
-                                if a job id is specified properties of
-                                the job is shown. By default, empty
-                                properties are suppressed. Use
-                                <option>--all</option> to show those
-                                too. To select specific properties to
-                                show use
-                                <option>--property=</option>. This
-                                command is intended to be used
-                                whenever computer-parsable output is
-                                required. Use
-                                <command>status</command> if you are
-                                looking for formatted human-readable
-                                output.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>help [NAME...|PID...]</command></term>
-
-                                <listitem><para>Show manual pages for
-                                one or more units, if available. If a
-                                PID is passed the manual pages for the
-                                unit the process of the PID belongs to
-                                is shown.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>reset-failed [NAME...]</command></term>
-
-                                <listitem><para>Reset the
-                                '<literal>failed</literal>' state of the
-                                specified units, or if no unit name is
-                                passed of all units. When a unit fails
-                                in some way (i.e. process exiting with
-                                non-zero error code, terminating
-                                abnormally or timing out) it will
-                                automatically enter the
-                                '<literal>failed</literal>' state and
-                                its exit code and status is recorded
-                                for introspection by the administrator
-                                until the service is restarted or
-                                reset with this
-                                command.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>list-unit-files</command></term>
-
-                                <listitem><para>List installed unit files.
-                                </para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>enable [NAME...]</command></term>
-
-                                <listitem><para>Enable one or
-                                more unit files or unit file
-                                instances, as specified on the
-                                command line. This will create a
-                                number of symlinks as encoded in
-                                the <literal>[Install]</literal>
-                                sections of the unit files. After
-                                the symlinks have been created the
-                                systemd configuration is reloaded
-                                (in a way that is equivalent to
-                                <command>daemon-reload</command>)
-                                to ensure the changes are taken into
-                                account immediately. Note that this
-                                does not have the effect that any of
-                                the units enabled are also started at
-                                the same time.  If this is desired
-                                a separate <command>start</command>
-                                command must be invoked for the unit.
-                                Also note that in case of instance
-                                enablement, symlinks named same as
-                                instances are created in install
-                                location, however they all point to
-                                the same template unit file.</para>
-
-                                <para>This command will
-                                print the actions executed. This
-                                output may be suppressed by passing
-                                <option>--quiet</option>.</para>
-
-                                <para>Note that this operation creates
-                                only the suggested symlinks for the
-                                units. While this command is the
-                                recommended way to manipulate the unit
-                                configuration directory, the
-                                administrator is free to make
-                                additional changes manually, by
-                                placing or removing symlinks in the
-                                directory. This is particularly useful
-                                to create configurations that deviate
-                                from the suggested default
-                                installation. In this case the
-                                administrator must make sure to invoke
-                                <command>daemon-reload</command>
-                                manually as necessary, to ensure his
-                                changes are taken into account.</para>
-
-                                <para>Enabling units should not be
-                                confused with starting (activating)
-                                units, as done by the
-                                <command>start</command>
-                                command. Enabling and starting units
-                                is orthogonal: units may be enabled
-                                without being started and started
-                                without being enabled. Enabling simply
-                                hooks the unit into various suggested
-                                places (for example, so that the unit
-                                is automatically started on boot or
-                                when a particular kind of hardware is
-                                plugged in). Starting actually spawns
-                                the daemon process (in case of service
-                                units), or binds the socket (in case
-                                of socket units), and so
-                                on.</para>
-
-                                <para>Depending on whether
-                                <option>--system</option>,
-                                <option>--user</option> or
-                                <option>--global</option> is specified
-                                this enables the unit for the system,
-                                for the calling user only
-                                or for all future logins of all
-                                users. Note that in the latter case no
-                                systemd daemon configuration is
-                                reloaded.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>disable [NAME...]</command></term>
-
-                                <listitem><para>Disables one or more
-                                units. This removes all symlinks to
-                                the specified unit files from the unit
-                                configuration directory, and hence
-                                undoes the changes made by
-                                <command>enable</command>. Note
-                                however that this removes
-                                all symlinks to the unit files
-                                (i.e. including manual additions), not
-                                just those actually created by
-                                <command>enable</command>. This call
-                                implicitly reloads the systemd daemon
-                                configuration after completing the
-                                disabling of the units. Note that this
-                                command does not implicitly stop the
-                                units that are being disabled. If this
-                                is desired an additional
-                                <command>stop</command> command should
-                                be executed afterwards.</para>
-
-                                <para>This command will print the
-                                actions executed. This output may be
-                                suppressed by passing
-                                <option>--quiet</option>.</para>
-                                </listitem>
-
-                                <para>This command honors
-                                <option>--system</option>,
-                                <option>--user</option>,
-                                <option>--global</option> in a similar
-                                way as
-                                <command>enable</command>.</para>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>is-enabled [NAME...]</command></term>
-
-                                <listitem><para>Checks whether any of
-                                the specified unit files are enabled
-                                (as with
-                                <command>enable</command>). Returns an
-                                exit code of 0 if at least one is
-                                enabled, non-zero otherwise. Prints
-                                the current enable status. To suppress
-                                this output use
-                                <option>--quiet</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>reenable [NAME...]</command></term>
-
-                                <listitem><para>Reenable one or more
-                                unit files, as specified on the
-                                command line. This is a combination of
-                                <command>disable</command> and
-                                <command>enable</command> and is
-                                useful to reset the symlinks a unit is
-                                enabled with to the defaults
-                                configured in the
-                                <literal>[Install]</literal> section
-                                of the unit file.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>preset [NAME...]</command></term>
-
-                                <listitem><para>Reset one or more unit
-                                files, as specified on the command
-                                line, to the defaults configured in
-                                the preset policy files. This has the
-                                same effect as
-                                <command>disable</command> or
-                                <command>enable</command>, depending
-                                how the unit is listed in the preset
-                                files. For more information on preset
-                                policy format see
-                                <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
-                                more information on the concept of
-                                presets please consult the <ulink
-                                url="http://freedesktop.org/wiki/Software/systemd/Preset">Preset</ulink>
-                                document.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>mask [NAME...]</command></term>
-
-                                <listitem><para>Mask one or more unit
-                                files, as specified on the command
-                                line. This will link these units to
-                                <filename>/dev/null</filename>, making
-                                it impossible to start them. This is a stronger version
-                                of <command>disable</command>, since
-                                it prohibits all kinds of activation
-                                of the unit, including manual
-                                activation. Use this option with
-                                care.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>unmask [NAME...]</command></term>
-
-                                <listitem><para>Unmask one or more
-                                unit files, as specified on the
-                                command line. This will undo the
-                                effect of
-                                <command>mask</command>.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>link [NAME...]</command></term>
-
-                                <listitem><para>Link a unit file that
-                                is not in the unit file search paths
-                                into the unit file search path. This
-                                requires an absolute path to a unit
-                                file. The effect of this can be undone
-                                with <command>disable</command>. The
-                                effect of this command is that a unit
-                                file is available for
-                                <command>start</command> and other
-                                commands although it isn't installed
-                                directly in the unit search
-                                path.</para>
-                                </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><command>load [NAME...]</command></term>
-
-                                <listitem><para>Load one or more units
-                                specified on the command line. This
-                                will simply load their configuration
-                                from disk, but not start them. To
-                                start them you need to use the
-                                <command>start</command> command which
-                                will implicitly load a unit that has
-                                not been loaded yet. Note that systemd
-                                garbage collects loaded units that are
-                                not active or referenced by an active
-                                unit. This means that units loaded
-                                this way will usually not stay loaded
-                                for long. Also note that this command
-                                cannot be used to reload unit
-                                configuration. Use the
-                                <command>daemon-reload</command>
-                                command for that. All in all, this
-                                command is of little use except for
-                                debugging.</para>
-                                <para>This command should not be
-                                confused with the
-                                <command>daemon-reload</command> or
-                                <command>reload</command>
-                                commands.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>list-jobs</command></term>
-
-                                <listitem><para>List jobs that are in progress.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>cancel [JOB...]</command></term>
-
-                                <listitem><para>Cancel one or more
-                                jobs specified on the command line by
-                                their numeric job
-                                IDs. If no job id is specified, cancel all pending jobs.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>dump</command></term>
-
-                                <listitem><para>Dump server
-                                status. This will output a (usually
-                                very long) human readable manager
-                                status dump. Its format is subject to
-                                change without notice and should not
-                                be parsed by
-                                applications.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>list-dependencies [NAME]</command></term>
-
-                                <listitem><para> Shows required and
-                                wanted units of the specified unit. If
-                                no unit is specified
-                                <filename>default.target</filename> is
-                                implied. Target units are recursively
-                                expanded.  When <option>--all</option>
-                                is passed all other units aare
-                                recursively expanded as well.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>snapshot [NAME]</command></term>
-
-                                <listitem><para>Create a snapshot. If
-                                a snapshot name is specified, the new
-                                snapshot will be named after it. If
-                                none is specified an automatic
-                                snapshot name is generated. In either
-                                case, the snapshot name used is
-                                printed to STDOUT, unless
-                                <option>--quiet</option> is
-                                specified.</para>
-
-                                <para>A snapshot refers to a saved
-                                state of the systemd manager. It is
-                                implemented itself as a unit that is
-                                generated dynamically with this
-                                command and has dependencies on all
-                                units active at the time. At a later
-                                time the user may return to this state
-                                by using the
-                                <command>isolate</command> command on
-                                the snapshot unit.</para></listitem>
-
-                                <para>Snapshots are only useful for
-                                saving and restoring which units are
-                                running or are stopped, they do not
-                                save/restore any other
-                                state. Snapshots are dynamic and lost
-                                on reboot.</para>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>delete [NAME...]</command></term>
-
-                                <listitem><para>Remove a snapshot
-                                previously created with
-                                <command>snapshot</command>.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>daemon-reload</command></term>
-
-                                <listitem><para>Reload systemd manager
-                                configuration. This will reload all
-                                unit files and recreate the entire
-                                dependency tree. While the daemon is
-                                reloaded, all sockets systemd listens
-                                on on behalf of user configuration will
-                                stay accessible.</para> <para>This
-                                command should not be confused with
-                                the <command>load</command> or
-                                <command>reload</command>
-                                commands.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>daemon-reexec</command></term>
-
-                                <listitem><para>Reexecute the systemd
-                                manager. This will serialize the
-                                manager state, reexecute the process
-                                and deserialize the state again. This
-                                command is of little use except for
-                                debugging and package
-                                upgrades. Sometimes it might be
-                                helpful as a heavy-weight
-                                <command>daemon-reload</command>. While
-                                the daemon is reexecuted all sockets
-                                systemd listens on on behalf of user
-                                configuration will stay
-                                accessible.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>show-environment</command></term>
-
-                                <listitem><para>Dump the systemd
-                                manager environment block. The
-                                environment block will be dumped in
-                                straight-forward form suitable for
-                                sourcing into a shell script. This
-                                environment block will be passed to
-                                all processes the manager
-                                spawns.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>set-environment [NAME=VALUE...]</command></term>
-
-                                <listitem><para>Set one or more
-                                systemd manager environment variables,
-                                as specified on the command
-                                line.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>unset-environment [NAME...]</command></term>
-
-                                <listitem><para>Unset one or more
-                                systemd manager environment
-                                variables. If only a variable name is
-                                specified it will be removed
-                                regardless of its value. If a variable
-                                and a value are specified the variable
-                                is only removed if it has the
-                                specified value.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>default</command></term>
-
-                                <listitem><para>Enter default
-                                mode. This is mostly equivalent to
-                                <command>start
-                                default.target</command>.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>rescue</command></term>
-
-                                <listitem><para>Enter rescue
-                                mode. This is mostly equivalent to
-                                <command>isolate
-                                rescue.target</command> but also
-                                prints a wall message to all
-                                users.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>emergency</command></term>
-
-                                <listitem><para>Enter emergency
-                                mode. This is mostly equivalent to
-                                <command>isolate
-                                emergency.target</command> but also
-                                prints a wall message to all
-                                users.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>halt</command></term>
-
-                                <listitem><para>Shut down and halt the
-                                system. This is mostly equivalent to
-                                <command>start halt.target</command>
-                                but also prints a wall message to all
-                                users.  If combined with
-                                <option>--force</option> shutdown of
-                                all running services is skipped,
-                                however all processes are killed and
-                                all file systems are unmounted or
-                                mounted read-only, immediately
-                                followed by the system halt.  If
-                                <option>--force</option> is specified
-                                twice the operation is immediately
-                                executed without terminating any
-                                processes or unmounting any file
-                                systems. This may result in data
-                                loss.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>poweroff</command></term>
-
-                                <listitem><para>Shut down and
-                                power-off the system. This is mostly
-                                equivalent to <command>start
-                                poweroff.target</command> but also
-                                prints a wall message to all users. If
-                                combined with <option>--force</option>
-                                shutdown of all running services is
-                                skipped, however all processes are
-                                killed and all file systems are
-                                unmounted or mounted read-only,
-                                immediately followed by the powering
-                                off. If <option>--force</option> is
-                                specified twice the operation is
-                                immediately executed without
-                                terminating any processes or
-                                unmounting any file systems. This may
-                                result in data loss.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>reboot</command></term>
-
-                                <listitem><para>Shut down and reboot
-                                the system. This is mostly equivalent
-                                to <command>start
-                                reboot.target</command> but also
-                                prints a wall message to all users. If
-                                combined with <option>--force</option>
-                                shutdown of all running services is
-                                skipped, however all processes are
-                                killed and all file systems are
-                                unmounted or mounted read-only,
-                                immediately followed by the reboot. If
-                                <option>--force</option> is specified
-                                twice the operation is immediately
-                                executed without terminating any
-                                processes or unmounting any file
-                                systems. This may result in data
-                                loss.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>kexec</command></term>
-
-                                <listitem><para>Shut down and reboot
-                                the system via kexec. This is mostly
-                                equivalent to <command>start
-                                kexec.target</command> but also prints
-                                a wall message to all users. If
-                                combined with <option>--force</option>
-                                shutdown of all running services is
-                                skipped, however all processes are killed
-                                and all file systems are unmounted or
-                                mounted read-only, immediately
-                                followed by the
-                                reboot.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>exit</command></term>
-
-                                <listitem><para>Ask the systemd
-                                manager to quit. This is only
-                                supported for user service managers
-                                (i.e. in conjunction with the
-                                <option>--user</option> option) and
-                                will fail otherwise.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>suspend</command></term>
-
-                                <listitem><para>Suspend the
-                                system. This will trigger activation
-                                of the special
-                                <filename>suspend.target</filename>
-                                target.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>hibernate</command></term>
-
-                                <listitem><para>Hibernate the
-                                system. This will trigger activation
-                                of the special
-                                <filename>hibernate.target</filename>
-                                target.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>hybrid-sleep</command></term>
-
-                                <listitem><para>Hibernate and suspend
-                                the system. This will trigger
-                                activation of the special
-                                <filename>hybrid-sleep.target</filename>
-                                target.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>switch-root [ROOT] [INIT]</command></term>
-
-                                <listitem><para>Switches to a
-                                different root directory and executes
-                                a new system manager process below
-                                it. This is intended for usage in
-                                initial RAM disks ("initrd"), and will
-                                transition from the initrd's system
-                                manager process (a.k.a "init" process)
-                                to the main system manager
-                                process. Takes two arguments: the
-                                directory to make the new root
-                                directory, and the path to the new
-                                system manager binary below it to
-                                execute as PID 1. If the latter is
-                                omitted or the empty string, a
-                                systemd binary will automatically be
-                                searched for and used as init. If the
-                                system manager path is omitted or
-                                equal the empty string the state of
-                                the initrd's system manager process is
-                                passed to the main system manager,
-                                which allows later introspection of the
-                                state of the services involved in the
-                                initrd boot.</para></listitem>
-                        </varlistentry>
-                </variablelist>
-
-        </refsect1>
-
-        <refsect1>
-                <title>Exit status</title>
-
-                <para>On success 0 is returned, a non-zero failure
-                code otherwise.</para>
-        </refsect1>
-
-        <refsect1>
-                <title>Environment</title>
-
-                <variablelist class='environment-variables'>
-                        <varlistentry>
-                                <term><varname>$SYSTEMD_PAGER</varname></term>
-                                <listitem><para>Pager to use when
-                                <option>--no-pager</option> is not given;
-                                overrides <varname>$PAGER</varname>.  Setting
-                                this to an empty string or the value
-                                <literal>cat</literal> is equivalent to passing
-                                <option>--no-pager</option>.</para></listitem>
-                        </varlistentry>
-                </variablelist>
-        </refsect1>
-
-        <refsect1>
-                <title>See Also</title>
-                <para>
-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemadm</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                </para>
-        </refsect1>
+  <refentryinfo>
+    <title>systemctl</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemctl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemctl</refname>
+    <refpurpose>Control the systemd system and service manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">COMMAND</arg>
+      <arg choice="opt" rep="repeat">NAME</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemctl</command> may be used to
+    introspect and control the state of the
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    system and service manager.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-h</option></term>
+        <term><option>--help</option></term>
+
+        <listitem><para>Prints a short help
+        text and exits.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--version</option></term>
+
+        <listitem>
+          <para>Prints a short version string and exits.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-t</option></term>
+        <term><option>--type=</option></term>
+
+        <listitem>
+          <para>The argument should be a unit type name such as
+          <option>service</option> and <option>socket</option>, or a
+          unit load state such as <option>loaded</option> and
+          <option>masked</option>.
+          </para>
+
+          <para>If the argument is a unit type, when listing units,
+          limit display to certain unit types. If not specified units
+          of all types will be shown.</para>
+
+          <para>If the argument is a unit load state, when listing
+          units, limit display to certain unit types. If not specified
+          units of in all load states will be shown.</para>
+
+          <para>As a special case, if the argument is
+          <option>help</option>, a list of allowed values will be
+          printed and the program will exit.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-p</option></term>
+        <term><option>--property=</option></term>
+
+        <listitem>
+          <para>When showing unit/job/manager properties, limit
+          display to certain properties as specified as argument. If
+          not specified all set properties are shown. The argument
+          should be a property name, such as
+          <literal>MainPID</literal>. If specified more than once all
+          properties with the specified names are
+          shown.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-a</option></term>
+        <term><option>--all</option></term>
+
+        <listitem>
+          <para>When listing units, show all units, regardless of
+          their state, including inactive units. When showing
+          unit/job/manager properties, show all properties regardless
+          whether they are set or not.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--failed</option></term>
+
+        <listitem>
+          <para>When listing units, show only failed units. Do not
+          confuse with <option>--fail</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--full</option></term>
+
+        <listitem>
+          <para>Do not ellipsize unit names, cgroup members, and
+          truncate unit descriptions in the output of
+          <command>list-units</command> and
+          <command>list-jobs</command>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fail</option></term>
+
+        <listitem>
+          <para>If the requested operation conflicts with a pending
+          unfinished job, fail the command. If this is not specified
+          the requested operation will replace the pending job, if
+          necessary. Do not confuse with
+          <option>--failed</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--ignore-dependencies</option></term>
+
+        <listitem>
+          <para>When enqueuing a new job ignore all its dependencies
+          and execute it immediately. If passed no required units of
+          the unit passed will be pulled in, and no ordering
+          dependencies will be honored. This is mostly a debugging and
+          rescue tool for the administrator and should not be used by
+          applications.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-i</option></term>
+        <term><option>--ignore-inhibitors</option></term>
+
+        <listitem>
+          <para>When system shutdown or a sleep state is requested,
+          ignore inhibitor locks. Applications can establish inhibitor
+          locks to avoid that certain important operations (such as CD
+          burning or suchlike) are interrupted by system shutdown or a
+          sleep state. Any user may take these locks and privileged
+          users may override these locks. If any locks are taken,
+          shutdown and sleep state requests will normally fail
+          (regardless if privileged or not) and list of active locks
+          is printed. However if <option>--ignore-inhibitors</option>
+          is specified the locks are ignored and not printed, and the
+          operation attempted anyway, possibly requiring additional
+          privileges.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem>
+          <para>Suppress output to standard output in
+          <command>snapshot</command>,
+          <command>is-active</command>,
+          <command>is-failed</command>,
+          <command>enable</command> and
+        <command>disable</command>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-block</option></term>
+
+        <listitem>
+          <para>Do not synchronously wait for the requested operation
+          to finish. If this is not specified the job will be
+          verified, enqueued and <command>systemctl</command> will
+          wait until it is completed. By passing this argument it is
+          only verified and enqueued.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-legend</option></term>
+
+        <listitem>
+          <para>Do not print a legend, i.e.  the column headers and
+          the footer with hints.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-pager</option></term>
+
+        <listitem>
+          <para>Do not pipe output into a pager.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--system</option></term>
+
+        <listitem>
+          <para>Talk to the systemd system manager. (Default)</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--user</option></term>
+
+        <listitem>
+          <para>Talk to the systemd manager of the calling
+          user.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-wall</option></term>
+
+        <listitem>
+          <para>Don't send wall message before halt, power-off,
+          reboot.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--global</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command> and
+          <command>disable</command>, operate on the global user
+          configuration directory, thus enabling or disabling a unit
+          file globally for all future logins of all users.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-reload</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command> and
+          <command>disable</command>, do not implicitly reload daemon
+          configuration after executing the changes.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-ask-password</option></term>
+
+        <listitem>
+          <para>When used with <command>start</command> and related
+          commands, disables asking for passwords. Background services
+          may require input of a password or passphrase string, for
+          example to unlock system hard disks or cryptographic
+          certificates. Unless this option is specified and the
+          command is invoked from a terminal
+          <command>systemctl</command> will query the user on the
+          terminal for the necessary secrets. Use this option to
+          switch this behavior off. In this case the password must be
+          supplied by some other means (for example graphical password
+          agents) or the service might fail. This also disables
+          querying the user for authentication for privileged
+          operations.</para>
+        </listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-who=</option></term>
+
+        <listitem>
+          <para>When used with <command>kill</command>, choose which
+          processes to kill. Must be one of <option>main</option>,
+          <option>control</option> or <option>all</option> to select
+          whether to kill only the main process of the unit, the
+          control process or all processes of the unit. If omitted
+          defaults to <option>all</option>.</para>
+        </listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-s</option></term>
+        <term><option>--signal=</option></term>
+
+        <listitem>
+          <para>When used with <command>kill</command>, choose which
+          signal to send to selected processes. Must be one of the
+          well known signal specifiers such as SIGTERM, SIGINT or
+          SIGSTOP. If omitted defaults to
+          <option>SIGTERM</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-f</option></term>
+        <term><option>--force</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command>, overwrite
+          any existing conflicting symlinks.</para>
+
+          <para>When used with <command>halt</command>,
+          <command>poweroff</command>, <command>reboot</command> or
+          <command>kexec</command> execute the selected operation
+          without shutting down all units. However, all processes will
+          be killed forcibly and all file systems are unmounted or
+          remounted read-only. This is hence a drastic but relatively
+          safe option to request an immediate reboot. If
+          <option>--force</option> is specified twice for these
+          operations, they will be executed immediately without
+          terminating any processes or umounting any file
+          systems. Warning: specifying <option>--force</option> twice
+          with any of these operations might result in data
+          loss.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root=</option></term>
+
+        <listitem>
+          <para>When used with
+          <command>enable</command>/<command>disable</command>/<command>is-enabled</command>
+          (and related commands), use alternative root path when
+          looking for unit files.</para>
+        </listitem>
+
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--runtime</option></term>
+
+        <listitem>
+          <para>When used with
+          <command>enable</command>/<command>disable</command>/<command>is-enabled</command>
+          (and related commands), make changes only temporarily, so
+          that they are dropped on the next reboot. This will have the
+          effect that changes are not made in subdirectories of
+          <filename>/etc</filename> but in <filename>/run</filename>,
+          with identical immediate effects, however, since the latter
+          is lost on reboot, the changes are lost too.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-H</option></term>
+        <term><option>--host</option></term>
+
+        <listitem>
+          <para>Execute operation remotely. Specify a hostname, or
+          username and hostname separated by @, to connect to. This
+          will use SSH to talk to the remote systemd
+          instance.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-P</option></term>
+        <term><option>--privileged</option></term>
+
+        <listitem>
+          <para>Acquire privileges via PolicyKit before executing the
+          operation.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--lines=</option></term>
+
+        <listitem>
+          <para>When used with <command>status</command> controls the
+          number of journal lines to show, counting from the most
+          recent ones. Takes a positive integer argument. Defaults to
+          10.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-o</option></term>
+        <term><option>--output=</option></term>
+
+        <listitem>
+          <para>When used with <command>status</command> controls the
+          formatting of the journal entries that are shown. For the
+          available choices see
+          <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+          Defaults to <literal>short</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>list-units</command></term>
+
+        <listitem>
+          <para>List known units (subject to limitations specified
+          with <option>-t</option>).</para>
+
+          <para>This is the default command.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>start <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Start (activate) one or more units specified on the
+          command line.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>stop <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Stop (deactivate) one or more units specified on the
+          command line.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>reload <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Asks all units listed on the command line to reload
+          their configuration. Note that this will reload the
+          service-specific configuration, not the unit configuration
+          file of systemd. If you want systemd to reload the
+          configuration file of a unit use the
+          <command>daemon-reload</command> command. In other words:
+          for the example case of Apache, this will reload Apache's
+          <filename>httpd.conf</filename> in the web server, not the
+          <filename>apache.service</filename> systemd unit
+          file. </para>
+
+          <para>This command should not be confused with the
+          <command>daemon-reload</command> or <command>load</command>
+          commands.</para>
+        </listitem>
+
+      </varlistentry>
+      <varlistentry>
+        <term><command>restart <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Restart one or more units specified on the command
+          line. If the units are not running yet they will be
+          started.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>try-restart <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Restart one or more units specified on the command
+          line if the units are running. Do nothing if units are not
+          running.  Note that for compatibility with Red Hat init
+          scripts <command>condrestart</command> is equivalent to this
+          command.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>reload-or-restart <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Reload one or more units if they support it. If not,
+          restart them instead. If the units are not running yet they
+          will be started.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>reload-or-try-restart <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Reload one or more units if they support it. If not,
+          restart them instead. Do nothing if the units are not
+          running. Note that for compatibility with SysV init scripts
+          <command>force-reload</command> is equivalent to this
+          command.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>isolate <replaceable>NAME</replaceable></command></term>
+
+        <listitem>
+          <para>Start the unit specified on the command line and its
+          dependencies and stop all others.</para>
+
+          <para>This is similar to changing the runlevel in a
+          traditional init system. The <command>isolate</command>
+          command will immediately stop processes that are not enabled
+          in the new unit, possibly including the graphical
+          environment or terminal you are currently using.</para>
+
+          <para>Note that this is allowed only on units where
+          <option>AllowIsolate=</option> is enabled. See
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>kill <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Send a signal to one or more processes of the
+          unit. Use <option>--kill-who=</option> to select which
+          process to kill. Use <option>--kill-mode=</option> to select
+          the kill mode and <option>--signal=</option> to select the
+          signal to send.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>is-active <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Check whether any of the specified units are active
+          (i.e. running). Returns an exit code 0 if at least one is
+          active, non-zero otherwise. Unless <option>--quiet</option>
+          is specified this will also print the current unit state to
+          STDOUT.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>is-failed <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Check whether any of the specified units are failed.
+          Returns an exit code 0 if at least one is failed, non-zero
+          otherwise. Unless <option>--quiet</option> is specified this
+          will also print the current unit state to
+          STDOUT.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>status [<replaceable>NAME</replaceable>...|<replaceable>PID</replaceable>...]</command></term>
+
+        <listitem>
+          <para>Show terse runtime status information about one or
+          more units, followed by most recent log data from the
+          journal. If no units are specified, show all units (subject
+          to limitations specified with <option>-t</option>). If a PID
+          is passed show information about the unit the process
+          belongs to.</para>
+
+          <para>This function is intended to generate human-readable
+          output. If you are looking for computer-parsable output, use
+          <command>show</command> instead.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>show [<replaceable>NAME</replaceable>...|<replaceable>JOB</replaceable>...]</command></term>
+
+        <listitem>
+          <para>Show properties of one or more units, jobs, or the
+          manager itself. If no argument is specified properties of
+          the manager will be shown. If a unit name is specified
+          properties of the unit is shown, and if a job id is
+          specified properties of the job is shown. By default, empty
+          properties are suppressed. Use <option>--all</option> to
+          show those too. To select specific properties to show use
+          <option>--property=</option>. This command is intended to be
+          used whenever computer-parsable output is required. Use
+          <command>status</command> if you are looking for formatted
+          human-readable output.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>help <replaceable>NAME</replaceable>...|<replaceable>PID</replaceable>...</command></term>
+
+        <listitem>
+          <para>Show manual pages for one or more units, if
+          available. If a PID is passed the manual pages for the unit
+          the process of the PID belongs to is
+          shown.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>reset-failed [<replaceable>NAME</replaceable>...]</command></term>
+
+        <listitem>
+          <para>Reset the <literal>failed</literal> state of the
+          specified units, or if no unit name is passed of all
+          units. When a unit fails in some way (i.e. process exiting
+          with non-zero error code, terminating abnormally or timing
+          out) it will automatically enter the
+          <literal>failed</literal> state and its exit code and status
+          is recorded for introspection by the administrator until the
+          service is restarted or reset with this command.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-unit-files</command></term>
+
+        <listitem>
+          <para>List installed unit files.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>enable <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Enable one or more unit files or unit file instances,
+          as specified on the command line. This will create a number
+          of symlinks as encoded in the <literal>[Install]</literal>
+          sections of the unit files. After the symlinks have been
+          created the systemd configuration is reloaded (in a way that
+          is equivalent to <command>daemon-reload</command>) to ensure
+          the changes are taken into account immediately. Note that
+          this does not have the effect that any of the units enabled
+          are also started at the same time. If this is desired a
+          separate <command>start</command> command must be invoked
+          for the unit. Also note that in case of instance enablement,
+          symlinks named same as instances are created in install
+          location, however they all point to the same template unit
+          file.</para>
+
+          <para>This command will print the actions executed. This
+          output may be suppressed by passing <option>--quiet</option>.
+          </para>
+
+          <para>Note that this operation creates only the suggested
+          symlinks for the units. While this command is the
+          recommended way to manipulate the unit configuration
+          directory, the administrator is free to make additional
+          changes manually, by placing or removing symlinks in the
+          directory. This is particularly useful to create
+          configurations that deviate from the suggested default
+          installation. In this case the administrator must make sure
+          to invoke <command>daemon-reload</command> manually as
+          necessary, to ensure his changes are taken into account.
+          </para>
+
+          <para>Enabling units should not be confused with starting
+          (activating) units, as done by the <command>start</command>
+          command. Enabling and starting units is orthogonal: units
+          may be enabled without being started and started without
+          being enabled. Enabling simply hooks the unit into various
+          suggested places (for example, so that the unit is
+          automatically started on boot or when a particular kind of
+          hardware is plugged in). Starting actually spawns the daemon
+          process (in case of service units), or binds the socket (in
+          case of socket units), and so on.</para>
+
+          <para>Depending on whether <option>--system</option>,
+          <option>--user</option> or <option>--global</option> is
+          specified this enables the unit for the system, for the
+          calling user only or for all future logins of all
+          users. Note that in the last case no systemd daemon
+          configuration is reloaded.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>disable <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Disables one or more units. This removes all symlinks
+          to the specified unit files from the unit configuration
+          directory, and hence undoes the changes made by
+          <command>enable</command>. Note however that this removes
+          all symlinks to the unit files (i.e. including manual
+          additions), not just those actually created by
+          <command>enable</command>. This call implicitly reloads the
+          systemd daemon configuration after completing the disabling
+          of the units. Note that this command does not implicitly
+          stop the units that are being disabled. If this is desired
+          an additional <command>stop</command> command should be
+          executed afterwards.</para>
+
+          <para>This command will print the actions executed. This
+          output may be suppressed by passing <option>--quiet</option>.
+          </para>
+
+          <para>This command honors <option>--system</option>,
+          <option>--user</option>, <option>--global</option> in a
+          similar way as <command>enable</command>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>is-enabled <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Checks whether any of the specified unit files are
+          enabled (as with <command>enable</command>). Returns an exit
+          code of 0 if at least one is enabled, non-zero
+          otherwise. Prints the current enable status. To suppress
+          this output use <option>--quiet</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>reenable <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Reenable one or more unit files, as specified on the
+          command line. This is a combination of
+          <command>disable</command> and <command>enable</command> and
+          is useful to reset the symlinks a unit is enabled with to
+          the defaults configured in the <literal>[Install]</literal>
+          section of the unit file.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>preset <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Reset one or more unit files, as specified on the
+          command line, to the defaults configured in the preset
+          policy files. This has the same effect as
+          <command>disable</command> or <command>enable</command>,
+          depending how the unit is listed in the preset files. For
+          more information on preset policy format see
+          <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          For more information on the concept of presets please
+          consult the
+          <ulink url="http://freedesktop.org/wiki/Software/systemd/Preset">Preset</ulink>
+          document.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>mask <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Mask one or more unit files, as specified on the
+          command line. This will link these units to
+          <filename>/dev/null</filename>, making it impossible to
+          start them. This is a stronger version of
+          <command>disable</command>, since it prohibits all kinds of
+          activation of the unit, including manual activation. Use
+          this option with care.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>unmask <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Unmask one or more unit files, as specified on the
+          command line. This will undo the effect of
+          <command>mask</command>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>link <replaceable>FILENAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Link a unit file that is not in the unit file search
+          paths into the unit file search path. This requires an
+          absolute path to a unit file. The effect of this can be
+          undone with <command>disable</command>. The effect of this
+          command is that a unit file is available for
+          <command>start</command> and other commands although it
+          isn't installed directly in the unit search path.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>load <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Load one or more units specified on the command
+          line. This will simply load their configuration from disk,
+          but not start them. To start them you need to use the
+          <command>start</command> command which will implicitly load
+          a unit that has not been loaded yet. Note that systemd
+          garbage collects loaded units that are not active or
+          referenced by an active unit. This means that units loaded
+          this way will usually not stay loaded for long. Also note
+          that this command cannot be used to reload unit
+          configuration. Use the <command>daemon-reload</command>
+          command for that. All in all, this command is of little use
+          except for debugging.</para>
+
+          <para>This command should not be confused with the
+          <command>daemon-reload</command> or
+          <command>reload</command>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>list-jobs</command></term>
+
+        <listitem>
+          <para>List jobs that are in progress.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>cancel <replaceable>JOB</replaceable>...</command></term>
+
+        <listitem>
+          <para>Cancel one or more jobs specified on the command line
+          by their numeric job IDs. If no job id is specified, cancel
+          all pending jobs.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>dump</command></term>
+
+        <listitem>
+          <para>Dump server status. This will output a (usually very
+          long) human readable manager status dump. Its format is
+          subject to change without notice and should not be parsed by
+          applications.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>list-dependencies <replaceable>NAME</replaceable></command></term>
+
+        <listitem>
+          <para>Shows required and wanted units of the specified
+          unit. If no unit is specified
+          <filename>default.target</filename> is implied. Target units
+          are recursively expanded.  When <option>--all</option> is
+          passed all other units are recursively expanded as
+          well.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>snapshot [<replaceable>NAME</replaceable>]</command></term>
+
+        <listitem>
+          <para>Create a snapshot. If a snapshot name is specified,
+          the new snapshot will be named after it. If none is
+          specified an automatic snapshot name is generated. In either
+          case, the snapshot name used is printed to STDOUT, unless
+          <option>--quiet</option> is specified.</para>
+
+          <para>A snapshot refers to a saved state of the systemd
+          manager. It is implemented itself as a unit that is
+          generated dynamically with this command and has dependencies
+          on all units active at the time. At a later time the user
+          may return to this state by using the
+          <command>isolate</command> command on the snapshot unit.
+          </para>
+
+          <para>Snapshots are only useful for saving and restoring
+          which units are running or are stopped, they do not
+          save/restore any other state. Snapshots are dynamic and lost
+          on reboot.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>delete <replaceable>NAME</replaceable>...</command></term>
+
+        <listitem>
+          <para>Remove a snapshot previously created with
+          <command>snapshot</command>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>daemon-reload</command></term>
+
+        <listitem>
+          <para>Reload systemd manager configuration. This will reload
+          all unit files and recreate the entire dependency
+          tree. While the daemon is reloaded, all sockets systemd
+          listens on on behalf of user configuration will stay
+          accessible.</para> <para>This command should not be confused
+          with the <command>load</command> or
+          <command>reload</command> commands.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>daemon-reexec</command></term>
+
+        <listitem>
+          <para>Reexecute the systemd manager. This will serialize the
+          manager state, reexecute the process and deserialize the
+          state again. This command is of little use except for
+          debugging and package upgrades. Sometimes it might be
+          helpful as a heavy-weight <command>daemon-reload</command>.
+          While the daemon is reexecuted all sockets systemd listens
+          on on behalf of user configuration will stay accessible.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>show-environment</command></term>
+
+        <listitem>
+          <para>Dump the systemd manager environment block. The
+          environment block will be dumped in straight-forward form
+          suitable for sourcing into a shell script. This environment
+          block will be passed to all processes the manager
+          spawns.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>set-environment <replaceable>VARIABLE=VALUE</replaceable>...</command></term>
+
+        <listitem>
+          <para>Set one or more systemd manager environment variables,
+          as specified on the command line.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>unset-environment <replaceable>VARIABLE</replaceable>...</command></term>
+
+        <listitem>
+          <para>Unset one or more systemd manager environment
+          variables. If only a variable name is specified it will be
+          removed regardless of its value. If a variable and a value
+          are specified the variable is only removed if it has the
+          specified value.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>default</command></term>
+
+        <listitem>
+          <para>Enter default mode. This is mostly equivalent to
+          <command>start default.target</command>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>rescue</command></term>
+
+        <listitem>
+          <para>Enter rescue mode. This is mostly equivalent to
+          <command>isolate rescue.target</command> but also prints a
+          wall message to all users.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>emergency</command></term>
+
+        <listitem>
+          <para>Enter emergency mode. This is mostly equivalent to
+          <command>isolate emergency.target</command> but also prints
+          a wall message to all users.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>halt</command></term>
+
+        <listitem>
+          <para>Shut down and halt the system. This is mostly
+          equivalent to <command>start halt.target</command> but also
+          prints a wall message to all users.  If combined with
+          <option>--force</option> shutdown of all running services is
+          skipped, however all processes are killed and all file
+          systems are unmounted or mounted read-only, immediately
+          followed by the system halt.  If <option>--force</option> is
+          specified twice the operation is immediately executed
+          without terminating any processes or unmounting any file
+          systems. This may result in data loss.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>poweroff</command></term>
+
+        <listitem>
+          <para>Shut down and power-off the system. This is mostly
+          equivalent to <command>start poweroff.target</command> but
+          also prints a wall message to all users. If combined with
+          <option>--force</option> shutdown of all running services is
+          skipped, however all processes are killed and all file
+          systems are unmounted or mounted read-only, immediately
+          followed by the powering off. If <option>--force</option> is
+          specified twice the operation is immediately executed
+          without terminating any processes or unmounting any file
+          systems. This may result in data loss.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>reboot</command></term>
+
+        <listitem>
+          <para>Shut down and reboot the system. This is mostly
+          equivalent to <command>start reboot.target</command> but
+          also prints a wall message to all users. If combined with
+          <option>--force</option> shutdown of all running services is
+          skipped, however all processes are killed and all file
+          systems are unmounted or mounted read-only, immediately
+          followed by the reboot. If <option>--force</option> is
+          specified twice the operation is immediately executed
+          without terminating any processes or unmounting any file
+          systems. This may result in data loss.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>kexec</command></term>
+
+        <listitem>
+          <para>Shut down and reboot the system via kexec. This is
+          mostly equivalent to <command>start kexec.target</command>
+          but also prints a wall message to all users. If combined
+          with <option>--force</option> shutdown of all running
+          services is skipped, however all processes are killed and
+          all file systems are unmounted or mounted read-only,
+          immediately followed by the reboot.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>exit</command></term>
+
+        <listitem>
+          <para>Ask the systemd manager to quit. This is only
+          supported for user service managers (i.e. in conjunction
+          with the <option>--user</option> option) and will fail
+          otherwise.</para>
+        </listitem>
+
+      </varlistentry>
+      <varlistentry>
+        <term><command>suspend</command></term>
+
+        <listitem>
+          <para>Suspend the system. This will trigger activation of
+          the special <filename>suspend.target</filename> target.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>hibernate</command></term>
+
+        <listitem>
+          <para>Hibernate the system. This will trigger activation of
+          the special <filename>hibernate.target</filename> target.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>hybrid-sleep</command></term>
+
+        <listitem>
+          <para>Hibernate and suspend the system. This will trigger
+          activation of the special
+          <filename>hybrid-sleep.target</filename> target.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>switch-root <replaceable>ROOT</replaceable> [<replaceable>INIT</replaceable>]</command></term>
+
+        <listitem>
+          <para>Switches to a different root directory and executes a
+          new system manager process below it. This is intended for
+          usage in initial RAM disks ("initrd"), and will transition
+          from the initrd's system manager process (a.k.a "init"
+          process) to the main system manager process. Takes two
+          arguments: the directory to make the new root directory, and
+          the path to the new system manager binary below it to
+          execute as PID 1. If the latter is omitted or the empty
+          string, a systemd binary will automatically be searched for
+          and used as init. If the system manager path is omitted or
+          equal to the empty string the state of the initrd's system
+          manager process is passed to the main system manager, which
+          allows later introspection of the state of the services
+          involved in the initrd boot.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success 0 is returned, a non-zero failure
+    code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_PAGER</varname></term>
+
+        <listitem>
+          <para>Pager to use when <option>--no-pager</option> is not
+          given; overrides <varname>$PAGER</varname>.  Setting this to
+          an empty string or the value <literal>cat</literal> is
+          equivalent to passing
+          <option>--no-pager</option>.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemadm</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    </para>
+  </refsect1>
 
 </refentry>
