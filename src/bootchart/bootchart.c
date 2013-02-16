@@ -167,13 +167,19 @@ int main(int argc, char *argv[])
                         relative = true;
                         break;
                 case 'f':
-                        safe_atod(optarg, &hz);
+                        r = safe_atod(optarg, &hz);
+                        if (r < 0)
+                                log_warning("failed to parse --freq/-f argument '%s': %s",
+                                            optarg, strerror(-r));
                         break;
                 case 'F':
                         filter = false;
                         break;
                 case 'n':
-                        safe_atoi(optarg, &len);
+                        r = safe_atoi(optarg, &len);
+                        if (r < 0)
+                                log_warning("failed to parse --samples/-n argument '%s': %s",
+                                            optarg, strerror(-r));
                         break;
                 case 'o':
                         path_kill_slashes(optarg);
@@ -187,10 +193,16 @@ int main(int argc, char *argv[])
                         pss = true;
                         break;
                 case 'x':
-                        safe_atod(optarg, &scale_x);
+                        r = safe_atod(optarg, &scale_x);
+                        if (r < 0)
+                                log_warning("failed to parse --scale-x/-x argument '%s': %s",
+                                            optarg, strerror(-r));
                         break;
                 case 'y':
-                        safe_atod(optarg, &scale_y);
+                        r = safe_atod(optarg, &scale_y);
+                        if (r < 0)
+                                log_warning("failed to parse --scale-y/-y argument '%s': %s",
+                                            optarg, strerror(-r));
                         break;
                 case 'e':
                         entropy = true;
@@ -209,7 +221,7 @@ int main(int argc, char *argv[])
                         fprintf(stderr, " --filter,  -F            Disable filtering of processes from the graph\n");
                         fprintf(stderr, "                          that are of less importance or short-lived\n");
                         fprintf(stderr, " --help,    -h            Display this message\n");
-                        fprintf(stderr, "See the installed README and bootchartd.conf.example for more information.\n");
+                        fprintf(stderr, "See bootchart.conf for more information.\n");
                         exit (EXIT_SUCCESS);
                         break;
                 default:
@@ -228,7 +240,7 @@ int main(int argc, char *argv[])
         }
 
         /*
-         * If the kernel executed us through init=/sbin/bootchartd, then
+         * If the kernel executed us through init=/usr/lib/systemd/systemd-bootchart, then
          * fork:
          * - parent execs executable specified via init_path[] (/sbin/init by default) as pid=1
          * - child logs data
@@ -352,13 +364,13 @@ int main(int argc, char *argv[])
         }
 
         if (!of) {
-                perror("open output_file");
+                fprintf(stderr, "opening output file '%s': %m\n", output_file);
                 exit (EXIT_FAILURE);
         }
 
         svg_do(build);
 
-        fprintf(stderr, "bootchartd: Wrote %s\n", output_file);
+        fprintf(stderr, "systemd-bootchart wrote %s\n", output_file);
         fclose(of);
 
         closedir(proc);
@@ -377,7 +389,7 @@ int main(int argc, char *argv[])
 
         /* don't complain when overrun once, happens most commonly on 1st sample */
         if (overrun > 1)
-                fprintf(stderr, "bootchartd: Warning: sample time overrun %i times\n", overrun);
+                fprintf(stderr, "systemd-boochart: Warning: sample time overrun %i times\n", overrun);
 
         return 0;
 }
