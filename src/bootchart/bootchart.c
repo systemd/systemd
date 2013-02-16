@@ -143,17 +143,17 @@ int main(int argc, char *argv[])
 
         while (1) {
                 static struct option opts[] = {
-                        {"rel",      no_argument,        NULL,  'r'},
-                        {"freq",     required_argument,  NULL,  'f'},
-                        {"samples",  required_argument,  NULL,  'n'},
-                        {"pss",      no_argument,        NULL,  'p'},
-                        {"output",   required_argument,  NULL,  'o'},
-                        {"init",     required_argument,  NULL,  'i'},
-                        {"filter",   no_argument,        NULL,  'F'},
-                        {"help",     no_argument,        NULL,  'h'},
-                        {"scale-x",  required_argument,  NULL,  'x'},
-                        {"scale-y",  required_argument,  NULL,  'y'},
-                        {"entropy",  no_argument,        NULL,  'e'},
+                        {"rel",       no_argument,        NULL,  'r'},
+                        {"freq",      required_argument,  NULL,  'f'},
+                        {"samples",   required_argument,  NULL,  'n'},
+                        {"pss",       no_argument,        NULL,  'p'},
+                        {"output",    required_argument,  NULL,  'o'},
+                        {"init",      required_argument,  NULL,  'i'},
+                        {"no-filter", no_argument,        NULL,  'F'},
+                        {"help",      no_argument,        NULL,  'h'},
+                        {"scale-x",   required_argument,  NULL,  'x'},
+                        {"scale-y",   required_argument,  NULL,  'y'},
+                        {"entropy",   no_argument,        NULL,  'e'},
                         {NULL, 0, NULL, 0}
                 };
 
@@ -209,18 +209,18 @@ int main(int argc, char *argv[])
                         break;
                 case 'h':
                         fprintf(stderr, "Usage: %s [OPTIONS]\n", argv[0]);
-                        fprintf(stderr, " --rel,     -r            Record time relative to recording\n");
-                        fprintf(stderr, " --freq,    -f N          Sample frequency [%f]\n", hz);
-                        fprintf(stderr, " --samples, -n N          Stop sampling at [%d] samples\n", len);
-                        fprintf(stderr, " --scale-x, -x N          Scale the graph horizontally [%f] \n", scale_x);
-                        fprintf(stderr, " --scale-y, -y N          Scale the graph vertically [%f] \n", scale_y);
-                        fprintf(stderr, " --pss,     -p            Enable PSS graph (CPU intensive)\n");
-                        fprintf(stderr, " --entropy, -e            Enable the entropy_avail graph\n");
-                        fprintf(stderr, " --output,  -o [PATH]     Path to output files [%s]\n", output_path);
-                        fprintf(stderr, " --init,    -i [PATH]     Path to init executable [%s]\n", init_path);
-                        fprintf(stderr, " --filter,  -F            Disable filtering of processes from the graph\n");
+                        fprintf(stderr, " --rel,       -r          Record time relative to recording\n");
+                        fprintf(stderr, " --freq,      -f f        Sample frequency [%f]\n", hz);
+                        fprintf(stderr, " --samples,   -n N        Stop sampling at [%d] samples\n", len);
+                        fprintf(stderr, " --scale-x,   -x N        Scale the graph horizontally [%f] \n", scale_x);
+                        fprintf(stderr, " --scale-y,   -y N        Scale the graph vertically [%f] \n", scale_y);
+                        fprintf(stderr, " --pss,       -p          Enable PSS graph (CPU intensive)\n");
+                        fprintf(stderr, " --entropy,   -e          Enable the entropy_avail graph\n");
+                        fprintf(stderr, " --output,    -o [PATH]   Path to output files [%s]\n", output_path);
+                        fprintf(stderr, " --init,      -i [PATH]   Path to init executable [%s]\n", init_path);
+                        fprintf(stderr, " --no-filter, -F          Disable filtering of processes from the graph\n");
                         fprintf(stderr, "                          that are of less importance or short-lived\n");
-                        fprintf(stderr, " --help,    -h            Display this message\n");
+                        fprintf(stderr, " --help,      -h          Display this message\n");
                         fprintf(stderr, "See bootchart.conf for more information.\n");
                         exit (EXIT_SUCCESS);
                         break;

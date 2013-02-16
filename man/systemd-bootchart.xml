@@ -173,7 +173,7 @@
 
                         <varlistentry>
                                 <term><option>-F</option></term>
-                                <term><option>--filter</option></term>
+                                <term><option>--no-filter</option></term>
                                 <listitem><para>Disable filtering of tasks that
                                 did not contribute significantly to the boot. Processes
                                 that are too short-lived (only seen in one sample) or
