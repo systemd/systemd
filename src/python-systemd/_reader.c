@@ -688,7 +688,7 @@ Journal_set_data_threshold(Journal *self, PyObject *value, void *closure)
     if (r < 0) {
         errno = -r;
         PyErr_SetFromErrno(PyExc_OSError);
-        return NULL;
+        return -1;
     }
     return 0;
 }
