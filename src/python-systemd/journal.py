@@ -19,14 +19,15 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-import datetime
-import functools
-import sys
-import uuid
+import sys as _sys
+import datetime as _datetime
+import functools as _functools
+import uuid as _uuid
 import traceback as _traceback
 import os as _os
+from os import SEEK_SET, SEEK_CUR, SEEK_END
 import logging as _logging
-if sys.version_info >= (3,):
+if _sys.version_info >= (3,):
     from collections import ChainMap
 from syslog import (LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR,
                     LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG)
@@ -35,10 +36,12 @@ from ._reader import (_Journal, NOP, APPEND, INVALIDATE,
                       LOCAL_ONLY, RUNTIME_ONLY, SYSTEM_ONLY)
 from . import id128 as _id128
 
-_MONOTONIC_CONVERTER = lambda x: datetime.timedelta(microseconds=float(x))
-_REALTIME_CONVERTER = lambda x: datetime.datetime.fromtimestamp(float(x)/1E6)
+_MONOTONIC_CONVERTER = lambda x: _datetime.timedelta(microseconds=float(x))
+_REALTIME_CONVERTER = lambda x: _datetime.datetime.fromtimestamp(float(x)/1E6)
 DEFAULT_CONVERTERS = {
-    'MESSAGE_ID': uuid.UUID,
+    'MESSAGE_ID': _uuid.UUID,
+    '_MACHINE_ID': _uuid.UUID,
+    '_BOOT_ID': _uuid.UUID,
     'PRIORITY': int,
     'LEADER': int,
     'SESSION_ID': int,
@@ -70,15 +73,16 @@ DEFAULT_CONVERTERS = {
     'COREDUMP_TIMESTAMP': _REALTIME_CONVERTER,
 }
 
-if sys.version_info >= (3,):
-    _convert_unicode = functools.partial(str, encoding='utf-8')
+if _sys.version_info >= (3,):
+    _convert_unicode = _functools.partial(str, encoding='utf-8')
 else:
-    _convert_unicode = functools.partial(unicode, encoding='utf-8')
+    _convert_unicode = _functools.partial(unicode, encoding='utf-8')
 
 class Journal(_Journal):
     def __init__(self, converters=None, *args, **kwargs):
         super(Journal, self).__init__(*args, **kwargs)
         if sys.version_info >= (3,3):
+        if _sys.version_info >= (3,3):
             self.converters = ChainMap()
             if converters is not None:
                 self.converters.maps.append(converters)
@@ -125,12 +129,12 @@ class Journal(_Journal):
             for value in super(Journal, self).query_unique(key))
 
     def seek_realtime(self, timestamp):
-        if isinstance(timestamp, datetime.datetime):
+        if isinstance(realtime, _datetime.datetime):
             timestamp = float(timestamp.strftime("%s.%f"))
         return super(Journal, self).seek_realtime(timestamp)
 
     def seek_monotonic(self, timestamp, bootid=None):
-        if isinstance(timestamp, datetime.timedelta):
+        if isinstance(monotonic, _datetime.timedelta):
             timestamp = timestamp.totalseconds()
         return super(Journal, self).seek_monotonic(timestamp, bootid)
 

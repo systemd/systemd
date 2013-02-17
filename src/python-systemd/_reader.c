@@ -642,7 +642,7 @@ static PyMethodDef Journal_methods[] = {
 
 static PyTypeObject JournalType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "_reader.Journal",           /*tp_name*/
+    "_reader._Journal",               /*tp_name*/
     sizeof(Journal),                  /*tp_basicsize*/
     0,                                /*tp_itemsize*/
     (destructor)Journal_dealloc,      /*tp_dealloc*/
