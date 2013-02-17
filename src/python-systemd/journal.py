@@ -142,13 +142,28 @@ class Journal(_Journal):
         else:
             raise ValueError("Log level must be 0 <= level <= 7")
 
-    def this_boot(self):
-        """Add match for _BOOT_ID equal to current boot ID."""
-        self.add_match(_BOOT_ID=_id128.get_boot().hex)
+    def this_boot(self, bootid=None):
+        """Add match for _BOOT_ID equal to current boot ID or the specified boot ID.
 
-    def this_machine(self):
-        """Add match for _MACHINE_ID equal to the ID of this machine."""
-        self.add_match(_MACHINE_ID=_id128.get_machine().hex)
+        bootid should be either a UUID or a 32 digit hex number.
+        """
+        if bootid is None:
+            bootid = _id128.get_boot().hex
+        else:
+            bootid = getattr(bootid, 'hex', bootid)
+        self.add_match(_BOOT_ID=bootid)
+
+    def this_machine(self, machineid=None):
+        """Add match for _MACHINE_ID equal to the ID of this machine.
+
+        bootid should be either a UUID or a 32 digit hex number.
+        """
+        if machineid is None:
+            machineid = _id128.get_machine().hex
+        else:
+            machineid = getattr(machineid, 'hex', machineid)
+        self.add_match(_MACHINE_ID=machineid)
+
 
 def _make_line(field, value):
         if isinstance(value, bytes):
