@@ -78,6 +78,22 @@ static void print_property(struct udev_device *dev, bool test, const char *name,
         } else if (startswith(name, "PART_ENTRY_")) {
                 strscpyl(s, sizeof(s), "ID_", name, NULL);
                 udev_builtin_add_property(dev, test, s, value);
+
+        } else if (streq(name, "SYSTEM_ID")) {
+                blkid_encode_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_SYSTEM_ID", s);
+
+        } else if (streq(name, "PUBLISHER_ID")) {
+                blkid_encode_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_PUBLISHER_ID", s);
+
+        } else if (streq(name, "APPLICATION_ID")) {
+                blkid_encode_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_APPLICATION_ID", s);
+
+        } else if (streq(name, "BOOT_SYSTEM_ID")) {
+                blkid_encode_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_BOOT_SYSTEM_ID", s);
         }
 }
 
