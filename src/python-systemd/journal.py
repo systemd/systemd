@@ -183,6 +183,15 @@ class Journal(_Journal):
         else:
             raise ValueError("Log level must be 0 <= level <= 7")
 
+    def messageid_match(self, messageid):
+        """Sets match filter for log entries for specified `messageid`.
+        `messageid` can be string or UUID instance.
+        Standard message IDs can be found in systemd.id128
+        Equivalent to add_match(MESSAGE_ID=`messageid`)."""
+        if isinstance(messageid, _uuid.UUID):
+            messageid = messageid.get_hex()
+        self.add_match(MESSAGE_ID=messageid)
+
     def this_boot(self, bootid=None):
         """Add match for _BOOT_ID equal to current boot ID or the specified boot ID.
 
