@@ -99,18 +99,9 @@ static int print_inhibitors(DBusConnection *bus, DBusError *error) {
                 goto finish;
         }
 
-        printf("%-21s %-20s %-20s %-5s %6s %6s\n",
-               "WHAT",
-               "WHO",
-               "WHY",
-               "MODE",
-               "UID",
-               "PID");
-
         dbus_message_iter_recurse(&iter, &sub);
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                 const char *what, *who, *why, *mode;
-                char *ewho, *ewhy;
                 dbus_uint32_t uid, pid;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
@@ -130,21 +121,21 @@ static int print_inhibitors(DBusConnection *bus, DBusError *error) {
                         goto finish;
                 }
 
-                ewho = ellipsize(who, 20, 66);
-                ewhy = ellipsize(why, 20, 66);
-
-                printf("%-21s %-20s %-20s %-5s %6lu %6lu\n",
-                       what, ewho ? ewho : who, ewhy ? ewhy : why, mode, (unsigned long) uid, (unsigned long) pid);
-
-                free(ewho);
-                free(ewhy);
+                printf("     Who: %s (UID %lu, PID %lu)\n"
+                       "    What: %s\n"
+                       "     Why: %s\n"
+                       "    Mode: %s\n\n",
+                       who, (unsigned long) uid, (unsigned long) pid,
+                       what,
+                       why,
+                       mode);
 
                 dbus_message_iter_next(&sub);
 
                 n++;
         }
 
-        printf("\n%u inhibitors listed.\n", n);
+        printf("%u inhibitors listed.\n", n);
         r = 0;
 
 finish:
