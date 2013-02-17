@@ -27,7 +27,7 @@
 #include "strv.h"
 
 static void test_specifier_printf(void) {
-        char *w;
+        _cleanup_free_ char *w = NULL;
 
         const Specifier table[] = {
                 { 'a', specifier_string, (char*) "AAAA" },
@@ -36,8 +36,10 @@ static void test_specifier_printf(void) {
         };
 
         w = specifier_printf("xxx a=%a b=%b yyy", table, NULL);
-        printf("<%s>\n", w);
-        free(w);
+        puts(w);
+
+        assert_se(w);
+        assert_se(streq(w, "xxx a=AAAA b=BBBB yyy"));
 }
 
 static void test_strv_find(void) {
