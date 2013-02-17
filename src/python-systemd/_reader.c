@@ -57,7 +57,7 @@ Journal_init(Journal *self, PyObject *args, PyObject *keywds)
     char *path=NULL;
 
     static char *kwlist[] = {"flags", "path", NULL};
-    if (! PyArg_ParseTupleAndKeywords(args, keywds, "|is", kwlist,
+    if (! PyArg_ParseTupleAndKeywords(args, keywds, "|iz", kwlist,
                                       &flags, &path))
         return 1;
 
