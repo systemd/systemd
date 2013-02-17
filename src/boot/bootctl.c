@@ -149,7 +149,7 @@ static int show_status(char **args, unsigned n) {
                 printf("      Firmware: %s (%s)\n", info->fw_type, strna(info->fw_info));
 
         if (info->fw_entry_active >= 0) {
-                printf("Firmware entry: %s\n", info->fw_entries[info->fw_entry_active].title);
+                printf("Firmware entry: %s\n", strna(info->fw_entries[info->fw_entry_active].title));
                 if (info->fw_entries[info->fw_entry_active].path)
                         printf("                %s\n", info->fw_entries[info->fw_entry_active].path);
                 if (!sd_id128_equal(info->fw_entries[info->fw_entry_active].part_uuid, SD_ID128_NULL))
@@ -165,7 +165,7 @@ static int show_status(char **args, unsigned n) {
                                SD_ID128_FORMAT_VAL(info->loader_part_uuid));
 
                 if (info->loader_entry_active >= 0) {
-                        printf("  Loader entry: %s\n", info->loader_entries[info->loader_entry_active].title);
+                        printf("  Loader entry: %s\n", strna(info->loader_entries[info->loader_entry_active].title));
                         printf("                %s\n", info->loader_entries[info->loader_entry_active].path);
                 }
 

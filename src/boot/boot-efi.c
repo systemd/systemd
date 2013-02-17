@@ -75,7 +75,13 @@ static int get_boot_entries(struct boot_info *info) {
                 err = efi_get_boot_option(list[i], &e->title, &e->part_uuid, &e->path);
                 if (err < 0)
                         continue;
+
+                if (isempty(e->title)) {
+                        free(e->title);
+                        e->title = NULL;
+                }
                 tilt_slashes(e->path);
+
                 e->id = list[i];
                 info->fw_entries_count++;
         }
