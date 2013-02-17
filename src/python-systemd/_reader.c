@@ -326,8 +326,7 @@ Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
         PyErr_SetString(PyExc_ValueError, "Invalid value for whence");
     }
 
-    if (result)
-        Py_DECREF(result);
+    Py_XDECREF(result);
     if (PyErr_Occurred())
         return NULL;
     Py_RETURN_NONE;
@@ -498,6 +497,8 @@ Journal_iternext(PyObject *self)
     Py_ssize_t dict_size;
 
     dict = PyObject_CallMethod(self, "get_next", "");
+    if (PyErr_Occurred())
+        return NULL;
     dict_size = PyDict_Size(dict);
     if ((int64_t) dict_size > 0LL) {
         return dict;
