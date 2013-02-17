@@ -189,7 +189,7 @@ static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len
         pos = 0;
         strpos = 0;
         ifs_str[0] = '\0';
-        while (pos < sizeof(buf) && strpos+7 < len-2) {
+        while (pos < size && strpos+7 < len-2) {
                 struct usb_interface_descriptor *desc;
                 char if_str[8];
 
