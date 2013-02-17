@@ -30,6 +30,20 @@ typedef struct {
 } Journal;
 static PyTypeObject JournalType;
 
+static int set_error(int r, const char* path, const char* invalid_message) {
+    if (r >= 0)
+        return r;
+    if (r == -EINVAL && invalid_message)
+        PyErr_SetString(PyExc_ValueError, invalid_message);
+    else if (r == -ENOMEM)
+        PyErr_SetString(PyExc_MemoryError, "Not enough memory");
+    else {
+        errno = -r;
+        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+    }
+    return 1;
+}
+
 static void
 Journal_dealloc(Journal* self)
 {
@@ -69,16 +83,8 @@ Journal_init(Journal *self, PyObject *args, PyObject *keywds)
         r = sd_journal_open(&self->j, flags);
     }
     Py_END_ALLOW_THREADS
-    if (r < 0) {
-        errno = -r;
-        PyObject *errtype = r == -EINVAL ? PyExc_ValueError :
-                            r == -ENOMEM ? PyExc_MemoryError :
-                            PyExc_OSError;
-        PyErr_SetFromErrnoWithFilename(errtype, path);
-        return -1;
-    }
 
-    return 0;
+    return set_error(r, path, "Invalid flags or path");
 }
 
 PyDoc_STRVAR(Journal_get_next__doc__,
@@ -110,13 +116,11 @@ Journal_get_next(Journal *self, PyObject *args)
     }
     Py_END_ALLOW_THREADS
 
-    if (r < 0) {
-        errno = -r;
-        PyErr_SetFromErrno(PyExc_OSError);
+    set_error(r, NULL, NULL);
+    if (r < 0)
         return NULL;
-    }else if ( r == 0) { //EOF
+    else if (r == 0) /* EOF */
         return PyDict_New();
-    }
 
     PyObject *dict;
     dict = PyDict_New();
@@ -232,14 +236,9 @@ Journal_add_match(Journal *self, PyObject *args, PyObject *keywds)
 
     int r;
     r = sd_journal_add_match(self->j, match, match_len);
-    if (r < 0) {
-        errno = -r;
-        PyObject *errtype = r == -EINVAL ? PyExc_ValueError :
-                            r == -ENOMEM ? PyExc_MemoryError :
-                            PyExc_OSError;
-        PyErr_SetFromErrno(errtype);
-        return NULL;
-    }
+    set_error(r, NULL, "Invalid match");
+    if (r < 0)
+            return NULL;
 
     Py_RETURN_NONE;
 }
@@ -253,13 +252,9 @@ Journal_add_disjunction(Journal *self, PyObject *args)
 {
     int r;
     r = sd_journal_add_disjunction(self->j);
-    if (r < 0) {
-        errno = -r;
-        PyObject *errtype = r == -ENOMEM ? PyExc_MemoryError :
-                            PyExc_OSError;
-        PyErr_SetFromErrno(errtype);
+    set_error(r, NULL, NULL);
+    if (r < 0)
         return NULL;
-    }
     Py_RETURN_NONE;
 }
 
@@ -297,11 +292,9 @@ Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
         Py_BEGIN_ALLOW_THREADS
         r = sd_journal_seek_head(self->j);
         Py_END_ALLOW_THREADS
-        if (r < 0) {
-            errno = -r;
-            PyErr_SetFromErrno(PyExc_OSError);
+        if (set_error(r, NULL, NULL))
             return NULL;
-        }
+
         if (offset > 0LL) {
             result = PyObject_CallMethod((PyObject *)self, "get_next", "L", offset);
         }
@@ -312,11 +305,9 @@ Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
         Py_BEGIN_ALLOW_THREADS
         r = sd_journal_seek_tail(self->j);
         Py_END_ALLOW_THREADS
-        if (r < 0) {
-            errno = -r;
-            PyErr_SetFromErrno(PyExc_OSError);
+        if (set_error(r, NULL, NULL))
             return NULL;
-        }
+
         if (offset < 0LL) {
             result = PyObject_CallMethod((PyObject *)self, "get_next", "L", offset);
         }else{
@@ -355,11 +346,8 @@ Journal_seek_realtime(Journal *self, PyObject *args)
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_seek_realtime_usec(self->j, timestamp);
     Py_END_ALLOW_THREADS
-    if (r < 0) {
-        errno = -r;
-        PyErr_SetFromErrno(PyExc_OSError);
+    if (set_error(r, NULL, NULL))
         return NULL;
-    }
     Py_RETURN_NONE;
 }
 
@@ -389,37 +377,24 @@ Journal_seek_monotonic(Journal *self, PyObject *args)
     int r;
     if (bootid) {
         r = sd_id128_from_string(bootid, &sd_id);
-        if (r == -EINVAL) {
-            PyErr_SetString(PyExc_ValueError, "Invalid bootid");
+        if (set_error(r, NULL, "Invalid bootid"))
             return NULL;
-        }else if (r < 0) {
-            errno = -r;
-            PyErr_SetFromErrno(PyExc_OSError);
-            return NULL;
-        }
-    }else{
+    } else {
+        Py_BEGIN_ALLOW_THREADS
         r = sd_id128_get_boot(&sd_id);
-        if (r == -EIO) {
-            PyErr_SetString(PyExc_IOError, "Error getting current boot ID");
+        Py_END_ALLOW_THREADS
+        if (set_error(r, NULL, NULL))
             return NULL;
-        }else if (r < 0) {
-            errno = -r;
-            PyErr_SetFromErrno(PyExc_OSError);
-            return NULL;
-        }
     }
 
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_seek_monotonic_usec(self->j, sd_id, timestamp);
     Py_END_ALLOW_THREADS
-    if (r < 0) {
-        errno = -r;
-        PyErr_SetFromErrno(PyExc_OSError);
+    if (set_error(r, NULL, NULL))
         return NULL;
-    }
     Py_RETURN_NONE;
 }
- 
+
 PyDoc_STRVAR(Journal_wait__doc__,
 "wait([timeout]) -> Change state (integer)\n\n"
 "Waits until there is a change in the journal. Argument `timeout`\n"
@@ -438,19 +413,11 @@ Journal_wait(Journal *self, PyObject *args, PyObject *keywds)
 
     int r;
     Py_BEGIN_ALLOW_THREADS
-    if ( timeout == 0LL) {
-        r = sd_journal_wait(self->j, (uint64_t) -1);
-    }else{
-        r = sd_journal_wait(self->j, timeout * 1E6);
-    }
+    r = sd_journal_wait(self->j, timeout ==0 ? (uint64_t) -1 : timeout * 1E6);
     Py_END_ALLOW_THREADS
-    if (r < 0) {
-        errno = -r;
-        PyObject *errtype = r == -ENOMEM ? PyExc_MemoryError :
-                            PyExc_OSError;
-        PyErr_SetFromErrno(errtype);
+    if (set_error(r, NULL, NULL))
         return NULL;
-    }
+
 #if PY_MAJOR_VERSION >=3
     return PyLong_FromLong(r);
 #else
@@ -472,14 +439,8 @@ Journal_seek_cursor(Journal *self, PyObject *args)
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_seek_cursor(self->j, cursor);
     Py_END_ALLOW_THREADS
-    if (r < 0) {
-        errno = -r;
-        PyObject *errtype = r == -EINVAL ? PyExc_ValueError :
-                            r == -ENOMEM ? PyExc_MemoryError :
-                            PyExc_OSError;
-        PyErr_SetFromErrno(errtype);
+    if (set_error(r, NULL, "Invalid cursor"))
         return NULL;
-    }
     Py_RETURN_NONE;
 }
 
@@ -524,14 +485,8 @@ Journal_query_unique(Journal *self, PyObject *args)
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_query_unique(self->j, query);
     Py_END_ALLOW_THREADS
-    if (r < 0) {
-        errno = -r;
-        PyObject *errtype = r == -EINVAL ? PyExc_ValueError :
-                            r == -ENOMEM ? PyExc_MemoryError :
-                            PyExc_OSError;
-        PyErr_SetFromErrno(errtype);
+    if (set_error(r, NULL, "Invalid field name"))
         return NULL;
-    }
 
     const void *uniq;
     size_t uniq_len;
@@ -563,11 +518,8 @@ Journal_get_data_threshold(Journal *self, void *closure)
     int r;
 
     r = sd_journal_get_data_threshold(self->j, &cvalue);
-    if (r < 0) {
-        errno = -r;
-        PyErr_SetFromErrno(PyExc_OSError);
+    if (set_error(r, NULL, NULL))
         return NULL;
-    }
 
 #if PY_MAJOR_VERSION >=3
     value = PyLong_FromSize_t(cvalue);
@@ -598,12 +550,7 @@ Journal_set_data_threshold(Journal *self, PyObject *value, void *closure)
 #else
     r = sd_journal_set_data_threshold(self->j, (size_t) PyInt_AsLong(value));
 #endif
-    if (r < 0) {
-        errno = -r;
-        PyErr_SetFromErrno(PyExc_OSError);
-        return -1;
-    }
-    return 0;
+    return set_error(r, NULL, NULL);
 }
 
 static PyGetSetDef Journal_getseters[] = {
