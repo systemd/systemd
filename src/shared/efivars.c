@@ -308,12 +308,7 @@ static int boot_id_hex(const char s[4]) {
 static int cmp_uint16(const void *_a, const void *_b) {
         const uint16_t *a = _a, *b = _b;
 
-        if (*a < *b)
-                return -1;
-        if (*a > *b)
-                return 1;
-
-        return 0;
+        return (int)*a - (int)*b;
 }
 
 int efi_get_boot_options(uint16_t **options) {
