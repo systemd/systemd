@@ -300,6 +300,10 @@
 
         <refsect1>
                 <title>Bugs</title>
+                <para>systemd-bootchart does not get the model information for the hard drive
+                unless the root device is specified with <code>root=/dev/sdxY</code>. Using
+                UUIDs or PARTUUIDs will boot fine, but the hard drive model will not be
+                added to the chart.</para>
                 <para>For bugs, please contact the author and current maintainer:</para>
                 <simplelist>
                         <member>Auke Kok <email>auke-jan.h.kok@intel.com</email></member>
