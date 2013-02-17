@@ -24,6 +24,23 @@
 #include <structmember.h>
 #include <datetime.h>
 
+#if PY_MAJOR_VERSION >=3
+# define unicode_FromStringAndSize PyUnicode_FromStringAndSize
+# define unicode_FromString PyUnicode_FromString
+# define long_FromLong PyLong_FromLong
+# define long_FromSize_t PyLong_FromSize_t
+# define long_Check PyLong_Check
+# define long_AsLong PyLong_AsLong
+#else
+/* Python 3 type naming convention is used */
+# define unicode_FromStringAndSize PyString_FromStringAndSize
+# define unicode_FromString PyString_FromString
+# define long_FromLong PyInt_FromLong
+# define long_FromSize_t PyInt_FromSize_t
+# define long_Check PyInt_Check
+# define long_AsLong PyInt_AsLong
+#endif
+
 typedef struct {
     PyObject_HEAD
     sd_journal *j;
@@ -132,11 +149,7 @@ Journal_get_next(Journal *self, PyObject *args)
 
     SD_JOURNAL_FOREACH_DATA(self->j, msg, msg_len) {
         delim_ptr = memchr(msg, '=', msg_len);
-#if PY_MAJOR_VERSION >=3
-        key = PyUnicode_FromStringAndSize(msg, delim_ptr - (const char*) msg);
-#else
-        key = PyString_FromStringAndSize(msg, delim_ptr - (const char*) msg);
-#endif
+        key = unicode_FromStringAndSize(msg, delim_ptr - (const char*) msg);
         value = PyBytes_FromStringAndSize(delim_ptr + 1, (const char*) msg + msg_len - (delim_ptr + 1) );
         if (PyDict_Contains(dict, key)) {
             cur_value = PyDict_GetItem(dict, key);
@@ -160,12 +173,7 @@ Journal_get_next(Journal *self, PyObject *args)
     if (sd_journal_get_realtime_usec(self->j, &realtime) == 0) {
         char realtime_str[20];
         sprintf(realtime_str, "%llu", (long long unsigned) realtime);
-
-#if PY_MAJOR_VERSION >=3
-        key = PyUnicode_FromString("__REALTIME_TIMESTAMP");
-#else
-        key = PyString_FromString("__REALTIME_TIMESTAMP");
-#endif
+        key = unicode_FromString("__REALTIME_TIMESTAMP");
         value = PyBytes_FromString(realtime_str);
         PyDict_SetItem(dict, key, value);
         Py_DECREF(key);
@@ -177,11 +185,7 @@ Journal_get_next(Journal *self, PyObject *args)
     if (sd_journal_get_monotonic_usec(self->j, &monotonic, &sd_id) == 0) {
         char monotonic_str[20];
         sprintf(monotonic_str, "%llu", (long long unsigned) monotonic);
-#if PY_MAJOR_VERSION >=3
-        key = PyUnicode_FromString("__MONOTONIC_TIMESTAMP");
-#else
-        key = PyString_FromString("__MONOTONIC_TIMESTAMP");
-#endif
+        key = unicode_FromString("__MONOTONIC_TIMESTAMP");
         value = PyBytes_FromString(monotonic_str);
 
         PyDict_SetItem(dict, key, value);
@@ -191,11 +195,7 @@ Journal_get_next(Journal *self, PyObject *args)
 
     char *cursor;
     if (sd_journal_get_cursor(self->j, &cursor) > 0) { //Should return 0...
-#if PY_MAJOR_VERSION >=3
-        key = PyUnicode_FromString("__CURSOR");
-#else
-        key = PyString_FromString("__CURSOR");
-#endif
+        key = unicode_FromString("__CURSOR");
         value = PyBytes_FromString(cursor);
         PyDict_SetItem(dict, key, value);
         free(cursor);
@@ -418,11 +418,7 @@ Journal_wait(Journal *self, PyObject *args, PyObject *keywds)
     if (set_error(r, NULL, NULL))
         return NULL;
 
-#if PY_MAJOR_VERSION >=3
-    return PyLong_FromLong(r);
-#else
-    return PyInt_FromLong(r);
-#endif
+    return long_FromLong(r);
 }
 
 PyDoc_STRVAR(Journal_seek_cursor__doc__,
@@ -493,12 +489,7 @@ Journal_query_unique(Journal *self, PyObject *args)
     const char *delim_ptr;
     PyObject *value_set, *key, *value;
     value_set = PySet_New(0);
-
-#if PY_MAJOR_VERSION >=3
-    key = PyUnicode_FromString(query);
-#else
-    key = PyString_FromString(query);
-#endif
+    key = unicode_FromString(query);
 
     SD_JOURNAL_FOREACH_UNIQUE(self->j, uniq, uniq_len) {
         delim_ptr = memchr(uniq, '=', uniq_len);
@@ -521,12 +512,7 @@ Journal_get_data_threshold(Journal *self, void *closure)
     if (set_error(r, NULL, NULL))
         return NULL;
 
-#if PY_MAJOR_VERSION >=3
-    value = PyLong_FromSize_t(cvalue);
-#else
-    value = PyInt_FromSize_t(cvalue);
-#endif
-    return value;
+    return long_FromSize_t(cvalue);
 }
 
 static int
@@ -536,20 +522,12 @@ Journal_set_data_threshold(Journal *self, PyObject *value, void *closure)
         PyErr_SetString(PyExc_TypeError, "Cannot delete data threshold");
         return -1;
     }
-#if PY_MAJOR_VERSION >=3
-    if (! PyLong_Check(value)){
-#else
-    if (! PyInt_Check(value)){
-#endif
+    if (!long_Check(value)){
         PyErr_SetString(PyExc_TypeError, "Data threshold must be int");
         return -1;
     }
     int r;
-#if PY_MAJOR_VERSION >=3
-    r = sd_journal_set_data_threshold(self->j, (size_t) PyLong_AsLong(value));
-#else
-    r = sd_journal_set_data_threshold(self->j, (size_t) PyInt_AsLong(value));
-#endif
+    r = sd_journal_set_data_threshold(self->j, (size_t) long_AsLong(value));
     return set_error(r, NULL, NULL);
 }
 
