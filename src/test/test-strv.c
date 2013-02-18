@@ -100,6 +100,18 @@ static void test_strv_join(void) {
         assert_se(streq(t, ""));
 }
 
+static void test_strv_split_nulstr(void) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char nulstr[] = "str0\0str1\0str2\0str3\0";
+
+        l = strv_split_nulstr (nulstr);
+
+        assert_se(streq(l[0], "str0"));
+        assert_se(streq(l[1], "str1"));
+        assert_se(streq(l[2], "str2"));
+        assert_se(streq(l[3], "str3"));
+}
+
 static void test_strv_parse_nulstr(void) {
         _cleanup_strv_free_ char **l = NULL;
         const char nulstr[] = "fuck\0fuck2\0fuck3\0\0fuck5\0\0xxx";
@@ -208,6 +220,7 @@ int main(int argc, char *argv[]) {
         test_strv_find();
         test_strv_find_prefix();
         test_strv_join();
+        test_strv_split_nulstr();
         test_strv_parse_nulstr();
         test_strv_overlap();
         test_strv_sort();
