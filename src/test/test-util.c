@@ -97,12 +97,26 @@ static void test_default_term_for_tty(void) {
         puts(default_term_for_tty("console"));
 }
 
+static void test_memdup_multiply(void) {
+        int org[] = {1, 2, 3};
+        int *dup;
+
+        dup = (int*)memdup_multiply(org, sizeof(int), 3);
+
+        assert_se(dup);
+        assert_se(dup[0] == 1);
+        assert_se(dup[1] == 2);
+        assert_se(dup[2] == 3);
+        free(dup);
+}
+
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
         test_parse_boolean();
         test_default_term_for_tty();
         test_foreach_word_quoted();
+        test_memdup_multiply();
 
         return 0;
 }
