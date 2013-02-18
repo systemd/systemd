@@ -85,18 +85,23 @@ static void test_strv_join(void) {
         };
 
         p = strv_join((char **)input_table_multiple, ", ");
+        assert_se(p);
         assert_se(streq(p, "one, two, three"));
 
         q = strv_join((char **)input_table_multiple, ";");
+        assert_se(q);
         assert_se(streq(q, "one;two;three"));
 
         r = strv_join((char **)input_table_multiple, NULL);
+        assert_se(r);
         assert_se(streq(r, "one two three"));
 
         s = strv_join((char **)input_table_one, ", ");
+        assert_se(s);
         assert_se(streq(s, "one"));
 
         t = strv_join((char **)input_table_none, ", ");
+        assert_se(t);
         assert_se(streq(t, ""));
 }
 
@@ -105,6 +110,7 @@ static void test_strv_split_nulstr(void) {
         const char nulstr[] = "str0\0str1\0str2\0str3\0";
 
         l = strv_split_nulstr (nulstr);
+        assert_se(l);
 
         assert_se(streq(l[0], "str0"));
         assert_se(streq(l[1], "str1"));
@@ -117,6 +123,7 @@ static void test_strv_parse_nulstr(void) {
         const char nulstr[] = "fuck\0fuck2\0fuck3\0\0fuck5\0\0xxx";
 
         l = strv_parse_nulstr(nulstr, sizeof(nulstr)-1);
+        assert_se(l);
         puts("Parse nulstr:");
         strv_print(l);
 
@@ -175,8 +182,11 @@ static void test_strv_merge_concat(void) {
 
         a = strv_new("without", "suffix", NULL);
         b = strv_new("with", "suffix", NULL);
+        assert_se(a);
+        assert_se(b);
 
         c = strv_merge_concat(a, b, "_suffix");
+        assert_se(c);
 
         assert_se(streq(c[0], "without"));
         assert_se(streq(c[1], "suffix"));
@@ -189,8 +199,11 @@ static void test_strv_merge(void) {
 
         a = strv_new("abc", "def", "ghi", NULL);
         b = strv_new("jkl", "mno", "pqr", NULL);
+        assert_se(a);
+        assert_se(b);
 
         c = strv_merge(a, b);
+        assert_se(c);
 
         assert_se(streq(c[0], "abc"));
         assert_se(streq(c[1], "def"));
@@ -206,8 +219,11 @@ static void test_strv_append(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL;
 
         a = strv_new("test", "test1", NULL);
+        assert_se(a);
         b = strv_append(a, "test2");
         c = strv_append(NULL, "test3");
+        assert_se(b);
+        assert_se(c);
 
         assert_se(streq(b[0], "test"));
         assert_se(streq(b[1], "test1"));
