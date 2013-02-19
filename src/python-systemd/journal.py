@@ -113,7 +113,7 @@ class Journal(_Journal):
             # Default conversion in unicode
             try:
                 result = _convert_unicode(value)
-            except:
+            except UnicodeDecodeError:
                 # Leave in default bytes
                 result = value
         return result
