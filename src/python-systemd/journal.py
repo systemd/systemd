@@ -79,6 +79,24 @@ else:
     _convert_unicode = _functools.partial(unicode, encoding='utf-8')
 
 class Journal(_Journal):
+    """Journal allows the access and filtering of systemd journal
+    entries. Note that in order to access the system journal, a
+    non-root user must be in the `adm` group.
+
+    Example usage to print out all error or higher level messages
+    for systemd-udevd for the boot:
+
+    >>> myjournal = journal.Journal()
+    >>> myjournal.add_boot_match(journal.CURRENT_BOOT)
+    >>> myjournal.add_loglevel_matches(journal.LOG_ERR)
+    >>> myjournal.add_match(_SYSTEMD_UNIT="systemd-udevd.service")
+    >>> from __future__ import print_function
+    >>> for entry in myjournal:
+    ...    print(entry['MESSAGE'])
+
+    See man page "systemd.journal-fields" for more info on
+    typical fields found in the journal.
+    """
     def __init__(self, converters=None, flags=LOCAL_ONLY, path=None):
         """Creates instance of Journal, which allows filtering and
         return of journal entries.
