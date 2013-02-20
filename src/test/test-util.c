@@ -68,6 +68,67 @@ static void test_parse_boolean(void) {
         assert_se(parse_boolean("") < 0);
 }
 
+static void test_parse_pid(void) {
+        int r;
+        pid_t pid;
+
+        r = parse_pid("100", &pid);
+        assert_se(r == 0);
+        assert_se(pid == 100);
+
+        r = parse_pid("0x7FFFFFFF", &pid);
+        assert_se(r == 0);
+        assert_se(pid == 2147483647);
+
+        pid = 65; /* pid is left unchanged on ERANGE. Set to known arbitrary value. */
+        r = parse_pid("0", &pid);
+        assert_se(r == -ERANGE);
+        assert_se(pid == 65);
+
+        pid = 65; /* pid is left unchanged on ERANGE. Set to known arbitrary value. */
+        r = parse_pid("-100", &pid);
+        assert_se(r == -ERANGE);
+        assert_se(pid == 65);
+
+        pid = 65; /* pid is left unchanged on ERANGE. Set to known arbitrary value. */
+        r = parse_pid("0xFFFFFFFFFFFFFFFFF", &pid);
+        assert(r == -ERANGE);
+        assert_se(pid == 65);
+}
+
+static void test_parse_uid(void) {
+        int r;
+        uid_t uid;
+
+        r = parse_uid("100", &uid);
+        assert_se(r == 0);
+        assert_se(uid == 100);
+}
+
+static void test_safe_atolli(void) {
+        int r;
+        long long l;
+
+        r = safe_atolli("12345", &l);
+        assert_se(r == 0);
+        assert_se(l == 12345);
+
+        r = safe_atolli("junk", &l);
+        assert_se(r == -EINVAL);
+}
+
+static void test_safe_atod(void) {
+        int r;
+        double d;
+
+        r = safe_atod("0.2244", &d);
+        assert_se(r == 0);
+        assert_se(abs(d - 0.2244) < 0.000001);
+
+        r = safe_atod("junk", &d);
+        assert_se(r == -EINVAL);
+}
+
 static void test_foreach_word_quoted(void) {
         char *w, *state;
         size_t l;
@@ -115,6 +176,10 @@ int main(int argc, char *argv[]) {
         test_first_word();
         test_parse_boolean();
         test_default_term_for_tty();
+        test_parse_pid();
+        test_parse_uid();
+        test_safe_atolli();
+        test_safe_atod();
         test_foreach_word_quoted();
         test_memdup_multiply();
 
