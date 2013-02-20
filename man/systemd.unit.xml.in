@@ -1287,6 +1287,11 @@
                         <entry>Host name</entry>
                         <entry>The host name of the running system.</entry>
                       </row>
+                      <row>
+                        <entry><literal>%%</literal></entry>
+                        <entry>Escaped %</entry>
+                        <entry>Single percent sign.</entry>
+                      </row>
                     </tbody>
                   </tgroup>
                 </table>

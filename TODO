@@ -163,7 +163,6 @@ Features:
   - Document word splitting syntax for ExecStart= and friends
   - document that units from /etc override those from /usr and /run
   - document the exit codes when services fail before they are exec()ed
-  - document that %% can be used to write % in a string that is specifier extended
   - document that service reload may be implemented as service reexec
   - document in wiki how to map ical recurrence events to systemd timer unit calendar specifications
 
