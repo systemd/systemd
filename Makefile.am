@@ -3453,13 +3453,12 @@ BUILT_SOURCES += \
 	src/python-systemd/id128-constants.h
 endif
 
-if ENABLE_SPHINX
 PAPER = $(shell cat /etc/papersize 2>/dev/null || echo a4)
 SPHINXOPTS = -D latex_paper_size=$(PAPER)
 sphinx-%:
+	$(AM_V_at)test -n "$(SPHINX_BUILD)" || { echo " *** sphinx-build is not available"; exit 1; }
 	$(AM_V_GEN)PYTHONPATH=$(DESTDIR)$(pyexecdir) $(SPHINX_BUILD) -b $* $(SPHINXOPTS) $(top_srcdir)/src/python-systemd/docs $(top_builddir)/man/python-systemd/
 	$(AM_V_at)echo Output has been generated in $(abs_top_builddir)/man/python-systemd/
-endif
 
 # ------------------------------------------------------------------------------
 SED_PROCESS = \
