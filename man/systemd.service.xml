@@ -298,8 +298,9 @@
                                 <term><varname>ExecStart=</varname></term>
                                 <listitem><para>Commands with their
                                 arguments that are executed when this
-                                service is started.
-                                </para>
+                                service is started. The first
+                                argument must be an absolute path
+                                name.</para>
 
                                 <para>When
                                 <varname>Type=oneshot</varname> is
@@ -359,8 +360,8 @@
                                 at whitespace, resulting in no or more
                                 arguments. Note that the first
                                 argument (i.e. the program to execute)
-                                may not be a variable, and must be a
-                                literal and absolute path
+                                may not be a variable, since it must
+                                be a literal and absolute path
                                 name.</para>
 
                                 <para>Optionally, if the absolute file
