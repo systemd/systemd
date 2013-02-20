@@ -84,12 +84,12 @@ PyDoc_STRVAR(Journal__doc__,
 static int
 Journal_init(Journal *self, PyObject *args, PyObject *keywds)
 {
-    int flags=SD_JOURNAL_LOCAL_ONLY;
-    char *path=NULL;
+    int flags = SD_JOURNAL_LOCAL_ONLY;
+    char *path = NULL;
 
-    static char *kwlist[] = {"flags", "path", NULL};
-    if (! PyArg_ParseTupleAndKeywords(args, keywds, "|iz", kwlist,
-                                      &flags, &path))
+    static const char* const kwlist[] = {"flags", "path", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "|iz", (char**) kwlist,
+                                     &flags, &path))
         return 1;
 
     int r;
@@ -217,7 +217,8 @@ Journal_get_previous(Journal *self, PyObject *args)
     if (! PyArg_ParseTuple(args, "|L", &skip))
         return NULL;
 
-    return PyObject_CallMethod((PyObject *)self, "get_next", "L", -skip);
+    return PyObject_CallMethod((PyObject *)self, (char*) "get_next",
+                               (char*) "L", -skip);
 }
 
 PyDoc_STRVAR(Journal_add_match__doc__,
@@ -280,10 +281,10 @@ Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
 {
     int64_t offset;
     int whence=SEEK_SET;
-    static char *kwlist[] = {"offset", "whence", NULL};
 
-    if (! PyArg_ParseTupleAndKeywords(args, keywds, "L|i", kwlist,
-                                      &offset, &whence))
+    static const char* const kwlist[] = {"offset", "whence", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "L|i", (char**) kwlist,
+                                     &offset, &whence))
         return NULL;
 
     PyObject *result=NULL;
@@ -296,10 +297,12 @@ Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
             return NULL;
 
         if (offset > 0LL) {
-            result = PyObject_CallMethod((PyObject *)self, "get_next", "L", offset);
+            result = PyObject_CallMethod((PyObject *)self, (char*) "get_next",
+                                         (char*) "L", offset);
         }
     }else if (whence == SEEK_CUR){
-        result = PyObject_CallMethod((PyObject *)self, "get_next", "L", offset);
+        result = PyObject_CallMethod((PyObject *)self, (char*) "get_next",
+                                     (char*) "L", offset);
     }else if (whence == SEEK_END){
         int r;
         Py_BEGIN_ALLOW_THREADS
@@ -309,9 +312,11 @@ Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
             return NULL;
 
         if (offset < 0LL) {
-            result = PyObject_CallMethod((PyObject *)self, "get_next", "L", offset);
+            result = PyObject_CallMethod((PyObject *)self, (char*) "get_next",
+                                         (char*) "L", offset);
         }else{
-            result = PyObject_CallMethod((PyObject *)self, "get_next", "L", -1LL);
+            result = PyObject_CallMethod((PyObject *)self, (char*) "get_next",
+                                         (char*) "L", -1LL);
         }
     }else{
         PyErr_SetString(PyExc_ValueError, "Invalid value for whence");
@@ -407,11 +412,12 @@ PyDoc_STRVAR(Journal_wait__doc__,
 static PyObject *
 Journal_wait(Journal *self, PyObject *args, PyObject *keywds)
 {
-    int64_t timeout=0LL;
-    if (! PyArg_ParseTuple(args, "|L", &timeout))
+    int r;
+    int64_t timeout = 0LL;
+
+    if (!PyArg_ParseTuple(args, "|L", &timeout))
         return NULL;
 
-    int r;
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_wait(self->j, timeout ==0 ? (uint64_t) -1 : timeout * 1E6);
     Py_END_ALLOW_THREADS
@@ -453,7 +459,7 @@ Journal_iternext(PyObject *self)
     PyObject *dict;
     Py_ssize_t dict_size;
 
-    dict = PyObject_CallMethod(self, "get_next", "");
+    dict = PyObject_CallMethod(self, (char*) "get_next", (char*) "");
     if (PyErr_Occurred())
         return NULL;
     dict_size = PyDict_Size(dict);
@@ -505,7 +511,6 @@ static PyObject *
 Journal_get_data_threshold(Journal *self, void *closure)
 {
     size_t cvalue;
-    PyObject *value;
     int r;
 
     r = sd_journal_get_data_threshold(self->j, &cvalue);
@@ -532,11 +537,11 @@ Journal_set_data_threshold(Journal *self, PyObject *value, void *closure)
 }
 
 static PyGetSetDef Journal_getseters[] = {
-    {"data_threshold",
-    (getter)Journal_get_data_threshold,
-    (setter)Journal_set_data_threshold,
-    "data threshold",
-    NULL},
+    {(char*) "data_threshold",
+     (getter)Journal_get_data_threshold,
+     (setter)Journal_set_data_threshold,
+     (char*) "data threshold",
+     NULL},
     {NULL}
 };
 
@@ -617,11 +622,14 @@ static PyModuleDef _reader_module = {
 };
 #endif
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-prototypes"
+
 PyMODINIT_FUNC
 #if PY_MAJOR_VERSION >= 3
 PyInit__reader(void)
 #else
-init_reader(void) 
+init_reader(void)
 #endif
 {
     PyObject* m;
@@ -659,3 +667,5 @@ init_reader(void)
     return m;
 #endif
 }
+
+#pragma GCC diagnostic pop
