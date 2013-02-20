@@ -84,7 +84,7 @@ PyDoc_STRVAR(Journal__doc__,
 static int
 Journal_init(Journal *self, PyObject *args, PyObject *keywds)
 {
-    int flags = SD_JOURNAL_LOCAL_ONLY;
+    int flags = SD_JOURNAL_LOCAL_ONLY, r;
     char *path = NULL;
 
     static const char* const kwlist[] = {"flags", "path", NULL};
@@ -92,13 +92,11 @@ Journal_init(Journal *self, PyObject *args, PyObject *keywds)
                                      &flags, &path))
         return 1;
 
-    int r;
     Py_BEGIN_ALLOW_THREADS
-    if (path) {
+    if (path)
         r = sd_journal_open_directory(&self->j, path, 0);
-    }else{
+    else
         r = sd_journal_open(&self->j, flags);
-    }
     Py_END_ALLOW_THREADS
 
     return set_error(r, path, "Invalid flags or path");
@@ -111,26 +109,30 @@ PyDoc_STRVAR(Journal_get_next__doc__,
 static PyObject *
 Journal_get_next(Journal *self, PyObject *args)
 {
-    int64_t skip=1LL;
+    PyObject *dict;
+    const void *msg;
+    size_t msg_len;
+    const char *delim_ptr;
+    PyObject *key, *value, *cur_value, *tmp_list;
+
+    int64_t skip = 1LL, r = -EINVAL;
     if (! PyArg_ParseTuple(args, "|L", &skip))
         return NULL;
 
     if (skip == 0LL) {
-        PyErr_SetString(PyExc_ValueError, "Skip number must positive/negative integer");
+        PyErr_SetString(PyExc_ValueError, "skip must be nonzero");
         return NULL;
     }
 
-    int r = -EINVAL;
     Py_BEGIN_ALLOW_THREADS
-    if (skip == 1LL) {
+    if (skip == 1LL)
         r = sd_journal_next(self->j);
-    }else if (skip == -1LL) {
+    else if (skip == -1LL)
         r = sd_journal_previous(self->j);
-    }else if (skip > 1LL) {
+    else if (skip > 1LL)
         r = sd_journal_next_skip(self->j, skip);
-    }else if (skip < -1LL) {
+    else if (skip < -1LL)
         r = sd_journal_previous_skip(self->j, -skip);
-    }
     Py_END_ALLOW_THREADS
 
     set_error(r, NULL, NULL);
@@ -139,13 +141,7 @@ Journal_get_next(Journal *self, PyObject *args)
     else if (r == 0) /* EOF */
         return PyDict_New();
 
-    PyObject *dict;
     dict = PyDict_New();
-
-    const void *msg;
-    size_t msg_len;
-    const char *delim_ptr;
-    PyObject *key, *value, *cur_value, *tmp_list;
 
     SD_JOURNAL_FOREACH_DATA(self->j, msg, msg_len) {
         delim_ptr = memchr(msg, '=', msg_len);
@@ -169,38 +165,44 @@ Journal_get_next(Journal *self, PyObject *args)
         Py_DECREF(value);
     }
 
-    uint64_t realtime;
-    if (sd_journal_get_realtime_usec(self->j, &realtime) == 0) {
-        char realtime_str[20];
-        sprintf(realtime_str, "%llu", (long long unsigned) realtime);
-        key = unicode_FromString("__REALTIME_TIMESTAMP");
-        value = PyBytes_FromString(realtime_str);
-        PyDict_SetItem(dict, key, value);
-        Py_DECREF(key);
-        Py_DECREF(value);
+    {
+        uint64_t realtime;
+        if (sd_journal_get_realtime_usec(self->j, &realtime) == 0) {
+            char realtime_str[20];
+            sprintf(realtime_str, "%llu", (long long unsigned) realtime);
+            key = unicode_FromString("__REALTIME_TIMESTAMP");
+            value = PyBytes_FromString(realtime_str);
+            PyDict_SetItem(dict, key, value);
+            Py_DECREF(key);
+            Py_DECREF(value);
+        }
     }
 
-    sd_id128_t sd_id;
-    uint64_t monotonic;
-    if (sd_journal_get_monotonic_usec(self->j, &monotonic, &sd_id) == 0) {
-        char monotonic_str[20];
-        sprintf(monotonic_str, "%llu", (long long unsigned) monotonic);
-        key = unicode_FromString("__MONOTONIC_TIMESTAMP");
-        value = PyBytes_FromString(monotonic_str);
+    {
+        sd_id128_t sd_id;
+        uint64_t monotonic;
+        if (sd_journal_get_monotonic_usec(self->j, &monotonic, &sd_id) == 0) {
+            char monotonic_str[20];
+            sprintf(monotonic_str, "%llu", (long long unsigned) monotonic);
+            key = unicode_FromString("__MONOTONIC_TIMESTAMP");
+            value = PyBytes_FromString(monotonic_str);
 
-        PyDict_SetItem(dict, key, value);
-        Py_DECREF(key);
-        Py_DECREF(value);
+            PyDict_SetItem(dict, key, value);
+            Py_DECREF(key);
+            Py_DECREF(value);
+        }
     }
 
-    char *cursor;
-    if (sd_journal_get_cursor(self->j, &cursor) > 0) { //Should return 0...
-        key = unicode_FromString("__CURSOR");
-        value = PyBytes_FromString(cursor);
-        PyDict_SetItem(dict, key, value);
-        free(cursor);
-        Py_DECREF(key);
-        Py_DECREF(value);
+    {
+        char *cursor;
+        if (sd_journal_get_cursor(self->j, &cursor) > 0) { //Should return 0...
+            key = unicode_FromString("__CURSOR");
+            value = PyBytes_FromString(cursor);
+            PyDict_SetItem(dict, key, value);
+            free(cursor);
+            Py_DECREF(key);
+            Py_DECREF(value);
+        }
     }
 
     return dict;
@@ -231,11 +233,10 @@ static PyObject *
 Journal_add_match(Journal *self, PyObject *args, PyObject *keywds)
 {
     char *match;
-    int match_len;
-    if (! PyArg_ParseTuple(args, "s#", &match, &match_len))
+    int match_len, r;
+    if (!PyArg_ParseTuple(args, "s#", &match, &match_len))
         return NULL;
 
-    int r;
     r = sd_journal_add_match(self->j, match, match_len);
     set_error(r, NULL, "Invalid match");
     if (r < 0)
@@ -280,15 +281,16 @@ static PyObject *
 Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
 {
     int64_t offset;
-    int whence=SEEK_SET;
+    int whence = SEEK_SET;
+    PyObject *result = NULL;
 
     static const char* const kwlist[] = {"offset", "whence", NULL};
     if (!PyArg_ParseTupleAndKeywords(args, keywds, "L|i", (char**) kwlist,
                                      &offset, &whence))
         return NULL;
 
-    PyObject *result=NULL;
-    if (whence == SEEK_SET){
+    switch(whence) {
+    case SEEK_SET: {
         int r;
         Py_BEGIN_ALLOW_THREADS
         r = sd_journal_seek_head(self->j);
@@ -296,14 +298,16 @@ Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
         if (set_error(r, NULL, NULL))
             return NULL;
 
-        if (offset > 0LL) {
+        if (offset > 0LL)
             result = PyObject_CallMethod((PyObject *)self, (char*) "get_next",
                                          (char*) "L", offset);
-        }
-    }else if (whence == SEEK_CUR){
+        break;
+    }
+    case SEEK_CUR:
         result = PyObject_CallMethod((PyObject *)self, (char*) "get_next",
                                      (char*) "L", offset);
-    }else if (whence == SEEK_END){
+        break;
+    case SEEK_END: {
         int r;
         Py_BEGIN_ALLOW_THREADS
         r = sd_journal_seek_tail(self->j);
@@ -311,14 +315,11 @@ Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
         if (set_error(r, NULL, NULL))
             return NULL;
 
-        if (offset < 0LL) {
-            result = PyObject_CallMethod((PyObject *)self, (char*) "get_next",
-                                         (char*) "L", offset);
-        }else{
-            result = PyObject_CallMethod((PyObject *)self, (char*) "get_next",
-                                         (char*) "L", -1LL);
-        }
-    }else{
+        result = PyObject_CallMethod((PyObject *)self, (char*) "get_next",
+                                     (char*) "L", offset < 0LL ? offset : -1LL);
+        break;
+    }
+    default:
         PyErr_SetString(PyExc_ValueError, "Invalid value for whence");
     }
 
@@ -336,18 +337,18 @@ static PyObject *
 Journal_seek_realtime(Journal *self, PyObject *args)
 {
     double timedouble;
-    if (! PyArg_ParseTuple(args, "d", &timedouble))
+    uint64_t timestamp;
+    int r;
+
+    if (!PyArg_ParseTuple(args, "d", &timedouble))
         return NULL;
 
-    uint64_t timestamp;
     timestamp = (uint64_t) (timedouble * 1.0E6);
-
     if ((int64_t) timestamp < 0LL) {
-        PyErr_SetString(PyExc_ValueError, "Time must be positive integer");
+        PyErr_SetString(PyExc_ValueError, "Time must be a positive integer");
         return NULL;
     }
 
-    int r;
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_seek_realtime_usec(self->j, timestamp);
     Py_END_ALLOW_THREADS
@@ -367,10 +368,13 @@ Journal_seek_monotonic(Journal *self, PyObject *args)
 {
     double timedouble;
     char *bootid=NULL;
+    uint64_t timestamp;
+    sd_id128_t sd_id;
+    int r;
+
     if (! PyArg_ParseTuple(args, "d|z", &timedouble, &bootid))
         return NULL;
 
-    uint64_t timestamp;
     timestamp = (uint64_t) (timedouble * 1.0E6);
 
     if ((int64_t) timestamp < 0LL) {
@@ -378,8 +382,6 @@ Journal_seek_monotonic(Journal *self, PyObject *args)
         return NULL;
     }
 
-    sd_id128_t sd_id;
-    int r;
     if (bootid) {
         r = sd_id128_from_string(bootid, &sd_id);
         if (set_error(r, NULL, "Invalid bootid"))
@@ -434,10 +436,11 @@ static PyObject *
 Journal_seek_cursor(Journal *self, PyObject *args)
 {
     const char *cursor;
+    int r;
+
     if (! PyArg_ParseTuple(args, "s", &cursor))
         return NULL;
 
-    int r;
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_seek_cursor(self->j, cursor);
     Py_END_ALLOW_THREADS
@@ -480,24 +483,26 @@ static PyObject *
 Journal_query_unique(Journal *self, PyObject *args)
 {
     char *query;
+    int r;
+    const void *uniq;
+    size_t uniq_len;
+    PyObject *value_set, *key, *value;
+
     if (! PyArg_ParseTuple(args, "s", &query))
         return NULL;
 
-    int r;
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_query_unique(self->j, query);
     Py_END_ALLOW_THREADS
     if (set_error(r, NULL, "Invalid field name"))
         return NULL;
 
-    const void *uniq;
-    size_t uniq_len;
-    const char *delim_ptr;
-    PyObject *value_set, *key, *value;
     value_set = PySet_New(0);
     key = unicode_FromString(query);
 
     SD_JOURNAL_FOREACH_UNIQUE(self->j, uniq, uniq_len) {
+        const char *delim_ptr;
+
         delim_ptr = memchr(uniq, '=', uniq_len);
         value = PyBytes_FromStringAndSize(delim_ptr + 1, (const char*) uniq + uniq_len - (delim_ptr + 1));
         PySet_Add(value_set, value);
@@ -523,15 +528,15 @@ Journal_get_data_threshold(Journal *self, void *closure)
 static int
 Journal_set_data_threshold(Journal *self, PyObject *value, void *closure)
 {
+    int r;
     if (value == NULL) {
         PyErr_SetString(PyExc_TypeError, "Cannot delete data threshold");
         return -1;
     }
     if (!long_Check(value)){
-        PyErr_SetString(PyExc_TypeError, "Data threshold must be int");
+        PyErr_SetString(PyExc_TypeError, "Data threshold must be an int");
         return -1;
     }
-    int r;
     r = sd_journal_set_data_threshold(self->j, (size_t) long_AsLong(value));
     return set_error(r, NULL, NULL);
 }
