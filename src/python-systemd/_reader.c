@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+/*-*- Mode: C; c-basic-offset: 4; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -61,28 +61,26 @@ static int set_error(int r, const char* path, const char* invalid_message) {
     return 1;
 }
 
-static void
-Journal_dealloc(Journal* self)
+static void Journal_dealloc(Journal* self)
 {
     sd_journal_close(self->j);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 PyDoc_STRVAR(Journal__doc__,
-"Journal([flags][,path]) -> ...\n"
-"Journal instance\n\n"
-"Returns instance of Journal, which allows filtering and return\n"
-"of journal entries.\n"
-"Argument `flags` sets open flags of the journal, which can be one\n"
-"of, or ORed combination of constants: LOCAL_ONLY (default) opens\n"
-"journal on local machine only; RUNTIME_ONLY opens only\n"
-"volatile journal files; and SYSTEM_ONLY opens only\n"
-"journal files of system services and the kernel.\n"
-"Argument `path` is the directory of journal files. Note that\n"
-"currently flags are ignored when `path` is present as they are\n"
-" not relevant.");
-static int
-Journal_init(Journal *self, PyObject *args, PyObject *keywds)
+             "Journal([flags][,path]) -> ...\n"
+             "Journal instance\n\n"
+             "Returns instance of Journal, which allows filtering and return\n"
+             "of journal entries.\n"
+             "Argument `flags` sets open flags of the journal, which can be one\n"
+             "of, or ORed combination of constants: LOCAL_ONLY (default) opens\n"
+             "journal on local machine only; RUNTIME_ONLY opens only\n"
+             "volatile journal files; and SYSTEM_ONLY opens only\n"
+             "journal files of system services and the kernel.\n"
+             "Argument `path` is the directory of journal files. Note that\n"
+             "currently flags are ignored when `path` is present as they are\n"
+             " not relevant.");
+static int Journal_init(Journal *self, PyObject *args, PyObject *keywds)
 {
     int flags = SD_JOURNAL_LOCAL_ONLY, r;
     char *path = NULL;
@@ -103,11 +101,10 @@ Journal_init(Journal *self, PyObject *args, PyObject *keywds)
 }
 
 PyDoc_STRVAR(Journal_get_next__doc__,
-"get_next([skip]) -> dict\n\n"
-"Return dictionary of the next log entry. Optional skip value will\n"
-"return the `skip`th log entry.");
-static PyObject *
-Journal_get_next(Journal *self, PyObject *args)
+             "get_next([skip]) -> dict\n\n"
+             "Return dictionary of the next log entry. Optional skip value will\n"
+             "return the `skip`th log entry.");
+static PyObject* Journal_get_next(Journal *self, PyObject *args)
 {
     PyObject *dict;
     const void *msg;
@@ -116,7 +113,7 @@ Journal_get_next(Journal *self, PyObject *args)
     PyObject *key, *value, *cur_value, *tmp_list;
 
     int64_t skip = 1LL, r = -EINVAL;
-    if (! PyArg_ParseTuple(args, "|L", &skip))
+    if (!PyArg_ParseTuple(args, "|L", &skip))
         return NULL;
 
     if (skip == 0LL) {
@@ -209,14 +206,13 @@ Journal_get_next(Journal *self, PyObject *args)
 }
 
 PyDoc_STRVAR(Journal_get_previous__doc__,
-"get_previous([skip]) -> dict\n\n"
-"Return dictionary of the previous log entry. Optional skip value\n"
-"will return the -`skip`th log entry. Equivalent to get_next(-skip).");
-static PyObject *
-Journal_get_previous(Journal *self, PyObject *args)
+             "get_previous([skip]) -> dict\n\n"
+             "Return dictionary of the previous log entry. Optional skip value\n"
+             "will return the -`skip`th log entry. Equivalent to get_next(-skip).");
+static PyObject* Journal_get_previous(Journal *self, PyObject *args)
 {
-    int64_t skip=1LL;
-    if (! PyArg_ParseTuple(args, "|L", &skip))
+    int64_t skip = 1LL;
+    if (!PyArg_ParseTuple(args, "|L", &skip))
         return NULL;
 
     return PyObject_CallMethod((PyObject *)self, (char*) "get_next",
@@ -224,13 +220,12 @@ Journal_get_previous(Journal *self, PyObject *args)
 }
 
 PyDoc_STRVAR(Journal_add_match__doc__,
-"add_match(match) -> None\n\n"
-"Add a match to filter journal log entries. All matches of different\n"
-"fields are combined in logical AND, and matches of the same field\n"
-"are automatically combined in logical OR.\n"
-"Match is string of form \"field=value\".");
-static PyObject *
-Journal_add_match(Journal *self, PyObject *args, PyObject *keywds)
+             "add_match(match) -> None\n\n"
+             "Add a match to filter journal log entries. All matches of different\n"
+             "fields are combined in logical AND, and matches of the same field\n"
+             "are automatically combined in logical OR.\n"
+             "Match is a string of the form \"FIELD=value\".");
+static PyObject* Journal_add_match(Journal *self, PyObject *args, PyObject *keywds)
 {
     char *match;
     int match_len, r;
@@ -246,11 +241,10 @@ Journal_add_match(Journal *self, PyObject *args, PyObject *keywds)
 }
 
 PyDoc_STRVAR(Journal_add_disjunction__doc__,
-"add_disjunction() -> None\n\n"
-"Once called, all matches before and after are combined in logical\n"
-"OR.");
-static PyObject *
-Journal_add_disjunction(Journal *self, PyObject *args)
+             "add_disjunction() -> None\n\n"
+             "Once called, all matches before and after are combined in logical\n"
+             "OR.");
+static PyObject* Journal_add_disjunction(Journal *self, PyObject *args)
 {
     int r;
     r = sd_journal_add_disjunction(self->j);
@@ -261,24 +255,22 @@ Journal_add_disjunction(Journal *self, PyObject *args)
 }
 
 PyDoc_STRVAR(Journal_flush_matches__doc__,
-"flush_matches() -> None\n\n"
-"Clears all current match filters.");
-static PyObject *
-Journal_flush_matches(Journal *self, PyObject *args)
+             "flush_matches() -> None\n\n"
+             "Clears all current match filters.");
+static PyObject* Journal_flush_matches(Journal *self, PyObject *args)
 {
     sd_journal_flush_matches(self->j);
     Py_RETURN_NONE;
 }
 
 PyDoc_STRVAR(Journal_seek__doc__,
-"seek(offset[, whence]) -> None\n\n"
-"Seek through journal by `offset` number of entries. Argument\n"
-"`whence` defines what the offset is relative to:\n"
-"os.SEEK_SET (default) from first match in journal;\n"
-"os.SEEK_CUR from current position in journal;\n"
-"and os.SEEK_END is from last match in journal.");
-static PyObject *
-Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
+             "seek(offset[, whence]) -> None\n\n"
+             "Seek through journal by `offset` number of entries. Argument\n"
+             "`whence` defines what the offset is relative to:\n"
+             "os.SEEK_SET (default) from first match in journal;\n"
+             "os.SEEK_CUR from current position in journal;\n"
+             "and os.SEEK_END is from last match in journal.");
+static PyObject* Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
 {
     int64_t offset;
     int whence = SEEK_SET;
@@ -330,11 +322,10 @@ Journal_seek(Journal *self, PyObject *args, PyObject *keywds)
 }
 
 PyDoc_STRVAR(Journal_seek_realtime__doc__,
-"seek_realtime(realtime) -> None\n\n"
-"Seek to nearest matching journal entry to `realtime`. Argument\n"
-"`realtime` can must be an integer unix timestamp.");
-static PyObject *
-Journal_seek_realtime(Journal *self, PyObject *args)
+             "seek_realtime(realtime) -> None\n\n"
+             "Seek to nearest matching journal entry to `realtime`. Argument\n"
+             "`realtime` can must be an integer unix timestamp.");
+static PyObject* Journal_seek_realtime(Journal *self, PyObject *args)
 {
     double timedouble;
     uint64_t timestamp;
@@ -358,21 +349,20 @@ Journal_seek_realtime(Journal *self, PyObject *args)
 }
 
 PyDoc_STRVAR(Journal_seek_monotonic__doc__,
-"seek_monotonic(monotonic[, bootid]) -> None\n\n"
-"Seek to nearest matching journal entry to `monotonic`. Argument\n"
-"`monotonic` is an timestamp from boot in seconds.\n"
-"Argument `bootid` is a string representing which boot the\n"
-"monotonic time is reference to. Defaults to current bootid.");
-static PyObject *
-Journal_seek_monotonic(Journal *self, PyObject *args)
+             "seek_monotonic(monotonic[, bootid]) -> None\n\n"
+             "Seek to nearest matching journal entry to `monotonic`. Argument\n"
+             "`monotonic` is an timestamp from boot in seconds.\n"
+             "Argument `bootid` is a string representing which boot the\n"
+             "monotonic time is reference to. Defaults to current bootid.");
+static PyObject* Journal_seek_monotonic(Journal *self, PyObject *args)
 {
     double timedouble;
-    char *bootid=NULL;
+    char *bootid = NULL;
     uint64_t timestamp;
     sd_id128_t sd_id;
     int r;
 
-    if (! PyArg_ParseTuple(args, "d|z", &timedouble, &bootid))
+    if (!PyArg_ParseTuple(args, "d|z", &timedouble, &bootid))
         return NULL;
 
     timestamp = (uint64_t) (timedouble * 1.0E6);
@@ -403,16 +393,15 @@ Journal_seek_monotonic(Journal *self, PyObject *args)
 }
 
 PyDoc_STRVAR(Journal_wait__doc__,
-"wait([timeout]) -> Change state (integer)\n\n"
-"Waits until there is a change in the journal. Argument `timeout`\n"
-"is the maximum number of seconds to wait before returning\n"
-"regardless if journal has changed. If `timeout` is not given or is\n"
-"0, then it will block forever.\n"
-"Will return constants: NOP if no change; APPEND if new\n"
-"entries have been added to the end of the journal; and\n"
-"INVALIDATE if journal files have been added or removed.");
-static PyObject *
-Journal_wait(Journal *self, PyObject *args, PyObject *keywds)
+             "wait([timeout]) -> Change state (integer)\n\n"
+             "Waits until there is a change in the journal. Argument `timeout`\n"
+             "is the maximum number of seconds to wait before returning\n"
+             "regardless if journal has changed. If `timeout` is not given or is\n"
+             "0, then it will block forever.\n"
+             "Will return constants: NOP if no change; APPEND if new\n"
+             "entries have been added to the end of the journal; and\n"
+             "INVALIDATE if journal files have been added or removed.");
+static PyObject* Journal_wait(Journal *self, PyObject *args, PyObject *keywds)
 {
     int r;
     int64_t timeout = 0LL;
@@ -430,15 +419,14 @@ Journal_wait(Journal *self, PyObject *args, PyObject *keywds)
 }
 
 PyDoc_STRVAR(Journal_seek_cursor__doc__,
-"seek_cursor(cursor) -> None\n\n"
-"Seeks to journal entry by given unique reference `cursor`.");
-static PyObject *
-Journal_seek_cursor(Journal *self, PyObject *args)
+             "seek_cursor(cursor) -> None\n\n"
+             "Seeks to journal entry by given unique reference `cursor`.");
+static PyObject* Journal_seek_cursor(Journal *self, PyObject *args)
 {
     const char *cursor;
     int r;
 
-    if (! PyArg_ParseTuple(args, "s", &cursor))
+    if (!PyArg_ParseTuple(args, "s", &cursor))
         return NULL;
 
     Py_BEGIN_ALLOW_THREADS
@@ -449,15 +437,13 @@ Journal_seek_cursor(Journal *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-static PyObject *
-Journal_iter(PyObject *self)
+static PyObject* Journal_iter(PyObject *self)
 {
     Py_INCREF(self);
     return self;
 }
 
-static PyObject *
-Journal_iternext(PyObject *self)
+static PyObject* Journal_iternext(PyObject *self)
 {
     PyObject *dict;
     Py_ssize_t dict_size;
@@ -476,11 +462,10 @@ Journal_iternext(PyObject *self)
 }
 
 PyDoc_STRVAR(Journal_query_unique__doc__,
-"query_unique(field) -> a set of values\n\n"
-"Returns a set of unique values in journal for given `field`.\n"
-"Note this does not respect any journal matches.");
-static PyObject *
-Journal_query_unique(Journal *self, PyObject *args)
+             "query_unique(field) -> a set of values\n\n"
+             "Returns a set of unique values in journal for given `field`.\n"
+             "Note this does not respect any journal matches.");
+static PyObject* Journal_query_unique(Journal *self, PyObject *args)
 {
     char *query;
     int r;
@@ -488,7 +473,7 @@ Journal_query_unique(Journal *self, PyObject *args)
     size_t uniq_len;
     PyObject *value_set, *key, *value;
 
-    if (! PyArg_ParseTuple(args, "s", &query))
+    if (!PyArg_ParseTuple(args, "s", &query))
         return NULL;
 
     Py_BEGIN_ALLOW_THREADS
@@ -512,8 +497,7 @@ Journal_query_unique(Journal *self, PyObject *args)
     return value_set;
 }
 
-static PyObject *
-Journal_get_data_threshold(Journal *self, void *closure)
+static PyObject* Journal_get_data_threshold(Journal *self, void *closure)
 {
     size_t cvalue;
     int r;
@@ -525,8 +509,7 @@ Journal_get_data_threshold(Journal *self, void *closure)
     return long_FromSize_t(cvalue);
 }
 
-static int
-Journal_set_data_threshold(Journal *self, PyObject *value, void *closure)
+static int Journal_set_data_threshold(Journal *self, PyObject *value, void *closure)
 {
     int r;
     if (value == NULL) {
