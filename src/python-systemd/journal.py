@@ -90,12 +90,11 @@ class Journal(_Journal):
     >>> myjournal.add_boot_match(journal.CURRENT_BOOT)
     >>> myjournal.add_loglevel_matches(journal.LOG_ERR)
     >>> myjournal.add_match(_SYSTEMD_UNIT="systemd-udevd.service")
-    >>> from __future__ import print_function
     >>> for entry in myjournal:
     ...    print(entry['MESSAGE'])
 
-    See man page "systemd.journal-fields" for more info on
-    typical fields found in the journal.
+    See systemd.journal-fields(7) for more info on typical fields
+    found in the journal.
     """
     def __init__(self, converters=None, flags=LOCAL_ONLY, path=None):
         """Creates instance of Journal, which allows filtering and
@@ -123,7 +122,7 @@ class Journal(_Journal):
                 self.converters.update(converters)
 
     def _convert_field(self, key, value):
-        """ Convert value based on callable from self.converters
+        """Convert value based on callable from self.converters
         based of field/key"""
         try:
             result = self.converters[key](value)
@@ -137,7 +136,7 @@ class Journal(_Journal):
         return result
 
     def _convert_entry(self, entry):
-        """ Convert entire journal entry utilising _covert_field"""
+        """Convert entire journal entry utilising _covert_field"""
         result = {}
         for key, value in entry.items():
             if isinstance(value, list):
@@ -149,44 +148,56 @@ class Journal(_Journal):
     def add_match(self, *args, **kwargs):
         """Add one or more matches to the filter journal log entries.
         All matches of different field are combined in a logical AND,
-        and matches of the smae field are automatically combined in a
+        and matches of the same field are automatically combined in a
         logical OR.
-        Matches can be passed as strings of form "field=value", or
-        keyword arguments field="value"."""
+        Matches can be passed as strings of form "FIELD=value", or
+        keyword arguments FIELD="value".
+        """
         args = list(args)
         args.extend(_make_line(key, val) for key, val in kwargs.items())
         for arg in args:
             super(Journal, self).add_match(arg)
 
     def get_next(self, skip=1):
-        """Return dictionary of the next log entry. Optional skip value
-        will return the `skip`th log entry.
-        Returned will be journal entry dictionary processed with
-        converters."""
+        """Return the next log entry as a dictionary of fields.
+
+        Optional skip value will return the `skip`\-th log entry.
+
+        Entries will be processed with converters specified during
+        Journal creation.
+        """
         return self._convert_entry(
             super(Journal, self).get_next(skip))
 
     def query_unique(self, field):
-        """Returns a set of unique values in journal for given `field`,
-        processed with converters.
-        Note this does not respect any journal matches."""
+        """Return unique values appearing in the Journal for given `field`.
+
+        Note this does not respect any journal matches.
+
+        Entries will be processed with converters specified during
+        Journal creation.
+        """
         return set(self._convert_field(field, value)
             for value in super(Journal, self).query_unique(field))
 
     def seek_realtime(self, realtime):
-        """Seek to nearest matching journal entry to `realtime`.
-        Argument `realtime` can must be either an integer unix timestamp
-        or datetime.datetime instance."""
+        """Seek to a matching journal entry nearest to `realtime` time.
+
+        Argument `realtime` must be either an integer unix timestamp
+        or datetime.datetime instance.
+        """
         if isinstance(realtime, _datetime.datetime):
             realtime = float(realtime.strftime("%s.%f"))
         return super(Journal, self).seek_realtime(realtime)
 
     def seek_monotonic(self, monotonic, bootid=None):
-        """Seek to nearest matching journal entry to `monotonic`.
-        Argument `monotonic` is a timestamp from boot in either seconds
-        or a datetime.timedelta instance.
-        Argument `bootid` is a string or UUID representing which boot the
-        monotonic time is reference to. Defaults to current bootid."""
+        """Seek to a matching journal entry nearest to `monotonic` time.
+
+        Argument `monotonic` is a timestamp from boot in either
+        seconds or a datetime.timedelta instance. Argument `bootid`
+        is a string or UUID representing which boot the monotonic time
+        is reference to. Defaults to current bootid.
+        """
         if isinstance(monotonic, _datetime.timedelta):
             monotonic = monotonic.totalseconds()
         if isinstance(bootid, _uuid.UUID):
@@ -194,7 +205,8 @@ class Journal(_Journal):
         return super(Journal, self).seek_monotonic(monotonic, bootid)
 
     def log_level(self, level):
-        """Sets maximum log `level` by setting matches for PRIORITY."""
+        """Set maximum log `level` by setting matches for PRIORITY.
+        """
         if 0 <= level <= 7:
             for i in range(level+1):
                 self.add_match(PRIORITY="%s" % i)
@@ -202,10 +214,13 @@ class Journal(_Journal):
             raise ValueError("Log level must be 0 <= level <= 7")
 
     def messageid_match(self, messageid):
-        """Sets match filter for log entries for specified `messageid`.
-        `messageid` can be string or UUID instance.
-        Standard message IDs can be found in systemd.id128
-        Equivalent to add_match(MESSAGE_ID=`messageid`)."""
+        """Add match for log entries with specified `messageid`.
+
+        `messageid` can be string of hexadicimal digits or a UUID
+        instance. Standard message IDs can be found in systemd.id128.
+
+        Equivalent to add_match(MESSAGE_ID=`messageid`).
+        """
         if isinstance(messageid, _uuid.UUID):
             messageid = messageid.get_hex()
         self.add_match(MESSAGE_ID=messageid)

@@ -35,24 +35,24 @@ static void cleanup_Py_DECREFp(PyObject **p) {
 PyDoc_STRVAR(module__doc__,
              "Python interface to the libsystemd-id128 library.\n\n"
              "Provides SD_MESSAGE_* constants and functions to query and generate\n"
-             "128bit unique identifiers."
+             "128-bit unique identifiers."
 );
 
 PyDoc_STRVAR(randomize__doc__,
              "randomize() -> UUID\n\n"
-             "Return a new random 128bit unique identifier.\n"
+             "Return a new random 128-bit unique identifier.\n"
              "Wraps sd_id128_randomize(3)."
 );
 
 PyDoc_STRVAR(get_machine__doc__,
              "get_machine() -> UUID\n\n"
-             "Return a 128bit unique identifier for this machine.\n"
+             "Return a 128-bit unique identifier for this machine.\n"
              "Wraps sd_id128_get_machine(3)."
 );
 
 PyDoc_STRVAR(get_boot__doc__,
              "get_boot() -> UUID\n\n"
-             "Return a 128bit unique identifier for this boot.\n"
+             "Return a 128-bit unique identifier for this boot.\n"
              "Wraps sd_id128_get_boot(3)."
 );
 

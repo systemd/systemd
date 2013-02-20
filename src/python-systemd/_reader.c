@@ -68,10 +68,8 @@ static void Journal_dealloc(Journal* self)
 }
 
 PyDoc_STRVAR(Journal__doc__,
-             "Journal([flags][,path]) -> ...\n"
-             "Journal instance\n\n"
-             "Returns instance of Journal, which allows filtering and return\n"
-             "of journal entries.\n"
+             "Journal([flags][,path]) -> ...\n\n"
+             "Journal allows filtering and retrieval of Journal entries.\n"
              "Argument `flags` sets open flags of the journal, which can be one\n"
              "of, or ORed combination of constants: LOCAL_ONLY (default) opens\n"
              "journal on local machine only; RUNTIME_ONLY opens only\n"
@@ -79,7 +77,7 @@ PyDoc_STRVAR(Journal__doc__,
              "journal files of system services and the kernel.\n"
              "Argument `path` is the directory of journal files. Note that\n"
              "currently flags are ignored when `path` is present as they are\n"
-             " not relevant.");
+             "not relevant.");
 static int Journal_init(Journal *self, PyObject *args, PyObject *keywds)
 {
     int flags = SD_JOURNAL_LOCAL_ONLY, r;
@@ -103,7 +101,7 @@ static int Journal_init(Journal *self, PyObject *args, PyObject *keywds)
 PyDoc_STRVAR(Journal_get_next__doc__,
              "get_next([skip]) -> dict\n\n"
              "Return dictionary of the next log entry. Optional skip value will\n"
-             "return the `skip`th log entry.");
+             "return the `skip`\\-th log entry.");
 static PyObject* Journal_get_next(Journal *self, PyObject *args)
 {
     PyObject *dict;
@@ -208,7 +206,7 @@ static PyObject* Journal_get_next(Journal *self, PyObject *args)
 PyDoc_STRVAR(Journal_get_previous__doc__,
              "get_previous([skip]) -> dict\n\n"
              "Return dictionary of the previous log entry. Optional skip value\n"
-             "will return the -`skip`th log entry. Equivalent to get_next(-skip).");
+             "will return the -`skip`\\-th log entry. Equivalent to get_next(-skip).");
 static PyObject* Journal_get_previous(Journal *self, PyObject *args)
 {
     int64_t skip = 1LL;
@@ -222,8 +220,8 @@ static PyObject* Journal_get_previous(Journal *self, PyObject *args)
 PyDoc_STRVAR(Journal_add_match__doc__,
              "add_match(match) -> None\n\n"
              "Add a match to filter journal log entries. All matches of different\n"
-             "fields are combined in logical AND, and matches of the same field\n"
-             "are automatically combined in logical OR.\n"
+             "fields are combined with logical AND, and matches of the same field\n"
+             "are automatically combined with logical OR.\n"
              "Match is a string of the form \"FIELD=value\".");
 static PyObject* Journal_add_match(Journal *self, PyObject *args, PyObject *keywds)
 {
@@ -242,8 +240,7 @@ static PyObject* Journal_add_match(Journal *self, PyObject *args, PyObject *keyw
 
 PyDoc_STRVAR(Journal_add_disjunction__doc__,
              "add_disjunction() -> None\n\n"
-             "Once called, all matches before and after are combined in logical\n"
-             "OR.");
+             "Inserts a logical OR between matches added before and afterwards.");
 static PyObject* Journal_add_disjunction(Journal *self, PyObject *args)
 {
     int r;
@@ -256,7 +253,7 @@ static PyObject* Journal_add_disjunction(Journal *self, PyObject *args)
 
 PyDoc_STRVAR(Journal_flush_matches__doc__,
              "flush_matches() -> None\n\n"
-             "Clears all current match filters.");
+             "Clear all current match filters.");
 static PyObject* Journal_flush_matches(Journal *self, PyObject *args)
 {
     sd_journal_flush_matches(self->j);
@@ -265,7 +262,7 @@ static PyObject* Journal_flush_matches(Journal *self, PyObject *args)
 
 PyDoc_STRVAR(Journal_seek__doc__,
              "seek(offset[, whence]) -> None\n\n"
-             "Seek through journal by `offset` number of entries. Argument\n"
+             "Jump `offset` entries in the journal. Argument\n"
              "`whence` defines what the offset is relative to:\n"
              "os.SEEK_SET (default) from first match in journal;\n"
              "os.SEEK_CUR from current position in journal;\n"
@@ -393,11 +390,11 @@ static PyObject* Journal_seek_monotonic(Journal *self, PyObject *args)
 }
 
 PyDoc_STRVAR(Journal_wait__doc__,
-             "wait([timeout]) -> Change state (integer)\n\n"
-             "Waits until there is a change in the journal. Argument `timeout`\n"
-             "is the maximum number of seconds to wait before returning\n"
-             "regardless if journal has changed. If `timeout` is not given or is\n"
-             "0, then it will block forever.\n"
+             "wait([timeout]) -> state change (integer)\n\n"
+             "Wait for a change in the journal. Argument `timeout` specifies\n"
+             "the maximum number of seconds to wait before returning\n"
+             "regardless of wheter the journal has changed. If `timeout` is not given\n"
+             "or is 0, then block forever.\n"
              "Will return constants: NOP if no change; APPEND if new\n"
              "entries have been added to the end of the journal; and\n"
              "INVALIDATE if journal files have been added or removed.");
@@ -420,7 +417,7 @@ static PyObject* Journal_wait(Journal *self, PyObject *args, PyObject *keywds)
 
 PyDoc_STRVAR(Journal_seek_cursor__doc__,
              "seek_cursor(cursor) -> None\n\n"
-             "Seeks to journal entry by given unique reference `cursor`.");
+             "Seek to journal entry by given unique reference `cursor`.");
 static PyObject* Journal_seek_cursor(Journal *self, PyObject *args)
 {
     const char *cursor;
@@ -463,8 +460,8 @@ static PyObject* Journal_iternext(PyObject *self)
 
 PyDoc_STRVAR(Journal_query_unique__doc__,
              "query_unique(field) -> a set of values\n\n"
-             "Returns a set of unique values in journal for given `field`.\n"
-             "Note this does not respect any journal matches.");
+             "Return a set of unique values appearing in journal for the\n"
+             "given `field`. Note this does not respect any journal matches.");
 static PyObject* Journal_query_unique(Journal *self, PyObject *args)
 {
     char *query;
@@ -497,6 +494,11 @@ static PyObject* Journal_query_unique(Journal *self, PyObject *args)
     return value_set;
 }
 
+PyDoc_STRVAR(data_threshold__doc__,
+             "Threshold for field size truncation.\n\n"
+             "Fields longer than this will be truncated to the threshold size.\n"
+             "Defaults to 64Kb.");
+
 static PyObject* Journal_get_data_threshold(Journal *self, void *closure)
 {
     size_t cvalue;
@@ -528,7 +530,7 @@ static PyGetSetDef Journal_getseters[] = {
     {(char*) "data_threshold",
      (getter)Journal_get_data_threshold,
      (setter)Journal_set_data_threshold,
-     (char*) "data threshold",
+     (char*) data_threshold__doc__,
      NULL},
     {NULL}
 };
@@ -600,11 +602,14 @@ static PyTypeObject JournalType = {
     PyType_GenericNew,                /* tp_new */
 };
 
+#define SUMMARY \
+    "Module that reads the systemd journal similar to journalctl."
+
 #if PY_MAJOR_VERSION >= 3
 static PyModuleDef _reader_module = {
     PyModuleDef_HEAD_INIT,
     "_reader",
-    "Module that reads systemd journal similar to journalctl.",
+    SUMMARY,
     -1,
     NULL, NULL, NULL, NULL, NULL
 };
@@ -636,8 +641,7 @@ init_reader(void)
     if (m == NULL)
         return NULL;
 #else
-    m = Py_InitModule3("_reader", NULL,
-                   "Module that reads systemd journal similar to journalctl.");
+    m = Py_InitModule3("_reader", NULL, SUMMARY);
     if (m == NULL)
         return;
 #endif
