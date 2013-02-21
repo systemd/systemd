@@ -28,7 +28,7 @@ import os as _os
 from os import SEEK_SET, SEEK_CUR, SEEK_END
 import logging as _logging
 if _sys.version_info >= (3,):
-    from collections import ChainMap
+    from collections import ChainMap as _ChainMap
 from syslog import (LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR,
                     LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG)
 from ._journal import sendv, stream_fd
@@ -112,7 +112,7 @@ class Journal(_Journal):
         """
         super(Journal, self).__init__(flags, path)
         if _sys.version_info >= (3,3):
-            self.converters = ChainMap()
+            self.converters = _ChainMap()
             if converters is not None:
                 self.converters.maps.append(converters)
             self.converters.maps.append(DEFAULT_CONVERTERS)
