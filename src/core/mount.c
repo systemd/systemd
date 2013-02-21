@@ -329,6 +329,12 @@ static bool mount_is_bind(MountParameters *p) {
         if (p->fstype && streq(p->fstype, "bind"))
                 return true;
 
+        if (mount_test_option(p->options, "rbind"))
+                return true;
+
+        if (p->fstype && streq(p->fstype, "rbind"))
+                return true;
+
         return false;
 }
 

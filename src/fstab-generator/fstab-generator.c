@@ -178,7 +178,9 @@ static bool mount_is_bind(struct mntent *me) {
 
         return
                 hasmntopt(me, "bind") ||
-                streq(me->mnt_type, "bind");
+                streq(me->mnt_type, "bind") ||
+                hasmntopt(me, "rbind") ||
+                streq(me->mnt_type, "rbind");
 }
 
 static bool mount_is_network(struct mntent *me) {
