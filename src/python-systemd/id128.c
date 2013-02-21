@@ -106,13 +106,13 @@ static PyMethodDef methods[] = {
 };
 
 static int add_id(PyObject *module, const char* name, sd_id128_t id) {
-        PyObject _cleanup_Py_DECREF_ *obj;
+        PyObject *obj;
 
         obj = make_uuid(id);
         if (!obj)
                 return -1;
 
-        return PyObject_SetAttrString(module, name, obj);
+        return PyModule_AddObject(module, name, obj);
 }
 
 #pragma GCC diagnostic push
