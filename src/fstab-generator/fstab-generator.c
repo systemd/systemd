@@ -495,8 +495,8 @@ static int parse_new_root_from_proc_cmdline(void) {
 
         if (what) {
 
-                log_debug("Found entry what=%s where=/new_root type=%s", what, type);
-                r = add_mount(what, "/new_root", type, opts, 0, wait, false, false,
+                log_debug("Found entry what=%s where=/sysroot type=%s", what, type);
+                r = add_mount(what, "/sysroot", type, opts, 0, wait, false, false,
                               false, false, false, "/proc/cmdline");
 
                 if (r < 0)
