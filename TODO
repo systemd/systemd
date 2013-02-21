@@ -128,7 +128,6 @@ Features:
   - journald: when dropping msgs due to ratelimit make sure to write
     "dropped %u messages" not only when we are about to print the next
     message that works, but alraedy after a short tiemout
-  - ratelimit should be configurable by message severity and by service/source
   - check if we can make journalctl by default use --follow mode inside of less if called without args?
   - maybe add API to send pairs of iovecs via sd_journal_send
   - journal: when writing journal auto-rotate if time jumps backwards
