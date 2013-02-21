@@ -3457,8 +3457,14 @@ PAPER = $(shell cat /etc/papersize 2>/dev/null || echo a4)
 SPHINXOPTS = -D latex_paper_size=$(PAPER)
 sphinx-%:
 	$(AM_V_at)test -n "$(SPHINX_BUILD)" || { echo " *** sphinx-build is not available"; exit 1; }
-	$(AM_V_GEN)PYTHONPATH=$(DESTDIR)$(pyexecdir) $(SPHINX_BUILD) -b $* $(SPHINXOPTS) $(top_srcdir)/src/python-systemd/docs $(top_builddir)/man/python-systemd/
+	$(AM_V_GEN)PYTHONPATH=$(DESTDIR)$(pyexecdir) LD_LIBRARY_PATH=$(DESTDIR)$(libdir) $(SPHINX_BUILD) -b $* $(SPHINXOPTS) $(top_srcdir)/src/python-systemd/docs $(top_builddir)/man/python-systemd/
 	$(AM_V_at)echo Output has been generated in $(abs_top_builddir)/man/python-systemd/
+
+destdir-sphinx: all
+	dir="`mktemp -d /tmp/systemd-install.XXXXXX`" && \
+		$(MAKE) DESTDIR="$$dir" install && \
+	        $(MAKE) DESTDIR="$$dir" sphinx-html && \
+		rm -rf "$$dir"
 
 # ------------------------------------------------------------------------------
 SED_PROCESS = \
@@ -3780,17 +3786,19 @@ upload: all distcheck
 	scp systemd-$(VERSION).tar.xz fdo:/srv/www.freedesktop.org/www/software/systemd/
 	scp man/*.html tango:public/systemd-man/
 
-doc-sync: all
+www_target = www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd
+doc-sync: all destdir-sphinx
 	gtkdoc-rebase --html-dir=docs/libudev/html --online
-	rsync -av --delete docs/libudev/html/ --omit-dir-times www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/libudev/
+	rsync -av --delete docs/libudev/html/ --omit-dir-times $(www_target)/libudev/
 	gtkdoc-rebase --html-dir=docs/gudev/html --online
-	rsync -av --delete docs/gudev/html/ --omit-dir-times www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/gudev/
-	rsync -av --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/man/
+	rsync -av --delete docs/gudev/html/ --omit-dir-times $(www_target)/gudev/
+	rsync -av --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
+	rsync -av --delete --omit-dir-times man/python-systemd/ $(www_target)/man/python-systemd/
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
 
 install-tree: all
 	rm -rf $(abs_srcdir)/install-tree
-	make install DESTDIR=$(abs_srcdir)/install-tree
+	$(MAKE) install DESTDIR=$(abs_srcdir)/install-tree
 	tree $(abs_srcdir)/install-tree
