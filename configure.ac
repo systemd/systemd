@@ -276,7 +276,7 @@ AM_CONDITIONAL(HAVE_SELINUX, [test "$have_selinux" = "yes"])
 if test "x${have_selinux}" != xno ; then
         sushell=/sbin/sushell
 else
-        sushell=/bin/bash
+        sushell=/bin/sh
 fi
 AC_SUBST(sushell)
 
