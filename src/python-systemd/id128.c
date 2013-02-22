@@ -19,18 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+
 #include <Python.h>
 
 #include <systemd/sd-messages.h>
 
-#define _cleanup_Py_DECREF_ __attribute__((cleanup(cleanup_Py_DECREFp)))
-
-static void cleanup_Py_DECREFp(PyObject **p) {
-        if (!*p)
-                return;
-
-        Py_DECREF(*p);
-}
+#include "pyutil.h"
 
 PyDoc_STRVAR(module__doc__,
              "Python interface to the libsystemd-id128 library.\n\n"
@@ -127,7 +122,10 @@ PyMODINIT_FUNC initid128(void) {
         if (m == NULL)
                 return;
 
+        /* a series of lines like 'add_id() ;' follow */
+#define JOINER ;
 #include "id128-constants.h"
+#undef JOINER
 }
 
 #else
@@ -147,7 +145,14 @@ PyMODINIT_FUNC PyInit_id128(void) {
         if (m == NULL)
                 return NULL;
 
+        if ( /* a series of lines like 'add_id() ||' follow */
+#define JOINER ||
 #include "id128-constants.h"
+#undef JOINER
+                false) {
+                Py_DECREF(m);
+                return NULL;
+        }
 
         return m;
 }

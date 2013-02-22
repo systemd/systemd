@@ -18,11 +18,17 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
-#include <systemd/sd-journal.h>
 
 #include <Python.h>
 #include <structmember.h>
 #include <datetime.h>
+#include <stdio.h>
+
+#include <systemd/sd-journal.h>
+
+#include "pyutil.h"
+#include "macro.h"
+#include "util.h"
 
 #if PY_MAJOR_VERSION >=3
 # define unicode_FromStringAndSize PyUnicode_FromStringAndSize
@@ -107,10 +113,9 @@ static PyObject* Journal_get_next(Journal *self, PyObject *args)
     PyObject *dict;
     const void *msg;
     size_t msg_len;
-    const char *delim_ptr;
-    PyObject *key, *value, *cur_value, *tmp_list;
+    int64_t skip = 1LL;
+    int r;
 
-    int64_t skip = 1LL, r = -EINVAL;
     if (!PyArg_ParseTuple(args, "|L", &skip))
         return NULL;
 
@@ -128,6 +133,8 @@ static PyObject* Journal_get_next(Journal *self, PyObject *args)
         r = sd_journal_next_skip(self->j, skip);
     else if (skip < -1LL)
         r = sd_journal_previous_skip(self->j, -skip);
+    else
+        assert_not_reached("should not be here");
     Py_END_ALLOW_THREADS
 
     set_error(r, NULL, NULL);
@@ -137,70 +144,128 @@ static PyObject* Journal_get_next(Journal *self, PyObject *args)
         return PyDict_New();
 
     dict = PyDict_New();
+    if (!dict)
+            return NULL;
 
     SD_JOURNAL_FOREACH_DATA(self->j, msg, msg_len) {
+        PyObject _cleanup_Py_DECREF_ *key = NULL, *value = NULL;
+        const char *delim_ptr;
+
         delim_ptr = memchr(msg, '=', msg_len);
+        if (!delim_ptr) {
+            PyErr_SetString(PyExc_OSError,
+                            "journal gave us a field without '='");
+            goto error;
+        }
+
         key = unicode_FromStringAndSize(msg, delim_ptr - (const char*) msg);
-        value = PyBytes_FromStringAndSize(delim_ptr + 1, (const char*) msg + msg_len - (delim_ptr + 1) );
+        if (!key)
+            goto error;
+
+        value = PyBytes_FromStringAndSize(
+                delim_ptr + 1,
+                (const char*) msg + msg_len - (delim_ptr + 1) );
+        if (!value)
+            goto error;
+
         if (PyDict_Contains(dict, key)) {
-            cur_value = PyDict_GetItem(dict, key);
+            PyObject *cur_value = PyDict_GetItem(dict, key);
+
             if (PyList_CheckExact(cur_value)) {
-                PyList_Append(cur_value, value);
-            }else{
-                tmp_list = PyList_New(0);
-                PyList_Append(tmp_list, cur_value);
-                PyList_Append(tmp_list, value);
+                r = PyList_Append(cur_value, value);
+                if (r < 0)
+                    goto error;
+            } else {
+                PyObject _cleanup_Py_DECREF_ *tmp_list = PyList_New(0);
+                if (!tmp_list)
+                    goto error;
+
+                r = PyList_Append(tmp_list, cur_value);
+                if (r < 0)
+                    goto error;
+
+                r = PyList_Append(tmp_list, value);
+                if (r < 0)
+                    goto error;
+
                 PyDict_SetItem(dict, key, tmp_list);
-                Py_DECREF(tmp_list);
+                if (r < 0)
+                    goto error;
             }
-        }else{
-            PyDict_SetItem(dict, key, value);
+        } else {
+            r = PyDict_SetItem(dict, key, value);
+            if (r < 0)
+                goto error;
         }
-        Py_DECREF(key);
-        Py_DECREF(value);
     }
 
     {
+        PyObject _cleanup_Py_DECREF_ *key = NULL, *value = NULL;
         uint64_t realtime;
-        if (sd_journal_get_realtime_usec(self->j, &realtime) == 0) {
-            char realtime_str[20];
-            sprintf(realtime_str, "%llu", (long long unsigned) realtime);
-            key = unicode_FromString("__REALTIME_TIMESTAMP");
-            value = PyBytes_FromString(realtime_str);
-            PyDict_SetItem(dict, key, value);
-            Py_DECREF(key);
-            Py_DECREF(value);
-        }
+
+        r = sd_journal_get_realtime_usec(self->j, &realtime);
+        if (set_error(r, NULL, NULL))
+            goto error;
+
+        key = unicode_FromString("__REALTIME_TIMESTAMP");
+        if (!key)
+            goto error;
+
+        assert_cc(sizeof(unsigned long long) == sizeof(realtime));
+        value = PyLong_FromUnsignedLongLong(realtime);
+        if (!value)
+            goto error;
+
+        if (PyDict_SetItem(dict, key, value))
+            goto error;
     }
 
     {
+        PyObject _cleanup_Py_DECREF_ *key = NULL, *value = NULL;
         sd_id128_t sd_id;
         uint64_t monotonic;
-        if (sd_journal_get_monotonic_usec(self->j, &monotonic, &sd_id) == 0) {
-            char monotonic_str[20];
-            sprintf(monotonic_str, "%llu", (long long unsigned) monotonic);
-            key = unicode_FromString("__MONOTONIC_TIMESTAMP");
-            value = PyBytes_FromString(monotonic_str);
 
-            PyDict_SetItem(dict, key, value);
-            Py_DECREF(key);
-            Py_DECREF(value);
-        }
+        r = sd_journal_get_monotonic_usec(self->j, &monotonic, &sd_id);
+        if (set_error(r, NULL, NULL))
+            goto error;
+
+        key = unicode_FromString("__MONOTONIC_TIMESTAMP");
+        if (!key)
+            goto error;
+
+        assert_cc(sizeof(unsigned long long) == sizeof(monotonic));
+        value = PyLong_FromUnsignedLongLong(monotonic);
+        if (!value)
+            goto error;
+
+        if (PyDict_SetItem(dict, key, value))
+            goto error;
     }
 
     {
-        char *cursor;
-        if (sd_journal_get_cursor(self->j, &cursor) > 0) { //Should return 0...
-            key = unicode_FromString("__CURSOR");
-            value = PyBytes_FromString(cursor);
-            PyDict_SetItem(dict, key, value);
-            free(cursor);
-            Py_DECREF(key);
-            Py_DECREF(value);
-        }
+        PyObject _cleanup_Py_DECREF_ *key = NULL, *value = NULL;
+        char _cleanup_free_ *cursor = NULL;
+
+        r = sd_journal_get_cursor(self->j, &cursor);
+        if (set_error(r, NULL, NULL))
+            goto error;
+
+        key = unicode_FromString("__CURSOR");
+        if (!key)
+            goto error;
+
+        value = PyBytes_FromString(cursor);
+        if (!value)
+            goto error;
+
+        if (PyDict_SetItem(dict, key, value))
+            goto error;
     }
 
     return dict;
+error:
+    Py_DECREF(dict);
+    return NULL;
 }
 
 PyDoc_STRVAR(Journal_get_previous__doc__,
@@ -451,7 +516,7 @@ static PyObject* Journal_iternext(PyObject *self)
     dict_size = PyDict_Size(dict);
     if ((int64_t) dict_size > 0LL) {
         return dict;
-    }else{
+    } else {
         Py_DECREF(dict);
         PyErr_SetNone(PyExc_StopIteration);
         return NULL;
@@ -486,7 +551,9 @@ static PyObject* Journal_query_unique(Journal *self, PyObject *args)
         const char *delim_ptr;
 
         delim_ptr = memchr(uniq, '=', uniq_len);
-        value = PyBytes_FromStringAndSize(delim_ptr + 1, (const char*) uniq + uniq_len - (delim_ptr + 1));
+        value = PyBytes_FromStringAndSize(
+            delim_ptr + 1,
+            (const char*) uniq + uniq_len - (delim_ptr + 1));
         PySet_Add(value_set, value);
         Py_DECREF(value);
     }
@@ -495,7 +562,7 @@ static PyObject* Journal_query_unique(Journal *self, PyObject *args)
 }
 
 PyDoc_STRVAR(data_threshold__doc__,
-             "Threshold for field size truncation.\n\n"
+             "Threshold for field size truncation in bytes.\n\n"
              "Fields longer than this will be truncated to the threshold size.\n"
              "Defaults to 64Kb.");
 
@@ -515,7 +582,7 @@ static int Journal_set_data_threshold(Journal *self, PyObject *value, void *clos
 {
     int r;
     if (value == NULL) {
-        PyErr_SetString(PyExc_TypeError, "Cannot delete data threshold");
+        PyErr_SetString(PyExc_AttributeError, "Cannot delete data threshold");
         return -1;
     }
     if (!long_Check(value)){
@@ -528,78 +595,67 @@ static int Journal_set_data_threshold(Journal *self, PyObject *value, void *clos
 
 static PyGetSetDef Journal_getseters[] = {
     {(char*) "data_threshold",
-     (getter)Journal_get_data_threshold,
-     (setter)Journal_set_data_threshold,
+     (getter) Journal_get_data_threshold,
+     (setter) Journal_set_data_threshold,
      (char*) data_threshold__doc__,
      NULL},
     {NULL}
 };
 
 static PyMethodDef Journal_methods[] = {
-    {"get_next", (PyCFunction)Journal_get_next, METH_VARARGS,
-    Journal_get_next__doc__},
-    {"get_previous", (PyCFunction)Journal_get_previous, METH_VARARGS,
-    Journal_get_previous__doc__},
-    {"add_match", (PyCFunction)Journal_add_match, METH_VARARGS|METH_KEYWORDS,
-    Journal_add_match__doc__},
-    {"add_disjunction", (PyCFunction)Journal_add_disjunction, METH_NOARGS,
-    Journal_add_disjunction__doc__},
-    {"flush_matches", (PyCFunction)Journal_flush_matches, METH_NOARGS,
-    Journal_flush_matches__doc__},
-    {"seek", (PyCFunction)Journal_seek, METH_VARARGS | METH_KEYWORDS,
-    Journal_seek__doc__},
-    {"seek_realtime", (PyCFunction)Journal_seek_realtime, METH_VARARGS,
-    Journal_seek_realtime__doc__},
-    {"seek_monotonic", (PyCFunction)Journal_seek_monotonic, METH_VARARGS,
-    Journal_seek_monotonic__doc__},
-    {"wait", (PyCFunction)Journal_wait, METH_VARARGS,
-    Journal_wait__doc__},
-    {"seek_cursor", (PyCFunction)Journal_seek_cursor, METH_VARARGS,
-    Journal_seek_cursor__doc__},
-    {"query_unique", (PyCFunction)Journal_query_unique, METH_VARARGS,
-    Journal_query_unique__doc__},
+    {"get_next",        (PyCFunction) Journal_get_next, METH_VARARGS, Journal_get_next__doc__},
+    {"get_previous",    (PyCFunction) Journal_get_previous, METH_VARARGS, Journal_get_previous__doc__},
+    {"add_match",       (PyCFunction) Journal_add_match, METH_VARARGS|METH_KEYWORDS, Journal_add_match__doc__},
+    {"add_disjunction", (PyCFunction) Journal_add_disjunction, METH_NOARGS, Journal_add_disjunction__doc__},
+    {"flush_matches",   (PyCFunction) Journal_flush_matches, METH_NOARGS, Journal_flush_matches__doc__},
+    {"seek",            (PyCFunction) Journal_seek, METH_VARARGS | METH_KEYWORDS,  Journal_seek__doc__},
+    {"seek_realtime",   (PyCFunction) Journal_seek_realtime, METH_VARARGS, Journal_seek_realtime__doc__},
+    {"seek_monotonic",  (PyCFunction) Journal_seek_monotonic, METH_VARARGS, Journal_seek_monotonic__doc__},
+    {"wait",            (PyCFunction) Journal_wait, METH_VARARGS, Journal_wait__doc__},
+    {"seek_cursor",     (PyCFunction) Journal_seek_cursor, METH_VARARGS, Journal_seek_cursor__doc__},
+    {"query_unique",    (PyCFunction) Journal_query_unique, METH_VARARGS, Journal_query_unique__doc__},
     {NULL}  /* Sentinel */
 };
 
 static PyTypeObject JournalType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "_reader._Journal",               /*tp_name*/
-    sizeof(Journal),                  /*tp_basicsize*/
-    0,                                /*tp_itemsize*/
-    (destructor)Journal_dealloc,      /*tp_dealloc*/
-    0,                                /*tp_print*/
-    0,                                /*tp_getattr*/
-    0,                                /*tp_setattr*/
-    0,                                /*tp_compare*/
-    0,                                /*tp_repr*/
-    0,                                /*tp_as_number*/
-    0,                                /*tp_as_sequence*/
-    0,                                /*tp_as_mapping*/
-    0,                                /*tp_hash */
-    0,                                /*tp_call*/
-    0,                                /*tp_str*/
-    0,                                /*tp_getattro*/
-    0,                                /*tp_setattro*/
-    0,                                /*tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,/*tp_flags*/
-    Journal__doc__,                   /* tp_doc */
-    0,                                /* tp_traverse */
-    0,                                /* tp_clear */
-    0,                                /* tp_richcompare */
-    0,                                /* tp_weaklistoffset */
-    Journal_iter,                     /* tp_iter */
-    Journal_iternext,                 /* tp_iternext */
-    Journal_methods,                  /* tp_methods */
-    0,                                /* tp_members */
-    Journal_getseters,                /* tp_getset */
-    0,                                /* tp_base */
-    0,                                /* tp_dict */
-    0,                                /* tp_descr_get */
-    0,                                /* tp_descr_set */
-    0,                                /* tp_dictoffset */
-    (initproc)Journal_init,           /* tp_init */
-    0,                                /* tp_alloc */
-    PyType_GenericNew,                /* tp_new */
+    "_reader._Journal",                       /*tp_name*/
+    sizeof(Journal),                          /*tp_basicsize*/
+    0,                                        /*tp_itemsize*/
+    (destructor)Journal_dealloc,              /*tp_dealloc*/
+    0,                                        /*tp_print*/
+    0,                                        /*tp_getattr*/
+    0,                                        /*tp_setattr*/
+    0,                                        /*tp_compare*/
+    0,                                        /*tp_repr*/
+    0,                                        /*tp_as_number*/
+    0,                                        /*tp_as_sequence*/
+    0,                                        /*tp_as_mapping*/
+    0,                                        /*tp_hash */
+    0,                                        /*tp_call*/
+    0,                                        /*tp_str*/
+    0,                                        /*tp_getattro*/
+    0,                                        /*tp_setattro*/
+    0,                                        /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    Journal__doc__,                           /* tp_doc */
+    0,                                        /* tp_traverse */
+    0,                                        /* tp_clear */
+    0,                                        /* tp_richcompare */
+    0,                                        /* tp_weaklistoffset */
+    Journal_iter,                             /* tp_iter */
+    Journal_iternext,                         /* tp_iternext */
+    Journal_methods,                          /* tp_methods */
+    0,                                        /* tp_members */
+    Journal_getseters,                        /* tp_getset */
+    0,                                        /* tp_base */
+    0,                                        /* tp_dict */
+    0,                                        /* tp_descr_get */
+    0,                                        /* tp_descr_set */
+    0,                                        /* tp_dictoffset */
+    (initproc) Journal_init,                  /* tp_init */
+    0,                                        /* tp_alloc */
+    PyType_GenericNew,                        /* tp_new */
 };
 
 #define SUMMARY \
@@ -647,13 +703,18 @@ init_reader(void)
 #endif
 
     Py_INCREF(&JournalType);
-    PyModule_AddObject(m, "_Journal", (PyObject *)&JournalType);
-    PyModule_AddIntConstant(m, "NOP", SD_JOURNAL_NOP);
-    PyModule_AddIntConstant(m, "APPEND", SD_JOURNAL_APPEND);
-    PyModule_AddIntConstant(m, "INVALIDATE", SD_JOURNAL_INVALIDATE);
-    PyModule_AddIntConstant(m, "LOCAL_ONLY", SD_JOURNAL_LOCAL_ONLY);
-    PyModule_AddIntConstant(m, "RUNTIME_ONLY", SD_JOURNAL_RUNTIME_ONLY);
-    PyModule_AddIntConstant(m, "SYSTEM_ONLY", SD_JOURNAL_SYSTEM_ONLY);
+    if (PyModule_AddObject(m, "_Journal", (PyObject *) &JournalType) ||
+        PyModule_AddIntConstant(m, "NOP", SD_JOURNAL_NOP) ||
+        PyModule_AddIntConstant(m, "APPEND", SD_JOURNAL_APPEND) ||
+        PyModule_AddIntConstant(m, "INVALIDATE", SD_JOURNAL_INVALIDATE) ||
+        PyModule_AddIntConstant(m, "LOCAL_ONLY", SD_JOURNAL_LOCAL_ONLY) ||
+        PyModule_AddIntConstant(m, "RUNTIME_ONLY", SD_JOURNAL_RUNTIME_ONLY) ||
+        PyModule_AddIntConstant(m, "SYSTEM_ONLY", SD_JOURNAL_SYSTEM_ONLY)) {
+#if PY_MAJOR_VERSION >= 3
+        Py_DECREF(m);
+        return NULL;
+#endif
+    }
 
 #if PY_MAJOR_VERSION >= 3
     return m;

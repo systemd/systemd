@@ -19,6 +19,8 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
+
 import sys as _sys
 import datetime as _datetime
 import functools as _functools
@@ -36,8 +38,8 @@ from ._reader import (_Journal, NOP, APPEND, INVALIDATE,
                       LOCAL_ONLY, RUNTIME_ONLY, SYSTEM_ONLY)
 from . import id128 as _id128
 
-_MONOTONIC_CONVERTER = lambda x: _datetime.timedelta(microseconds=float(x))
-_REALTIME_CONVERTER = lambda x: _datetime.datetime.fromtimestamp(float(x)/1E6)
+_MONOTONIC_CONVERTER = lambda x: _datetime.timedelta(microseconds=x)
+_REALTIME_CONVERTER = lambda x: _datetime.datetime.fromtimestamp(x / 1E6)
 DEFAULT_CONVERTERS = {
     'MESSAGE_ID': _uuid.UUID,
     '_MACHINE_ID': _uuid.UUID,
