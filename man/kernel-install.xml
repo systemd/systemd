@@ -1,0 +1,138 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2013 Harald Hoyer
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="kernel-install">
+
+  <refentryinfo>
+    <title>kernel-install</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Harald</firstname>
+        <surname>Hoyer</surname>
+        <email>harald@redhat.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>kernel-install</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>kernel-install</refname>
+    <refpurpose>Add and remove kernel and initramfs images to and from /boot</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>kernel-install</command> <arg choice="req">COMMAND</arg> <arg choice="req">KERNEL VERSION</arg> <arg choice="req">KERNEL IMAGE</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      <command>kernel-install</command> is used to install and remove kernel and
+      initramfs images to and from <filename>/boot</filename>.
+    </para>
+
+    <para>kernel-install will execute the files located in the directory <filename>/usr/lib/kernel/install.d/</filename>
+    and the local administration directory <filename>/etc/kernel/install.d/</filename>.
+    All files are collectively sorted and executed in lexical order, regardless of the directories in
+    which they live. However, files with identical file names replace each other.
+    Files in <filename>/etc/kernel/install.d/</filename> take precedence over files with the same name
+    in <filename>/usr/lib/kernel/install.d/</filename>. This can be used to override a system-supplied
+    executables with a local file if needed; a symbolic link in <filename>/etc/kernel/install.d/</filename>
+    with the same name as an executable in <filename>/usr/lib/kernel/install.d/</filename>,
+    pointing to /dev/null, disables the executable entirely. Executables must have the
+    extension .install; other extensions are ignored.</para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+    <para>The following commands are understood:</para>
+    <variablelist>
+      <varlistentry>
+        <term>add &lt;KERNEL VERSION> &lt;KERNEL IMAGE></term>
+        <listitem>
+          <para>calls every executable <filename>/usr/lib/kernel/install.d/*.install</filename>
+          and <filename>/etc/kernel/install.d/*.install</filename> with the arguments
+          "add &lt;KERNEL VERSION> <filename>/boot/&lt;MACHINE-ID>/&lt;KERNEL VERSION>/</filename>"</para>
+
+          <para>kernel-install copies &lt;KERNEL IMAGE> to
+          <filename>/boot/&lt;MACHINE-ID>/&lt;KERNEL VERSION>/linux</filename>.</para>
+
+          <para>kernel-install also creates a boot loader entry according to the boot loader specification
+          in <filename>/boot/loader/entries/&lt;OS-ID>-&lt;KERNEL VERSION>-&lt;MACHINE-ID>.conf</filename>.
+          If the file <filename>initrd</filename> is found next to the <filename>linux</filename> file,
+          the initrd will be added to the configuration.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>remove &lt;KERNEL VERSION> &lt;KERNEL IMAGE></term>
+        <listitem><para>calls every executable <filename>/usr/lib/kernel/install.d/*.install</filename>
+        and <filename>/etc/kernel/install.d/*.install</filename> with the arguments:
+        "remove &lt;KERNEL VERSION> <filename>/boot/&lt;MACHINE-ID>/&lt;KERNEL VERSION>/</filename>"
+        </para>
+        <para>kernel-install removes the entire directory <filename>/boot/&lt;MACHINE-ID>/&lt;KERNEL VERSION>/</filename>
+        and the file <filename>/boot/loader/entries/&lt;OS-ID>-&lt;KERNEL VERSION>-&lt;MACHINE-ID>.conf</filename></para>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+    <para>If every executable returns with 0, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Files</title>
+    <variablelist>
+      <varlistentry>
+        <term>
+          <filename>/usr/lib/kernel/install.d/*.install</filename>
+          <filename>/etc/kernel/install.d/*.install</filename>
+        </term>
+          <listitem>
+            <para>Drop-in files, which are executed by kernel-install.</para>
+          </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <ulink url="http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot loader specification</ulink>
+    </para>
+  </refsect1>
+
+</refentry>

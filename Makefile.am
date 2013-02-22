@@ -278,6 +278,9 @@ bin_PROGRAMS = \
 	systemd-delta \
 	systemd-analyze
 
+bin_SCRIPTS = \
+	src/kernel-install/kernel-install
+
 rootlibexec_PROGRAMS = \
 	systemd \
 	systemd-cgroups-agent \

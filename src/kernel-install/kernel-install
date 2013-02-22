@@ -1,0 +1,152 @@
+#!/bin/bash
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+#
+# This file is part of systemd.
+#
+# Copyright 2013 Harald Hoyer
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+export LC_COLLATE=C
+
+COMMAND="$1"
+KERNEL_VERSION="$2"
+KERNEL_IMAGE="$3"
+
+[[ -f /etc/os-release ]] && . /etc/os-release
+if ! [[ $ID ]]; then
+    echo "Can't determine the name of your distribution. Please create /etc/os-release." >&2
+    echo "See http://www.freedesktop.org/software/systemd/man/os-release.html" >&2
+    exit 1
+fi
+
+[[ -f /etc/machine-id ]] && read MACHINE_ID < /etc/machine-id
+if ! [[ $MACHINE_ID ]]; then
+    echo "Can't determine your machine id. Please create /etc/machine-id!" >&2
+    echo "See http://www.freedesktop.org/software/systemd/man/machine-id.html" >&2
+    exit 1
+fi
+
+if [[ -f /etc/kernel/cmdline ]]; then
+    readarray -t BOOT_OPTIONS < /etc/kernel/cmdline
+fi
+
+if ! [[ "${BOOT_OPTIONS[@]}" ]]; then
+    readarray -t BOOT_OPTIONS < /proc/cmdline
+fi
+
+if ! [[ $BOOT_OPTIONS ]]; then
+    echo "Can't determine the kernel command line parameters." >&2
+    echo "Please specify the kernel command line in /etc/kernel/cmdline!" >&2
+    exit 1
+fi
+
+usage()
+{
+    {
+        echo "Usage:"
+        echo "        $0 add <kernel-version> <kernel-image>"
+        echo "        $0 remove <kernel-version> <kernel-image>"
+    } >&2
+}
+
+if ! ( [[ $COMMAND ]] && [[ $KERNEL_VERSION ]] && [[ $KERNEL_IMAGE ]] ); then
+    usage
+    exit 1
+fi
+
+BOOT_DIR="/boot/$MACHINE_ID/$KERNEL_VERSION"
+ret=0
+
+dropindirs_sort()
+{
+    suffix=$1; shift
+    readarray -t files< <(
+        for d in "$@"; do
+            for i in "${d}/"*${suffix}; do
+                [[ -e $i ]] && echo ${i##*/}
+            done
+        done | sort -Vu
+    )
+
+    for f in "${files[@]}"; do
+        for d in "$@"; do
+            if [[ -e "$d/$f" ]]; then
+                echo "$d/$f"
+                continue 2
+            fi
+        done
+    done
+}
+
+readarray -t PLUGINS < <(
+    dropindirs_sort ".install" \
+        "/etc/kernel/install.d" \
+        "/usr/lib/kernel/install.d"
+)
+
+case "$COMMAND" in
+    add)
+        mkdir -p "$BOOT_DIR" || exit 1
+
+        for f in "${PLUGINS[@]}"; do
+            [[ -x $f ]] && "$f" add "$KERNEL_VERSION" "$BOOT_DIR"
+            ((ret+=$?))
+        done
+
+        if ! cp --preserve "$KERNEL_IMAGE" "$BOOT_DIR"/linux; then
+            echo "Can't copy '$KERNEL_IMAGE to '$BOOT_DIR/linux'!" >&2
+        fi
+
+        [[ -d /boot/loader/entries ]] || mkdir -p /boot/loader/entries
+
+        {
+            echo "title      $PRETTY_NAME"
+            echo "version    $KERNEL_VERSION"
+            echo "machine-id $MACHINE_ID"
+            echo "options    $BOOT_OPTIONS"
+            echo "linux      $BOOT_DIR/linux"
+            [[ -f "${BOOT_DIR}"/initrd ]] && \
+                echo "initrd     $BOOT_DIR/initrd"
+            :
+        } > "/boot/loader/entries/${ID}-${KERNEL_VERSION}-${MACHINE_ID}.conf"
+export LANG=C
+
+        ((ret+=$?))
+
+        if ! [[ -f "/boot/loader/entries/${ID}-${KERNEL_VERSION}-${MACHINE_ID}.conf" ]]; then
+            echo "Could not create '/boot/loader/entries/${ID}-${KERNEL_VERSION}-${MACHINE_ID}.conf'!" >&2
+        fi
+
+        ;;
+
+    remove)
+        for f in "${PLUGINS[@]}"; do
+            [[ -x $f ]] && "$f" remove "$KERNEL_VERSION" "$BOOT_DIR"
+            ((ret+=$?))
+        done
+
+        rm -fr "$BOOT_DIR"
+        rm -f "/boot/loader/entries/${ID}-${KERNEL_VERSION}-${MACHINE_ID}.conf"
+        ;;
+
+    *)
+        usage
+        ret=1;;
+esac
+
+((ret+=$?))
+
+exit $ret
