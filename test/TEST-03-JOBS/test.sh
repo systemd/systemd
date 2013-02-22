@@ -1,7 +1,7 @@
 #!/bin/bash
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
-TEST_DESCRIPTION="Job merging"
+TEST_DESCRIPTION="Job-related tests"
 
 KVERSION=${KVERSION-$(uname -r)}
 KERNEL_VER=$(uname -r)
@@ -138,7 +138,8 @@ Type=oneshot
 EOF
 
         # copy the units used by this test
-        cp $TEST_BASE_DIR/{hello.service,sleep.service,hello-after-sleep.target} $initdir/etc/systemd/system
+        cp $TEST_BASE_DIR/{hello.service,sleep.service,hello-after-sleep.target,unstoppable.service} \
+            $initdir/etc/systemd/system
         cp test-jobs.sh $initdir/
 
         mkdir -p $initdir/etc/systemd/system/testsuite.target.wants

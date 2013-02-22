@@ -24,5 +24,18 @@ grep 'hello\.service' /root/list-jobs.txt && exit 1
 
 # TODO: add more job queueing/merging tests here.
 
+# Test for irreversible jobs
+systemctl start unstoppable.service || exit 1
+
+# This is expected to fail with 'job cancelled'
+systemctl stop unstoppable.service && exit 1
+# But this should succeed
+systemctl stop --irreversible unstoppable.service || exit 1
+
+# We're going to shutdown soon. Let's see if it succeeds when
+# there's an active service that tries to be unstoppable.
+# Shutdown of the container/VM will hang if not.
+systemctl start unstoppable.service || exit 1
+
 touch /testok
 exit 0
