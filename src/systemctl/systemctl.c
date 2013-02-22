@@ -1518,52 +1518,38 @@ static int start_unit_one(
         return 0;
 }
 
+static const struct {
+        const char *target;
+        const char *verb;
+        const char *mode;
+} action_table[_ACTION_MAX] = {
+        [ACTION_HALT]         = { SPECIAL_HALT_TARGET,         "halt",         "replace-irreversibly" },
+        [ACTION_POWEROFF]     = { SPECIAL_POWEROFF_TARGET,     "poweroff",     "replace-irreversibly" },
+        [ACTION_REBOOT]       = { SPECIAL_REBOOT_TARGET,       "reboot",       "replace-irreversibly" },
+        [ACTION_KEXEC]        = { SPECIAL_KEXEC_TARGET,        "kexec",        "replace-irreversibly" },
+        [ACTION_RUNLEVEL2]    = { SPECIAL_RUNLEVEL2_TARGET,    NULL,           "isolate" },
+        [ACTION_RUNLEVEL3]    = { SPECIAL_RUNLEVEL3_TARGET,    NULL,           "isolate" },
+        [ACTION_RUNLEVEL4]    = { SPECIAL_RUNLEVEL4_TARGET,    NULL,           "isolate" },
+        [ACTION_RUNLEVEL5]    = { SPECIAL_RUNLEVEL5_TARGET,    NULL,           "isolate" },
+        [ACTION_RESCUE]       = { SPECIAL_RESCUE_TARGET,       "rescue",       "isolate" },
+        [ACTION_EMERGENCY]    = { SPECIAL_EMERGENCY_TARGET,    "emergency",    "isolate" },
+        [ACTION_DEFAULT]      = { SPECIAL_DEFAULT_TARGET,      "default",      "isolate" },
+        [ACTION_EXIT]         = { SPECIAL_EXIT_TARGET,         "exit",         "replace-irreversibly" },
+        [ACTION_SUSPEND]      = { SPECIAL_SUSPEND_TARGET,      "suspend",      "replace-irreversibly" },
+        [ACTION_HIBERNATE]    = { SPECIAL_HIBERNATE_TARGET,    "hibernate",    "replace-irreversibly" },
+        [ACTION_HYBRID_SLEEP] = { SPECIAL_HYBRID_SLEEP_TARGET, "hybrid-sleep", "replace-irreversibly" },
+};
+
 static enum action verb_to_action(const char *verb) {
-        if (streq(verb, "halt"))
-                return ACTION_HALT;
-        else if (streq(verb, "poweroff"))
-                return ACTION_POWEROFF;
-        else if (streq(verb, "reboot"))
-                return ACTION_REBOOT;
-        else if (streq(verb, "kexec"))
-                return ACTION_KEXEC;
-        else if (streq(verb, "rescue"))
-                return ACTION_RESCUE;
-        else if (streq(verb, "emergency"))
-                return ACTION_EMERGENCY;
-        else if (streq(verb, "default"))
-                return ACTION_DEFAULT;
-        else if (streq(verb, "exit"))
-                return ACTION_EXIT;
-        else if (streq(verb, "suspend"))
-                return ACTION_SUSPEND;
-        else if (streq(verb, "hibernate"))
-                return ACTION_HIBERNATE;
-        else if (streq(verb, "hybrid-sleep"))
-                return ACTION_HYBRID_SLEEP;
-        else
-                return ACTION_INVALID;
+        enum action i;
+
+        for (i = ACTION_INVALID; i < _ACTION_MAX; i++)
+                if (action_table[i].verb && streq(verb, action_table[i].verb))
+                        return i;
+        return ACTION_INVALID;
 }
 
 static int start_unit(DBusConnection *bus, char **args) {
-
-        static const char * const table[_ACTION_MAX] = {
-                [ACTION_HALT] = SPECIAL_HALT_TARGET,
-                [ACTION_POWEROFF] = SPECIAL_POWEROFF_TARGET,
-                [ACTION_REBOOT] = SPECIAL_REBOOT_TARGET,
-                [ACTION_KEXEC] = SPECIAL_KEXEC_TARGET,
-                [ACTION_RUNLEVEL2] = SPECIAL_RUNLEVEL2_TARGET,
-                [ACTION_RUNLEVEL3] = SPECIAL_RUNLEVEL3_TARGET,
-                [ACTION_RUNLEVEL4] = SPECIAL_RUNLEVEL4_TARGET,
-                [ACTION_RUNLEVEL5] = SPECIAL_RUNLEVEL5_TARGET,
-                [ACTION_RESCUE] = SPECIAL_RESCUE_TARGET,
-                [ACTION_EMERGENCY] = SPECIAL_EMERGENCY_TARGET,
-                [ACTION_DEFAULT] = SPECIAL_DEFAULT_TARGET,
-                [ACTION_EXIT] = SPECIAL_EXIT_TARGET,
-                [ACTION_SUSPEND] = SPECIAL_SUSPEND_TARGET,
-                [ACTION_HIBERNATE] = SPECIAL_HIBERNATE_TARGET,
-                [ACTION_HYBRID_SLEEP] = SPECIAL_HYBRID_SLEEP_TARGET
-        };
 
         int r, ret = 0;
         const char *method, *mode, *one_name;
@@ -1578,6 +1564,7 @@ static int start_unit(DBusConnection *bus, char **args) {
         ask_password_agent_open_if_enabled();
 
         if (arg_action == ACTION_SYSTEMCTL) {
+                enum action action;
                 method =
                         streq(args[0], "stop") ||
                         streq(args[0], "condstop")              ? "StopUnit" :
@@ -1594,40 +1581,21 @@ static int start_unit(DBusConnection *bus, char **args) {
 
                         streq(args[0], "force-reload")          ? "ReloadOrTryRestartUnit" :
                                                                   "StartUnit";
+                action = verb_to_action(args[0]);
 
-                if (streq(args[0], "isolate") ||
-                    streq(args[0], "rescue")  ||
-                    streq(args[0], "emergency") ||
-                    streq(args[0], "default"))
-                        mode = "isolate";
-                else if (streq(args[0], "halt") ||
-                         streq(args[0], "poweroff") ||
-                         streq(args[0], "reboot") ||
-                         streq(args[0], "kexec") ||
-                         streq(args[0], "exit") ||
-                         streq(args[0], "suspend") ||
-                         streq(args[0], "hibernate") ||
-                         streq(args[0], "hybrid-sleep"))
-                        mode = "replace-irreversibly";
-                else
-                        mode = arg_job_mode;
+                mode = streq(args[0], "isolate") ? "isolate" :
+                       action_table[action].mode ?: arg_job_mode;
 
-                one_name = table[verb_to_action(args[0])];
+                one_name = action_table[action].target;
 
         } else {
-                assert(arg_action < ELEMENTSOF(table));
-                assert(table[arg_action]);
+                assert(arg_action < ELEMENTSOF(action_table));
+                assert(action_table[arg_action].target);
 
                 method = "StartUnit";
 
-                mode = (arg_action == ACTION_EMERGENCY ||
-                        arg_action == ACTION_RESCUE ||
-                        arg_action == ACTION_RUNLEVEL2 ||
-                        arg_action == ACTION_RUNLEVEL3 ||
-                        arg_action == ACTION_RUNLEVEL4 ||
-                        arg_action == ACTION_RUNLEVEL5) ? "isolate" : "replace-irreversibly";
-
-                one_name = table[arg_action];
+                mode = action_table[arg_action].mode;
+                one_name = action_table[arg_action].target;
         }
 
         if (!arg_no_block) {
@@ -1850,12 +1818,7 @@ static int check_inhibitors(DBusConnection *bus, enum action a) {
                 return 0;
 
         log_error("Please retry operation after closing inhibitors and logging out other users.\nAlternatively, ignore inhibitors and users with 'systemctl %s -i'.",
-                  a == ACTION_HALT ? "halt" :
-                  a == ACTION_POWEROFF ? "poweroff" :
-                  a == ACTION_REBOOT ? "reboot" :
-                  a == ACTION_KEXEC ? "kexec" :
-                  a == ACTION_SUSPEND ? "suspend" :
-                  a == ACTION_HIBERNATE ? "hibernate" : "hybrid-sleep");
+                  action_table[a].verb);
 
         return -EPERM;
 #else
