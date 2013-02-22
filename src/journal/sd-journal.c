@@ -958,7 +958,7 @@ _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
                      (unsigned long long) le64toh(o->entry.xor_hash)) < 0)
                 return -ENOMEM;
 
-        return 1;
+        return 0;
 }
 
 _public_ int sd_journal_seek_cursor(sd_journal *j, const char *cursor) {
