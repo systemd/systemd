@@ -1006,8 +1006,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><command>halt</command></term>
 
         <listitem>
-          <para>Shut down and halt the system. This is mostly
-          equivalent to <command>start halt.target</command> but also
+          <para>Shut down and halt the system. This is mostly equivalent to
+          <command>start halt.target --irreversible</command> but also
           prints a wall message to all users.  If combined with
           <option>--force</option> shutdown of all running services is
           skipped, however all processes are killed and all file
@@ -1023,8 +1023,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem>
           <para>Shut down and power-off the system. This is mostly
-          equivalent to <command>start poweroff.target</command> but
-          also prints a wall message to all users. If combined with
+          equivalent to <command>start poweroff.target --irreversible</command>
+          but also prints a wall message to all users. If combined with
           <option>--force</option> shutdown of all running services is
           skipped, however all processes are killed and all file
           systems are unmounted or mounted read-only, immediately
@@ -1039,8 +1039,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem>
           <para>Shut down and reboot the system. This is mostly
-          equivalent to <command>start reboot.target</command> but
-          also prints a wall message to all users. If combined with
+          equivalent to <command>start reboot.target --irreversible</command>
+          but also prints a wall message to all users. If combined with
           <option>--force</option> shutdown of all running services is
           skipped, however all processes are killed and all file
           systems are unmounted or mounted read-only, immediately
@@ -1055,7 +1055,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem>
           <para>Shut down and reboot the system via kexec. This is
-          mostly equivalent to <command>start kexec.target</command>
+          mostly equivalent to <command>start kexec.target --irreversible</command>
           but also prints a wall message to all users. If combined
           with <option>--force</option> shutdown of all running
           services is skipped, however all processes are killed and

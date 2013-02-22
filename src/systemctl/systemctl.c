@@ -1595,11 +1595,22 @@ static int start_unit(DBusConnection *bus, char **args) {
                         streq(args[0], "force-reload")          ? "ReloadOrTryRestartUnit" :
                                                                   "StartUnit";
 
-                mode =
-                        (streq(args[0], "isolate") ||
-                         streq(args[0], "rescue")  ||
-                         streq(args[0], "emergency") ||
-                         streq(args[0], "default")) ? "isolate" : arg_job_mode;
+                if (streq(args[0], "isolate") ||
+                    streq(args[0], "rescue")  ||
+                    streq(args[0], "emergency") ||
+                    streq(args[0], "default"))
+                        mode = "isolate";
+                else if (streq(args[0], "halt") ||
+                         streq(args[0], "poweroff") ||
+                         streq(args[0], "reboot") ||
+                         streq(args[0], "kexec") ||
+                         streq(args[0], "exit") ||
+                         streq(args[0], "suspend") ||
+                         streq(args[0], "hibernate") ||
+                         streq(args[0], "hybrid-sleep"))
+                        mode = "replace-irreversibly";
+                else
+                        mode = arg_job_mode;
 
                 one_name = table[verb_to_action(args[0])];
 
@@ -1614,7 +1625,7 @@ static int start_unit(DBusConnection *bus, char **args) {
                         arg_action == ACTION_RUNLEVEL2 ||
                         arg_action == ACTION_RUNLEVEL3 ||
                         arg_action == ACTION_RUNLEVEL4 ||
-                        arg_action == ACTION_RUNLEVEL5) ? "isolate" : "replace";
+                        arg_action == ACTION_RUNLEVEL5) ? "isolate" : "replace-irreversibly";
 
                 one_name = table[arg_action];
         }

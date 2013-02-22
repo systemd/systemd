@@ -1051,7 +1051,7 @@ static int execute_shutdown_or_sleep(
                 DBusError *error) {
 
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        const char *mode = "replace", *p;
+        const char *mode = "replace-irreversibly", *p;
         int r;
         char *c;
 
