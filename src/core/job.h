@@ -83,6 +83,7 @@ enum JobState {
 enum JobMode {
         JOB_FAIL,                /* Fail if a conflicting job is already queued */
         JOB_REPLACE,             /* Replace an existing conflicting job */
+        JOB_REPLACE_IRREVERSIBLY, /* Like JOB_REPLACE + produce irreversible jobs */
         JOB_ISOLATE,             /* Start a unit, and stop all others */
         JOB_IGNORE_DEPENDENCIES, /* Ignore both requirement and ordering dependencies */
         JOB_IGNORE_REQUIREMENTS, /* Ignore requirement dependencies */
@@ -161,6 +162,7 @@ struct Job {
         bool sent_dbus_new_signal:1;
         bool ignore_order:1;
         bool forgot_bus_clients:1;
+        bool irreversible:1;
 };
 
 JobBusClient* job_bus_client_new(DBusConnection *connection, const char *name);

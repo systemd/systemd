@@ -766,7 +766,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
 
         job_type_collapse(&type, unit);
 
-        tr = transaction_new();
+        tr = transaction_new(mode == JOB_REPLACE_IRREVERSIBLY);
         if (!tr)
                 return -ENOMEM;
 

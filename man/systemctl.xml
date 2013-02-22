@@ -171,6 +171,17 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--irreversible</option></term>
+
+        <listitem>
+          <para>Mark this transaction's jobs as irreversible. This prevents
+          future conflicting transactions from replacing these jobs.
+          The jobs can still be cancelled using the <command>cancel</command>
+          command.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--ignore-dependencies</option></term>
 
         <listitem>

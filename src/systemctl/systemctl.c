@@ -4306,6 +4306,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_FAIL = 0x100,
+                ARG_IRREVERSIBLE,
                 ARG_IGNORE_DEPENDENCIES,
                 ARG_VERSION,
                 ARG_USER,
@@ -4334,6 +4335,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "failed",    no_argument,       NULL, ARG_FAILED    },
                 { "full",      no_argument,       NULL, ARG_FULL      },
                 { "fail",      no_argument,       NULL, ARG_FAIL      },
+                { "irreversible", no_argument,    NULL, ARG_IRREVERSIBLE },
                 { "ignore-dependencies", no_argument, NULL, ARG_IGNORE_DEPENDENCIES },
                 { "ignore-inhibitors", no_argument, NULL, 'i'         },
                 { "user",      no_argument,       NULL, ARG_USER      },
@@ -4431,6 +4433,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_FAIL:
                         arg_job_mode = "fail";
+                        break;
+
+                case ARG_IRREVERSIBLE:
+                        arg_job_mode = "replace-irreversibly";
                         break;
 
                 case ARG_IGNORE_DEPENDENCIES:

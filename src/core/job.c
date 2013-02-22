@@ -169,6 +169,7 @@ static void job_merge_into_installed(Job *j, Job *other) {
                 assert(other->type == JOB_NOP);
 
         j->override = j->override || other->override;
+        j->irreversible = j->irreversible || other->irreversible;
         j->ignore_order = j->ignore_order || other->ignore_order;
 }
 
@@ -294,11 +295,13 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
                 "%s-> Job %u:\n"
                 "%s\tAction: %s -> %s\n"
                 "%s\tState: %s\n"
-                "%s\tForced: %s\n",
+                "%s\tForced: %s\n"
+                "%s\tIrreversible: %s\n",
                 prefix, j->id,
                 prefix, j->unit->id, job_type_to_string(j->type),
                 prefix, job_state_to_string(j->state),
-                prefix, yes_no(j->override));
+                prefix, yes_no(j->override),
+                prefix, yes_no(j->irreversible));
 }
 
 /*
@@ -947,6 +950,7 @@ int job_serialize(Job *j, FILE *f, FDSet *fds) {
         fprintf(f, "job-type=%s\n", job_type_to_string(j->type));
         fprintf(f, "job-state=%s\n", job_state_to_string(j->state));
         fprintf(f, "job-override=%s\n", yes_no(j->override));
+        fprintf(f, "job-irreversible=%s\n", yes_no(j->irreversible));
         fprintf(f, "job-sent-dbus-new-signal=%s\n", yes_no(j->sent_dbus_new_signal));
         fprintf(f, "job-ignore-order=%s\n", yes_no(j->ignore_order));
         /* Cannot save bus clients. Just note the fact that we're losing
@@ -1014,6 +1018,12 @@ int job_deserialize(Job *j, FILE *f, FDSet *fds) {
                                 log_debug("Failed to parse job override flag %s", v);
                         else
                                 j->override = j->override || b;
+                } else if (streq(l, "job-irreversible")) {
+                        int b = parse_boolean(v);
+                        if (b < 0)
+                                log_debug("Failed to parse job irreversible flag %s", v);
+                        else
+                                j->irreversible = j->irreversible || b;
                 } else if (streq(l, "job-sent-dbus-new-signal")) {
                         int b = parse_boolean(v);
                         if (b < 0)
@@ -1110,6 +1120,7 @@ DEFINE_STRING_TABLE_LOOKUP(job_type, JobType);
 static const char* const job_mode_table[_JOB_MODE_MAX] = {
         [JOB_FAIL] = "fail",
         [JOB_REPLACE] = "replace",
+        [JOB_REPLACE_IRREVERSIBLY] = "replace-irreversibly",
         [JOB_ISOLATE] = "isolate",
         [JOB_IGNORE_DEPENDENCIES] = "ignore-dependencies",
         [JOB_IGNORE_REQUIREMENTS] = "ignore-requirements"

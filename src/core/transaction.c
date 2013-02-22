@@ -97,6 +97,7 @@ static void transaction_merge_and_delete_job(Transaction *tr, Job *j, Job *other
         j->type = t;
         j->state = JOB_WAITING;
         j->override = j->override || other->override;
+        j->irreversible = j->irreversible || other->irreversible;
 
         j->matters_to_anchor = j->matters_to_anchor || other->matters_to_anchor;
 
@@ -488,7 +489,7 @@ rescan:
         }
 }
 
-static int transaction_is_destructive(Transaction *tr, DBusError *e) {
+static int transaction_is_destructive(Transaction *tr, JobMode mode, DBusError *e) {
         Iterator i;
         Job *j;
 
@@ -503,7 +504,7 @@ static int transaction_is_destructive(Transaction *tr, DBusError *e) {
                 assert(!j->transaction_prev);
                 assert(!j->transaction_next);
 
-                if (j->unit->job &&
+                if (j->unit->job && (mode == JOB_FAIL || j->unit->job->irreversible) &&
                     !job_type_is_superset(j->type, j->unit->job->type)) {
 
                         dbus_set_error(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE, "Transaction is destructive.");
@@ -709,12 +710,10 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, DBusError *e
         transaction_drop_redundant(tr);
 
         /* Ninth step: check whether we can actually apply this */
-        if (mode == JOB_FAIL) {
-                r = transaction_is_destructive(tr, e);
-                if (r < 0) {
-                        log_notice("Requested transaction contradicts existing jobs: %s", bus_error(e, r));
-                        return r;
-                }
+        r = transaction_is_destructive(tr, mode, e);
+        if (r < 0) {
+                log_notice("Requested transaction contradicts existing jobs: %s", bus_error(e, r));
+                return r;
         }
 
         /* Tenth step: apply changes */
@@ -770,6 +769,7 @@ static Job* transaction_add_one_job(Transaction *tr, JobType type, Unit *unit, b
         j->marker = NULL;
         j->matters_to_anchor = false;
         j->override = override;
+        j->irreversible = tr->irreversible;
 
         LIST_PREPEND(Job, transaction, f, j);
 
@@ -1106,7 +1106,7 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
         return 0;
 }
 
-Transaction *transaction_new(void) {
+Transaction *transaction_new(bool irreversible) {
         Transaction *tr;
 
         tr = new0(Transaction, 1);
@@ -1118,6 +1118,8 @@ Transaction *transaction_new(void) {
                 free(tr);
                 return NULL;
         }
+
+        tr->irreversible = irreversible;
 
         return tr;
 }
