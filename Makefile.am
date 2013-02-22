@@ -267,8 +267,7 @@ rootbin_PROGRAMS = \
 	systemd-ask-password \
 	systemd-tty-ask-password-agent \
 	systemd-tmpfiles \
-	systemd-machine-id-setup \
-	systemd-analyze
+	systemd-machine-id-setup
 
 bin_PROGRAMS = \
 	systemd-cgls \
@@ -276,7 +275,8 @@ bin_PROGRAMS = \
 	systemd-stdio-bridge \
 	systemd-nspawn \
 	systemd-detect-virt \
-	systemd-delta
+	systemd-delta \
+	systemd-analyze
 
 rootlibexec_PROGRAMS = \
 	systemd \
