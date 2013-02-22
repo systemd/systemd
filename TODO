@@ -19,10 +19,6 @@ Bugfixes:
 Fedora 19:
 * make anaconda write timeout=0 for encrypted devices
 
-* drop no longer needed modprobe.d udlfb file (it does not belong in /etc anyway)
-
-* Retest multi-seat (new kms driver for displaylink)
-
 * make sure pkexec works fine with pam_systemd works fine with audit=0
 
 * create /var/log/journal/
