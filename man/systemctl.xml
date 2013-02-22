@@ -970,7 +970,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem>
           <para>Enter default mode. This is mostly equivalent to
-          <command>start default.target</command>.</para>
+          <command>isolate default.target</command>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

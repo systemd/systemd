@@ -1598,7 +1598,8 @@ static int start_unit(DBusConnection *bus, char **args) {
                 mode =
                         (streq(args[0], "isolate") ||
                          streq(args[0], "rescue")  ||
-                         streq(args[0], "emergency")) ? "isolate" : arg_job_mode;
+                         streq(args[0], "emergency") ||
+                         streq(args[0], "default")) ? "isolate" : arg_job_mode;
 
                 one_name = table[verb_to_action(args[0])];
 
