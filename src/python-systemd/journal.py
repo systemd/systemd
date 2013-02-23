@@ -38,7 +38,13 @@ from ._reader import (_Journal, NOP, APPEND, INVALIDATE,
                       LOCAL_ONLY, RUNTIME_ONLY, SYSTEM_ONLY)
 from . import id128 as _id128
 
-_MONOTONIC_CONVERTER = lambda x: _datetime.timedelta(microseconds=x)
+if _sys.version_info >= (3,):
+    from ._reader import Monotonic
+else:
+    Monotonic = tuple
+
+_MONOTONIC_CONVERTER = lambda p: Monotonic((_datetime.timedelta(microseconds=p[0]),
+                                            _uuid.UUID(bytes=p[1])))
 _REALTIME_CONVERTER = lambda x: _datetime.datetime.fromtimestamp(x / 1E6)
 DEFAULT_CONVERTERS = {
     'MESSAGE_ID': _uuid.UUID,

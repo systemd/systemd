@@ -67,6 +67,26 @@ static int set_error(int r, const char* path, const char* invalid_message) {
     return 1;
 }
 
+#if PY_MAJOR_VERSION >= 3
+static PyTypeObject MonotonicType;
+
+PyDoc_STRVAR(MonotonicType__doc__,
+             "A tuple of (timestamp, bootid) for holding monotonic timestamps");
+
+static PyStructSequence_Field MonotonicType_fields[] = {
+    {(char*) "timestamp", (char*) "Time"},
+    {(char*) "bootid", (char*) "Unique identifier of the boot"},
+    {NULL, NULL}
+};
+
+static PyStructSequence_Desc Monotonic_desc = {
+    (char*) "journal.Monotonic",
+    MonotonicType__doc__,
+    MonotonicType_fields,
+    2,
+};
+#endif
+
 static void Journal_dealloc(Journal* self)
 {
     sd_journal_close(self->j);
@@ -221,22 +241,37 @@ static PyObject* Journal_get_next(Journal *self, PyObject *args)
     }
 
     {
-        PyObject _cleanup_Py_DECREF_ *key = NULL, *value = NULL;
-        sd_id128_t sd_id;
+        PyObject _cleanup_Py_DECREF_
+            *key = NULL, *timestamp = NULL, *bytes = NULL, *value = NULL;
+        sd_id128_t id;
         uint64_t monotonic;
 
-        r = sd_journal_get_monotonic_usec(self->j, &monotonic, &sd_id);
+        r = sd_journal_get_monotonic_usec(self->j, &monotonic, &id);
         if (set_error(r, NULL, NULL))
             goto error;
 
+        assert_cc(sizeof(unsigned long long) == sizeof(monotonic));
         key = unicode_FromString("__MONOTONIC_TIMESTAMP");
-        if (!key)
+        timestamp = PyLong_FromUnsignedLongLong(monotonic);
+        bytes = PyBytes_FromStringAndSize((const char*) &id.bytes, sizeof(id.bytes));
+#if PY_MAJOR_VERSION >= 3
+        value = PyStructSequence_New(&MonotonicType);
+#else
+        value = PyTuple_New(2);
+#endif
+        if (!key || !timestamp || !bytes || !value)
             goto error;
 
-        assert_cc(sizeof(unsigned long long) == sizeof(monotonic));
-        value = PyLong_FromUnsignedLongLong(monotonic);
-        if (!value)
-            goto error;
+        Py_INCREF(timestamp);
+        Py_INCREF(bytes);
+
+#if PY_MAJOR_VERSION >= 3
+        PyStructSequence_SET_ITEM(value, 0, timestamp);
+        PyStructSequence_SET_ITEM(value, 1, bytes);
+#else
+        PyTuple_SET_ITEM(value, 0, timestamp);
+        PyTuple_SET_ITEM(value, 1, bytes);
+#endif
 
         if (PyDict_SetItem(dict, key, value))
             goto error;
@@ -421,7 +456,7 @@ static PyObject* Journal_seek_monotonic(Journal *self, PyObject *args)
     double timedouble;
     char *bootid = NULL;
     uint64_t timestamp;
-    sd_id128_t sd_id;
+    sd_id128_t id;
     int r;
 
     if (!PyArg_ParseTuple(args, "d|z", &timedouble, &bootid))
@@ -435,19 +470,19 @@ static PyObject* Journal_seek_monotonic(Journal *self, PyObject *args)
     }
 
     if (bootid) {
-        r = sd_id128_from_string(bootid, &sd_id);
+        r = sd_id128_from_string(bootid, &id);
         if (set_error(r, NULL, "Invalid bootid"))
             return NULL;
     } else {
         Py_BEGIN_ALLOW_THREADS
-        r = sd_id128_get_boot(&sd_id);
+        r = sd_id128_get_boot(&id);
         Py_END_ALLOW_THREADS
         if (set_error(r, NULL, NULL))
             return NULL;
     }
 
     Py_BEGIN_ALLOW_THREADS
-    r = sd_journal_seek_monotonic_usec(self->j, sd_id, timestamp);
+    r = sd_journal_seek_monotonic_usec(self->j, id, timestamp);
     Py_END_ALLOW_THREADS
     if (set_error(r, NULL, NULL))
         return NULL;
@@ -671,6 +706,10 @@ static PyModuleDef _reader_module = {
 };
 #endif
 
+#if PY_MAJOR_VERSION >= 3
+static bool initialized = false;
+#endif
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-prototypes"
 
@@ -696,6 +735,11 @@ init_reader(void)
     m = PyModule_Create(&_reader_module);
     if (m == NULL)
         return NULL;
+
+    if (!initialized) {
+        PyStructSequence_InitType(&MonotonicType, &Monotonic_desc);
+        initialized = true;
+    }
 #else
     m = Py_InitModule3("_reader", NULL, SUMMARY);
     if (m == NULL)
@@ -703,7 +747,13 @@ init_reader(void)
 #endif
 
     Py_INCREF(&JournalType);
+#if PY_MAJOR_VERSION >= 3
+    Py_INCREF(&MonotonicType);
+#endif
     if (PyModule_AddObject(m, "_Journal", (PyObject *) &JournalType) ||
+#if PY_MAJOR_VERSION >= 3
+        PyModule_AddObject(m, "Monotonic", (PyObject*) &MonotonicType) ||
+#endif
         PyModule_AddIntConstant(m, "NOP", SD_JOURNAL_NOP) ||
         PyModule_AddIntConstant(m, "APPEND", SD_JOURNAL_APPEND) ||
         PyModule_AddIntConstant(m, "INVALIDATE", SD_JOURNAL_INVALIDATE) ||

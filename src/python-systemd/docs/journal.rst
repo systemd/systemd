@@ -23,6 +23,8 @@ Accessing the Journal
 
    .. automethod:: __init__
 
+.. autoclass:: Monotonic
+
 .. autoattribute:: systemd.journal.DEFAULT_CONVERTERS
 
 Whence constants
