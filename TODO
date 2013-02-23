@@ -350,8 +350,6 @@ Features:
 
 * explore multiple service instances per listening socket idea
 
-* testing tool for socket activation: some binary that listens on a socket and passes it on using the usual socket activation protocol to some server.
-
 * shutdown: don't read-only mount anything when running in container
 
 * MountFlags=shared acts as MountFlags=slave right now.

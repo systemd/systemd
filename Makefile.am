@@ -2314,6 +2314,18 @@ EXTRA_DIST += \
 	src/libsystemd-id128/libsystemd-id128.sym
 
 # ------------------------------------------------------------------------------
+
+rootlibexec_PROGRAMS += \
+	systemd-activate
+
+systemd_activate_SOURCES = \
+	src/activate/activate.c
+
+systemd_activate_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-daemon.la
+
+# ------------------------------------------------------------------------------
 systemd_journald_SOURCES = \
 	src/journal/journald.c \
 	src/journal/journald-server.h
@@ -2558,6 +2570,8 @@ libsystemd-journal-uninstall-hook:
 
 INSTALL_EXEC_HOOKS += libsystemd-journal-install-hook
 UNINSTALL_EXEC_HOOKS += libsystemd-journal-uninstall-hook
+
+# ------------------------------------------------------------------------------
 
 # Update catalog on installation. Do not bother if installing
 # in DESTDIR, since this is likely for packaging purposes.

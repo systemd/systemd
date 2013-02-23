@@ -44,6 +44,7 @@ MANPAGES += \
 	man/shutdown.8 \
 	man/sysctl.d.5 \
 	man/systemctl.1 \
+	man/systemd-activate.8 \
 	man/systemd-analyze.1 \
 	man/systemd-ask-password-console.service.8 \
 	man/systemd-ask-password.1 \

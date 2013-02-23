@@ -88,6 +88,8 @@ bool socket_address_is_netlink(const SocketAddress *a, const char *s);
 
 bool socket_address_matches_fd(const SocketAddress *a, int fd);
 
+int make_socket_fd(const char* address, int flags);
+
 bool socket_address_equal(const SocketAddress *a, const SocketAddress *b);
 
 bool socket_address_needs_mount(const SocketAddress *a, const char *prefix);

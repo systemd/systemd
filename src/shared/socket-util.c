@@ -565,6 +565,45 @@ bool socket_address_matches_fd(const SocketAddress *a, int fd) {
         return false;
 }
 
+int make_socket_fd(const char* address, int flags) {
+        SocketAddress a;
+        int fd, r;
+        char _cleanup_free_ *p = NULL;
+
+        r = socket_address_parse(&a, address);
+        if (r < 0) {
+                log_error("failed to parse socket: %s", strerror(-r));
+                return r;
+        }
+
+        fd = socket(socket_address_family(&a), flags, 0);
+        if (fd < 0) {
+                log_error("socket(): %m");
+                return -errno;
+        }
+
+        r = socket_address_print(&a, &p);
+        if (r < 0) {
+                log_error("socket_address_print(): %s", strerror(-r));
+                return r;
+        }
+        log_info("Listening on %s", p);
+
+        r = bind(fd, &a.sockaddr.sa, a.size);
+        if (r < 0) {
+                log_error("bind to %s: %m", address);
+                return -errno;
+        }
+
+        r = listen(fd, SOMAXCONN);
+        if (r < 0) {
+                log_error("listen on %s: %m", address);
+                return -errno;
+        }
+
+        return fd;
+}
+
 static const char* const netlink_family_table[] = {
         [NETLINK_ROUTE] = "route",
         [NETLINK_FIREWALL] = "firewall",
