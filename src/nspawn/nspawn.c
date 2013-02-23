@@ -1296,7 +1296,7 @@ int main(int argc, char *argv[]) {
                         const char *home = NULL;
                         uid_t uid = (uid_t) -1;
                         gid_t gid = (gid_t) -1;
-                        unsigned n_env = 0;
+                        unsigned n_env = 2;
                         const char *envp[] = {
                                 "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                                 "container=systemd-nspawn", /* LXC sets container=lxc, so follow the scheme here */
@@ -1310,8 +1310,9 @@ int main(int argc, char *argv[]) {
                                 NULL
                         };
 
-                        envp[2] = strv_find_prefix(environ, "TERM=");
-                        n_env = 3;
+                        envp[n_env] = strv_find_prefix(environ, "TERM=");
+                        if (envp[n_env])
+                                n_env ++;
 
                         close_nointr_nofail(pipefd[1]);
                         fd_wait_for_event(pipefd[0], POLLHUP, -1);
