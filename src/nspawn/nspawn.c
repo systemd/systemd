@@ -267,6 +267,11 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
+        if (optind < argc && arg_boot) {
+                log_error("Cannot specify a command together with '-b'");
+                return -EINVAL;
+        }
+
         return 1;
 }
 
