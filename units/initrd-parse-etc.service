@@ -1,0 +1,19 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Reload Configuration from the Real Root
+DefaultDependencies=no
+Requires=local-fs.target swap.target
+After=local-fs.target swap.target
+OnFailure=emergency.target
+ConditionPathExists=/etc/initrd-release
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/systemctl daemon-reload
+ExecStart=/usr/bin/systemctl --no-block start initrd-cleanup.service

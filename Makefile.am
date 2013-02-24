@@ -379,7 +379,12 @@ dist_systemunit_DATA = \
 	units/systemd-ask-password-console.path \
 	units/systemd-udevd-control.socket \
 	units/systemd-udevd-kernel.socket \
-	units/system-update.target
+	units/system-update.target \
+	units/initrd-parse-etc.service \
+	units/initrd-cleanup.service \
+	units/initrd-switch-root.target \
+	units/initrd-udevadm-cleanup-db.service \
+	units/initrd-switch-root.service
 
 nodist_systemunit_DATA = \
 	units/getty@.service \
