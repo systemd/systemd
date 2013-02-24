@@ -433,7 +433,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_follow && !arg_no_tail && arg_lines < 0)
                 arg_lines = 10;
 
-        if (arg_since_set && arg_until_set && arg_since_set > arg_until_set) {
+        if (arg_since_set && arg_until_set && arg_since > arg_until) {
                 log_error("--since= must be before --until=.");
                 return -EINVAL;
         }
@@ -1076,6 +1076,8 @@ int main(int argc, char *argv[]) {
                                         log_error("Failed to determine timestamp: %s", strerror(-r));
                                         goto finish;
                                 }
+                                if (usec > arg_until)
+                                        goto finish;
                         }
 
                         if (!arg_merge) {
