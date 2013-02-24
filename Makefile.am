@@ -1560,7 +1560,6 @@ libsystemd_daemon_la_CFLAGS = \
 
 libsystemd_daemon_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
-	-shared \
 	-version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd-daemon/libsystemd-daemon.sym
 
@@ -2261,7 +2260,6 @@ libsystemd_id128_la_CFLAGS = \
 
 libsystemd_id128_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
-	-shared \
 	-version-info $(LIBSYSTEMD_ID128_CURRENT):$(LIBSYSTEMD_ID128_REVISION):$(LIBSYSTEMD_ID128_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd-id128/libsystemd-id128.sym
 
@@ -2452,7 +2450,6 @@ libsystemd_journal_la_CFLAGS = \
 
 libsystemd_journal_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
-	-shared \
 	-version-info $(LIBSYSTEMD_JOURNAL_CURRENT):$(LIBSYSTEMD_JOURNAL_REVISION):$(LIBSYSTEMD_JOURNAL_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/journal/libsystemd-journal.sym
 
@@ -3254,7 +3251,6 @@ libsystemd_login_la_CFLAGS = \
 
 libsystemd_login_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
-	-shared \
 	-version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/login/libsystemd-login.sym
 
