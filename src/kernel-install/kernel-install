@@ -122,14 +122,12 @@ case "$COMMAND" in
                 echo "initrd     $BOOT_DIR/initrd"
             :
         } > "/boot/loader/entries/${ID}-${KERNEL_VERSION}-${MACHINE_ID}.conf"
-export LANG=C
 
         ((ret+=$?))
 
         if ! [[ -f "/boot/loader/entries/${ID}-${KERNEL_VERSION}-${MACHINE_ID}.conf" ]]; then
             echo "Could not create '/boot/loader/entries/${ID}-${KERNEL_VERSION}-${MACHINE_ID}.conf'!" >&2
         fi
-
         ;;
 
     remove)
