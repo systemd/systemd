@@ -334,6 +334,20 @@ _journalctl() {
         elif [[ $cur = *=* ]]; then
                 mapfile -t field_vals < <(journalctl -F "${prev%=}" 2>/dev/null)
                 COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur#=}") )
+        elif [[ $cur = /dev* ]]; then
+                compopt -o filenames
+                COMPREPLY=( $(compgen -f -- "${cur}") )
+        elif [[ $cur = /* ]]; then
+                # Append /dev/ to the list of completions, so that
+                # after typing /<TAB><TAB> the user sees /dev/ as one
+                # of the alternatives. Later on the rule above will
+                # take care of showing device files in /dev/.
+                mapfile -t field_vals < <(journalctl -F "_EXE" 2>/dev/null; echo '/dev/')
+                COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur}") )
+                if [[ "${COMPREPLY[@]}" = '/dev/' ]]; then
+                    compopt -o filenames
+                    COMPREPLY=( $(compgen -f -- "${cur}") )
+                fi
         elif [[ $prev = '=' ]]; then
                 mapfile -t field_vals < <(journalctl -F "${COMP_WORDS[COMP_CWORD-2]}" 2>/dev/null)
                 COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "$cur") )
