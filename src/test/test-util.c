@@ -129,17 +129,76 @@ static void test_safe_atod(void) {
         assert_se(r == -EINVAL);
 }
 
+static void test_strstrip(void) {
+       char *r;
+       char input[] = "   hello, waldo.   ";
+
+       r = strstrip(input);
+       assert_se(streq(r, "hello, waldo."));
+
+}
+
+static void test_delete_chars(void) {
+       char *r;
+       char input[] = "   hello, waldo.   abc";
+
+       r = delete_chars(input, WHITESPACE);
+       assert_se(streq(r, "hello,waldo.abc"));
+}
+
+static void test_in_charset(void) {
+      assert_se(in_charset("dddaaabbbcccc", "abcd"));
+      assert_se(!in_charset("dddaaabbbcccc", "abc f"));
+}
+
+static void test_foreach_word(void) {
+        char *w, *state;
+        size_t l;
+        int i = 0;
+        const char test[] = "test abc d\te   f   ";
+        const char * const expected[] = {
+                "test",
+                "abc",
+                "d",
+                "e",
+                "f",
+                "",
+                NULL
+        };
+
+        FOREACH_WORD(w, l, test, state) {
+                assert_se(strneq(expected[i++], w, l));
+        }
+}
+
 static void test_foreach_word_quoted(void) {
         char *w, *state;
         size_t l;
-        const char test[] = "test a b c 'd' e '' '' hhh '' ''";
+        int i = 0;
+        const char test[] = "test a b c 'd' e '' '' hhh '' '' \"a b c\"";
+        const char * const expected[] = {
+                "test",
+                "a",
+                "b",
+                "c",
+                "d",
+                "e",
+                "",
+                "",
+                "hhh",
+                "",
+                "",
+                "a b c",
+                NULL
+        };
+
         printf("<%s>\n", test);
         FOREACH_WORD_QUOTED(w, l, test, state) {
-                char *t;
+                _cleanup_free_ char *t = NULL;
 
                 assert_se(t = strndup(w, l));
+                assert_se(strneq(expected[i++], w, l));
                 printf("<%s>\n", t);
-                free(t);
         }
 }
 
@@ -175,12 +234,16 @@ int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
         test_parse_boolean();
-        test_default_term_for_tty();
         test_parse_pid();
         test_parse_uid();
         test_safe_atolli();
         test_safe_atod();
+        test_strstrip();
+        test_delete_chars();
+        test_in_charset();
+        test_foreach_word();
         test_foreach_word_quoted();
+        test_default_term_for_tty();
         test_memdup_multiply();
 
         return 0;
