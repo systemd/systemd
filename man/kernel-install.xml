@@ -125,12 +125,40 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
             <para>Drop-in files, which are executed by kernel-install.</para>
           </listitem>
       </varlistentry>
+      <varlistentry>
+        <term>
+          <filename>/etc/kernel/cmdline</filename>
+          <filename>/proc/cmdline</filename>
+        </term>
+          <listitem>
+            <para>The contents of the file <filename>/etc/kernel/cmdline</filename> specifies the kernel command line to use.
+            If that file does not exist, <filename>/proc/cmdline</filename> is used.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <filename>/etc/machine-id</filename>
+        </term>
+          <listitem>
+            <para>The contents of the file specifies the machine identifaction &lt;MACHINE-ID>.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <filename>/etc/os-release</filename>
+        </term>
+          <listitem>
+            <para>The contents of the file specifies the the operating system id &lt;OS-ID>.</para>
+          </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
   <refsect1>
     <title>See Also</title>
     <para>
+      <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <ulink url="http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot loader specification</ulink>
     </para>
   </refsect1>
