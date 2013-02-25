@@ -170,9 +170,7 @@
                                 <listitem><para>Automatically search
                                 for an init binary and invoke it
                                 instead of a shell or a user supplied
-                                program. A command to execute cannot
-                                be specified in this case.
-                                </para></listitem>
+                                program.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
