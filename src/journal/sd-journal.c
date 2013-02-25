@@ -1321,10 +1321,12 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
         assert(prefix);
         assert(dirname);
 
+        log_debug("Considering %s/%s.", prefix, dirname);
+
         if ((j->flags & SD_JOURNAL_LOCAL_ONLY) &&
             (sd_id128_from_string(dirname, &id) < 0 ||
              sd_id128_get_machine(&mid) < 0 ||
-             !sd_id128_equal(id, mid)))
+             !(sd_id128_equal(id, mid) || path_startswith(prefix, "/run"))))
             return 0;
 
         path = strjoin(prefix, "/", dirname, NULL);
