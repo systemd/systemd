@@ -298,6 +298,26 @@
                                 <listitem><para>Equivalent to
                                 <option>--link-journal=guest</option>.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--bind=</option></term>
+                                <term><option>--bind-ro=</option></term>
+
+                                <listitem><para>Bind mount a file or
+                                directory from the host into the
+                                container. Either takes a path
+                                argument -- in which case the
+                                specified path will be mounted from
+                                the host to the same path in the
+                                container --, or a colon-separated
+                                pair of paths -- in which case the
+                                first specified path is the source in
+                                the host, and the second path is the
+                                destination in the container. The
+                                <option>--bind-ro=</option> option
+                                creates read-only bind
+                                mount.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
         </refsect1>

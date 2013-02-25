@@ -101,23 +101,30 @@ static uint64_t arg_retain =
         (1ULL << CAP_SYS_BOOT) |
         (1ULL << CAP_AUDIT_WRITE) |
         (1ULL << CAP_AUDIT_CONTROL);
+static char **arg_bind = NULL;
+static char **arg_bind_ro = NULL;
 
 static int help(void) {
 
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
-               "  -h --help               Show this help\n"
-               "  --version               Print version string\n"
-               "  -D --directory=NAME     Root directory for the container\n"
-               "  -b --boot               Boot up full system (i.e. invoke init)\n"
-               "  -u --user=USER          Run the command under specified user or uid\n"
-               "  -C --controllers=LIST   Put the container in specified comma-separated cgroup hierarchies\n"
-               "     --uuid=UUID          Set a specific machine UUID for the container\n"
-               "     --private-network    Disable network in container\n"
-               "     --read-only          Mount the root directory read-only\n"
-               "     --capability=CAP     In addition to the default, retain specified capability\n"
-               "     --link-journal=MODE  Link up guest journal, one of no, auto, guest, host\n"
-               "  -j                      Equivalent to --link-journal=host\n",
+               "  -h --help                Show this help\n"
+               "  --version                Print version string\n"
+               "  -D --directory=NAME      Root directory for the container\n"
+               "  -b --boot                Boot up full system (i.e. invoke init)\n"
+               "  -u --user=USER           Run the command under specified user or uid\n"
+               "  -C --controllers=LIST    Put the container in specified comma-separated\n"
+               "                           cgroup hierarchies\n"
+               "     --uuid=UUID           Set a specific machine UUID for the container\n"
+               "     --private-network     Disable network in container\n"
+               "     --read-only           Mount the root directory read-only\n"
+               "     --capability=CAP      In addition to the default, retain specified\n"
+               "                           capability\n"
+               "     --link-journal=MODE   Link up guest journal, one of no, auto, guest, host\n"
+               "  -j                       Equivalent to --link-journal=host\n"
+               "     --bind=PATH[:PATH]    Bind mount a file or directory from the host into\n"
+               "                           the container\n"
+               "     --bind-ro=PATH[:PATH] Similar, but creates a read-only bind mount\n",
                program_invocation_short_name);
 
         return 0;
@@ -131,7 +138,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_UUID,
                 ARG_READ_ONLY,
                 ARG_CAPABILITY,
-                ARG_LINK_JOURNAL
+                ARG_LINK_JOURNAL,
+                ARG_BIND,
+                ARG_BIND_RO
         };
 
         static const struct option options[] = {
@@ -146,6 +155,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
                 { "capability",      required_argument, NULL, ARG_CAPABILITY      },
                 { "link-journal",    required_argument, NULL, ARG_LINK_JOURNAL    },
+                { "bind",            required_argument, NULL, ARG_BIND            },
+                { "bind-ro",         required_argument, NULL, ARG_BIND_RO         },
                 { NULL,              0,                 NULL, 0                   }
         };
 
@@ -258,6 +269,43 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_BIND:
+                case ARG_BIND_RO: {
+                        _cleanup_free_ char *a = NULL, *b = NULL;
+                        char *e;
+                        char ***x;
+                        int r;
+
+                        x = c == ARG_BIND ? &arg_bind : &arg_bind_ro;
+
+                        e = strchr(optarg, ':');
+                        if (e) {
+                                a = strndup(optarg, e - optarg);
+                                b = strdup(e + 1);
+                        } else {
+                                a = strdup(optarg);
+                                b = strdup(optarg);
+                        }
+
+                        if (!a || !b)
+                                return log_oom();
+
+                        if (!path_is_absolute(a) || !path_is_absolute(b)) {
+                                log_error("Invalid bind mount specification: %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        r = strv_extend(x, a);
+                        if (r < 0)
+                                return r;
+
+                        r = strv_extend(x, b);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -303,14 +351,9 @@ static int mount_all(const char *dest) {
                 char _cleanup_free_ *where = NULL;
                 int t;
 
-                if (asprintf(&where, "%s/%s", dest, mount_table[k].where) < 0) {
-                        log_oom();
-
-                        if (r == 0)
-                                r = -ENOMEM;
-
-                        break;
-                }
+                where = strjoin(dest, "/", mount_table[k].where, NULL);
+                if (!where)
+                        return log_oom();
 
                 t = path_is_mount_point(where, true);
                 if (t < 0) {
@@ -326,7 +369,7 @@ static int mount_all(const char *dest) {
                 if (mount_table[k].what && t > 0)
                         continue;
 
-                mkdir_p_label(where, 0755);
+                mkdir_p(where, 0755);
 
                 if (mount(mount_table[k].what,
                           where,
@@ -343,6 +386,32 @@ static int mount_all(const char *dest) {
         }
 
         return r;
+}
+
+static int mount_binds(const char *dest, char **l, unsigned long flags) {
+        char **x, **y;
+
+        STRV_FOREACH_PAIR(x, y, l) {
+                _cleanup_free_ char *where = NULL;
+
+                where = strjoin(dest, "/", *y, NULL);
+                if (!where)
+                        return log_oom();
+
+                mkdir_p_label(where, 0755);
+
+                if (mount(*x, where, "bind", MS_BIND, NULL) < 0) {
+                        log_error("mount(%s) failed: %m", where);
+                        return -errno;
+                }
+
+                if (flags && mount(NULL, where, NULL, MS_REMOUNT|MS_BIND|flags, NULL) < 0) {
+                        log_error("mount(%s) failed: %m", where);
+                        return -errno;
+                }
+        }
+
+        return 0;
 }
 
 static int setup_timezone(const char *dest) {
@@ -1344,6 +1413,12 @@ int main(int argc, char *argv[]) {
                                 goto child_fail;
 
                         if (setup_journal(arg_directory) < 0)
+                                goto child_fail;
+
+                        if (mount_binds(arg_directory, arg_bind, 0) < 0)
+                                goto child_fail;
+
+                        if (mount_binds(arg_directory, arg_bind_ro, MS_RDONLY) < 0)
                                 goto child_fail;
 
                         if (chdir(arg_directory) < 0) {
