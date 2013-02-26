@@ -151,6 +151,37 @@ static void test_in_charset(void) {
       assert_se(!in_charset("dddaaabbbcccc", "abc f"));
 }
 
+static void test_hexchar(void) {
+        assert_se(hexchar(0xa) == 'a');
+        assert_se(hexchar(0x0) == '0');
+}
+
+static void test_unhexchar(void) {
+        assert_se(unhexchar('a') == 0xA);
+        assert_se(unhexchar('A') == 0xA);
+        assert_se(unhexchar('0') == 0x0);
+}
+
+static void test_octchar(void) {
+        assert_se(octchar(00) == '0');
+        assert_se(octchar(07) == '7');
+}
+
+static void test_unoctchar(void) {
+        assert_se(unoctchar('0') == 00);
+        assert_se(unoctchar('7') == 07);
+}
+
+static void test_decchar(void) {
+        assert_se(decchar(0) == '0');
+        assert_se(decchar(9) == '9');
+}
+
+static void test_undecchar(void) {
+        assert_se(undecchar('0') == 0);
+        assert_se(undecchar('9') == 9);
+}
+
 static void test_foreach_word(void) {
         char *w, *state;
         size_t l;
@@ -241,6 +272,12 @@ int main(int argc, char *argv[]) {
         test_strstrip();
         test_delete_chars();
         test_in_charset();
+        test_hexchar();
+        test_unhexchar();
+        test_octchar();
+        test_unoctchar();
+        test_decchar();
+        test_undecchar();
         test_foreach_word();
         test_foreach_word_quoted();
         test_default_term_for_tty();
