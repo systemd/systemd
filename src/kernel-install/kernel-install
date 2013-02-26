@@ -69,7 +69,7 @@ fi
 
 BOOT_DIR="/${MACHINE_ID}/${KERNEL_VERSION}"
 BOOT_DIR_ABS="/boot${BOOT_DIR}"
-LOADER_ENTRY="/boot/loader/entries/${ID}-${KERNEL_VERSION}-${MACHINE_ID}.conf"
+LOADER_ENTRY="/boot/loader/entries/${MACHINE_ID}-${KERNEL_VERSION}.conf"
 ret=0
 
 dropindirs_sort()
