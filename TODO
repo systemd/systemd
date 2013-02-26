@@ -51,6 +51,8 @@ Fedora 19:
   http://lists.freedesktop.org/archives/systemd-devel/2013-February/008816.html
 
 Features:
+* convert /etc/bash_completion.d/ to /usr/share/bash-completion/
+  (systemd (and everything else) should install zero static data in /etc)
 
 * figure out what we do about hostnames/fqdn in hostnamectl/hostnamed
 
