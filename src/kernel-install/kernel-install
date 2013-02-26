@@ -28,14 +28,14 @@ KERNEL_IMAGE="$3"
 [[ -f /etc/os-release ]] && . /etc/os-release
 if ! [[ $ID ]]; then
     echo "Can't determine the name of your distribution. Please create /etc/os-release." >&2
-    echo "See http://www.freedesktop.org/software/systemd/man/os-release.html" >&2
+    echo "See man:os-release(5)" >&2
     exit 1
 fi
 
 [[ -f /etc/machine-id ]] && read MACHINE_ID < /etc/machine-id
 if ! [[ $MACHINE_ID ]]; then
     echo "Can't determine your machine id. Please create /etc/machine-id!" >&2
-    echo "See http://www.freedesktop.org/software/systemd/man/machine-id.html" >&2
+    echo "See man:machine-id(5)" >&2
     exit 1
 fi
 
