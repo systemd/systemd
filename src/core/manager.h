@@ -225,6 +225,8 @@ struct Manager {
         unsigned n_installed_jobs;
         unsigned n_failed_jobs;
 
+        unsigned n_running_jobs;
+
         /* Type=idle pipes */
         int idle_pipe[2];
 

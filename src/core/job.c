@@ -206,6 +206,7 @@ Job* job_install(Job *j) {
                                                "Merged into running job, re-running: %s/%s as %u",
                                                uj->unit->id, job_type_to_string(uj->type), (unsigned) uj->id);
                                 uj->state = JOB_WAITING;
+                                uj->manager->n_running_jobs--;
                                 return uj;
                         }
                 }
@@ -483,7 +484,7 @@ static void job_change_type(Job *j, JobType newtype) {
 int job_run_and_invalidate(Job *j) {
         int r;
         uint32_t id;
-        Manager *m;
+        Manager *m = j->manager;
 
         assert(j);
         assert(j->installed);
@@ -500,6 +501,7 @@ int job_run_and_invalidate(Job *j) {
                 return -EAGAIN;
 
         j->state = JOB_RUNNING;
+        m->n_running_jobs++;
         job_add_to_dbus_queue(j);
 
         /* While we execute this operation the job might go away (for
@@ -508,7 +510,6 @@ int job_run_and_invalidate(Job *j) {
          * store the id here, so that we can verify the job is still
          * valid. */
         id = j->id;
-        m = j->manager;
 
         switch (j->type) {
 
@@ -558,9 +559,10 @@ int job_run_and_invalidate(Job *j) {
                         r = job_finish_and_invalidate(j, JOB_DONE, true);
                 else if (r == -ENOEXEC)
                         r = job_finish_and_invalidate(j, JOB_SKIPPED, true);
-                else if (r == -EAGAIN)
+                else if (r == -EAGAIN) {
                         j->state = JOB_WAITING;
-                else if (r < 0)
+                        m->n_running_jobs--;
+                } else if (r < 0)
                         r = job_finish_and_invalidate(j, JOB_FAILED, true);
         }
 
@@ -759,6 +761,9 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
         t = j->type;
 
         j->result = result;
+
+        if (j->state == JOB_RUNNING)
+                j->manager->n_running_jobs--;
 
         log_debug_unit(u->id, "Job %s/%s finished, result=%s",
                        u->id, job_type_to_string(t), job_result_to_string(result));
