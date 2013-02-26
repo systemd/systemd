@@ -67,7 +67,9 @@ if ! ( [[ $COMMAND ]] && [[ $KERNEL_VERSION ]] && [[ $KERNEL_IMAGE ]] ); then
     exit 1
 fi
 
-BOOT_DIR="/boot/$MACHINE_ID/$KERNEL_VERSION"
+BOOT_DIR="$MACHINE_ID/$KERNEL_VERSION"
+BOOT_DIR_ABS="/boot/$BOOT_DIR"
+LOADER_ENTRY="/boot/loader/entries/${ID}-${KERNEL_VERSION}-${MACHINE_ID}.conf"
 ret=0
 
 dropindirs_sort()
@@ -99,15 +101,15 @@ readarray -t PLUGINS < <(
 
 case "$COMMAND" in
     add)
-        mkdir -p "$BOOT_DIR" || exit 1
+        mkdir -p "$BOOT_DIR_ABS" || exit 1
 
         for f in "${PLUGINS[@]}"; do
-            [[ -x $f ]] && "$f" add "$KERNEL_VERSION" "$BOOT_DIR"
+            [[ -x $f ]] && "$f" add "$KERNEL_VERSION" "$BOOT_DIR_ABS"
             ((ret+=$?))
         done
 
-        if ! cp --preserve "$KERNEL_IMAGE" "$BOOT_DIR"/linux; then
-            echo "Can't copy '$KERNEL_IMAGE to '$BOOT_DIR/linux'!" >&2
+        if ! cp --preserve "$KERNEL_IMAGE" "$BOOT_DIR_ABS"/linux; then
+            echo "Can't copy '$KERNEL_IMAGE to '$BOOT_DIR_ABS/linux'!" >&2
         fi
 
         [[ -d /boot/loader/entries ]] || mkdir -p /boot/loader/entries
@@ -116,28 +118,28 @@ case "$COMMAND" in
             echo "title      $PRETTY_NAME"
             echo "version    $KERNEL_VERSION"
             echo "machine-id $MACHINE_ID"
-            echo "options    $BOOT_OPTIONS"
+            echo "options    ${BOOT_OPTIONS[@]}"
             echo "linux      $BOOT_DIR/linux"
-            [[ -f "${BOOT_DIR}"/initrd ]] && \
+            [[ -f "${BOOT_DIR_ABS}"/initrd ]] && \
                 echo "initrd     $BOOT_DIR/initrd"
             :
-        } > "/boot/loader/entries/${ID}-${KERNEL_VERSION}-${MACHINE_ID}.conf"
+        } > $LOADER_ENTRY
 
         ((ret+=$?))
 
-        if ! [[ -f "/boot/loader/entries/${ID}-${KERNEL_VERSION}-${MACHINE_ID}.conf" ]]; then
-            echo "Could not create '/boot/loader/entries/${ID}-${KERNEL_VERSION}-${MACHINE_ID}.conf'!" >&2
+        if ! [[ -f $LOADER_ENTRY ]]; then
+            echo "Could not create '$LOADER_ENTRY'!" >&2
         fi
         ;;
 
     remove)
         for f in "${PLUGINS[@]}"; do
-            [[ -x $f ]] && "$f" remove "$KERNEL_VERSION" "$BOOT_DIR"
+            [[ -x $f ]] && "$f" remove "$KERNEL_VERSION" "$BOOT_DIR_ABS"
             ((ret+=$?))
         done
 
-        rm -fr "$BOOT_DIR"
-        rm -f "/boot/loader/entries/${ID}-${KERNEL_VERSION}-${MACHINE_ID}.conf"
+        rm -fr "$BOOT_DIR_ABS"
+        rm -f "$LOADER_ENTRY"
         ;;
 
     *)
