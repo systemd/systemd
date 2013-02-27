@@ -5094,11 +5094,11 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "condreload",            MORE,  2, start_unit        }, /* For compatibility with ALTLinux */
                 { "condrestart",           MORE,  2, start_unit        }, /* For compatibility with RH */
                 { "isolate",               EQUAL, 2, start_unit        },
-                { "set-cgroup",            MORE,  2, set_cgroup        },
-                { "unset-cgroup",          MORE,  2, set_cgroup        },
-                { "get-cgroup-attr",       MORE,  2, get_cgroup_attr   },
-                { "set-cgroup-attr",       MORE,  2, set_cgroup_attr   },
-                { "unset-cgroup-attr",     MORE,  2, set_cgroup        },
+                { "set-cgroup",            MORE,  3, set_cgroup        },
+                { "unset-cgroup",          MORE,  3, set_cgroup        },
+                { "get-cgroup-attr",       MORE,  3, get_cgroup_attr   },
+                { "set-cgroup-attr",       MORE,  4, set_cgroup_attr   },
+                { "unset-cgroup-attr",     MORE,  3, set_cgroup        },
                 { "kill",                  MORE,  2, kill_unit         },
                 { "is-active",             MORE,  2, check_unit_active },
                 { "check",                 MORE,  2, check_unit_active },
