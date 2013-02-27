@@ -2152,7 +2152,7 @@ finish:
         return r;
 }
 
-bool manager_is_booting_or_shutting_down(Manager *m) {
+static bool manager_is_booting_or_shutting_down(Manager *m) {
         Unit *u;
 
         assert(m);
@@ -2479,7 +2479,7 @@ void manager_set_show_status(Manager *m, bool b) {
                 unlink("/run/systemd/show-status");
 }
 
-bool manager_get_show_status(Manager *m) {
+static bool manager_get_show_status(Manager *m) {
         assert(m);
 
         if (m->running_as != SYSTEMD_SYSTEM)

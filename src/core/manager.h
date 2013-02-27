@@ -278,8 +278,6 @@ int manager_distribute_fds(Manager *m, FDSet *fds);
 
 int manager_reload(Manager *m);
 
-bool manager_is_booting_or_shutting_down(Manager *m);
-
 void manager_reset_failed(Manager *m);
 
 void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success);
@@ -296,6 +294,5 @@ void manager_recheck_journal(Manager *m);
 
 void manager_set_show_status(Manager *m, bool b);
 void manager_status_printf(Manager *m, const char *status, const char *format, ...);
-bool manager_get_show_status(Manager *m);
 
 void watch_init(Watch *w);
