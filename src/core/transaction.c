@@ -396,8 +396,8 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                        "Job %s/%s deleted to break ordering cycle starting with %s/%s",
                                        delete->unit->id, job_type_to_string(delete->type),
                                        j->unit->id, job_type_to_string(j->type));
-                        status_printf(ANSI_HIGHLIGHT_RED_ON " SKIP " ANSI_HIGHLIGHT_OFF, true,
-                                      "Ordering cycle found, skipping %s", unit_description(delete->unit));
+                        unit_status_printf(delete->unit, ANSI_HIGHLIGHT_RED_ON " SKIP " ANSI_HIGHLIGHT_OFF,
+                                           "Ordering cycle found, skipping %s");
                         transaction_delete_unit(tr, delete->unit);
                         return -EAGAIN;
                 }
