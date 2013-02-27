@@ -85,7 +85,7 @@ int pager_open(void) {
                 dup2(fd[0], STDIN_FILENO);
                 close_pipe(fd);
 
-                setenv("LESS", "FRSX", 0);
+                setenv("LESS", "FRSXK", 0);
 
                 /* Make sure the pager goes away when the parent dies */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
