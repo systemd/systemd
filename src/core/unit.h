@@ -520,7 +520,8 @@ int unit_add_node_link(Unit *u, const char *what, bool wants);
 
 int unit_coldplug(Unit *u);
 
-void unit_status_printf(Unit *u, const char *status, const char *format, ...);
+#define unit_status_printf(u, st, fo, ...) \
+        manager_status_printf((u)->manager, st, fo, __VA_ARGS__)
 
 bool unit_need_daemon_reload(Unit *u);
 

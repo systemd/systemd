@@ -2494,6 +2494,20 @@ bool manager_get_show_status(Manager *m) {
         return plymouth_running();
 }
 
+void manager_status_printf(Manager *m, const char *status, const char *format, ...) {
+        va_list ap;
+
+        if (!manager_get_show_status(m))
+                return;
+
+        if (!manager_is_booting_or_shutting_down(m))
+                return;
+
+        va_start(ap, format);
+        status_vprintf(status, true, format, ap);
+        va_end(ap);
+}
+
 void watch_init(Watch *w) {
         assert(w);
 

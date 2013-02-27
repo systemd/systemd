@@ -2535,23 +2535,6 @@ int unit_coldplug(Unit *u) {
         return 0;
 }
 
-void unit_status_printf(Unit *u, const char *status, const char *format, ...) {
-        va_list ap;
-
-        assert(u);
-        assert(format);
-
-        if (!manager_get_show_status(u->manager))
-                return;
-
-        if (!manager_is_booting_or_shutting_down(u->manager))
-                return;
-
-        va_start(ap, format);
-        status_vprintf(status, true, format, ap);
-        va_end(ap);
-}
-
 bool unit_need_daemon_reload(Unit *u) {
         struct stat st;
 
