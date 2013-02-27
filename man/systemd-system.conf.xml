@@ -107,15 +107,16 @@
                                 <term><varname>DefaultControllers=cpu</varname></term>
 
                                 <listitem><para>Configures in which
-                                cgroup controller hierarchies to
-                                create per-service cgroups
-                                automatically, in addition to the
-                                name=systemd named hierarchy. Defaults
-                                to 'cpu'. Takes a space separated list
-                                of controller names. Pass an empty
-                                string to ensure that systemd does not
-                                touch any hierarchies but its
-                                own.</para>
+                                control group hierarchies to create
+                                per-service cgroups automatically, in
+                                addition to the
+                                <literal>name=systemd</literal> named
+                                hierarchy. Defaults to
+                                <literal>cpu</literal>. Takes a space
+                                separated list of controller
+                                names. Pass the empty string to ensure
+                                that systemd does not touch any
+                                hierarchies but its own.</para>
 
                                 <para>Note that the default value of
                                 'cpu' will make realtime scheduling

@@ -207,10 +207,17 @@
 
                                 <listitem><para>These settings control
                                 the default control group hierarchies
-                                users logging in are added to. When
-                                logging in users will get private
-                                control groups in all hierarchies
-                                listed in
+                                users logging in are added to, in
+                                addition to the
+                                <literal>name=systemd</literal> named
+                                hierarchy. These settings take space
+                                separated lists of controller
+                                names. Pass the empty string to ensure
+                                that logind does not touch any
+                                hierarchies but systemd's own. When
+                                logging in user sessions will get
+                                private control groups in all
+                                hierarchies listed in
                                 <varname>Controllers=</varname> and be
                                 reset to the root control group in all
                                 hierarchies listed in
@@ -218,7 +225,15 @@
                                 defaults to the empty list,
                                 <varname>ResetControllers=</varname>
                                 defaults to
-                                <literal>cpu</literal>.</para></listitem>
+                                <literal>cpu</literal>. Note that for
+                                all controllers that are not listed in
+                                either <varname>Controllers=</varname>
+                                nor
+                                <varname>ResetControllers=</varname>
+                                newly created sessions will be part of
+                                the control groups of the system
+                                service that created the
+                                session.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
