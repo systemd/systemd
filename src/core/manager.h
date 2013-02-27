@@ -226,6 +226,7 @@ struct Manager {
         unsigned n_failed_jobs;
 
         unsigned n_running_jobs;
+        unsigned n_on_console;
 
         /* Type=idle pipes */
         int idle_pipe[2];
