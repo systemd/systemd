@@ -79,6 +79,11 @@
 /* As soon as 5s passed since a unit was added to our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_USEC_MAX (10*USEC_PER_SEC)
 
+/* Initial delay and the interval for printing status messages about running jobs */
+#define JOBS_IN_PROGRESS_WAIT_SEC 5
+#define JOBS_IN_PROGRESS_PERIOD_SEC 1
+#define JOBS_IN_PROGRESS_PERIOD_DIVISOR 3
+
 /* Where clients shall send notification messages to */
 #define NOTIFY_SOCKET "@/org/freedesktop/systemd1/notify"
 
@@ -138,6 +143,146 @@ static int manager_setup_notify(Manager *m) {
         log_debug("Using notification socket %s", m->notify_socket);
 
         return 0;
+}
+
+static int manager_jobs_in_progress_mod_timer(Manager *m) {
+        struct itimerspec its;
+
+        zero(its);
+
+        its.it_value.tv_sec = JOBS_IN_PROGRESS_WAIT_SEC;
+        its.it_interval.tv_sec = JOBS_IN_PROGRESS_PERIOD_SEC;
+
+        if (timerfd_settime(m->jobs_in_progress_watch.fd, 0, &its, NULL) < 0)
+                return -errno;
+
+        return 0;
+}
+
+static int manager_watch_jobs_in_progress(Manager *m) {
+        struct epoll_event ev;
+        int r;
+
+        assert(m);
+
+        if (m->jobs_in_progress_watch.type != WATCH_INVALID)
+                return 0;
+
+        m->jobs_in_progress_watch.type = WATCH_JOBS_IN_PROGRESS;
+        m->jobs_in_progress_watch.fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC);
+        if (m->jobs_in_progress_watch.fd < 0) {
+                log_error("Failed to create timerfd: %m");
+                r = -errno;
+                goto err;
+        }
+
+        r = manager_jobs_in_progress_mod_timer(m);
+        if (r < 0) {
+                log_error("Failed to set up timer for jobs progress watch: %s", strerror(-r));
+                goto err;
+        }
+
+        zero(ev);
+        ev.events = EPOLLIN;
+        ev.data.ptr = &m->jobs_in_progress_watch;
+
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->jobs_in_progress_watch.fd, &ev) < 0) {
+                log_error("Failed to add jobs progress timer fd to epoll: %m");
+                r = -errno;
+                goto err;
+        }
+
+        log_debug("Set up jobs progress timerfd.");
+
+        return 0;
+
+err:
+        if (m->jobs_in_progress_watch.fd >= 0)
+                close_nointr_nofail(m->jobs_in_progress_watch.fd);
+        watch_init(&m->jobs_in_progress_watch);
+        return r;
+}
+
+static void manager_unwatch_jobs_in_progress(Manager *m) {
+        if (m->jobs_in_progress_watch.type != WATCH_JOBS_IN_PROGRESS)
+                return;
+
+        assert_se(epoll_ctl(m->epoll_fd, EPOLL_CTL_DEL, m->jobs_in_progress_watch.fd, NULL) >= 0);
+        close_nointr_nofail(m->jobs_in_progress_watch.fd);
+        watch_init(&m->jobs_in_progress_watch);
+        m->jobs_in_progress_iteration = 0;
+
+        log_debug("Closed jobs progress timerfd.");
+}
+
+#define CYLON_BUFFER_EXTRA (2*strlen(ANSI_RED_ON) + strlen(ANSI_HIGHLIGHT_RED_ON) + 2*strlen(ANSI_HIGHLIGHT_OFF))
+static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned pos) {
+        char *p = buffer;
+
+        assert(buflen >= CYLON_BUFFER_EXTRA + width + 1);
+        assert(pos <= width+1); /* 0 or width+1 mean that the center light is behind the corner */
+
+        if (pos > 1) {
+                if (pos > 2) {
+                        memset(p, ' ', pos-2);
+                        p += pos-2;
+                }
+                memcpy(p, ANSI_RED_ON, strlen(ANSI_RED_ON));
+                p += strlen(ANSI_RED_ON);
+                *p++ = '*';
+        }
+
+        if (pos > 0 && pos <= width) {
+                memcpy(p, ANSI_HIGHLIGHT_RED_ON, strlen(ANSI_HIGHLIGHT_RED_ON));
+                p += strlen(ANSI_HIGHLIGHT_RED_ON);
+                *p++ = '*';
+        }
+
+        memcpy(p, ANSI_HIGHLIGHT_OFF, strlen(ANSI_HIGHLIGHT_OFF));
+        p += strlen(ANSI_HIGHLIGHT_OFF);
+
+        if (pos < width) {
+                memcpy(p, ANSI_RED_ON, strlen(ANSI_RED_ON));
+                p += strlen(ANSI_RED_ON);
+                *p++ = '*';
+                if (pos < width-1) {
+                        memset(p, ' ', width-1-pos);
+                        p += width-1-pos;
+                }
+                memcpy(p, ANSI_HIGHLIGHT_OFF, strlen(ANSI_HIGHLIGHT_OFF));
+                p += strlen(ANSI_HIGHLIGHT_OFF);
+        }
+        *p = 0;
+}
+
+static void manager_print_jobs_in_progress(Manager *m) {
+        Iterator i;
+        Job *j;
+        char *job_of_n = NULL;
+        unsigned counter = 0, print_nr;
+        char cylon[6 + CYLON_BUFFER_EXTRA + 1];
+        unsigned cylon_pos;
+
+        print_nr = (m->jobs_in_progress_iteration / JOBS_IN_PROGRESS_PERIOD_DIVISOR) % m->n_running_jobs;
+
+        HASHMAP_FOREACH(j, m->jobs, i)
+                if (j->state == JOB_RUNNING && counter++ == print_nr)
+                        break;
+
+        cylon_pos = m->jobs_in_progress_iteration % 14;
+        if (cylon_pos >= 8)
+                cylon_pos = 14 - cylon_pos;
+        draw_cylon(cylon, sizeof(cylon), 6, cylon_pos);
+
+        if (m->n_running_jobs > 1)
+                if (asprintf(&job_of_n, "(%u of %u) ", counter, m->n_running_jobs) < 0)
+                        job_of_n = NULL;
+
+        manager_status_printf(m, true, cylon, "%sA %s job is running for %s",
+                              strempty(job_of_n), job_type_to_string(j->type), unit_description(j->unit));
+        free(job_of_n);
+
+        m->jobs_in_progress_iteration++;
 }
 
 static int manager_setup_time_change(Manager *m) {
@@ -324,6 +469,7 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         watch_init(&m->swap_watch);
         watch_init(&m->udev_watch);
         watch_init(&m->time_change_watch);
+        watch_init(&m->jobs_in_progress_watch);
 
         m->epoll_fd = m->dev_autofs_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
@@ -564,6 +710,8 @@ void manager_free(Manager *m) {
                 close_nointr_nofail(m->notify_watch.fd);
         if (m->time_change_watch.fd >= 0)
                 close_nointr_nofail(m->time_change_watch.fd);
+        if (m->jobs_in_progress_watch.fd >= 0)
+                close_nointr_nofail(m->jobs_in_progress_watch.fd);
 
         free(m->notify_socket);
 
@@ -988,6 +1136,10 @@ unsigned manager_dispatch_run_queue(Manager *m) {
         }
 
         m->dispatching_run_queue = false;
+
+        if (hashmap_size(m->jobs) > 0)
+                manager_watch_jobs_in_progress(m);
+
         return n;
 }
 
@@ -1524,6 +1676,16 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                                 UNIT_VTABLE(u)->time_change(u);
                 }
 
+                break;
+        }
+
+        case WATCH_JOBS_IN_PROGRESS: {
+                uint64_t v;
+
+                /* not interested in the data */
+                read(w->fd, &v, sizeof(v));
+
+                manager_print_jobs_in_progress(m);
                 break;
         }
 
@@ -2199,14 +2361,18 @@ void manager_check_finished(Manager *m) {
 
         assert(m);
 
-        if (hashmap_size(m->jobs) > 0)
+        if (hashmap_size(m->jobs) > 0) {
+                manager_jobs_in_progress_mod_timer(m);
                 return;
+        }
 
         /* Notify Type=idle units that we are done now */
         close_pipe(m->idle_pipe);
 
         /* Turn off confirm spawn now */
         m->confirm_spawn = false;
+
+        manager_unwatch_jobs_in_progress(m);
 
         if (dual_timestamp_is_set(&m->finish_timestamp))
                 return;
@@ -2498,6 +2664,11 @@ void manager_status_printf(Manager *m, bool ephemeral, const char *status, const
         va_list ap;
 
         if (!manager_get_show_status(m))
+                return;
+
+        /* XXX We should totally drop the check for ephemeral here
+         * and thus effectively make 'Type=idle' pointless. */
+        if (ephemeral && m->n_on_console > 0)
                 return;
 
         if (!manager_is_booting_or_shutting_down(m))

@@ -61,7 +61,8 @@ enum WatchType {
         WATCH_UDEV,
         WATCH_DBUS_WATCH,
         WATCH_DBUS_TIMEOUT,
-        WATCH_TIME_CHANGE
+        WATCH_TIME_CHANGE,
+        WATCH_JOBS_IN_PROGRESS
 };
 
 struct Watch {
@@ -127,6 +128,7 @@ struct Manager {
         Watch notify_watch;
         Watch signal_watch;
         Watch time_change_watch;
+        Watch jobs_in_progress_watch;
 
         int epoll_fd;
 
@@ -225,8 +227,10 @@ struct Manager {
         unsigned n_installed_jobs;
         unsigned n_failed_jobs;
 
+        /* Jobs in progress watching */
         unsigned n_running_jobs;
         unsigned n_on_console;
+        unsigned jobs_in_progress_iteration;
 
         /* Type=idle pipes */
         int idle_pipe[2];
