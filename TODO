@@ -30,11 +30,8 @@ Fedora 19:
   that's sometimes kinda hard to parse for a human.
 
 * cgroup attrs:
-  - don't unconditionally filter out duplicate settings
-  - support high-level cgroup setting syntax in systemctl. Example: "systemctl set-cgroup-attr MemoryLimit 5K"
-  - support writte string mapping even for non-high-level settings
   - add man page for systemctl commands
-  - make sure we work fine with multi-line strings
+  - update dbus interface docs in wiki
 
 * kernel cmdline switch to turn off predictable network interface names
 
