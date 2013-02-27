@@ -994,7 +994,7 @@ static void unit_status_print_starting_stopping(Unit *u, JobType t) {
         if (!format)
                 return;
 
-        unit_status_printf(u, "", format, unit_description(u));
+        unit_status_printf(u, "", format);
 }
 
 #pragma GCC diagnostic push
@@ -2533,6 +2533,10 @@ int unit_coldplug(Unit *u) {
         }
 
         return 0;
+}
+
+void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) {
+        manager_status_printf(u->manager, false, status, unit_status_msg_format, unit_description(u));
 }
 
 bool unit_need_daemon_reload(Unit *u) {
