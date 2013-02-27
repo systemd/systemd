@@ -344,8 +344,8 @@ static int bus_unit_append_cgroup_attrs(DBusMessageIter *i, const char *property
                 char _cleanup_free_ *v = NULL;
                 bool success;
 
-                if (a->map_callback)
-                        a->map_callback(a->controller, a->name, a->value, &v);
+                if (a->semantics && a->semantics->map_write)
+                        a->semantics->map_write(a->semantics, a->value, &v);
 
                 success =
                         dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) &&
@@ -472,7 +472,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 if (!reply)
                         goto oom;
 
-        } else if (streq_ptr(dbus_message_get_member(message), "SetControlGroups")) {
+        } else if (streq_ptr(dbus_message_get_member(message), "SetControlGroup")) {
                 DBusMessageIter iter;
 
                 SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
@@ -488,7 +488,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 if (!reply)
                         goto oom;
 
-        } else if (streq_ptr(dbus_message_get_member(message), "UnsetControlGroups")) {
+        } else if (streq_ptr(dbus_message_get_member(message), "UnsetControlGroup")) {
                 DBusMessageIter iter;
 
                 SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
@@ -496,14 +496,14 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 if (!dbus_message_iter_init(message, &iter))
                         goto oom;
 
-                r = bus_unit_cgroup_set(u, &iter);
+                r = bus_unit_cgroup_unset(u, &iter);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
                         goto oom;
-        } else if (streq_ptr(dbus_message_get_member(message), "GetControlGroupAttributes")) {
+        } else if (streq_ptr(dbus_message_get_member(message), "GetControlGroupAttribute")) {
                 DBusMessageIter iter;
                 _cleanup_strv_free_ char **list = NULL;
 
@@ -524,7 +524,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 if (bus_append_strv_iter(&iter, list) < 0)
                         goto oom;
 
-        } else if (streq_ptr(dbus_message_get_member(message), "SetControlGroupAttributes")) {
+        } else if (streq_ptr(dbus_message_get_member(message), "SetControlGroupAttribute")) {
                 DBusMessageIter iter;
 
                 SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
@@ -540,7 +540,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 if (!reply)
                         goto oom;
 
-        } else if (streq_ptr(dbus_message_get_member(message), "UnsetControlGroupAttributes")) {
+        } else if (streq_ptr(dbus_message_get_member(message), "UnsetControlGroupAttribute")) {
                 DBusMessageIter iter;
 
                 SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
@@ -897,17 +897,17 @@ oom:
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
-static int next_and_parse_mode(DBusMessageIter *iter, bool *runtime) {
+static int parse_mode(DBusMessageIter *iter, bool *runtime, bool next) {
         const char *mode;
+        int r;
 
         assert(iter);
         assert(runtime);
 
-        dbus_message_iter_next(iter);
-        if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_STRING)
-                return -EINVAL;
+        r = bus_iter_get_basic_and_next(iter, DBUS_TYPE_STRING, &mode, next);
+        if (r < 0)
+                return r;
 
-        dbus_message_iter_get_basic(iter, &mode);
         if (streq(mode, "runtime"))
                 *runtime = true;
         else if (streq(mode, "persistent"))
@@ -919,10 +919,11 @@ static int next_and_parse_mode(DBusMessageIter *iter, bool *runtime) {
 }
 
 int bus_unit_cgroup_set(Unit *u, DBusMessageIter *iter) {
-        int r;
-        _cleanup_strv_free_ char **a = NULL;
-        char **name;
+        _cleanup_free_ char *controller = NULL, *old_path = NULL, *new_path = NULL, *contents = NULL;
+        const char *name;
+        CGroupBonding *b;
         bool runtime;
+        int r;
 
         assert(u);
         assert(iter);
@@ -930,111 +931,132 @@ int bus_unit_cgroup_set(Unit *u, DBusMessageIter *iter) {
         if (!unit_get_exec_context(u))
                 return -EINVAL;
 
-        r = bus_parse_strv_iter(iter, &a);
+        r = bus_iter_get_basic_and_next(iter, DBUS_TYPE_STRING, &name, true);
         if (r < 0)
                 return r;
 
-        r = next_and_parse_mode(iter, &runtime);
+        r = parse_mode(iter, &runtime, false);
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(name, a) {
-                _cleanup_free_ char *controller = NULL, *old_path = NULL, *new_path = NULL, *contents = NULL;
-                CGroupBonding *b;
+        r = cg_split_spec(name, &controller, &new_path);
+        if (r < 0)
+                return r;
 
-                r = cg_split_spec(*name, &controller, &new_path);
-                if (r < 0)
-                        return r;
-
-                b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
-                if (b) {
-                        old_path = strdup(b->path);
-                        if (!old_path)
-                                return -ENOMEM;
-                }
-
-                r = unit_add_cgroup_from_text(u, *name, true, &b);
-                if (r < 0)
-                        return r;
-
-                if (r > 0) {
-                        /* Try to move things to the new place, and clean up the old place */
-                        cgroup_bonding_realize(b);
-                        cgroup_bonding_migrate(b, u->cgroup_bondings);
-
-                        if (old_path)
-                                cg_trim(controller, old_path, true);
-                }
-
-                contents = strjoin("[", UNIT_VTABLE(u)->exec_section, "]\n"
-                                   "ControlGroup=", *name, "\n", NULL);
-                if (!contents)
+        if (!new_path) {
+                new_path = unit_default_cgroup_path(u);
+                if (!new_path)
                         return -ENOMEM;
-
-                r = unit_write_drop_in(u, runtime, *name, contents);
-                if (r < 0)
-                        return r;
         }
 
-        return 0;
-}
-
-int bus_unit_cgroup_unset(Unit *u, DBusMessageIter *iter) {
-        _cleanup_strv_free_ char **a = NULL;
-        char **name;
-        int r;
-        bool runtime;
-
-        assert(u);
-        assert(iter);
-
-        if (!unit_get_exec_context(u))
+        if (!controller || streq(controller, SYSTEMD_CGROUP_CONTROLLER))
                 return -EINVAL;
 
-        r = bus_parse_strv_iter(iter, &a);
-        if (r < 0)
-                return r;
-
-        r = next_and_parse_mode(iter, &runtime);
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(name, a) {
-                _cleanup_free_ char *controller = NULL, *path = NULL, *target = NULL;
-                CGroupBonding *b;
-
-                r = cg_split_spec(*name, &controller, &path);
-                if (r < 0)
-                        return r;
-
-                if (!controller || streq(controller, SYSTEMD_CGROUP_CONTROLLER))
-                        return -EINVAL;
-
-                unit_remove_drop_in(u, runtime, *name);
-
-                b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
-                if (!b)
-                        continue;
-
-                if (path && !path_equal(path, b->path))
-                        continue;
+        b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
+        if (b) {
+                if (streq(b->path, new_path))
+                        return 0;
 
                 if (b->essential)
                         return -EINVAL;
 
-                /* Try to migrate the old group away */
-                if (cg_get_by_pid(controller, 0, &target) >= 0)
-                        cgroup_bonding_migrate_to(u->cgroup_bondings, target, false);
+                old_path = strdup(b->path);
+                if (!old_path)
+                        return -ENOMEM;
+        }
 
-                cgroup_bonding_free(b, true);
+        r = unit_add_cgroup_from_text(u, name, true, &b);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                CGroupAttribute *a;
+
+                /* Try to move things to the new place, and clean up the old place */
+                cgroup_bonding_realize(b);
+                cgroup_bonding_migrate(b, u->cgroup_bondings);
+
+                if (old_path)
+                        cg_trim(controller, old_path, true);
+
+                /* Apply the attributes to the new group */
+                LIST_FOREACH(by_unit, a, u->cgroup_attributes)
+                        if (streq(a->controller, controller))
+                                cgroup_attribute_apply(a, b);
+        }
+
+        contents = strjoin("[", UNIT_VTABLE(u)->exec_section, "]\n"
+                           "ControlGroup=", name, "\n", NULL);
+        if (!contents)
+                return -ENOMEM;
+
+        return unit_write_drop_in(u, runtime, controller, contents);
+}
+
+int bus_unit_cgroup_unset(Unit *u, DBusMessageIter *iter) {
+        _cleanup_free_ char *controller = NULL, *path = NULL, *target = NULL;
+        const char *name;
+        CGroupAttribute *a, *n;
+        CGroupBonding *b;
+        bool runtime;
+        int r;
+
+        assert(u);
+        assert(iter);
+
+        if (!unit_get_exec_context(u))
+                return -EINVAL;
+
+        r = bus_iter_get_basic_and_next(iter, DBUS_TYPE_STRING, &name, true);
+        if (r < 0)
+                return r;
+
+        r = parse_mode(iter, &runtime, false);
+        if (r < 0)
+                return r;
+
+        r = cg_split_spec(name, &controller, &path);
+        if (r < 0)
+                return r;
+
+        if (!controller || streq(controller, SYSTEMD_CGROUP_CONTROLLER))
+                return -EINVAL;
+
+        b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
+        if (!b)
+                return -ENOENT;
+
+        if (path && !path_equal(path, b->path))
+                return -ENOENT;
+
+        if (b->essential)
+                return -EINVAL;
+
+        unit_remove_drop_in(u, runtime, controller);
+
+        /* Try to migrate the old group away */
+        if (cg_get_by_pid(controller, 0, &target) >= 0)
+                cgroup_bonding_migrate_to(u->cgroup_bondings, target, false);
+
+        cgroup_bonding_free(b, true);
+
+        /* Drop all attributes of this controller */
+        LIST_FOREACH_SAFE(by_unit, a, n, u->cgroup_attributes) {
+                if (!streq(a->controller, controller))
+                        continue;
+
+                unit_remove_drop_in(u, runtime, a->name);
+                cgroup_attribute_free(a);
         }
 
         return 0;
 }
 
 int bus_unit_cgroup_attribute_get(Unit *u, DBusMessageIter *iter, char ***_result) {
-        _cleanup_strv_free_ char **l = NULL, **result = NULL;
-        char **name;
+        _cleanup_free_ char *controller = NULL;
+        CGroupAttribute *a;
+        CGroupBonding *b;
+        const char *name;
+        char **l = NULL;
         int r;
 
         assert(u);
@@ -1044,63 +1066,99 @@ int bus_unit_cgroup_attribute_get(Unit *u, DBusMessageIter *iter, char ***_resul
         if (!unit_get_exec_context(u))
                 return -EINVAL;
 
-        r = bus_parse_strv_iter(iter, &l);
+        r = bus_iter_get_basic_and_next(iter, DBUS_TYPE_STRING, &name, false);
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(name, l) {
-                _cleanup_free_ char *controller = NULL;
-                CGroupAttribute *a;
-                CGroupBonding *b;
+        r = cg_controller_from_attr(name, &controller);
+        if (r < 0)
+                return r;
 
-                r = cg_controller_from_attr(*name, &controller);
+        /* First attempt, read the value from the kernel */
+        b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
+        if (b) {
+                _cleanup_free_ char *p = NULL, *v = NULL;
+
+                r = cg_get_path(b->controller, b->path, name, &p);
                 if (r < 0)
                         return r;
 
-                /* First attempt, read the value from the kernel */
-                b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
-                if (b) {
-                        _cleanup_free_ char *p = NULL, *v = NULL;
+                r = read_full_file(p, &v, NULL);
+                if (r >= 0) {
+                        /* Split on new lines */
+                        l = strv_split_newlines(v);
+                        if (!l)
+                                return -ENOMEM;
 
-                        r = cg_get_path(b->controller, b->path, *name, &p);
-                        if (r < 0)
-                                return r;
+                        *_result = l;
+                        return 0;
 
-                        r = read_full_file(p, &v, NULL);
-                        if (r >= 0) {
-                                r = strv_extend(&result, v);
-                                if (r < 0)
-                                        return r;
-
-                                continue;
-                        } else if (r != -ENOENT)
-                                return r;
                 }
-
-                /* If that didn't work, read our cached value */
-                a = cgroup_attribute_find_list(u->cgroup_attributes, NULL, *name);
-                if (a) {
-                        r = strv_extend(&result, a->value);
-                        if (r < 0)
-                                return r;
-
-                        continue;
-                }
-
-                return -ENOENT;
         }
 
-        *_result = result;
-        result = NULL;
+        /* If that didn't work, read our cached value */
+        LIST_FOREACH(by_unit, a, u->cgroup_attributes) {
 
+                if (!cgroup_attribute_matches(a, controller, name))
+                        continue;
+
+                r = strv_extend(&l, a->value);
+                if (r < 0) {
+                        strv_free(l);
+                        return r;
+                }
+        }
+
+        if (!l)
+                return -ENOENT;
+
+        *_result = l;
         return 0;
+}
+
+static int update_attribute_drop_in(Unit *u, bool runtime, const char *name) {
+        _cleanup_free_ char *buf = NULL;
+        CGroupAttribute *a;
+
+        assert(u);
+        assert(name);
+
+        LIST_FOREACH(by_unit, a, u->cgroup_attributes) {
+                if (!cgroup_attribute_matches(a, NULL, name))
+                        continue;
+
+                if (!buf) {
+                        buf = strjoin("[", UNIT_VTABLE(u)->exec_section, "]\n"
+                                      "ControlGroupAttribute=", a->name, " ", a->value, "\n", NULL);
+
+                        if (!buf)
+                                return -ENOMEM;
+                } else {
+                        char *b;
+
+                        b = strjoin(buf,
+                                    "ControlGroupAttribute=", a->name, " ", a->value, "\n", NULL);
+
+                        if (!b)
+                                return -ENOMEM;
+
+                        free(buf);
+                        buf = b;
+                }
+        }
+
+        if (buf)
+                return unit_write_drop_in(u, runtime, name, buf);
+        else
+                return unit_remove_drop_in(u, runtime, name);
 }
 
 int bus_unit_cgroup_attribute_set(Unit *u, DBusMessageIter *iter) {
         _cleanup_strv_free_ char **l = NULL;
         int r;
         bool runtime = false;
-        char **name, **value;
+        char **value;
+        const char *name;
 
         assert(u);
         assert(iter);
@@ -1108,19 +1166,34 @@ int bus_unit_cgroup_attribute_set(Unit *u, DBusMessageIter *iter) {
         if (!unit_get_exec_context(u))
                 return -EINVAL;
 
-        r = bus_parse_strv_pairs_iter(iter, &l);
+        r = bus_iter_get_basic_and_next(iter, DBUS_TYPE_STRING, &name, true);
         if (r < 0)
                 return r;
 
-        r = next_and_parse_mode(iter, &runtime);
+        r = bus_parse_strv_iter(iter, &l);
         if (r < 0)
                 return r;
 
-        STRV_FOREACH_PAIR(name, value, l) {
-                _cleanup_free_ char *contents = NULL;
+        if (!dbus_message_iter_next(iter))
+                return -EINVAL;
+
+        r = parse_mode(iter, &runtime, false);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(value, l) {
+                _cleanup_free_ char *v = NULL;
                 CGroupAttribute *a;
+                const CGroupSemantics *s;
 
-                r = unit_add_cgroup_attribute(u, NULL, *name, *value, NULL, &a);
+                r = cgroup_semantics_find(NULL, name, *value, &v, &s);
+                if (r < 0)
+                        return r;
+
+                if (s && !s->multiple && l[1])
+                        return -EINVAL;
+
+                r = unit_add_cgroup_attribute(u, s, NULL, name, v ? v : *value, &a);
                 if (r < 0)
                         return r;
 
@@ -1144,22 +1217,17 @@ int bus_unit_cgroup_attribute_set(Unit *u, DBusMessageIter *iter) {
                         cgroup_attribute_apply(a, u->cgroup_bondings);
                 }
 
-                contents = strjoin("[", UNIT_VTABLE(u)->exec_section, "]\n"
-                                   "ControlGroupAttribute=", *name, " ", *value, "\n", NULL);
-                if (!contents)
-                        return -ENOMEM;
-
-                r = unit_write_drop_in(u, runtime, *name, contents);
-                if (r < 0)
-                        return r;
         }
+
+        r = update_attribute_drop_in(u, runtime, name);
+        if (r < 0)
+                return r;
 
         return 0;
 }
 
 int bus_unit_cgroup_attribute_unset(Unit *u, DBusMessageIter *iter) {
-        _cleanup_strv_free_ char **l = NULL;
-        char **name;
+        const char *name;
         bool runtime;
         int r;
 
@@ -1169,23 +1237,16 @@ int bus_unit_cgroup_attribute_unset(Unit *u, DBusMessageIter *iter) {
         if (!unit_get_exec_context(u))
                 return -EINVAL;
 
-        r = bus_parse_strv_iter(iter, &l);
+        r = bus_iter_get_basic_and_next(iter, DBUS_TYPE_STRING, &name, true);
         if (r < 0)
                 return r;
 
-        r = next_and_parse_mode(iter, &runtime);
+        r = parse_mode(iter, &runtime, false);
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(name, l) {
-                CGroupAttribute *a;
-
-                a = cgroup_attribute_find_list(u->cgroup_attributes, NULL, *name);
-                if (a)
-                        cgroup_attribute_free(a);
-
-                unit_remove_drop_in(u, runtime, *name);
-        }
+        cgroup_attribute_free_some(u->cgroup_attributes, NULL, name);
+        update_attribute_drop_in(u, runtime, name);
 
         return 0;
 }

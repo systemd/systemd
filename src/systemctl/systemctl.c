@@ -1963,53 +1963,41 @@ static int kill_unit(DBusConnection *bus, char **args) {
 }
 
 static int set_cgroup(DBusConnection *bus, char **args) {
-        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
-        const char *method;
-        DBusMessageIter iter;
-        int r;
         _cleanup_free_ char *n = NULL;
-        const char *runtime;
+        const char *method, *runtime;
+        char **argument;
+        int r;
 
         assert(bus);
         assert(args);
 
-        dbus_error_init(&error);
-
         method =
-                streq(args[0], "set-cgroup")  ? "SetUnitControlGroups" :
-                streq(args[0], "unset-group") ? "UnsetUnitControlGroups"
-                                              : "UnsetUnitControlGroupAttributes";
+                streq(args[0], "set-cgroup")   ? "SetUnitControlGroup" :
+                streq(args[0], "unset-cgroup") ? "UnsetUnitControlGroup"
+                                               : "UnsetUnitControlGroupAttribute";
+
+        runtime = arg_runtime ? "runtime" : "persistent";
 
         n = unit_name_mangle(args[1]);
         if (!n)
                 return log_oom();
 
-        m = dbus_message_new_method_call(
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        method);
-        if (!m)
-                return log_oom();
+        STRV_FOREACH(argument, args + 2) {
 
-        dbus_message_iter_init_append(m, &iter);
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &n))
-                return log_oom();
-
-        r = bus_append_strv_iter(&iter, args + 2);
-        if (r < 0)
-                return log_oom();
-
-        runtime = arg_runtime ? "runtime" : "persistent";
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &runtime))
-                return log_oom();
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                dbus_error_free(&error);
-                return -EIO;
+                r = bus_method_call_with_reply(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                method,
+                                NULL,
+                                NULL,
+                                DBUS_TYPE_STRING, &n,
+                                DBUS_TYPE_STRING, argument,
+                                DBUS_TYPE_STRING, &runtime,
+                                DBUS_TYPE_INVALID);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -2018,20 +2006,17 @@ static int set_cgroup(DBusConnection *bus, char **args) {
 static int set_cgroup_attr(DBusConnection *bus, char **args) {
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
-        DBusMessageIter iter, sub, sub2;
-        char **x, **y;
+        DBusMessageIter iter;
         _cleanup_free_ char *n = NULL;
         const char *runtime;
+        int r;
 
         assert(bus);
         assert(args);
 
         dbus_error_init(&error);
 
-        if (strv_length(args) % 2 != 0) {
-                log_error("Expecting an uneven number of arguments!");
-                return -EINVAL;
-        }
+        runtime = arg_runtime ? "runtime" : "persistent";
 
         n = unit_name_mangle(args[1]);
         if (!n)
@@ -2041,26 +2026,20 @@ static int set_cgroup_attr(DBusConnection *bus, char **args) {
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "SetUnitControlGroupAttributes");
+                        "SetUnitControlGroupAttribute");
         if (!m)
                 return log_oom();
 
         dbus_message_iter_init_append(m, &iter);
         if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &n) ||
-            !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ss)", &sub))
+            !dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &args[2]))
                 return log_oom();
 
-        STRV_FOREACH_PAIR(x, y, args + 2) {
-                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, x) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, y) ||
-                    !dbus_message_iter_close_container(&sub, &sub2))
-                        return log_oom();
-        }
+        r = bus_append_strv_iter(&iter, args + 3);
+        if (r < 0)
+                return log_oom();
 
-        runtime = arg_runtime ? "runtime" : "persistent";
-        if (!dbus_message_iter_close_container(&iter, &sub) ||
-            !dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &runtime))
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &runtime))
                 return log_oom();
 
         reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
@@ -2075,57 +2054,49 @@ static int set_cgroup_attr(DBusConnection *bus, char **args) {
 
 static int get_cgroup_attr(DBusConnection *bus, char **args) {
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
-        DBusMessageIter iter;
-        int r;
         _cleanup_free_ char *n = NULL;
-        _cleanup_strv_free_ char **list = NULL;
-        char **a;
+        char **argument;
+        int r;
 
         assert(bus);
         assert(args);
-
-        dbus_error_init(&error);
 
         n = unit_name_mangle(args[1]);
         if (!n)
                 return log_oom();
 
-        m = dbus_message_new_method_call(
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "GetUnitControlGroupAttributes");
-        if (!m)
-                return log_oom();
+        STRV_FOREACH(argument, args + 2) {
+                _cleanup_strv_free_ char **list = NULL;
+                DBusMessageIter iter;
+                char **a;
 
-        dbus_message_iter_init_append(m, &iter);
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &n))
-                return log_oom();
+                r = bus_method_call_with_reply(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "GetUnitControlGroupAttribute",
+                                &reply,
+                                NULL,
+                                DBUS_TYPE_STRING, &n,
+                                DBUS_TYPE_STRING, argument,
+                                DBUS_TYPE_INVALID);
+                if (r < 0)
+                        return r;
 
-        r = bus_append_strv_iter(&iter, args + 2);
-        if (r < 0)
-                return log_oom();
+                dbus_message_iter_init(reply, &iter);
+                r = bus_parse_strv_iter(&iter, &list);
+                if (r < 0) {
+                        log_error("Failed to parse value list.");
+                        return r;
+                }
 
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                dbus_error_free(&error);
-                return -EIO;
-        }
-
-        dbus_message_iter_init(reply, &iter);
-        r = bus_parse_strv_iter(&iter, &list);
-        if (r < 0) {
-                log_error("Failed to parse value list.");
-                return r;
-        }
-
-        STRV_FOREACH(a, list) {
-                if (endswith(*a, "\n"))
-                        fputs(*a, stdout);
-                else
-                        puts(*a);
+                STRV_FOREACH(a, list) {
+                        if (endswith(*a, "\n"))
+                                fputs(*a, stdout);
+                        else
+                                puts(*a);
+                }
         }
 
         return 0;

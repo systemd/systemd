@@ -1769,7 +1769,9 @@ int config_parse_unit_cgroup_attr(
                 void *userdata) {
 
         Unit *u = data;
-        _cleanup_strv_free_ char **l = NULL;
+        size_t a, b;
+        _cleanup_free_ char *n = NULL, *v = NULL;
+        const CGroupSemantics *s;
         int r;
 
         assert(filename);
@@ -1784,16 +1786,24 @@ int config_parse_unit_cgroup_attr(
                 return 0;
         }
 
-        l = strv_split_quoted(rvalue);
-        if (!l)
-                return log_oom();
-
-        if (strv_length(l) != 2) {
+        a = strcspn(rvalue, WHITESPACE);
+        b = strspn(rvalue + a, WHITESPACE);
+        if (a <= 0 || b <= 0) {
                 log_error("[%s:%u] Failed to parse cgroup attribute value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
 
-        r = unit_add_cgroup_attribute(u, NULL, l[0], l[1], NULL, NULL);
+        n = strndup(rvalue, a);
+        if (!n)
+                return log_oom();
+
+        r = cgroup_semantics_find(NULL, n, rvalue + a + b, &v, &s);
+        if (r < 0) {
+                log_error("[%s:%u] Failed to parse cgroup attribute value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        r = unit_add_cgroup_attribute(u, s, NULL, n, v ? v : rvalue + a + b, NULL);
         if (r < 0) {
                 log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
                 return 0;
@@ -1802,292 +1812,36 @@ int config_parse_unit_cgroup_attr(
         return 0;
 }
 
-int config_parse_unit_cpu_shares(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+int config_parse_unit_cgroup_attr_pretty(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Unit *u = data;
+        _cleanup_free_ char *v = NULL;
+        const CGroupSemantics *s;
         int r;
-        unsigned long ul;
-        _cleanup_free_ char *t = NULL;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (safe_atolu(rvalue, &ul) < 0 || ul < 1) {
-                log_error("[%s:%u] Failed to parse CPU shares value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        if (asprintf(&t, "%lu", ul) < 0)
-                return log_oom();
-
-        r = unit_add_cgroup_attribute(u, "cpu", "cpu.shares", t, NULL, NULL);
+        r = cgroup_semantics_find(NULL, lvalue, rvalue, &v, &s);
         if (r < 0) {
-                log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
+                log_error("[%s:%u] Failed to parse cgroup attribute value, ignoring: %s", filename, line, rvalue);
+                return 0;
+        } else if (r == 0) {
+                log_error("[%s:%u] Unknown or unsupported cgroup attribute %s, ignoring: %s", filename, line, lvalue, rvalue);
                 return 0;
         }
 
-        return 0;
-}
-
-int config_parse_unit_memory_limit(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
-        Unit *u = data;
-        int r;
-        off_t sz;
-        _cleanup_free_ char *t = NULL;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (parse_bytes(rvalue, &sz) < 0 || sz <= 0) {
-                log_error("[%s:%u] Failed to parse memory limit value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        if (asprintf(&t, "%llu", (unsigned long long) sz) < 0)
-                return log_oom();
-
-        r = unit_add_cgroup_attribute(u,
-                                      "memory",
-                                      streq(lvalue, "MemorySoftLimit") ? "memory.soft_limit_in_bytes" : "memory.limit_in_bytes",
-                                      t, NULL, NULL);
-        if (r < 0) {
-                log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
-static int device_map(const char *controller, const char *name, const char *value, char **ret) {
-        _cleanup_strv_free_ char **l = NULL;
-
-        assert(controller);
-        assert(name);
-        assert(value);
-        assert(ret);
-
-        l = strv_split_quoted(value);
-        if (!l)
-                return -ENOMEM;
-
-        assert(strv_length(l) >= 1);
-
-        if (streq(l[0], "*")) {
-
-                if (asprintf(ret, "a *:*%s%s",
-                             isempty(l[1]) ? "" : " ", strempty(l[1])) < 0)
-                        return -ENOMEM;
-        } else {
-                struct stat st;
-
-                if (stat(l[0], &st) < 0) {
-                        log_warning("Couldn't stat device %s", l[0]);
-                        return -errno;
-                }
-
-                if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
-                        log_warning("%s is not a device.", l[0]);
-                        return -ENODEV;
-                }
-
-                if (asprintf(ret, "%c %u:%u%s%s",
-                             S_ISCHR(st.st_mode) ? 'c' : 'b',
-                             major(st.st_rdev), minor(st.st_rdev),
-                             isempty(l[1]) ? "" : " ", strempty(l[1])) < 0)
-                        return -ENOMEM;
-        }
-
-        return 0;
-}
-
-int config_parse_unit_device_allow(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
-        Unit *u = data;
-        _cleanup_strv_free_ char **l = NULL;
-        int r;
-        unsigned k;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        l = strv_split_quoted(rvalue);
-        if (!l)
-                return log_oom();
-
-        k = strv_length(l);
-        if (k < 1 || k > 2) {
-                log_error("[%s:%u] Failed to parse device value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        if (!streq(l[0], "*") && !path_startswith(l[0], "/dev")) {
-                log_error("[%s:%u] Device node path not absolute, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        if (!isempty(l[1]) && !in_charset(l[1], "rwm")) {
-                log_error("[%s:%u] Device access string invalid, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        r = unit_add_cgroup_attribute(u, "devices",
-                                      streq(lvalue, "DeviceAllow") ? "devices.allow" : "devices.deny",
-                                      rvalue, device_map, NULL);
-
-        if (r < 0) {
-                log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
-static int blkio_map(const char *controller, const char *name, const char *value, char **ret) {
-        struct stat st;
-        _cleanup_strv_free_ char **l = NULL;
-        dev_t d;
-
-        assert(controller);
-        assert(name);
-        assert(value);
-        assert(ret);
-
-        l = strv_split_quoted(value);
-        if (!l)
-                return log_oom();
-
-        assert(strv_length(l) == 2);
-
-        if (stat(l[0], &st) < 0) {
-                log_warning("Couldn't stat device %s", l[0]);
-                return -errno;
-        }
-
-        if (S_ISBLK(st.st_mode))
-                d = st.st_rdev;
-        else if (major(st.st_dev) != 0) {
-                /* If this is not a device node then find the block
-                 * device this file is stored on */
-                d = st.st_dev;
-
-                /* If this is a partition, try to get the originating
-                 * block device */
-                block_get_whole_disk(d, &d);
-        } else {
-                log_warning("%s is not a block device and file system block device cannot be determined or is not local.", l[0]);
-                return -ENODEV;
-        }
-
-        if (asprintf(ret, "%u:%u %s", major(d), minor(d), l[1]) < 0)
-                return -ENOMEM;
-
-        return 0;
-}
-
-int config_parse_unit_blkio_weight(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
-        Unit *u = data;
-        int r;
-        unsigned long ul;
-        const char *device = NULL, *weight;
-        unsigned k;
-        _cleanup_free_ char *t = NULL;
-        _cleanup_strv_free_ char **l = NULL;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        l = strv_split_quoted(rvalue);
-        if (!l)
-                return log_oom();
-
-        k = strv_length(l);
-        if (k < 1 || k > 2) {
-                log_error("[%s:%u] Failed to parse weight value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        if (k == 1)
-                weight = l[0];
-        else {
-                device = l[0];
-                weight = l[1];
-        }
-
-        if (device && !path_is_absolute(device)) {
-                log_error("[%s:%u] Failed to parse block device node value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        if (safe_atolu(weight, &ul) < 0 || ul < 10 || ul > 1000) {
-                log_error("[%s:%u] Failed to parse block IO weight value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        if (device)
-                r = asprintf(&t, "%s %lu", device, ul);
-        else
-                r = asprintf(&t, "%lu", ul);
-        if (r < 0)
-                return log_oom();
-
-        if (device)
-                r = unit_add_cgroup_attribute(u, "blkio", "blkio.weight_device", t, blkio_map, NULL);
-        else
-                r = unit_add_cgroup_attribute(u, "blkio", "blkio.weight", t, NULL, NULL);
-        if (r < 0) {
-                log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
-int config_parse_unit_blkio_bandwidth(const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
-        Unit *u = data;
-        int r;
-        off_t bytes;
-        unsigned k;
-        _cleanup_free_ char *t = NULL;
-        _cleanup_strv_free_ char **l = NULL;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        l = strv_split_quoted(rvalue);
-        if (!l)
-                return log_oom();
-
-        k = strv_length(l);
-        if (k != 2) {
-                log_error("[%s:%u] Failed to parse bandwidth value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        if (!path_is_absolute(l[0])) {
-                log_error("[%s:%u] Failed to parse block device node value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        if (parse_bytes(l[1], &bytes) < 0 || bytes <= 0) {
-                log_error("[%s:%u] Failed to parse block IO bandwidth value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        r = asprintf(&t, "%s %llu", l[0], (unsigned long long) bytes);
-        if (r < 0)
-                return log_oom();
-
-        r = unit_add_cgroup_attribute(u, "blkio",
-                                      streq(lvalue, "BlockIOReadBandwidth") ? "blkio.read_bps_device" : "blkio.write_bps_device",
-                                      t, blkio_map, NULL);
+        r = unit_add_cgroup_attribute(u, s, NULL, NULL, v, NULL);
         if (r < 0) {
                 log_error("[%s:%u] Failed to add cgroup attribute value, ignoring: %s", filename, line, rvalue);
                 return 0;

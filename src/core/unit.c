@@ -749,15 +749,13 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                                 prefix, b->controller, b->path);
 
                 LIST_FOREACH(by_unit, a, u->cgroup_attributes) {
-                        char *v = NULL;
+                        _cleanup_free_ char *v = NULL;
 
-                        if (a->map_callback)
-                                a->map_callback(a->controller, a->name, a->value, &v);
+                        if (a->semantics && a->semantics->map_write)
+                                a->semantics->map_write(a->semantics, a->value, &v);
 
                         fprintf(f, "%s\tControlGroupAttribute: %s %s \"%s\"\n",
                                 prefix, a->controller, a->name, v ? v : a->value);
-
-                        free(v);
                 }
 
                 if (UNIT_VTABLE(u)->dump)
@@ -1900,30 +1898,12 @@ finish:
 }
 
 int set_unit_path(const char *p) {
-        char *cwd, *c;
-        int r;
+        _cleanup_free_ char *c = NULL;
 
         /* This is mostly for debug purposes */
-
-        if (path_is_absolute(p)) {
-                if (!(c = strdup(p)))
-                        return -ENOMEM;
-        } else {
-                if (!(cwd = get_current_dir_name()))
-                        return -errno;
-
-                r = asprintf(&c, "%s/%s", cwd, p);
-                free(cwd);
-
-                if (r < 0)
-                        return -ENOMEM;
-        }
-
-        if (setenv("SYSTEMD_UNIT_PATH", c, 0) < 0) {
-                r = -errno;
-                free(c);
-                return r;
-        }
+        c = path_make_absolute_cwd(p);
+        if (setenv("SYSTEMD_UNIT_PATH", c, 0) < 0)
+                return -errno;
 
         return 0;
 }
@@ -2109,7 +2089,7 @@ static int unit_add_one_default_cgroup(Unit *u, const char *controller) {
         if (r < 0)
                 goto fail;
 
-        return 0;
+        return 1;
 
 fail:
         free(b->path);
@@ -2153,10 +2133,10 @@ CGroupBonding* unit_get_default_cgroup(Unit *u) {
 
 int unit_add_cgroup_attribute(
                 Unit *u,
+                const CGroupSemantics *semantics,
                 const char *controller,
                 const char *name,
                 const char *value,
-                CGroupAttributeMapCallback map_callback,
                 CGroupAttribute **ret) {
 
         _cleanup_free_ char *c = NULL;
@@ -2164,8 +2144,19 @@ int unit_add_cgroup_attribute(
         int r;
 
         assert(u);
-        assert(name);
         assert(value);
+
+        if (semantics) {
+                /* Semantics always take precedence */
+                if (semantics->name)
+                        name = semantics->name;
+
+                if (semantics->controller)
+                        controller = semantics->controller;
+        }
+
+        if (!name)
+                return -EINVAL;
 
         if (!controller) {
                 r = cg_controller_from_attr(name, &c);
@@ -2173,39 +2164,47 @@ int unit_add_cgroup_attribute(
                         return -EINVAL;
 
                 controller = c;
-        } else {
-                if (!filename_is_safe(name))
-                        return -EINVAL;
-
-                if (!filename_is_safe(controller))
-                        return -EINVAL;
         }
 
         if (!controller || streq(controller, SYSTEMD_CGROUP_CONTROLLER))
                 return -EINVAL;
 
+        if (!filename_is_safe(name))
+                return -EINVAL;
+
+        if (!filename_is_safe(controller))
+                return -EINVAL;
+
+        /* Check if this attribute already exists. Note that we will
+         * explicitly check for the value here too, as there are
+         * attributes which accept multiple values. */
         a = cgroup_attribute_find_list(u->cgroup_attributes, controller, name);
         if (a) {
-                char *v;
-
                 if (streq(value, a->value)) {
+                        /* Exactly the same value is always OK, let's ignore this */
                         if (ret)
                                 *ret = a;
 
                         return 0;
                 }
 
-                v = strdup(value);
-                if (!v)
-                        return -ENOMEM;
+                if (semantics && !semantics->multiple) {
+                        char *v;
 
-                free(a->value);
-                a->value = v;
+                        /* If this is a single-item entry, we can
+                         * simply patch the existing attribute */
 
-                if (ret)
-                        *ret = a;
+                        v = strdup(value);
+                        if (!v)
+                                return -ENOMEM;
 
-                return 1;
+                        free(a->value);
+                        a->value = v;
+
+                        if (ret)
+                                *ret = a;
+                        return 1;
+                }
         }
 
         a = new0(CGroupAttribute, 1);
@@ -2226,11 +2225,10 @@ int unit_add_cgroup_attribute(
                 free(a->name);
                 free(a->value);
                 free(a);
-
                 return -ENOMEM;
         }
 
-        a->map_callback = map_callback;
+        a->semantics = semantics;
         a->unit = u;
 
         LIST_PREPEND(CGroupAttribute, by_unit, u->cgroup_attributes, a);
@@ -2763,23 +2761,58 @@ ExecContext *unit_get_exec_context(Unit *u) {
         return (ExecContext*) ((uint8_t*) u + offset);
 }
 
-int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data) {
-        _cleanup_free_ char *p = NULL, *q = NULL;
-        assert(u);
+static int drop_in_file(Unit *u, bool runtime, const char *name, char **_p, char **_q) {
+        char *p, *q;
+        int r;
 
-        if (u->manager->running_as != SYSTEMD_SYSTEM)
+        assert(u);
+        assert(name);
+        assert(_p);
+        assert(_q);
+
+        if (u->manager->running_as == SYSTEMD_USER && runtime)
                 return -ENOTSUP;
 
         if (!filename_is_safe(name))
                 return -EINVAL;
 
-        p = strjoin(runtime ? "/run/systemd/system/" : "/etc/systemd/system/", u->id, ".d", NULL);
+        if (u->manager->running_as == SYSTEMD_USER) {
+                _cleanup_free_ char *c = NULL;
+
+                r = user_config_home(&c);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENOENT;
+
+                p = strjoin(c, "/", u->id, ".d", NULL);
+        } else  if (runtime)
+                p = strjoin("/run/systemd/system/", u->id, ".d", NULL);
+        else
+                p = strjoin("/etc/systemd/system/", u->id, ".d", NULL);
         if (!p)
                 return -ENOMEM;
 
         q = strjoin(p, "/50-", name, ".conf", NULL);
-        if (!q)
+        if (!q) {
+                free(p);
                 return -ENOMEM;
+        }
+
+        *_p = p;
+        *_q = q;
+        return 0;
+}
+
+int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data) {
+        _cleanup_free_ char *p = NULL, *q = NULL;
+        int r;
+
+        assert(u);
+
+        r = drop_in_file(u, runtime, name, &p, &q);
+        if (r < 0)
+                return r;
 
         mkdir_p(p, 0755);
         return write_one_line_file_atomic_label(q, data);
@@ -2787,28 +2820,18 @@ int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data
 
 int unit_remove_drop_in(Unit *u, bool runtime, const char *name) {
         _cleanup_free_ char *p = NULL, *q = NULL;
+        int r;
 
         assert(u);
 
-        if (u->manager->running_as != SYSTEMD_SYSTEM)
-                return -ENOTSUP;
-
-        if (!filename_is_safe(name))
-                return -EINVAL;
-
-        p = strjoin(runtime ? "/run/systemd/system/" : "/etc/systemd/system/", u->id, ".d", NULL);
-        if (!p)
-                return -ENOMEM;
-
-        q = strjoin(p, "/50-", name, ".conf", NULL);
-        if (!q)
-                return -ENOMEM;
-
+        r = drop_in_file(u, runtime, name, &p, &q);
         if (unlink(q) < 0)
-                return -errno;
+                r = -errno;
+        else
+                r = 0;
 
         rmdir(p);
-        return 0;
+        return r;
 }
 
 int unit_kill_context(

@@ -58,6 +58,7 @@ static inline bool strv_isempty(char **l) {
 
 char **strv_split(const char *s, const char *separator) _malloc_;
 char **strv_split_quoted(const char *s) _malloc_;
+char **strv_split_newlines(const char *s) _malloc_;
 
 char *strv_join(char **l, const char *separator) _malloc_;
 

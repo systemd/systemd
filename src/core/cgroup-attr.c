@@ -25,8 +25,8 @@
 #include "fileio.h"
 
 int cgroup_attribute_apply(CGroupAttribute *a, CGroupBonding *b) {
-        int r;
         _cleanup_free_ char *path = NULL, *v = NULL;
+        int r;
 
         assert(a);
 
@@ -34,8 +34,8 @@ int cgroup_attribute_apply(CGroupAttribute *a, CGroupBonding *b) {
         if (!b)
                 return 0;
 
-        if (a->map_callback) {
-                r = a->map_callback(a->controller, a->name, a->value, &v);
+        if (a->semantics && a->semantics->map_write) {
+                r = a->semantics->map_write(a->semantics, a->value, &v);
                 if (r < 0)
                         return r;
         }
@@ -66,6 +66,29 @@ int cgroup_attribute_apply_list(CGroupAttribute *first, CGroupBonding *b) {
         return r;
 }
 
+bool cgroup_attribute_matches(CGroupAttribute *a, const char *controller, const char *name) {
+        assert(a);
+
+        if (controller) {
+                if (streq(a->controller, controller) && (!name || streq(a->name, name)))
+                        return true;
+
+        } else if (!name)
+                return true;
+        else if (streq(a->name, name)) {
+                size_t x, y;
+                x = strlen(a->controller);
+                y = strlen(name);
+
+                if (y > x &&
+                    memcmp(a->controller, name, x) == 0 &&
+                    name[x] == '.')
+                        return true;
+        }
+
+        return false;
+}
+
 CGroupAttribute *cgroup_attribute_find_list(
                 CGroupAttribute *first,
                 const char *controller,
@@ -74,24 +97,9 @@ CGroupAttribute *cgroup_attribute_find_list(
 
         assert(name);
 
-        LIST_FOREACH(by_unit, a, first) {
-
-
-                if (controller) {
-                        if (streq(a->controller, controller) && streq(a->name, name))
-                                return a;
-
-                } else if (streq(a->name, name)) {
-                        size_t x, y;
-                        x = strlen(a->controller);
-                        y = strlen(name);
-
-                        if (y > x &&
-                            memcmp(a->controller, name, x) == 0 &&
-                            name[x] == '.')
-                                return a;
-                }
-        }
+        LIST_FOREACH(by_unit, a, first)
+                if (cgroup_attribute_matches(a, controller, name))
+                        return a;
 
         return NULL;
 }
@@ -113,4 +121,12 @@ void cgroup_attribute_free_list(CGroupAttribute *first) {
 
         LIST_FOREACH_SAFE(by_unit, a, n, first)
                 cgroup_attribute_free(a);
+}
+
+void cgroup_attribute_free_some(CGroupAttribute *first, const char *controller, const char *name) {
+        CGroupAttribute *a, *n;
+
+        LIST_FOREACH_SAFE(by_unit, a, n, first)
+                if (cgroup_attribute_matches(a, controller, name))
+                        cgroup_attribute_free(a);
 }

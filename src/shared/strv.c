@@ -305,6 +305,31 @@ char **strv_split_quoted(const char *s) {
         return r;
 }
 
+char **strv_split_newlines(const char *s) {
+        char **l;
+        unsigned n;
+
+        assert(s);
+
+        /* Special version of strv_split() that splits on newlines and
+         * suppresses an empty string at the end */
+
+        l = strv_split(s, NEWLINE);
+        if (!l)
+                return NULL;
+
+        n = strv_length(l);
+        if (n <= 0)
+                return l;
+
+        if (isempty(l[n-1])) {
+                free(l[n-1]);
+                l[n-1] = NULL;
+        }
+
+        return l;
+}
+
 char *strv_join(char **l, const char *separator) {
         char *r, *e;
         char **s;

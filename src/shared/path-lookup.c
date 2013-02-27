@@ -41,21 +41,26 @@ DEFINE_STRING_TABLE_LOOKUP(systemd_running_as, SystemdRunningAs);
 
 int user_config_home(char **config_home) {
         const char *e;
+        char *r;
 
         e = getenv("XDG_CONFIG_HOME");
         if (e) {
-                if (asprintf(config_home, "%s/systemd/user", e) < 0)
+                r = strappend(e, "/systemd/user");
+                if (!r)
                         return -ENOMEM;
 
+                *config_home = r;
                 return 1;
         } else {
                 const char *home;
 
                 home = getenv("HOME");
                 if (home) {
-                        if (asprintf(config_home, "%s/.config/systemd/user", home) < 0)
+                        r = strappend(home, "/.config/systemd/user");
+                        if (!r)
                                 return -ENOMEM;
 
+                        *config_home = r;
                         return 1;
                 }
         }

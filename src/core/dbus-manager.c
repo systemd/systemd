@@ -103,30 +103,31 @@
         "  <method name=\"ResetFailedUnit\">\n"                         \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
-        "  <method name=\"GetUnitControlGroupAttributes\">\n"           \
+        "  <method name=\"SetUnitControlGroup\">\n"                     \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"attributes\" type=\"as\" direction=\"in\"/>\n"  \
-        "   <arg name=\"values\" type=\"as\" direction=\"out\"/>\n"      \
+        "   <arg name=\"group\" type=\"s\" direction=\"in\"/>\n"        \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
-        "  <method name=\"SetUnitControlGroupAttributes\">\n"           \
+        "  <method name=\"UnsetUnitControlGroup\">\n"                   \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"attributes\" type=\"a(sss)\" direction=\"in\"/>\n" \
+        "   <arg name=\"group\" type=\"s\" direction=\"in\"/>\n"        \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"\n/>"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"GetUnitControlGroupAttribute\">\n"            \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
+        "   <arg name=\"values\" type=\"as\" direction=\"out\"/>\n"     \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetUnitControlGroupAttribute\">\n"            \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
+        "   <arg name=\"values\" type=\"as\" direction=\"in\"/>\n"      \
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"\n/>"         \
         "  </method>\n"                                                 \
         "  <method name=\"UnsetUnitControlGroupAttributes\">\n"         \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"attributes\" type=\"a(ss)\" direction=\"in\"/>\n" \
+        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetUnitControlGroups\">\n"                    \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetUnitControlGroups\">\n"                  \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"\n/>"         \
         "  </method>\n"                                                 \
         "  <method name=\"GetJob\">\n"                                  \
         "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
@@ -874,7 +875,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!reply)
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetUnitControlGroups")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetUnitControlGroup")) {
                 const char *name;
                 Unit *u;
                 DBusMessageIter iter;
@@ -902,7 +903,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!reply)
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetUnitControlGroups")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetUnitControlGroup")) {
                 const char *name;
                 Unit *u;
                 DBusMessageIter iter;
@@ -930,7 +931,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!reply)
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetUnitControlGroupAttributes")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetUnitControlGroupAttribute")) {
                 const char *name;
                 Unit *u;
                 DBusMessageIter iter;
@@ -949,6 +950,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 }
 
                 SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
+
                 r = bus_unit_cgroup_attribute_set(u, &iter);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
@@ -957,7 +959,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!reply)
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetUnitControlGroupAttributes")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetUnitControlGroupAttribute")) {
                 const char *name;
                 Unit *u;
                 DBusMessageIter iter;
@@ -985,7 +987,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!reply)
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnitControlGroupAttributes")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnitControlGroupAttribute")) {
                 const char *name;
                 Unit *u;
                 DBusMessageIter iter;
@@ -1005,6 +1007,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 }
 
                 SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
+
                 r = bus_unit_cgroup_attribute_get(u, &iter, &list);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);

@@ -127,24 +127,25 @@
         "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroups\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupAttributes\" type=\"a(sss)\" access=\"read\"/>\n" \
-        "  <method name=\"GetControlGroupAttributes\">\n"               \
-        "   <arg name=\"attributes\" type=\"as\" direction=\"in\"/>\n"  \
+        "  <method name=\"SetControlGroup\">\n"                         \
+        "   <arg name=\"group\" type=\"s\" direction=\"in\"/>\n"        \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"UnsetControlGroup\">\n"                       \
+        "   <arg name=\"group\" type=\"s\" direction=\"in\"/>\n"        \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"GetControlGroupAttribute\">\n"                \
+        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
         "   <arg name=\"values\" type=\"as\" direction=\"out\"/>\n"     \
         "  </method>\n"                                                 \
-        "  <method name=\"SetControlGroupAttributes\">\n"               \
-        "   <arg name=\"attributes\" type=\"a(ss)\" direction=\"in\"/>\n" \
+        "  <method name=\"SetControlGroupAttribute\">\n"                \
+        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
+        "   <arg name=\"values\" type=\"as\" direction=\"in\"/>\n"      \
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
-        "  <method name=\"UnsetControlGroupAttributes\">\n"             \
-        "   <arg name=\"attributes\" type=\"as\" direction=\"in\"/>\n"  \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetControlGroups\">\n"                        \
-        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetControlGroups\">\n"                      \
-        "   <arg name=\"groups\" type=\"as\" direction=\"in\"/>\n"      \
+        "  <method name=\"UnsetControlGroupAttribute\">\n"              \
+        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"
 

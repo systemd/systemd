@@ -852,6 +852,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/tcpwrap.h \
 	src/core/cgroup-attr.c \
 	src/core/cgroup-attr.h \
+	src/core/cgroup-semantics.c \
+	src/core/cgroup-semantics.h \
 	src/core/securebits.h \
 	src/core/initreq.h \
 	src/core/special.h \

@@ -40,6 +40,7 @@ typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 #include "condition.h"
 #include "install.h"
 #include "unit-name.h"
+#include "cgroup-semantics.h"
 
 enum UnitActiveState {
         UNIT_ACTIVE,
@@ -445,7 +446,7 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b);
 int unit_add_cgroup_from_text(Unit *u, const char *name, bool overwrite, CGroupBonding **ret);
 int unit_add_default_cgroups(Unit *u);
 CGroupBonding* unit_get_default_cgroup(Unit *u);
-int unit_add_cgroup_attribute(Unit *u, const char *controller, const char *name, const char *value, CGroupAttributeMapCallback map_callback, CGroupAttribute **ret);
+int unit_add_cgroup_attribute(Unit *u, const CGroupSemantics *semantics, const char *controller, const char *name, const char *value, CGroupAttribute **ret);
 
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);
