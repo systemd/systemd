@@ -392,14 +392,22 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--runtime</option></term>
 
         <listitem>
-          <para>When used with
-          <command>enable</command>/<command>disable</command>/<command>is-enabled</command>
+          <para>When used with <command>enable</command>,
+          <command>disable</command>, <command>is-enabled</command>
           (and related commands), make changes only temporarily, so
-          that they are dropped on the next reboot. This will have the
+          that they are lost on the next reboot. This will have the
           effect that changes are not made in subdirectories of
           <filename>/etc</filename> but in <filename>/run</filename>,
           with identical immediate effects, however, since the latter
           is lost on reboot, the changes are lost too.</para>
+
+          <para>Similar, when used with
+          <command>set-cgroup-attr</command>,
+          <command>unset-cgroup-attr</command>,
+          <command>set-cgroup</command> and
+          <command>unset-cgroup</command>, make changes only
+          temporarily, so that they are lost on the next
+          reboot.</para>
         </listitem>
       </varlistentry>
 
@@ -631,6 +639,98 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           human-readable output.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>get-cgroup-attr <replaceable>NAME</replaceable> <replaceable>ATTRIBUTE</replaceable>...</command></term>
+
+        <listitem>
+          <para>Retrieve the specified control group attributes of the
+          specified unit. Takes a unit name and one or more attribute
+          names such as <literal>cpu.shares</literal>. This will
+          output the current values of the specified attributes,
+          separated by new-lines. For attributes that take list of
+          items the output will be new-line separated, too. This
+          operation will always try to retrieve the data in question
+          from the kernel first, and if that is not available use the
+          configured values instead. Instead of low-level control
+          group attribute names high-level pretty names may be used,
+          as used for unit execution environment configuration, see
+          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details. For example, passing
+          <literal>memory.limit_in_bytes</literal> and
+          <literal>MemoryLimit</literal> is equivalent.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>set-cgroup-attr <replaceable>NAME</replaceable> <replaceable>ATTRIBUTE</replaceable> <replaceable>VALUE</replaceable>...</command></term>
+
+        <listitem>
+          <para>Set the specified control group attribute of the
+          specified unit to the specified value. Takes a unit
+          name and an attribute name such as
+          <literal>cpu.shares</literal>, plus one or more values
+          (multiple values may only be used for attributes that take
+          multiple values). This operation will immediately update the
+          kernel attribute for this unit and persistently store this
+          setting for later reboots (unless <option>--runtime</option>
+          is passed, in which case the setting is not saved
+          persistently and only valid until the next reboot.) Instead
+          of low-level control group attribute names high-level pretty
+          names may be used, as used for unit execution environment
+          configuration, see
+          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details. For example, passing
+          <literal>memory.limit_in_bytes</literal> and
+          <literal>MemoryLimit</literal> is equivalent. This operation
+          will implicitly create a control group for the unit in the
+          controller the attribute belongs to, if needed. For
+          attributes that take multiple values, this operation will
+          append the specified values to the previously set values
+          list (use <command>unset-cgroup-attr</command> to reset the
+          list explicitly). For attributes that take a single value
+          only the list will be reset implicitly.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>unset-cgroup-attr <replaceable>NAME</replaceable> <replaceable>ATTRIBUTE</replaceable>...</command></term>
+
+        <listitem><para>Unset the specified control group attributes
+        of the specified unit. Takes a unit name and one or more
+        attribut names such as <literal>cpu.shares</literal>. This
+        operation might or might not have an immediate effect on the
+        current kernel attribute value. This will remove any
+        persistently stored configuration values for this attribute
+        (as set with <command>set-cgroup-attr</command> before),
+        unless <option>--runtime</option> is passed, in which case the
+        configuration is reset only until the next reboot. Again,
+        high-level control group attributes may be used instead of the
+        low-level kernel ones. For attributes which take multiple
+        values, all currently set values are reset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>set-cgroup <replaceable>NAME</replaceable> <replaceable>CGROUP</replaceable>...</command></term>
+        <term><command>unset-cgroup <replaceable>NAME</replaceable> <replaceable>CGROUP</replaceable>...</command></term>
+
+        <listitem><para>Add or remove a unit to/from a specific
+        control group hierarchy and/or control group path. Takes a
+        unit name, plus a control group specification in the syntax
+        <replaceable>CONTROLLER</replaceable>:<replaceable>PATH</replaceable>
+        or <replaceable>CONTROLLER</replaceable>. In the latter syntax
+        (where the path is ommitted) the default unit control group
+        path is implied. Examples: <literal>cpu</literal> or
+        <literal>cpu:/foo/bar</literal>. If a unit is removed from a
+        control group hierarchy all its processes will be moved to the
+        root group of the hierarchy and all control group attributes
+        will be reset. These operations are immediately reflected in
+        the kernel hierarchy, and stored persistently to disk (unless
+        <option>--runtime</option> is passed).</para>
+        </listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><command>help <replaceable>NAME</replaceable>...|<replaceable>PID</replaceable>...</command></term>
 
@@ -641,6 +741,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           shown.</para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
         <term><command>reset-failed [<replaceable>NAME</replaceable>...]</command></term>
 
