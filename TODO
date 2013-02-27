@@ -53,6 +53,10 @@ Fedora 19:
 
 Features:
 
+* journal-or-kmsg is currently broken? See reverted commit 4a01181e460686d8b4a543b1dfa7f77c9e3c5ab8.
+
+* remove any syslog support from log.c
+
 * convert /etc/bash_completion.d/ to /usr/share/bash-completion/
   (systemd (and everything else) should install zero static data in /etc)
 
