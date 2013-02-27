@@ -2494,7 +2494,7 @@ static bool manager_get_show_status(Manager *m) {
         return plymouth_running();
 }
 
-void manager_status_printf(Manager *m, const char *status, const char *format, ...) {
+void manager_status_printf(Manager *m, bool ephemeral, const char *status, const char *format, ...) {
         va_list ap;
 
         if (!manager_get_show_status(m))
@@ -2504,7 +2504,7 @@ void manager_status_printf(Manager *m, const char *status, const char *format, .
                 return;
 
         va_start(ap, format);
-        status_vprintf(status, true, format, ap);
+        status_vprintf(status, true, ephemeral, format, ap);
         va_end(ap);
 }
 

@@ -2859,12 +2859,13 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
         }
 }
 
-int status_vprintf(const char *status, bool ellipse, const char *format, va_list ap) {
+int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char *format, va_list ap) {
         static const char status_indent[] = "         "; /* "[" STATUS "] " */
         _cleanup_free_ char *s = NULL;
         _cleanup_close_ int fd = -1;
-        struct iovec iovec[5];
+        struct iovec iovec[6];
         int n = 0;
+        static bool prev_ephemeral;
 
         assert(format);
 
@@ -2902,6 +2903,10 @@ int status_vprintf(const char *status, bool ellipse, const char *format, va_list
 
         zero(iovec);
 
+        if (prev_ephemeral)
+                IOVEC_SET_STRING(iovec[n++], "\r" ANSI_ERASE_TO_END_OF_LINE);
+        prev_ephemeral = ephemeral;
+
         if (status) {
                 if (!isempty(status)) {
                         IOVEC_SET_STRING(iovec[n++], "[");
@@ -2912,7 +2917,8 @@ int status_vprintf(const char *status, bool ellipse, const char *format, va_list
         }
 
         IOVEC_SET_STRING(iovec[n++], s);
-        IOVEC_SET_STRING(iovec[n++], "\n");
+        if (!ephemeral)
+                IOVEC_SET_STRING(iovec[n++], "\n");
 
         if (writev(fd, iovec, n) < 0)
                 return -errno;
@@ -2920,14 +2926,14 @@ int status_vprintf(const char *status, bool ellipse, const char *format, va_list
         return 0;
 }
 
-int status_printf(const char *status, bool ellipse, const char *format, ...) {
+int status_printf(const char *status, bool ellipse, bool ephemeral, const char *format, ...) {
         va_list ap;
         int r;
 
         assert(format);
 
         va_start(ap, format);
-        r = status_vprintf(status, ellipse, format, ap);
+        r = status_vprintf(status, ellipse, ephemeral, format, ap);
         va_end(ap);
 
         return r;

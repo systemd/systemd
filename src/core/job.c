@@ -649,7 +649,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
 
                 case JOB_FAILED:
                         unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON "FAILED" ANSI_HIGHLIGHT_OFF, format);
-                        manager_status_printf(u->manager, NULL, "See 'systemctl status %s' for details.", u->id);
+                        manager_status_printf(u->manager, false, NULL, "See 'systemctl status %s' for details.", u->id);
                         break;
 
                 case JOB_DEPENDENCY:

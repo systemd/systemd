@@ -59,6 +59,7 @@ union dirent_storage {
 #define ANSI_HIGHLIGHT_GREEN_ON "\x1B[1;32m"
 #define ANSI_HIGHLIGHT_YELLOW_ON "\x1B[1;33m"
 #define ANSI_HIGHLIGHT_OFF "\x1B[0m"
+#define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"
 
 size_t page_size(void);
 #define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
@@ -354,8 +355,8 @@ int pipe_eof(int fd);
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
-int status_vprintf(const char *status, bool ellipse, const char *format, va_list ap);
-int status_printf(const char *status, bool ellipse, const char *format, ...);
+int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char *format, va_list ap);
+int status_printf(const char *status, bool ellipse, bool ephemeral, const char *format, ...);
 int status_welcome(void);
 
 int fd_columns(int fd);
