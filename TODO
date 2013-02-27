@@ -159,6 +159,7 @@ Features:
 * service: watchdog logic: for testing purposes allow ping, but do not require pong
 
 * journal:
+  - import and delete pstore filesystem content at startup
   - journald: also get thread ID from client, plus thread name
   - journal: when waiting for journal additions in the client always sleep at least 1s or so, in order to minimize wakeups
   - add API to close/reopen/get fd for journal client fd in libsystemd-journal.
