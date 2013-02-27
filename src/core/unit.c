@@ -1320,6 +1320,7 @@ void unit_trigger_on_failure(Unit *u) {
 }
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
+        Manager *m;
         bool unexpected;
 
         assert(u);
@@ -1332,7 +1333,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
          * behavior here. For example: if a mount point is remounted
          * this function will be called too! */
 
-        if (u->manager->n_reloading <= 0) {
+        m = u->manager;
+
+        if (m->n_reloading <= 0) {
                 dual_timestamp ts;
 
                 dual_timestamp_get(&ts);
@@ -1420,7 +1423,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         } else
                 unexpected = true;
 
-        if (u->manager->n_reloading <= 0) {
+        if (m->n_reloading <= 0) {
 
                 /* If this state change happened without being
                  * requested by a job, then let's retroactively start
@@ -1456,18 +1459,18 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         /* The bus just might have become available,
                          * hence try to connect to it, if we aren't
                          * yet connected. */
-                        bus_init(u->manager, true);
+                        bus_init(m, true);
 
                 if (u->type == UNIT_SERVICE &&
                     !UNIT_IS_ACTIVE_OR_RELOADING(os) &&
-                    u->manager->n_reloading <= 0) {
+                    m->n_reloading <= 0) {
                         /* Write audit record if we have just finished starting up */
-                        manager_send_unit_audit(u->manager, u, AUDIT_SERVICE_START, true);
+                        manager_send_unit_audit(m, u, AUDIT_SERVICE_START, true);
                         u->in_audit = true;
                 }
 
                 if (!UNIT_IS_ACTIVE_OR_RELOADING(os))
-                        manager_send_unit_plymouth(u->manager, u);
+                        manager_send_unit_plymouth(m, u);
 
         } else {
 
@@ -1477,25 +1480,25 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 if (u->type == UNIT_SERVICE &&
                     UNIT_IS_INACTIVE_OR_FAILED(ns) &&
                     !UNIT_IS_INACTIVE_OR_FAILED(os) &&
-                    u->manager->n_reloading <= 0) {
+                    m->n_reloading <= 0) {
 
                         /* Hmm, if there was no start record written
                          * write it now, so that we always have a nice
                          * pair */
                         if (!u->in_audit) {
-                                manager_send_unit_audit(u->manager, u, AUDIT_SERVICE_START, ns == UNIT_INACTIVE);
+                                manager_send_unit_audit(m, u, AUDIT_SERVICE_START, ns == UNIT_INACTIVE);
 
                                 if (ns == UNIT_INACTIVE)
-                                        manager_send_unit_audit(u->manager, u, AUDIT_SERVICE_STOP, true);
+                                        manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, true);
                         } else
                                 /* Write audit record if we have just finished shutting down */
-                                manager_send_unit_audit(u->manager, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
+                                manager_send_unit_audit(m, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
 
                         u->in_audit = false;
                 }
         }
 
-        manager_recheck_journal(u->manager);
+        manager_recheck_journal(m);
 
         /* Maybe we finished startup and are now ready for being
          * stopped because unneeded? */
