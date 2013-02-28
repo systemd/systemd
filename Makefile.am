@@ -281,6 +281,9 @@ bin_PROGRAMS = \
 bin_SCRIPTS = \
 	src/kernel-install/kernel-install
 
+EXTRA_DIST += \
+	src/kernel-install/kernel-install
+
 rootlibexec_PROGRAMS = \
 	systemd \
 	systemd-cgroups-agent \
