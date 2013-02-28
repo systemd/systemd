@@ -23,6 +23,7 @@
 /systemadm
 /systemctl
 /systemd
+/systemd-activate
 /systemd-ac-power
 /systemd-analyze
 /systemd-ask-password

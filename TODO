@@ -49,9 +49,11 @@ Fedora 19:
 
 Features:
 
+* systemd-inhibit: refuse taking delay locks
+
 * journal-or-kmsg is currently broken? See reverted commit 4a01181e460686d8b4a543b1dfa7f77c9e3c5ab8.
 
-* remove any syslog support from log.c
+* remove any syslog support from log.c -- we probably can't do this before split-off udev is gone for good
 
 * convert /etc/bash_completion.d/ to /usr/share/bash-completion/
   (systemd (and everything else) should install zero static data in /etc)
@@ -79,8 +81,6 @@ Features:
 * man: add more examples to man pages
 
 * man: maybe sort directives in man pages, and take sections from --help and apply them to man too
-
-* man: systemctl: clarify that -p applies to "systemctl show" only
 
 * add "# export SYSTEMD_PAGER=" to bash login
 

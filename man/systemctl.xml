@@ -117,10 +117,11 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--property=</option></term>
 
         <listitem>
-          <para>When showing unit/job/manager properties, limit
-          display to certain properties as specified as argument. If
-          not specified all set properties are shown. The argument
-          should be a comma-seperated list of property names, such as
+          <para>When showing unit/job/manager properties with the
+          <command>show</command> command, limit display to certain
+          properties as specified as argument. If not specified all
+          set properties are shown. The argument should be a
+          comma-seperated list of property names, such as
           <literal>MainPID</literal>. If specified more than once all
           properties with the specified names are shown.</para>
         </listitem>
@@ -206,7 +207,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           sleep state. Any user may take these locks and privileged
           users may override these locks. If any locks are taken,
           shutdown and sleep state requests will normally fail
-          (regardless if privileged or not) and list of active locks
+          (regardless if privileged or not) and a list of active locks
           is printed. However if <option>--ignore-inhibitors</option>
           is specified the locks are ignored and not printed, and the
           operation attempted anyway, possibly requiring additional
