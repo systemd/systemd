@@ -30,7 +30,6 @@ Fedora 19:
   that's sometimes kinda hard to parse for a human.
 
 * cgroup attrs:
-  - add man page for systemctl commands
   - update dbus interface docs in wiki
 
 * kernel cmdline switch to turn off predictable network interface names
