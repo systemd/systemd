@@ -3509,6 +3509,29 @@ int vtnr_from_tty(const char *tty) {
         return i;
 }
 
+char *resolve_dev_console(char **active) {
+        char *tty;
+
+        /* Resolve where /dev/console is pointing to, if /sys is actually ours
+         * (i.e. not read-only-mounted which is a sign for container setups) */
+
+        if (path_is_read_only_fs("/sys") > 0)
+                return NULL;
+
+        if (read_one_line_file("/sys/class/tty/console/active", active) < 0)
+                return NULL;
+
+        /* If multiple log outputs are configured the last one is what
+         * /dev/console points to */
+        tty = strrchr(*active, ' ');
+        if (tty)
+                tty++;
+        else
+                tty = *active;
+
+        return tty;
+}
+
 bool tty_is_vc_resolve(const char *tty) {
         char *active = NULL;
         bool b;
@@ -3518,19 +3541,11 @@ bool tty_is_vc_resolve(const char *tty) {
         if (startswith(tty, "/dev/"))
                 tty += 5;
 
-        /* Resolve where /dev/console is pointing to, if /sys is
-         * actually ours (i.e. not read-only-mounted which is a sign
-         * for container setups) */
-        if (streq(tty, "console") && path_is_read_only_fs("/sys") <= 0)
-                if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
-                        /* If multiple log outputs are configured the
-                         * last one is what /dev/console points to */
-                        tty = strrchr(active, ' ');
-                        if (tty)
-                                tty++;
-                        else
-                                tty = active;
-                }
+        if (streq(tty, "console")) {
+                tty = resolve_dev_console(&active);
+                if (!tty)
+                        return false;
+        }
 
         b = tty_is_vc(tty);
         free(active);
