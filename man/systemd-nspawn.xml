@@ -51,7 +51,14 @@
                 <cmdsynopsis>
                         <command>systemd-nspawn</command>
                         <arg choice="opt" rep="repeat">OPTIONS</arg>
-                        <arg choice="opt">COMMAND</arg>
+                        <arg choice="opt"><replaceable>COMMAND</replaceable>
+                        <arg choice="opt" rep="repeat">ARGS</arg>
+                        </arg>
+                </cmdsynopsis>
+                <cmdsynopsis>
+                        <command>systemd-nspawn</command>
+                        <arg choice="plain">-b</arg>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
                         <arg choice="opt" rep="repeat">ARGS</arg>
                 </cmdsynopsis>
         </refsynopsisdiv>
@@ -131,10 +138,16 @@
         <refsect1>
                 <title>Options</title>
 
-                <para>If no arguments are passed the container is set
-                up and a shell started in it, otherwise the passed
-                command and arguments are executed in it. The
-                following options are understood:</para>
+                <para>If option <option>-b</option> is specified, the
+                arguments are used as arguments for the init
+                binary. Otherwise, <replaceable>COMMAND</replaceable>
+                specifies the program to launch in the container, and
+                the remaining arguments are used as arguments for this
+                program. If <option>-b</option> is not used and no
+                arguments are specifed, a shell is launched in the
+                container.</para>
+
+                <para>The following options are understood:</para>
 
                 <variablelist>
                         <varlistentry>
@@ -170,7 +183,10 @@
                                 <listitem><para>Automatically search
                                 for an init binary and invoke it
                                 instead of a shell or a user supplied
-                                program.</para></listitem>
+                                program. If this option is used, arguments
+                                specified on the command line are used
+                                as arguments for the init binary.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
