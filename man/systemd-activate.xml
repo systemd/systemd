@@ -126,8 +126,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><varname>$LISTEN_FDS</varname></term>
         <term><varname>$LISTEN_PID</varname></term>
 
-        <para>See
-        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+        <listitem><para>See
+        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -136,8 +136,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
         <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
 
-        <para>Same as in
-        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+        <listitem><para>Same as in
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
