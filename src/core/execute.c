@@ -165,6 +165,14 @@ void exec_context_tty_reset(const ExecContext *context) {
                 vt_disallocate(context->tty_path);
 }
 
+static bool is_terminal_output(ExecOutput o) {
+        return
+                o == EXEC_OUTPUT_TTY ||
+                o == EXEC_OUTPUT_SYSLOG_AND_CONSOLE ||
+                o == EXEC_OUTPUT_KMSG_AND_CONSOLE ||
+                o == EXEC_OUTPUT_JOURNAL_AND_CONSOLE;
+}
+
 static int open_null_as(int flags, int nfd) {
         int fd, r;
 
@@ -224,7 +232,7 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
                 !!context->syslog_level_prefix,
                 output == EXEC_OUTPUT_SYSLOG || output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
                 output == EXEC_OUTPUT_KMSG || output == EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE || output == EXEC_OUTPUT_KMSG_AND_CONSOLE || output == EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
+                is_terminal_output(output));
 
         if (fd != nfd) {
                 r = dup2(fd, nfd) < 0 ? -errno : nfd;
