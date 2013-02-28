@@ -1718,6 +1718,37 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
         return 0;
 }
 
+static bool tty_may_match_dev_console(const char *tty) {
+        char *active = NULL, *console;
+        bool b;
+
+        if (startswith(tty, "/dev/"))
+                tty += 5;
+
+        /* trivial identity? */
+        if (streq(tty, "console"))
+                return true;
+
+        console = resolve_dev_console(&active);
+        /* if we could not resolve, assume it may */
+        if (!console)
+                return true;
+
+        /* "tty0" means the active VC, so it may be the same sometimes */
+        b = streq(console, tty) || (streq(console, "tty0") && tty_is_vc(tty));
+        free(active);
+
+        return b;
+}
+
+bool exec_context_may_touch_console(ExecContext *ec) {
+        return (ec->tty_reset || ec->tty_vhangup || ec->tty_vt_disallocate ||
+                is_terminal_input(ec->std_input) ||
+                is_terminal_output(ec->std_output) ||
+                is_terminal_output(ec->std_error)) &&
+               tty_may_match_dev_console(tty_path(ec));
+}
+
 static void strv_fprintf(FILE *f, char **l) {
         char **g;
 

@@ -198,6 +198,8 @@ void exec_context_tty_reset(const ExecContext *context);
 
 int exec_context_load_environment(const ExecContext *c, char ***l);
 
+bool exec_context_may_touch_console(ExecContext *c);
+
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status);
 void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix);
