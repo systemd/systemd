@@ -2084,7 +2084,11 @@ static int get_cgroup_attr(DBusConnection *bus, char **args) {
                 if (r < 0)
                         return r;
 
-                dbus_message_iter_init(reply, &iter);
+                if (!dbus_message_iter_init(reply, &iter)) {
+                        log_error("Failed to initialize iterator.");
+                        return -EIO;
+                }
+
                 r = bus_parse_strv_iter(&iter, &list);
                 if (r < 0) {
                         log_error("Failed to parse value list.");
