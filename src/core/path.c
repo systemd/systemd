@@ -33,6 +33,7 @@
 #include "special.h"
 #include "bus-errors.h"
 #include "path-util.h"
+#include "macro.h"
 
 static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = UNIT_INACTIVE,
@@ -52,7 +53,8 @@ int path_spec_watch(PathSpec *s, Unit *u) {
         };
 
         bool exists = false;
-        char *k, *slash;
+        char _cleanup_free_ *k = NULL;
+        char *slash;
         int r;
 
         assert(u);
@@ -60,18 +62,19 @@ int path_spec_watch(PathSpec *s, Unit *u) {
 
         path_spec_unwatch(s, u);
 
-        if (!(k = strdup(s->path)))
+        k = strdup(s->path);
+        if (!k)
                 return -ENOMEM;
 
-        if ((s->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC)) < 0) {
+        s->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+        if (s->inotify_fd < 0) {
                 r = -errno;
                 goto fail;
         }
 
-        if (unit_watch_fd(u, s->inotify_fd, EPOLLIN, &s->watch) < 0) {
-                r = -errno;
+        r = unit_watch_fd(u, s->inotify_fd, EPOLLIN, &s->watch);
+        if (r < 0)
                 goto fail;
-        }
 
         s->primary_wd = inotify_add_watch(s->inotify_fd, k, flags_table[s->type]);
         if (s->primary_wd >= 0)
@@ -99,8 +102,6 @@ int path_spec_watch(PathSpec *s, Unit *u) {
         return 0;
 
 fail:
-        free(k);
-
         path_spec_unwatch(s, u);
         return r;
 }
