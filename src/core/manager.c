@@ -2479,9 +2479,9 @@ static int create_generator_dir(Manager *m, char **generator, const char *name) 
                         return log_oom();
 
                 if (!mkdtemp(p)) {
-                        free(p);
                         log_error("Failed to create generator directory %s: %m",
                                   p);
+                        free(p);
                         return -errno;
                 }
         }
