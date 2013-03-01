@@ -276,11 +276,12 @@ int path_add_one_mount_link(Path *p, Mount *m) {
                 return 0;
 
         LIST_FOREACH(spec, s, p->specs) {
-
                 if (!path_spec_startswith(s, m->where))
                         continue;
 
-                if ((r = unit_add_two_dependencies(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true)) < 0)
+                r = unit_add_two_dependencies(UNIT(p), UNIT_AFTER, UNIT_REQUIRES,
+                                              UNIT(m), true);
+                if (r < 0)
                         return r;
         }
 
@@ -293,9 +294,11 @@ static int path_add_mount_links(Path *p) {
 
         assert(p);
 
-        LIST_FOREACH(units_by_type, other, UNIT(p)->manager->units_by_type[UNIT_MOUNT])
-                if ((r = path_add_one_mount_link(p, MOUNT(other))) < 0)
+        LIST_FOREACH(units_by_type, other, UNIT(p)->manager->units_by_type[UNIT_MOUNT]) {
+                r = path_add_one_mount_link(p, MOUNT(other));
+                if (r < 0)
                         return r;
+        }
 
         return 0;
 }
@@ -321,14 +324,19 @@ static int path_add_default_dependencies(Path *p) {
         assert(p);
 
         if (UNIT(p)->manager->running_as == SYSTEMD_SYSTEM) {
-                if ((r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
+                r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE,
+                                                SPECIAL_BASIC_TARGET, NULL, true);
+                if (r < 0)
                         return r;
 
-                if ((r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+                r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES,
+                                                      SPECIAL_SYSINIT_TARGET, NULL, true);
+                if (r < 0)
                         return r;
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
+        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS,
+                                                 SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
 static int path_load(Unit *u) {
@@ -338,7 +346,8 @@ static int path_load(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        if ((r = unit_load_fragment_and_dropin(u)) < 0)
+        r = unit_load_fragment_and_dropin(u);
+        if (r < 0)
                 return r;
 
         if (u->load_state == UNIT_LOADED) {
@@ -353,16 +362,20 @@ static int path_load(Unit *u) {
                         unit_ref_set(&p->unit, x);
                 }
 
-                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(p->unit), true);
+                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS,
+                                              UNIT_DEREF(p->unit), true);
                 if (r < 0)
                         return r;
 
-                if ((r = path_add_mount_links(p)) < 0)
+                r = path_add_mount_links(p);
+                if (r < 0)
                         return r;
 
-                if (UNIT(p)->default_dependencies)
-                        if ((r = path_add_default_dependencies(p)) < 0)
+                if (UNIT(p)->default_dependencies) {
+                        r = path_add_default_dependencies(p);
+                        if (r < 0)
                                 return r;
+                }
         }
 
         return path_verify(p);
@@ -406,9 +419,11 @@ static int path_watch(Path *p) {
 
         assert(p);
 
-        LIST_FOREACH(spec, s, p->specs)
-                if ((r = path_spec_watch(s, UNIT(p))) < 0)
+        LIST_FOREACH(spec, s, p->specs) {
+                r = path_spec_watch(s, UNIT(p));
+                if (r < 0)
                         return r;
+        }
 
         return 0;
 }
@@ -473,19 +488,23 @@ static void path_enter_running(Path *p) {
         if (UNIT(p)->job && UNIT(p)->job->type == JOB_STOP)
                 return;
 
-        if ((r = manager_add_job(UNIT(p)->manager, JOB_START, UNIT_DEREF(p->unit), JOB_REPLACE, true, &error, NULL)) < 0)
+        r = manager_add_job(UNIT(p)->manager, JOB_START, UNIT_DEREF(p->unit),
+                            JOB_REPLACE, true, &error, NULL);
+        if (r < 0)
                 goto fail;
 
         p->inotify_triggered = false;
 
-        if ((r = path_watch(p)) < 0)
+        r = path_watch(p);
+        if (r < 0)
                 goto fail;
 
         path_set_state(p, PATH_RUNNING);
         return;
 
 fail:
-        log_warning("%s failed to queue unit startup job: %s", UNIT(p)->id, bus_error(&error, r));
+        log_warning("%s failed to queue unit startup job: %s",
+                    UNIT(p)->id, bus_error(&error, r));
         path_enter_dead(p, PATH_FAILURE_RESOURCES);
 
         dbus_error_free(&error);
@@ -517,7 +536,8 @@ static void path_enter_waiting(Path *p, bool initial, bool recheck) {
                         return;
                 }
 
-        if ((r = path_watch(p)) < 0)
+        r = path_watch(p);
+        if (r < 0)
                 goto fail;
 
         /* Hmm, so now we have created inotify watches, but the file
@@ -535,7 +555,8 @@ static void path_enter_waiting(Path *p, bool initial, bool recheck) {
         return;
 
 fail:
-        log_warning("%s failed to enter waiting state: %s", UNIT(p)->id, strerror(-r));
+        log_warning("%s failed to enter waiting state: %s",
+                    UNIT(p)->id, strerror(-r));
         path_enter_dead(p, PATH_FAILURE_RESOURCES);
 }
 
@@ -602,7 +623,8 @@ static int path_deserialize_item(Unit *u, const char *key, const char *value, FD
         if (streq(key, "state")) {
                 PathState state;
 
-                if ((state = path_state_from_string(value)) < 0)
+                state = path_state_from_string(value);
+                if (state < 0)
                         log_debug("Failed to parse state value %s", value);
                 else
                         p->deserialized_state = state;
@@ -696,7 +718,8 @@ void path_unit_notify(Unit *u, UnitActiveState new_state) {
                 p = PATH(k);
 
                 if (p->state == PATH_RUNNING && new_state == UNIT_INACTIVE) {
-                        log_debug("%s got notified about unit deactivation.", UNIT(p)->id);
+                        log_debug("%s got notified about unit deactivation.",
+                                  UNIT(p)->id);
 
                         /* Hmm, so inotify was triggered since the
                          * last activation, so I guess we need to
