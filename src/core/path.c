@@ -118,7 +118,7 @@ void path_spec_unwatch(PathSpec *s, Unit *u) {
 }
 
 int path_spec_fd_event(PathSpec *s, uint32_t events) {
-        uint8_t *buf = NULL;
+        uint8_t _cleanup_free_ *buf = NULL;
         struct inotify_event *e;
         ssize_t k;
         int l;
@@ -126,30 +126,24 @@ int path_spec_fd_event(PathSpec *s, uint32_t events) {
 
         if (events != EPOLLIN) {
                 log_error("Got invalid poll event on inotify.");
-                r = -EINVAL;
-                goto out;
+                return -EINVAL;
         }
 
         if (ioctl(s->inotify_fd, FIONREAD, &l) < 0) {
                 log_error("FIONREAD failed: %m");
-                r = -errno;
-                goto out;
+                return -errno;
         }
 
         assert(l > 0);
 
         buf = malloc(l);
-        if (!buf) {
-                log_error("Failed to allocate buffer: %m");
-                r = -errno;
-                goto out;
-        }
+        if (!buf)
+                return log_oom();
 
         k = read(s->inotify_fd, buf, l);
         if (k < 0) {
                 log_error("Failed to read inotify event: %m");
-                r = -errno;
-                goto out;
+                return -errno;
         }
 
         e = (struct inotify_event*) buf;
@@ -167,8 +161,7 @@ int path_spec_fd_event(PathSpec *s, uint32_t events) {
                 e = (struct inotify_event*) ((uint8_t*) e + step);
                 k -= step;
         }
-out:
-        free(buf);
+
         return r;
 }
 
