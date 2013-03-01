@@ -13,11 +13,11 @@
 Accessing the Journal
 ---------------------
 
-.. autoclass:: _Journal
+.. autoclass:: _Reader
    :undoc-members:
    :inherited-members:
 
-.. autoclass:: Journal
+.. autoclass:: Reader
    :undoc-members:
    :inherited-members:
 

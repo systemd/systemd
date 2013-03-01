@@ -34,7 +34,7 @@ if _sys.version_info >= (3,):
 from syslog import (LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR,
                     LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG)
 from ._journal import sendv, stream_fd
-from ._reader import (_Journal, NOP, APPEND, INVALIDATE,
+from ._reader import (_Reader, NOP, APPEND, INVALIDATE,
                       LOCAL_ONLY, RUNTIME_ONLY, SYSTEM_ONLY)
 from . import id128 as _id128
 
@@ -86,15 +86,15 @@ if _sys.version_info >= (3,):
 else:
     _convert_unicode = _functools.partial(unicode, encoding='utf-8')
 
-class Journal(_Journal):
-    """Journal allows the access and filtering of systemd journal
+class Reader(_Reader):
+    """Reader allows the access and filtering of systemd journal
     entries. Note that in order to access the system journal, a
     non-root user must be in the `adm` group.
 
     Example usage to print out all error or higher level messages
     for systemd-udevd for the boot:
 
-    >>> myjournal = journal.Journal()
+    >>> myjournal = journal.Reader()
     >>> myjournal.add_boot_match(journal.CURRENT_BOOT)
     >>> myjournal.add_loglevel_matches(journal.LOG_ERR)
     >>> myjournal.add_match(_SYSTEMD_UNIT="systemd-udevd.service")
@@ -105,7 +105,7 @@ class Journal(_Journal):
     found in the journal.
     """
     def __init__(self, converters=None, flags=LOCAL_ONLY, path=None):
-        """Creates instance of Journal, which allows filtering and
+        """Create an instance of Reader, which allows filtering and
         return of journal entries.
         Argument `converters` is a dictionary which updates the
         DEFAULT_CONVERTERS to convert journal field values.
@@ -118,7 +118,7 @@ class Journal(_Journal):
         currently flags are ignored when `path` is present as they are
         currently not relevant.
         """
-        super(Journal, self).__init__(flags, path)
+        super(Reader, self).__init__(flags, path)
         if _sys.version_info >= (3,3):
             self.converters = _ChainMap()
             if converters is not None:
@@ -164,7 +164,7 @@ class Journal(_Journal):
         args = list(args)
         args.extend(_make_line(key, val) for key, val in kwargs.items())
         for arg in args:
-            super(Journal, self).add_match(arg)
+            super(Reader, self).add_match(arg)
 
     def get_next(self, skip=1):
         """Return the next log entry as a dictionary of fields.
@@ -172,21 +172,21 @@ class Journal(_Journal):
         Optional skip value will return the `skip`\-th log entry.
 
         Entries will be processed with converters specified during
-        Journal creation.
+        Reader creation.
         """
         return self._convert_entry(
-            super(Journal, self).get_next(skip))
+            super(Reader, self).get_next(skip))
 
     def query_unique(self, field):
-        """Return unique values appearing in the Journal for given `field`.
+        """Return unique values appearing in the journal for given `field`.
 
         Note this does not respect any journal matches.
 
         Entries will be processed with converters specified during
-        Journal creation.
+        Reader creation.
         """
         return set(self._convert_field(field, value)
-            for value in super(Journal, self).query_unique(field))
+            for value in super(Reader, self).query_unique(field))
 
     def seek_realtime(self, realtime):
         """Seek to a matching journal entry nearest to `realtime` time.
@@ -196,7 +196,7 @@ class Journal(_Journal):
         """
         if isinstance(realtime, _datetime.datetime):
             realtime = float(realtime.strftime("%s.%f"))
-        return super(Journal, self).seek_realtime(realtime)
+        return super(Reader, self).seek_realtime(realtime)
 
     def seek_monotonic(self, monotonic, bootid=None):
         """Seek to a matching journal entry nearest to `monotonic` time.
@@ -210,7 +210,7 @@ class Journal(_Journal):
             monotonic = monotonic.totalseconds()
         if isinstance(bootid, _uuid.UUID):
             bootid = bootid.get_hex()
-        return super(Journal, self).seek_monotonic(monotonic, bootid)
+        return super(Reader, self).seek_monotonic(monotonic, bootid)
 
     def log_level(self, level):
         """Set maximum log `level` by setting matches for PRIORITY.
