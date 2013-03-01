@@ -325,9 +325,9 @@ int lookup_paths_init(
                 char _cleanup_free_ *t = strv_join(p->unit_path, "\n\t");
                 if (!t)
                         return -ENOMEM;
-                log_info("Looking for unit files in (higher priority first):\n\t%s", t);
+                log_debug("Looking for unit files in (higher priority first):\n\t%s", t);
         } else {
-                log_info("Ignoring unit files.");
+                log_debug("Ignoring unit files.");
                 strv_free(p->unit_path);
                 p->unit_path = NULL;
         }
@@ -385,9 +385,9 @@ int lookup_paths_init(
                         char _cleanup_free_ *t = strv_join(p->sysvinit_path, "\n\t");
                         if (!t)
                                 return -ENOMEM;
-                        log_info("Looking for SysV init scripts in:\n\t%s", t);
+                        log_debug("Looking for SysV init scripts in:\n\t%s", t);
                 } else {
-                        log_info("Ignoring SysV init scripts.");
+                        log_debug("Ignoring SysV init scripts.");
                         strv_free(p->sysvinit_path);
                         p->sysvinit_path = NULL;
                 }
@@ -405,7 +405,7 @@ int lookup_paths_init(
                         p->sysvrcnd_path = NULL;
                 }
 #else
-                log_info("SysV init scripts and rcN.d links support disabled");
+                log_debug("SysV init scripts and rcN.d links support disabled");
 #endif
         }
 
