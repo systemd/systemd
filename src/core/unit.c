@@ -1360,11 +1360,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         if (UNIT_IS_INACTIVE_OR_FAILED(os) != UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                 ExecContext *ec = unit_get_exec_context(u);
                 if (ec && exec_context_may_touch_console(ec)) {
-                        /* XXX The counter may get out of sync if the admin edits
-                         * TTY-related unit file properties and issues a daemon-reload
-                         * while the unit is active. No big deal though, because
-                         * it influences only the printing of boot/shutdown
-                         * status messages. */
                         if (UNIT_IS_INACTIVE_OR_FAILED(ns))
                                 m->n_on_console--;
                         else
@@ -2445,6 +2440,9 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                         job_free(j);
                                         return r;
                                 }
+
+                                if (j->state == JOB_RUNNING)
+                                        u->manager->n_running_jobs++;
 
                                 r = job_install_deserialized(j);
                                 if (r < 0) {

@@ -678,6 +678,9 @@ static void manager_clear_jobs_and_units(Manager *m) {
 
         assert(hashmap_isempty(m->jobs));
         assert(hashmap_isempty(m->units));
+
+        m->n_on_console = 0;
+        m->n_running_jobs = 0;
 }
 
 void manager_free(Manager *m) {
