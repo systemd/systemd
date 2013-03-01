@@ -49,8 +49,6 @@ Fedora 19:
 
 Features:
 
-* remove "rootwait" support from fstab generator
-
 * rework specifier logic so that we can distuingish OOM errors from other errors
 
 * systemd-inhibit: refuse taking delay locks

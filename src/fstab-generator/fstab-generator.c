@@ -192,7 +192,7 @@ static bool mount_is_network(struct mntent *me) {
 }
 
 static int add_mount(const char *what, const char *where, const char *type, const char *opts,
-                     int passno, bool wait, bool noauto, bool nofail, bool automount, bool isbind, bool isnetwork,
+                     int passno, bool noauto, bool nofail, bool automount, bool isbind, bool isnetwork,
                      const char *source) {
         char _cleanup_free_
                 *name = NULL, *unit = NULL, *lnk = NULL, *device = NULL,
@@ -283,10 +283,6 @@ static int add_mount(const char *what, const char *where, const char *type, cons
                 fprintf(f,
                         "Options=%s\n",
                         opts);
-
-        if (wait)
-                fprintf(f,
-                        "TimeoutSec=0\n");
 
         fflush(f);
         if (ferror(f)) {
@@ -422,9 +418,8 @@ static int parse_fstab(void) {
                         isnetwork = mount_is_network(me);
 
                         k = add_mount(what, where, me->mnt_type, me->mnt_opts,
-                                     me->mnt_passno, false, noauto, nofail,
-                                     automount, isbind, isnetwork,
-                                     "/etc/fstab");
+                                     me->mnt_passno, noauto, nofail, automount,
+                                     isbind, isnetwork, "/etc/fstab");
                 }
 
                 if (k < 0)
@@ -441,7 +436,6 @@ static int parse_new_root_from_proc_cmdline(void) {
         _cleanup_free_ char *what = NULL, *type = NULL, *opts = NULL, *line = NULL;
         int r;
         size_t l;
-        bool wait = false;
 
         r = read_one_line_file("/proc/cmdline", &line);
         if (r < 0) {
@@ -489,8 +483,7 @@ static int parse_new_root_from_proc_cmdline(void) {
                         if (!opts)
                                 return log_oom();
 
-                } else if (streq(word, "rootwait"))
-                        wait = true;
+                }
 
                 free(word);
         }
@@ -498,8 +491,8 @@ static int parse_new_root_from_proc_cmdline(void) {
         if (what) {
 
                 log_debug("Found entry what=%s where=/sysroot type=%s", what, type);
-                r = add_mount(what, "/sysroot", type, opts, 0, wait, false, false,
-                              false, false, false, "/proc/cmdline");
+                r = add_mount(what, "/sysroot", type, opts, 0, false, false, false,
+                              false, false, "/proc/cmdline");
 
                 if (r < 0)
                         return r;
