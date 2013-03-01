@@ -449,7 +449,6 @@ static int parse_new_root_from_proc_cmdline(void) {
                 return 0;
         }
 
-        opts = strdup("defaults");
         type = strdup("auto");
         if (!opts || !type)
                 return log_oom();
