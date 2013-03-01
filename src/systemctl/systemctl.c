@@ -3951,7 +3951,7 @@ static int enable_unit(DBusConnection *bus, char **args) {
                 }
 
                 /* Try to reload if enabeld */
-                if (!arg_no_reload)
+                if (!arg_no_reload && running_in_chroot() <= 0)
                         r = daemon_reload(bus, args);
         }
 
