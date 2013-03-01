@@ -37,7 +37,7 @@
 #include "special.h"
 #include "cgroup-util.h"
 
-#define COREDUMP_MAX (24*1024*1024)
+#define COREDUMP_MAX (768*1024*1024)
 
 enum {
         ARG_PID = 1,
