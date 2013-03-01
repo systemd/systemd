@@ -70,6 +70,7 @@ _ctls()
                 {-c,--cursor=}'[Start showing entries from specified cursor]:cursors:_journal_fields __CURSORS' \
                 {-b,--this-boot}'[Show data only from current boot]' \
                 {-u,--unit=}'[Show data only from the specified unit]:units:_journal_fields _SYSTEMD_UNIT' \
+                '--user-unit[Show data only from the specified user session unit]:units:_journal_fields _SYSTEMD_USER_UNIT' \
                 {-p,--priority=}'[Show only messages within the specified priority range]:priority:_journal_fields PRIORITY' \
                 {-f,--follow}'[Follow journal]' \
                 {-n,--lines=}'[Number of journal entries to show]:integer' \

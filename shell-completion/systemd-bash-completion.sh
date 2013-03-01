@@ -300,7 +300,7 @@ _journalctl() {
                               -h --help -l --local --new-id128 -m --merge --no-pager
                               --no-tail -q --quiet --setup-keys --this-boot --verify
                               --version --list-catalog --update-catalog'
-                       [ARG]='-D --directory -F --field -o --output -u --unit'
+                       [ARG]='-D --directory -F --field -o --output -u --unit --user-unit'
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines -p --priority --since --until
                               --verify-key'
         )
@@ -319,6 +319,9 @@ _journalctl() {
                         ;;
                         --unit|-u)
                                 comps=$(journalctl -F '_SYSTEMD_UNIT')
+                        ;;
+                        --user-unit)
+                                comps=$(journalctl -F '_SYSTEMD_USER_UNIT')
                         ;;
                         *)
                                 return 0

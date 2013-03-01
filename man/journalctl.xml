@@ -314,6 +314,17 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--user-unit=</option></term>
+
+                                <listitem><para>Show data only of the
+                                specified user session unit. This will
+                                add a match for
+                                <literal>_SYSTEMD_USER_UNIT=</literal>
+                                for the specified
+                                unit.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-p</option></term>
                                 <term><option>--priority=</option></term>
 

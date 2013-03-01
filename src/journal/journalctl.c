@@ -75,6 +75,7 @@ static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
 static usec_t arg_since, arg_until;
 static bool arg_since_set = false, arg_until_set = false;
 static const char *arg_unit = NULL;
+static const char *arg_unit_type = NULL;
 static const char *arg_field = NULL;
 static bool arg_catalog = false;
 static bool arg_reverse = false;
@@ -100,6 +101,7 @@ static int help(void) {
                "  -c --cursor=CURSOR     Start showing entries from specified cursor\n"
                "  -b --this-boot         Show data only from current boot\n"
                "  -u --unit=UNIT         Show data only from the specified unit\n"
+               "     --user-unit=UNIT    Show data only from the specified user session unit\n"
                "  -p --priority=RANGE    Show only messages within the specified priority range\n"
                "  -f --follow            Follow journal\n"
                "  -n --lines[=INTEGER]   Number of journal entries to show\n"
@@ -152,6 +154,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DISK_USAGE,
                 ARG_SINCE,
                 ARG_UNTIL,
+                ARG_USER_UNIT,
                 ARG_LIST_CATALOG,
                 ARG_UPDATE_CATALOG
         };
@@ -181,6 +184,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "cursor",       required_argument, NULL, 'c'              },
                 { "since",        required_argument, NULL, ARG_SINCE        },
                 { "until",        required_argument, NULL, ARG_UNTIL        },
+                { "user-unit",    required_argument, NULL, ARG_USER_UNIT    },
                 { "unit",         required_argument, NULL, 'u'              },
                 { "field",        required_argument, NULL, 'F'              },
                 { "catalog",      no_argument,       NULL, 'x'              },
@@ -404,8 +408,14 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_until_set = true;
                         break;
 
+                case ARG_USER_UNIT:
+                        arg_unit = optarg;
+                        arg_unit_type = "_SYSTEMD_USER_UNIT=";
+                        break;
+
                 case 'u':
                         arg_unit = optarg;
+                        arg_unit_type = "_SYSTEMD_UNIT=";
                         break;
 
                 case '?':
@@ -583,7 +593,8 @@ static int add_unit(sd_journal *j) {
         if (!u)
                 return log_oom();
 
-        m = strappend("_SYSTEMD_UNIT=", u);
+        m = strappend(arg_unit_type, u);
+
         if (!m)
                 return log_oom();
 
