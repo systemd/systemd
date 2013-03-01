@@ -208,7 +208,7 @@ static PyObject* Reader_get_next(Reader *self, PyObject *args)
                 if (r < 0)
                     goto error;
 
-                PyDict_SetItem(dict, key, tmp_list);
+                r = PyDict_SetItem(dict, key, tmp_list);
                 if (r < 0)
                     goto error;
             }
