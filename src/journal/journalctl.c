@@ -77,6 +77,7 @@ static bool arg_since_set = false, arg_until_set = false;
 static const char *arg_unit = NULL;
 static const char *arg_field = NULL;
 static bool arg_catalog = false;
+static bool arg_reverse = false;
 
 static enum {
         ACTION_SHOW,
@@ -103,6 +104,7 @@ static int help(void) {
                "  -f --follow            Follow journal\n"
                "  -n --lines[=INTEGER]   Number of journal entries to show\n"
                "     --no-tail           Show all lines, even in follow mode\n"
+               "  -r --reverse           Show the newest entries first\n"
                "  -o --output=STRING     Change journal output mode (short, short-monotonic,\n"
                "                         verbose, export, json, json-pretty, json-sse, cat)\n"
                "  -x --catalog           Add message explanations where available\n"
@@ -184,6 +186,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "catalog",      no_argument,       NULL, 'x'              },
                 { "list-catalog", no_argument,       NULL, ARG_LIST_CATALOG },
                 { "update-catalog",no_argument,      NULL, ARG_UPDATE_CATALOG },
+                { "reverse",      no_argument,       NULL, 'r'              },
                 { NULL,           0,                 NULL, 0                }
         };
 
@@ -192,7 +195,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hfo:an::qmbD:p:c:u:F:x", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hfo:an::qmbD:p:c:u:F:xr", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -424,6 +427,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_UPDATE_CATALOG;
                         break;
 
+                case 'r':
+                        arg_reverse = true;
+                        break;
+
                 default:
                         log_error("Unknown option code %c", c);
                         return -EINVAL;
@@ -440,6 +447,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_cursor && arg_since_set) {
                 log_error("Please specify either --since= or --cursor=, not both.");
+                return -EINVAL;
+        }
+
+        if (arg_follow && arg_reverse) {
+                log_error("Please specify either --reverse= or --follow=, not both.");
                 return -EINVAL;
         }
 
@@ -997,16 +1009,26 @@ int main(int argc, char *argv[]) {
                         log_error("Failed to seek to cursor: %s", strerror(-r));
                         goto finish;
                 }
+                if (!arg_reverse)
+                        r = sd_journal_next(j);
+                else
+                        r = sd_journal_previous(j);
 
-                r = sd_journal_next(j);
-
-        } else if (arg_since_set) {
+        } else if (arg_since_set && !arg_reverse) {
                 r = sd_journal_seek_realtime_usec(j, arg_since);
                 if (r < 0) {
                         log_error("Failed to seek to date: %s", strerror(-r));
                         goto finish;
                 }
                 r = sd_journal_next(j);
+
+        } else if (arg_until_set && arg_reverse) {
+                r = sd_journal_seek_realtime_usec(j, arg_until);
+                if (r < 0) {
+                        log_error("Failed to seek to date: %s", strerror(-r));
+                        goto finish;
+                }
+                r = sd_journal_previous(j);
 
         } else if (arg_lines >= 0) {
                 r = sd_journal_seek_tail(j);
@@ -1016,6 +1038,15 @@ int main(int argc, char *argv[]) {
                 }
 
                 r = sd_journal_previous_skip(j, arg_lines);
+
+        } else if (arg_reverse) {
+                r = sd_journal_seek_tail(j);
+                if (r < 0) {
+                        log_error("Failed to seek to tail: %s", strerror(-r));
+                        goto finish;
+                }
+
+                r = sd_journal_previous(j);
 
         } else {
                 r = sd_journal_seek_head(j);
@@ -1061,7 +1092,10 @@ int main(int argc, char *argv[]) {
                         int flags;
 
                         if (need_seek) {
-                                r = sd_journal_next(j);
+                                if(!arg_reverse)
+                                        r = sd_journal_next(j);
+                                else
+                                        r = sd_journal_previous(j);
                                 if (r < 0) {
                                         log_error("Failed to iterate through journal: %s", strerror(-r));
                                         goto finish;
@@ -1071,7 +1105,7 @@ int main(int argc, char *argv[]) {
                         if (r == 0)
                                 break;
 
-                        if (arg_until_set) {
+                        if (arg_until_set && !arg_reverse) {
                                 usec_t usec;
 
                                 r = sd_journal_get_realtime_usec(j, &usec);
@@ -1080,6 +1114,18 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                                 }
                                 if (usec > arg_until)
+                                        goto finish;
+                        }
+
+                        if (arg_since_set && arg_reverse) {
+                                usec_t usec;
+
+                                r = sd_journal_get_realtime_usec(j, &usec);
+                                if (r < 0) {
+                                        log_error("Failed to determine timestamp: %s", strerror(-r));
+                                        goto finish;
+                                }
+                                if (usec < arg_since)
                                         goto finish;
                         }
 

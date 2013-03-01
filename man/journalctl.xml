@@ -185,6 +185,14 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-r</option></term>
+                                <term><option>--reverse</option></term>
+
+                                <listitem><para>Reverse output, so the newest
+                                entries are displayed first.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-o</option></term>
                                 <term><option>--output=</option></term>
 
