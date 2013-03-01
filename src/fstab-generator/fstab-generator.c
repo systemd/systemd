@@ -449,8 +449,9 @@ static int parse_new_root_from_proc_cmdline(void) {
                 return 0;
         }
 
+        opts = strdup("ro");
         type = strdup("auto");
-        if (!type)
+        if (!opts || !type)
                 return log_oom();
 
         /* root= and roofstype= may occur more than once, the last instance should take precedence.
