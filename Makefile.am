@@ -3398,7 +3398,9 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 if HAVE_PYTHON_DEVEL
 pkgpyexec_LTLIBRARIES = \
-	_journal.la
+	_journal.la \
+	id128.la \
+	_reader.la
 
 _journal_la_SOURCES = \
 	src/python-systemd/_journal.c
@@ -3418,10 +3420,74 @@ _journal_la_LIBADD = \
 	$(PYTHON_LIBS) \
 	libsystemd-journal.la
 
+id128_la_SOURCES = \
+	src/python-systemd/id128.c \
+	src/python-systemd/id128-constants.h \
+	src/python-systemd/pyutil.c \
+	src/python-systemd/pyutil.h
+
+id128_la_CFLAGS = \
+	$(AM_CFLAGS) \
+        -fvisibility=default \
+	$(PYTHON_CFLAGS) \
+	-I$(top_builddir)/src/python-systemd
+
+id128_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-shared \
+	-module \
+	-avoid-version
+
+id128_la_LIBADD = \
+	$(PYTHON_LIBS) \
+	libsystemd-id128.la
+
+_reader_la_SOURCES = \
+	src/python-systemd/_reader.c \
+	src/python-systemd/pyutil.c \
+	src/python-systemd/pyutil.h
+
+_reader_la_CFLAGS = \
+	$(AM_CFLAGS) \
+        -fvisibility=default \
+	$(PYTHON_CFLAGS)
+
+_reader_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-shared \
+	-module \
+	-avoid-version
+
+_reader_la_LIBADD = \
+	$(PYTHON_LIBS) \
+	libsystemd-journal.la \
+	libsystemd-id128.la \
+	libsystemd-shared.la
+
 dist_pkgpyexec_PYTHON = \
 	src/python-systemd/journal.py \
 	src/python-systemd/__init__.py
+
+src/python-systemd/id128-constants.h: src/systemd/sd-messages.h Makefile
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(SED) -n -r 's/,//g; s/#define (SD_MESSAGE_[A-Z0-9_]+)\s.*/add_id(m, "\1", \1) JOINER/p' <$< >$@
+
+BUILT_SOURCES += \
+	src/python-systemd/id128-constants.h
 endif
+
+PAPER = $(shell cat /etc/papersize 2>/dev/null || echo a4)
+SPHINXOPTS = -D latex_paper_size=$(PAPER)
+sphinx-%:
+	$(AM_V_at)test -n "$(SPHINX_BUILD)" || { echo " *** sphinx-build is not available"; exit 1; }
+	$(AM_V_GEN)PYTHONPATH=$(DESTDIR)$(pyexecdir) LD_LIBRARY_PATH=$(DESTDIR)$(libdir) $(SPHINX_BUILD) -b $* $(SPHINXOPTS) $(top_srcdir)/src/python-systemd/docs $(top_builddir)/man/python-systemd/
+	$(AM_V_at)echo Output has been generated in $(abs_top_builddir)/man/python-systemd/
+
+destdir-sphinx: all
+	dir="`mktemp -d /tmp/systemd-install.XXXXXX`" && \
+		$(MAKE) DESTDIR="$$dir" install && \
+	        $(MAKE) DESTDIR="$$dir" sphinx-html && \
+		rm -rf "$$dir"
 
 # ------------------------------------------------------------------------------
 SED_PROCESS = \
@@ -3743,17 +3809,19 @@ upload: all distcheck
 	scp systemd-$(VERSION).tar.xz fdo:/srv/www.freedesktop.org/www/software/systemd/
 	scp man/*.html tango:public/systemd-man/
 
-doc-sync: all
+www_target = www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd
+doc-sync: all destdir-sphinx
 	gtkdoc-rebase --html-dir=docs/libudev/html --online
-	rsync -av --delete docs/libudev/html/ --omit-dir-times www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/libudev/
+	rsync -av --delete docs/libudev/html/ --omit-dir-times $(www_target)/libudev/
 	gtkdoc-rebase --html-dir=docs/gudev/html --online
-	rsync -av --delete docs/gudev/html/ --omit-dir-times www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/gudev/
-	rsync -av --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd/man/
+	rsync -av --delete docs/gudev/html/ --omit-dir-times $(www_target)/gudev/
+	rsync -av --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
+	rsync -av --delete --omit-dir-times man/python-systemd/ $(www_target)/man/python-systemd/
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
 
 install-tree: all
 	rm -rf $(abs_srcdir)/install-tree
-	make install DESTDIR=$(abs_srcdir)/install-tree
+	$(MAKE) install DESTDIR=$(abs_srcdir)/install-tree
 	tree $(abs_srcdir)/install-tree

@@ -176,6 +176,7 @@ AS_IF([test "x$with_python" != "xno"], [
               PYTHON_LIBS="`$PYTHON_CONFIG --ldflags`"
               AC_SUBST(PYTHON_CFLAGS)
               AC_SUBST(PYTHON_LIBS)
+              AC_PATH_PROGS(SPHINX_BUILD, sphinx-build-${PYTHON_VERSION} sphinx-build)
         ])
 ])
 AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
