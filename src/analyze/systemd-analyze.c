@@ -237,9 +237,11 @@ static int acquire_time_data(DBusConnection *bus, struct unit_times **out)
         *out = unit_times;
         return c;
 fail:
-        for (; c >= 0; c--)
-                free(unit_times[c].name);
-        free(unit_times);
+        if (unit_times) {
+                for (; c >= 0; c--)
+                        free(unit_times[c].name);
+                free(unit_times);
+        }
         return r;
 }
 
