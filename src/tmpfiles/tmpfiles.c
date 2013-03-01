@@ -321,7 +321,7 @@ static int dir_cleanup(
                         if (age >= cutoff)
                                 continue;
 
-                        if (!i->type == IGNORE_DIRECTORY_PATH || !streq(dent->d_name, p)) {
+                        if (i->type != IGNORE_DIRECTORY_PATH || !streq(dent->d_name, p)) {
                                 log_debug("rmdir '%s'\n", sub_path);
 
                                 if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0) {
