@@ -49,6 +49,8 @@ Fedora 19:
 
 Features:
 
+* rework specifier logic so that we can distuingish OOM errors from other errors
+
 * systemd-inhibit: refuse taking delay locks
 
 * journal-or-kmsg is currently broken? See reverted commit 4a01181e460686d8b4a543b1dfa7f77c9e3c5ab8.

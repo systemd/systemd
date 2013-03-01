@@ -127,9 +127,10 @@ int config_parse_unit_string_printf(
 
         k = unit_full_printf(u, rvalue);
         if (!k)
-                return log_oom();
+                log_error("[%s:%u] Failed to resolve unit specifiers on %s. Ignoring.",
+                          filename, line, rvalue);
 
-        return config_parse_string(filename, line, section, lvalue, ltype, k, data, userdata);
+        return config_parse_string(filename, line, section, lvalue, ltype, k ? k : rvalue, data, userdata);
 }
 
 int config_parse_unit_strv_printf(
@@ -152,9 +153,10 @@ int config_parse_unit_strv_printf(
 
         k = unit_full_printf(u, rvalue);
         if (!k)
-                return log_oom();
+                log_error("[%s:%u] Failed to resolve unit specifiers on %s. Ignoring.",
+                          filename, line, rvalue);
 
-        return config_parse_strv(filename, line, section, lvalue, ltype, k, data, userdata);
+        return config_parse_strv(filename, line, section, lvalue, ltype, k ? k : rvalue, data, userdata);
 }
 
 int config_parse_unit_path_printf(
@@ -177,9 +179,10 @@ int config_parse_unit_path_printf(
 
         k = unit_full_printf(u, rvalue);
         if (!k)
-                return log_oom();
+                log_error("[%s:%u] Failed to resolve unit specifiers on %s. Ignoring.",
+                          filename, line, rvalue);
 
-        return config_parse_path(filename, line, section, lvalue, ltype, k, data, userdata);
+        return config_parse_path(filename, line, section, lvalue, ltype, k ? k : rvalue, data, userdata);
 }
 
 int config_parse_socket_listen(
@@ -217,8 +220,13 @@ int config_parse_socket_listen(
                 p->type = ltype;
                 p->path = unit_full_printf(UNIT(s), rvalue);
                 if (!p->path) {
-                        free(p);
-                        return log_oom();
+                        p->path = strdup(rvalue);
+                        if (!p->path) {
+                                free(p);
+                                return log_oom();
+                        } else
+                                log_error("[%s:%u] Failed to resolve unit specifiers on %s. Ignoring.",
+                                          filename, line, rvalue);
                 }
 
                 path_kill_slashes(p->path);
@@ -229,12 +237,11 @@ int config_parse_socket_listen(
 
                 p->type = SOCKET_SOCKET;
                 k = unit_full_printf(UNIT(s), rvalue);
-                if (!k) {
-                        free(p);
-                        return log_oom();
-                }
+                if (!k)
+                        log_error("[%s:%u] Failed to resolve unit specifiers on %s. Ignoring.",
+                                  filename, line, rvalue);
 
-                r = socket_address_parse_netlink(&p->address, k);
+                r = socket_address_parse_netlink(&p->address, k ? k : rvalue);
                 if (r < 0) {
                         log_error("[%s:%u] Failed to parse address value, ignoring: %s", filename, line, rvalue);
                         free(p);
@@ -247,12 +254,11 @@ int config_parse_socket_listen(
 
                 p->type = SOCKET_SOCKET;
                 k = unit_full_printf(UNIT(s), rvalue);
-                if (!k) {
-                        free(p);
-                        return log_oom();
-                }
+                if (!k)
+                        log_error("[%s:%u] Failed to resolve unit specifiers on %s. Ignoring.",
+                                  filename, line, rvalue);
 
-                r = socket_address_parse(&p->address, k);
+                r = socket_address_parse(&p->address, k ? k : rvalue);
                 if (r < 0) {
                         log_error("[%s:%u] Failed to parse address value, ignoring: %s", filename, line, rvalue);
                         free(p);
@@ -995,9 +1001,10 @@ int config_parse_unit_cgroup(
 
                 k = unit_full_printf(u, t);
                 if (!k)
-                        return log_oom();
+                        log_error("[%s:%u] Failed to resolve unit specifiers on %s. Ignoring.",
+                                  filename, line, t);
 
-                ku = cunescape(k);
+                ku = cunescape(k ? k : t);
                 if (!ku)
                         return log_oom();
 
@@ -1284,8 +1291,14 @@ int config_parse_path_spec(
         }
 
         k = unit_full_printf(UNIT(p), rvalue);
-        if (!k)
-                return log_oom();
+        if (!k) {
+                k = strdup(rvalue);
+                if (!k)
+                        return log_oom();
+                else
+                        log_error("[%s:%u] Failed to resolve unit specifiers on %s. Ignoring.",
+                                  filename, line, rvalue);
+        }
 
         if (!path_is_absolute(k)) {
                 log_error("[%s:%u] Path is not absolute, ignoring: %s", filename, line, k);
