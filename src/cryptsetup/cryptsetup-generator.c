@@ -329,6 +329,8 @@ static int parse_proc_cmdline(void) {
                 free(word);
         }
 
+        strv_uniq(arg_proc_cmdline_disks);
+
         r = 0;
 
 finish:
@@ -341,6 +343,7 @@ int main(int argc, char *argv[]) {
         int r = EXIT_SUCCESS;
         unsigned n = 0;
         char **i;
+        char **arg_proc_cmdline_disks_done = NULL;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -364,12 +367,108 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (arg_read_crypttab) {
+                f = fopen("/etc/crypttab", "re");
+
+                if (!f) {
+                        if (errno == ENOENT)
+                                r = EXIT_SUCCESS;
+                        else {
+                                r = EXIT_FAILURE;
+                                log_error("Failed to open /etc/crypttab: %m");
+                        }
+
+                        goto finish;
+                }
+
+                for (;;) {
+                        char line[LINE_MAX], *l;
+                        char *name = NULL, *device = NULL, *password = NULL, *options = NULL;
+                        int k;
+
+                        if (!fgets(line, sizeof(line), f))
+                                break;
+
+                        n++;
+
+                        l = strstrip(line);
+                        if (*l == '#' || *l == 0)
+                                continue;
+
+                        k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &password, &options);
+                        if (k < 2 || k > 4) {
+                                log_error("Failed to parse /etc/crypttab:%u, ignoring.", n);
+                                r = EXIT_FAILURE;
+                                goto next;
+                        }
+
+                        if (arg_proc_cmdline_disks) {
+                                /*
+                                  If luks UUIDs are specified on the kernel command line, use them as a filter
+                                  for /etc/crypttab and only generate units for those.
+                                */
+                                STRV_FOREACH(i, arg_proc_cmdline_disks) {
+                                        char *proc_device, *proc_name;
+                                        const char *p = *i;
+
+                                        if (startswith(p, "luks-"))
+                                                p += 5;
+
+                                        proc_name = strappend("luks-", p);
+                                        proc_device = strappend("UUID=", p);
+
+                                        if (!proc_name || !proc_device) {
+                                                log_oom();
+                                                r = EXIT_FAILURE;
+                                                free(proc_name);
+                                                free(proc_device);
+                                                goto finish;
+                                        }
+                                        if (streq(proc_device, device) || streq(proc_name, name)) {
+                                                char **t;
+
+                                                if (create_disk(name, device, password, options) < 0)
+                                                        r = EXIT_FAILURE;
+
+                                                t = strv_append(arg_proc_cmdline_disks_done, p);
+                                                if (!t) {
+                                                        r = log_oom();
+                                                        goto finish;
+                                                }
+                                                strv_free(arg_proc_cmdline_disks_done);
+                                                arg_proc_cmdline_disks_done = t;
+                                        }
+
+                                        free(proc_device);
+                                        free(proc_name);
+                                }
+                        } else {
+                                if (create_disk(name, device, password, options) < 0)
+                                        r = EXIT_FAILURE;
+                        }
+
+                next:
+                        free(name);
+                        free(device);
+                        free(password);
+                        free(options);
+                }
+        }
+
         STRV_FOREACH(i, arg_proc_cmdline_disks) {
+                /*
+                  Generate units for those UUIDs, which were specified
+                  on the kernel command line and not yet written.
+                */
+
                 char *name, *device;
                 const char *p = *i;
 
                 if (startswith(p, "luks-"))
                         p += 5;
+
+                if (strv_contains(arg_proc_cmdline_disks_done, p))
+                        continue;
 
                 name = strappend("luks-", p);
                 device = strappend("UUID=", p);
@@ -382,58 +481,11 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                if (create_disk(name, device, NULL, NULL) < 0)
+                if (create_disk(name, device, NULL, "timeout=0") < 0)
                         r = EXIT_FAILURE;
 
                 free(name);
                 free(device);
-        }
-
-        if (!arg_read_crypttab)
-                return r;
-
-        f = fopen("/etc/crypttab", "re");
-        if (!f) {
-
-                if (errno == ENOENT)
-                        r = EXIT_SUCCESS;
-                else {
-                        r = EXIT_FAILURE;
-                        log_error("Failed to open /etc/crypttab: %m");
-                }
-
-                goto finish;
-        }
-
-        for (;;) {
-                char line[LINE_MAX], *l;
-                char *name = NULL, *device = NULL, *password = NULL, *options = NULL;
-                int k;
-
-                if (!fgets(line, sizeof(line), f))
-                        break;
-
-                n++;
-
-                l = strstrip(line);
-                if (*l == '#' || *l == 0)
-                        continue;
-
-                k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &password, &options);
-                if (k < 2 || k > 4) {
-                        log_error("Failed to parse /etc/crypttab:%u, ignoring.", n);
-                        r = EXIT_FAILURE;
-                        goto next;
-                }
-
-                if (create_disk(name, device, password, options) < 0)
-                        r = EXIT_FAILURE;
-
-        next:
-                free(name);
-                free(device);
-                free(password);
-                free(options);
         }
 
 finish:
@@ -441,6 +493,7 @@ finish:
                 fclose(f);
 
         strv_free(arg_proc_cmdline_disks);
+        strv_free(arg_proc_cmdline_disks_done);
 
         return r;
 }
