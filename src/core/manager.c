@@ -269,6 +269,9 @@ static void manager_print_jobs_in_progress(Manager *m) {
                 if (j->state == JOB_RUNNING && counter++ == print_nr)
                         break;
 
+	if (!j)
+		return;
+
         cylon_pos = m->jobs_in_progress_iteration % 14;
         if (cylon_pos >= 8)
                 cylon_pos = 14 - cylon_pos;
