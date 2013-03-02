@@ -269,8 +269,9 @@ static void manager_print_jobs_in_progress(Manager *m) {
                 if (j->state == JOB_RUNNING && counter++ == print_nr)
                         break;
 
-	if (!j)
-		return;
+        /* m->n_running_jobs must be consistent with the contents of m->jobs,
+         * so the above loop must have succeeded in finding j. */
+        assert(counter == print_nr + 1);
 
         cylon_pos = m->jobs_in_progress_iteration % 14;
         if (cylon_pos >= 8)
