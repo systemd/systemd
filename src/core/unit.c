@@ -2441,15 +2441,15 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                         return r;
                                 }
 
-                                if (j->state == JOB_RUNNING)
-                                        u->manager->n_running_jobs++;
-
                                 r = job_install_deserialized(j);
                                 if (r < 0) {
                                         hashmap_remove(u->manager->jobs, UINT32_TO_PTR(j->id));
                                         job_free(j);
                                         return r;
                                 }
+
+                                if (j->state == JOB_RUNNING)
+                                        u->manager->n_running_jobs++;
                         } else {
                                 /* legacy */
                                 JobType type = job_type_from_string(v);
