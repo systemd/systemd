@@ -64,7 +64,7 @@ pamlibdir=@pamlibdir@
 pkgconfigdatadir=$(datadir)/pkgconfig
 pkgconfiglibdir=$(libdir)/pkgconfig
 polkitpolicydir=$(datadir)/polkit-1/actions
-bashcompletiondir=$(sysconfdir)/bash_completion.d
+bashcompletiondir=$(datadir)/bash-completion/completions
 rpmmacrosdir=$(sysconfdir)/rpm
 sysvinitdir=$(SYSTEM_SYSVINIT_PATH)
 sysvrcnddir=$(SYSTEM_SYSVRCND_PATH)
@@ -316,7 +316,10 @@ systemd_analyze_LDADD = \
 	libsystemd-dbus.la
 
 dist_bashcompletion_DATA = \
-	shell-completion/systemd-bash-completion.sh
+	shell-completion/bash/journalctl \
+	shell-completion/bash/systemctl \
+	shell-completion/bash/systemd-coredumpctl \
+	shell-completion/bash/udevadm
 
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
@@ -2972,6 +2975,9 @@ hostnamectl_LDADD = \
 bin_PROGRAMS += \
 	hostnamectl
 
+dist_bashcompletion_DATA += \
+	shell-completion/bash/hostnamectl
+
 endif
 
 polkitpolicy_in_files += \
@@ -3045,6 +3051,9 @@ localectl_LDADD = \
 bin_PROGRAMS += \
 	localectl
 
+dist_bashcompletion_DATA += \
+	shell-completion/bash/localectl
+
 endif
 
 polkitpolicy_in_files += \
@@ -3111,6 +3120,9 @@ timedatectl_LDADD = \
 
 bin_PROGRAMS += \
 	timedatectl
+
+dist_bashcompletion_DATA += \
+	shell-completion/bash/timedatectl
 endif
 
 polkitpolicy_in_files += \
@@ -3232,6 +3244,9 @@ loginctl_LDADD = \
 
 rootbin_PROGRAMS += \
 	loginctl
+
+dist_bashcompletion_DATA += \
+	shell-completion/bash/loginctl
 
 systemd_inhibit_SOURCES = \
 	src/login/inhibit.c
