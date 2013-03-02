@@ -644,7 +644,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
 
                 case JOB_DONE:
                         if (u->condition_result)
-                                unit_status_printf(u, ANSI_HIGHLIGHT_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, format);
+                                unit_status_printf(u, ANSI_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, format);
                         break;
 
                 case JOB_FAILED:
@@ -678,7 +678,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
 
                 case JOB_DONE:
                 case JOB_FAILED:
-                        unit_status_printf(u, ANSI_HIGHLIGHT_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, format);
+                        unit_status_printf(u, ANSI_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, format);
                         break;
 
                 default:
