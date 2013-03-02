@@ -1262,53 +1262,7 @@ static void swap_reset_failed(Unit *u) {
 }
 
 static int swap_kill(Unit *u, KillWho who, int signo, DBusError *error) {
-        Swap *s = SWAP(u);
-        int r = 0;
-        Set *pid_set = NULL;
-
-        assert(s);
-
-        if (who == KILL_MAIN) {
-                dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "Swap units have no main processes");
-                return -ESRCH;
-        }
-
-        if (s->control_pid <= 0 && who == KILL_CONTROL) {
-                dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
-                return -ESRCH;
-        }
-
-        if (who == KILL_CONTROL || who == KILL_ALL)
-                if (s->control_pid > 0)
-                        if (kill(s->control_pid, signo) < 0)
-                                r = -errno;
-
-        if (who == KILL_ALL) {
-                int q;
-
-                pid_set = set_new(trivial_hash_func, trivial_compare_func);
-                if (!pid_set)
-                        return -ENOMEM;
-
-                /* Exclude the control pid from being killed via the cgroup */
-                if (s->control_pid > 0) {
-                        q = set_put(pid_set, LONG_TO_PTR(s->control_pid));
-                        if (q < 0) {
-                                r = q;
-                                goto finish;
-                        }
-                }
-
-                q = cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, signo, false, false, pid_set, NULL);
-                if (q < 0 && q != -EAGAIN && q != -ESRCH && q != -ENOENT)
-                        r = q;
-        }
-
-finish:
-        if (pid_set)
-                set_free(pid_set);
-
-        return r;
+        return unit_kill_common(u, who, signo, -1, SWAP(u)->control_pid, error);
 }
 
 static const char* const swap_state_table[_SWAP_STATE_MAX] = {

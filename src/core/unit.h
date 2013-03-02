@@ -486,6 +486,7 @@ int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
 int unit_kill(Unit *u, KillWho w, int signo, DBusError *error);
+int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t control_pid, DBusError *error);
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success);
 

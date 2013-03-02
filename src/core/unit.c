@@ -48,6 +48,7 @@
 #include "mkdir.h"
 #include "label.h"
 #include "fileio-label.h"
+#include "bus-errors.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -2642,6 +2643,64 @@ int unit_kill(Unit *u, KillWho w, int signo, DBusError *error) {
                 return -ENOTSUP;
 
         return UNIT_VTABLE(u)->kill(u, w, signo, error);
+}
+
+int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t control_pid, DBusError *error) {
+        int r = 0;
+
+        if (who == KILL_MAIN && main_pid <= 0) {
+                if (main_pid < 0)
+                        dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no main processes", unit_type_to_string(u->type));
+                else
+                        dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
+                return -ESRCH;
+        }
+
+        if (who == KILL_CONTROL && control_pid <= 0) {
+                if (control_pid < 0)
+                        dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no control processes", unit_type_to_string(u->type));
+                else
+                        dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
+                return -ESRCH;
+        }
+
+        if (who == KILL_CONTROL || who == KILL_ALL)
+                if (control_pid > 0)
+                        if (kill(control_pid, signo) < 0)
+                                r = -errno;
+
+        if (who == KILL_MAIN || who == KILL_ALL)
+                if (main_pid > 0)
+                        if (kill(main_pid, signo) < 0)
+                                r = -errno;
+
+        if (who == KILL_ALL) {
+                _cleanup_set_free_ Set *pid_set = NULL;
+                int q;
+
+                pid_set = set_new(trivial_hash_func, trivial_compare_func);
+                if (!pid_set)
+                        return -ENOMEM;
+
+                /* Exclude the control/main pid from being killed via the cgroup */
+                if (control_pid > 0) {
+                        q = set_put(pid_set, LONG_TO_PTR(control_pid));
+                        if (q < 0)
+                                return q;
+                }
+
+                if (main_pid > 0) {
+                        q = set_put(pid_set, LONG_TO_PTR(main_pid));
+                        if (q < 0)
+                                return q;
+                }
+
+                q = cgroup_bonding_kill_list(u->cgroup_bondings, signo, false, false, pid_set, NULL);
+                if (q < 0 && q != -EAGAIN && q != -ESRCH && q != -ENOENT)
+                        r = q;
+        }
+
+        return r;
 }
 
 int unit_following_set(Unit *u, Set **s) {
