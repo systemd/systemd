@@ -1100,7 +1100,8 @@ static int fsck_fix_order(Service *s) {
                 else
                         continue;
 
-                if ((r = unit_add_dependency(UNIT(s), d, UNIT(t), true)) < 0)
+                r = unit_add_dependency(UNIT(s), d, UNIT(t), true);
+                if (r < 0)
                         return r;
         }
 
@@ -1155,18 +1156,22 @@ static int service_add_default_dependencies(Service *s) {
 
         /* First, pull in base system */
         if (UNIT(s)->manager->running_as == SYSTEMD_SYSTEM) {
-
-                if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
+                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES,
+                                                      SPECIAL_BASIC_TARGET, NULL, true);
+                if (r < 0)
                         return r;
 
         } else if (UNIT(s)->manager->running_as == SYSTEMD_USER) {
-
-                if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SOCKETS_TARGET, NULL, true)) < 0)
+                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES,
+                                                      SPECIAL_SOCKETS_TARGET, NULL, true);
+                if (r < 0)
                         return r;
         }
 
         /* Second, activate normal shutdown */
-        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
+        r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS,
+                                              SPECIAL_SHUTDOWN_TARGET, NULL, true);
+        return r;
 }
 
 static void service_fix_output(Service *s) {
@@ -1224,18 +1229,22 @@ static int service_load(Unit *u) {
 
                 service_fix_output(s);
 
-                if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
+                r = unit_add_exec_dependencies(u, &s->exec_context);
+                if (r < 0)
                         return r;
 
-                if ((r = unit_add_default_cgroups(u)) < 0)
+                r = unit_add_default_cgroups(u);
+                if (r < 0)
                         return r;
 
 #ifdef HAVE_SYSV_COMPAT
-                if ((r = sysv_fix_order(s)) < 0)
+                r = sysv_fix_order(s);
+                if (r < 0)
                         return r;
 #endif
 
-                if ((r = fsck_fix_order(s)) < 0)
+                r = fsck_fix_order(s);
+                if (r < 0)
                         return r;
 
                 if (s->bus_name)
@@ -1248,13 +1257,18 @@ static int service_load(Unit *u) {
                 if (s->watchdog_usec > 0 && s->notify_access == NOTIFY_NONE)
                         s->notify_access = NOTIFY_MAIN;
 
-                if (s->type == SERVICE_DBUS || s->bus_name)
-                        if ((r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, NULL, true)) < 0)
+                if (s->type == SERVICE_DBUS || s->bus_name) {
+                        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES,
+                                                              SPECIAL_DBUS_SOCKET, NULL, true);
+                        if (r < 0)
                                 return r;
+                }
 
-                if (UNIT(s)->default_dependencies)
-                        if ((r = service_add_default_dependencies(s)) < 0)
+                if (UNIT(s)->default_dependencies) {
+                        r = service_add_default_dependencies(s);
+                        if (r < 0)
                                 return r;
+                }
 
                 r = unit_exec_context_defaults(u, &s->exec_context);
                 if (r < 0)
@@ -1269,7 +1283,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         ServiceExecCommand c;
         Service *s = SERVICE(u);
         const char *prefix2;
-        char *p2;
+        char _cleanup_free_ *p2 = NULL;
 
         assert(s);
 
@@ -1364,12 +1378,10 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         if (s->status_text)
                 fprintf(f, "%sStatus Text: %s\n",
                         prefix, s->status_text);
-
-        free(p2);
 }
 
 static int service_load_pid_file(Service *s, bool may_warn) {
-        char *k;
+        char _cleanup_free_ *k = NULL;
         int r;
         pid_t pid;
 
@@ -1378,7 +1390,8 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (!s->pid_file)
                 return -ENOENT;
 
-        if ((r = read_one_line_file(s->pid_file, &k)) < 0) {
+        r = read_one_line_file(s->pid_file, &k);
+        if (r < 0) {
                 if (may_warn)
                         log_info_unit(UNIT(s)->id,
                                       "PID file %s not readable (yet?) after %s.",
@@ -1387,8 +1400,6 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         }
 
         r = parse_pid(k, &pid);
-        free(k);
-
         if (r < 0)
                 return r;
 
@@ -1413,10 +1424,12 @@ static int service_load_pid_file(Service *s, bool may_warn) {
                 log_debug_unit(UNIT(s)->id,
                                "Main PID loaded: %lu", (unsigned long) pid);
 
-        if ((r = service_set_main_pid(s, pid)) < 0)
+        r = service_set_main_pid(s, pid);
+        if (r < 0)
                 return r;
 
-        if ((r = unit_watch_pid(UNIT(s), pid)) < 0)
+        r = unit_watch_pid(UNIT(s), pid);
+        if (r < 0)
                 /* FIXME: we need to do something here */
                 return r;
 
@@ -1439,15 +1452,18 @@ static int service_search_main_pid(Service *s) {
 
         assert(s->main_pid <= 0);
 
-        if ((pid = cgroup_bonding_search_main_pid_list(UNIT(s)->cgroup_bondings)) <= 0)
+        pid = cgroup_bonding_search_main_pid_list(UNIT(s)->cgroup_bondings);
+        if (pid <= 0)
                 return -ENOENT;
 
         log_debug_unit(UNIT(s)->id,
                        "Main PID guessed: %lu", (unsigned long) pid);
-        if ((r = service_set_main_pid(s, pid)) < 0)
+        r = service_set_main_pid(s, pid);
+        if (r < 0)
                 return r;
 
-        if ((r = unit_watch_pid(UNIT(s), pid)) < 0)
+        r = unit_watch_pid(UNIT(s), pid);
+        if (r < 0)
                 /* FIXME: we need to do something here */
                 return r;
 
@@ -1612,9 +1628,11 @@ static int service_coldplug(Unit *u) {
                     s->deserialized_state == SERVICE_STOP ||
                     s->deserialized_state == SERVICE_STOP_SIGTERM ||
                     s->deserialized_state == SERVICE_STOP_SIGKILL)
-                        if (s->main_pid > 0)
-                                if ((r = unit_watch_pid(UNIT(s), s->main_pid)) < 0)
+                        if (s->main_pid > 0) {
+                                r = unit_watch_pid(UNIT(s), s->main_pid);
+                                if (r < 0)
                                         return r;
+                        }
 
                 if (s->deserialized_state == SERVICE_START_PRE ||
                     s->deserialized_state == SERVICE_START ||
@@ -1626,9 +1644,11 @@ static int service_coldplug(Unit *u) {
                     s->deserialized_state == SERVICE_STOP_POST ||
                     s->deserialized_state == SERVICE_FINAL_SIGTERM ||
                     s->deserialized_state == SERVICE_FINAL_SIGKILL)
-                        if (s->control_pid > 0)
-                                if ((r = unit_watch_pid(UNIT(s), s->control_pid)) < 0)
+                        if (s->control_pid > 0) {
+                                r = unit_watch_pid(UNIT(s), s->control_pid);
+                                if (r < 0)
                                         return r;
+                        }
 
                 if (s->deserialized_state == SERVICE_START_POST ||
                     s->deserialized_state == SERVICE_RUNNING)
@@ -1663,7 +1683,8 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
 
                 sock = SOCKET(u);
 
-                if ((r = socket_collect_fds(sock, &cfds, &cn_fds)) < 0)
+                r = socket_collect_fds(sock, &cfds, &cn_fds);
+                if (r < 0)
                         goto fail;
 
                 if (!cfds)
@@ -1675,7 +1696,8 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
                 } else {
                         int *t;
 
-                        if (!(t = new(int, rn_fds+cn_fds))) {
+                        t = new(int, rn_fds+cn_fds);
+                        if (!t) {
                                 free(cfds);
                                 r = -ENOMEM;
                                 goto fail;
@@ -1716,9 +1738,11 @@ static int service_spawn(
 
         pid_t pid;
         int r;
-        int *fds = NULL, *fdsbuf = NULL;
+        int *fds = NULL;
+        int _cleanup_free_ *fdsbuf = NULL;
         unsigned n_fds = 0, n_env = 0;
-        char **argv = NULL, **final_env = NULL, **our_env = NULL;
+        char _cleanup_strv_free_
+                **argv = NULL, **final_env = NULL, **our_env = NULL;
 
         assert(s);
         assert(c);
@@ -1733,7 +1757,8 @@ static int service_spawn(
                         fds = &s->socket_fd;
                         n_fds = 1;
                 } else {
-                        if ((r = service_collect_fds(s, &fdsbuf, &n_fds)) < 0)
+                        r = service_collect_fds(s, &fdsbuf, &n_fds);
+                        if (r < 0)
                                 goto fail;
 
                         fds = fdsbuf;
@@ -1741,13 +1766,15 @@ static int service_spawn(
         }
 
         if (timeout && s->timeout_start_usec) {
-                r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->timeout_start_usec, &s->timer_watch);
+                r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true,
+                                     s->timeout_start_usec, &s->timer_watch);
                 if (r < 0)
                         goto fail;
         } else
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
-        if (!(argv = unit_full_printf_strv(UNIT(s), c->argv))) {
+        argv = unit_full_printf_strv(UNIT(s), c->argv);
+        if (!argv) {
                 r = -ENOMEM;
                 goto fail;
         }
@@ -1803,29 +1830,19 @@ static int service_spawn(
                        UNIT(s)->id,
                        s->type == SERVICE_IDLE ? UNIT(s)->manager->idle_pipe : NULL,
                        &pid);
-
         if (r < 0)
                 goto fail;
 
-        if ((r = unit_watch_pid(UNIT(s), pid)) < 0)
+        r = unit_watch_pid(UNIT(s), pid);
+        if (r < 0)
                 /* FIXME: we need to do something here */
                 goto fail;
-
-        free(fdsbuf);
-        strv_free(argv);
-        strv_free(our_env);
-        strv_free(final_env);
 
         *_pid = pid;
 
         return 0;
 
 fail:
-        free(fdsbuf);
-        strv_free(argv);
-        strv_free(our_env);
-        strv_free(final_env);
-
         if (timeout)
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
@@ -1868,7 +1885,8 @@ static int cgroup_good(Service *s) {
 
         assert(s);
 
-        if ((r = cgroup_bonding_is_empty_list(UNIT(s)->cgroup_bondings)) < 0)
+        r = cgroup_bonding_is_empty_list(UNIT(s)->cgroup_bondings);
+        if (r < 0)
                 return r;
 
         return !r;
@@ -1925,7 +1943,8 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
 
         service_unwatch_control_pid(s);
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST])) {
+        s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST];
+        if (s->control_command) {
                 s->control_command_id = SERVICE_EXEC_STOP_POST;
 
                 r = service_spawn(s,
@@ -1975,7 +1994,8 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
 
         if (r > 0) {
                 if (s->timeout_stop_usec > 0) {
-                        r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->timeout_stop_usec, &s->timer_watch);
+                        r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true,
+                                             s->timeout_stop_usec, &s->timer_watch);
                         if (r < 0)
                                 goto fail;
                 }
@@ -2008,7 +2028,8 @@ static void service_enter_stop(Service *s, ServiceResult f) {
 
         service_unwatch_control_pid(s);
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP])) {
+        s->control_command = s->exec_command[SERVICE_EXEC_STOP];
+        if (s->control_command) {
                 s->control_command_id = SERVICE_EXEC_STOP;
 
                 r = service_spawn(s,
@@ -2064,7 +2085,8 @@ static void service_enter_start_post(Service *s) {
         if (s->watchdog_usec > 0)
                 service_reset_watchdog(s);
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST])) {
+        s->control_command = s->exec_command[SERVICE_EXEC_START_POST];
+        if (s->control_command) {
                 s->control_command_id = SERVICE_EXEC_START_POST;
 
                 r = service_spawn(s,
@@ -2126,7 +2148,8 @@ static void service_enter_start(Service *s) {
 
         r = service_spawn(s,
                           c,
-                          s->type == SERVICE_FORKING || s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY || s->type == SERVICE_ONESHOT,
+                          s->type == SERVICE_FORKING || s->type == SERVICE_DBUS ||
+                            s->type == SERVICE_NOTIFY || s->type == SERVICE_ONESHOT,
                           true,
                           true,
                           true,
@@ -2183,11 +2206,13 @@ static void service_enter_start_pre(Service *s) {
 
         service_unwatch_control_pid(s);
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_START_PRE])) {
+        s->control_command = s->exec_command[SERVICE_EXEC_START_PRE];
+        if (s->control_command) {
 
                 /* Before we start anything, let's clear up what might
                  * be left from previous runs. */
-                cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, true, NULL, "control");
+                cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL,
+                                         true,true, NULL, "control");
 
                 s->control_command_id = SERVICE_EXEC_START_PRE;
 
@@ -2267,7 +2292,8 @@ static void service_enter_reload(Service *s) {
 
         service_unwatch_control_pid(s);
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_RELOAD])) {
+        s->control_command = s->exec_command[SERVICE_EXEC_RELOAD];
+        if (s->control_command) {
                 s->control_command_id = SERVICE_EXEC_RELOAD;
 
                 r = service_spawn(s,
@@ -2401,7 +2427,9 @@ static int service_start_limit_test(Service *s) {
                 log_warning_unit(UNIT(s)->id,
                                  "%s start request repeated too quickly, rebooting.", UNIT(s)->id);
 
-                r = manager_add_job_by_name(UNIT(s)->manager, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE, true, &error, NULL);
+                r = manager_add_job_by_name(UNIT(s)->manager, JOB_START,
+                                            SPECIAL_REBOOT_TARGET, JOB_REPLACE,
+                                            true, &error, NULL);
                 if (r < 0) {
                         log_error_unit(UNIT(s)->id,
                                        "Failed to reboot: %s.", bus_error(&error, r));
@@ -2555,7 +2583,8 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         unit_serialize_item(u, f, "reload-result", service_result_to_string(s->reload_result));
 
         if (s->control_pid > 0)
-                unit_serialize_item_format(u, f, "control-pid", "%lu", (unsigned long) s->control_pid);
+                unit_serialize_item_format(u, f, "control-pid", "%lu",
+                                           (unsigned long) s->control_pid);
 
         if (s->main_pid_known && s->main_pid > 0)
                 unit_serialize_item_format(u, f, "main-pid", "%lu", (unsigned long) s->main_pid);
@@ -2569,7 +2598,8 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
          * multiple commands attached here, we will start from the
          * first one again */
         if (s->control_command_id >= 0)
-                unit_serialize_item(u, f, "control-command", service_exec_command_to_string(s->control_command_id));
+                unit_serialize_item(u, f, "control-command",
+                                    service_exec_command_to_string(s->control_command_id));
 
         if (s->socket_fd >= 0) {
                 int copy;
@@ -2581,17 +2611,23 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         }
 
         if (s->main_exec_status.pid > 0) {
-                unit_serialize_item_format(u, f, "main-exec-status-pid", "%lu", (unsigned long) s->main_exec_status.pid);
-                dual_timestamp_serialize(f, "main-exec-status-start", &s->main_exec_status.start_timestamp);
-                dual_timestamp_serialize(f, "main-exec-status-exit", &s->main_exec_status.exit_timestamp);
+                unit_serialize_item_format(u, f, "main-exec-status-pid", "%lu",
+                                           (unsigned long) s->main_exec_status.pid);
+                dual_timestamp_serialize(f, "main-exec-status-start",
+                                         &s->main_exec_status.start_timestamp);
+                dual_timestamp_serialize(f, "main-exec-status-exit",
+                                         &s->main_exec_status.exit_timestamp);
 
                 if (dual_timestamp_is_set(&s->main_exec_status.exit_timestamp)) {
-                        unit_serialize_item_format(u, f, "main-exec-status-code", "%i", s->main_exec_status.code);
-                        unit_serialize_item_format(u, f, "main-exec-status-status", "%i", s->main_exec_status.status);
+                        unit_serialize_item_format(u, f, "main-exec-status-code", "%i",
+                                                   s->main_exec_status.code);
+                        unit_serialize_item_format(u, f, "main-exec-status-status", "%i",
+                                                   s->main_exec_status.status);
                 }
         }
         if (dual_timestamp_is_set(&s->watchdog_timestamp))
-                dual_timestamp_serialize(f, "watchdog-timestamp", &s->watchdog_timestamp);
+                dual_timestamp_serialize(f, "watchdog-timestamp",
+                                         &s->watchdog_timestamp);
 
         return 0;
 }
@@ -2607,7 +2643,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         if (streq(key, "state")) {
                 ServiceState state;
 
-                if ((state = service_state_from_string(value)) < 0)
+                state = service_state_from_string(value);
+                if (state < 0)
                         log_debug_unit(u->id, "Failed to parse state value %s", value);
                 else
                         s->deserialized_state = state;
@@ -2646,14 +2683,18 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "main-pid-known")) {
                 int b;
 
-                if ((b = parse_boolean(value)) < 0)
+                b = parse_boolean(value);
+                if (b < 0)
                         log_debug_unit(u->id, "Failed to parse main-pid-known value %s", value);
                 else
                         s->main_pid_known = b;
         } else if (streq(key, "status-text")) {
                 char *t;
 
-                if ((t = strdup(value))) {
+                t = strdup(value);
+                if (!t)
+                        log_oom();
+                else {
                         free(s->status_text);
                         s->status_text = t;
                 }
@@ -2661,7 +2702,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "control-command")) {
                 ServiceExecCommand id;
 
-                if ((id = service_exec_command_from_string(value)) < 0)
+                id = service_exec_command_from_string(value);
+                if (id < 0)
                         log_debug_unit(u->id, "Failed to parse exec-command value %s", value);
                 else {
                         s->control_command_id = id;
@@ -2973,7 +3015,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 s->control_pid = 0;
 
                 if (s->control_command) {
-                        exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
+                        exec_status_exit(&s->control_command->exec_status,
+                                         &s->exec_context, pid, code, status);
 
                         if (s->control_command->ignore)
                                 f = SERVICE_SUCCESS;
@@ -2989,7 +3032,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 /* Immediately get rid of the cgroup, so that the
                  * kernel doesn't delay the cgroup empty messages for
                  * the service cgroup any longer than necessary */
-                cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, true, NULL, "control");
+                cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL,
+                                         true, true, NULL, "control");
 
                 if (s->control_command &&
                     s->control_command->command_next &&
@@ -3371,9 +3415,10 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
 static int service_enumerate(Manager *m) {
         char **p;
         unsigned i;
-        DIR *d = NULL;
-        char *path = NULL, *fpath = NULL, *name = NULL;
-        Set *runlevel_services[ELEMENTSOF(rcnd_table)], *shutdown_services = NULL;
+        DIR _cleanup_closedir_ *d = NULL;
+        char _cleanup_free_ *path = NULL, *fpath = NULL, *name = NULL;
+        Set *runlevel_services[ELEMENTSOF(rcnd_table)];
+        Set _cleanup_set_free_ *shutdown_services = NULL;
         Unit *service;
         Iterator j;
         int r;
@@ -3399,9 +3444,10 @@ static int service_enumerate(Manager *m) {
                         if (d)
                                 closedir(d);
 
-                        if (!(d = opendir(path))) {
+                        d = opendir(path);
+                        if (!d) {
                                 if (errno != ENOENT)
-                                        log_warning("opendir() failed on %s: %s", path, strerror(errno));
+                                        log_warning("opendir(%s) failed: %s", path, strerror(errno));
 
                                 continue;
                         }
@@ -3440,8 +3486,9 @@ static int service_enumerate(Manager *m) {
                                 }
 
                                 free(name);
-                                if (!(name = sysv_translate_name(de->d_name + 3))) {
-                                        r = -ENOMEM;
+                                name = sysv_translate_name(de->d_name + 3);
+                                if (!name) {
+                                        r = log_oom();
                                         goto finish;
                                 }
 
@@ -3460,19 +3507,25 @@ static int service_enumerate(Manager *m) {
                                                 SERVICE(service)->sysv_enabled = true;
                                         }
 
-                                        if ((r = set_ensure_allocated(&runlevel_services[i], trivial_hash_func, trivial_compare_func)) < 0)
+                                        r = set_ensure_allocated(&runlevel_services[i],
+                                                                 trivial_hash_func, trivial_compare_func);
+                                        if (r < 0)
                                                 goto finish;
 
-                                        if ((r = set_put(runlevel_services[i], service)) < 0)
+                                        r = set_put(runlevel_services[i], service);
+                                        if (r < 0)
                                                 goto finish;
 
                                 } else if (de->d_name[0] == 'K' &&
                                            (rcnd_table[i].type == RUNLEVEL_DOWN)) {
 
-                                        if ((r = set_ensure_allocated(&shutdown_services, trivial_hash_func, trivial_compare_func)) < 0)
+                                        r = set_ensure_allocated(&shutdown_services,
+                                                                 trivial_hash_func, trivial_compare_func);
+                                        if (r < 0)
                                                 goto finish;
 
-                                        if ((r = set_put(shutdown_services, service)) < 0)
+                                        r = set_put(shutdown_services, service);
+                                        if (r < 0)
                                                 goto finish;
                                 }
                         }
@@ -3493,7 +3546,10 @@ static int service_enumerate(Manager *m) {
                         if (service->fragment_path)
                                 continue;
 
-                        if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_WANTS, rcnd_table[i].target, NULL, true)) < 0)
+                        r = unit_add_two_dependencies_by_name_inverse(
+                                service, UNIT_AFTER, UNIT_WANTS,
+                                rcnd_table[i].target, NULL, true);
+                        if (r < 0)
                                 goto finish;
                 }
 
@@ -3508,23 +3564,19 @@ static int service_enumerate(Manager *m) {
                 if (service->fragment_path)
                         continue;
 
-                if ((r = unit_add_two_dependencies_by_name(service, UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
+                r = unit_add_two_dependencies_by_name(
+                        service, UNIT_BEFORE, UNIT_CONFLICTS,
+                        SPECIAL_SHUTDOWN_TARGET, NULL, true);
+                if (r < 0)
                         goto finish;
         }
 
         r = 0;
 
 finish:
-        free(path);
-        free(fpath);
-        free(name);
 
         for (i = 0; i < ELEMENTSOF(rcnd_table); i++)
                 set_free(runlevel_services[i]);
-        set_free(shutdown_services);
-
-        if (d)
-                closedir(d);
 
         return r;
 }
