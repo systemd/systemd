@@ -1674,6 +1674,8 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                            NULL);
 
                 /* Restart the watch */
+                epoll_ctl(m->epoll_fd, EPOLL_CTL_DEL, m->time_change_watch.fd,
+                          NULL);
                 close_nointr_nofail(m->time_change_watch.fd);
                 watch_init(&m->time_change_watch);
                 manager_setup_time_change(m);
