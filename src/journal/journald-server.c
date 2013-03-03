@@ -1310,6 +1310,12 @@ int server_init(Server *s) {
 
         server_parse_config_file(s);
         server_parse_proc_cmdline(s);
+        if (!!s->rate_limit_interval ^ !!s->rate_limit_burst) {
+                log_debug("Setting both rate limit interval and burst from %llu,%u to 0,0",
+                          (long long unsigned) s->rate_limit_interval,
+                          s->rate_limit_burst);
+                s->rate_limit_interval = s->rate_limit_burst = 0;
+        }
 
         mkdir_p("/run/systemd/journal", 0755);
 
@@ -1396,7 +1402,8 @@ int server_init(Server *s) {
         if (!s->udev)
                 return -ENOMEM;
 
-        s->rate_limit = journal_rate_limit_new(s->rate_limit_interval, s->rate_limit_burst);
+        s->rate_limit = journal_rate_limit_new(s->rate_limit_interval,
+                                               s->rate_limit_burst);
         if (!s->rate_limit)
                 return -ENOMEM;
 
