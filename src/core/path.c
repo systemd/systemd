@@ -53,8 +53,8 @@ int path_spec_watch(PathSpec *s, Unit *u) {
         };
 
         bool exists = false;
-        char _cleanup_free_ *k = NULL;
-        char *slash;
+        char _cleanup_free_ *path = NULL;
+        char *slash, *oldslash = NULL;
         int r;
 
         assert(u);
@@ -62,8 +62,8 @@ int path_spec_watch(PathSpec *s, Unit *u) {
 
         path_spec_unwatch(s, u);
 
-        k = strdup(s->path);
-        if (!k)
+        path = strdup(s->path);
+        if (!path)
                 return -ENOMEM;
 
         s->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
@@ -76,43 +76,61 @@ int path_spec_watch(PathSpec *s, Unit *u) {
         if (r < 0)
                 goto fail;
 
-        s->primary_wd = inotify_add_watch(s->inotify_fd, k, flags_table[s->type]);
-        if (s->primary_wd >= 0)
-                exists = true;
-        else if (errno != EACCES && errno != ENOENT) {
-                log_error("Failed to add watch on %s: %m", k);
-                r = -errno;
-                goto fail;
-        }
+        /* This assumes the path was passed through path_kill_slashes()! */
 
-        do {
+        for(slash = strchr(path, '/'); ; slash = strchr(slash+1, '/')) {
                 int flags;
+                char tmp;
 
-                /* This assumes the path was passed through path_kill_slashes()! */
-                slash = strrchr(k, '/');
-                if (!slash)
-                        break;
+                if (slash) {
+                        tmp = slash[slash == path];
+                        slash[slash == path] = '\0';
+                        flags = IN_MOVE_SELF | IN_DELETE_SELF | IN_ATTRIB | IN_CREATE | IN_MOVED_TO;
+                } else {
+                        flags = flags_table[s->type];
+                }
 
-                /* Trim the path at the last slash. Keep the slash if it's the root dir. */
-                slash[slash == k] = 0;
+                r = inotify_add_watch(s->inotify_fd, path, flags);
+                if (r < 0) {
+                        if (errno == EACCES || errno == ENOENT)
+                                break;
 
-                flags = IN_MOVE_SELF;
-                if (!exists)
-                        flags |= IN_DELETE_SELF | IN_ATTRIB | IN_CREATE | IN_MOVED_TO;
-
-                if (inotify_add_watch(s->inotify_fd, k, flags) >= 0)
-                        exists = true;
-                else if (errno != EACCES && errno != ENOENT) {
-                        log_error("Failed to add watch on %s: %m", k);
+                        log_warning("Failed to add watch on %s: %m", path);
                         r = -errno;
                         goto fail;
+                } else {
+                        exists = true;
+
+                        /* Path exists, we don't need to watch parent
+                           too closely. */
+                        if (oldslash) {
+                                char tmp2 = oldslash[oldslash == path];
+                                oldslash[oldslash == path] = '\0';
+
+                                inotify_add_watch(s->inotify_fd, path, IN_MOVE_SELF);
+                                /* Error is ignored, the worst can happen is
+                                   we get spurious events. */
+
+                                oldslash[oldslash == path] = tmp2;
+                        }
                 }
-        } while (slash != k);
+
+                if (slash) {
+                        slash[slash == path] = tmp;
+                        oldslash = slash;
+                } else {
+                        /* whole path has been iterated over */
+                        s->primary_wd = r;
+                        break;
+                }
+        }
+
+        assert(errno == EACCES || errno == ENOENT || streq(path, s->path));
 
         if (!exists) {
                 log_error("Failed to add watch on any of the components of %s: %m",
                           s->path);
-                r = -errno;
+                r = -errno; /* either EACCESS or ENOENT */
                 goto fail;
         }
 

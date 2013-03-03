@@ -1400,8 +1400,13 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         }
 
         r = parse_pid(k, &pid);
-        if (r < 0)
+        if (r < 0) {
+                if (may_warn)
+                        log_info_unit(UNIT(s)->id,
+                                      "Failed to read PID from file %s: %s",
+                                      s->pid_file, strerror(-r));
                 return r;
+        }
 
         if (kill(pid, 0) < 0 && errno != EPERM) {
                 if (may_warn)
@@ -1429,9 +1434,13 @@ static int service_load_pid_file(Service *s, bool may_warn) {
                 return r;
 
         r = unit_watch_pid(UNIT(s), pid);
-        if (r < 0)
+        if (r < 0) {
                 /* FIXME: we need to do something here */
+                log_warning_unit(UNIT(s)->id,
+                                 "Failed to watch PID %lu from service %s",
+                                 (unsigned long) pid, UNIT(s)->id);
                 return r;
+        }
 
         return 0;
 }
@@ -2824,6 +2833,9 @@ static int service_watch_pid_file(Service *s) {
                 goto fail;
 
         /* the pidfile might have appeared just before we set the watch */
+        log_debug_unit(UNIT(s)->id,
+                       "Trying to read %s's PID file %s in case it changed",
+                       UNIT(s)->id, s->pid_file_pathspec->path);
         service_retry_pid_file(s);
 
         return 0;
