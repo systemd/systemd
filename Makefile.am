@@ -64,7 +64,7 @@ pamlibdir=@pamlibdir@
 pkgconfigdatadir=$(datadir)/pkgconfig
 pkgconfiglibdir=$(libdir)/pkgconfig
 polkitpolicydir=$(datadir)/polkit-1/actions
-bashcompletiondir=$(datadir)/bash-completion/completions
+bashcompletiondir=@bashcompletiondir@
 rpmmacrosdir=$(sysconfdir)/rpm
 sysvinitdir=$(SYSTEM_SYSVINIT_PATH)
 sysvrcnddir=$(SYSTEM_SYSVRCND_PATH)
@@ -3797,6 +3797,7 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbussessionservicedir=$$dc_install_base/$(dbussessionservicedir) \
 	--with-dbussystemservicedir=$$dc_install_base/$(dbussystemservicedir) \
 	--with-dbusinterfacedir=$$dc_install_base/$(dbusinterfacedir) \
+	--with-bashcompletiondir=$$dc_install_base/$(bashcompletiondir) \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
 	--with-rootprefix=$$dc_install_base \
 	--disable-split-usr

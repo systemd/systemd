@@ -813,6 +813,15 @@ AC_ARG_WITH([dbusinterfacedir],
         [],
         [with_dbusinterfacedir=`$PKG_CONFIG --variable=session_bus_services_dir dbus-1`/../interfaces])
 
+AC_ARG_WITH([bashcompletiondir],
+        AS_HELP_STRING([--with-bashcompletiondir=DIR], [Bash completions directory]),
+        [],
+        [AS_IF([`$PKG_CONFIG --exists bash-completion`], [
+                with_bashcompletiondir=`$PKG_CONFIG --variable=completionsdir bash-completion`
+        ] , [
+                with_bashcompletiondir=${datadir}/bash-completion/completions
+        ])])
+
 AC_ARG_WITH([rootprefix],
         AS_HELP_STRING([--with-rootprefix=DIR], [rootfs directory prefix for config files and kernel modules]),
         [], [with_rootprefix=${ac_default_prefix}])
@@ -851,6 +860,7 @@ AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
 AC_SUBST([dbusinterfacedir], [$with_dbusinterfacedir])
+AC_SUBST([bashcompletiondir], [$with_bashcompletiondir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
 AC_SUBST([rootprefix], [$with_rootprefix])
 AC_SUBST([rootlibdir], [$with_rootlibdir])
@@ -924,6 +934,7 @@ AC_MSG_RESULT([
         D-Bus session dir:       ${with_dbussessionservicedir}
         D-Bus system dir:        ${with_dbussystemservicedir}
         D-Bus interfaces dir:    ${with_dbusinterfacedir}
+        Bash completions dir:    ${with_bashcompletiondir}
         Extra start script:      ${RC_LOCAL_SCRIPT_PATH_START}
         Extra stop script:       ${RC_LOCAL_SCRIPT_PATH_STOP}
 
