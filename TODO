@@ -421,7 +421,7 @@ Features:
 * ConditionSecurity= should learn about IMA and SMACK
 
 * udev:
-  - remove all (misguided from day 1) userspace firmware_class handling
+  - remove src/udev/udev-builtin-firmware.c (CONFIG_FW_LOADER_USER_HELPER=n)
   - move to LGPL
   - unify utf8 validator code with shared/
   - kill scsi_id

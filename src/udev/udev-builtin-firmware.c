@@ -78,8 +78,6 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
 {
         struct udev *udev = udev_device_get_udev(dev);
         static const char *searchpath[] = { FIRMWARE_PATH };
-        char fwencpath[UTIL_PATH_SIZE];
-        char misspath[UTIL_PATH_SIZE];
         char loadpath[UTIL_PATH_SIZE];
         char datapath[UTIL_PATH_SIZE];
         char fwpath[UTIL_PATH_SIZE];
@@ -111,23 +109,10 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
                         break;
         }
 
-        util_path_encode(firmware, fwencpath, sizeof(fwencpath));
-        strscpyl(misspath, sizeof(misspath), "/run/udev/firmware-missing/", fwencpath, NULL);
         strscpyl(loadpath, sizeof(loadpath), udev_device_get_syspath(dev), "/loading", NULL);
 
         if (fwfile == NULL) {
-                int err;
-
-                /* This link indicates the missing firmware file and the associated device */
                 log_debug("did not find firmware file '%s'\n", firmware);
-                do {
-                        err = mkdir_parents(misspath, 0755);
-                        if (err != 0 && err != -ENOENT)
-                                break;
-                        err = symlink(udev_device_get_devpath(dev), misspath);
-                        if (err != 0)
-                                err = -errno;
-                } while (err == -ENOENT);
                 rc = EXIT_FAILURE;
                 /*
                  * Do not cancel the request in the initrd, the real root might have
@@ -145,9 +130,6 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
                 rc = EXIT_FAILURE;
                 goto exit;
         }
-
-        if (unlink(misspath) == 0)
-                util_delete_path(udev, misspath);
 
         if (!set_loading(udev, loadpath, "1"))
                 goto exit;

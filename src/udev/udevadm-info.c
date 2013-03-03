@@ -256,12 +256,6 @@ static void cleanup_db(struct udev *udev)
                 cleanup_dir(dir, 0, 1);
                 closedir(dir);
         }
-
-        dir = opendir("/run/udev/firmware-missing");
-        if (dir != NULL) {
-                cleanup_dir(dir, 0, 1);
-                closedir(dir);
-        }
 }
 
 static struct udev_device *find_device(struct udev *udev, const char *id, const char *prefix)
