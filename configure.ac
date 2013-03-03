@@ -796,22 +796,22 @@ AC_ARG_WITH([tty-gid],
 AC_ARG_WITH([dbuspolicydir],
         AS_HELP_STRING([--with-dbuspolicydir=DIR], [D-Bus policy directory]),
         [],
-        [with_dbuspolicydir=`pkg-config --variable=sysconfdir dbus-1`/dbus-1/system.d])
+        [with_dbuspolicydir=`$PKG_CONFIG --variable=sysconfdir dbus-1`/dbus-1/system.d])
 
 AC_ARG_WITH([dbussessionservicedir],
         AS_HELP_STRING([--with-dbussessionservicedir=DIR], [D-Bus session service directory]),
         [],
-        [with_dbussessionservicedir=`pkg-config --variable=session_bus_services_dir dbus-1`])
+        [with_dbussessionservicedir=`$PKG_CONFIG --variable=session_bus_services_dir dbus-1`])
 
 AC_ARG_WITH([dbussystemservicedir],
         AS_HELP_STRING([--with-dbussystemservicedir=DIR], [D-Bus system service directory]),
         [],
-        [with_dbussystemservicedir=`pkg-config --variable=session_bus_services_dir dbus-1`/../system-services])
+        [with_dbussystemservicedir=`$PKG_CONFIG --variable=session_bus_services_dir dbus-1`/../system-services])
 
 AC_ARG_WITH([dbusinterfacedir],
         AS_HELP_STRING([--with-dbusinterfacedir=DIR], [D-Bus interface directory]),
         [],
-        [with_dbusinterfacedir=`pkg-config --variable=session_bus_services_dir dbus-1`/../interfaces])
+        [with_dbusinterfacedir=`$PKG_CONFIG --variable=session_bus_services_dir dbus-1`/../interfaces])
 
 AC_ARG_WITH([rootprefix],
         AS_HELP_STRING([--with-rootprefix=DIR], [rootfs directory prefix for config files and kernel modules]),
