@@ -79,6 +79,11 @@ int path_spec_watch(PathSpec *s, Unit *u) {
         s->primary_wd = inotify_add_watch(s->inotify_fd, k, flags_table[s->type]);
         if (s->primary_wd >= 0)
                 exists = true;
+        else if (errno != EACCES && errno != ENOENT) {
+                log_error("Failed to add watch on %s: %m", k);
+                r = -errno;
+                goto fail;
+        }
 
         do {
                 int flags;
@@ -97,7 +102,19 @@ int path_spec_watch(PathSpec *s, Unit *u) {
 
                 if (inotify_add_watch(s->inotify_fd, k, flags) >= 0)
                         exists = true;
+                else if (errno != EACCES && errno != ENOENT) {
+                        log_error("Failed to add watch on %s: %m", k);
+                        r = -errno;
+                        goto fail;
+                }
         } while (slash != k);
+
+        if (!exists) {
+                log_error("Failed to add watch on any of the components of %s: %m",
+                          s->path);
+                r = -errno;
+                goto fail;
+        }
 
         return 0;
 

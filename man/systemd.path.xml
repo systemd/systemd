@@ -88,16 +88,15 @@
                 point in the file system hierarchy, a dependency
                 between both units is created automatically.</para>
 
-                <para>Unless <varname>DefaultDependencies=</varname>
-                is set to <option>false</option>, path units will
-                implicitly have dependencies of type
-                <varname>Conflicts=</varname> and
+                <para>Unless <varname>DefaultDependencies=false</varname>
+                is used, path units will implicitly have dependencies of
+                type <varname>Conflicts=</varname> and
                 <varname>Before=</varname> on
                 <filename>shutdown.target</filename>. These ensure
                 that path units are terminated cleanly prior to system
                 shutdown. Only path units involved with early boot or
-                late system shutdown should disable this
-                option.</para>
+                late system shutdown should disable this option.
+                </para>
         </refsect1>
 
         <refsect1>
@@ -157,7 +156,7 @@
                                 assignments of these options will not
                                 have any effect.</para>
 
-                                <para>If a path is already existing
+                                <para>If a path already exists
                                 (in case of
                                 <varname>PathExists=</varname> and
                                 <varname>PathExistsGlob=</varname>) or
@@ -168,7 +167,15 @@
                                 activated, then the configured unit is
                                 immediately activated as
                                 well. Something similar does not apply
-                                to <varname>PathChanged=</varname>.
+                                to <varname>PathChanged=</varname> and
+                                <varname>PathModified=</varname>.</para>
+
+                                <para>If the path itself or any of the
+                                containing directories are not
+                                accessible, <command>systemd</command>
+                                will watch for permission changes and
+                                notice that conditions are satisfied
+                                when permissions allow that.
                                 </para></listitem>
                         </varlistentry>
                         <varlistentry>
