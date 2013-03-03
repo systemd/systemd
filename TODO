@@ -57,9 +57,6 @@ Features:
 
 * remove any syslog support from log.c -- we probably can't do this before split-off udev is gone for good
 
-* convert /etc/bash_completion.d/ to /usr/share/bash-completion/
-  (systemd (and everything else) should install zero static data in /etc)
-
 * tmpfiles: when traversing the tree, check for bind mount points with nametohandle()
 
 * fedora: connect the timer units of a service to the service via Also= in [Install], and maybe introduce timers.target
