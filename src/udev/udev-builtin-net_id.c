@@ -256,7 +256,7 @@ static int names_pci(struct udev_device *dev, struct netnames *names) {
         if (!parent)
                 return -ENOENT;
         /* check if our direct parent is a PCI device with no other bus in-between */
-        if (streq("pci", udev_device_get_subsystem(parent))) {
+        if (streq_ptr("pci", udev_device_get_subsystem(parent))) {
                 names->type = NET_PCI;
                 names->pcidev = parent;
         } else {
