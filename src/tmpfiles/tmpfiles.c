@@ -134,7 +134,7 @@ static struct Item* find_glob(Hashmap *h, const char *match) {
 }
 
 static void load_unix_sockets(void) {
-        FILE *f = NULL;
+        FILE _cleanup_fclose_ *f = NULL;
         char line[LINE_MAX];
 
         if (unix_sockets)
@@ -194,15 +194,11 @@ static void load_unix_sockets(void) {
                 }
         }
 
-        fclose(f);
         return;
 
 fail:
         set_free_free(unix_sockets);
         unix_sockets = NULL;
-
-        if (f)
-                fclose(f);
 }
 
 static bool unix_socket_alive(const char *fn) {
@@ -231,12 +227,12 @@ static int dir_cleanup(
         struct dirent *dent;
         struct timespec times[2];
         bool deleted = false;
-        char *sub_path = NULL;
         int r = 0;
 
         while ((dent = readdir(d))) {
                 struct stat s;
                 usec_t age;
+                char _cleanup_free_ *sub_path = NULL;
 
                 if (streq(dent->d_name, ".") ||
                     streq(dent->d_name, ".."))
@@ -260,9 +256,6 @@ static int dir_cleanup(
                 if (s.st_uid == 0 && !(s.st_mode & S_IWUSR))
                         continue;
 
-                free(sub_path);
-                sub_path = NULL;
-
                 if (asprintf(&sub_path, "%s/%s", p, dent->d_name) < 0) {
                         r = log_oom();
                         goto finish;
@@ -285,7 +278,7 @@ static int dir_cleanup(
                         if (maxdepth <= 0)
                                 log_warning("Reached max depth on %s.", sub_path);
                         else {
-                                DIR *sub_dir;
+                                DIR _cleanup_closedir_ *sub_dir;
                                 int q;
 
                                 sub_dir = xopendirat(dirfd(d), dent->d_name, O_NOFOLLOW|O_NOATIME);
@@ -299,7 +292,6 @@ static int dir_cleanup(
                                 }
 
                                 q = dir_cleanup(i, sub_path, sub_dir, &s, cutoff, rootdev, false, maxdepth-1, false);
-                                closedir(sub_dir);
 
                                 if (q < 0)
                                         r = q;
@@ -393,8 +385,6 @@ finish:
                         log_error("utimensat(%s): %m", p);
         }
 
-        free(sub_path);
-
         return r;
 }
 
@@ -483,7 +473,7 @@ static int write_one_file(Item *i, const char *path) {
 }
 
 static int recursive_relabel_children(Item *i, const char *path) {
-        DIR *d;
+        DIR _cleanup_closedir_ *d;
         int ret = 0;
 
         /* This returns the first error we run into, but nevertheless
@@ -498,7 +488,7 @@ static int recursive_relabel_children(Item *i, const char *path) {
                 union dirent_storage buf;
                 bool is_dir;
                 int r;
-                char *entry_path;
+                char _cleanup_free_ *entry_path = NULL;
 
                 r = readdir_r(d, &buf.de, &de);
                 if (r != 0) {
@@ -525,7 +515,6 @@ static int recursive_relabel_children(Item *i, const char *path) {
                         if (lstat(entry_path, &st) < 0) {
                                 if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
-                                free(entry_path);
                                 continue;
                         }
 
@@ -538,7 +527,6 @@ static int recursive_relabel_children(Item *i, const char *path) {
                 if (r < 0) {
                         if (ret == 0 && r != -ENOENT)
                                 ret = r;
-                        free(entry_path);
                         continue;
                 }
 
@@ -547,11 +535,7 @@ static int recursive_relabel_children(Item *i, const char *path) {
                         if (r < 0 && ret == 0)
                                 ret = r;
                 }
-
-                free(entry_path);
         }
-
-        closedir(d);
 
         return ret;
 }
@@ -856,7 +840,7 @@ static int remove_item(Item *i) {
 }
 
 static int clean_item_instance(Item *i, const char* instance) {
-        DIR *d;
+        DIR _cleanup_closedir_ *d = NULL;
         struct stat s, ps;
         bool mountpoint;
         int r;
@@ -884,31 +868,24 @@ static int clean_item_instance(Item *i, const char* instance) {
 
         if (fstat(dirfd(d), &s) < 0) {
                 log_error("stat(%s) failed: %m", i->path);
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
         if (!S_ISDIR(s.st_mode)) {
                 log_error("%s is not a directory.", i->path);
-                r = -ENOTDIR;
-                goto finish;
+                return -ENOTDIR;
         }
 
         if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0) {
                 log_error("stat(%s/..) failed: %m", i->path);
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
         mountpoint = s.st_dev != ps.st_dev ||
                      (s.st_dev == ps.st_dev && s.st_ino == ps.st_ino);
 
-        r = dir_cleanup(i, instance, d, &s, cutoff, s.st_dev, mountpoint, MAX_DEPTH, i->keep_first_level);
-
-finish:
-        if (d)
-                closedir(d);
-
+        r = dir_cleanup(i, instance, d, &s, cutoff, s.st_dev, mountpoint,
+                        MAX_DEPTH, i->keep_first_level);
         return r;
 }
 
@@ -1002,7 +979,8 @@ static bool item_equal(Item *a, Item *b) {
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
         Item *i, *existing;
-        char *mode = NULL, *user = NULL, *group = NULL, *age = NULL;
+        char _cleanup_free_
+                *mode = NULL, *user = NULL, *group = NULL, *age = NULL;
         char type;
         Hashmap *h;
         int r, n = -1;
@@ -1015,21 +993,16 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (!i)
                 return log_oom();
 
-        if (sscanf(buffer,
-                   "%c "
-                   "%ms "
-                   "%ms "
-                   "%ms "
-                   "%ms "
-                   "%ms "
-                   "%n",
+        r = sscanf(buffer,
+                   "%c %ms %ms %ms %ms %ms %n",
                    &type,
                    &i->path,
                    &mode,
                    &user,
                    &group,
                    &age,
-                   &n) < 2) {
+                   &n);
+        if (r < 2) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 r = -EIO;
                 goto finish;
@@ -1196,11 +1169,6 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         r = 0;
 
 finish:
-        free(user);
-        free(group);
-        free(mode);
-        free(age);
-
         if (i)
                 item_free(i);
 
