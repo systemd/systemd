@@ -806,12 +806,12 @@ AC_ARG_WITH([dbussessionservicedir],
 AC_ARG_WITH([dbussystemservicedir],
         AS_HELP_STRING([--with-dbussystemservicedir=DIR], [D-Bus system service directory]),
         [],
-        [with_dbussystemservicedir=$($PKG_CONFIG --variable=session_bus_services_dir dbus-1)/../system-services])
+        [with_dbussystemservicedir=$(readlink -f $($PKG_CONFIG --variable=session_bus_services_dir dbus-1)/../system-services)])
 
 AC_ARG_WITH([dbusinterfacedir],
         AS_HELP_STRING([--with-dbusinterfacedir=DIR], [D-Bus interface directory]),
         [],
-        [with_dbusinterfacedir=$($PKG_CONFIG --variable=session_bus_services_dir dbus-1)/../interfaces])
+        [with_dbusinterfacedir=$(readlink -f $($PKG_CONFIG --variable=session_bus_services_dir dbus-1)/../interfaces)])
 
 AC_ARG_WITH([bashcompletiondir],
         AS_HELP_STRING([--with-bashcompletiondir=DIR], [Bash completions directory]),
