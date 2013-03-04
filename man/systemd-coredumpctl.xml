@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-coredumpctl">
+<refentry id="systemd-coredumpctl" conditional='ENABLE_COREDUMP'>
 
         <refentryinfo>
                 <title>systemd-coredumpctl</title>

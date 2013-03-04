@@ -318,7 +318,6 @@ systemd_analyze_LDADD = \
 dist_bashcompletion_DATA = \
 	shell-completion/bash/journalctl \
 	shell-completion/bash/systemctl \
-	shell-completion/bash/systemd-coredumpctl \
 	shell-completion/bash/udevadm
 
 dist_tmpfiles_DATA = \
@@ -2376,13 +2375,6 @@ journalctl_LDADD += \
 	$(QRENCODE_LIBS)
 endif
 
-systemd_coredumpctl_SOURCES = \
-	src/journal/coredumpctl.c
-
-systemd_coredumpctl_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-journal.la
-
 test_journal_SOURCES = \
 	src/journal/test-journal.c
 
@@ -2627,7 +2619,6 @@ rootbin_PROGRAMS += \
 	journalctl
 
 bin_PROGRAMS += \
-	systemd-coredumpctl \
 	systemd-cat
 
 dist_systemunit_DATA += \
@@ -2718,6 +2709,19 @@ endif
 
 rootlibexec_PROGRAMS += \
 	systemd-coredump
+
+systemd_coredumpctl_SOURCES = \
+	src/journal/coredumpctl.c
+
+systemd_coredumpctl_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-journal.la
+
+bin_PROGRAMS += \
+	systemd-coredumpctl
+
+dist_bashcompletion_DATA += \
+	shell-completion/bash/systemd-coredumpctl
 
 sysctl_DATA = \
 	sysctl.d/coredump.conf

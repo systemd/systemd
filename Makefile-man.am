@@ -50,7 +50,6 @@ MANPAGES += \
 	man/systemd-cat.1 \
 	man/systemd-cgls.1 \
 	man/systemd-cgtop.1 \
-	man/systemd-coredumpctl.1 \
 	man/systemd-delta.1 \
 	man/systemd-detect-virt.1 \
 	man/systemd-fsck@.service.8 \
@@ -298,6 +297,14 @@ if ENABLE_BOOTCHART
 MANPAGES += \
 	man/bootchart.conf.5 \
 	man/systemd-bootchart.1
+MANPAGES_ALIAS += \
+	#
+
+endif
+
+if ENABLE_COREDUMP
+MANPAGES += \
+	man/systemd-coredumpctl.1
 MANPAGES_ALIAS += \
 	#
 
