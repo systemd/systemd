@@ -530,18 +530,21 @@ static int parse_new_root_from_proc_cmdline(void) {
                 free(word);
         }
 
-        if (what) {
-
-                log_debug("Found entry what=%s where=/sysroot type=%s", what, type);
-                r = add_mount(what, "/sysroot", type, opts, 0, false, false, false,
-                              false, false, true, "/proc/cmdline");
-
-                if (r < 0)
-                        return r;
-        } else
+        if (!what) {
                 log_error("Could not find a root= entry on the kernel commandline.");
+                return 0;
+        }
 
-        return 0;
+        if (what[0] != '/') {
+                log_debug("Skipping entry what=%s where=/sysroot type=%s", what, type);
+                return 0;
+        }
+
+        log_debug("Found entry what=%s where=/sysroot type=%s", what, type);
+        r = add_mount(what, "/sysroot", type, opts, 0, false, false, false,
+                      false, false, true, "/proc/cmdline");
+
+        return (r < 0) ? r : 0;
 }
 
 static int parse_proc_cmdline(void) {
