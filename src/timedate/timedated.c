@@ -45,6 +45,7 @@
         " <interface name=\"org.freedesktop.timedate1\">\n"             \
         "  <property name=\"Timezone\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"LocalRTC\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"CanNTP\" type=\"b\" access=\"read\"/>\n"    \
         "  <property name=\"NTP\" type=\"b\" access=\"read\"/>\n"       \
         "  <method name=\"SetTime\">\n"                                 \
         "   <arg name=\"usec_utc\" type=\"x\" direction=\"in\"/>\n"     \
@@ -84,10 +85,12 @@ const char timedate_interface[] _introspect_("timedate1") = INTERFACE;
 typedef struct TZ {
         char *zone;
         bool local_rtc;
+        int can_ntp;
         int use_ntp;
 } TZ;
 
 static TZ tz = {
+        .can_ntp = -1,
         .use_ntp = -1,
 };
 
@@ -387,6 +390,7 @@ static int read_ntp(DBusConnection *bus) {
                         goto finish;
                 }
 
+                tz.can_ntp = 1;
                 tz.use_ntp =
                         streq(s, "enabled") ||
                         streq(s, "enabled-runtime");
@@ -395,6 +399,7 @@ static int read_ntp(DBusConnection *bus) {
         }
 
         /* NTP is not installed. */
+        tz.can_ntp = 0;
         tz.use_ntp = 0;
         r = 0;
 
@@ -588,6 +593,20 @@ finish:
         return r;
 }
 
+static int property_append_can_ntp(DBusMessageIter *i, const char *property, void *data) {
+        dbus_bool_t db;
+
+        assert(i);
+        assert(property);
+
+        db = tz.can_ntp > 0;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &db))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int property_append_ntp(DBusMessageIter *i, const char *property, void *data) {
         dbus_bool_t db;
 
@@ -605,6 +624,7 @@ static int property_append_ntp(DBusMessageIter *i, const char *property, void *d
 static const BusProperty bus_timedate_properties[] = {
         { "Timezone", bus_property_append_string, "s", offsetof(TZ, zone),     true },
         { "LocalRTC", bus_property_append_bool,   "b", offsetof(TZ, local_rtc) },
+        { "CanNTP",   property_append_can_ntp,    "b", offsetof(TZ, can_ntp)   },
         { "NTP",      property_append_ntp,        "b", offsetof(TZ, use_ntp)   },
         { NULL, }
 };
