@@ -48,6 +48,8 @@
 #define SPECIAL_SOCKETS_TARGET "sockets.target"
 #define SPECIAL_LOCAL_FS_TARGET "local-fs.target"
 #define SPECIAL_LOCAL_FS_PRE_TARGET "local-fs-pre.target"
+#define SPECIAL_INITRD_FS_TARGET "initrd-fs.target"
+#define SPECIAL_ROOT_FS_TARGET "root-fs.target"
 #define SPECIAL_REMOTE_FS_TARGET "remote-fs.target"       /* LSB's $remote_fs */
 #define SPECIAL_REMOTE_FS_PRE_TARGET "remote-fs-pre.target"
 #define SPECIAL_SWAP_TARGET "swap.target"

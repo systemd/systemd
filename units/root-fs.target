@@ -6,13 +6,6 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Cleaning Up and Shutting Down Daemons
-DefaultDependencies=no
+Description=Initrd Root File System
+Documentation=man:systemd.special(7)
 ConditionPathExists=/etc/initrd-release
-OnFailure=emergency.target
-Wants=root-fs.target initrd-fs.target
-After=root-fs.target initrd-fs.target
-
-[Service]
-Type=oneshot
-ExecStart=@rootbindir@/systemctl --no-block isolate initrd-switch-root.target

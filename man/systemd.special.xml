@@ -64,6 +64,7 @@
                 <filename>halt.target</filename>,
                 <filename>hibernate.target</filename>,
                 <filename>hybrid-sleep.target</filename>,
+                <filename>initrd-fs.target</filename>,
                 <filename>kbrequest.target</filename>,
                 <filename>kexec.target</filename>,
                 <filename>local-fs.target</filename>,
@@ -78,6 +79,7 @@
                 <filename>remote-fs.target</filename>,
                 <filename>remote-fs-pre.target</filename>,
                 <filename>rescue.target</filename>,
+                <filename>root-fs.target</filename>,
                 <filename>rpcbind.target</filename>,
                 <filename>runlevel2.target</filename>,
                 <filename>runlevel3.target</filename>,
@@ -296,6 +298,22 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>initrd-fs.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        Before to sysroot-usr.mount and
+                                        all mount points fround in
+                                        <filename>/etc/fstab</filename>
+                                        that have the
+                                        <option>auto</option> and
+                                        <option>x-initrd.mount</option>
+                                        mount options set.
+                                        See also <literal>systemd-fstab-generator</literal>.
+                                        </para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>kbrequest.target</filename></term>
                                 <listitem>
                                         <para>systemd starts this
@@ -502,6 +520,17 @@
                                         <para><filename>runlevel1.target</filename>
                                         is an alias for this target
                                         unit, for compatibility with SysV.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>root-fs.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        Before to the sysroot.mount unit,
+                                        which is generated from the kernel command
+                                        line by the <literal>systemd-fstab-generator</literal>.
+                                        </para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -760,6 +789,7 @@
                           <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

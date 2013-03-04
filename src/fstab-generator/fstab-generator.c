@@ -200,14 +200,13 @@ static bool mount_in_initrd(struct mntent *me) {
 }
 
 static int add_mount(const char *what, const char *where, const char *type, const char *opts,
-                     int passno, bool noauto, bool nofail, bool automount, bool isbind, bool isnetwork,
-                     const char *source) {
+                     int passno, bool noauto, bool nofail, bool automount, bool isbind,
+                     const char *pre, const char *post, const char *source) {
         char _cleanup_free_
                 *name = NULL, *unit = NULL, *lnk = NULL, *device = NULL,
                 *automount_name = NULL, *automount_unit = NULL;
         FILE _cleanup_fclose_ *f = NULL;
         int r;
-        const char *post, *pre;
 
         assert(what);
         assert(where);
@@ -226,14 +225,6 @@ static int add_mount(const char *what, const char *where, const char *type, cons
         if (mount_point_is_api(where) ||
             mount_point_ignore(where))
                 return 0;
-
-        if (isnetwork) {
-                post = SPECIAL_REMOTE_FS_TARGET;
-                pre = SPECIAL_REMOTE_FS_PRE_TARGET;
-        } else {
-                post = SPECIAL_LOCAL_FS_TARGET;
-                pre = SPECIAL_LOCAL_FS_PRE_TARGET;
-        }
 
         name = unit_name_from_path(where, ".mount");
         if (!name)
@@ -259,17 +250,19 @@ static int add_mount(const char *what, const char *where, const char *type, cons
               "DefaultDependencies=no\n",
               source);
 
-        if (!path_equal(where, "/"))
+        if (!path_equal(where, "/")) {
+                if (pre)
+                        fprintf(f,
+                                "After=%s\n"
+                                "Wants=%s\n",
+                                pre,
+                                pre);
                 fprintf(f,
-                        "After=%s\n"
-                        "Wants=%s\n"
                         "Conflicts=" SPECIAL_UMOUNT_TARGET "\n"
-                        "Before=" SPECIAL_UMOUNT_TARGET "\n",
-                        pre,
-                        pre);
+                        "Before=" SPECIAL_UMOUNT_TARGET "\n");
+        }
 
-
-        if (!noauto && !nofail && !automount)
+        if (post && !noauto && !nofail && !automount)
                 fprintf(f,
                         "Before=%s\n",
                         post);
@@ -299,14 +292,16 @@ static int add_mount(const char *what, const char *where, const char *type, cons
         }
 
         if (!noauto) {
-                lnk = strjoin(arg_dest, "/", post, nofail || automount ? ".wants/" : ".requires/", name, NULL);
-                if (!lnk)
-                        return log_oom();
+                if (post) {
+                        lnk = strjoin(arg_dest, "/", post, nofail || automount ? ".wants/" : ".requires/", name, NULL);
+                        if (!lnk)
+                                return log_oom();
 
-                mkdir_parents_label(lnk, 0755);
-                if (symlink(unit, lnk) < 0) {
-                        log_error("Failed to create symlink %s: %m", lnk);
-                        return -errno;
+                        mkdir_parents_label(lnk, 0755);
+                        if (symlink(unit, lnk) < 0) {
+                                log_error("Failed to create symlink %s: %m", lnk);
+                                return -errno;
+                        }
                 }
 
                 if (!isbind &&
@@ -353,12 +348,17 @@ static int add_mount(const char *what, const char *where, const char *type, cons
                         "SourcePath=%s\n"
                         "DefaultDependencies=no\n"
                         "Conflicts=" SPECIAL_UMOUNT_TARGET "\n"
-                        "Before=" SPECIAL_UMOUNT_TARGET " %s\n"
-                        "\n"
+                        "Before=" SPECIAL_UMOUNT_TARGET "\n",
+                        source);
+
+                if (post)
+                        fprintf(f,
+                                "Before= %s\n",
+                                post);
+
+                fprintf(f,
                         "[Automount]\n"
                         "Where=%s\n",
-                        source,
-                        post,
                         where);
 
                 fflush(f);
@@ -421,7 +421,8 @@ static int parse_fstab(const char *prefix, bool initrd) {
                 if (streq(me->mnt_type, "swap"))
                         k = add_swap(what, me);
                 else {
-                        bool noauto, nofail, automount, isbind, isnetwork;
+                        bool noauto, nofail, automount, isbind;
+                        const char *pre, *post;
 
                         noauto = !!hasmntopt(me, "noauto");
                         nofail = !!hasmntopt(me, "nofail");
@@ -429,11 +430,21 @@ static int parse_fstab(const char *prefix, bool initrd) {
                                   hasmntopt(me, "comment=systemd.automount") ||
                                   hasmntopt(me, "x-systemd.automount");
                         isbind = mount_is_bind(me);
-                        isnetwork = mount_is_network(me);
+
+                        if (initrd) {
+                                post = SPECIAL_INITRD_FS_TARGET;
+                                pre = NULL;
+                        } else if (mount_is_network(me)) {
+                                post = SPECIAL_REMOTE_FS_TARGET;
+                                pre = SPECIAL_REMOTE_FS_PRE_TARGET;
+                        } else {
+                                post = SPECIAL_LOCAL_FS_TARGET;
+                                pre = SPECIAL_LOCAL_FS_PRE_TARGET;
+                        }
 
                         k = add_mount(what, where, me->mnt_type, me->mnt_opts,
                                      me->mnt_passno, noauto, nofail, automount,
-                                     isbind, isnetwork, fstab_path);
+                                     isbind, pre, post, fstab_path);
                 }
 
                 if (k < 0)
@@ -514,7 +525,7 @@ static int parse_new_root_from_proc_cmdline(void) {
 
         log_debug("Found entry what=%s where=/sysroot type=%s", what, type);
         r = add_mount(what, "/sysroot", type, opts, 0, false, false, false,
-                      false, false, "/proc/cmdline");
+                      false, NULL, SPECIAL_ROOT_FS_TARGET, "/proc/cmdline");
 
         return (r < 0) ? r : 0;
 }
