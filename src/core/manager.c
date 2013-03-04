@@ -1144,7 +1144,7 @@ unsigned manager_dispatch_run_queue(Manager *m) {
 
         m->dispatching_run_queue = false;
 
-        if (hashmap_size(m->jobs) > 0)
+        if (m->n_running_jobs > 0)
                 manager_watch_jobs_in_progress(m);
 
         return n;
@@ -2368,18 +2368,17 @@ void manager_check_finished(Manager *m) {
 
         assert(m);
 
-        if (hashmap_size(m->jobs) > 0) {
-                manager_jobs_in_progress_mod_timer(m);
+        if (m->n_running_jobs == 0)
+                manager_unwatch_jobs_in_progress(m);
+
+        if (hashmap_size(m->jobs) > 0)
                 return;
-        }
 
         /* Notify Type=idle units that we are done now */
         close_pipe(m->idle_pipe);
 
         /* Turn off confirm spawn now */
         m->confirm_spawn = false;
-
-        manager_unwatch_jobs_in_progress(m);
 
         if (dual_timestamp_is_set(&m->finish_timestamp))
                 return;
