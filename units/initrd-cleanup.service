@@ -10,8 +10,8 @@ Description=Cleaning Up and Shutting Down Daemons
 DefaultDependencies=no
 ConditionPathExists=/etc/initrd-release
 OnFailure=emergency.target
-Requires=local-fs.target swap.target
-After=local-fs.target swap.target
+Requires=initrd-fs.target swap.target
+After=initrd-fs.target swap.target
 
 [Service]
 Type=oneshot

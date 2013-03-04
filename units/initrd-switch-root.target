@@ -12,5 +12,5 @@ DefaultDependencies=no
 Requires=initrd-switch-root.service
 Before=initrd-switch-root.service
 AllowIsolate=yes
-Wants=initrd-udevadm-cleanup-db.service local-fs.target swap.target systemd-journald.service
-After=initrd-udevadm-cleanup-db.service local-fs.target swap.target emergency.service emergency.target
+Wants=initrd-udevadm-cleanup-db.service initrd-fs.target swap.target systemd-journald.service
+After=initrd-udevadm-cleanup-db.service initrd-fs.target swap.target emergency.service emergency.target
