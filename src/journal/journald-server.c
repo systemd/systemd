@@ -671,12 +671,12 @@ static void dispatch_message_real(
 
         assert(n <= m);
 
-        if (s->split_mode == SPLIT_NONE)
-                journal_uid = 0;
-        else if (s->split_mode == SPLIT_UID || realuid == 0 || !loginuid_valid)
+        if (s->split_mode == SPLIT_UID && realuid > 0)
                 journal_uid = realuid;
-        else
+        else if (s->split_mode == SPLIT_LOGIN && loginuid > 0 && loginuid_valid)
                 journal_uid = loginuid;
+        else
+                journal_uid = 0;
 
         write_to_journal(s, journal_uid, iovec, n);
 }
