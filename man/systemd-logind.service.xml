@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-logind.service" conditional='HAVE_PAM'>
+<refentry id="systemd-logind.service" conditional='ENABLE_LOGIND'>
 
         <refentryinfo>
                 <title>systemd-logind.service</title>

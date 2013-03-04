@@ -322,6 +322,15 @@ MANPAGES_ALIAS += \
 man/systemd-localed.8: man/systemd-localed.service.8
 endif
 
+if ENABLE_LOGIND
+MANPAGES += \
+	man/logind.conf.5 \
+	man/systemd-logind.service.8
+MANPAGES_ALIAS += \
+	man/systemd-logind.8
+man/systemd-logind.8: man/systemd-logind.service.8
+endif
+
 if ENABLE_QUOTACHECK
 MANPAGES += \
 	man/systemd-quotacheck.service.8
@@ -414,7 +423,6 @@ endif
 if HAVE_PAM
 MANPAGES += \
 	man/loginctl.1 \
-	man/logind.conf.5 \
 	man/sd-login.3 \
 	man/sd_get_seats.3 \
 	man/sd_login_monitor_new.3 \
@@ -422,7 +430,6 @@ MANPAGES += \
 	man/sd_seat_get_active.3 \
 	man/sd_session_is_active.3 \
 	man/sd_uid_get_state.3 \
-	man/systemd-logind.service.8 \
 	man/systemd-user-sessions.service.8
 MANPAGES_ALIAS += \
 	man/sd_get_sessions.3 \
@@ -446,7 +453,6 @@ MANPAGES_ALIAS += \
 	man/sd_uid_get_seats.3 \
 	man/sd_uid_get_sessions.3 \
 	man/sd_uid_is_on_seat.3 \
-	man/systemd-logind.8 \
 	man/systemd-user-sessions.8
 man/sd_get_sessions.3: man/sd_get_seats.3
 man/sd_get_uids.3: man/sd_get_seats.3
@@ -469,7 +475,6 @@ man/sd_session_get_uid.3: man/sd_session_is_active.3
 man/sd_uid_get_seats.3: man/sd_uid_get_state.3
 man/sd_uid_get_sessions.3: man/sd_uid_get_state.3
 man/sd_uid_is_on_seat.3: man/sd_uid_get_state.3
-man/systemd-logind.8: man/systemd-logind.service.8
 man/systemd-user-sessions.8: man/systemd-user-sessions.service.8
 endif
 
