@@ -164,7 +164,7 @@ AS_IF([test "x$with_python" != "xno"], [
 AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 AS_IF([test "x$PYTHON_BINARY" = "x"],
       [AS_IF([test "x$have_python" = "xyes"],
-             [PYTHON_BINARY="`which "$PYTHON"`"],
+             [PYTHON_BINARY="$(which "$PYTHON")"],
              [PYTHON_BINARY=/usr/bin/python])])
 AC_ARG_VAR(PYTHON_BINARY, [Python binary used to launch installed scripts])
 
@@ -172,8 +172,8 @@ AS_IF([test "x$with_python" != "xno"], [
         AC_PATH_PROG(PYTHON_CONFIG, python${PYTHON_VERSION}-config)
         AS_IF([test -n "$PYTHON_CONFIG"], [
               have_python_devel=yes
-              PYTHON_CFLAGS="`$PYTHON_CONFIG --cflags` $python_extra_cflags"
-              PYTHON_LIBS="`$PYTHON_CONFIG --ldflags`"
+              PYTHON_CFLAGS="$($PYTHON_CONFIG --cflags) $python_extra_cflags"
+              PYTHON_LIBS="$($PYTHON_CONFIG --ldflags)"
               AC_SUBST(PYTHON_CFLAGS)
               AC_SUBST(PYTHON_LIBS)
               AC_PATH_PROGS(SPHINX_BUILD, sphinx-build-${PYTHON_VERSION} sphinx-build)
@@ -796,28 +796,28 @@ AC_ARG_WITH([tty-gid],
 AC_ARG_WITH([dbuspolicydir],
         AS_HELP_STRING([--with-dbuspolicydir=DIR], [D-Bus policy directory]),
         [],
-        [with_dbuspolicydir=`$PKG_CONFIG --variable=sysconfdir dbus-1`/dbus-1/system.d])
+        [with_dbuspolicydir=$($PKG_CONFIG --variable=sysconfdir dbus-1)/dbus-1/system.d])
 
 AC_ARG_WITH([dbussessionservicedir],
         AS_HELP_STRING([--with-dbussessionservicedir=DIR], [D-Bus session service directory]),
         [],
-        [with_dbussessionservicedir=`$PKG_CONFIG --variable=session_bus_services_dir dbus-1`])
+        [with_dbussessionservicedir=$($PKG_CONFIG --variable=session_bus_services_dir dbus-1)])
 
 AC_ARG_WITH([dbussystemservicedir],
         AS_HELP_STRING([--with-dbussystemservicedir=DIR], [D-Bus system service directory]),
         [],
-        [with_dbussystemservicedir=`$PKG_CONFIG --variable=session_bus_services_dir dbus-1`/../system-services])
+        [with_dbussystemservicedir=$($PKG_CONFIG --variable=session_bus_services_dir dbus-1)/../system-services])
 
 AC_ARG_WITH([dbusinterfacedir],
         AS_HELP_STRING([--with-dbusinterfacedir=DIR], [D-Bus interface directory]),
         [],
-        [with_dbusinterfacedir=`$PKG_CONFIG --variable=session_bus_services_dir dbus-1`/../interfaces])
+        [with_dbusinterfacedir=$($PKG_CONFIG --variable=session_bus_services_dir dbus-1)/../interfaces])
 
 AC_ARG_WITH([bashcompletiondir],
         AS_HELP_STRING([--with-bashcompletiondir=DIR], [Bash completions directory]),
         [],
-        [AS_IF([`$PKG_CONFIG --exists bash-completion`], [
-                with_bashcompletiondir=`$PKG_CONFIG --variable=completionsdir bash-completion`
+        [AS_IF([$($PKG_CONFIG --exists bash-completion)], [
+                with_bashcompletiondir=$($PKG_CONFIG --variable=completionsdir bash-completion)
         ] , [
                 with_bashcompletiondir=${datadir}/bash-completion/completions
         ])])
