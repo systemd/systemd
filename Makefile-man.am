@@ -15,7 +15,6 @@ MANPAGES += \
 	man/machine-id.5 \
 	man/machine-info.5 \
 	man/os-release.5 \
-	man/pam_systemd.8 \
 	man/runlevel.8 \
 	man/sd-daemon.3 \
 	man/sd-id128.3 \
@@ -423,6 +422,7 @@ endif
 if HAVE_PAM
 MANPAGES += \
 	man/loginctl.1 \
+	man/pam_systemd.8 \
 	man/sd-login.3 \
 	man/sd_get_seats.3 \
 	man/sd_login_monitor_new.3 \

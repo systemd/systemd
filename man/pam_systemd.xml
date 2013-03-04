@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="pam_systemd">
+<refentry id="pam_systemd" conditional='HAVE_PAM'>
 
         <refentryinfo>
                 <title>pam_systemd</title>
