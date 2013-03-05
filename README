@@ -109,7 +109,7 @@ USERS AND GROUPS:
         tty, dialout, kmem, video, audio, lp, floppy, cdrom, tape, disk
 
         During runtime the journal daemon requires the
-        "system-journal" system group to exist. New journal files will
+        "systemd-journal" system group to exist. New journal files will
         be readable by this group (but not writable) which may be used
         to grant specific users read access.
 
@@ -121,7 +121,7 @@ USERS AND GROUPS:
         # setfacl -nm g:wheel:rx,d:g:wheel:rx,g:adm:rx,d:g:adm:rx /var/log/journal/
 
         The journal gateway daemon requires the
-        "system-journal-gateway" system user and group to
+        "systemd-journal-gateway" system user and group to
         exist. During execution this network facing service will drop
         privileges and assume this uid/gid for security reasons.
 
