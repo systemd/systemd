@@ -620,9 +620,7 @@ static void dispatch_message_real(
                 if (label) {
                         selinux_context = malloc(sizeof("_SELINUX_CONTEXT=") + label_len);
                         if (selinux_context) {
-                                memcpy(selinux_context, "_SELINUX_CONTEXT=", sizeof("_SELINUX_CONTEXT=")-1);
-                                memcpy(selinux_context+sizeof("_SELINUX_CONTEXT=")-1, label, label_len);
-                                selinux_context[sizeof("_SELINUX_CONTEXT=")-1+label_len] = 0;
+                                *((char*) mempcpy(stpcpy(selinux_context, "_SELINUX_CONTEXT="), label, label_len)) = 0;
                                 IOVEC_SET_STRING(iovec[n++], selinux_context);
                         }
                 } else {
@@ -632,7 +630,6 @@ static void dispatch_message_real(
                                 selinux_context = strappend("_SELINUX_CONTEXT=", con);
                                 if (selinux_context)
                                         IOVEC_SET_STRING(iovec[n++], selinux_context);
-
                                 freecon(con);
                         }
                 }
