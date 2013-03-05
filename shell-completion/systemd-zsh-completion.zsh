@@ -94,6 +94,7 @@ _ctls()
                 '--verify[Verify journal file consistency]' \
                 '--list-catalog[List messages in catalog]' \
                 '--update-catalog[Update binary catalog database]' \
+                '*::default: _journal_none'
         ;;
         localectl)
             _arguments \
@@ -608,12 +609,22 @@ _list_fields() {
                     _{P,U,G}ID _COMM _EXE _CMDLINE
                     _AUDIT_{SESSION,LOGINUID}
                     _SYSTEMD_{CGROUP,SESSION,UNIT,OWNER_UID}
+                    _SYSTEMD_USER_UNIT
                     _SELINUX_CONTEXT _SOURCE_REALTIME_TIMESTAMP
                     _{BOOT,MACHINE}_ID _HOSTNAME _TRANSPORT
                     _KERNEL_{DEVICE,SUBSYSTEM}
                     _UDEV_{SYSNAME,DEVNODE,DEVLINK}
                     __CURSOR __{REALTIME,MONOTONIC}_TIMESTAMP)
     _describe 'possible fields' journal_fields
+}
+
+_journal_none() {
+    local -a _commands _files
+    _commands=( ${(f)"$(_call_program commands "$service" -F _EXE 2>/dev/null)"} )
+    _alternative : \
+        'files:/dev files:_files -W /dev -P /dev/' \
+        "commands:commands:($_commands[@])" \
+        'fields:fields:_list_fields'
 }
 
 _journal_fields() {
