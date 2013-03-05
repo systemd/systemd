@@ -200,8 +200,8 @@ static bool mount_in_initrd(struct mntent *me) {
 }
 
 static int add_mount(const char *what, const char *where, const char *type, const char *opts,
-                     int passno, bool noauto, bool nofail, bool automount, bool isbind,
-                     bool remote_fs_target, bool initrd_fs_target, const char *source) {
+                     int passno, bool noauto, bool nofail, bool automount, bool isbind, bool isnetwork,
+                     const char *source) {
         char _cleanup_free_
                 *name = NULL, *unit = NULL, *lnk = NULL, *device = NULL,
                 *automount_name = NULL, *automount_unit = NULL;
@@ -227,12 +227,9 @@ static int add_mount(const char *what, const char *where, const char *type, cons
             mount_point_ignore(where))
                 return 0;
 
-        if (remote_fs_target) {
+        if (isnetwork) {
                 post = SPECIAL_REMOTE_FS_TARGET;
                 pre = SPECIAL_REMOTE_FS_PRE_TARGET;
-        } else if (initrd_fs_target) {
-                post = SPECIAL_INITRD_FS_TARGET;
-                pre = SPECIAL_INITRD_FS_PRE_TARGET;
         } else {
                 post = SPECIAL_LOCAL_FS_TARGET;
                 pre = SPECIAL_LOCAL_FS_PRE_TARGET;
@@ -410,7 +407,6 @@ static int parse_fstab(const char *prefix, bool initrd) {
                         continue;
 
                 what = fstab_node_to_udev_node(me->mnt_fsname);
-
                 where = strjoin(prefix, me->mnt_dir, NULL);
                 if (!what || !where) {
                         r = log_oom();
@@ -419,21 +415,6 @@ static int parse_fstab(const char *prefix, bool initrd) {
 
                 if (is_path(where))
                         path_kill_slashes(where);
-
-                if (initrd) {
-                        char _cleanup_free_ *mu = NULL, *name = NULL;
-                        /* Skip generation, if unit already exists */
-                        name = unit_name_from_path(where, ".mount");
-                        if (!name)
-                                return log_oom();
-                        mu = strjoin(arg_dest, "/", name, NULL);
-                        if (!mu)
-                                return log_oom();
-
-                        k = access(mu, R_OK);
-                        if (k == 0)
-                                continue;
-                }
 
                 log_debug("Found entry what=%s where=%s type=%s", what, where, me->mnt_type);
 
@@ -451,8 +432,8 @@ static int parse_fstab(const char *prefix, bool initrd) {
                         isnetwork = mount_is_network(me);
 
                         k = add_mount(what, where, me->mnt_type, me->mnt_opts,
-                                      me->mnt_passno, noauto, nofail, automount,
-                                      isbind, isnetwork, initrd, fstab_path);
+                                     me->mnt_passno, noauto, nofail, automount,
+                                     isbind, isnetwork, fstab_path);
                 }
 
                 if (k < 0)
@@ -466,18 +447,9 @@ finish:
 
 static int parse_new_root_from_proc_cmdline(void) {
         char *w, *state;
-        _cleanup_free_ char *what = NULL, *type = NULL, *opts = NULL, *line = NULL, *mu = NULL;
+        _cleanup_free_ char *what = NULL, *type = NULL, *opts = NULL, *line = NULL;
         int r;
         size_t l;
-
-        /* Skip generation, if sysroot.mount already exists */
-        mu = strjoin(arg_dest, "/", "sysroot.mount", NULL);
-        if (!mu)
-                return log_oom();
-
-        r = access(mu, R_OK);
-        if (r == 0)
-            return 0;
 
         r = read_one_line_file("/proc/cmdline", &line);
         if (r < 0) {
@@ -542,7 +514,7 @@ static int parse_new_root_from_proc_cmdline(void) {
 
         log_debug("Found entry what=%s where=/sysroot type=%s", what, type);
         r = add_mount(what, "/sysroot", type, opts, 0, false, false, false,
-                      false, false, true, "/proc/cmdline");
+                      false, false, "/proc/cmdline");
 
         return (r < 0) ? r : 0;
 }
@@ -597,7 +569,7 @@ static int parse_proc_cmdline(void) {
 }
 
 int main(int argc, char *argv[]) {
-        int r = 0, k = 0, l = 0;
+        int r = 0, k, l = 0;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -616,14 +588,16 @@ int main(int argc, char *argv[]) {
         if (parse_proc_cmdline() < 0)
                 return EXIT_FAILURE;
 
-        if (arg_enabled)
-                r = parse_fstab("", false);
+        if (in_initrd())
+                r = parse_new_root_from_proc_cmdline();
 
-        if (in_initrd()) {
-                if (arg_enabled)
-                        k = parse_fstab("/sysroot", true);
-                l = parse_new_root_from_proc_cmdline();
-        }
+        if (!arg_enabled)
+                return (r < 0) ? EXIT_FAILURE : EXIT_SUCCESS;
+
+        k = parse_fstab("", false);
+
+        if (in_initrd())
+                l = parse_fstab("/sysroot", true);
 
         return (r < 0) || (k < 0) || (l < 0) ? EXIT_FAILURE : EXIT_SUCCESS;
 }
