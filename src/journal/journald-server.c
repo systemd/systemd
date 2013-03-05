@@ -174,7 +174,7 @@ static uint64_t available_space(Server *s) {
 }
 
 static void server_read_file_gid(Server *s) {
-        const char *adm = "adm";
+        const char *g = "systemd-journal";
         int r;
 
         assert(s);
@@ -182,9 +182,9 @@ static void server_read_file_gid(Server *s) {
         if (s->file_gid_valid)
                 return;
 
-        r = get_group_creds(&adm, &s->file_gid);
+        r = get_group_creds(&g, &s->file_gid);
         if (r < 0)
-                log_warning("Failed to resolve 'adm' group: %s", strerror(-r));
+                log_warning("Failed to resolve '%s' group: %s", g, strerror(-r));
 
         /* if we couldn't read the gid, then it will be 0, but that's
          * fine and we shouldn't try to resolve the group again, so

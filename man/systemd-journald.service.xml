@@ -158,6 +158,38 @@
                 </variablelist>
         </refsect1>
 
+        <refsect1>
+                <title>Access Control</title>
+
+                <para>Journal files are by default owned and readable
+                by the <literal>systemd-journal</literal> system group
+                (but not writable). Adding a user to this group thus
+                enables her/him to read the journal files.</para>
+
+                <para>By default, each logged in user will get her/his
+                own set of journal files in
+                <filename>/var/log/journal/</filename>. These files
+                will not be owned by the user however, in order to
+                avoid that the user can write to them
+                directly. Instead, file system ACLs are used to ensure
+                the user gets read access only.</para>
+
+                <para>Additional users and groups may be granted
+                access to journal files via file system access control
+                lists (ACL). Distributions and administrators may
+                choose to grant read access to all members of the
+                <literal>wheel</literal> and <literal>adm</literal>
+                system groups with a command such as the
+                following:</para>
+
+                <programlisting># setfacl -Rnm g:wheel:rx,d:g:wheel:rx,g:adm:rx,d:g:adm:rx /var/log/journal/</programlisting>
+
+                <para>Note that this command will update the ACLs both
+                for existing journal files and for future journal
+                files created in the
+                <filename>/var/log/journal/</filename>
+                directory.</para>
+        </refsect1>
 
         <refsect1>
                 <title>See Also</title>
@@ -166,7 +198,8 @@
                         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

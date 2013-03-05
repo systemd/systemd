@@ -870,16 +870,16 @@ static int verify(sd_journal *j) {
 static int access_check(void) {
 
 #ifdef HAVE_ACL
-        if (access("/var/log/journal", F_OK) < 0 && geteuid() != 0 && in_group("adm") <= 0) {
-                log_error("Unprivileged users can't see messages unless persistent log storage is enabled. Users in the group 'adm' can always see messages.");
+        if (access("/var/log/journal", F_OK) < 0 && geteuid() != 0 && in_group("systemd-journal") <= 0) {
+                log_error("Unprivileged users can't see messages unless persistent log storage is enabled. Users in the group 'systemd-journal' can always see messages.");
                 return -EACCES;
         }
 
-        if (!arg_quiet && geteuid() != 0 && in_group("adm") <= 0)
-                log_warning("Showing user generated messages only. Users in the group 'adm' can see all messages. Pass -q to turn this notice off.");
+        if (!arg_quiet && geteuid() != 0 && in_group("systemd-journal") <= 0)
+                log_warning("Showing user generated messages only. Users in the group 'systemd-journal' can see all messages. Pass -q to turn this notice off.");
 #else
-        if (geteuid() != 0 && in_group("adm") <= 0) {
-                log_error("No access to messages. Only users in the group 'adm' can see messages.");
+        if (geteuid() != 0 && in_group("systemd-journal") <= 0) {
+                log_error("No access to messages. Only users in the group 'systemd-journal' can see messages.");
                 return -EACCES;
         }
 #endif

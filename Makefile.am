@@ -2563,9 +2563,16 @@ libsystemd_journal_internal_la_LIBADD += \
 	$(GCRYPT_LIBS)
 endif
 
-# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
+# move lib from $(libdir) to $(rootlibdir) and update devel link, if
+# needed. Also, grant read access to new journal files to members of
+# "adm" and "wheel".
 libsystemd-journal-install-hook:
 	libname=libsystemd-journal.so && $(move-to-rootlibdir)
+	$(MKDIR_P) $(DESTDIR)/var/log/journal
+	-chown 0:0 $(DESTDIR)/var/log/journal
+	-chmod 755 $(DESTDIR)/var/log/journal
+	-setfacl -nm g:adm:rx,d:g:adm:rx $(DESTDIR)/var/log/journal/
+	-setfacl -nm g:wheel:rx,d:g:wheel:rx $(DESTDIR)/var/log/journal/
 
 libsystemd-journal-uninstall-hook:
 	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-journal.so*

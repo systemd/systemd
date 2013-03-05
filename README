@@ -100,6 +100,19 @@ REQUIREMENTS:
         being 'html' or 'latexpdf'. If using DESTDIR for installation,
         pass the same DESTDIR to 'make sphinx-html' invocation.
 
+USERS AND GROUPS:
+        During runtime the journal daemon requires the
+        "system-journal" system group to exist. New journal files will
+        be readable by this group (but not writable) which may be used
+        to grant specific users read access.
+
+        It is also recommended to grant read access to all journal
+        files to the system groups "wheel" and "adm" with a command
+        like the following in the post installation script of the
+        package:
+
+        # setfacl -nm g:wheel:rx,d:g:wheel:rx,g:adm:rx,d:g:adm:rx /var/log/journal/
+
 WARNINGS:
         systemd will warn you during boot if /etc/mtab is not a
         symlink to /proc/mounts. Please ensure that /etc/mtab is a
