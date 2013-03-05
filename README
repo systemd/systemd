@@ -101,6 +101,12 @@ REQUIREMENTS:
         pass the same DESTDIR to 'make sphinx-html' invocation.
 
 USERS AND GROUPS:
+        Default udev rules use the following standard system group names,\
+        which need to be resolvable by getgrnam() at any time, even in the
+        very early boot stages, where no other databases and network is
+        available:
+          tty, dialout, kmem, video, audio, lp, floppy, cdrom, tape, disk
+
         During runtime the journal daemon requires the
         "system-journal" system group to exist. New journal files will
         be readable by this group (but not writable) which may be used
