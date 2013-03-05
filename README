@@ -101,11 +101,12 @@ REQUIREMENTS:
         pass the same DESTDIR to 'make sphinx-html' invocation.
 
 USERS AND GROUPS:
-        Default udev rules use the following standard system group names,\
-        which need to be resolvable by getgrnam() at any time, even in the
-        very early boot stages, where no other databases and network is
-        available:
-          tty, dialout, kmem, video, audio, lp, floppy, cdrom, tape, disk
+        Default udev rules use the following standard system group
+        names, which need to be resolvable by getgrnam() at any time,
+        even in the very early boot stages, where no other databases
+        and network are available:
+
+        tty, dialout, kmem, video, audio, lp, floppy, cdrom, tape, disk
 
         During runtime the journal daemon requires the
         "system-journal" system group to exist. New journal files will
@@ -118,6 +119,11 @@ USERS AND GROUPS:
         package:
 
         # setfacl -nm g:wheel:rx,d:g:wheel:rx,g:adm:rx,d:g:adm:rx /var/log/journal/
+
+        The journal gateway daemon requires the
+        "system-journal-gateway" system user and group to
+        exist. During execution this network facing service will drop
+        privileges and assume this uid/gid for security reasons.
 
 WARNINGS:
         systemd will warn you during boot if /etc/mtab is not a
