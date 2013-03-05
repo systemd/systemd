@@ -230,7 +230,10 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_action == ACTION_INHIBIT && optind >= argc) {
+        if (arg_action == ACTION_INHIBIT && argc == 1)
+                arg_action = ACTION_LIST;
+
+        else if (arg_action == ACTION_INHIBIT && optind >= argc) {
                 log_error("Missing command line to execute.");
                 return -EINVAL;
         }
