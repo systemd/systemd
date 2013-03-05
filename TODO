@@ -49,6 +49,8 @@ Fedora 19:
 
 Features:
 
+* neither pkexec nor sudo initialize environ[] from the PAM environment?
+
 * rework specifier logic so that we can distuingish OOM errors from other errors
 
 * systemd-inhibit: refuse taking delay locks
