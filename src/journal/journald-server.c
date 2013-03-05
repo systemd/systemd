@@ -515,8 +515,8 @@ static void dispatch_message_real(
         sd_id128_t id;
         int r;
         char *t;
-        uid_t loginuid = 0, realuid = 0, owner = 0, journal_uid;
-        bool loginuid_valid = false, owner_valid = false;
+        uid_t realuid = 0, owner = 0, journal_uid;
+        bool owner_valid = false;
 
         assert(s);
         assert(iovec);
@@ -525,6 +525,7 @@ static void dispatch_message_real(
 
         if (ucred) {
                 uint32_t audit;
+                uid_t loginuid;
 
                 realuid = ucred->uid;
 
@@ -570,11 +571,9 @@ static void dispatch_message_real(
                                 IOVEC_SET_STRING(iovec[n++], audit_session);
 
                 r = audit_loginuid_from_pid(ucred->pid, &loginuid);
-                if (r >= 0) {
-                        loginuid_valid = true;
+                if (r >= 0)
                         if (asprintf(&audit_loginuid, "_AUDIT_LOGINUID=%lu", (unsigned long) loginuid) >= 0)
                                 IOVEC_SET_STRING(iovec[n++], audit_loginuid);
-                }
 
                 t = shortened_cgroup_path(ucred->pid);
                 if (t) {
@@ -672,18 +671,14 @@ static void dispatch_message_real(
         if (s->split_mode == SPLIT_UID && realuid > 0)
                 /* Split up strictly by any UID */
                 journal_uid = realuid;
-        else if (s->split_mode == SPLIT_LOGIN && owner_valid && owner > 0 && realuid > 0)
+        else if (s->split_mode == SPLIT_LOGIN && realuid > 0 && owner_valid && owner > 0)
                 /* Split up by login UIDs, this avoids creation of
                  * individual journals for system UIDs.  We do this
                  * only if the realuid is not root, in order not to
-                 * accidentally leak privileged information logged by
-                 * a privileged process that is part of an
-                 * unprivileged session to the user. */
+                 * accidentally leak privileged information to the
+                 * user that is logged by a privileged process that is
+                 * part of an unprivileged session.*/
                 journal_uid = owner;
-        else if (s->split_mode == SPLIT_LOGIN && loginuid_valid && loginuid > 0 && realuid > 0)
-                /* Hmm, let's try via the audit uids, as fallback,
-                 * just in case */
-                journal_uid = loginuid;
         else
                 journal_uid = 0;
 
