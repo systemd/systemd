@@ -1325,16 +1325,24 @@ char *bus_path_escape(const char *s) {
         assert(s);
 
         /* Escapes all chars that D-Bus' object path cannot deal
-         * with. Can be reverse with bus_path_unescape() */
+         * with. Can be reverse with bus_path_unescape(). We special
+         * case the empty string. */
 
-        if (!(r = new(char, strlen(s)*3+1)))
+        if (*s == 0)
+                return strdup("_");
+
+        r = new(char, strlen(s)*3 + 1);
+        if (!r)
                 return NULL;
 
         for (f = s, t = r; *f; f++) {
 
+                /* Escape everything that is not a-zA-Z0-9. We also
+                 * escape 0-9 if it's the first character */
+
                 if (!(*f >= 'A' && *f <= 'Z') &&
                     !(*f >= 'a' && *f <= 'z') &&
-                    !(*f >= '0' && *f <= '9')) {
+                    !(f > s && *f >= '0' && *f <= '9')) {
                         *(t++) = '_';
                         *(t++) = hexchar(*f >> 4);
                         *(t++) = hexchar(*f);
@@ -1352,7 +1360,12 @@ char *bus_path_unescape(const char *f) {
 
         assert(f);
 
-        if (!(r = strdup(f)))
+        /* Special case for the empty string */
+        if (streq(f, "_"))
+                return strdup("");
+
+        r = new(char, strlen(f) + 1);
+        if (!r)
                 return NULL;
 
         for (t = r; *f; f++) {

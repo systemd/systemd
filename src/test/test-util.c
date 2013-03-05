@@ -261,6 +261,29 @@ static void test_memdup_multiply(void) {
         free(dup);
 }
 
+static void test_bus_path_escape_one(const char *a, const char *b) {
+        _cleanup_free_ char *t = NULL, *x = NULL, *y = NULL;
+
+        assert_se(t = bus_path_escape(a));
+        assert_se(streq(t, b));
+
+        assert_se(x = bus_path_unescape(t));
+        assert_se(streq(a, x));
+
+        assert_se(y = bus_path_unescape(b));
+        assert_se(streq(a, y));
+}
+
+static void test_bus_path_escape(void) {
+        test_bus_path_escape_one("foo123bar", "foo123bar");
+        test_bus_path_escape_one("foo.bar", "foo_2ebar");
+        test_bus_path_escape_one("foo_2ebar", "foo_5f2ebar");
+        test_bus_path_escape_one("", "_");
+        test_bus_path_escape_one("_", "_5f");
+        test_bus_path_escape_one("1", "_31");
+        test_bus_path_escape_one(":1", "_3a1");
+}
+
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
@@ -282,6 +305,7 @@ int main(int argc, char *argv[]) {
         test_foreach_word_quoted();
         test_default_term_for_tty();
         test_memdup_multiply();
+        test_bus_path_escape();
 
         return 0;
 }
