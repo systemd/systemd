@@ -515,9 +515,8 @@ static void dispatch_message_real(
         sd_id128_t id;
         int r;
         char *t;
-        uid_t loginuid = 0, realuid = 0;
-        uid_t journal_uid;
-        bool loginuid_valid = false;
+        uid_t loginuid = 0, realuid = 0, owner = 0, journal_uid;
+        bool loginuid_valid = false, owner_valid = false;
 
         assert(s);
         assert(iovec);
@@ -526,9 +525,6 @@ static void dispatch_message_real(
 
         if (ucred) {
                 uint32_t audit;
-#ifdef HAVE_LOGIND
-                uid_t owner;
-#endif
 
                 realuid = ucred->uid;
 
@@ -598,9 +594,11 @@ static void dispatch_message_real(
                                 IOVEC_SET_STRING(iovec[n++], session);
                 }
 
-                if (sd_pid_get_owner_uid(ucred->uid, &owner) >= 0)
+                if (sd_pid_get_owner_uid(ucred->uid, &owner) >= 0) {
+                        owner_valid = true;
                         if (asprintf(&owner_uid, "_SYSTEMD_OWNER_UID=%lu", (unsigned long) owner) >= 0)
                                 IOVEC_SET_STRING(iovec[n++], owner_uid);
+                }
 #endif
 
                 if (cg_pid_get_unit(ucred->pid, &t) >= 0) {
@@ -673,7 +671,9 @@ static void dispatch_message_real(
 
         if (s->split_mode == SPLIT_UID && realuid > 0)
                 journal_uid = realuid;
-        else if (s->split_mode == SPLIT_LOGIN && loginuid > 0 && loginuid_valid)
+        else if (s->split_mode == SPLIT_LOGIN && owner_valid && owner > 0)
+                journal_uid = owner;
+        else if (s->split_mode == SPLIT_LOGIN && loginuid_valid && loginuid > 0)
                 journal_uid = loginuid;
         else
                 journal_uid = 0;
