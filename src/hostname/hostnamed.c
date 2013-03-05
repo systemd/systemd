@@ -159,6 +159,19 @@ static bool valid_chassis(const char *chassis) {
                         chassis);
 }
 
+static bool pretty_string_is_safe(const char *p) {
+	const char *t;
+
+	assert(p);
+
+	for (t = p; *t; t++) {
+		if (*t >= '\0' && *t < ' ')
+			return false;
+	}
+
+	return true;
+}
+
 static const char* fallback_chassis(void) {
         int r;
         char *type;
@@ -553,7 +566,7 @@ static DBusHandlerResult hostname_message_handler(
                                  * safe than sorry */
                                 if (k == PROP_ICON_NAME && !filename_is_safe(name))
                                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
-                                if (k == PROP_PRETTY_HOSTNAME && !string_is_safe(name))
+                                if (k == PROP_PRETTY_HOSTNAME && !pretty_string_is_safe(name))
                                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
                                 if (k == PROP_CHASSIS && !valid_chassis(name))
                                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
