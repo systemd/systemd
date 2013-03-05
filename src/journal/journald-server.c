@@ -670,10 +670,19 @@ static void dispatch_message_real(
         assert(n <= m);
 
         if (s->split_mode == SPLIT_UID && realuid > 0)
+                /* Split up strictly by any UID */
                 journal_uid = realuid;
-        else if (s->split_mode == SPLIT_LOGIN && owner_valid && owner > 0)
+        else if (s->split_mode == SPLIT_LOGIN && owner_valid && owner > 0 && realuid > 0)
+                /* Split up by login UIDs, this avoids creation of
+                 * individual journals for system UIDs.  We do this
+                 * only if the realuid is not root, in order not to
+                 * accidentally leak privileged information logged by
+                 * a privileged process that is part of an
+                 * unprivileged session to the user. */
                 journal_uid = owner;
-        else if (s->split_mode == SPLIT_LOGIN && loginuid_valid && loginuid > 0)
+        else if (s->split_mode == SPLIT_LOGIN && loginuid_valid && loginuid > 0 && realuid > 0)
+                /* Hmm, let's try via the audit uids, as fallback,
+                 * just in case */
                 journal_uid = loginuid;
         else
                 journal_uid = 0;
