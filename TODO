@@ -20,8 +20,6 @@ Fedora 19:
 
 * make anaconda write timeout=0 for encrypted devices
 
-* make sure pkexec works fine with pam_systemd works fine with audit=0
-
 * create /var/log/journal/
 
 * external: maybe it is time to patch procps so that "ps" links to
@@ -35,8 +33,6 @@ Fedora 19:
 * kernel cmdline switch to turn off predictable network interface names
 
 * journal is not closed properly at shutdown when run in a container?
-
-* introduce new "journal" group in place of adm?
 
 * localed:
   - localectl: add listing support for X11 keymaps, by parsing /usr/share/X11/xkb/rules/xorg.lst
@@ -175,21 +171,19 @@ Features:
   - maybe add API to send pairs of iovecs via sd_journal_send
   - journal: when writing journal auto-rotate if time jumps backwards
   - gatewayd: should run under its own UID
-  - journal: add a setgid "adm" utility to invoke from libsystemd-journal, which passes fds via STDOUT and does PK access
+  - journal: add a setgid "systemd-journal" utility to invoke from libsystemd-journal, which passes fds via STDOUT and does PK access
   - journactl: support negative filtering, i.e. FOOBAR!="waldo",
     and !FOOBAR for events without FOOBAR.
   - journal: when rotating, copy over old acls/access mode
-  - journal: document why we do not give ownership to journal files to the user that created them but use FS ACLs for that
   - journal: send out marker messages every now and then, and immediately sync with fdatasync() afterwards, in order to have hourly guaranteed syncs.
   - journal: when we haven't written anything in a while, sync to disk and mark file as offline, in order to be more often than not in a clean state
   - journal-send.c, log.c: when the log socket is clogged, and we drop, count this and write a message about this when it gets unclogged again.
   - journal: find a way to allow dropping history early, based on priority, other rules
   - journal: When used on NFS, check payload hashes
   - journal: When used on NFS make sure wake up sd_journal_wait() every 2s, to handle missing inotify
-  - document that people can use file system ACLs to manage access to journal files, with example
   - Introduce journalctl -b <nr> to show journal messages of a previous boot
   - journald: check whether it is OK if the client can still modify delivered journal entries
-  - journal live copy, based on libneon (client) and libmicrohttpd
+  - journal live copy, based on libneon (client) and libmicrohttpd (server)
   - journald: add kernel cmdline option to disable ratelimiting for debug purposes
   - refuse taking lower-case variable names in sd_journal_send() and friends.
   - journald: we currently rotate only after MaxUse+MaxFilesize has been reached.
