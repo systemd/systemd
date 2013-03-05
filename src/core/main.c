@@ -1720,7 +1720,7 @@ int main(int argc, char *argv[]) {
                         manager_dump_units(m, stdout, "\t");
                 }
 
-                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, &default_unit_job);
+                r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, false, &error, &default_unit_job);
                 if (r < 0) {
                         log_error("Failed to start default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
