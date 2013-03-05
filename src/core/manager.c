@@ -230,32 +230,26 @@ static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned po
                         memset(p, ' ', pos-2);
                         p += pos-2;
                 }
-                memcpy(p, ANSI_RED_ON, strlen(ANSI_RED_ON));
-                p += strlen(ANSI_RED_ON);
+                p = stpcpy(p, ANSI_RED_ON);
                 *p++ = '*';
         }
 
         if (pos > 0 && pos <= width) {
-                memcpy(p, ANSI_HIGHLIGHT_RED_ON, strlen(ANSI_HIGHLIGHT_RED_ON));
-                p += strlen(ANSI_HIGHLIGHT_RED_ON);
+                p = stpcpy(p, ANSI_HIGHLIGHT_RED_ON);
                 *p++ = '*';
         }
 
-        memcpy(p, ANSI_HIGHLIGHT_OFF, strlen(ANSI_HIGHLIGHT_OFF));
-        p += strlen(ANSI_HIGHLIGHT_OFF);
+        p = stpcpy(p, ANSI_HIGHLIGHT_OFF);
 
         if (pos < width) {
-                memcpy(p, ANSI_RED_ON, strlen(ANSI_RED_ON));
-                p += strlen(ANSI_RED_ON);
+                p = stpcpy(p, ANSI_RED_ON);
                 *p++ = '*';
                 if (pos < width-1) {
                         memset(p, ' ', width-1-pos);
                         p += width-1-pos;
                 }
-                memcpy(p, ANSI_HIGHLIGHT_OFF, strlen(ANSI_HIGHLIGHT_OFF));
-                p += strlen(ANSI_HIGHLIGHT_OFF);
+                p = stpcpy(p, ANSI_HIGHLIGHT_OFF);
         }
-        *p = 0;
 }
 
 static void manager_print_jobs_in_progress(Manager *m) {
