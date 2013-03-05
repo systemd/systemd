@@ -594,3 +594,8 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *sear
                 } else if (ignore_file((de)->d_name))                   \
                         continue;                                       \
                 else
+
+static inline void *mempset(void *s, int c, size_t n) {
+        memset(s, c, n);
+        return (char*)s + n;
+}

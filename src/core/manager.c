@@ -226,10 +226,8 @@ static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned po
         assert(pos <= width+1); /* 0 or width+1 mean that the center light is behind the corner */
 
         if (pos > 1) {
-                if (pos > 2) {
-                        memset(p, ' ', pos-2);
-                        p += pos-2;
-                }
+                if (pos > 2)
+                        p = mempset(p, ' ', pos-2);
                 p = stpcpy(p, ANSI_RED_ON);
                 *p++ = '*';
         }
@@ -244,10 +242,8 @@ static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned po
         if (pos < width) {
                 p = stpcpy(p, ANSI_RED_ON);
                 *p++ = '*';
-                if (pos < width-1) {
-                        memset(p, ' ', width-1-pos);
-                        p += width-1-pos;
-                }
+                if (pos < width-1)
+                        p = mempset(p, ' ', width-1-pos);
                 p = stpcpy(p, ANSI_HIGHLIGHT_OFF);
         }
 }
