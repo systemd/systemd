@@ -308,21 +308,21 @@ static int bus_manager_append_preparing(DBusMessageIter *i, const char *property
 }
 
 static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMessage **_reply) {
-        Session *session = NULL;
-        User *user = NULL;
-        const char *type, *class, *seat, *tty, *display, *remote_user, *remote_host, *service;
+        const char *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *service;
         uint32_t uid, leader, audit_id = 0;
         dbus_bool_t remote, kill_processes, exists;
-        char **controllers = NULL, **reset_controllers = NULL;
+        _cleanup_strv_free_ char **controllers = NULL, **reset_controllers = NULL;
+        _cleanup_free_ char *cgroup = NULL, *id = NULL, *p = NULL;
         SessionType t;
         SessionClass c;
-        Seat *s;
         DBusMessageIter iter;
         int r;
-        char *id = NULL, *p;
         uint32_t vtnr = 0;
-        int fifo_fd = -1;
+        _cleanup_close_ int fifo_fd = -1;
         DBusMessage *reply = NULL;
+        Session *session = NULL;
+        User *user = NULL;
+        Seat *seat = NULL;
         bool b;
 
         assert(m);
@@ -371,13 +371,13 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
                 return -EINVAL;
 
-        dbus_message_iter_get_basic(&iter, &seat);
+        dbus_message_iter_get_basic(&iter, &cseat);
 
-        if (isempty(seat))
-                s = NULL;
+        if (isempty(cseat))
+                seat = NULL;
         else {
-                s = hashmap_get(m->seats, seat);
-                if (!s)
+                seat = hashmap_get(m->seats, cseat);
+                if (!seat)
                         return -ENOENT;
         }
 
@@ -396,9 +396,9 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         if (tty_is_vc(tty)) {
                 int v;
 
-                if (!s)
-                        s = m->vtconsole;
-                else if (s != m->vtconsole)
+                if (!seat)
+                        seat = m->vtconsole;
+                else if (seat != m->vtconsole)
                         return -EINVAL;
 
                 v = vtnr_from_tty(tty);
@@ -412,18 +412,17 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                         return -EINVAL;
         } else if (tty_is_console(tty)) {
 
-                if (!s)
-                        s = m->vtconsole;
-                else if (s != m->vtconsole)
+                if (!seat)
+                        seat = m->vtconsole;
+                else if (seat != m->vtconsole)
                         return -EINVAL;
 
                 if (vtnr != 0)
                         return -EINVAL;
-
         }
 
-        if (s) {
-                if (seat_can_multi_session(s)) {
+        if (seat) {
+                if (seat_can_multi_session(seat)) {
                         if (vtnr > 63)
                                 return -EINVAL;
                 } else {
@@ -486,78 +485,83 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
 
         dbus_message_iter_get_basic(&iter, &kill_processes);
 
-        r = manager_add_user_by_uid(m, uid, &user);
+        r = cg_pid_get_cgroup(leader, NULL, &cgroup);
         if (r < 0)
                 goto fail;
 
-        audit_session_from_pid(leader, &audit_id);
+        r = manager_get_session_by_cgroup(m, cgroup, &session);
+        if (r < 0)
+                goto fail;
 
-        if (audit_id > 0) {
-                asprintf(&id, "%lu", (unsigned long) audit_id);
+        if (session) {
+                fifo_fd = session_create_fifo(session);
+                if (fifo_fd < 0) {
+                        r = fifo_fd;
+                        goto fail;
+                }
 
-                if (!id) {
+                /* Session already exists, client is probably
+                 * something like "su" which changes uid but
+                 * is still the same audit session */
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply) {
                         r = -ENOMEM;
                         goto fail;
                 }
 
-                session = hashmap_get(m->sessions, id);
-
-                if (session) {
-                        free(id);
-
-                        fifo_fd = session_create_fifo(session);
-                        if (fifo_fd < 0) {
-                                r = fifo_fd;
-                                goto fail;
-                        }
-
-                        /* Session already exists, client is probably
-                         * something like "su" which changes uid but
-                         * is still the same audit session */
-
-                        reply = dbus_message_new_method_return(message);
-                        if (!reply) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        p = session_bus_path(session);
-                        if (!p) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        seat = session->seat ? session->seat->id : "";
-                        vtnr = session->vtnr;
-                        exists = true;
-
-                        b = dbus_message_append_args(
-                                        reply,
-                                        DBUS_TYPE_STRING, &session->id,
-                                        DBUS_TYPE_OBJECT_PATH, &p,
-                                        DBUS_TYPE_STRING, &session->user->runtime_path,
-                                        DBUS_TYPE_UNIX_FD, &fifo_fd,
-                                        DBUS_TYPE_STRING, &seat,
-                                        DBUS_TYPE_UINT32, &vtnr,
-                                        DBUS_TYPE_BOOLEAN, &exists,
-                                        DBUS_TYPE_INVALID);
-                        free(p);
-
-                        if (!b) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        close_nointr_nofail(fifo_fd);
-                        *_reply = reply;
-
-                        strv_free(controllers);
-                        strv_free(reset_controllers);
-
-                        return 0;
+                p = session_bus_path(session);
+                if (!p) {
+                        r = -ENOMEM;
+                        goto fail;
                 }
 
-        } else {
+                cseat = session->seat ? session->seat->id : "";
+                vtnr = session->vtnr;
+                exists = true;
+
+                b = dbus_message_append_args(
+                                reply,
+                                DBUS_TYPE_STRING, &session->id,
+                                DBUS_TYPE_OBJECT_PATH, &p,
+                                DBUS_TYPE_STRING, &session->user->runtime_path,
+                                DBUS_TYPE_UNIX_FD, &fifo_fd,
+                                DBUS_TYPE_STRING, &cseat,
+                                DBUS_TYPE_UINT32, &vtnr,
+                                DBUS_TYPE_BOOLEAN, &exists,
+                                DBUS_TYPE_INVALID);
+                if (!b) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                *_reply = reply;
+
+                return 0;
+        }
+
+        audit_session_from_pid(leader, &audit_id);
+        if (audit_id > 0) {
+                /* Keep our session IDs and the audit session IDs in sync */
+
+                if (asprintf(&id, "%lu", (unsigned long) audit_id) < 0) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                /* Wut? There's already a session by this name and we
+                 * didn't find it above? Weird, then let's not trust
+                 * the audit data and let's better register a new
+                 * ID */
+                if (hashmap_get(m->sessions, id)) {
+                        audit_id = 0;
+
+                        free(id);
+                        id = NULL;
+                }
+        }
+
+        if (!id) {
                 do {
                         free(id);
                         id = NULL;
@@ -570,8 +574,11 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 } while (hashmap_get(m->sessions, id));
         }
 
+        r = manager_add_user_by_uid(m, uid, &user);
+        if (r < 0)
+                goto fail;
+
         r = manager_add_session(m, user, id, &session);
-        free(id);
         if (r < 0)
                 goto fail;
 
@@ -633,8 +640,8 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 goto fail;
         }
 
-        if (s) {
-                r = seat_attach_session(s, session);
+        if (seat) {
+                r = seat_attach_session(seat, session);
                 if (r < 0)
                         goto fail;
         }
@@ -655,7 +662,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 goto fail;
         }
 
-        seat = s ? s->id : "";
+        cseat = seat ? seat->id : "";
         exists = false;
         b = dbus_message_append_args(
                         reply,
@@ -663,34 +670,26 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                         DBUS_TYPE_OBJECT_PATH, &p,
                         DBUS_TYPE_STRING, &session->user->runtime_path,
                         DBUS_TYPE_UNIX_FD, &fifo_fd,
-                        DBUS_TYPE_STRING, &seat,
+                        DBUS_TYPE_STRING, &cseat,
                         DBUS_TYPE_UINT32, &vtnr,
                         DBUS_TYPE_BOOLEAN, &exists,
                         DBUS_TYPE_INVALID);
-        free(p);
 
         if (!b) {
                 r = -ENOMEM;
                 goto fail;
         }
 
-        close_nointr_nofail(fifo_fd);
         *_reply = reply;
 
         return 0;
 
 fail:
-        strv_free(controllers);
-        strv_free(reset_controllers);
-
         if (session)
                 session_add_to_gc_queue(session);
 
         if (user)
                 user_add_to_gc_queue(user);
-
-        if (fifo_fd >= 0)
-                close_nointr_nofail(fifo_fd);
 
         if (reply)
                 dbus_message_unref(reply);
