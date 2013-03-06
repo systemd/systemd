@@ -331,7 +331,7 @@ static char *sysv_translate_name(const char *name) {
         if (endswith(name, ".sh"))
                 /* Drop .sh suffix */
                 strcpy(stpcpy(r, name) - 3, ".service");
-        if (startswith(name, "rc."))
+        else if (startswith(name, "rc."))
                 /* Drop rc. prefix */
                 strcpy(stpcpy(r, name + 3), ".service");
         else
