@@ -31,7 +31,7 @@ AUTHOR:
 LICENSE:
         LGPLv2.1+ for all code
         - except sd-daemon.[ch] and sd-readahead.[ch] which are MIT
-        - except src/udev/ which is GPLv2.0+
+        - except src/udev/ which is (currently still) GPLv2+
 
 REQUIREMENTS:
         Linux kernel >= 2.6.39
@@ -45,7 +45,7 @@ REQUIREMENTS:
           CONFIG_SYSFS
 
         Udev will fail to work with the legacy layout:
-          CONFIG_SYSFS_DEPRECATED*=n
+          CONFIG_SYSFS_DEPRECATED=n
 
         Legacy hotplug slows down the system and confuses udev:
           CONFIG_UEVENT_HELPER_PATH=""
@@ -65,12 +65,17 @@ REQUIREMENTS:
           CONFIG_AUTOFS4_FS
           CONFIG_TMPFS_POSIX_ACL
           CONFIG_TMPFS_XATTR
+          CONFIG_SECCOMP
 
         For systemd-bootchart a kernel with procfs support and several
         proc output options enabled is required:
           CONFIG_PROC_FS
           CONFIG_SCHEDSTATS
           CONFIG_SCHED_DEBUG
+
+        For UEFI systems:
+          CONFIG_EFI_VARS
+          CONFIG_EFI_PARTITION
 
         dbus >= 1.4.0
         libcap
