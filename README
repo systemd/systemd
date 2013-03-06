@@ -35,9 +35,43 @@ LICENSE:
 
 REQUIREMENTS:
         Linux kernel >= 2.6.39
-                with devtmpfs
-                with cgroups (but it's OK to disable all controllers)
-                optional but strongly recommended: autofs4, ipv6
+          CONFIG_DEVTMPFS
+          CONFIG_CGROUPS (it's OK to disable all controllers)
+          CONFIG_INOTIFY_USER
+          CONFIG_SIGNALFD
+          CONFIG_TIMERFD
+          CONFIG_EPOLL
+          CONFIG_HOTPLUG
+          CONFIG_SYSFS
+
+        Udev will fail to work with the legacy layout:
+          CONFIG_SYSFS_DEPRECATED*=n
+
+        Legacy hotplug slows down the system and confuses udev:
+          CONFIG_UEVENT_HELPER_PATH=""
+
+        Userspace firmware loading is deprecated, will go away, and
+        sometimes causes problems:
+          CONFIG_FW_LOADER_USER_HELPER=n
+
+        Some udev rules and virtualization detection relies on it:
+          CONFIG_DMIID
+
+        Mount and bind mount handling might require it:
+          CONFIG_FHANDLE
+
+        Optional but strongly recommended:
+          CONFIG_IPV6
+          CONFIG_AUTOFS4_FS
+          CONFIG_TMPFS_POSIX_ACL
+          CONFIG_TMPFS_XATTR
+
+        For systemd-bootchart a kernel with procfs support and several
+        proc output options enabled is required:
+          CONFIG_PROC_FS
+          CONFIG_SCHEDSTATS
+          CONFIG_SCHED_DEBUG
+
         dbus >= 1.4.0
         libcap
         libblkid >= 2.20 (from util-linux) (optional)
@@ -62,13 +96,6 @@ REQUIREMENTS:
         sulogin (from util-linux >= 2.22 or sysvinit-tools, optional but recommended)
         dracut (optional)
         PolicyKit (optional)
-
-        For systmed-bootchart a kernel with procfs support and several
-        proc output options enabled is required:
-
-        CONFIG_PROC_FS
-        CONFIG_SCHEDSTATS
-        CONFIG_SCHED_DEBUG
 
         When building from git you need the following additional dependencies:
 
