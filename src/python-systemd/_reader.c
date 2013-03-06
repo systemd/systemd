@@ -507,9 +507,10 @@ static PyObject* Reader_wait(Reader *self, PyObject *args, PyObject *keywds)
         return NULL;
 
     Py_BEGIN_ALLOW_THREADS
-    r = sd_journal_wait(self->j, timeout ==0 ? (uint64_t) -1 : timeout * 1E6);
+    r = sd_journal_wait(self->j,
+                        timeout == 0 ? (uint64_t) -1 : timeout * 1E6);
     Py_END_ALLOW_THREADS
-    if (set_error(r, NULL, NULL))
+    if (set_error(r, NULL, NULL) < 0)
         return NULL;
 
     return long_FromLong(r);
