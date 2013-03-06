@@ -43,6 +43,9 @@ Fedora 19:
 * timer logic is confused by units which are skipped due to failing condition
   http://lists.freedesktop.org/archives/systemd-devel/2013-February/008816.html
 
+* timer logic is also confused if a service it triggers hasn't finished when the next timer elapses:
+  http://lists.freedesktop.org/archives/systemd-devel/2013-February/009021.html
+
 Features:
 
 * neither pkexec nor sudo initialize environ[] from the PAM environment?
