@@ -65,11 +65,7 @@ void strv_free(char **l) {
 }
 
 void strv_freep(char ***l) {
-        if (!l)
-                return;
-
         strv_free(*l);
-        *l = NULL;
 }
 
 char **strv_copy(char **l) {

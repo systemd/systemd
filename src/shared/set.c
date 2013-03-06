@@ -38,11 +38,7 @@ void set_free(Set* s) {
 }
 
 void set_freep(Set **s) {
-        if (!s)
-                return;
-
         set_free(*s);
-        *s = NULL;
 }
 
 void set_free_free(Set *s) {
@@ -50,11 +46,7 @@ void set_free_free(Set *s) {
 }
 
 void set_free_freep(Set **s) {
-        if (!*s)
-                return;
-
         set_free_free(*s);
-        *s = NULL;
 }
 
 int set_ensure_allocated(Set **s, hash_func_t hash_func, compare_func_t compare_func) {
