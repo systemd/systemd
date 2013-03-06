@@ -41,7 +41,7 @@ REQUIREMENTS:
           CONFIG_SIGNALFD
           CONFIG_TIMERFD
           CONFIG_EPOLL
-          CONFIG_HOTPLUG
+          CONFIG_NET
           CONFIG_SYSFS
 
         Udev will fail to work with the legacy layout:
