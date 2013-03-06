@@ -212,7 +212,7 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
         for (;;)  {
-                const char *d;
+                const void *d;
                 size_t l;
                 r = sd_journal_next(j);
                 if (r &lt; 0) {
@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
                         fprintf(stderr, "Failed to read message field: %s\n", strerror(-r));
                         continue;
                 }
-                printf("%.*s\n", (int) l, d);
+                printf("%.*s\n", (int) l, (const char*) d);
         }
         sd_journal_close(j);
         return 0;
@@ -248,9 +248,9 @@ int main(int argc, char *argv[]) {
 
 int wait_for_changes(sd_journal *j) {
         struct pollfd pollfd;
-        pollfd.fd = sd_journal_get_fd();
+        pollfd.fd = sd_journal_get_fd(j);
         pollfd.events = POLLIN;
-        poll(&amp;pollfd, 1, sd_journal_reliable_fd() &gt; 0 ? -1 : 2000);
+        poll(&amp;pollfd, 1, sd_journal_reliable_fd(j) &gt; 0 ? -1 : 2000);
         return sd_journal_process(j);
 }
                 </programlisting>
