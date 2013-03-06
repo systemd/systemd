@@ -83,9 +83,13 @@ global:
 
 LIBSYSTEMD_JOURNAL_196 {
 global:
-        sd_journal_reliable_fd;
         sd_journal_get_catalog;
         sd_journal_get_catalog_for_message_id;
         sd_journal_set_data_threshold;
         sd_journal_get_data_threshold;
 } LIBSYSTEMD_JOURNAL_195;
+
+LIBSYSTEMD_JOURNAL_198 {
+global:
+        sd_journal_reliable_fd;
+} LIBSYSTEMD_JOURNAL_196;
