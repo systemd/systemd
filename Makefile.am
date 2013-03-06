@@ -3515,7 +3515,7 @@ sphinx-%:
 	$(AM_V_at)echo Output has been generated in $(abs_top_builddir)/man/python-systemd/
 
 destdir-sphinx: all
-	dir="$(mktemp -d /tmp/systemd-install.XXXXXX)" && \
+	dir="$$(mktemp -d /tmp/systemd-install.XXXXXX)" && \
 		$(MAKE) DESTDIR="$$dir" install && \
 	        $(MAKE) DESTDIR="$$dir" sphinx-html && \
 		rm -rf "$$dir"
