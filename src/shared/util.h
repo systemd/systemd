@@ -519,12 +519,17 @@ void warn_melody(void);
 int get_shell(char **ret);
 int get_home_dir(char **ret);
 
-void freep(void *p);
+static inline void freep(void *p) {
+        free(*(void**) p);
+}
+
 void fclosep(FILE **f);
 void pclosep(FILE **f);
 void closep(int *fd);
 void closedirp(DIR **d);
-void umaskp(mode_t *u);
+static inline void umaskp(mode_t *u) {
+        umask(*u);
+}
 
 _malloc_  static inline void *malloc_multiply(size_t a, size_t b) {
         if (_unlikely_(b == 0 || a > ((size_t) -1) / b))

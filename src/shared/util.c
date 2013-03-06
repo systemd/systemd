@@ -5237,10 +5237,6 @@ int get_shell(char **_sh) {
         return 0;
 }
 
-void freep(void *p) {
-        free(*(void**) p);
-}
-
 void fclosep(FILE **f) {
         if (*f)
                 fclose(*f);
@@ -5259,10 +5255,6 @@ void closep(int *fd) {
 void closedirp(DIR **d) {
         if (*d)
                 closedir(*d);
-}
-
-void umaskp(mode_t *u) {
-        umask(*u);
 }
 
 bool filename_is_safe(const char *p) {

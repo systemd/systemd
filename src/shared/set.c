@@ -37,16 +37,8 @@ void set_free(Set* s) {
         hashmap_free(MAKE_HASHMAP(s));
 }
 
-void set_freep(Set **s) {
-        set_free(*s);
-}
-
 void set_free_free(Set *s) {
         hashmap_free_free(MAKE_HASHMAP(s));
-}
-
-void set_free_freep(Set **s) {
-        set_free_free(*s);
 }
 
 int set_ensure_allocated(Set **s, hash_func_t hash_func, compare_func_t compare_func) {
