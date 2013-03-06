@@ -16,4 +16,5 @@ ConditionPathExists=/etc/initrd-release
 [Service]
 Type=oneshot
 ExecStartPre=/usr/bin/systemctl daemon-reload
+ExecStart=/usr/bin/systemctl start local-fs.target
 ExecStart=/usr/bin/systemctl --no-block start initrd-cleanup.service
