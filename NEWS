@@ -11,8 +11,8 @@ CHANGES WITH 198:
           will load all these snippets and apply them on top of the
           main unit configuration file, possibly extending or
           overriding its settings. Using these drop-in snippets is
-          generally nicer than the two earler options for changing
-          unit files locally: copying the files form
+          generally nicer than the two earlier options for changing
+          unit files locally: copying the files from
           /usr/lib/systemd/system/ to /etc/systemd/system/ and editing
           them there; or creating a new file in /etc/systemd/system/
           that incorporates the original one via ".include". Drop-in
@@ -34,7 +34,7 @@ CHANGES WITH 198:
         * systemctl gained a new "list-dependencies" command for
           listing the dependencies of a unit recursively.
 
-        * Inhibitors are now honoured and listed by "systemctl
+        * Inhibitors are now honored and listed by "systemctl
           suspend", "systemctl poweroff" (and similar) too, not only
           GNOME. These commands will also list active sessions by
           other users.
@@ -70,9 +70,9 @@ CHANGES WITH 198:
           are now ignored, since systemd does not support early-boot
           LSB init scripts anymore, and these facilities are implied
           anyway for normal services. syslog.target has also been
-          removed hence.
+          removed.
 
-        * There ar new bus calls on PID1's Manager object for
+        * There are new bus calls on PID1's Manager object for
           canceling jobs, and removing snapshot units. Previously,
           both calls were only available on the Job and Snapshot
           objects themselves.
@@ -103,8 +103,8 @@ CHANGES WITH 198:
           bind mount specific directories from the host into the
           container.
 
-        * nspawn will not mount its own devpts file system instance
-          into the container, in order not to leaker pty devices from
+        * nspawn will now mount its own devpts file system instance
+          into the container, in order not to leake pty devices from
           the host into the container.
 
         * systemd will now read the firmware boot time performance
@@ -112,7 +112,7 @@ CHANGES WITH 198:
           this, and take it into account for boot performance analysis
           via "systemd-analyze". This is currently supported only in
           conjunction with Gummiboot, but could be supported by other
-          boot loaders too. For details, see:
+          boot loaders too. For details see:
 
           http://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface
 
@@ -129,8 +129,7 @@ CHANGES WITH 198:
         * "systemctl unlock-sessions" has been added, that allows
           unlocking the screens of all user sessions at once, similar
           how "systemctl lock-sessions" already locked all users
-          sessions. This is backed by a new D-Bus call
-          UnlockSessions().
+          sessions. This is backed by a new D-Bus call UnlockSessions().
 
         * "loginctl seat-status" will now show the master device of a
           seat. (i.e. the device of a seat that needs to be around for
@@ -141,7 +140,7 @@ CHANGES WITH 198:
           configuration of files and directories (with wildcards) that
           shall be excluded from automatic cleanup ("aging").
 
-        * udev permission rules are now only applied for "add" rules,
+        * udev permission rules are now only applied for "add" events,
           no longer for "change" events.
 
         * The log messages for lid events and power/sleep keypresses
@@ -153,8 +152,8 @@ CHANGES WITH 198:
         * udevadm hwdb gained a new --root= parameter to change the
           root directory to operate relative to.
 
-        * logind will now issue a sync() request to the kernel early
-          at shutdown, so that dirty buffers are flushed to disk early
+        * logind will now issue a background sync() request to the kernel
+          early at shutdown, so that dirty buffers are flushed to disk early
           instead of at the last moment, in order to optimize shutdown
           times a little.
 
@@ -238,7 +237,8 @@ CHANGES WITH 198:
 
         * systemd-detect-virt will now also detect xen PVs
 
-        * The pstore file system is now mounted by default, if it is available.
+        * The pstore file system is now mounted by default, if it is
+          available.
 
         Contributions from: Adel Gadllah, Aleksander Morgado, Auke
         Kok, Ayan George, Bastien Nocera, Colin Walters, Daniel Buch,
