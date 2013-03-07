@@ -99,7 +99,7 @@ DEFAULT_CONVERTERS = {
 class Reader(_Reader):
     """Reader allows the access and filtering of systemd journal
     entries. Note that in order to access the system journal, a
-    non-root user must be in the `adm` group.
+    non-root user must be in the `systemd-journal` group.
 
     Example usage to print out all informational or higher level
     messages for systemd-udevd for this boot:
