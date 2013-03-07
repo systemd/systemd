@@ -454,7 +454,7 @@ int main(int argc, char *argv[]) {
                 arg_flags |= SHOW_OVERRIDDEN;
 
         if (!arg_no_pager)
-                pager_open();
+                pager_open(false);
 
         if (optind < argc) {
                 int i;

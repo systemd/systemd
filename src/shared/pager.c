@@ -44,7 +44,7 @@ _noreturn_ static void pager_fallback(void) {
         _exit(EXIT_SUCCESS);
 }
 
-int pager_open(void) {
+int pager_open(bool jump_to_end) {
         int fd[2];
         const char *pager;
         pid_t parent_pid;
@@ -85,7 +85,10 @@ int pager_open(void) {
                 dup2(fd[0], STDIN_FILENO);
                 close_pipe(fd);
 
-                setenv("LESS", "FRSXK", 0);
+                if (jump_to_end)
+                        setenv("LESS", "FRSXK+G", 0);
+                else
+                        setenv("LESS", "FRSXK", 0);
 
                 /* Make sure the pager goes away when the parent dies */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)

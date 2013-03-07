@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (!arg_no_pager) {
-                r = pager_open();
+                r = pager_open(false);
                 if (r > 0) {
                         if (arg_full == -1)
                                 arg_full = true;

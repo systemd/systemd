@@ -23,6 +23,6 @@
 
 #include <stdbool.h>
 
-int pager_open(void);
+int pager_open(bool jump_to_end);
 void pager_close(void);
 bool pager_have(void);

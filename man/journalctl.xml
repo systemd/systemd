@@ -163,6 +163,20 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-e</option></term>
+                                <term><option>--pager-end</option></term>
+
+                                <listitem><para>Immediately jump to
+                                the end of the journal inside the
+                                implied pager tool. Very useful in
+                                combination with the
+                                <option>-b</option> option. Note that
+                                this is only supported for the
+                                <citerefentry><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                pager.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-n</option></term>
                                 <term><option>--lines=</option></term>
 

@@ -56,6 +56,7 @@
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
 static OutputMode arg_output = OUTPUT_SHORT;
+static bool arg_pager_end = false;
 static bool arg_follow = false;
 static bool arg_full = false;
 static bool arg_all = false;
@@ -103,6 +104,7 @@ static int help(void) {
                "  -u --unit=UNIT         Show data only from the specified unit\n"
                "     --user-unit=UNIT    Show data only from the specified user session unit\n"
                "  -p --priority=RANGE    Show only messages within the specified priority range\n"
+               "  -e --pager-end         Immediately jump to end of the journal in the pager\n"
                "  -f --follow            Follow journal\n"
                "  -n --lines[=INTEGER]   Number of journal entries to show\n"
                "     --no-tail           Show all lines, even in follow mode\n"
@@ -163,6 +165,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",         no_argument,       NULL, 'h'              },
                 { "version" ,     no_argument,       NULL, ARG_VERSION      },
                 { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
+                { "pager-end",    no_argument,       NULL, 'e'              },
                 { "follow",       no_argument,       NULL, 'f'              },
                 { "output",       required_argument, NULL, 'o'              },
                 { "all",          no_argument,       NULL, 'a'              },
@@ -199,7 +202,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hfo:an::qmbD:p:c:u:F:xr", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hefo:an::qmbD:p:c:u:F:xr", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -214,6 +217,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
+                        break;
+
+                case 'e':
+                        arg_pager_end = true;
                         break;
 
                 case 'f':
@@ -1075,7 +1082,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (!arg_no_pager && !arg_follow)
-                pager_open();
+                pager_open(arg_pager_end);
 
         if (!arg_quiet) {
                 usec_t start, end;

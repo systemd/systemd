@@ -136,7 +136,7 @@ static void pager_open_if_enabled(void) {
         if (arg_no_pager)
                 return;
 
-        pager_open();
+        pager_open(false);
 }
 
 static void ask_password_agent_open_if_enabled(void) {

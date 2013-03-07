@@ -560,7 +560,7 @@ int main(int argc, char *argv[]) {
 
         case ACTION_LIST:
                 if (!arg_no_pager)
-                        pager_open();
+                        pager_open(false);
 
                 r = dump_list(j);
                 break;
