@@ -60,6 +60,10 @@
 #include "build.h"
 #include "fileio.h"
 
+#ifndef TTY_GID
+#define TTY_GID 5
+#endif
+
 typedef enum LinkJournal {
         LINK_NO,
         LINK_AUTO,
@@ -335,7 +339,7 @@ static int mount_all(const char *dest) {
                 { NULL,        "/proc/sys", NULL,    NULL,       MS_BIND|MS_RDONLY|MS_REMOUNT, true  },   /* Then, make it r/o */
                 { "sysfs",     "/sys",      "sysfs", NULL,       MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, true  },
                 { "tmpfs",     "/dev",      "tmpfs", "mode=755", MS_NOSUID|MS_STRICTATIME,     true  },
-                { "/dev/pts",  "/dev/pts",  NULL,    NULL,       MS_BIND,                      true  },
+                { "devpts",    "/dev/pts",  "devpts","newinstance,ptmxmode=0666,mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC, true },
                 { "tmpfs",     "/dev/shm",  "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME, true  },
                 { "tmpfs",     "/run",      "tmpfs", "mode=755", MS_NOSUID|MS_NODEV|MS_STRICTATIME, true  },
 #ifdef HAVE_SELINUX
@@ -548,8 +552,7 @@ static int copy_devnodes(const char *dest) {
                 "full\0"
                 "random\0"
                 "urandom\0"
-                "tty\0"
-                "ptmx\0";
+                "tty\0";
 
         const char *d;
         int r = 0;
@@ -598,6 +601,21 @@ static int copy_devnodes(const char *dest) {
         }
 
         return r;
+}
+
+static int setup_ptmx(const char *dest) {
+        _cleanup_free_ char *p = NULL;
+
+        p = strappend(dest, "/dev/ptmx");
+        if (!p)
+                return log_oom();
+
+        if (symlink("pts/ptmx", p) < 0) {
+                log_error("Failed to create /dev/ptmx symlink: %m");
+                return -errno;
+        }
+
+        return 0;
 }
 
 static int setup_dev_console(const char *dest, const char *console) {
@@ -1276,7 +1294,7 @@ int main(int argc, char *argv[]) {
                 siginfo_t status;
                 int pipefd[2];
 
-                if(pipe2(pipefd, O_NONBLOCK|O_CLOEXEC) < 0) {
+                if (pipe2(pipefd, O_NONBLOCK|O_CLOEXEC) < 0) {
                         log_error("pipe2(): %m");
                         goto finish;
                 }
@@ -1391,6 +1409,9 @@ int main(int argc, char *argv[]) {
                                 goto child_fail;
 
                         if (copy_devnodes(arg_directory) < 0)
+                                goto child_fail;
+
+                        if (setup_ptmx(arg_directory) < 0)
                                 goto child_fail;
 
                         dev_setup(arg_directory);
