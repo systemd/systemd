@@ -3607,8 +3607,8 @@ void execute_directory(const char *directory, DIR *d, char *argv[]) {
 
         assert(directory);
 
-        /* Executes all binaries in a directory in parallel and waits
-         * until all they all finished. */
+        /* Executes all binaries in a directory in parallel and
+         * waits for them to finish. */
 
         if (!d) {
                 if (!(_d = opendir(directory))) {
