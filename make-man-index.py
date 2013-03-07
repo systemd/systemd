@@ -21,6 +21,7 @@
 import collections
 import xml.etree.ElementTree as tree
 import sys
+import re
 MDASH = ' — ' if sys.version_info.major >= 3 else ' -- '
 
 TEMPLATE = '''\
@@ -66,10 +67,16 @@ SUMMARY = '''\
 COUNTS = '\
 This index contains {count} entries, referring to {pages} individual manual pages.'
 
+def check_id(page, t):
+    id = t.getroot().get('id')
+    if not re.search('/' + id + '[.]', page):
+        raise ValueError("id='{}' is not the same as page name '{}'".format(id, page))
+
 def make_index(pages):
     index = collections.defaultdict(list)
     for p in pages:
         t = tree.parse(p)
+        check_id(p, t)
         section = t.find('./refmeta/manvolnum').text
         refname = t.find('./refnamediv/refname').text
         purpose = ' '.join(t.find('./refnamediv/refpurpose').text.split())
