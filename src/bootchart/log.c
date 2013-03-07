@@ -57,7 +57,7 @@ double gettime_ns(void)
 
 void log_uptime(void)
 {
-        FILE *f;
+        FILE _cleanup_fclose_ *f = NULL;
         char str[32];
         double uptime;
 
@@ -65,11 +65,9 @@ void log_uptime(void)
 
         if (!f)
                 return;
-        if (!fscanf(f, "%s %*s", str)) {
-                fclose(f);
+        if (!fscanf(f, "%s %*s", str))
                 return;
-        }
-        fclose(f);
+
         uptime = strtod(str, NULL);
 
         log_start = gettime_ns();
@@ -120,7 +118,6 @@ void log_sample(int sample)
 {
         static int vmstat;
         static int schedstat;
-        FILE *st;
         char buf[4095];
         char key[256];
         char val[256];
@@ -253,6 +250,7 @@ schedstat_next:
 
                 /* end of our LL? then append a new record */
                 if (ps->pid != pid) {
+                        FILE _cleanup_fclose_ *st = NULL;
                         char t[32];
                         struct ps_struct *parent;
 
@@ -320,10 +318,8 @@ schedstat_next:
                         if (!st)
                                 continue;
                         if (!fscanf(st, "%*s %*s %*s %i", &p)) {
-                                fclose(st);
                                 continue;
                         }
-                        fclose(st);
                         ps->ppid = p;
 
                         /*
