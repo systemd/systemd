@@ -522,7 +522,7 @@ CLEANFILES += \
        man/index.html
 
 man/index.html:
-	$(AM_V_GEN)$(LN_S) systemd.index.html $@
+	$(AM_V_GEN)$(LN_S) -f systemd.index.html $@
 
 NON_INDEX_XML_FILES = $(filter-out man/systemd.index.xml,$(XML_FILES))
 
