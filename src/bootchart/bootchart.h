@@ -61,7 +61,7 @@ struct ps_struct {
         struct ps_struct *next;       /* siblings */
 
         /* must match - otherwise it's a new process with same PID */
-        char name[16];
+        char name[256];
         int pid;
         int ppid;
 
@@ -101,6 +101,7 @@ extern struct cpu_stat_struct cpustat[];
 extern int pscount;
 extern bool relative;
 extern bool filter;
+extern bool show_cmdline;
 extern bool pss;
 extern bool entropy;
 extern bool initcall;

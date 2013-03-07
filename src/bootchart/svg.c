@@ -267,6 +267,20 @@ static void svg_graph_box(int height)
         }
 }
 
+/* xml comments must not contain "--" */
+static char* xml_comment_encode(const char* name) {
+        char *enc_name, *p;
+
+        enc_name = strdup(name);
+        if (!enc_name)
+                return NULL;
+
+        for (p = enc_name; *p; p++)
+                if (p[0] == '-' && p[1] == '-')
+                        p[1] = '_';
+
+        return enc_name;
+}
 
 static void svg_pss_graph(void)
 {
@@ -369,7 +383,7 @@ static void svg_pss_graph(void)
                                 top = bottom + ps->sample[i].pss;
                                 /* draw a label with the process / PID */
                                 if ((i == 1) || (ps->sample[i - 1].pss <= (100 * scale_y)))
-                                        svg("  <text x=\"%.03f\" y=\"%.03f\">%s [%i]</text>\n",
+                                        svg("  <text x=\"%.03f\" y=\"%.03f\"><![CDATA[%s]]> [%i]</text>\n",
                                             time_to_graph(sampletime[i] - graph_start),
                                             kb_to_graph(1000000.0 - bottom - ((top -  bottom) / 2)),
                                             ps->name,
@@ -383,10 +397,17 @@ static void svg_pss_graph(void)
         svg("\n\n<!-- PSS map - csv format -->\n");
         ps = ps_first;
         while (ps->next_ps) {
+                char _cleanup_free_*enc_name;
                 ps = ps->next_ps;
                 if (!ps)
                         continue;
-                svg("<!-- %s [%d] pss=", ps->name, ps->pid);
+
+                enc_name = xml_comment_encode(ps->name);
+                if(!enc_name)
+                        continue;
+
+                svg("<!-- %s [%d] pss=", enc_name, ps->pid);
+
                 for (i = 0; i < samples ; i++) {
                         svg("%d," , ps->sample[i].pss);
                 }
@@ -816,14 +837,20 @@ static void svg_ps_bars(void)
         /* pass 2 - ps boxes */
         ps = ps_first;
         while ((ps = get_next_ps(ps))) {
+                char _cleanup_free_*enc_name;
+
                 double starttime;
                 int t;
 
                 if (!ps)
                         continue;
 
+                enc_name = xml_comment_encode(ps->name);
+                if(!enc_name)
+                        continue;
+
                 /* leave some trace of what we actually filtered etc. */
-                svg("<!-- %s [%i] ppid=%i runtime=%.03fs -->\n", ps->name, ps->pid,
+                svg("<!-- %s [%i] ppid=%i runtime=%.03fs -->\n", enc_name, ps->pid,
                     ps->ppid, ps->total);
 
                 /* it would be nice if we could use exec_start from /proc/pid/sched,
@@ -898,7 +925,7 @@ static void svg_ps_bars(void)
                         w = ps->first;
 
                 /* text label of process name */
-                svg("  <text x=\"%.03f\" y=\"%.03f\">%s [%i] <tspan class=\"run\">%.03fs</tspan></text>\n",
+                svg("  <text x=\"%.03f\" y=\"%.03f\"><![CDATA[%s]]> [%i]<tspan class=\"run\">%.03fs</tspan></text>\n",
                     time_to_graph(sampletime[w] - graph_start) + 5.0,
                     ps_to_graph(j) + 14.0,
                     ps->name,
@@ -1002,7 +1029,7 @@ static void svg_top_ten_cpu(void)
 
         svg("<text class=\"t2\" x=\"20\" y=\"0\">Top CPU consumers:</text>\n");
         for (n = 0; n < 10; n++)
-                svg("<text class=\"t3\" x=\"20\" y=\"%d\">%3.03fs - %s[%d]</text>\n",
+                svg("<text class=\"t3\" x=\"20\" y=\"%d\">%3.03fs - <![CDATA[%s]]> [%d]</text>\n",
                     20 + (n * 13),
                     top[n]->total,
                     top[n]->name,
@@ -1037,7 +1064,7 @@ static void svg_top_ten_pss(void)
 
         svg("<text class=\"t2\" x=\"20\" y=\"0\">Top PSS consumers:</text>\n");
         for (n = 0; n < 10; n++)
-                svg("<text class=\"t3\" x=\"20\" y=\"%d\">%dK - %s[%d]</text>\n",
+                svg("<text class=\"t3\" x=\"20\" y=\"%d\">%dK - <![CDATA[%s]]> [%d]</text>\n",
                     20 + (n * 13),
                     top[n]->pss_max,
                     top[n]->name,

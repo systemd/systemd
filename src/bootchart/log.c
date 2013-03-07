@@ -95,6 +95,26 @@ static char *bufgetline(char *buf)
         return c;
 }
 
+static int pid_cmdline_strncpy(char *buffer, int pid, size_t buf_len) {
+	char filename[PATH_MAX];
+	int _cleanup_close_ fd=-1;
+	ssize_t n;
+
+	sprintf(filename, "%d/cmdline", pid);
+	fd = openat(procfd, filename, O_RDONLY);
+	if (fd < 0)
+	        return -errno;
+
+	n = read(fd, buffer, buf_len-1);
+        if (n > 0) {
+                int i;
+                for (i = 0; i < n; i++)
+                        if (buffer[i] == '\0')
+                                buffer[i] = ' ';
+                buffer[n] = '\0';
+        }
+	return 0;
+}
 
 void log_sample(int sample)
 {
@@ -273,7 +293,12 @@ schedstat_next:
                         if (!sscanf(buf, "%s %*s %*s", key))
                                 continue;
 
-                        strncpy(ps->name, key, 16);
+                        strncpy(ps->name, key, 256);
+
+                        /* cmdline */
+                        if (show_cmdline)
+                                pid_cmdline_strncpy(ps->name, pid, 256);
+
                         /* discard line 2 */
                         m = bufgetline(buf);
                         if (!m)
@@ -433,7 +458,11 @@ catch_rename:
                         if (!sscanf(buf, "%s %*s %*s", key))
                                 continue;
 
-                        strncpy(ps->name, key, 16);
+                        strncpy(ps->name, key, 256);
+
+                        /* cmdline */
+                        if (show_cmdline)
+                                pid_cmdline_strncpy(ps->name, pid, 256);
                 }
         }
 }

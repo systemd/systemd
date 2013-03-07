@@ -76,6 +76,7 @@ bool entropy = false;
 bool initcall = true;
 bool relative = false;
 bool filter = true;
+bool show_cmdline = false;
 bool pss = false;
 int samples;
 int len = 500; /* we record len+1 (1 start sample) */
@@ -150,6 +151,7 @@ int main(int argc, char *argv[])
                         {"output",    required_argument,  NULL,  'o'},
                         {"init",      required_argument,  NULL,  'i'},
                         {"no-filter", no_argument,        NULL,  'F'},
+                        {"cmdline",   no_argument,        NULL,  'C'},
                         {"help",      no_argument,        NULL,  'h'},
                         {"scale-x",   required_argument,  NULL,  'x'},
                         {"scale-y",   required_argument,  NULL,  'y'},
@@ -159,7 +161,7 @@ int main(int argc, char *argv[])
 
                 gind = 0;
 
-                i = getopt_long(argc, argv, "erpf:n:o:i:Fhx:y:", opts, &gind);
+                i = getopt_long(argc, argv, "erpf:n:o:i:FChx:y:", opts, &gind);
                 if (i == -1)
                         break;
                 switch (i) {
@@ -174,6 +176,9 @@ int main(int argc, char *argv[])
                         break;
                 case 'F':
                         filter = false;
+                        break;
+                case 'C':
+                        show_cmdline = true;
                         break;
                 case 'n':
                         r = safe_atoi(optarg, &len);
