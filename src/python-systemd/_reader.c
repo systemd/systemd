@@ -171,6 +171,7 @@ PyDoc_STRVAR(Reader_close__doc__,
 static PyObject* Reader_close(Reader *self, PyObject *args)
 {
     sd_journal_close(self->j);
+    self->j = NULL;
     Py_RETURN_NONE;
 }
 
