@@ -24,7 +24,7 @@
 
 <refentry id="hostname">
         <refentryinfo>
-                <title>/etc/hostname</title>
+                <title>hostname</title>
                 <productname>systemd</productname>
 
                 <authorgroup>

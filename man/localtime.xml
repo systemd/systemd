@@ -25,7 +25,7 @@
 
 <refentry id="localtime">
         <refentryinfo>
-                <title>/etc/localtime</title>
+                <title>localtime</title>
                 <productname>systemd</productname>
 
                 <authorgroup>

@@ -24,7 +24,7 @@
 
 <refentry id="machine-id">
         <refentryinfo>
-                <title>/etc/machine-id</title>
+                <title>machine-id</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
