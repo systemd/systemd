@@ -66,6 +66,22 @@ int detect_vm(const char **id) {
         unsigned i;
         const char *j, *k;
         bool hypervisor;
+        _cleanup_free_ char *hvtype = NULL;
+        int r;
+
+        /* Try high-level hypervisor sysfs file first:
+         *
+         * https://bugs.freedesktop.org/show_bug.cgi?id=61491 */
+        r = read_one_line_file("/sys/hypervisor/type", &hvtype);
+        if (r >= 0) {
+                if (streq(hvtype, "xen")) {
+                        if (id)
+                                *id = "xen";
+
+                        return 1;
+                }
+        } else if (r != -ENOENT)
+                return r;
 
         /* http://lwn.net/Articles/301888/ */
         zero(sig);
@@ -118,11 +134,11 @@ int detect_vm(const char **id) {
         }
 
         for (i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
-                char *s;
-                int r;
+                _cleanup_free_ char *s = NULL;
                 const char *found = NULL;
 
-                if ((r = read_one_line_file(dmi_vendors[i], &s)) < 0) {
+                r = read_one_line_file(dmi_vendors[i], &s);
+                if (r < 0) {
                         if (r != -ENOENT)
                                 return r;
 
@@ -132,7 +148,6 @@ int detect_vm(const char **id) {
                 NULSTR_FOREACH_PAIR(j, k, dmi_vendor_table)
                         if (startswith(s, j))
                                 found = k;
-                free(s);
 
                 if (found) {
                         if (id)
@@ -142,7 +157,7 @@ int detect_vm(const char **id) {
                 }
         }
 
-        if (hypervisor) {
+        if (hypervisor || hvtype) {
                 if (id)
                         *id = "other";
 
