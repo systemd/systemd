@@ -86,9 +86,9 @@ int pager_open(bool jump_to_end) {
                 close_pipe(fd);
 
                 if (jump_to_end)
-                        setenv("LESS", "FRSXK+G", 1);
+                        setenv("LESS", "FRSXMK+G", 1);
                 else
-                        setenv("LESS", "FRSXK", 1);
+                        setenv("LESS", "FRSXMK", 1);
 
                 /* Make sure the pager goes away when the parent dies */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
