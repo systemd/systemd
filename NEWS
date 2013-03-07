@@ -1,5 +1,260 @@
 systemd System and Service Manager
 
+CHANGES WITH 198:
+
+        * Configuration of unit files may now be extended via drop-in
+          files without having to edit/override the unit files
+          themselves. More specifically, if the administrator wants to
+          change one value for a service file foobar.service he can
+          now do so by dropping in a configuration snippet into
+          /etc/systemd/systemd/foobar.service.d/*.conf. The unit logic
+          will load all these snippets and apply them on top of the
+          main unit configuration file, possibly extending or
+          overriding its settings. Using these drop-in snippets is
+          generally nicer than the two earler options for changing
+          unit files locally: copying the files form
+          /usr/lib/systemd/system/ to /etc/systemd/system/ and editing
+          them there; or creating a new file in /etc/systemd/system/
+          that incorporates the original one via ".include". Drop-in
+          snippets into these .d/ directories can be placed in any
+          directory systems looks for units in, and the usual
+          overriding semantics between /usr/lib, /etc and /run apply
+          for them too.
+
+        * Most unit file settings which take lists of items can now be
+          reset by assigning the empty strings to them. For example,
+          normally, settings such as Environment=FOO=BAR append a new
+          environment variable assignment to the environment block,
+          each time they are used. By assigning Environment= the empty
+          string the environment block can be reset to empty. This is
+          particularly useful with the .d/*.conf drop-in snippets
+          mentioned above, since this allows resetting list settings
+          from vendor unit files via these drop-ins.
+
+        * systemctl gained a new "list-dependencies" command for
+          listing the dependencies of a unit recursively.
+
+        * Inhibitors are now honoured and listed by "systemctl
+          suspend", "systemctl poweroff" (and similar) too, not only
+          GNOME. These commands will also list active sessions by
+          other users.
+
+        * Resource limits (as exposed by the various control group
+          controllers) can now be controlled dynamically at runtime
+          for all units. More specifically, you can now use a command
+          like "systemctl set-cgroup-attr foobar.service cpu.shares
+          2000" to alter the CPU shares a specific service gets. These
+          settings are stores persistently on disk, and thus allow the
+          administrator to easily adjust the resource usage of
+          services with a few simple commands. This dynamic resource
+          management logic is also available to other services via the
+          bus. Almost any kernel cgroup attribute and controller is
+          supported.
+
+        * systemd-vconsole-setup will now copy all font settings to
+          all open VTs, where it previously applied them only to the
+          foreground VT.
+
+        * libsystemd-login gained the new sd_session_get_tty() API
+          call.
+
+        * This release drops support with a few
+          legacy/distribution-specific LSB facility names when parsing
+          init scripts: $x-display-manager, $mail-transfer-agent,
+          $mail-transport-agent, $mail-transfer-agent, $smtp,
+          $null. Also, the mail-transfer-agent.target unit backing
+          this has been removed. Distributions which want to retain
+          compatibility with this should carry the burden for support
+          this themselves and patch support for these back in if they
+          really need to. Also, the facilities $syslog and $local_fs
+          are now ignored, since systemd does not support early-boot
+          LSB init scripts anymore, and these facilities are implied
+          anyway for normal services. syslog.target has also been
+          removed hence.
+
+        * There ar new bus calls on PID1's Manager object for
+          canceling jobs, and removing snapshot units. Previously,
+          both calls were only available on the Job and Snapshot
+          objects themselves.
+
+        * systemd-journal-gatewayd gained SSL support.
+
+        * The various "environment" files, such as /etc/locale.conf
+          now support continuation lines with a backslash ("\") as
+          last character in the line, similar in style (but different)
+          to how this is supported in shells.
+
+        * For normal user processes the _SYSTEMD_USER_UNIT= field is
+          now implicitly appended to every log entry logged. systemctl
+          has been updated to filter by this field when operating on a
+          user systemd instance.
+
+        * nspawn will now implicitly add the CAP_AUDIT_WRITE and
+          CAP_AUDIT_CONTROL capabilities to the capabilities set for
+          the container. This makes it easier to boot unmodified
+          Fedora systems in a container, which however still requires
+          audit=0 to be passed on the kernel command line. Auditing in
+          kernel and userspace is unfortunately still too broken in
+          context of containers, hence we recommend compiling it out
+          of the kernel or using audit=0. Hopefully this will be fixed
+          one day for good in the kernel.
+
+        * nspawn gained the new --bind= and --bind-ro= parameters to
+          bind mount specific directories from the host into the
+          container.
+
+        * nspawn will not mount its own devpts file system instance
+          into the container, in order not to leaker pty devices from
+          the host into the container.
+
+        * systemd will now read the firmware boot time performance
+          from the EFI variables, if the used boot loader supports
+          this, and take it into account for boot performance analysis
+          via "systemd-analyze". This is currently supported only in
+          conjunction with Gummiboot, but could be supported by other
+          boot loaders too. For details, see:
+
+          http://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface
+
+        * A new generator has been added that automatically mounts the
+          EFI System Partition (ESP) to /boot, if that directory
+          exists, is empty, and no other partition has been configured
+          to be mounted there.
+
+        * logind will now send out PrepareForSleep(false) out
+          unconditionally, after coming back from suspend. This may be
+          used by applications as asynchronous notification for
+          system resume events.
+
+        * "systemctl unlock-sessions" has been added, that allows
+          unlocking the screens of all user sessions at once, similar
+          how "systemctl lock-sessions" already locked all users
+          sessions. This is backed by a new D-Bus call
+          UnlockSessions().
+
+        * "loginctl seat-status" will now show the master device of a
+          seat. (i.e. the device of a seat that needs to be around for
+          the seat to be considered available, usually the graphics
+          card).
+
+        * tmpfiles gained a new "X" line type, that allows
+          configuration of files and directories (with wildcards) that
+          shall be excluded from automatic cleanup ("aging").
+
+        * udev permission rules are now only applied for "add" rules,
+          no longer for "change" events.
+
+        * The log messages for lid events and power/sleep keypresses
+          now carry a message ID.
+
+        * We now have a substantially larger unit test suite, but this
+          continues to be work in progress.
+
+        * udevadm hwdb gained a new --root= parameter to change the
+          root directory to operate relative to.
+
+        * logind will now issue a sync() request to the kernel early
+          at shutdown, so that dirty buffers are flushed to disk early
+          instead of at the last moment, in order to optimize shutdown
+          times a little.
+
+        * A new bootctl tool has been added that is an interface for
+          certain boot loader operations. This is currently a preview
+          and is likely to be extended into a small mechanism daemon
+          like timedated, localed, hostnamed, and can be used by
+          graphical UIs to enumerate available boot options, and
+          request boot into firmware operations.
+
+        * systemd-bootchart has been relicensed to LGPLv2.1+ to match
+          the rest of the package. It also has been updated to work
+          correctly in initrds.
+
+        * Policykit previously has been runtime optional, and is now
+          also compile time optional via a configure switch.
+
+        * systemd-analyze has been reimplemented in C. Also "systemctl
+          dot" has moved into systemd-analyze.
+
+        * "systemctl status" with no further parameters will now print
+          the status of all active or failed units.
+
+        * Operations such as "systemctl start" can now be executed
+          with a new mode "--irreversible" which may be used to queue
+          operations that cannot accidentally be reversed by a later
+          job queuing. This is by default use to make shutdown
+          requests more robust.
+
+        * The Python API of systemd now gained a new module for
+          reading journal files.
+
+        * A new tool kernel-install has been added that can install
+          kernel images according to the Boot Loader Specification:
+
+          http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec
+
+        * Boot time console output has been improved to provide
+          animated boot time output.
+
+        * A new tool systemd-activate has been added which can be used
+          to test socket activation with, directly from the command
+          line. This should make it much easier to test and debug
+          socket activation in daemons.
+
+        * journalctl gained a new "--reverse" (or -r) option to show
+          journal output in reverse order (i.e. newest line first).
+
+        * journalctl gained a new "--user-unit=" option, that works
+          similar to "--unit=" but filters for user units rather than
+          system units.
+
+        * A number of unit files to ease adoption of systemd in
+          initrds has been added. This moves some minimal logic from
+          the various initrd implementations into systemd proper.
+
+        * The journal files are now owned by a new group
+          "systemd-journal", which exists specifically to allow access
+          to the journal, and nothing else. Previously, we used the
+          "adm" group for that, which however possible covers more
+          than just journal/log file access. This new group is now
+          already used by systemd-journal-gatewayd to ensure this
+          daemon gets access to the journal files and as little else
+          as possible. Note that "make install" will also set FS ACLs
+          up for /var/log/journal to give "adm" and "wheel" read
+          access to it, in addition to "systemd-journal" which owns
+          the journal files. We recommend that packaging scripts also
+          add read access to "adm", "wheel" to /var/log/journal, and
+          all existing/future journal files. To normal users and
+          administrators little changes, however packagers need to
+          ensure to create the "systemd-journal" system group at
+          package installation time.
+
+        * The systemd-journal-gatewayd now runs as unprivileged user
+          systemd-journal-gateway:systemd-journal-gateway. Packaging
+          scripts need to create these system user/group at
+          installation time.
+
+        * timedated now exposes a new boolean property CanNTP that
+          indicates whether a local NTP service is available or not.
+
+        * systemd-detect-virt will now also detect xen PVs
+
+        * The pstore file system is now mounted by default, if it is available.
+
+        Contributions from: Adel Gadllah, Aleksander Morgado, Auke
+        Kok, Ayan George, Bastien Nocera, Colin Walters, Daniel Buch,
+        Daniel Wallace, Dave Reisner, David Herrmann, David Strauss,
+        Eelco Dolstra, Enrico Scholz, Frederic Crozat, Harald Hoyer,
+        Jan Janssen, Jonathan Callen, Kay Sievers, Lennart Poettering,
+        Lukas Nykryn, Mantas Mikulėnas, Marc-Antoine Perennou, Martin
+        Pitt, Mauro Dreissig, Max F. Albrecht, Michael Biebl, Michael
+        Olbrich, Michal Schmidt, Michal Sekletar, Michal Vyskocil,
+        Michał Bartoszkiewicz, Mirco Tischler, Nathaniel Chen, Nestor
+        Ovroy, Oleksii Shevchuk, Paul W. Frields, Piotr Drąg, Rob
+        Clark, Ryan Lortie, Simon McVittie, Simon Peeters, Steven
+        Hiscocks, Thomas Hindoe Paaboel Andersen, Tollef Fog Heen, Tom
+        Gundersen, Umut Tezduyar, William Giokas, Zbigniew
+        Jędrzejewski-Szmek, Zeeshan Ali (Khattak)
+
 CHANGES WITH 197:
 
         * Timer units now support calendar time events in addition to
