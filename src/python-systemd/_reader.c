@@ -360,60 +360,34 @@ static PyObject* Reader_flush_matches(Reader *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-PyDoc_STRVAR(Reader_seek__doc__,
-             "seek(offset[, whence]) -> None\n\n"
-             "Jump `offset` entries in the journal. Argument\n"
-             "`whence` defines what the offset is relative to:\n"
-             "os.SEEK_SET (default) from first match in journal;\n"
-             "os.SEEK_CUR from current position in journal;\n"
-             "and os.SEEK_END is from last match in journal.");
-static PyObject* Reader_seek(Reader *self, PyObject *args, PyObject *keywds)
+PyDoc_STRVAR(Reader_seek_head__doc__,
+             "seek_head() -> None\n\n"
+             "Jump to the beginning of the journal.\n"
+             "This method invokes sd_journal_seek_head().\n"
+             "See man:sd_journal_seek_head(3).");
+static PyObject* Reader_seek_head(Reader *self, PyObject *args)
 {
-    int64_t offset;
-    int whence = SEEK_SET;
-    PyObject *result = NULL;
-
-    static const char* const kwlist[] = {"offset", "whence", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "L|i", (char**) kwlist,
-                                     &offset, &whence))
+    int r;
+    Py_BEGIN_ALLOW_THREADS
+    r = sd_journal_seek_head(self->j);
+    Py_END_ALLOW_THREADS
+    if (set_error(r, NULL, NULL))
         return NULL;
+    Py_RETURN_NONE;
+}
 
-    switch(whence) {
-    case SEEK_SET: {
-        int r;
-        Py_BEGIN_ALLOW_THREADS
-        r = sd_journal_seek_head(self->j);
-        Py_END_ALLOW_THREADS
-        if (set_error(r, NULL, NULL))
-            return NULL;
-
-        if (offset > 0LL)
-            result = PyObject_CallMethod((PyObject *)self, (char*) "get_next",
-                                         (char*) "L", offset);
-        break;
-    }
-    case SEEK_CUR:
-        result = PyObject_CallMethod((PyObject *)self, (char*) "get_next",
-                                     (char*) "L", offset);
-        break;
-    case SEEK_END: {
-        int r;
-        Py_BEGIN_ALLOW_THREADS
-        r = sd_journal_seek_tail(self->j);
-        Py_END_ALLOW_THREADS
-        if (set_error(r, NULL, NULL))
-            return NULL;
-
-        result = PyObject_CallMethod((PyObject *)self, (char*) "get_next",
-                                     (char*) "L", offset < 0LL ? offset : -1LL);
-        break;
-    }
-    default:
-        PyErr_SetString(PyExc_ValueError, "Invalid value for whence");
-    }
-
-    Py_XDECREF(result);
-    if (PyErr_Occurred())
+PyDoc_STRVAR(Reader_seek_tail__doc__,
+             "seek_tail() -> None\n\n"
+             "Jump to the beginning of the journal.\n"
+             "This method invokes sd_journal_seek_tail().\n"
+             "See man:sd_journal_seek_tail(3).");
+static PyObject* Reader_seek_tail(Reader *self, PyObject *args)
+{
+    int r;
+    Py_BEGIN_ALLOW_THREADS
+    r = sd_journal_seek_tail(self->j);
+    Py_END_ALLOW_THREADS
+    if (set_error(r, NULL, NULL))
         return NULL;
     Py_RETURN_NONE;
 }
@@ -644,7 +618,8 @@ static PyMethodDef Reader_methods[] = {
     {"add_match",       (PyCFunction) Reader_add_match, METH_VARARGS|METH_KEYWORDS, Reader_add_match__doc__},
     {"add_disjunction", (PyCFunction) Reader_add_disjunction, METH_NOARGS, Reader_add_disjunction__doc__},
     {"flush_matches",   (PyCFunction) Reader_flush_matches, METH_NOARGS, Reader_flush_matches__doc__},
-    {"seek",            (PyCFunction) Reader_seek, METH_VARARGS | METH_KEYWORDS,  Reader_seek__doc__},
+    {"seek_head",       (PyCFunction) Reader_seek_head, METH_NOARGS, Reader_seek_head__doc__},
+    {"seek_tail",       (PyCFunction) Reader_seek_tail, METH_NOARGS, Reader_seek_tail__doc__},
     {"seek_realtime",   (PyCFunction) Reader_seek_realtime, METH_VARARGS, Reader_seek_realtime__doc__},
     {"seek_monotonic",  (PyCFunction) Reader_seek_monotonic, METH_VARARGS, Reader_seek_monotonic__doc__},
     {"wait",            (PyCFunction) Reader_wait, METH_VARARGS, Reader_wait__doc__},

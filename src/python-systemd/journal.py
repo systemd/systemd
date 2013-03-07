@@ -27,7 +27,6 @@ import functools as _functools
 import uuid as _uuid
 import traceback as _traceback
 import os as _os
-from os import SEEK_SET, SEEK_CUR, SEEK_END
 import logging as _logging
 if _sys.version_info >= (3,):
     from collections import ChainMap as _ChainMap

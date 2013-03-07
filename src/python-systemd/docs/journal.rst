@@ -27,12 +27,7 @@ Accessing the Journal
 
 .. autoattribute:: systemd.journal.DEFAULT_CONVERTERS
 
-Whence constants
-~~~~~~~~~~~~~~~~
 
-.. autoattribute:: systemd.journal.SEEK_SET
-.. autoattribute:: systemd.journal.SEEK_CUR
-.. autoattribute:: systemd.journal.SEEK_END
 
 Journal access types
 ~~~~~~~~~~~~~~~~~~~~
