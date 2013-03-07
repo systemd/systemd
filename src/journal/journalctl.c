@@ -1103,7 +1103,7 @@ int main(int argc, char *argv[]) {
                         int flags;
 
                         if (need_seek) {
-                                if(!arg_reverse)
+                                if (!arg_reverse)
                                         r = sd_journal_next(j);
                                 else
                                         r = sd_journal_previous(j);

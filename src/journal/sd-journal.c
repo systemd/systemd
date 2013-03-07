@@ -1868,7 +1868,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                         *data = o->data.payload;
                         *size = t;
 
-                        return 1;
+                        return 0;
                 }
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
