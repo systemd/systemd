@@ -3513,8 +3513,8 @@ PAPER = $(shell cat /etc/papersize 2>/dev/null || echo a4)
 SPHINXOPTS = -D latex_paper_size=$(PAPER)
 sphinx-%:
 	$(AM_V_at)test -n "$(SPHINX_BUILD)" || { echo " *** sphinx-build is not available"; exit 1; }
-	$(AM_V_GEN)PYTHONPATH=$(DESTDIR)$(pyexecdir) LD_LIBRARY_PATH=$(DESTDIR)$(libdir) $(SPHINX_BUILD) -b $* $(SPHINXOPTS) $(top_srcdir)/src/python-systemd/docs $(top_builddir)/man/python-systemd/
-	$(AM_V_at)echo Output has been generated in $(abs_top_builddir)/man/python-systemd/
+	$(AM_V_GEN)PYTHONPATH=$(DESTDIR)$(pyexecdir) LD_LIBRARY_PATH=$(DESTDIR)$(libdir) $(SPHINX_BUILD) -b $* $(SPHINXOPTS) $(top_srcdir)/src/python-systemd/docs $(top_builddir)/docs/python-systemd/
+	$(AM_V_at)echo Output has been generated in $(abs_top_builddir)/docs/python-systemd/
 
 destdir-sphinx: all
 	dir="$$(mktemp -d /tmp/systemd-install.XXXXXX)" && \
@@ -3850,7 +3850,7 @@ doc-sync: all destdir-sphinx
 	gtkdoc-rebase --html-dir=docs/gudev/html --online
 	rsync -av --delete docs/gudev/html/ --omit-dir-times $(www_target)/gudev/
 	rsync -av --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
-	rsync -av --delete --omit-dir-times man/python-systemd/ $(www_target)/man/python-systemd/
+	rsync -av --delete --omit-dir-times docs/python-systemd/ $(www_target)/python-systemd/
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
