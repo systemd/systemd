@@ -27,6 +27,22 @@ Accessing the Journal
 
 .. autoattribute:: systemd.journal.DEFAULT_CONVERTERS
 
+Example: polling for journal events
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example shows that journal events can be waited for (using
+e.g. `poll`). This makes it easy to integrate Reader in an external
+event loop:
+
+  >>> import select
+  >>> from systemd import journal
+  >>> j = journal.Reader()
+  >>> j.seek_tail()
+  >>> p = select.poll()
+  >>> p.register(j, select.POLLIN)
+  >>> p.poll()
+  [(3, 1)]
+  >>> j.get_next()
 
 
 Journal access types

@@ -124,6 +124,47 @@ static int Reader_init(Reader *self, PyObject *args, PyObject *keywds)
     return set_error(r, path, "Invalid flags or path");
 }
 
+PyDoc_STRVAR(Reader_fileno__doc__,
+             "fileno() -> int\n\n"
+             "Get a file descriptor to poll for changes in the journal.\n"
+             "This method invokes sd_journal_get_fd().\n"
+             "See man:sd_journal_get_fd(3).");
+static PyObject* Reader_fileno(Reader *self, PyObject *args)
+{
+    int r;
+    r = sd_journal_get_fd(self->j);
+    set_error(r, NULL, NULL);
+    if (r < 0)
+        return NULL;
+    return long_FromLong(r);
+}
+
+PyDoc_STRVAR(Reader_reliable_fd__doc__,
+             "reliable_fd() -> bool\n\n"
+             "Returns True iff the journal can be polled reliably.\n"
+             "This method invokes sd_journal_reliable_fd().\n"
+             "See man:sd_journal_reliable_fd(3).");
+static PyObject* Reader_reliable_fd(Reader *self, PyObject *args)
+{
+    int r;
+    r = sd_journal_reliable_fd(self->j);
+    set_error(r, NULL, NULL);
+    if (r < 0)
+        return NULL;
+    return PyBool_FromLong(r);
+}
+
+PyDoc_STRVAR(Reader_close__doc__,
+             "reliable_fd() -> None\n\n"
+             "Free resources allocated by this Reader object.\n"
+             "This method invokes sd_journal_close().\n"
+             "See man:sd_journal_close(3).");
+static PyObject* Reader_close(Reader *self, PyObject *args)
+{
+    sd_journal_close(self->j);
+    Py_RETURN_NONE;
+}
+
 PyDoc_STRVAR(Reader_get_next__doc__,
              "get_next([skip]) -> dict\n\n"
              "Return dictionary of the next log entry. Optional skip value will\n"
@@ -613,6 +654,9 @@ static PyGetSetDef Reader_getseters[] = {
 };
 
 static PyMethodDef Reader_methods[] = {
+    {"fileno",          (PyCFunction) Reader_fileno, METH_NOARGS, Reader_fileno__doc__},
+    {"reliable_fd",     (PyCFunction) Reader_reliable_fd, METH_NOARGS, Reader_reliable_fd__doc__},
+    {"close",           (PyCFunction) Reader_close, METH_NOARGS, Reader_close__doc__},
     {"get_next",        (PyCFunction) Reader_get_next, METH_VARARGS, Reader_get_next__doc__},
     {"get_previous",    (PyCFunction) Reader_get_previous, METH_VARARGS, Reader_get_previous__doc__},
     {"add_match",       (PyCFunction) Reader_add_match, METH_VARARGS|METH_KEYWORDS, Reader_add_match__doc__},
