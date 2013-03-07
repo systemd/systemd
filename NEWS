@@ -241,6 +241,9 @@ CHANGES WITH 198:
         * The pstore file system is now mounted by default, if it is
           available.
 
+        * In addition to the SELinux and IMA policies we will now also
+          load SMACK policies at early boot.
+
         Contributions from: Adel Gadllah, Aleksander Morgado, Auke
         Kok, Ayan George, Bastien Nocera, Colin Walters, Daniel Buch,
         Daniel Wallace, Dave Reisner, David Herrmann, David Strauss,
