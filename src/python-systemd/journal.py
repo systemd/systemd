@@ -114,7 +114,7 @@ class Reader(_Reader):
     See systemd.journal-fields(7) for more info on typical fields
     found in the journal.
     """
-    def __init__(self, flags=LOCAL_ONLY, path=None, converters=None):
+    def __init__(self, flags=0, path=None, converters=None):
         """Create an instance of Reader, which allows filtering and
         return of journal entries.
 
@@ -125,8 +125,7 @@ class Reader(_Reader):
         journal files of system services and the kernel.
 
         Argument `path` is the directory of journal files. Note that
-        currently flags are ignored when `path` is present as they are
-        currently not relevant.
+        `flags` and `path` are exclusive.
 
         Argument `converters` is a dictionary which updates the
         DEFAULT_CONVERTERS to convert journal field values. Field

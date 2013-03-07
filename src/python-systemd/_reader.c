@@ -64,7 +64,7 @@ static int set_error(int r, const char* path, const char* invalid_message) {
         errno = -r;
         PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
     }
-    return 1;
+    return -1;
 }
 
 #if PY_MAJOR_VERSION >= 3
@@ -94,25 +94,34 @@ static void Reader_dealloc(Reader* self)
 }
 
 PyDoc_STRVAR(Reader__doc__,
-             "Reader([flags][,path]) -> ...\n\n"
+             "Reader([flags | path]) -> ...\n\n"
              "Reader allows filtering and retrieval of Journal entries.\n"
+             "Note: this is a low-level interface, and probably not what you\n"
+             "want, use systemd.journal.Reader instead.\n\n"
              "Argument `flags` sets open flags of the journal, which can be one\n"
              "of, or ORed combination of constants: LOCAL_ONLY (default) opens\n"
              "journal on local machine only; RUNTIME_ONLY opens only\n"
              "volatile journal files; and SYSTEM_ONLY opens only\n"
-             "journal files of system services and the kernel.\n"
+             "journal files of system services and the kernel.\n\n"
              "Argument `path` is the directory of journal files. Note that\n"
-             "currently flags are ignored when `path` is present as they are\n"
-             "not relevant.");
+             "`flags` and `path` are exclusive.\n");
 static int Reader_init(Reader *self, PyObject *args, PyObject *keywds)
 {
-    int flags = SD_JOURNAL_LOCAL_ONLY, r;
+    int flags = 0, r;
     char *path = NULL;
 
     static const char* const kwlist[] = {"flags", "path", NULL};
     if (!PyArg_ParseTupleAndKeywords(args, keywds, "|iz", (char**) kwlist,
                                      &flags, &path))
-        return 1;
+        return -1;
+
+    if (!flags)
+        flags = SD_JOURNAL_LOCAL_ONLY;
+    else
+        if (path) {
+            PyErr_SetString(PyExc_ValueError, "cannot use both flags and path");
+            return -1;
+        }
 
     Py_BEGIN_ALLOW_THREADS
     if (path)
