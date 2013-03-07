@@ -71,7 +71,11 @@ void button_free(Button *b) {
         if (b->fd >= 0) {
                 hashmap_remove(b->manager->button_fds, INT_TO_PTR(b->fd + 1));
                 assert_se(epoll_ctl(b->manager->epoll_fd, EPOLL_CTL_DEL, b->fd, NULL) == 0);
-                close_nointr_nofail(b->fd);
+
+                /* If the device has been unplugged close() returns
+                 * ENODEV, let's ignore this, hence we don't use
+                 * close_nointr_nofail() */
+                close(b->fd);
         }
 
         free(b->name);
@@ -103,7 +107,7 @@ int button_open(Button *b) {
         assert(b);
 
         if (b->fd >= 0) {
-                close_nointr_nofail(b->fd);
+                close(b->fd);
                 b->fd = -1;
         }
 
@@ -146,7 +150,7 @@ int button_open(Button *b) {
         return 0;
 
 fail:
-        close_nointr_nofail(b->fd);
+        close(b->fd);
         b->fd = -1;
         return r;
 }
