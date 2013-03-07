@@ -48,6 +48,8 @@ Fedora 19:
 
 Features:
 
+* safe_atod() is too naive, as it is vulnerable to locale parameters, should be locale independent.
+
 * neither pkexec nor sudo initialize environ[] from the PAM environment?
 
 * rework specifier logic so that we can distuingish OOM errors from other errors
