@@ -225,6 +225,8 @@ int main(int argc, char *argv[])
                         fprintf(stderr, " --init,      -i [PATH]   Path to init executable [%s]\n", init_path);
                         fprintf(stderr, " --no-filter, -F          Disable filtering of processes from the graph\n");
                         fprintf(stderr, "                          that are of less importance or short-lived\n");
+                        fprintf(stderr, " --cmdline,   -C          Display the full command line with arguments\n");
+                        fprintf(stderr, "                          of processes, instead of only the process name\n");
                         fprintf(stderr, " --help,      -h          Display this message\n");
                         fprintf(stderr, "See bootchart.conf for more information.\n");
                         exit (EXIT_SUCCESS);
