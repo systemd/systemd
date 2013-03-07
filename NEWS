@@ -203,6 +203,10 @@ CHANGES WITH 198:
         * journalctl gained a new "--reverse" (or -r) option to show
           journal output in reverse order (i.e. newest line first).
 
+        * journalctl gained a new "--pager-end" (or -e) option to jump
+          to immediately jump to the end of the journal in the
+          pager. This is only supported in conjunction with "less".
+
         * journalctl gained a new "--user-unit=" option, that works
           similar to "--unit=" but filters for user units rather than
           system units.
