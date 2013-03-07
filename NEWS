@@ -28,8 +28,8 @@ CHANGES WITH 198:
           each time they are used. By assigning Environment= the empty
           string the environment block can be reset to empty. This is
           particularly useful with the .d/*.conf drop-in snippets
-          mentioned above, since this allows to reset list settings
-          from vendor unit files via these drop-ins.
+          mentioned above, since this adds the ability to reset list
+          settings from vendor unit files via these drop-ins.
 
         * systemctl gained a new "list-dependencies" command for
           listing the dependencies of a unit recursively.
