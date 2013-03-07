@@ -107,7 +107,7 @@ extern bool entropy;
 extern bool initcall;
 extern int samples;
 extern int cpus;
-extern int len;
+extern int samples_len;
 extern double hz;
 extern double scale_x;
 extern double scale_y;

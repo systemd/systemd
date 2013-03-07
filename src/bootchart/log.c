@@ -264,7 +264,7 @@ schedstat_next:
                         ps = ps->next_ps;
                         ps->pid = pid;
 
-                        ps->sample = calloc(len + 1, sizeof(struct ps_sched_struct));
+                        ps->sample = calloc(samples_len + 1, sizeof(struct ps_sched_struct));
                         if (!ps->sample) {
                                 perror("calloc(ps_struct)");
                                 exit (EXIT_FAILURE);

@@ -79,7 +79,7 @@ bool filter = true;
 bool show_cmdline = false;
 bool pss = false;
 int samples;
-int len = 500; /* we record len+1 (1 start sample) */
+int samples_len = 500; /* we record len+1 (1 start sample) */
 double hz = 25.0;   /* 20 seconds log time */
 double scale_x = 100.0; /* 100px = 1sec */
 double scale_y = 20.0;  /* 16px = 1 process bar */
@@ -112,16 +112,16 @@ int main(int argc, char *argv[])
         char *init = NULL, *output = NULL;
 
         const ConfigTableItem items[] = {
-                { "Bootchart", "Samples",          config_parse_int,    0, &len      },
-                { "Bootchart", "Frequency",        config_parse_double, 0, &hz       },
-                { "Bootchart", "Relative",         config_parse_bool,   0, &relative },
-                { "Bootchart", "Filter",           config_parse_bool,   0, &filter   },
-                { "Bootchart", "Output",           config_parse_path,   0, &output   },
-                { "Bootchart", "Init",             config_parse_path,   0, &init     },
-                { "Bootchart", "PlotMemoryUsage",  config_parse_bool,   0, &pss      },
-                { "Bootchart", "PlotEntropyGraph", config_parse_bool,   0, &entropy  },
-                { "Bootchart", "ScaleX",           config_parse_double, 0, &scale_x  },
-                { "Bootchart", "ScaleY",           config_parse_double, 0, &scale_y  },
+                { "Bootchart", "Samples",          config_parse_int,    0, &samples_len },
+                { "Bootchart", "Frequency",        config_parse_double, 0, &hz          },
+                { "Bootchart", "Relative",         config_parse_bool,   0, &relative    },
+                { "Bootchart", "Filter",           config_parse_bool,   0, &filter      },
+                { "Bootchart", "Output",           config_parse_path,   0, &output      },
+                { "Bootchart", "Init",             config_parse_path,   0, &init        },
+                { "Bootchart", "PlotMemoryUsage",  config_parse_bool,   0, &pss         },
+                { "Bootchart", "PlotEntropyGraph", config_parse_bool,   0, &entropy     },
+                { "Bootchart", "ScaleX",           config_parse_double, 0, &scale_x     },
+                { "Bootchart", "ScaleY",           config_parse_double, 0, &scale_y     },
                 { NULL, NULL, NULL, 0, NULL }
         };
 
@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
                         show_cmdline = true;
                         break;
                 case 'n':
-                        r = safe_atoi(optarg, &len);
+                        r = safe_atoi(optarg, &samples_len);
                         if (r < 0)
                                 log_warning("failed to parse --samples/-n argument '%s': %s",
                                             optarg, strerror(-r));
@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
                         fprintf(stderr, "Usage: %s [OPTIONS]\n", argv[0]);
                         fprintf(stderr, " --rel,       -r          Record time relative to recording\n");
                         fprintf(stderr, " --freq,      -f f        Sample frequency [%f]\n", hz);
-                        fprintf(stderr, " --samples,   -n N        Stop sampling at [%d] samples\n", len);
+                        fprintf(stderr, " --samples,   -n N        Stop sampling at [%d] samples\n", samples_len);
                         fprintf(stderr, " --scale-x,   -x N        Scale the graph horizontally [%f] \n", scale_x);
                         fprintf(stderr, " --scale-y,   -y N        Scale the graph vertically [%f] \n", scale_y);
                         fprintf(stderr, " --pss,       -p          Enable PSS graph (CPU intensive)\n");
@@ -234,7 +234,7 @@ int main(int argc, char *argv[])
                 }
         }
 
-        if (len > MAXSAMPLES) {
+        if (samples_len > MAXSAMPLES) {
                 fprintf(stderr, "Error: samples exceeds maximum\n");
                 exit(EXIT_FAILURE);
         }
@@ -339,12 +339,12 @@ int main(int argc, char *argv[])
                 } else {
                         overrun++;
                         /* calculate how many samples we lost and scrap them */
-                        len = len + ((int)(newint_ns / interval));
+                        samples_len = samples_len + ((int)(newint_ns / interval));
                 }
 
                 samples++;
 
-                if (samples > len)
+                if (samples > samples_len)
                         break;
 
         }
