@@ -221,6 +221,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'e':
                         arg_pager_end = true;
+
+                        if (arg_lines < 0)
+                                arg_lines = 1000;
+
                         break;
 
                 case 'f':

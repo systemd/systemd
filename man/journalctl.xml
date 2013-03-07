@@ -168,10 +168,14 @@
 
                                 <listitem><para>Immediately jump to
                                 the end of the journal inside the
-                                implied pager tool. Very useful in
-                                combination with the
-                                <option>-b</option> option. Note that
-                                this is only supported for the
+                                implied pager tool. This implies
+                                <option>-n1000</option> to guarantee
+                                that the pager won't buffer logs of
+                                unbounded size. This may be overriden
+                                with an explicit <option>-n</option>
+                                with some other numeric value on the
+                                command line. Note that this option is
+                                only supported for the
                                 <citerefentry><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 pager.</para></listitem>
                         </varlistentry>
