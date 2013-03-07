@@ -19,7 +19,7 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="systemd-user-sessions.service">
+<refentry id="systemd-update-utmp-runlevel.service">
 
         <refentryinfo>
                 <title>systemd-update-utmp-runlevel.service</title>
