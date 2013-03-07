@@ -17,18 +17,18 @@ CHANGES WITH 198:
           them there; or creating a new file in /etc/systemd/system/
           that incorporates the original one via ".include". Drop-in
           snippets into these .d/ directories can be placed in any
-          directory systems looks for units in, and the usual
+          directory systemd looks for units in, and the usual
           overriding semantics between /usr/lib, /etc and /run apply
           for them too.
 
         * Most unit file settings which take lists of items can now be
-          reset by assigning the empty strings to them. For example,
+          reset by assigning an empty strings to them. For example,
           normally, settings such as Environment=FOO=BAR append a new
           environment variable assignment to the environment block,
           each time they are used. By assigning Environment= the empty
           string the environment block can be reset to empty. This is
           particularly useful with the .d/*.conf drop-in snippets
-          mentioned above, since this allows resetting list settings
+          mentioned above, since this allows to reset list settings
           from vendor unit files via these drop-ins.
 
         * systemctl gained a new "list-dependencies" command for
