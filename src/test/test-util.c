@@ -21,6 +21,8 @@
 ***/
 
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "util.h"
 
@@ -41,6 +43,29 @@ static void test_first_word(void) {
         assert_se(!first_word("Hello", "Hellooo"));
         assert_se(!first_word("Hello", "xxxxx"));
         assert_se(!first_word("Hellooo", "Hello"));
+}
+
+static void test_close_many(void) {
+        int fds[3];
+        char name0[] = "/tmp/test-close-many.XXXXXX";
+        char name1[] = "/tmp/test-close-many.XXXXXX";
+        char name2[] = "/tmp/test-close-many.XXXXXX";
+
+        fds[0] = mkstemp(name0);
+        fds[1] = mkstemp(name1);
+        fds[2] = mkstemp(name2);
+
+        close_many(fds, 2);
+
+        assert_se(fcntl(fds[0], F_GETFD) == -1);
+        assert_se(fcntl(fds[1], F_GETFD) == -1);
+        assert_se(fcntl(fds[2], F_GETFD) >= 0);
+
+        close_nointr_nofail(fds[2]);
+
+        unlink(name0);
+        unlink(name1);
+        unlink(name2);
 }
 
 static void test_parse_boolean(void) {
@@ -127,6 +152,22 @@ static void test_safe_atod(void) {
 
         r = safe_atod("junk", &d);
         assert_se(r == -EINVAL);
+}
+
+static void test_strappend(void) {
+       _cleanup_free_ char *t1, *t2, *t3, *t4;
+
+       t1 = strappend(NULL, NULL);
+       assert_se(streq(t1, ""));
+
+       t2 = strappend(NULL, "suf");
+       assert_se(streq(t2, "suf"));
+
+       t3 = strappend("pre", NULL);
+       assert_se(streq(t3, "pre"));
+
+       t4 = strappend("pre", "suf");
+       assert_se(streq(t4, "presuf"));
 }
 
 static void test_strstrip(void) {
@@ -287,11 +328,13 @@ static void test_bus_path_escape(void) {
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
+        test_close_many();
         test_parse_boolean();
         test_parse_pid();
         test_parse_uid();
         test_safe_atolli();
         test_safe_atod();
+        test_strappend();
         test_strstrip();
         test_delete_chars();
         test_in_charset();
