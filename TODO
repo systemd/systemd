@@ -50,6 +50,11 @@ Features:
 
 * safe_atod() is too naive, as it is vulnerable to locale parameters, should be locale independent.
 
+* think about requeuing jobs when daemon-reload is issued? usecase:
+  the initrd issues a reload after fstab from the host is accessible
+  and we might want to requeue the mounts local-fs acquired through
+  that automatically.
+
 * neither pkexec nor sudo initialize environ[] from the PAM environment?
 
 * rework specifier logic so that we can distuingish OOM errors from other errors
