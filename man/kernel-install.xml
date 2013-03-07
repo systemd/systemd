@@ -88,7 +88,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <filename>/boot/&lt;MACHINE-ID>/&lt;KERNEL VERSION>/linux</filename>.</para>
 
           <para>kernel-install also creates a boot loader entry according to the boot loader specification
-          in <filename>/boot/loader/entries/&lt;OS-ID>-&lt;KERNEL VERSION>-&lt;MACHINE-ID>.conf</filename>.
+          in <filename>/boot/loader/entries/&lt;MACHINE-ID>-&lt;KERNEL VERSION>.conf</filename>.
           If the file <filename>initrd</filename> is found next to the <filename>linux</filename> file,
           the initrd will be added to the configuration.</para>
         </listitem>
@@ -100,7 +100,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         "remove &lt;KERNEL VERSION> <filename>/boot/&lt;MACHINE-ID>/&lt;KERNEL VERSION>/</filename>"
         </para>
         <para>kernel-install removes the entire directory <filename>/boot/&lt;MACHINE-ID>/&lt;KERNEL VERSION>/</filename>
-        and the file <filename>/boot/loader/entries/&lt;OS-ID>-&lt;KERNEL VERSION>-&lt;MACHINE-ID>.conf</filename></para>
+        and the file <filename>/boot/loader/entries/&lt;MACHINE-ID>-&lt;KERNEL VERSION>.conf</filename></para>
         </listitem>
       </varlistentry>
 
