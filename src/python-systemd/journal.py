@@ -43,13 +43,29 @@ if _sys.version_info >= (3,):
 else:
     Monotonic = tuple
 
-_MONOTONIC_CONVERTER = lambda p: Monotonic((_datetime.timedelta(microseconds=p[0]),
-                                            _uuid.UUID(bytes=p[1])))
-_REALTIME_CONVERTER = lambda x: _datetime.datetime.fromtimestamp(x / 1E6)
+def _convert_monotonic(m):
+    return Monotonic((_datetime.timedelta(microseconds=m[0]),
+                      _uuid.UUID(bytes=m[1])))
+
+def _convert_source_monotonic(s):
+    return _datetime.timedelta(microseconds=int(s))
+
+def _convert_realtime(t):
+    return _datetime.datetime.fromtimestamp(t / 1E6)
+
+def _convert_timestamp(s):
+    return _datetime.datetime.fromtimestamp(int(s) / 1E6)
+
+if _sys.version_info >= (3,):
+    def _convert_uuid(s):
+        return _uuid.UUID(s.decode())
+else:
+    _convert_uuid = _uuid.UUID
+
 DEFAULT_CONVERTERS = {
-    'MESSAGE_ID': _uuid.UUID,
-    '_MACHINE_ID': _uuid.UUID,
-    '_BOOT_ID': _uuid.UUID,
+    'MESSAGE_ID': _convert_uuid,
+    '_MACHINE_ID': _convert_uuid,
+    '_BOOT_ID': _convert_uuid,
     'PRIORITY': int,
     'LEADER': int,
     'SESSION_ID': int,
@@ -68,55 +84,60 @@ DEFAULT_CONVERTERS = {
     'CODE_LINE': int,
     'ERRNO': int,
     'EXIT_STATUS': int,
-    '_SOURCE_REALTIME_TIMESTAMP': _REALTIME_CONVERTER,
-    '__REALTIME_TIMESTAMP': _REALTIME_CONVERTER,
-    '_SOURCE_MONOTONIC_TIMESTAMP': _MONOTONIC_CONVERTER,
-    '__MONOTONIC_TIMESTAMP': _MONOTONIC_CONVERTER,
+    '_SOURCE_REALTIME_TIMESTAMP': _convert_timestamp,
+    '__REALTIME_TIMESTAMP': _convert_realtime,
+    '_SOURCE_MONOTONIC_TIMESTAMP': _convert_source_monotonic,
+    '__MONOTONIC_TIMESTAMP': _convert_monotonic,
     'COREDUMP': bytes,
     'COREDUMP_PID': int,
     'COREDUMP_UID': int,
     'COREDUMP_GID': int,
     'COREDUMP_SESSION': int,
     'COREDUMP_SIGNAL': int,
-    'COREDUMP_TIMESTAMP': _REALTIME_CONVERTER,
+    'COREDUMP_TIMESTAMP': _convert_timestamp,
 }
-
-if _sys.version_info >= (3,):
-    _convert_unicode = _functools.partial(str, encoding='utf-8')
-else:
-    _convert_unicode = _functools.partial(unicode, encoding='utf-8')
 
 class Reader(_Reader):
     """Reader allows the access and filtering of systemd journal
     entries. Note that in order to access the system journal, a
     non-root user must be in the `adm` group.
 
-    Example usage to print out all error or higher level messages
-    for systemd-udevd for the boot:
+    Example usage to print out all informational or higher level
+    messages for systemd-udevd for this boot:
 
-    >>> myjournal = journal.Reader()
-    >>> myjournal.add_boot_match(journal.CURRENT_BOOT)
-    >>> myjournal.add_loglevel_matches(journal.LOG_ERR)
-    >>> myjournal.add_match(_SYSTEMD_UNIT="systemd-udevd.service")
-    >>> for entry in myjournal:
+    >>> j = journal.Reader()
+    >>> j.this_boot()
+    >>> j.log_level(journal.LOG_INFO)
+    >>> j.add_match(_SYSTEMD_UNIT="systemd-udevd.service")
+    >>> for entry in j:
     ...    print(entry['MESSAGE'])
 
     See systemd.journal-fields(7) for more info on typical fields
     found in the journal.
     """
-    def __init__(self, converters=None, flags=LOCAL_ONLY, path=None):
+    def __init__(self, flags=LOCAL_ONLY, path=None, converters=None):
         """Create an instance of Reader, which allows filtering and
         return of journal entries.
-        Argument `converters` is a dictionary which updates the
-        DEFAULT_CONVERTERS to convert journal field values.
+
         Argument `flags` sets open flags of the journal, which can be one
         of, or ORed combination of constants: LOCAL_ONLY (default) opens
         journal on local machine only; RUNTIME_ONLY opens only
         volatile journal files; and SYSTEM_ONLY opens only
         journal files of system services and the kernel.
+
         Argument `path` is the directory of journal files. Note that
         currently flags are ignored when `path` is present as they are
         currently not relevant.
+
+        Argument `converters` is a dictionary which updates the
+        DEFAULT_CONVERTERS to convert journal field values. Field
+        names are used as keys into this dictionary. The values must
+        be single argument functions, which take a `bytes` object and
+        return a converted value. When there's no entry for a field
+        name, then the default UTF-8 decoding will be attempted. If
+        the conversion fails with a ValueError, unconverted bytes
+        object will be returned. (Note that ValueEror is a superclass
+        of UnicodeDecodeError).
         """
         super(Reader, self).__init__(flags, path)
         if _sys.version_info >= (3,3):
@@ -130,18 +151,19 @@ class Reader(_Reader):
                 self.converters.update(converters)
 
     def _convert_field(self, key, value):
-        """Convert value based on callable from self.converters
-        based of field/key"""
+        """Convert value using self.converters[key]
+
+        If `key` is not present in self.converters, a standard unicode
+        decoding will be attempted.  If the conversion (either
+        key-specific or the default one) fails with a ValueError, the
+        original bytes object will be returned.
+        """
+        convert = self.converters.get(key, bytes.decode)
         try:
-            result = self.converters[key](value)
-        except:
-            # Default conversion in unicode
-            try:
-                result = _convert_unicode(value)
-            except UnicodeDecodeError:
-                # Leave in default bytes
-                result = value
-        return result
+            return convert(value)
+        except ValueError:
+            # Leave in default bytes
+            return value
 
     def _convert_entry(self, entry):
         """Convert entire journal entry utilising _covert_field"""
@@ -217,7 +239,7 @@ class Reader(_Reader):
         """
         if 0 <= level <= 7:
             for i in range(level+1):
-                self.add_match(PRIORITY="%s" % i)
+                self.add_match(PRIORITY="%d" % i)
         else:
             raise ValueError("Log level must be 0 <= level <= 7")
 
