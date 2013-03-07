@@ -50,11 +50,6 @@ int ima_setup(void) {
        int policyfd = -1, imafd = -1;
        int result = 0;
 
-#ifndef HAVE_SELINUX
-       /* Mount the securityfs filesystem */
-       mount_setup_early();
-#endif
-
        if (stat(IMA_POLICY_PATH, &st) < 0)
                return 0;
 

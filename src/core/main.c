@@ -1357,6 +1357,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (!skip_setup) {
+                        mount_setup_early();
                         if (selinux_setup(&loaded_policy) < 0)
                                 goto finish;
                         if (ima_setup() < 0)

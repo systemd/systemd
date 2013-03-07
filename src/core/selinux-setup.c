@@ -58,9 +58,6 @@ int selinux_setup(bool *loaded_policy) {
        cb.func_log = null_log;
        selinux_set_callback(SELINUX_CB_LOG, cb);
 
-       /* Make sure getcon() works, which needs /proc and /sys */
-       mount_setup_early();
-
        /* Already initialized by somebody else? */
        r = getcon_raw(&con);
        if (r == 0) {
