@@ -220,6 +220,9 @@ Features:
   - systemctl: "Journal has been rotated since unit was started." message is misleading
   - support "systemctl stop foobar@.service" to stop all units matching a certain template
   - Something is wrong with symlink handling of "autovt@.service" in "systemctl list-unit-files"
+  - add configuration/switches to use
+    freeze (http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git) and
+    standby (https://bugs.freedesktop.org/show_bug.cgi?id=57793) as suspend modes
 
 * When shutdown.target is queued begin with an asynchronous sync()?
 
@@ -558,6 +561,15 @@ Features:
 * io priority during initialization
 
 * drop cap bounding set in readahead and other services
+
+* systemd-python:
+   - export sd_journal_get_catalog (in systemd.journal._reader)
+   - export sd_journal_get_catalog_for_message_id (in systemd.id128)
+   - allow reading of only select fields in systemd.journal._reader.Reader
+   - export sd_journal_test_cursor in systemd.journal._reader.Reader
+   - export sd_journal_get_usage in systemd.journal._reader.Reader
+   - figure out a simple way to wait for journal events in a way that
+     works with ^C
 
 External:
 

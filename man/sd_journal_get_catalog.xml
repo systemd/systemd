@@ -103,7 +103,7 @@
                 <para><function>sd_journal_get_catalog()</function>
                 and
                 <function>sd_journal_get_catalog_for_message_id()</function>
-                returns 0 on success or a negative errno-style error
+                return 0 on success or a negative errno-style error
                 code. If no matching message catalog entry is found
                 -ENOENT is returned.</para>
         </refsect1>
