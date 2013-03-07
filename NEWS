@@ -22,7 +22,7 @@ CHANGES WITH 198:
           for them too.
 
         * Most unit file settings which take lists of items can now be
-          reset by assigning an empty strings to them. For example,
+          reset by assigning the empty string to them. For example,
           normally, settings such as Environment=FOO=BAR append a new
           environment variable assignment to the environment block,
           each time they are used. By assigning Environment= the empty
@@ -44,36 +44,36 @@ CHANGES WITH 198:
           for all units. More specifically, you can now use a command
           like "systemctl set-cgroup-attr foobar.service cpu.shares
           2000" to alter the CPU shares a specific service gets. These
-          settings are stores persistently on disk, and thus allow the
+          settings are stored persistently on disk, and thus allow the
           administrator to easily adjust the resource usage of
           services with a few simple commands. This dynamic resource
-          management logic is also available to other services via the
+          management logic is also available to other programs via the
           bus. Almost any kernel cgroup attribute and controller is
           supported.
 
         * systemd-vconsole-setup will now copy all font settings to
-          all open VTs, where it previously applied them only to the
-          foreground VT.
+          all allocated VTs, where it previously applied them only to
+          the foreground VT.
 
         * libsystemd-login gained the new sd_session_get_tty() API
           call.
 
-        * This release drops support with a few
-          legacy/distribution-specific LSB facility names when parsing
-          init scripts: $x-display-manager, $mail-transfer-agent,
+        * This release drops support for a few legacy or
+          distribution-specific LSB facility names when parsing init
+          scripts: $x-display-manager, $mail-transfer-agent,
           $mail-transport-agent, $mail-transfer-agent, $smtp,
           $null. Also, the mail-transfer-agent.target unit backing
           this has been removed. Distributions which want to retain
-          compatibility with this should carry the burden for support
-          this themselves and patch support for these back in if they
-          really need to. Also, the facilities $syslog and $local_fs
-          are now ignored, since systemd does not support early-boot
-          LSB init scripts anymore, and these facilities are implied
-          anyway for normal services. syslog.target has also been
-          removed.
+          compatibility with this should carry the burden for
+          supporting this themselves and patch support for these back
+          in, if they really need to. Also, the facilities $syslog and
+          $local_fs are now ignored, since systemd does not support
+          early-boot LSB init scripts anymore, and these facilities
+          are implied anyway for normal services. syslog.target has
+          also been removed.
 
         * There are new bus calls on PID1's Manager object for
-          canceling jobs, and removing snapshot units. Previously,
+          cancelling jobs, and removing snapshot units. Previously,
           both calls were only available on the Job and Snapshot
           objects themselves.
 
@@ -104,22 +104,22 @@ CHANGES WITH 198:
           container.
 
         * nspawn will now mount its own devpts file system instance
-          into the container, in order not to leake pty devices from
+          into the container, in order not to leak pty devices from
           the host into the container.
 
         * systemd will now read the firmware boot time performance
-          from the EFI variables, if the used boot loader supports
-          this, and take it into account for boot performance analysis
-          via "systemd-analyze". This is currently supported only in
-          conjunction with Gummiboot, but could be supported by other
-          boot loaders too. For details see:
+          information from the EFI variables, if the used boot loader
+          supports this, and takes it into account for boot performance
+          analysis via "systemd-analyze". This is currently supported
+          only in conjunction with Gummiboot, but could be supported
+          by other boot loaders too. For details see:
 
           http://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface
 
         * A new generator has been added that automatically mounts the
           EFI System Partition (ESP) to /boot, if that directory
-          exists, is empty, and no other partition has been configured
-          to be mounted there.
+          exists, is empty, and no other file system has been
+          configured to be mounted there.
 
         * logind will now send out PrepareForSleep(false) out
           unconditionally, after coming back from suspend. This may be
@@ -181,7 +181,7 @@ CHANGES WITH 198:
         * Operations such as "systemctl start" can now be executed
           with a new mode "--irreversible" which may be used to queue
           operations that cannot accidentally be reversed by a later
-          job queuing. This is by default use to make shutdown
+          job queuing. This is by default used to make shutdown
           requests more robust.
 
         * The Python API of systemd now gained a new module for
@@ -193,7 +193,7 @@ CHANGES WITH 198:
           http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec
 
         * Boot time console output has been improved to provide
-          animated boot time output.
+          animated boot time output for hanging jobs.
 
         * A new tool systemd-activate has been added which can be used
           to test socket activation with, directly from the command
@@ -214,7 +214,7 @@ CHANGES WITH 198:
         * The journal files are now owned by a new group
           "systemd-journal", which exists specifically to allow access
           to the journal, and nothing else. Previously, we used the
-          "adm" group for that, which however possible covers more
+          "adm" group for that, which however possibly covers more
           than just journal/log file access. This new group is now
           already used by systemd-journal-gatewayd to ensure this
           daemon gets access to the journal files and as little else
@@ -222,7 +222,7 @@ CHANGES WITH 198:
           up for /var/log/journal to give "adm" and "wheel" read
           access to it, in addition to "systemd-journal" which owns
           the journal files. We recommend that packaging scripts also
-          add read access to "adm", "wheel" to /var/log/journal, and
+          add read access to "adm" + "wheel" to /var/log/journal, and
           all existing/future journal files. To normal users and
           administrators little changes, however packagers need to
           ensure to create the "systemd-journal" system group at
