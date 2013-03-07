@@ -44,6 +44,8 @@ REQUIREMENTS:
           CONFIG_NET
           CONFIG_SYSFS
 
+        Linux kernel >= 3.8 for Smack support
+
         Udev will fail to work with the legacy layout:
           CONFIG_SYSFS_DEPRECATED=n
 

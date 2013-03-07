@@ -66,7 +66,7 @@ typedef struct MountPoint {
 /* The first three entries we might need before SELinux is up. The
  * fourth (securityfs) is needed by IMA to load a custom policy. The
  * other ones we can delay until SELinux and IMA are loaded. */
-#define N_EARLY_MOUNT 4
+#define N_EARLY_MOUNT 5
 
 static const MountPoint mount_table[] = {
         { "proc",       "/proc",                     "proc",       NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
@@ -76,6 +76,8 @@ static const MountPoint mount_table[] = {
         { "devtmpfs",   "/dev",                      "devtmpfs",   "mode=755", MS_NOSUID|MS_STRICTATIME,
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
         { "securityfs", "/sys/kernel/security",      "securityfs", NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          NULL,       MNT_NONE },
+        { "smackfs",    "/sys/fs/smackfs",           "smackfs",    "smackfsdef=*", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
           NULL,       MNT_NONE },
         { "tmpfs",      "/dev/shm",                  "tmpfs",      "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },

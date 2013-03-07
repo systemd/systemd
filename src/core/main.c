@@ -67,6 +67,7 @@
 #include "selinux-setup.h"
 #include "ima-setup.h"
 #include "fileio.h"
+#include "smack-setup.h"
 
 static enum {
         ACTION_RUN,
@@ -1361,6 +1362,8 @@ int main(int argc, char *argv[]) {
                         if (selinux_setup(&loaded_policy) < 0)
                                 goto finish;
                         if (ima_setup() < 0)
+                                goto finish;
+                        if (smack_setup() < 0)
                                 goto finish;
                 }
 

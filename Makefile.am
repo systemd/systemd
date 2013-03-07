@@ -842,6 +842,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/selinux-access.h \
 	src/core/selinux-setup.c \
 	src/core/selinux-setup.h \
+	src/core/smack-setup.c \
+	src/core/smack-setup.h \
 	src/core/ima-setup.c \
 	src/core/ima-setup.h \
 	src/core/locale-setup.h \
