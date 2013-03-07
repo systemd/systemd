@@ -3982,6 +3982,7 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
         DBusMessage _cleanup_dbus_message_unref_ *reply = NULL;
         bool enabled;
         char **name;
+        char *n;
 
         dbus_error_init(&error);
 
@@ -3996,7 +3997,14 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
                 STRV_FOREACH(name, args+1) {
                         UnitFileState state;
 
-                        state = unit_file_get_state(arg_scope, arg_root, *name);
+                        n = unit_name_mangle(*name);
+                        if (!n)
+                                return log_oom();
+
+                        state = unit_file_get_state(arg_scope, arg_root, n);
+
+                        free(n);
+
                         if (state < 0)
                                 return state;
 
@@ -4013,6 +4021,10 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
                 STRV_FOREACH(name, args+1) {
                         const char *s;
 
+                        n = unit_name_mangle(*name);
+                        if (!n)
+                                return log_oom();
+
                         r = bus_method_call_with_reply (
                                         bus,
                                         "org.freedesktop.systemd1",
@@ -4021,8 +4033,11 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
                                         "GetUnitFileState",
                                         &reply,
                                         NULL,
-                                        DBUS_TYPE_STRING, name,
+                                        DBUS_TYPE_STRING, &n,
                                         DBUS_TYPE_INVALID);
+
+                        free(n);
+
                         if (r)
                                 return r;
 
