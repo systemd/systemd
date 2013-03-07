@@ -164,7 +164,7 @@ static PyObject* Reader_reliable_fd(Reader *self, PyObject *args)
 }
 
 PyDoc_STRVAR(Reader_close__doc__,
-             "reliable_fd() -> None\n\n"
+             "close() -> None\n\n"
              "Free resources allocated by this Reader object.\n"
              "This method invokes sd_journal_close().\n"
              "See man:sd_journal_close(3).");
@@ -428,7 +428,7 @@ static PyObject* Reader_seek_head(Reader *self, PyObject *args)
 
 PyDoc_STRVAR(Reader_seek_tail__doc__,
              "seek_tail() -> None\n\n"
-             "Jump to the beginning of the journal.\n"
+             "Jump to the end of the journal.\n"
              "This method invokes sd_journal_seek_tail().\n"
              "See man:sd_journal_seek_tail(3).");
 static PyObject* Reader_seek_tail(Reader *self, PyObject *args)
