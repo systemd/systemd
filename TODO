@@ -196,6 +196,7 @@ Features:
   - journalctl: show multiline log messages sanely, expand tabs, and show all valid utf8 messages
   - journal: store euid in journal if it differs from uid
   - journal: sanely deal with entries which are larger than the individual file size, but where the components would fit
+  - journalctl: make journalctl smarter, and actually check groups that have access to /var/log/journal before printing message about recomming group membership for journal access
 
 * document:
   - document unit_name_mangle()
