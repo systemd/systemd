@@ -140,8 +140,9 @@ CHANGES WITH 198:
           configuration of files and directories (with wildcards) that
           shall be excluded from automatic cleanup ("aging").
 
-        * udev permission rules are now only applied for "add" events,
-          no longer for "change" events.
+        * udev default rules set the device node permissions now only
+          at "add" events, and do not change them any longer with a
+          later "change" event.
 
         * The log messages for lid events and power/sleep keypresses
           now carry a message ID.
