@@ -66,10 +66,10 @@ struct cpu_stat_struct cpustat[MAXCPUS];
 int pscount;
 int cpus;
 double interval;
-FILE *of = NULL;
+FILE _cleanup_fclose_ *of = NULL;
 int overrun = 0;
 static int exiting = 0;
-int sysfd=-1;
+int _cleanup_close_ sysfd=-1;
 
 /* graph defaults */
 bool entropy = false;
@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
         char datestr[200];
         time_t t = 0;
         const char *fn;
-        _cleanup_fclose_ FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
         int gind;
         int i, r;
         char *init = NULL, *output = NULL;
@@ -378,10 +378,8 @@ int main(int argc, char *argv[])
         svg_do(build);
 
         fprintf(stderr, "systemd-bootchart wrote %s\n", output_file);
-        fclose(of);
 
         closedir(proc);
-        close(sysfd);
 
         /* nitpic cleanups */
         ps = ps_first;

@@ -150,7 +150,7 @@ static void svg_title(const char *build)
         char date[256] = "Unknown";
         char cpu[256] = "Unknown";
         char *c;
-        FILE *f;
+        FILE _cleanup_fclose_ *f = NULL;
         time_t t;
         int fd;
         struct utsname uts;
@@ -161,7 +161,6 @@ static void svg_title(const char *build)
         if (f) {
                 if (!fgets(cmdline, 255, f))
                         sprintf(cmdline, "Unknown");
-                fclose(f);
         }
 
         /* extract root fs so we can find disk model name in sysfs */
@@ -176,7 +175,6 @@ static void svg_title(const char *build)
                 if (f) {
                         if (!fgets(model, 255, f))
                                 fprintf(stderr, "Error reading disk model for %s\n", rootbdev);
-                        fclose(f);
                 }
         }
 
@@ -198,7 +196,6 @@ static void svg_title(const char *build)
                                 break;
                         }
                 }
-                fclose(f);
         }
 
         svg("<text class=\"t1\" x=\"0\" y=\"30\">Bootchart for %s - %s</text>\n",
