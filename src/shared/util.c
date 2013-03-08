@@ -2963,7 +2963,7 @@ int status_welcome(void) {
         if (r < 0 && r != -ENOENT)
                 log_warning("Failed to read /etc/os-release: %s", strerror(-r));
 
-        return status_printf(NULL, false,
+        return status_printf(NULL, false, false,
                              "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
                              isempty(ansi_color) ? "1" : ansi_color,
                              isempty(pretty_name) ? "Linux" : pretty_name);
