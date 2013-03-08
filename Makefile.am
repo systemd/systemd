@@ -114,7 +114,6 @@ polkitpolicy_in_files =
 polkitpolicy_files =
 dist_udevrules_DATA =
 nodist_udevrules_DATA =
-dist_man_MANS =
 dist_pkgsysconf_DATA =
 dist_pkgdata_DATA =
 dist_dbuspolicy_DATA =
@@ -504,6 +503,8 @@ include Makefile-man.am
 
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
+HTML_FILES = \
+	${XML_FILES:.xml=.html}
 
 if ENABLE_MANPAGES
 man_MANS = \
@@ -511,12 +512,11 @@ man_MANS = \
 	$(MANPAGES_ALIAS)
 
 noinst_DATA = \
-	${XML_FILES:.xml=.html}
+	$(HTML_FILES)
 
 CLEANFILES += \
-	$(MANPAGES) \
-	$(MANPAGES_ALIAS) \
-	${XML_FILES:.xml=.html}
+	$(man_MANS) \
+	$(HTML_FILES)
 
 if HAVE_PYTHON
 noinst_DATA += \
@@ -549,15 +549,18 @@ EXTRA_DIST += \
 	man/index.html \
 	man/systemd.directives.xml
 
+CLEANFILES += \
+	man/systemd.index.xml \
+	man/systemd.directives.xml
+
 endif
 
 endif
 
 EXTRA_DIST += \
 	$(XML_FILES) \
-	${XML_FILES:.xml=.html} \
-	$(MANPAGES) \
-	$(MANPAGES_ALIAS) \
+	$(HTML_FILES) \
+	$(dist_MANS) \
 	make-man-index.py \
 	make-directive-index.py
 
@@ -3624,7 +3627,6 @@ EXTRA_DIST += \
 CLEANFILES += \
 	$(nodist_systemunit_DATA) \
 	$(nodist_userunit_DATA) \
-	$(nodist_man_MANS) \
 	$(pkgconfigdata_DATA) \
 	$(pkgconfiglib_DATA) \
 	$(nodist_polkitpolicy_DATA)
@@ -3664,10 +3666,6 @@ man/%.8: man/%.xml
 
 man/%.html: man/%.xml man/custom-html.xsl
 	$(XSLTPROC_PROCESS_HTML)
-
-CLEANFILES += \
-	$(dist_man_MANS) \
-	${XML_FILES:.xml=.html}
 endif
 
 # ------------------------------------------------------------------------------
