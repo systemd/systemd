@@ -29,6 +29,7 @@ MANPAGES += \\
 MANPAGES_ALIAS += \\
 	{aliases}
 {rules}
+{htmlrules}
 '''
 
 CONDITIONAL = '''\
@@ -49,6 +50,11 @@ CLEANFILES = '''\
 
 CLEANFILES += \\
 	{cleanfiles}
+'''
+
+HTML_ALIAS_RULE = '''\
+{}.html: {}.html
+	$(html-alias)
 '''
 
 def man(page, number):
@@ -91,6 +97,9 @@ def make_makefile(rules, cleanfiles):
             rules='\n'.join('{}: {}'.format(k,v)
                             for k,v in sorted(rulegroup.items())
                             if k != v),
+            htmlrules='\n'.join(HTML_ALIAS_RULE.format(k[:-2],v[:-2])
+                                for k,v in sorted(rulegroup.items())
+                                if k != v),
             conditional=conditional)
         for conditional,rulegroup in sorted(rules.items())) + \
         CLEANFILES.format(cleanfiles=mjoin(cleanfiles))

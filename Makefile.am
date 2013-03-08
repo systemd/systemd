@@ -109,6 +109,7 @@ pkginclude_HEADERS =
 noinst_LTLIBRARIES =
 lib_LTLIBRARIES =
 include_HEADERS =
+noinst_DATA =
 pkgconfiglib_DATA =
 polkitpolicy_in_in_files =
 polkitpolicy_in_files =
@@ -259,6 +260,10 @@ AM_V_XSLT_0 = @echo "  XSLT    " $@;
 AM_V_GPERF = $(AM_V_GPERF_$(V))
 AM_V_GPERF_ = $(AM_V_GPERF_$(AM_DEFAULT_VERBOSITY))
 AM_V_GPERF_0 = @echo "  GPERF   " $@;
+
+AM_V_LN = $(AM_V_LN_$(V))
+AM_V_LN_ = $(AM_V_LN_$(AM_DEFAULT_VERBOSITY))
+AM_V_LN_0 = @echo "  LN      " $@;
 
 # ------------------------------------------------------------------------------
 rootbin_PROGRAMS = \
@@ -506,50 +511,42 @@ XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
 HTML_FILES = \
 	${XML_FILES:.xml=.html}
+HTML_ALIAS = \
+	${patsubst %.1,%.html,${patsubst %.3,%.html,${patsubst %.5,%.html,${patsubst %.7,%.html,${patsubst %.8,%.html,$(MANPAGES_ALIAS)}}}}}
 
 if ENABLE_MANPAGES
 man_MANS = \
 	$(MANPAGES) \
 	$(MANPAGES_ALIAS)
 
-noinst_DATA = \
-	$(HTML_FILES)
+noinst_DATA += \
+	$(HTML_FILES) \
+	$(HTML_ALIAS)
 
 CLEANFILES += \
 	$(man_MANS) \
-	$(HTML_FILES)
-
-noinst_DATA += \
-	docs/html/libudev \
-	docs/html/gudev \
-	docs/html/man
-
-DISTCLEAN_LOCAL_HOOKS += clean-html-links
-
-clean-html-links:
-	rm -f docs/html/libudev docs/html/gudev docs/html/man
-
-if HAVE_PYTHON
-noinst_DATA += \
-	man/index.html
-
-CLEANFILES += \
-	man/index.html
-
-man/index.html: man/systemd.index.html
-	$(AM_V_GEN)$(LN_S) -f systemd.index.html $@
-
-docs/html/libudev:
-	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_LN)$(LN_S) -f ../libudev/html $@
-
-docs/html/gudev:
-	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_LN)$(LN_S) -f ../gudev/html $@
+	$(HTML_FILES) \
+	$(HTML_ALIAS)
 
 docs/html/man:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_LN)$(LN_S) -f ../../man $@
+
+noinst_DATA += \
+	docs/html/man
+
+CLEANFILES += \
+	docs/html/man
+
+if HAVE_PYTHON
+man/index.html: man/systemd.index.html
+	$(AM_V_LN)$(LN_S) -f systemd.index.html $@
+
+noinst_DATA += \
+	man/index.html
+
+CLEANFILES += \
+	man/index.html
 
 NON_INDEX_XML_FILES = $(filter-out man/systemd.index.xml,$(XML_FILES))
 
@@ -583,6 +580,7 @@ endif
 EXTRA_DIST += \
 	$(XML_FILES) \
 	$(HTML_FILES) \
+	$(HTML_ALIAS) \
 	$(dist_MANS) \
 	make-man-index.py \
 	make-directive-index.py
@@ -1640,6 +1638,10 @@ EXTRA_DIST += \
 if ENABLE_GTK_DOC
 SUBDIRS += \
 	docs/libudev
+
+noinst_DATA += \
+	docs/html/libudev \
+	docs/html/gudev
 endif
 
 include_HEADERS += \
@@ -1682,7 +1684,17 @@ EXTRA_DIST += \
 	src/libudev/libudev.sym
 
 CLEANFILES += \
-	src/libudev/libudev.pc
+	src/libudev/libudev.pc \
+	docs/html/libudev \
+	docs/html/gudev
+
+docs/html/libudev:
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_LN)$(LN_S) -f ../libudev/html $@
+
+docs/html/gudev:
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_LN)$(LN_S) -f ../gudev/html $@
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 libudev-install-hook:
@@ -3537,7 +3549,6 @@ src/python-systemd/id128-constants.h: src/systemd/sd-messages.h Makefile
 
 BUILT_SOURCES += \
 	src/python-systemd/id128-constants.h
-endif
 
 PAPER = $(shell cat /etc/papersize 2>/dev/null || echo a4)
 SPHINXOPTS = -D latex_paper_size=$(PAPER)
@@ -3551,6 +3562,8 @@ destdir-sphinx: all
 		$(MAKE) DESTDIR="$$dir" install && \
 	        $(MAKE) DESTDIR="$$dir" sphinx-html && \
 		rm -rf "$$dir"
+
+endif
 
 CLEAN_LOCAL_HOOKS += clean-sphinx
 
@@ -3694,6 +3707,11 @@ man/%.8: man/%.xml
 
 man/%.html: man/%.xml man/custom-html.xsl
 	$(XSLTPROC_PROCESS_HTML)
+
+define html-alias
+	$(AM_V_LN)$(LN_S) $(notdir $<) $@
+endef
+
 endif
 
 # ------------------------------------------------------------------------------

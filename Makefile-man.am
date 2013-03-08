@@ -283,6 +283,288 @@ man/systemd-udevd.8: man/systemd-udevd.service.8
 man/systemd-update-utmp-shutdown.service.8: man/systemd-update-utmp-runlevel.service.8
 man/systemd-update-utmp.8: man/systemd-update-utmp-runlevel.service.8
 man/systemd-user.conf.5: man/systemd-system.conf.5
+man/SD_ALERT.html: man/sd-daemon.html
+	$(html-alias)
+
+man/SD_CRIT.html: man/sd-daemon.html
+	$(html-alias)
+
+man/SD_DEBUG.html: man/sd-daemon.html
+	$(html-alias)
+
+man/SD_EMERG.html: man/sd-daemon.html
+	$(html-alias)
+
+man/SD_ERR.html: man/sd-daemon.html
+	$(html-alias)
+
+man/SD_ID128_CONST_STR.html: man/sd-id128.html
+	$(html-alias)
+
+man/SD_ID128_FORMAT_STR.html: man/sd-id128.html
+	$(html-alias)
+
+man/SD_ID128_FORMAT_VAL.html: man/sd-id128.html
+	$(html-alias)
+
+man/SD_ID128_MAKE.html: man/sd-id128.html
+	$(html-alias)
+
+man/SD_INFO.html: man/sd-daemon.html
+	$(html-alias)
+
+man/SD_JOURNAL_APPEND.html: man/sd_journal_get_fd.html
+	$(html-alias)
+
+man/SD_JOURNAL_FOREACH.html: man/sd_journal_next.html
+	$(html-alias)
+
+man/SD_JOURNAL_FOREACH_BACKWARDS.html: man/sd_journal_next.html
+	$(html-alias)
+
+man/SD_JOURNAL_FOREACH_DATA.html: man/sd_journal_get_data.html
+	$(html-alias)
+
+man/SD_JOURNAL_FOREACH_UNIQUE.html: man/sd_journal_query_unique.html
+	$(html-alias)
+
+man/SD_JOURNAL_INVALIDATE.html: man/sd_journal_get_fd.html
+	$(html-alias)
+
+man/SD_JOURNAL_LOCAL_ONLY.html: man/sd_journal_open.html
+	$(html-alias)
+
+man/SD_JOURNAL_NOP.html: man/sd_journal_get_fd.html
+	$(html-alias)
+
+man/SD_JOURNAL_RUNTIME_ONLY.html: man/sd_journal_open.html
+	$(html-alias)
+
+man/SD_JOURNAL_SUPPRESS_LOCATION.html: man/sd_journal_print.html
+	$(html-alias)
+
+man/SD_JOURNAL_SYSTEM_ONLY.html: man/sd_journal_open.html
+	$(html-alias)
+
+man/SD_LISTEN_FDS_START.html: man/sd_listen_fds.html
+	$(html-alias)
+
+man/SD_NOTICE.html: man/sd-daemon.html
+	$(html-alias)
+
+man/SD_WARNING.html: man/sd-daemon.html
+	$(html-alias)
+
+man/init.html: man/systemd.html
+	$(html-alias)
+
+man/poweroff.html: man/halt.html
+	$(html-alias)
+
+man/reboot.html: man/halt.html
+	$(html-alias)
+
+man/sd_id128_equal.html: man/sd-id128.html
+	$(html-alias)
+
+man/sd_id128_from_string.html: man/sd_id128_to_string.html
+	$(html-alias)
+
+man/sd_id128_get_boot.html: man/sd_id128_get_machine.html
+	$(html-alias)
+
+man/sd_id128_t.html: man/sd-id128.html
+	$(html-alias)
+
+man/sd_is_mq.html: man/sd_is_fifo.html
+	$(html-alias)
+
+man/sd_is_socket.html: man/sd_is_fifo.html
+	$(html-alias)
+
+man/sd_is_socket_inet.html: man/sd_is_fifo.html
+	$(html-alias)
+
+man/sd_is_socket_unix.html: man/sd_is_fifo.html
+	$(html-alias)
+
+man/sd_journal.html: man/sd_journal_open.html
+	$(html-alias)
+
+man/sd_journal_add_disjunction.html: man/sd_journal_add_match.html
+	$(html-alias)
+
+man/sd_journal_close.html: man/sd_journal_open.html
+	$(html-alias)
+
+man/sd_journal_enumerate_data.html: man/sd_journal_get_data.html
+	$(html-alias)
+
+man/sd_journal_enumerate_unique.html: man/sd_journal_query_unique.html
+	$(html-alias)
+
+man/sd_journal_flush_matches.html: man/sd_journal_add_match.html
+	$(html-alias)
+
+man/sd_journal_get_catalog_for_message_id.html: man/sd_journal_get_catalog.html
+	$(html-alias)
+
+man/sd_journal_get_cutoff_monotonic_usec.html: man/sd_journal_get_cutoff_realtime_usec.html
+	$(html-alias)
+
+man/sd_journal_get_data_threshold.html: man/sd_journal_get_data.html
+	$(html-alias)
+
+man/sd_journal_get_monotonic_usec.html: man/sd_journal_get_realtime_usec.html
+	$(html-alias)
+
+man/sd_journal_next_skip.html: man/sd_journal_next.html
+	$(html-alias)
+
+man/sd_journal_open_directory.html: man/sd_journal_open.html
+	$(html-alias)
+
+man/sd_journal_perror.html: man/sd_journal_print.html
+	$(html-alias)
+
+man/sd_journal_previous.html: man/sd_journal_next.html
+	$(html-alias)
+
+man/sd_journal_previous_skip.html: man/sd_journal_next.html
+	$(html-alias)
+
+man/sd_journal_printv.html: man/sd_journal_print.html
+	$(html-alias)
+
+man/sd_journal_process.html: man/sd_journal_get_fd.html
+	$(html-alias)
+
+man/sd_journal_reliable_fd.html: man/sd_journal_get_fd.html
+	$(html-alias)
+
+man/sd_journal_restart_data.html: man/sd_journal_get_data.html
+	$(html-alias)
+
+man/sd_journal_restart_unique.html: man/sd_journal_query_unique.html
+	$(html-alias)
+
+man/sd_journal_seek_cursor.html: man/sd_journal_seek_head.html
+	$(html-alias)
+
+man/sd_journal_seek_monotonic_usec.html: man/sd_journal_seek_head.html
+	$(html-alias)
+
+man/sd_journal_seek_realtime_usec.html: man/sd_journal_seek_head.html
+	$(html-alias)
+
+man/sd_journal_seek_tail.html: man/sd_journal_seek_head.html
+	$(html-alias)
+
+man/sd_journal_send.html: man/sd_journal_print.html
+	$(html-alias)
+
+man/sd_journal_sendv.html: man/sd_journal_print.html
+	$(html-alias)
+
+man/sd_journal_set_data_threshold.html: man/sd_journal_get_data.html
+	$(html-alias)
+
+man/sd_journal_test_cursor.html: man/sd_journal_get_cursor.html
+	$(html-alias)
+
+man/sd_journal_wait.html: man/sd_journal_get_fd.html
+	$(html-alias)
+
+man/sd_notifyf.html: man/sd_notify.html
+	$(html-alias)
+
+man/systemd-ask-password-console.path.html: man/systemd-ask-password-console.service.html
+	$(html-alias)
+
+man/systemd-ask-password-wall.path.html: man/systemd-ask-password-console.service.html
+	$(html-alias)
+
+man/systemd-ask-password-wall.service.html: man/systemd-ask-password-console.service.html
+	$(html-alias)
+
+man/systemd-fsck-root.service.html: man/systemd-fsck@.service.html
+	$(html-alias)
+
+man/systemd-fsck.html: man/systemd-fsck@.service.html
+	$(html-alias)
+
+man/systemd-hibernate.service.html: man/systemd-suspend.service.html
+	$(html-alias)
+
+man/systemd-hybrid-sleep.service.html: man/systemd-suspend.service.html
+	$(html-alias)
+
+man/systemd-initctl.html: man/systemd-initctl.service.html
+	$(html-alias)
+
+man/systemd-initctl.socket.html: man/systemd-initctl.service.html
+	$(html-alias)
+
+man/systemd-journald.html: man/systemd-journald.service.html
+	$(html-alias)
+
+man/systemd-journald.socket.html: man/systemd-journald.service.html
+	$(html-alias)
+
+man/systemd-kexec.service.html: man/systemd-halt.service.html
+	$(html-alias)
+
+man/systemd-poweroff.service.html: man/systemd-halt.service.html
+	$(html-alias)
+
+man/systemd-reboot.service.html: man/systemd-halt.service.html
+	$(html-alias)
+
+man/systemd-remount-fs.html: man/systemd-remount-fs.service.html
+	$(html-alias)
+
+man/systemd-shutdown.html: man/systemd-halt.service.html
+	$(html-alias)
+
+man/systemd-shutdownd.html: man/systemd-shutdownd.service.html
+	$(html-alias)
+
+man/systemd-shutdownd.socket.html: man/systemd-shutdownd.service.html
+	$(html-alias)
+
+man/systemd-sleep.html: man/systemd-suspend.service.html
+	$(html-alias)
+
+man/systemd-sysctl.html: man/systemd-sysctl.service.html
+	$(html-alias)
+
+man/systemd-tmpfiles-clean.service.html: man/systemd-tmpfiles.html
+	$(html-alias)
+
+man/systemd-tmpfiles-clean.timer.html: man/systemd-tmpfiles.html
+	$(html-alias)
+
+man/systemd-tmpfiles-setup.service.html: man/systemd-tmpfiles.html
+	$(html-alias)
+
+man/systemd-udevd-control.socket.html: man/systemd-udevd.service.html
+	$(html-alias)
+
+man/systemd-udevd-kernel.socket.html: man/systemd-udevd.service.html
+	$(html-alias)
+
+man/systemd-udevd.html: man/systemd-udevd.service.html
+	$(html-alias)
+
+man/systemd-update-utmp-shutdown.service.html: man/systemd-update-utmp-runlevel.service.html
+	$(html-alias)
+
+man/systemd-update-utmp.html: man/systemd-update-utmp-runlevel.service.html
+	$(html-alias)
+
+man/systemd-user.conf.html: man/systemd-system.conf.html
+	$(html-alias)
+
 
 if ENABLE_BINFMT
 MANPAGES += \
@@ -291,6 +573,9 @@ MANPAGES += \
 MANPAGES_ALIAS += \
 	man/systemd-binfmt.8
 man/systemd-binfmt.8: man/systemd-binfmt.service.8
+man/systemd-binfmt.html: man/systemd-binfmt.service.html
+	$(html-alias)
+
 endif
 
 if ENABLE_BOOTCHART
@@ -300,6 +585,7 @@ MANPAGES += \
 MANPAGES_ALIAS += \
 	#
 
+
 endif
 
 if ENABLE_COREDUMP
@@ -307,6 +593,7 @@ MANPAGES += \
 	man/systemd-coredumpctl.1
 MANPAGES_ALIAS += \
 	#
+
 
 endif
 
@@ -317,6 +604,9 @@ MANPAGES += \
 MANPAGES_ALIAS += \
 	man/systemd-hostnamed.8
 man/systemd-hostnamed.8: man/systemd-hostnamed.service.8
+man/systemd-hostnamed.html: man/systemd-hostnamed.service.html
+	$(html-alias)
+
 endif
 
 if ENABLE_LOCALED
@@ -326,6 +616,9 @@ MANPAGES += \
 MANPAGES_ALIAS += \
 	man/systemd-localed.8
 man/systemd-localed.8: man/systemd-localed.service.8
+man/systemd-localed.html: man/systemd-localed.service.html
+	$(html-alias)
+
 endif
 
 if ENABLE_LOGIND
@@ -335,6 +628,9 @@ MANPAGES += \
 MANPAGES_ALIAS += \
 	man/systemd-logind.8
 man/systemd-logind.8: man/systemd-logind.service.8
+man/systemd-logind.html: man/systemd-logind.service.html
+	$(html-alias)
+
 endif
 
 if ENABLE_QUOTACHECK
@@ -343,6 +639,9 @@ MANPAGES += \
 MANPAGES_ALIAS += \
 	man/systemd-quotacheck.8
 man/systemd-quotacheck.8: man/systemd-quotacheck.service.8
+man/systemd-quotacheck.html: man/systemd-quotacheck.service.html
+	$(html-alias)
+
 endif
 
 if ENABLE_RANDOMSEED
@@ -353,6 +652,12 @@ MANPAGES_ALIAS += \
 	man/systemd-random-seed.8
 man/systemd-random-seed-save.service.8: man/systemd-random-seed-load.service.8
 man/systemd-random-seed.8: man/systemd-random-seed-load.service.8
+man/systemd-random-seed-save.service.html: man/systemd-random-seed-load.service.html
+	$(html-alias)
+
+man/systemd-random-seed.html: man/systemd-random-seed-load.service.html
+	$(html-alias)
+
 endif
 
 if ENABLE_READAHEAD
@@ -369,6 +674,18 @@ man/systemd-readahead-collect.service.8: man/systemd-readahead-replay.service.8
 man/systemd-readahead-done.service.8: man/systemd-readahead-replay.service.8
 man/systemd-readahead-done.timer.8: man/systemd-readahead-replay.service.8
 man/systemd-readahead.8: man/systemd-readahead-replay.service.8
+man/systemd-readahead-collect.service.html: man/systemd-readahead-replay.service.html
+	$(html-alias)
+
+man/systemd-readahead-done.service.html: man/systemd-readahead-replay.service.html
+	$(html-alias)
+
+man/systemd-readahead-done.timer.html: man/systemd-readahead-replay.service.html
+	$(html-alias)
+
+man/systemd-readahead.html: man/systemd-readahead-replay.service.html
+	$(html-alias)
+
 endif
 
 if ENABLE_TIMEDATED
@@ -378,6 +695,9 @@ MANPAGES += \
 MANPAGES_ALIAS += \
 	man/systemd-timedated.8
 man/systemd-timedated.8: man/systemd-timedated.service.8
+man/systemd-timedated.html: man/systemd-timedated.service.html
+	$(html-alias)
+
 endif
 
 if ENABLE_VCONSOLE
@@ -387,6 +707,9 @@ MANPAGES += \
 MANPAGES_ALIAS += \
 	man/systemd-vconsole-setup.8
 man/systemd-vconsole-setup.8: man/systemd-vconsole-setup.service.8
+man/systemd-vconsole-setup.html: man/systemd-vconsole-setup.service.html
+	$(html-alias)
+
 endif
 
 if HAVE_KMOD
@@ -396,6 +719,9 @@ MANPAGES += \
 MANPAGES_ALIAS += \
 	man/systemd-modules-load.8
 man/systemd-modules-load.8: man/systemd-modules-load.service.8
+man/systemd-modules-load.html: man/systemd-modules-load.service.html
+	$(html-alias)
+
 endif
 
 if HAVE_LIBCRYPTSETUP
@@ -406,6 +732,9 @@ MANPAGES += \
 MANPAGES_ALIAS += \
 	man/systemd-cryptsetup.8
 man/systemd-cryptsetup.8: man/systemd-cryptsetup@.service.8
+man/systemd-cryptsetup.html: man/systemd-cryptsetup@.service.html
+	$(html-alias)
+
 endif
 
 if HAVE_MICROHTTPD
@@ -416,6 +745,12 @@ MANPAGES_ALIAS += \
 	man/systemd-journal-gatewayd.socket.8
 man/systemd-journal-gatewayd.8: man/systemd-journal-gatewayd.service.8
 man/systemd-journal-gatewayd.socket.8: man/systemd-journal-gatewayd.service.8
+man/systemd-journal-gatewayd.html: man/systemd-journal-gatewayd.service.html
+	$(html-alias)
+
+man/systemd-journal-gatewayd.socket.html: man/systemd-journal-gatewayd.service.html
+	$(html-alias)
+
 endif
 
 if HAVE_MYHOSTNAME
@@ -423,6 +758,7 @@ MANPAGES += \
 	man/nss-myhostname.8
 MANPAGES_ALIAS += \
 	#
+
 
 endif
 
@@ -483,6 +819,72 @@ man/sd_uid_get_seats.3: man/sd_uid_get_state.3
 man/sd_uid_get_sessions.3: man/sd_uid_get_state.3
 man/sd_uid_is_on_seat.3: man/sd_uid_get_state.3
 man/systemd-user-sessions.8: man/systemd-user-sessions.service.8
+man/sd_get_sessions.html: man/sd_get_seats.html
+	$(html-alias)
+
+man/sd_get_uids.html: man/sd_get_seats.html
+	$(html-alias)
+
+man/sd_login_monitor.html: man/sd_login_monitor_new.html
+	$(html-alias)
+
+man/sd_login_monitor_flush.html: man/sd_login_monitor_new.html
+	$(html-alias)
+
+man/sd_login_monitor_get_fd.html: man/sd_login_monitor_new.html
+	$(html-alias)
+
+man/sd_login_monitor_unref.html: man/sd_login_monitor_new.html
+	$(html-alias)
+
+man/sd_pid_get_owner_uid.html: man/sd_pid_get_session.html
+	$(html-alias)
+
+man/sd_pid_get_unit.html: man/sd_pid_get_session.html
+	$(html-alias)
+
+man/sd_seat_can_multi_session.html: man/sd_seat_get_active.html
+	$(html-alias)
+
+man/sd_seat_get_sessions.html: man/sd_seat_get_active.html
+	$(html-alias)
+
+man/sd_session_get_class.html: man/sd_session_is_active.html
+	$(html-alias)
+
+man/sd_session_get_display.html: man/sd_session_is_active.html
+	$(html-alias)
+
+man/sd_session_get_seat.html: man/sd_session_is_active.html
+	$(html-alias)
+
+man/sd_session_get_service.html: man/sd_session_is_active.html
+	$(html-alias)
+
+man/sd_session_get_state.html: man/sd_session_is_active.html
+	$(html-alias)
+
+man/sd_session_get_tty.html: man/sd_session_is_active.html
+	$(html-alias)
+
+man/sd_session_get_type.html: man/sd_session_is_active.html
+	$(html-alias)
+
+man/sd_session_get_uid.html: man/sd_session_is_active.html
+	$(html-alias)
+
+man/sd_uid_get_seats.html: man/sd_uid_get_state.html
+	$(html-alias)
+
+man/sd_uid_get_sessions.html: man/sd_uid_get_state.html
+	$(html-alias)
+
+man/sd_uid_is_on_seat.html: man/sd_uid_get_state.html
+	$(html-alias)
+
+man/systemd-user-sessions.html: man/systemd-user-sessions.service.html
+	$(html-alias)
+
 endif
 
 if HAVE_PYTHON
@@ -491,6 +893,7 @@ MANPAGES += \
 	man/systemd.index.7
 MANPAGES_ALIAS += \
 	#
+
 
 endif
 
