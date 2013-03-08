@@ -1,27 +1,123 @@
 
 - 8ch indent, no tabs
 
-- structs in MixedCase, variables, functions in lower_case
+- Variables and functions *must* be static, unless they have a
+  protoype, and are supposed to be exported.
 
-- the destructors always unregister the object from the next bigger
+- structs in MixedCase, variables + functions in lower_case
+
+- The destructors always unregister the object from the next bigger
   object, not the other way around
 
-- to minimize strict aliasing violations we prefer unions over casting
+- To minimize strict aliasing violations we prefer unions over casting
 
-- for robustness reasons destructors should be able to destruct
+- For robustness reasons destructors should be able to destruct
   half-initialized objects, too
 
-- error codes are returned as negative Exxx. i.e. return -EINVAL. There
+- Error codes are returned as negative Exxx. i.e. return -EINVAL. There
   are some exceptions: for constructors its is OK to return NULL on
-  OOM. For lookup functions NULL is fine too for "not found"
+  OOM. For lookup functions NULL is fine too for "not found".
+
+  Be strict with this. When you write a function that can fail due to
+  more than one cause, it *really* should have "int" as return value
+  for the error code.
+
+- Don't bother with error checking if writing to stdout/stderr worked.
+
+- Do not log errors from "library" code, only do so from "main
+  program" code.
+
+- Always check OOM. There's no excuse. In program code you can use
+  "log_oom()" for then printing a short message.
 
 - Do not issue NSS requests (that includes user name and host name
   lookups) from the main daemon as this might trigger deadlocks when
   those lookups involve synchronously talking to services that we
   would need to start up
 
-- Do not access any directories outside of /etc, /dev, /lib from the
-  init daemon to avoid deadlocks with the automounter
-
 - Don't synchronously talk to any other service, due to risk of
   deadlocks
+
+- Avoid fixed sized string buffers, unless you really know the maximum
+  size and that maximum size is small. They are a source of errors,
+  since they result in strings to be truncated. Often it is nicer to
+  use dynamic memory, or alloca(). If you do allocate fixed size
+  strings on the stack, then it's probably only OK if you either use a
+  maximum size such as LINE_MAX, or count in detail the maximum size a
+  string can have. Or in other words, if you use "char buf[256]" then
+  you are likely doing something wrong!
+
+- Stay uniform. For example, always use "usec_t" for time
+  values. Don't usec mix msec, and usec and whatnot.
+
+- Make use of _cleanup_free_ and friends. It makes your code much
+  nicer to read!
+
+- Be exceptionally careful when formatting and parsing floating point
+  numbers. Their syntax is locale dependent (i.e. "5.000" in en_US is
+  generally understood as 5, while on de_DE as 5000.).
+
+- Try to use this:
+
+      void foo() {
+      }
+
+  instead of this:
+
+      void foo()
+      {
+      }
+
+  But it's OK if you don't.
+
+- Don't write "foo ()", write "foo()".
+
+- Please use streq() and strneq() instead of strcmp(), strncmp() where applicable.
+
+- Please do not allocate variables on the stack in the middle of code,
+  even if C99 allows it. Wrong:
+
+  {
+          a = 5;
+          int b;
+          b = a;
+  }
+
+  Right:
+
+  {
+          int b;
+          a = 5;
+          b = a;
+  }
+
+- Unless you allocate an array, "double" is always the better choice
+  than "float". Processors speak "double" natively anyway, so this is
+  no speed benefit, and on calls like printf() "float"s get upgraded
+  to "double"s anyway, so there is no point.
+
+- Don't invoke functions when you allocate variables on the stack. Wrong:
+
+  {
+          int a = foobar();
+          uint64_t x = 7;
+  }
+
+  Right:
+
+  {
+          int a;
+          uint64_t x = 7;
+
+          a = foobar();
+  }
+
+- Use "goto" for cleaning up, and only use it for that. i.e. you may
+  only jump to the end of a function, and little else.
+
+- Think about the types you use. If a value cannot sensibly be
+  negative don't use "int", but use "unsigned".
+
+- Don't use types like "short". They *never* make sense. Use ints,
+  longs, long longs, all in unsigned+signed fashion, and the fixed
+  size types uint32_t and so on, but nothing else.
