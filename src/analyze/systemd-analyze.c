@@ -34,6 +34,9 @@
 #include "strxcpyx.h"
 #include "fileio.h"
 
+#define SCALE_X (0.1 / 1000.0)   /* pixels per us */
+#define SCALE_Y 20.0
+
 #define compare(a, b) (((a) > (b))? 1 : (((b) > (a))? -1 : 0))
 
 #define svg(...) printf(__VA_ARGS__)
@@ -41,12 +44,12 @@
 #define svg_bar(class, x1, x2, y)                                       \
         svg("  <rect class=\"%s\" x=\"%.03f\" y=\"%.03f\" width=\"%.03f\" height=\"%.03f\" />\n", \
             (class),                                                    \
-            scale_x * (x1), scale_y * (y),                              \
-            scale_x * ((x2) - (x1)), scale_y - 1.0)
+            SCALE_X * (x1), SCALE_Y * (y),                              \
+            SCALE_X * ((x2) - (x1)), SCALE_Y - 1.0)
 
 #define svg_text(b, x, y, format, ...)                                  \
         do {                                                            \
-                svg("  <text class=\"%s\" x=\"%.03f\" y=\"%.03f\">", (b) ? "left" : "right", scale_x * (x) + (b ? 5.0 : -5.0), scale_y * (y) + 14.0); \
+                svg("  <text class=\"%s\" x=\"%.03f\" y=\"%.03f\">", (b) ? "left" : "right", SCALE_X * (x) + (b ? 5.0 : -5.0), SCALE_Y * (y) + 14.0); \
                 svg(format, ## __VA_ARGS__);                            \
                 svg("</text>\n");                                       \
         } while(false)
@@ -57,9 +60,6 @@ static enum dot {
         DEP_ORDER,
         DEP_REQUIRE
 } arg_dot = DEP_ALL;
-
-static double scale_x = 0.1 / 1000.0;   /* pixels per us */
-static double scale_y = 20.0;
 
 struct boot_times {
         usec_t firmware_time;
@@ -358,21 +358,21 @@ static void svg_graph_box(double height, double begin, double end) {
 
         /* outside box, fill */
         svg("<rect class=\"box\" x=\"0\" y=\"0\" width=\"%.03f\" height=\"%.03f\" />\n",
-            scale_x * (end - begin), scale_y * height);
+            SCALE_X * (end - begin), SCALE_Y * height);
 
         for (i = ((long long) (begin / 100000)) * 100000; i <= end; i+=100000) {
                 /* lines for each second */
                 if (i % 5000000 == 0)
                         svg("  <line class=\"sec5\" x1=\"%.03f\" y1=\"0\" x2=\"%.03f\" y2=\"%.03f\" />\n"
                             "  <text class=\"sec\" x=\"%.03f\" y=\"%.03f\" >%.01fs</text>\n",
-                            scale_x * i, scale_x * i, scale_y * height, scale_x * i, -5.0, 0.000001 * i);
+                            SCALE_X * i, SCALE_X * i, SCALE_Y * height, SCALE_X * i, -5.0, 0.000001 * i);
                 else if (i % 1000000 == 0)
                         svg("  <line class=\"sec1\" x1=\"%.03f\" y1=\"0\" x2=\"%.03f\" y2=\"%.03f\" />\n"
                             "  <text class=\"sec\" x=\"%.03f\" y=\"%.03f\" >%.01fs</text>\n",
-                            scale_x * i, scale_x * i, scale_y * height, scale_x * i, -5.0, 0.000001 * i);
+                            SCALE_X * i, SCALE_X * i, SCALE_Y * height, SCALE_X * i, -5.0, 0.000001 * i);
                 else
                         svg("  <line class=\"sec01\" x1=\"%.03f\" y1=\"0\" x2=\"%.03f\" y2=\"%.03f\" />\n",
-                            scale_x * i, scale_x * i, scale_y * height);
+                            SCALE_X * i, SCALE_X * i, SCALE_Y * height);
         }
 }
 
@@ -402,7 +402,7 @@ static int analyze_plot(DBusConnection *bus) {
 
         qsort(times, n, sizeof(struct unit_times), compare_unit_start);
 
-        width = scale_x * (boot->firmware_time + boot->finish_time);
+        width = SCALE_X * (boot->firmware_time + boot->finish_time);
         if (width < 800.0)
                 width = 800.0;
 
@@ -427,7 +427,7 @@ static int analyze_plot(DBusConnection *bus) {
                         u->name = NULL;
                         continue;
                 }
-                len = ((boot->firmware_time + u->ixt) * scale_x)
+                len = ((boot->firmware_time + u->ixt) * SCALE_X)
                         + (10.0 * strlen(u->name));
                 if (len > width)
                         width = len;
@@ -450,7 +450,7 @@ static int analyze_plot(DBusConnection *bus) {
 
         svg("<svg width=\"%.0fpx\" height=\"%.0fpx\" version=\"1.1\" "
             "xmlns=\"http://www.w3.org/2000/svg\">\n\n",
-                        80.0 + width, 150.0 + (m * scale_y));
+                        80.0 + width, 150.0 + (m * SCALE_Y));
 
         /* write some basic info as a comment, including some help */
         svg("<!-- This file is a systemd-analyze SVG file. It is best rendered in a   -->\n"
@@ -487,9 +487,9 @@ static int analyze_plot(DBusConnection *bus) {
             isempty(osname) ? "Linux" : osname,
             name.nodename, name.release, name.version, name.machine);
         svg("<text x=\"20\" y=\"%.0f\">Legend: Red = Activating; Pink = Active; Dark Pink = Deactivating</text>",
-                        120.0 + (m *scale_y));
+                        120.0 + (m *SCALE_Y));
 
-        svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (scale_x * boot->firmware_time));
+        svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (SCALE_X * boot->firmware_time));
         svg_graph_box(m, -boot->firmware_time, boot->finish_time);
 
         if (boot->firmware_time) {
@@ -526,7 +526,7 @@ static int analyze_plot(DBusConnection *bus) {
                 svg_bar("active",       u->aet, u->axt, y);
                 svg_bar("deactivating", u->axt, u->iet, y);
 
-                if (u->ixt * scale_x > width * 2 / 3)
+                if (u->ixt * SCALE_X > width * 2 / 3)
                         svg_text(false, u->ixt, y, u->time? "%s (%s)" : "%s", u->name, format_timespan(ts, sizeof(ts), u->time));
                 else
                         svg_text(true, u->ixt, y, u->time? "%s (%s)" : "%s", u->name, format_timespan(ts, sizeof(ts), u->time));
