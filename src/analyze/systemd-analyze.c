@@ -3,7 +3,8 @@
 /***
   This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
+  Copyright 2010-2013 Lennart Poettering
+  Copyright 2013 Simon Peeters
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
