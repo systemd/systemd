@@ -19,7 +19,12 @@
 
 import sys
 import collections
-import xml.etree.ElementTree as tree
+try:
+    from lxml import etree as tree
+    PRETTY = dict(pretty_print=True)
+except ImportError:
+    import xml.etree.ElementTree as tree
+    PRETTY = {}
 import re
 
 TEMPLATE = '''\
@@ -277,4 +282,4 @@ def make_page(*xml_files):
     return _make_page(template, directive_groups, formatting)
 
 if __name__ == '__main__':
-    tree.dump(make_page(*sys.argv[1:]))
+    tree.dump(make_page(*sys.argv[1:]), **PRETTY)

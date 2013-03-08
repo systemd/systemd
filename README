@@ -116,6 +116,7 @@ REQUIREMENTS:
         gtkdocize (optional)
         python (optional)
         sphinx (optional)
+        python-lxml (entirely optional)
 
         When systemd-hostnamed is used it is strongly recommended to
         install nss-myhostname to ensure that in a world of

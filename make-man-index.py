@@ -19,7 +19,12 @@
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 import collections
-import xml.etree.ElementTree as tree
+try:
+    from lxml import etree as tree
+    PRETTY = dict(pretty_print=True)
+except ImportError:
+    import xml.etree.ElementTree as tree
+    PRETTY = {}
 import sys
 import re
 MDASH = ' — ' if sys.version_info.major >= 3 else ' -- '
@@ -130,4 +135,4 @@ def make_page(xml_files):
     return template
 
 if __name__ == '__main__':
-    tree.dump(make_page(sys.argv[1:]))
+    tree.dump(make_page(sys.argv[1:]), **PRETTY)
