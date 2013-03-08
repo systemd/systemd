@@ -20,8 +20,6 @@ Fedora 19:
 
 * make anaconda write timeout=0 for encrypted devices
 
-* create /var/log/journal/
-
 * external: maybe it is time to patch procps so that "ps" links to
   libsystemd-logind to print a pretty service name, seat name, session
   name in its output. Currently it only shows cgroup membership, but
@@ -49,6 +47,8 @@ Fedora 19:
 Features:
 
 * timedatectl needs to show whether NTP is available at all
+
+* reduce caps of systemd-localed
 
 * safe_atod() is too naive, as it is vulnerable to locale parameters, should be locale independent.
 
