@@ -34,7 +34,6 @@
 static const char *arg_dest = "/tmp";
 static bool arg_enabled = true;
 static bool arg_read_crypttab = true;
-static char **arg_proc_cmdline_disks = NULL;
 
 static bool has_option(const char *haystack, const char *needle) {
         const char *f = haystack;
@@ -71,9 +70,8 @@ static int create_disk(
                 const char *password,
                 const char *options) {
 
-        char *p = NULL, *n = NULL, *d = NULL, *u = NULL, *from = NULL, *to = NULL, *e = NULL;
-        int r;
-        FILE *f = NULL;
+        char _cleanup_free_ *p = NULL, *n = NULL, *d = NULL, *u = NULL, *from = NULL, *to = NULL, *e = NULL;
+        FILE _cleanup_fclose_ *f = NULL;
         bool noauto, nofail;
 
         assert(name);
@@ -83,34 +81,25 @@ static int create_disk(
         nofail = has_option(options, "nofail");
 
         n = unit_name_from_path_instance("systemd-cryptsetup", name, ".service");
-        if (!n) {
-                r = log_oom();
-                goto fail;
-        }
+        if (!n)
+                return log_oom();
 
         p = strjoin(arg_dest, "/", n, NULL);
-        if (!p) {
-                r = log_oom();
-                goto fail;
-        }
+        if (!p)
+                return log_oom();
 
         u = fstab_node_to_udev_node(device);
-        if (!u) {
-                r = log_oom();
-                goto fail;
-        }
+        if (!u)
+                return log_oom();
 
         d = unit_name_from_path(u, ".device");
-        if (!d) {
-                r = log_oom();
-                goto fail;
-        }
+        if (!d)
+                return log_oom();
 
         f = fopen(p, "wxe");
         if (!f) {
-                r = -errno;
                 log_error("Failed to create unit file %s: %m", p);
-                goto fail;
+                return -errno;
         }
 
         fprintf(f,
@@ -160,47 +149,39 @@ static int create_disk(
         fflush(f);
 
         if (ferror(f)) {
-                r = -errno;
                 log_error("Failed to write file %s: %m", p);
-                goto fail;
+                return -errno;
         }
 
-        if (asprintf(&from, "../%s", n) < 0) {
-                r = log_oom();
-                goto fail;
-        }
+        if (asprintf(&from, "../%s", n) < 0)
+                return log_oom();
 
         if (!noauto) {
 
                 to = strjoin(arg_dest, "/", d, ".wants/", n, NULL);
-                if (!to) {
-                        r = log_oom();
-                        goto fail;
-                }
+                if (!to)
+                        return log_oom();
 
                 mkdir_parents_label(to, 0755);
                 if (symlink(from, to) < 0) {
                         log_error("Failed to create symlink '%s' to '%s': %m", from, to);
-                        r = -errno;
-                        goto fail;
+                        return -errno;
                 }
 
                 free(to);
+                to = NULL;
 
                 if (!nofail)
                         to = strjoin(arg_dest, "/cryptsetup.target.requires/", n, NULL);
                 else
                         to = strjoin(arg_dest, "/cryptsetup.target.wants/", n, NULL);
-                if (!to) {
-                        r = log_oom();
-                        goto fail;
-                }
+                if (!to)
+                        return log_oom();
 
                 mkdir_parents_label(to, 0755);
                 if (symlink(from, to) < 0) {
                         log_error("Failed to create symlink '%s' to '%s': %m", from, to);
-                        r = -errno;
-                        goto fail;
+                        return -errno;
                 }
 
                 free(to);
@@ -209,37 +190,21 @@ static int create_disk(
 
         e = unit_name_escape(name);
         to = strjoin(arg_dest, "/dev-mapper-", e, ".device.requires/", n, NULL);
-        if (!to) {
-                r = log_oom();
-                goto fail;
-        }
+        if (!to)
+                return log_oom();
 
         mkdir_parents_label(to, 0755);
         if (symlink(from, to) < 0) {
                 log_error("Failed to create symlink '%s' to '%s': %m", from, to);
-                r = -errno;
-                goto fail;
+                return -errno;
         }
 
-        r = 0;
-
-fail:
-        free(p);
-        free(n);
-        free(d);
-        free(e);
-
-        free(from);
-        free(to);
-
-        if (f)
-                fclose(f);
-
-        return r;
+        return 0;
 }
 
-static int parse_proc_cmdline(void) {
-        char *line, *w, *state;
+static int parse_proc_cmdline(char ***arg_proc_cmdline_disks) {
+        char _cleanup_free_ *line = NULL;
+        char *w = NULL, *state = NULL;
         int r;
         size_t l;
 
@@ -253,13 +218,11 @@ static int parse_proc_cmdline(void) {
         }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
-                char *word;
+                char _cleanup_free_ *word = NULL;
 
                 word = strndup(w, l);
-                if (!word) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!word)
+                        return log_oom();
 
                 if (startswith(word, "luks=")) {
                         r = parse_boolean(word + 5);
@@ -298,26 +261,24 @@ static int parse_proc_cmdline(void) {
                 } else if (startswith(word, "luks.uuid=")) {
                         char **t;
 
-                        t = strv_append(arg_proc_cmdline_disks, word + 10);
-                        if (!t) {
-                                r = log_oom();
-                                goto finish;
-                        }
-                        strv_free(arg_proc_cmdline_disks);
-                        arg_proc_cmdline_disks = t;
+                        t = strv_append(*arg_proc_cmdline_disks, word + 10);
+                        if (!t)
+                                return log_oom();
+
+                        strv_free(*arg_proc_cmdline_disks);
+                        *arg_proc_cmdline_disks = t;
 
                 } else if (startswith(word, "rd.luks.uuid=")) {
 
                         if (in_initrd()) {
                                 char **t;
 
-                                t = strv_append(arg_proc_cmdline_disks, word + 13);
-                                if (!t) {
-                                        r = log_oom();
-                                        goto finish;
-                                }
-                                strv_free(arg_proc_cmdline_disks);
-                                arg_proc_cmdline_disks = t;
+                                t = strv_append(*arg_proc_cmdline_disks, word + 13);
+                                if (!t)
+                                        return log_oom();
+
+                                strv_free(*arg_proc_cmdline_disks);
+                                *arg_proc_cmdline_disks = t;
                         }
 
                 } else if (startswith(word, "luks.") ||
@@ -325,25 +286,20 @@ static int parse_proc_cmdline(void) {
 
                         log_warning("Unknown kernel switch %s. Ignoring.", word);
                 }
-
-                free(word);
         }
 
-        strv_uniq(arg_proc_cmdline_disks);
+        strv_uniq(*arg_proc_cmdline_disks);
 
-        r = 0;
-
-finish:
-        free(line);
-        return r;
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
-        FILE *f = NULL;
-        int r = EXIT_SUCCESS;
+        FILE _cleanup_fclose_ *f = NULL;
         unsigned n = 0;
+        int r = EXIT_SUCCESS;
         char **i;
-        char **arg_proc_cmdline_disks_done = NULL;
+        char _cleanup_strv_free_ **arg_proc_cmdline_disks_done = NULL;
+        char _cleanup_strv_free_ **arg_proc_cmdline_disks = NULL;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -359,13 +315,11 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (parse_proc_cmdline() < 0)
+        if (parse_proc_cmdline(&arg_proc_cmdline_disks) < 0)
                 return EXIT_FAILURE;
 
-        if (!arg_enabled) {
-                r = EXIT_SUCCESS;
-                goto finish;
-        }
+        if (!arg_enabled)
+                return EXIT_SUCCESS;
 
         if (arg_read_crypttab) {
                 f = fopen("/etc/crypttab", "re");
@@ -377,13 +331,9 @@ int main(int argc, char *argv[]) {
                                 r = EXIT_FAILURE;
                                 log_error("Failed to open /etc/crypttab: %m");
                         }
-
-                        goto finish;
-                }
-
-                for (;;) {
+                } else for (;;) {
                         char line[LINE_MAX], *l;
-                        char *name = NULL, *device = NULL, *password = NULL, *options = NULL;
+                        char _cleanup_free_ *name = NULL, *device = NULL, *password = NULL, *options = NULL;
                         int k;
 
                         if (!fgets(line, sizeof(line), f))
@@ -399,7 +349,7 @@ int main(int argc, char *argv[]) {
                         if (k < 2 || k > 4) {
                                 log_error("Failed to parse /etc/crypttab:%u, ignoring.", n);
                                 r = EXIT_FAILURE;
-                                goto next;
+                                continue;
                         }
 
                         if (arg_proc_cmdline_disks) {
@@ -408,7 +358,7 @@ int main(int argc, char *argv[]) {
                                   for /etc/crypttab and only generate units for those.
                                 */
                                 STRV_FOREACH(i, arg_proc_cmdline_disks) {
-                                        char *proc_device, *proc_name;
+                                        char _cleanup_free_ *proc_device = NULL, *proc_name = NULL;
                                         const char *p = *i;
 
                                         if (startswith(p, "luks-"))
@@ -417,13 +367,9 @@ int main(int argc, char *argv[]) {
                                         proc_name = strappend("luks-", p);
                                         proc_device = strappend("UUID=", p);
 
-                                        if (!proc_name || !proc_device) {
-                                                log_oom();
-                                                r = EXIT_FAILURE;
-                                                free(proc_name);
-                                                free(proc_device);
-                                                goto finish;
-                                        }
+                                        if (!proc_name || !proc_device)
+                                                return log_oom();
+
                                         if (streq(proc_device, device) || streq(proc_name, name)) {
                                                 char **t;
 
@@ -431,27 +377,17 @@ int main(int argc, char *argv[]) {
                                                         r = EXIT_FAILURE;
 
                                                 t = strv_append(arg_proc_cmdline_disks_done, p);
-                                                if (!t) {
-                                                        r = log_oom();
-                                                        goto finish;
-                                                }
+                                                if (!t)
+                                                        return log_oom();
+
                                                 strv_free(arg_proc_cmdline_disks_done);
                                                 arg_proc_cmdline_disks_done = t;
                                         }
-
-                                        free(proc_device);
-                                        free(proc_name);
                                 }
                         } else {
                                 if (create_disk(name, device, password, options) < 0)
                                         r = EXIT_FAILURE;
                         }
-
-                next:
-                        free(name);
-                        free(device);
-                        free(password);
-                        free(options);
                 }
         }
 
@@ -461,7 +397,7 @@ int main(int argc, char *argv[]) {
                   on the kernel command line and not yet written.
                 */
 
-                char *name, *device;
+                char _cleanup_free_ *name = NULL, *device = NULL;
                 const char *p = *i;
 
                 if (startswith(p, "luks-"))
@@ -473,27 +409,12 @@ int main(int argc, char *argv[]) {
                 name = strappend("luks-", p);
                 device = strappend("UUID=", p);
 
-                if (!name || !device) {
-                        log_oom();
-                        r = EXIT_FAILURE;
-                        free(name);
-                        free(device);
-                        goto finish;
-                }
+                if (!name || !device)
+                        return log_oom();
 
                 if (create_disk(name, device, NULL, "timeout=0") < 0)
                         r = EXIT_FAILURE;
-
-                free(name);
-                free(device);
         }
-
-finish:
-        if (f)
-                fclose(f);
-
-        strv_free(arg_proc_cmdline_disks);
-        strv_free(arg_proc_cmdline_disks_done);
 
         return r;
 }
