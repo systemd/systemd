@@ -447,7 +447,8 @@ static int mount_add_default_dependencies(Mount *m) {
         if (UNIT(m)->manager->running_as != SYSTEMD_SYSTEM)
                 return 0;
 
-        p = get_mount_parameters_fragment(m);
+        p = get_mount_parameters(m);
+
         if (!p)
                 return 0;
 
