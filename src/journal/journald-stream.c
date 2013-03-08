@@ -175,7 +175,7 @@ static int stdout_stream_line(StdoutStream *s, char *p) {
 
         case STDOUT_STREAM_PRIORITY:
                 r = safe_atoi(p, &s->priority);
-                if (r < 0 || s->priority <= 0 || s->priority >= 999) {
+                if (r < 0 || s->priority < 0 || s->priority >= 999) {
                         log_warning("Failed to parse log priority line.");
                         return -EINVAL;
                 }
