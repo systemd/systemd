@@ -48,6 +48,8 @@ Fedora 19:
 
 Features:
 
+* timedatectl needs to show whether NTP is available at all
+
 * safe_atod() is too naive, as it is vulnerable to locale parameters, should be locale independent.
 
 * think about requeuing jobs when daemon-reload is issued? usecase:
