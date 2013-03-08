@@ -104,6 +104,7 @@ UNINSTALL_EXEC_HOOKS =
 INSTALL_DATA_HOOKS =
 UNINSTALL_DATA_HOOKS =
 DISTCLEAN_LOCAL_HOOKS =
+CLEAN_LOCAL_HOOKS =
 pkginclude_HEADERS =
 noinst_LTLIBRARIES =
 lib_LTLIBRARIES =
@@ -518,15 +519,37 @@ CLEANFILES += \
 	$(man_MANS) \
 	$(HTML_FILES)
 
+noinst_DATA += \
+	docs/html/libudev \
+	docs/html/gudev \
+	docs/html/man
+
+DISTCLEAN_LOCAL_HOOKS += clean-html-links
+
+clean-html-links:
+	rm -f docs/html/libudev docs/html/gudev docs/html/man
+
 if HAVE_PYTHON
 noinst_DATA += \
 	man/index.html
 
 CLEANFILES += \
-       man/index.html
+	man/index.html
 
-man/index.html:
+man/index.html: man/systemd.index.html
 	$(AM_V_GEN)$(LN_S) -f systemd.index.html $@
+
+docs/html/libudev:
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_LN)$(LN_S) -f ../libudev/html $@
+
+docs/html/gudev:
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_LN)$(LN_S) -f ../gudev/html $@
+
+docs/html/man:
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_LN)$(LN_S) -f ../../man $@
 
 NON_INDEX_XML_FILES = $(filter-out man/systemd.index.xml,$(XML_FILES))
 
@@ -3520,14 +3543,19 @@ PAPER = $(shell cat /etc/papersize 2>/dev/null || echo a4)
 SPHINXOPTS = -D latex_paper_size=$(PAPER)
 sphinx-%:
 	$(AM_V_at)test -n "$(SPHINX_BUILD)" || { echo " *** sphinx-build is not available"; exit 1; }
-	$(AM_V_GEN)PYTHONPATH=$(DESTDIR)$(pyexecdir) LD_LIBRARY_PATH=$(DESTDIR)$(libdir) $(SPHINX_BUILD) -b $* $(SPHINXOPTS) $(top_srcdir)/src/python-systemd/docs $(top_builddir)/docs/python-systemd/
-	$(AM_V_at)echo Output has been generated in $(abs_top_builddir)/docs/python-systemd/
+	$(AM_V_GEN)PYTHONPATH=$(DESTDIR)$(pyexecdir) LD_LIBRARY_PATH=$(DESTDIR)$(libdir) $(SPHINX_BUILD) -b $* $(SPHINXOPTS) $(top_srcdir)/src/python-systemd/docs $(top_builddir)/docs/html/python-systemd/
+	$(AM_V_at)echo Output has been generated in $(abs_top_builddir)/docs/html/python-systemd/
 
 destdir-sphinx: all
 	dir="$$(mktemp -d /tmp/systemd-install.XXXXXX)" && \
 		$(MAKE) DESTDIR="$$dir" install && \
 	        $(MAKE) DESTDIR="$$dir" sphinx-html && \
 		rm -rf "$$dir"
+
+CLEAN_LOCAL_HOOKS += clean-sphinx
+
+clean-sphinx:
+	-rm -rf docs/html/python-systemd/
 
 # ------------------------------------------------------------------------------
 SED_PROCESS = \
@@ -3802,7 +3830,7 @@ install-data-hook: $(INSTALL_DATA_HOOKS)
 
 distclean-local: $(DISTCLEAN_LOCAL_HOOKS)
 
-clean-local:
+clean-local: $(CLEAN_LOCAL_HOOKS)
 	rm -rf $(abs_srcdir)/install-tree
 	rm -f $(abs_srcdir)/hwdb/usb.ids $(abs_srcdir)/hwdb/pci.ids $(abs_srcdir)/hwdb/oui.txt \
               $(abs_srcdir)/hwdb/iab.txt
