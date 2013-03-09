@@ -7,7 +7,7 @@ CHANGES WITH 198:
           themselves. More specifically, if the administrator wants to
           change one value for a service file foobar.service he can
           now do so by dropping in a configuration snippet into
-          /etc/systemd/systemd/foobar.service.d/*.conf. The unit logic
+          /etc/systemd/system/foobar.service.d/*.conf. The unit logic
           will load all these snippets and apply them on top of the
           main unit configuration file, possibly extending or
           overriding its settings. Using these drop-in snippets is
