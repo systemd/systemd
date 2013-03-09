@@ -6,14 +6,13 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Switch Root
+Description=Cleaning Up and Shutting Down Daemons
 DefaultDependencies=no
 ConditionPathExists=/etc/initrd-release
 OnFailure=emergency.target
-AllowIsolate=yes
+Requires=local-fs.target swap.target
+After=local-fs.target swap.target
 
 [Service]
 Type=oneshot
-# we have to use "--force" here, otherwise systemd would umount /run
-ExecStart=/usr/bin/systemctl --no-block --force switch-root /sysroot
-KillMode=none
+ExecStart=@rootbindir@/systemctl --no-block isolate initrd-switch-root.target
