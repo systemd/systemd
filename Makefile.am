@@ -2572,7 +2572,7 @@ endif
 # "adm" and "wheel".
 libsystemd-journal-install-hook:
 	libname=libsystemd-journal.so && $(move-to-rootlibdir)
-	$(MKDIR_P) $(DESTDIR)/var/log/journal
+	-$(MKDIR_P) $(DESTDIR)/var/log/journal
 	-chown 0:0 $(DESTDIR)/var/log/journal
 	-chmod 755 $(DESTDIR)/var/log/journal
 	-setfacl -nm g:adm:rx,d:g:adm:rx $(DESTDIR)/var/log/journal/
