@@ -3898,7 +3898,7 @@ doc-sync: all destdir-sphinx
 	gtkdoc-rebase --html-dir=docs/gudev/html --online
 	rsync -av --delete docs/gudev/html/ --omit-dir-times $(www_target)/gudev/
 	rsync -av --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
-	rsync -av --delete --omit-dir-times docs/python-systemd/ $(www_target)/python-systemd/
+	rsync -av --delete --omit-dir-times docs/html/python-systemd/ $(www_target)/python-systemd/
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
