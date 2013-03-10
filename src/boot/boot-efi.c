@@ -158,6 +158,9 @@ int boot_info_query(struct boot_info *info) {
         char buf[64];
         char *loader_active = NULL;
 
+        info->fw_secure_boot = is_efi_secure_boot();
+        info->fw_secure_boot_setup_mode = is_efi_secure_boot_setup_mode();
+
         efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderInfo", &info->loader);
 
         get_boot_entries(info);

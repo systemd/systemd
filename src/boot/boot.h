@@ -45,6 +45,8 @@ struct boot_info {
         sd_id128_t boot_id;
         char *fw_type;
         char *fw_info;
+        int fw_secure_boot;
+        int fw_secure_boot_setup_mode;
         struct boot_info_entry *fw_entries;
         size_t fw_entries_count;
         uint16_t *fw_entries_order;

@@ -32,6 +32,8 @@
 #define EFI_VENDOR_GLOBAL SD_ID128_MAKE(8b,e4,df,61,93,ca,11,d2,aa,0d,00,e0,98,03,2b,8c)
 
 bool is_efi_boot(void);
+int is_efi_secure_boot(void);
+int is_efi_secure_boot_setup_mode(void);
 
 int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, void **value, size_t *size);
 int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p);

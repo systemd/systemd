@@ -34,6 +34,36 @@ bool is_efi_boot(void) {
         return access("/sys/firmware/efi", F_OK) >= 0;
 }
 
+static int read_flag(const char *varname) {
+        int r;
+        void *v;
+        size_t s;
+        uint8_t b;
+
+        r = efi_get_variable(EFI_VENDOR_GLOBAL, varname, NULL, &v, &s);
+        if (r < 0)
+                return r;
+
+        if (s != 1) {
+                r = -EINVAL;
+                goto finish;
+        }
+
+        b = *(uint8_t *)v;
+        r = b > 0;
+finish:
+        free(v);
+        return r;
+}
+
+int is_efi_secure_boot(void) {
+        return read_flag("SecureBoot");
+}
+
+int is_efi_secure_boot_setup_mode(void) {
+        return read_flag("SetupMode");
+}
+
 int efi_get_variable(
                 sd_id128_t vendor,
                 const char *name,
