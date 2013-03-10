@@ -155,7 +155,7 @@ static int show_status(char **args, unsigned n) {
         if (info->fw_secure_boot >= 0)
                 printf("  Secure Boot: %s\n", info->fw_secure_boot ? "enabled" : "disabled");
         if (info->fw_secure_boot_setup_mode >= 0)
-                printf("     Setup Mode: %s\n", info->fw_secure_boot_setup_mode ? "setup" : "user");
+                printf("   Setup Mode: %s\n", info->fw_secure_boot_setup_mode ? "setup" : "user");
 
         if (info->fw_entry_active >= 0) {
                 printf("        Title: %s\n", strna(info->fw_entries[info->fw_entry_active].title));
@@ -180,7 +180,8 @@ static int show_status(char **args, unsigned n) {
                         printf("        Entry: %s\n", info->loader_entries[info->loader_entry_active].path);
                 }
 
-                printf("      Options: %s\n", strna(info->loader_options_added));
+                if (info->loader_options_added)
+                        printf("      Options: %s\n", info->loader_options_added);
         } else
                 printf("No suitable data is provided by the boot manager. See:\n"
                        "  http://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface\n"
