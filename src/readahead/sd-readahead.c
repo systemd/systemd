@@ -25,7 +25,7 @@
 ***/
 
 #ifndef _GNU_SOURCE
-#define _GNU_SOURCE
+#  define _GNU_SOURCE
 #endif
 
 #include <unistd.h>
@@ -38,15 +38,15 @@
 #include "sd-readahead.h"
 
 #if (__GNUC__ >= 4)
-#ifdef SD_EXPORT_SYMBOLS
+#  ifdef SD_EXPORT_SYMBOLS
 /* Export symbols */
-#define _sd_export_ __attribute__ ((visibility("default")))
-#else
+#    define _sd_export_ __attribute__ ((visibility("default")))
+#  else
 /* Don't export the symbols */
-#define _sd_export_ __attribute__ ((visibility("hidden")))
-#endif
+#    define _sd_export_ __attribute__ ((visibility("hidden")))
+#  endif
 #else
-#define _sd_export_
+#  define _sd_export_
 #endif
 
 static int touch(const char *path) {

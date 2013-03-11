@@ -25,7 +25,7 @@
 ***/
 
 #ifndef _GNU_SOURCE
-#define _GNU_SOURCE
+#  define _GNU_SOURCE
 #endif
 
 #include <sys/types.h>
@@ -33,9 +33,9 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #ifdef __BIONIC__
-#include <linux/fcntl.h>
+#  include <linux/fcntl.h>
 #else
-#include <sys/fcntl.h>
+#  include <sys/fcntl.h>
 #endif
 #include <netinet/in.h>
 #include <stdlib.h>
@@ -48,21 +48,21 @@
 #include <limits.h>
 
 #if defined(__linux__)
-#include <mqueue.h>
+#  include <mqueue.h>
 #endif
 
 #include "sd-daemon.h"
 
 #if (__GNUC__ >= 4)
-#ifdef SD_EXPORT_SYMBOLS
+#  ifdef SD_EXPORT_SYMBOLS
 /* Export symbols */
-#define _sd_export_ __attribute__ ((visibility("default")))
-#else
+#    define _sd_export_ __attribute__ ((visibility("default")))
+#  else
 /* Don't export the symbols */
-#define _sd_export_ __attribute__ ((visibility("hidden")))
-#endif
+#    define _sd_export_ __attribute__ ((visibility("hidden")))
+#  endif
 #else
-#define _sd_export_
+#  define _sd_export_
 #endif
 
 _sd_export_ int sd_listen_fds(int unset_environment) {
