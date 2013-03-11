@@ -46,6 +46,17 @@ Fedora 19:
 
 Features:
 
+* BootLoaderSpec: drop allowing ext234 for $BOOT. Clarify that the
+  kernel has to be in $BOOT. Clarify that the boot loader should be
+  installed to the ESP. Define a way how an installer can figure out
+  whether a BLS compliant boot loader is installed.
+
+* We currently have a dep loop between libsystemd-id128 and libsystemd-shared.
+
+* man: remove .include documentation, and instead push people to use .d/*.conf
+
+* disallow .include from included files
+
 * timedatectl needs to show whether NTP is available at all
 
 * reduce caps of systemd-localed
