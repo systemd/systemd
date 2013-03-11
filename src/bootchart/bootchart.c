@@ -90,8 +90,6 @@ double arg_scale_y = 20.0;  /* 16px = 1 process bar */
 char arg_init_path[PATH_MAX] = "/sbin/init";
 char arg_output_path[PATH_MAX] = "/run/log";
 
-static struct rlimit rlim;
-
 static void signal_handler(int sig) {
         if (sig++)
                 sig--;
@@ -110,6 +108,7 @@ int main(int argc, char *argv[]) {
         int gind;
         int i, r;
         char *init = NULL, *output = NULL;
+        struct rlimit rlim;
 
         const ConfigTableItem items[] = {
                 { "Bootchart", "Samples",          config_parse_int,    0, &arg_samples_len },
@@ -124,10 +123,6 @@ int main(int argc, char *argv[]) {
                 { "Bootchart", "ScaleY",           config_parse_double, 0, &arg_scale_y     },
                 { NULL, NULL, NULL, 0, NULL }
         };
-
-        rlim.rlim_cur = 4096;
-        rlim.rlim_max = 4096;
-        (void) setrlimit(RLIMIT_NOFILE, &rlim);
 
         fn = "/etc/systemd/bootchart.conf";
         f = fopen(fn, "re");
@@ -259,6 +254,10 @@ int main(int argc, char *argv[]) {
                 }
         }
         argv[0][0] = '@';
+
+        rlim.rlim_cur = 4096;
+        rlim.rlim_max = 4096;
+        (void) setrlimit(RLIMIT_NOFILE, &rlim);
 
         /* start with empty ps LL */
         ps_first = calloc(1, sizeof(struct ps_struct));
