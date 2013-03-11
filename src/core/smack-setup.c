@@ -50,22 +50,24 @@ int smack_setup(void) {
 
         smack = fopen("/sys/fs/smackfs/load2", "we");
         if (!smack)  {
-                log_info("Smack is not enabled in the kernel, not loading access rules.");
+                if (errno == ENOENT)
+                        log_debug("Smack is not enabled in the kernel, not loading access rules.");
+                else
+                        log_warning("Failed to open /sys/fs/smackfs/load2: %m");
                 return 0;
         }
 
         /* write rules to load2 from every file in the directory */
         dir = opendir(ACCESSES_D_PATH);
         if (!dir) {
-                log_info("Smack access rules directory not found: " ACCESSES_D_PATH);
+                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                         "Opening Smack access rules directory "
+                         ACCESSES_D_PATH ": %m");
                 return 0;
         }
 
         dfd = dirfd(dir);
-        if (dfd < 0) {
-                log_error("Smack access rules directory " ACCESSES_D_PATH " not opened: %m");
-                return 0;
-        }
+        assert(dfd >= 0);
 
         FOREACH_DIRENT(entry, dir, return 0) {
                 _cleanup_fclose_ FILE *policy = NULL;
@@ -73,20 +75,24 @@ int smack_setup(void) {
 
                 pol = openat(dfd, entry->d_name, O_RDONLY|O_CLOEXEC);
                 if (pol < 0) {
-                        log_error("Smack access rule file %s not opened: %m", entry->d_name);
+                        log_error("Smack access rule file %s not opened: %m",
+                                  entry->d_name);
                         continue;
                 }
 
                 policy = fdopen(pol, "re");
                 if (!policy) {
-                        log_error("Smack access rule file %s not opened: %m", entry->d_name);
+                        log_error("Smack access rule file %s not opened: %m",
+                                  entry->d_name);
                         continue;
                 }
 
                 pol = -1;
 
                 /* load2 write rules in the kernel require a line buffered stream */
-                FOREACH_LINE(buf, policy, log_error("Failed to read from Smack access rule file %s: %m", entry->d_name)) {
+                FOREACH_LINE(buf, policy,
+                             log_error("Failed to read from Smack access rule file %s: %m",
+                                       entry->d_name)) {
                         fputs(buf, smack);
                         fflush(smack);
                 }
