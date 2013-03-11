@@ -108,3 +108,7 @@ global:
         udev_hwdb_unref;
         udev_hwdb_get_properties_list_entry;
 } LIBUDEV_189;
+
+LIBUDEV_199 {
+        udev_device_set_sysattr_value;
+} LIBUDEV_196;
