@@ -2878,6 +2878,7 @@ systemd_bootchart_SOURCES = \
 	src/bootchart/bootchart.c \
 	src/bootchart/bootchart.h \
 	src/bootchart/store.c \
+	src/bootchart/store.h \
 	src/bootchart/svg.c
 
 systemd_bootchart_LDADD = \

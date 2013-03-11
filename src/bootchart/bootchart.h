@@ -1,5 +1,9 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+#pragma once
+
 /***
-  bootchart.h - This file is part of systemd-bootchart
+  This file is part of systemd.
 
   Copyright (C) 2009-2013 Intel Coproration
 
@@ -18,7 +22,7 @@
 
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
- ***/
+***/
 
 #include <dirent.h>
 #include <stdbool.h>
@@ -26,7 +30,6 @@
 #define MAXCPUS        16
 #define MAXPIDS     65535
 #define MAXSAMPLES   8192
-
 
 struct block_stat_struct {
         /* /proc/vmstat pgpgin & pgpgout */
@@ -99,31 +102,23 @@ extern struct ps_struct *ps_first;
 extern struct block_stat_struct blockstat[];
 extern struct cpu_stat_struct cpustat[];
 extern int pscount;
-extern bool relative;
-extern bool filter;
-extern bool show_cmdline;
-extern bool pss;
-extern bool entropy;
+extern bool arg_relative;
+extern bool arg_filter;
+extern bool arg_show_cmdline;
+extern bool arg_pss;
+extern bool arg_entropy;
 extern bool initcall;
 extern int samples;
 extern int cpus;
-extern int samples_len;
-extern double hz;
-extern double scale_x;
-extern double scale_y;
+extern int arg_samples_len;
+extern double arg_hz;
+extern double arg_scale_x;
+extern double arg_scale_y;
 extern int overrun;
 extern double interval;
 
-extern char output_path[PATH_MAX];
-extern char init_path[PATH_MAX];
+extern char arg_output_path[PATH_MAX];
+extern char arg_init_path[PATH_MAX];
 
 extern FILE *of;
-extern DIR *proc;
-extern int procfd;
 extern int sysfd;
-
-extern double gettime_ns(void);
-extern void log_uptime(void);
-extern void log_sample(int sample);
-
-extern void svg_do(const char *build);

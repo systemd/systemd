@@ -1,5 +1,7 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
 /***
-  log.c - This file is part of systemd-bootchart
+  This file is part of systemd.
 
   Copyright (C) 2009-2013 Intel Coproration
 
@@ -20,7 +22,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
-#define _GNU_SOURCE 1
 #include <unistd.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -32,9 +33,9 @@
 #include <fcntl.h>
 #include <time.h>
 
-
-#include "bootchart.h"
 #include "util.h"
+#include "store.h"
+#include "bootchart.h"
 
 /*
  * Alloc a static 4k buffer for stdio - primarily used to increase
@@ -43,10 +44,9 @@
  */
 static char smaps_buf[4096];
 DIR *proc;
-int procfd=-1;
+int procfd = -1;
 
-double gettime_ns(void)
-{
+double gettime_ns(void) {
         struct timespec n;
 
         clock_gettime(CLOCK_MONOTONIC, &n);
@@ -54,9 +54,7 @@ double gettime_ns(void)
         return (n.tv_sec + (n.tv_nsec / 1000000000.0));
 }
 
-
-void log_uptime(void)
-{
+void log_uptime(void) {
         FILE _cleanup_fclose_ *f = NULL;
         char str[32];
         double uptime;
@@ -73,15 +71,13 @@ void log_uptime(void)
         log_start = gettime_ns();
 
         /* start graph at kernel boot time */
-        if (relative)
+        if (arg_relative)
                 graph_start = log_start;
         else
                 graph_start = log_start - uptime;
 }
 
-
-static char *bufgetline(char *buf)
-{
+static char *bufgetline(char *buf) {
         char *c;
 
         if (!buf)
@@ -94,16 +90,16 @@ static char *bufgetline(char *buf)
 }
 
 static int pid_cmdline_strncpy(char *buffer, int pid, size_t buf_len) {
-	char filename[PATH_MAX];
-	int _cleanup_close_ fd=-1;
-	ssize_t n;
+        char filename[PATH_MAX];
+        int _cleanup_close_ fd=-1;
+        ssize_t n;
 
-	sprintf(filename, "%d/cmdline", pid);
-	fd = openat(procfd, filename, O_RDONLY);
-	if (fd < 0)
-	        return -errno;
+        sprintf(filename, "%d/cmdline", pid);
+        fd = openat(procfd, filename, O_RDONLY);
+        if (fd < 0)
+                return -errno;
 
-	n = read(fd, buffer, buf_len-1);
+        n = read(fd, buffer, buf_len-1);
         if (n > 0) {
                 int i;
                 for (i = 0; i < n; i++)
@@ -111,11 +107,10 @@ static int pid_cmdline_strncpy(char *buffer, int pid, size_t buf_len) {
                                 buffer[i] = ' ';
                 buffer[n] = '\0';
         }
-	return 0;
+        return 0;
 }
 
-void log_sample(int sample)
-{
+void log_sample(int sample) {
         static int vmstat;
         static int schedstat;
         char buf[4095];
@@ -214,7 +209,7 @@ schedstat_next:
                         break;
         }
 
-        if (entropy) {
+        if (arg_entropy) {
                 if (!e_fd) {
                         e_fd = openat(procfd, "sys/kernel/random/entropy_avail", O_RDONLY);
                 }
@@ -262,7 +257,7 @@ schedstat_next:
                         ps = ps->next_ps;
                         ps->pid = pid;
 
-                        ps->sample = calloc(samples_len + 1, sizeof(struct ps_sched_struct));
+                        ps->sample = calloc(arg_samples_len + 1, sizeof(struct ps_sched_struct));
                         if (!ps->sample) {
                                 perror("calloc(ps_struct)");
                                 exit (EXIT_FAILURE);
@@ -294,7 +289,7 @@ schedstat_next:
                         strncpy(ps->name, key, 256);
 
                         /* cmdline */
-                        if (show_cmdline)
+                        if (arg_show_cmdline)
                                 pid_cmdline_strncpy(ps->name, pid, 256);
 
                         /* discard line 2 */
@@ -395,7 +390,7 @@ schedstat_next:
                                  - ps->sample[ps->first].runtime)
                                  / 1000000000.0;
 
-                if (!pss)
+                if (!arg_pss)
                         goto catch_rename;
                 /* Pss */
                 if (!ps->smaps) {
@@ -428,7 +423,7 @@ schedstat_next:
 
 catch_rename:
                 /* catch process rename, try to randomize time */
-                mod = (hz < 4.0) ? 4.0 : (hz / 4.0);
+                mod = (arg_hz < 4.0) ? 4.0 : (arg_hz / 4.0);
                 if (((samples - ps->first) + pid) % (int)(mod) == 0) {
 
                         /* re-fetch name */
@@ -457,7 +452,7 @@ catch_rename:
                         strncpy(ps->name, key, 256);
 
                         /* cmdline */
-                        if (show_cmdline)
+                        if (arg_show_cmdline)
                                 pid_cmdline_strncpy(ps->name, pid, 256);
                 }
         }
