@@ -16,4 +16,4 @@ ConditionCapability=CAP_MKNOD
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@bindir@/udevadm trigger --type=subsystems --action=add ; @bindir@/udevadm trigger --type=devices --action=add
+ExecStart=@rootbindir@/udevadm trigger --type=subsystems --action=add ; @rootbindir@/udevadm trigger --type=devices --action=add

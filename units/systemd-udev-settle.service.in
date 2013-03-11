@@ -27,4 +27,4 @@ ConditionCapability=CAP_MKNOD
 Type=oneshot
 TimeoutSec=180
 RemainAfterExit=yes
-ExecStart=@bindir@/udevadm settle
+ExecStart=@rootbindir@/udevadm settle
