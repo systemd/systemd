@@ -52,3 +52,7 @@
 /systemd-udev-trigger.service
 /systemd-udevd.service
 /debug-shell.service
+/initrd-cleanup.service
+/initrd-parse-etc.service
+/initrd-switch-root.service
+/initrd-udevadm-cleanup-db.service
