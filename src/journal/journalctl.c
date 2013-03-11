@@ -883,63 +883,111 @@ static int verify(sd_journal *j) {
         return r;
 }
 
-static int access_check(void) {
-
 #ifdef HAVE_ACL
-        /* If /var/log/journal doesn't even exist, unprivileged users have no access at all */
-        if (access("/var/log/journal", F_OK) < 0 && geteuid() != 0 && in_group("systemd-journal") <= 0) {
-                log_error("Unprivileged users can't see messages unless persistent log storage is enabled. Users in the group 'systemd-journal' can always see messages.");
-                return -EACCES;
+static int access_check_var_log_journal(sd_journal *j) {
+        _cleanup_strv_free_ char **g = NULL;
+        bool have_access;
+        int r;
+
+        assert(j);
+
+        have_access = in_group("systemd-journal") > 0;
+
+        if (!have_access) {
+                /* Let's enumerate all groups from the default ACL of
+                 * the directory, which generally should allow access
+                 * to most journal files too */
+                r = search_acl_groups(&g, "/var/log/journal/", &have_access);
+                if (r < 0)
+                        return r;
         }
 
-        /* If /var/log/journal exists, try to pring a nice notice if the user lacks access to it */
-        if (!arg_quiet && geteuid() != 0) {
-                _cleanup_strv_free_ char **g = NULL;
-                bool have_access;
-                int r;
+        if (!have_access) {
 
-                have_access = in_group("systemd-journal") > 0;
+                if (strv_isempty(g))
+                        log_notice("Hint: You are currently not seeing messages from other users and\n"
+                                   "the system. Users in the group 'systemd-journal' can see all messages.\n"
+                                   "Pass -q to turn this notice off.");
+                else {
+                        _cleanup_free_ char *s = NULL;
 
-                if (!have_access) {
-                        /* Let's enumerate all groups from the default
-                         * ACL of the directory, which generally
-                         * should allow access to most journal
-                         * files too */
-                        r = search_acl_groups(&g, "/var/log/journal/", &have_access);
+                        r = strv_extend(&g, "systemd-journal");
+                        if (r < 0)
+                                return log_oom();
+
+                        strv_sort(g);
+                        strv_uniq(g);
+
+                        s = strv_join(g, "', '");
+                        if (!s)
+                                return log_oom();
+
+                        log_notice("Hint: You are currently not seeing messages from other users and the system.\n"
+                                   "Users in the groups '%s' can see all messages.\n"
+                                   "Pass -q to turn this notice off.", s);
+                }
+        }
+
+        return 0;
+}
+#endif
+
+static int access_check(sd_journal *j) {
+        uint64_t eacces = EACCES, *code;
+        Iterator it;
+        int r = 0;
+
+        assert(j);
+        assert(j->errors);
+        assert(j->files);
+
+        if (set_isempty(j->errors)) {
+                if (hashmap_isempty(j->files))
+                        log_info("No journal files were found.");
+                return 0;
+        }
+
+        if (!set_contains(j->errors, &eacces)) {
+#ifdef HAVE_ACL
+                /* If /var/log/journal doesn't even exist,
+                   unprivileged users have no access at all */
+                if (access("/var/log/journal", F_OK) < 0 &&
+                    geteuid() != 0 &&
+                    in_group("systemd-journal") <= 0) {
+                        log_error("Unprivileged users can't see messages unless persistent log storage\n"
+                                  "is enabled. Users in the group 'systemd-journal' can always see messages.");
+                        return -EACCES;
+                }
+
+                /* If /var/log/journal exists, try to pring a nice
+                   notice if the user lacks access to it */
+                if (!arg_quiet && geteuid() != 0) {
+                        r = access_check_var_log_journal(j);
                         if (r < 0)
                                 return r;
                 }
-
-                if (!have_access) {
-
-                        if (strv_isempty(g))
-                                log_notice("Hint: You are currently not seeing messages from other users and the system. Users in the group 'systemd-journal' can see all messages. Pass -q to turn this notice off.");
-                        else {
-                                _cleanup_free_ char *s = NULL;
-
-                                r = strv_extend(&g, "systemd-journal");
-                                if (r < 0)
-                                        return log_oom();
-
-                                strv_sort(g);
-                                strv_uniq(g);
-
-                                s = strv_join(g, "', '");
-                                if (!s)
-                                        return log_oom();
-
-                                log_notice("Hint: You are currently not seeing messages from other users and the system. Users in the groups '%s' can see all messages. Pass -q to turn this notice off.", s);
-                        }
+#else
+                if (geteuid() != 0 && in_group("systemd-journal") <= 0)
+                        log_error("No access to messages.\n"
+                                  "Users in the group 'systemd-journal' can see messages.");
+#endif
+                if (hashmap_isempty(j->files)) {
+                        log_error("No journal files were opened, due to insufficient permissions.");
+                        r = -EACCES;
                 }
         }
-#else
-        if (geteuid() != 0 && in_group("systemd-journal") <= 0) {
-                log_error("No access to messages. Only users in the group 'systemd-journal' can see messages.");
-                return -EACCES;
-        }
-#endif
 
-        return 0;
+        SET_FOREACH(code, j->errors, it) {
+                int err = -PTR_TO_INT(code);
+                assert(err > 0);
+                if (err != EACCES)
+                        log_warning("Error was encountered while opening journal files: %s",
+                                    strerror(err));
+        }
+
+        log_notice("Hint: run journalctl in debug mode: SYSTEMD_LOG_LEVEL=debug journalct ...");
+
+        return r;
 }
 
 int main(int argc, char *argv[]) {
@@ -987,10 +1035,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = access_check();
-        if (r < 0)
-                return EXIT_FAILURE;
-
         if (arg_directory)
                 r = sd_journal_open_directory(&j, arg_directory, 0);
         else
@@ -999,6 +1043,10 @@ int main(int argc, char *argv[]) {
                 log_error("Failed to open journal: %s", strerror(-r));
                 return EXIT_FAILURE;
         }
+
+        r = access_check(j);
+        if (r < 0)
+                return EXIT_FAILURE;
 
         if (arg_action == ACTION_VERIFY) {
                 r = verify(j);

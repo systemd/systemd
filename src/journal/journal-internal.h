@@ -30,6 +30,7 @@
 #include "journal-def.h"
 #include "list.h"
 #include "hashmap.h"
+#include "set.h"
 #include "journal-file.h"
 
 typedef struct Match Match;
@@ -123,6 +124,8 @@ struct sd_journal {
         bool on_network;
 
         size_t data_threshold;
+
+        Set *errors;
 };
 
 char *journal_make_match_string(sd_journal *j);
