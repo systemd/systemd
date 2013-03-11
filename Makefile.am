@@ -2877,7 +2877,7 @@ if ENABLE_BOOTCHART
 systemd_bootchart_SOURCES = \
 	src/bootchart/bootchart.c \
 	src/bootchart/bootchart.h \
-	src/bootchart/log.c \
+	src/bootchart/store.c \
 	src/bootchart/svg.c
 
 systemd_bootchart_LDADD = \
