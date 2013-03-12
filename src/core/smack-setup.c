@@ -40,6 +40,7 @@
 #include "label.h"
 
 #define SMACK_CONFIG "/etc/smack/accesses.d/"
+#define CIPSO_CONFIG "/etc/smack/cipso/"
 
 static int write_rules(const char* dstpath, const char* srcdir) {
         _cleanup_fclose_ FILE *dst = NULL;
@@ -124,9 +125,26 @@ int smack_setup(void) {
                 return 0;
         case 0:
                 log_info("Successfully loaded Smack policies.");
+                break;
+        default:
+                log_warning("Failed to load Smack access rules: %s, ignoring.",
+                            strerror(abs(r)));
+                return 0;
+        }
+
+        r = write_rules("/sys/fs/smackfs/cipso2", CIPSO_CONFIG);
+        switch(r) {
+        case -ENOENT:
+                log_debug("Smack/CIPSO is not enabled in the kernel.");
+                return 0;
+        case ENOENT:
+                log_debug("Smack/CIPSO access rules directory " CIPSO_CONFIG " not found");
+                return 0;
+        case 0:
+                log_info("Successfully loaded Smack/CIPSO policies.");
                 return 0;
         default:
-                log_warning("Failed to load smack access rules: %s, ignoring.",
+                log_warning("Failed to load Smack/CIPSO access rules: %s, ignoring.",
                             strerror(abs(r)));
                 return 0;
         }
