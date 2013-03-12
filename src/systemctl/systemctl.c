@@ -2053,7 +2053,7 @@ static int set_cgroup_attr(DBusConnection *bus, char **args) {
 }
 
 static int get_cgroup_attr(DBusConnection *bus, char **args) {
-        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         _cleanup_free_ char *n = NULL;
         char **argument;
         int r;
