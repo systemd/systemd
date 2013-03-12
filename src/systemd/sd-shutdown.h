@@ -37,7 +37,7 @@ typedef enum sd_shutdown_mode {
 /* Calculate the size of the message as "offsetof(struct
  * sd_shutdown_command, wall_message) +
  * strlen(command.wall_message)" */
-__attribute__((packed)) struct sd_shutdown_command {
+struct sd_shutdown_command {
         /* Microseconds after the epoch 1970 UTC */
         uint64_t usec;
 
@@ -55,7 +55,7 @@ __attribute__((packed)) struct sd_shutdown_command {
         /* The wall message to send around. Leave empty for the
          * default wall message */
         char wall_message[];
-};
+} __attribute__((packed));
 
 /* The scheme is very simple:
  *
