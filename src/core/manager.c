@@ -148,6 +148,9 @@ static int manager_setup_notify(Manager *m) {
 static int manager_jobs_in_progress_mod_timer(Manager *m) {
         struct itimerspec its;
 
+        if (m->jobs_in_progress_watch.type != WATCH_JOBS_IN_PROGRESS)
+                return 0;
+
         zero(its);
 
         its.it_value.tv_sec = JOBS_IN_PROGRESS_WAIT_SEC;
@@ -2373,8 +2376,10 @@ void manager_check_finished(Manager *m) {
         if (m->n_running_jobs == 0)
                 manager_unwatch_jobs_in_progress(m);
 
-        if (hashmap_size(m->jobs) > 0)
+        if (hashmap_size(m->jobs) > 0) {
+                manager_jobs_in_progress_mod_timer(m);
                 return;
+        }
 
         /* Notify Type=idle units that we are done now */
         close_pipe(m->idle_pipe);
