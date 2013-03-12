@@ -3686,25 +3686,25 @@ XSLTPROC_FLAGS = \
 
 XSLTPROC_PROCESS_MAN = \
 	$(AM_V_XSLT)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
+	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-man.xsl $<
 
 XSLTPROC_PROCESS_HTML = \
 	$(AM_V_XSLT)$(MKDIR_P) $(dir $@) && \
 	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $<
 
-man/%.1: man/%.xml
+man/%.1: man/%.xml man/custom-man.xsl
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.3: man/%.xml
+man/%.3: man/%.xml man/custom-man.xsl
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.5: man/%.xml
+man/%.5: man/%.xml man/custom-man.xsl
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.7: man/%.xml
+man/%.7: man/%.xml man/custom-man.xsl
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.8: man/%.xml
+man/%.8: man/%.xml man/custom-man.xsl
 	$(XSLTPROC_PROCESS_MAN)
 
 man/%.html: man/%.xml man/custom-html.xsl
