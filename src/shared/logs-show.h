@@ -37,6 +37,15 @@ int output_journal(
                 unsigned n_columns,
                 OutputFlags flags);
 
+int add_matches_for_unit(
+                sd_journal *j,
+                const char *unit);
+
+int add_matches_for_user_unit(
+                sd_journal *j,
+                const char *unit,
+                uid_t uid);
+
 int show_journal_by_unit(
                 FILE *f,
                 const char *unit,
@@ -44,17 +53,9 @@ int show_journal_by_unit(
                 unsigned n_columns,
                 usec_t not_before,
                 unsigned how_many,
-                OutputFlags flags);
-
-int show_journal_by_user_unit(
-                FILE *f,
-                const char *unit,
-                OutputMode mode,
-                unsigned n_columns,
-                usec_t not_before,
-                unsigned how_many,
                 uid_t uid,
-                OutputFlags flags);
+                OutputFlags flags,
+                bool system);
 
 void json_escape(
                 FILE *f,
