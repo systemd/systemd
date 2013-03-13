@@ -652,8 +652,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/watchdog.h \
 	src/shared/spawn-ask-password-agent.c \
 	src/shared/spawn-ask-password-agent.h \
-	src/shared/specifier.c \
-	src/shared/specifier.h \
 	src/shared/replace-var.c \
 	src/shared/replace-var.h \
 	src/shared/spawn-polkit-agent.c \
@@ -697,7 +695,9 @@ libsystemd_units_la_SOURCES = \
 	src/shared/install-printf.c \
 	src/shared/install-printf.h \
 	src/shared/path-lookup.c \
-	src/shared/path-lookup.h
+	src/shared/path-lookup.h \
+	src/shared/specifier.c \
+	src/shared/specifier.h
 
 libsystemd_units_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1235,6 +1235,7 @@ test_strv_SOURCES = \
 
 test_strv_LDADD = \
 	libsystemd-shared.la \
+	libsystemd-units.la \
 	libsystemd-id128-internal.la
 
 test_strxcpyx_SOURCES = \
