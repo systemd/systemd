@@ -464,9 +464,12 @@
                                 <term><varname>ExecStopPost=</varname></term>
                                 <listitem><para>Additional commands
                                 that are executed after the service
-                                was stopped using the commands
-                                configured in
-                                <varname>ExecStop=</varname>. This
+                                was stopped. This includes cases where
+                                the commands configured in
+                                <varname>ExecStop=</varname> were used,
+                                where the service doesn't have any
+                                <varname>ExecStop=</varname> defined, or
+                                where the service exited unexpectedly. This
                                 argument takes multiple command lines,
                                 following the same scheme as described
                                 for <varname>ExecStart</varname>. Use
