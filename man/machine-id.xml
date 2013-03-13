@@ -75,7 +75,7 @@
                 logic as the D-Bus machine ID.</para>
 
                 <para>Programs may use this ID to identify the host
-                with a globally unique ID in the network, that does
+                with a globally unique ID in the network, which does
                 not change even if the local network configuration
                 changes. Due to this and its greater length it is
                 a more useful replacement for the

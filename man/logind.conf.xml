@@ -163,7 +163,7 @@
                                 will execute the action after all
                                 sessions reported that they are idle,
                                 and no idle inhibitor lock is active,
-                                and subsquently the time configured
+                                and subsequently the time configured
                                 with <varname>IdleActionSec=</varname>
                                 (see below) has passed.</para>
                                 </listitem>

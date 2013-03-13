@@ -68,7 +68,7 @@
                 <filename>/etc</filename> file system and is fragile because the file
                 might be edited by the administrator at the same time. <command>nss-myhostname</command>
                 simply returns all locally configure public IP addresses, or -- if none
-                are configured -- the IPv4 address 127.0.0.2 (wich is on the local
+                are configured -- the IPv4 address 127.0.0.2 (which is on the local
                 loopback) and the IPv6 address ::1 (which is the local host) for
                 whatever system hostname is configured locally. Patching
                 <filename>/etc/hosts</filename> is thus no longer necessary.</para>
