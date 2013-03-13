@@ -471,8 +471,7 @@ EXTRA_DIST += \
 	units/initrd-cleanup.service.in \
 	units/initrd-udevadm-cleanup-db.service.in \
 	units/initrd-switch-root.service.in \
-	introspect.awk \
-	man/custom-html.xsl
+	introspect.awk
 
 CLEANFILES += \
 	units/console-shell.service.m4 \
@@ -2882,7 +2881,8 @@ systemd_bootchart_SOURCES = \
 	src/bootchart/bootchart.h \
 	src/bootchart/store.c \
 	src/bootchart/store.h \
-	src/bootchart/svg.c
+	src/bootchart/svg.c \
+	src/bootchart/svg.h
 
 systemd_bootchart_LDADD = \
 	libsystemd-shared.la
@@ -3717,6 +3717,10 @@ define html-alias
 endef
 
 endif
+
+EXTRA_DIST += \
+	man/custom-html.xsl \
+	man/custom-man.xsl
 
 # ------------------------------------------------------------------------------
 DBUS_PREPROCESS = $(CPP) -P $(CFLAGS) $(DBUS_CFLAGS) -imacros dbus/dbus-protocol.h
