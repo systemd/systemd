@@ -324,22 +324,28 @@
                                 <term><option>-u</option></term>
                                 <term><option>--unit=</option></term>
 
-                                <listitem><para>Show data only of the
-                                specified unit. This will add a match
-                                for <literal>_SYSTEMD_UNIT=</literal>
-                                for the specified
-                                unit.</para></listitem>
+                                <listitem><para>Show messages for the
+                                specified systemd unit. This will add
+                                a match for messages from the unit
+                                (<literal>_SYSTEMD_UNIT=</literal>)
+                                and additional matches for messages
+                                from systemd and messages about
+                                coredumps for the specified unit.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><option>--user-unit=</option></term>
 
-                                <listitem><para>Show data only of the
+                                <listitem><para>Show messages for the
                                 specified user session unit. This will
-                                add a match for
-                                <literal>_SYSTEMD_USER_UNIT=</literal>
-                                for the specified
-                                unit.</para></listitem>
+                                add a match for messages from the unit
+                                (<literal>_SYSTEMD_USER_UNIT=</literal>
+                                and <literal>_UID=</literal>) and
+                                additional matches for messages from
+                                session systemd and messages about
+                                coredumps for the specified unit.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
