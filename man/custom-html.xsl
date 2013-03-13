@@ -65,6 +65,11 @@
     </xsl:attribute>
     <xsl:text>gudev </xsl:text>
   </a>
+
+  <span style="float:right">
+    <xsl:text>systemd </xsl:text>
+    <xsl:value-of select="$systemd.version"/>
+  </span>
   <hr/>
 </xsl:template>
 
