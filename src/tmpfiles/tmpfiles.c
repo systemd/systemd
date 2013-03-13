@@ -213,6 +213,42 @@ static bool unix_socket_alive(const char *fn) {
         return true;
 }
 
+static int dir_is_mount_point(DIR *d, const char *subdir) {
+        struct file_handle *h;
+        int mount_id_parent, mount_id;
+        int r_p, r;
+
+        h = alloca(MAX_HANDLE_SZ);
+
+        h->handle_bytes = MAX_HANDLE_SZ;
+        r_p = name_to_handle_at(dirfd(d), ".", h, &mount_id_parent, 0);
+        if (r_p < 0)
+                r_p = -errno;
+
+        h->handle_bytes = MAX_HANDLE_SZ;
+        r = name_to_handle_at(dirfd(d), subdir, h, &mount_id, 0);
+        if (r < 0)
+                r = -errno;
+
+        /* got no handle; make no assumptions, return error */
+        if (r_p < 0 && r < 0)
+                return r_p;
+
+        /* got both handles; if they differ, it is a mount point */
+        if (r_p >= 0 && r >= 0)
+                return mount_id_parent != mount_id;
+
+        /* got only one handle; assume different mount points if one
+         * of both queries was not supported by the filesystem */
+        if (r_p == -ENOSYS || r_p == -ENOTSUP || r == -ENOSYS || r == -ENOTSUP)
+                return true;
+
+        /* return error */
+        if (r_p < 0)
+                return r_p;
+        return r;
+}
+
 static int dir_cleanup(
                 Item *i,
                 const char *p,
@@ -250,6 +286,12 @@ static int dir_cleanup(
 
                 /* Stay on the same filesystem */
                 if (s.st_dev != rootdev)
+                        continue;
+
+                /* Try to detect bind mounts of the same filesystem instance; they
+                 * do not differ in device major/minors. This type of query is not
+                 * supported on all kernels or filesystem types though. */
+                if (S_ISDIR(s.st_mode) && dir_is_mount_point(d, dent->d_name) > 0)
                         continue;
 
                 /* Do not delete read-only files owned by root */

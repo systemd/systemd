@@ -78,8 +78,6 @@ Features:
 
 * remove any syslog support from log.c -- we probably can't do this before split-off udev is gone for good
 
-* tmpfiles: when traversing the tree, check for bind mount points with nametohandle()
-
 * fedora: connect the timer units of a service to the service via Also= in [Install], and maybe introduce timers.target
 
 * fedora: F20: go timer units all the way, leave cron.daily for cron
