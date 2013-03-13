@@ -5041,21 +5041,22 @@ finish:
 }
 
 static int talk_initctl(void) {
-        struct init_request request;
-        int r, fd;
+        struct init_request request = {0};
+        int r;
+        int _cleanup_close_ fd = -1;
         char rl;
 
-        if (!(rl = action_to_runlevel()))
+        rl = action_to_runlevel();
+        if (!rl)
                 return 0;
 
-        zero(request);
         request.magic = INIT_MAGIC;
         request.sleeptime = 0;
         request.cmd = INIT_CMD_RUNLVL;
         request.runlevel = rl;
 
-        if ((fd = open(INIT_FIFO, O_WRONLY|O_NDELAY|O_CLOEXEC|O_NOCTTY)) < 0) {
-
+        fd = open(INIT_FIFO, O_WRONLY|O_NDELAY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0) {
                 if (errno == ENOENT)
                         return 0;
 
@@ -5065,9 +5066,7 @@ static int talk_initctl(void) {
 
         errno = 0;
         r = loop_write(fd, &request, sizeof(request), false) != sizeof(request);
-        close_nointr_nofail(fd);
-
-        if (r < 0) {
+        if (r) {
                 log_error("Failed to write to "INIT_FIFO": %m");
                 return errno ? -errno : -EIO;
         }
