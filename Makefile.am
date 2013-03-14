@@ -3356,7 +3356,8 @@ libsystemd_login_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/login/libsystemd-login.sym
 
 libsystemd_login_la_LIBADD = \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-daemon-internal.la
 
 libsystemd_login_internal_la_SOURCES = \
 	$(libsystemd_login_la_SOURCES)
