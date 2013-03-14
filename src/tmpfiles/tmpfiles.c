@@ -43,6 +43,7 @@
 #include "log.h"
 #include "util.h"
 #include "macro.h"
+#include "missing.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "strv.h"
