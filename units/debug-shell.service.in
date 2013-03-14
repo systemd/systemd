@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Early root shell on tty9 FOR DEBUGGING ONLY
+Description=Early root shell on @debugshell@ FOR DEBUGGING ONLY
 Documentation=man:sushell(8)
 DefaultDependencies=no
 IgnoreOnIsolate=yes
@@ -17,7 +17,7 @@ ExecStart=@sushell@
 Restart=always
 RestartSec=0
 StandardInput=tty
-TTYPath=/dev/tty9
+TTYPath=@debugshell@
 TTYReset=yes
 TTYVHangup=yes
 KillMode=process

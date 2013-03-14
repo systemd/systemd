@@ -755,6 +755,15 @@ AS_IF([test "x$enable_keymap" = "xyes"], [
 AM_CONDITIONAL([ENABLE_KEYMAP], [test "x$enable_keymap" = "xyes"])
 
 # ------------------------------------------------------------------------------
+debugshell=/dev/tty9
+AC_ARG_WITH([debugshelltty],
+        [AS_HELP_STRING([--with-debugshelltty=PATH],
+                [Specify the tty device for debug shell])],
+        [debugshell="$withval"],
+        [])
+AC_SUBST(debugshell)
+
+# ------------------------------------------------------------------------------
 have_manpages=no
 AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
 AS_IF([test "x$enable_manpages" != xno], [
