@@ -187,7 +187,8 @@ int parse_env_file(
         assert(fname);
         assert(separator);
 
-        if ((r = read_full_file(fname, &contents, NULL)) < 0)
+        r = read_full_file(fname, &contents, NULL);
+        if (r < 0)
                 return r;
 
         p = contents;
@@ -343,8 +344,9 @@ int load_env_file(const char *fname, char ***rl) {
 }
 
 int write_env_file(const char *fname, char **l) {
-        char **i, *p;
-        FILE *f;
+        char **i;
+        char _cleanup_free_ *p = NULL;
+        FILE _cleanup_fclose_ *f = NULL;
         int r;
 
         r = fopen_temporary(fname, &f, &p);
@@ -375,9 +377,6 @@ int write_env_file(const char *fname, char **l) {
 
         if (r < 0)
                 unlink(p);
-
-        fclose(f);
-        free(p);
 
         return r;
 }
