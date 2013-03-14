@@ -127,7 +127,7 @@ static void socket_done(Unit *u) {
 
         socket_free_ports(s);
 
-        exec_context_done(&s->exec_context);
+        exec_context_done(&s->exec_context, manager_is_reloading_or_reexecuting(u->manager));
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -1253,6 +1253,7 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
         if (f != SOCKET_SUCCESS)
                 s->result = f;
 
+        exec_context_tmp_dirs_done(&s->exec_context);
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
 }
 
@@ -1742,6 +1743,8 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                 }
         }
 
+        exec_context_serialize(&s->exec_context, UNIT(s), f);
+
         return 0;
 }
 
@@ -1901,7 +1904,22 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                                 p->fd = fdset_remove(fds, fd);
                         }
                 }
+        } else if (streq(key, "tmp-dir")) {
+                char *t;
 
+                t = strdup(value);
+                if (!t)
+                        return log_oom();
+
+                s->exec_context.tmp_dir = t;
+        } else if (streq(key, "var-tmp-dir")) {
+                char *t;
+
+                t = strdup(value);
+                if (!t)
+                        return log_oom();
+
+                s->exec_context.var_tmp_dir = t;
         } else
                 log_debug_unit(UNIT(s)->id,
                                "Unknown serialization key '%s'", key);

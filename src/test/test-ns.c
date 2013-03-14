@@ -26,6 +26,7 @@
 #include <linux/fs.h>
 
 #include "namespace.h"
+#include "execute.h"
 #include "log.h"
 
 int main(int argc, char *argv[]) {
@@ -47,8 +48,19 @@ int main(int argc, char *argv[]) {
         };
 
         int r;
+        char tmp_dir[] = "/tmp/systemd-private-XXXXXX",
+             var_tmp_dir[] = "/var/tmp/systemd-private-XXXXXX";
 
-        r = setup_namespace((char**) writable, (char**) readonly, (char**) inaccessible, true, 0);
+        assert_se(mkdtemp(tmp_dir));
+        assert_se(mkdtemp(var_tmp_dir));
+
+        r = setup_namespace((char **) writable,
+                            (char **) readonly,
+                            (char **) inaccessible,
+                            tmp_dir,
+                            var_tmp_dir,
+                            true,
+                            0);
         if (r < 0) {
                 log_error("Failed to setup namespace: %s", strerror(-r));
                 return 1;

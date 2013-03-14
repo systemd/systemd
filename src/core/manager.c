@@ -2333,6 +2333,12 @@ static bool manager_is_booting_or_shutting_down(Manager *m) {
         return false;
 }
 
+bool manager_is_reloading_or_reexecuting(Manager *m) {
+        assert(m);
+
+        return m->n_reloading != 0;
+}
+
 void manager_reset_failed(Manager *m) {
         Unit *u;
         Iterator i;

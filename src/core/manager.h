@@ -85,6 +85,7 @@ struct Watch {
 #include "set.h"
 #include "dbus.h"
 #include "path-lookup.h"
+#include "execute.h"
 
 struct Manager {
         /* Note that the set of units we know of is allowed to be
@@ -282,6 +283,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds);
 int manager_distribute_fds(Manager *m, FDSet *fds);
 
 int manager_reload(Manager *m);
+
+bool manager_is_reloading_or_reexecuting(Manager *m);
 
 void manager_reset_failed(Manager *m);
 

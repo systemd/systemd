@@ -283,7 +283,7 @@ static void service_done(Unit *u) {
         free(s->status_text);
         s->status_text = NULL;
 
-        exec_context_done(&s->exec_context);
+        exec_context_done(&s->exec_context, manager_is_reloading_or_reexecuting(u->manager));
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         s->control_command = NULL;
         s->main_command = NULL;
@@ -1932,6 +1932,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         s->forbid_restart = false;
 
+        /* we want fresh tmpdirs in case service is started again immediately */
+        exec_context_tmp_dirs_done(&s->exec_context);
+
         return;
 
 fail:
@@ -2638,6 +2641,12 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 dual_timestamp_serialize(f, "watchdog-timestamp",
                                          &s->watchdog_timestamp);
 
+        if (s->exec_context.tmp_dir)
+                unit_serialize_item(u, f, "tmp-dir", s->exec_context.tmp_dir);
+
+        if (s->exec_context.var_tmp_dir)
+                unit_serialize_item(u, f, "var-tmp-dir", s->exec_context.var_tmp_dir);
+
         return 0;
 }
 
@@ -2756,7 +2765,23 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 dual_timestamp_deserialize(value, &s->main_exec_status.exit_timestamp);
         else if (streq(key, "watchdog-timestamp"))
                 dual_timestamp_deserialize(value, &s->watchdog_timestamp);
-        else
+        else if (streq(key, "tmp-dir")) {
+                char *t;
+
+                t = strdup(value);
+                if (!t)
+                        return log_oom();
+
+                s->exec_context.tmp_dir = t;
+        } else if (streq(key, "var-tmp-dir")) {
+                char *t;
+
+                t = strdup(value);
+                if (!t)
+                        return log_oom();
+
+                s->exec_context.var_tmp_dir = t;
+        } else
                 log_debug_unit(u->id, "Unknown serialization key '%s'", key);
 
         return 0;

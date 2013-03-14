@@ -5682,3 +5682,47 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *sear
 
         return search_and_fopen_internal(path, mode, s, _f);
 }
+
+int create_tmp_dir(char template[], mode_t mask, bool need_sticky, char** dir_name) {
+        int r = 0;
+        char *d = NULL;
+        bool remove = false;
+        mode_t _cleanup_umask_ u;
+
+        assert(dir_name);
+
+        u = umask(mask);
+        d = mkdtemp(template);
+        if (!d) {
+                r = -errno;
+                log_debug("Can't create directory");
+                goto fail;
+        }
+
+        remove = true;
+
+        log_debug("Created temporary directory : %s", template);
+
+        d = strdup(template);
+        if (!d) {
+                r = log_oom();
+                goto fail;
+        }
+
+        if (need_sticky) {
+                r = chmod(template, 0777 | S_ISVTX);
+                if (r < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+                log_debug("Setting sticky bit on : %s", template);
+        }
+
+        *dir_name = d;
+
+        return 0;
+fail:
+        if (remove)
+                rmdir(template);
+        return r;
+}

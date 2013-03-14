@@ -1107,7 +1107,9 @@
                                 processes via
                                 <filename>/tmp</filename> or
                                 <filename>/var/tmp</filename>
-                                impossible. Defaults to
+                                impossible. All temporary data created
+                                by service will be removed after service
+                                is stopped. Defaults to
                                 false.</para></listitem>
                         </varlistentry>
 

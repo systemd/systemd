@@ -125,7 +125,7 @@ static void swap_done(Unit *u) {
         free(s->parameters_fragment.what);
         s->parameters_fragment.what = NULL;
 
-        exec_context_done(&s->exec_context);
+        exec_context_done(&s->exec_context, manager_is_reloading_or_reexecuting(u->manager));
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -632,6 +632,7 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
         if (f != SWAP_SUCCESS)
                 s->result = f;
 
+        exec_context_tmp_dirs_done(&s->exec_context);
         swap_set_state(s, s->result != SWAP_SUCCESS ? SWAP_FAILED : SWAP_DEAD);
 }
 
@@ -831,6 +832,8 @@ static int swap_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (s->control_command_id >= 0)
                 unit_serialize_item(u, f, "control-command", swap_exec_command_to_string(s->control_command_id));
 
+        exec_context_serialize(&s->exec_context, UNIT(s), f);
+
         return 0;
 }
 
@@ -874,7 +877,22 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
                         s->control_command_id = id;
                         s->control_command = s->exec_command + id;
                 }
+        } else if (streq(key, "tmp-dir")) {
+                char *t;
 
+                t = strdup(value);
+                if (!t)
+                        return log_oom();
+
+                s->exec_context.tmp_dir = t;
+        } else if (streq(key, "var-tmp-dir")) {
+                char *t;
+
+                t = strdup(value);
+                if (!t)
+                        return log_oom();
+
+                s->exec_context.var_tmp_dir = t;
         } else
                 log_debug_unit(u->id, "Unknown serialization key '%s'", key);
 

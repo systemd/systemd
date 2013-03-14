@@ -25,6 +25,7 @@
 #include <sys/epoll.h>
 #include <signal.h>
 
+#include "manager.h"
 #include "unit.h"
 #include "mount.h"
 #include "load-fragment.h"
@@ -126,7 +127,7 @@ static void mount_done(Unit *u) {
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
         mount_parameters_done(&m->parameters_fragment);
 
-        exec_context_done(&m->exec_context);
+        exec_context_done(&m->exec_context, manager_is_reloading_or_reexecuting(u->manager));
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         m->control_command = NULL;
 
@@ -870,6 +871,7 @@ static void mount_enter_dead(Mount *m, MountResult f) {
         if (f != MOUNT_SUCCESS)
                 m->result = f;
 
+        exec_context_tmp_dirs_done(&m->exec_context);
         mount_set_state(m, m->result != MOUNT_SUCCESS ? MOUNT_FAILED : MOUNT_DEAD);
 }
 
@@ -1163,6 +1165,8 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (m->control_command_id >= 0)
                 unit_serialize_item(u, f, "control-command", mount_exec_command_to_string(m->control_command_id));
 
+        exec_context_serialize(&m->exec_context, UNIT(m), f);
+
         return 0;
 }
 
@@ -1219,7 +1223,22 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
                         m->control_command_id = id;
                         m->control_command = m->exec_command + id;
                 }
+        } else if (streq(key, "tmp-dir")) {
+                char *t;
 
+                t = strdup(value);
+                if (!t)
+                        return log_oom();
+
+                m->exec_context.tmp_dir = t;
+        } else if (streq(key, "var-tmp-dir")) {
+                char *t;
+
+                t = strdup(value);
+                if (!t)
+                        return log_oom();
+
+                m->exec_context.var_tmp_dir = t;
         } else
                 log_debug_unit(UNIT(m)->id,
                                "Unknown serialization key '%s'", key);

@@ -173,6 +173,18 @@ static bool is_terminal_output(ExecOutput o) {
                 o == EXEC_OUTPUT_JOURNAL_AND_CONSOLE;
 }
 
+void exec_context_serialize(const ExecContext *context, Unit *u, FILE *f) {
+        assert(context);
+        assert(u);
+        assert(f);
+
+        if (context->tmp_dir)
+                unit_serialize_item(u, f, "tmp-dir", context->tmp_dir);
+
+        if (context->var_tmp_dir)
+                unit_serialize_item(u, f, "var-tmp-dir", context->var_tmp_dir);
+}
+
 static int open_null_as(int flags, int nfd) {
         int fd, r;
 
@@ -968,7 +980,7 @@ static int apply_seccomp(uint32_t *syscall_filter) {
 
 int exec_spawn(ExecCommand *command,
                char **argv,
-               const ExecContext *context,
+               ExecContext *context,
                int fds[], unsigned n_fds,
                char **environment,
                bool apply_permissions,
@@ -1035,6 +1047,12 @@ int exec_spawn(ExecCommand *command,
                 return r;
 
         cgroup_attribute_apply_list(cgroup_attributes, cgroup_bondings);
+
+        if (context->private_tmp && !context->tmp_dir && !context->var_tmp_dir) {
+                r = setup_tmpdirs(&context->tmp_dir, &context->var_tmp_dir);
+                if (r < 0)
+                        return r;
+        }
 
         pid = fork();
         if (pid < 0)
@@ -1302,6 +1320,8 @@ int exec_spawn(ExecCommand *command,
                         err = setup_namespace(context->read_write_dirs,
                                               context->read_only_dirs,
                                               context->inaccessible_dirs,
+                                              context->tmp_dir,
+                                              context->var_tmp_dir,
                                               context->private_tmp,
                                               context->mount_flags);
                         if (err < 0) {
@@ -1530,7 +1550,23 @@ void exec_context_init(ExecContext *c) {
         c->timer_slack_nsec = (nsec_t) -1;
 }
 
-void exec_context_done(ExecContext *c) {
+void exec_context_tmp_dirs_done(ExecContext *c) {
+        assert(c);
+
+        if (c->tmp_dir) {
+                rm_rf_dangerous(c->tmp_dir, false, true, false);
+                free(c->tmp_dir);
+                c->tmp_dir = NULL;
+        }
+
+        if (c->var_tmp_dir) {
+                rm_rf_dangerous(c->var_tmp_dir, false, true, false);
+                free(c->var_tmp_dir);
+                c->var_tmp_dir = NULL;
+        }
+}
+
+void exec_context_done(ExecContext *c, bool reloading_or_reexecuting) {
         unsigned l;
 
         assert(c);
@@ -1594,6 +1630,9 @@ void exec_context_done(ExecContext *c) {
 
         free(c->syscall_filter);
         c->syscall_filter = NULL;
+
+        if (!reloading_or_reexecuting)
+                exec_context_tmp_dirs_done(c);
 }
 
 void exec_command_done(ExecCommand *c) {

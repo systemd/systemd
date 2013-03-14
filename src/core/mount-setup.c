@@ -447,6 +447,7 @@ int mount_setup(bool loaded_policy) {
          * systemd. */
         mkdir_label("/run/systemd", 0755);
         mkdir_label("/run/systemd/system", 0755);
+        mkdir_label("/run/systemd/inaccessible", 0000);
 
         return 0;
 }
