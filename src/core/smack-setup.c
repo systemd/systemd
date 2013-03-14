@@ -39,66 +39,95 @@
 #include "log.h"
 #include "label.h"
 
-#define ACCESSES_D_PATH "/etc/smack/accesses.d/"
+#define SMACK_CONFIG "/etc/smack/accesses.d/"
 
-int smack_setup(void) {
-        _cleanup_fclose_ FILE *smack = NULL;
+static int write_rules(const char* dstpath, const char* srcdir) {
+        _cleanup_fclose_ FILE *dst = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
         char buf[NAME_MAX];
         int dfd = -1;
+        int r = 0;
 
-        smack = fopen("/sys/fs/smackfs/load2", "we");
-        if (!smack)  {
-                if (errno == ENOENT)
-                        log_debug("Smack is not enabled in the kernel, not loading access rules.");
-                else
-                        log_warning("Failed to open /sys/fs/smackfs/load2: %m");
-                return 0;
+        dst = fopen(dstpath, "we");
+        if (!dst)  {
+                if (errno != ENOENT)
+                        log_warning("Failed to open %s: %m", dstpath);
+                return -errno; /* negative error */
         }
 
-        /* write rules to load2 from every file in the directory */
-        dir = opendir(ACCESSES_D_PATH);
+        /* write rules to dst from every file in the directory */
+        dir = opendir(srcdir);
         if (!dir) {
-                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
-                         "Opening Smack access rules directory "
-                         ACCESSES_D_PATH ": %m");
-                return 0;
+                if (errno != ENOENT)
+                        log_warning("Failed to opendir %s: %m", srcdir);
+                return errno; /* positive on purpose */
         }
 
         dfd = dirfd(dir);
         assert(dfd >= 0);
 
         FOREACH_DIRENT(entry, dir, return 0) {
+                int fd;
                 _cleanup_fclose_ FILE *policy = NULL;
-                _cleanup_close_ int pol = -1;
 
-                pol = openat(dfd, entry->d_name, O_RDONLY|O_CLOEXEC);
-                if (pol < 0) {
-                        log_error("Smack access rule file %s not opened: %m",
-                                  entry->d_name);
+                fd = openat(dfd, entry->d_name, O_RDONLY|O_CLOEXEC);
+                if (fd < 0) {
+                        if (r == 0)
+                                r = -errno;
+                        log_warning("Failed to open %s: %m", entry->d_name);
                         continue;
                 }
 
-                policy = fdopen(pol, "re");
+                policy = fdopen(fd, "re");
                 if (!policy) {
-                        log_error("Smack access rule file %s not opened: %m",
-                                  entry->d_name);
+                        if (r == 0)
+                                r = -errno;
+                        close_nointr_nofail(fd);
+                        log_error("Failed to open %s: %m", entry->d_name);
                         continue;
                 }
-
-                pol = -1;
 
                 /* load2 write rules in the kernel require a line buffered stream */
                 FOREACH_LINE(buf, policy,
-                             log_error("Failed to read from Smack access rule file %s: %m",
+                             log_error("Failed to read line from %s: %m",
                                        entry->d_name)) {
-                        fputs(buf, smack);
-                        fflush(smack);
+                        if (!fputs(buf, dst)) {
+                                if (r == 0)
+                                        r = -EINVAL;
+                                log_error("Failed to write line to %s", dstpath);
+                                break;
+                        }
+                        if (fflush(dst)) {
+                                if (r == 0)
+                                        r = -errno;
+                                log_error("Failed to flush writes to %s: %m", dstpath);
+                                break;
+                        }
                 }
         }
 
-        log_info("Successfully loaded Smack policies.");
+       return r;
+}
 
-        return 0;
+
+int smack_setup(void) {
+        int r;
+
+        r = write_rules("/sys/fs/smackfs/load2", SMACK_CONFIG);
+        switch(r) {
+        case -ENOENT:
+                log_debug("Smack is not enabled in the kernel.");
+                return 0;
+        case ENOENT:
+                log_debug("Smack access rules directory " SMACK_CONFIG " not found");
+                return 0;
+        case 0:
+                log_info("Successfully loaded Smack policies.");
+                return 0;
+        default:
+                log_warning("Failed to load smack access rules: %s, ignoring.",
+                            strerror(abs(r)));
+                return 0;
+        }
 }
