@@ -357,7 +357,7 @@
                                 word on the command line, in which
                                 case it will be replaced by the value
                                 of the environment variable split up
-                                at whitespace, resulting in no or more
+                                at whitespace, resulting in zero or more
                                 arguments. Note that the first
                                 argument (i.e. the program to execute)
                                 may not be a variable, since it must
