@@ -11,3 +11,4 @@ Documentation=man:systemd.special(7)
 OnFailure=emergency.target
 OnFailureIsolate=yes
 ConditionPathExists=/etc/initrd-release
+After=initrd-parse-etc.service

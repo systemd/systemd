@@ -6,6 +6,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Initrd Root File System
+Description=Initrd Target
 Documentation=man:systemd.special(7)
+OnFailure=emergency.target
+OnFailureIsolate=yes
 ConditionPathExists=/etc/initrd-release
+Requires=basic.target
+Wants=initrd-root-fs.target initrd-fs.target initrd-parse-etc.service
+After=initrd-root-fs.target initrd-fs.target basic.target rescue.service rescue.target
+AllowIsolate=yes

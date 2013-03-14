@@ -199,6 +199,12 @@ static bool mount_in_initrd(struct mntent *me) {
                 streq(me->mnt_dir, "/usr");
 }
 
+static bool mount_is_rootfs(struct mntent *me) {
+        assert(me);
+
+        return hasmntopt(me, "x-initrd-rootfs.mount");
+}
+
 static int add_mount(const char *what, const char *where, const char *type, const char *opts,
                      int passno, bool noauto, bool nofail, bool automount, bool isbind,
                      const char *pre, const char *post, const char *source) {
@@ -434,6 +440,9 @@ static int parse_fstab(const char *prefix, bool initrd) {
                         if (initrd) {
                                 post = SPECIAL_INITRD_FS_TARGET;
                                 pre = NULL;
+                        } else if (mount_is_rootfs(me)) {
+                                post = SPECIAL_INITRD_ROOT_FS_TARGET;
+                                pre = NULL;
                         } else if (mount_is_network(me)) {
                                 post = SPECIAL_REMOTE_FS_TARGET;
                                 pre = SPECIAL_REMOTE_FS_PRE_TARGET;
@@ -525,7 +534,7 @@ static int parse_new_root_from_proc_cmdline(void) {
 
         log_debug("Found entry what=%s where=/sysroot type=%s", what, type);
         r = add_mount(what, "/sysroot", type, opts, 0, false, false, false,
-                      false, NULL, SPECIAL_ROOT_FS_TARGET, "/proc/cmdline");
+                      false, NULL, SPECIAL_INITRD_ROOT_FS_TARGET, "/proc/cmdline");
 
         return (r < 0) ? r : 0;
 }

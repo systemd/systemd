@@ -347,8 +347,9 @@ dist_systemunit_DATA = \
 	units/kexec.target \
 	units/local-fs.target \
 	units/local-fs-pre.target \
+	units/initrd.target \
 	units/initrd-fs.target \
-	units/root-fs.target \
+	units/initrd-root-fs.target \
 	units/remote-fs.target \
 	units/remote-fs-pre.target \
 	units/network.target \
