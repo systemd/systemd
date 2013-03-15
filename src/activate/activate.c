@@ -38,6 +38,7 @@
 static char** arg_listen = NULL;
 static bool arg_accept = false;
 static char** arg_args = NULL;
+static char** arg_environ = NULL;
 
 static int add_epoll(int epoll_fd, int fd) {
         int r;
@@ -164,11 +165,28 @@ static int open_sockets(int *epoll_fd, bool accept) {
 }
 
 static int launch(char* name, char **argv, char **environ, int fds) {
-        unsigned n_env = 0;
-        char* envp[7] = {NULL}; /* PATH, TERM, HOME, USER, LISTEN_FDS, LISTEN_PID */
+        unsigned n_env = 0, length;
+        char **envp = NULL, **s;
         static const char* tocopy[] = {"TERM=", "PATH=", "USER=", "HOME="};
         char _cleanup_free_ *tmp = NULL;
         unsigned i;
+
+        length = strv_length(arg_environ);
+        /* PATH, TERM, HOME, USER, LISTEN_FDS, LISTEN_PID, NULL */
+        envp = new(char *, length + 7);
+
+        STRV_FOREACH(s, arg_environ) {
+                if (strchr(*s, '='))
+                        envp[n_env++] = *s;
+                else {
+                        char _cleanup_free_ *p = strappend(*s, "=");
+                        if (!p)
+                                return log_oom();
+                        envp[n_env] = strv_find_prefix(environ, p);
+                        if (envp[n_env])
+                                n_env ++;
+                }
+        }
 
         for (i = 0; i < ELEMENTSOF(tocopy); i++) {
                 envp[n_env] = strv_find_prefix(environ, tocopy[i]);
@@ -312,6 +330,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",      no_argument,       NULL, ARG_VERSION   },
                 { "listen",       required_argument, NULL, 'l'           },
                 { "accept",       no_argument,       NULL, 'a'           },
+                { "environment",  required_argument, NULL, 'E'           },
                 { NULL,           0,                 NULL, 0             }
         };
 
@@ -320,7 +339,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hl:sa", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hl:saE:", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
                         help();
@@ -342,6 +361,14 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'a':
                         arg_accept = true;
                         break;
+
+                case 'E': {
+                        int r = strv_extend(&arg_environ, optarg);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;

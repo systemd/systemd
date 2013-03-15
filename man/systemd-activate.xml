@@ -99,7 +99,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
-        <term><option>-l</option></term>
+        <term><option>-l <replaceable>address</replaceable></option></term>
         <term><option>--listen=<replaceable>address</replaceable></option></term>
 
         <listitem><para>Listen on this <replaceable>address</replaceable>.
@@ -115,6 +115,18 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem><para>Launch a separate instance of daemon per
         connection and pass the connection socket as standard input
         and standard output.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-E <replaceable>VAR</replaceable><optional>=<replaceable>VALUE</replaceable></optional></option></term>
+        <term><option>--environment=<replaceable>VAR</replaceable><optional>=<replaceable>VALUE</replaceable></optional></option></term>
+
+        <listitem><para>Add this variable to the environment of the
+        launched process. If <replaceable>VAR</replaceable> is
+        followed by <literal>=</literal> assume that it is a
+        variable–value pair. Otherwise obtain the value from the
+        environment of <command>systemd-activate</command> itself.
+        </para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
