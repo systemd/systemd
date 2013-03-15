@@ -174,23 +174,22 @@
         </refsect1>
 
         <refsect1>
-                <title>Systemd in the Initrd</title>
-                <para>If the initrd creation tool used the services provided
-                by systemd, the default target in the initrd is the
-                initrd-fs.target. The process is the same as above until the basic.target is reached.
-                Systemd now continues to the initrd.target. If the root device could be mounted
-                on /sysroot, the sysroot.mount unit is active and the initrd-root-fs.target is reached.
-                initrd-parse-etc.service scans /sysroot/etc/fstab for the /usr mountpoint and for entries
-                marked with the <emphasis>x-initrd.mount</emphasis> option set. If these mountpoint are
-                mounted in /sysroot, the initrd-fs.target is reached.
-                The initrd-cleanup.service isolates to the initrd-switch-root.target,
-                where cleanup services can run. At the very last end
-                initrd-switch-root.service is activated, which will cause
-                the system to switch root to /sysroot.
+                <title>Initrd System Manager Bootup</title>
+                <para>The default target in the initrd is the initrd-fs.target. The bootup process is
+                identical to the System Manager Bootup until it reaches basic.target. From there,
+                systemd approaches the special initrd.target. If the root device can be mounted at
+                /sysroot, the sysroot.mount unit becomes active and the initrd-root-fs.target is
+                reached.
+                The initrd-parse-etc.service scans /sysroot/etc/fstab for a possible /usr mountpoint
+                and additional entries marked with the <emphasis>x-initrd.mount</emphasis> option.
+                All entries found are mounted below /sysroot, and the initrd-fs.target is reached.
+                The initrd-cleanup.service isolates to the initrd-switch-root.target, where cleanup
+                services can run. As the very last step, the initrd-switch-root.service is activated,
+                which will cause the system to switch its root to /sysroot.
                 </para>
 
 <programlisting>
-                                        (same as above)
+                             (identical to System Manager Bootup)
                                                :
                                                :
                                                v
