@@ -51,8 +51,6 @@ Features:
   installed to the ESP. Define a way how an installer can figure out
   whether a BLS compliant boot loader is installed.
 
-* We currently have a dep loop between libsystemd-id128 and libsystemd-shared.
-
 * man: remove .include documentation, and instead push people to use .d/*.conf
 
 * disallow .include from included files
