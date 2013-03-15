@@ -634,6 +634,29 @@ static PyObject* Reader_query_unique(Reader *self, PyObject *args)
     return value_set;
 }
 
+
+PyDoc_STRVAR(Reader_get_catalog__doc__,
+             "get_catalog() -> str\n\n"
+             "Retrieve a message catalog entry for the current journal entry.\n"
+             "Wraps man:sd_journal_get_catalog(3).");
+static PyObject* Reader_get_catalog(Reader *self, PyObject *args)
+{
+    int r;
+    char _cleanup_free_ *msg = NULL;
+
+    assert(self);
+    assert(!args);
+
+    Py_BEGIN_ALLOW_THREADS
+    r = sd_journal_get_catalog(self->j, &msg);
+    Py_END_ALLOW_THREADS
+    if (set_error(r, NULL, NULL))
+        return NULL;
+
+    return unicode_FromString(msg);
+}
+
+
 PyDoc_STRVAR(data_threshold__doc__,
              "Threshold for field size truncation in bytes.\n\n"
              "Fields longer than this will be truncated to the threshold size.\n"
@@ -706,6 +729,7 @@ static PyMethodDef Reader_methods[] = {
     {"wait",            (PyCFunction) Reader_wait, METH_VARARGS, Reader_wait__doc__},
     {"seek_cursor",     (PyCFunction) Reader_seek_cursor, METH_VARARGS, Reader_seek_cursor__doc__},
     {"query_unique",    (PyCFunction) Reader_query_unique, METH_VARARGS, Reader_query_unique__doc__},
+    {"get_catalog",     (PyCFunction) Reader_get_catalog, METH_NOARGS, Reader_get_catalog__doc__},
     {NULL}  /* Sentinel */
 };
 
