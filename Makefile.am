@@ -330,6 +330,9 @@ dist_tmpfiles_DATA = \
 	tmpfiles.d/tmp.conf \
 	tmpfiles.d/x11.conf
 
+dist_sysctl_DATA = \
+	sysctl.d/50-default.conf
+
 if HAVE_SYSV_COMPAT
 dist_tmpfiles_DATA += \
 	tmpfiles.d/legacy.conf
