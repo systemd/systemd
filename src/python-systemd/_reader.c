@@ -666,11 +666,23 @@ static int Reader_set_data_threshold(Reader *self, PyObject *value, void *closur
     return set_error(r, NULL, NULL);
 }
 
-static PyGetSetDef Reader_getseters[] = {
+PyDoc_STRVAR(closed__doc__,
+             "True iff journal is closed");
+static PyObject* Reader_get_closed(Reader *self, void *closure)
+{
+    return PyBool_FromLong(self->j == NULL);
+}
+
+static PyGetSetDef Reader_getsetters[] = {
     {(char*) "data_threshold",
      (getter) Reader_get_data_threshold,
      (setter) Reader_set_data_threshold,
      (char*) data_threshold__doc__,
+     NULL},
+    {(char*) "closed",
+     (getter) Reader_get_closed,
+     NULL,
+     (char*) closed__doc__,
      NULL},
     {NULL}
 };
@@ -727,7 +739,7 @@ static PyTypeObject ReaderType = {
     Reader_iternext,                          /* tp_iternext */
     Reader_methods,                           /* tp_methods */
     0,                                        /* tp_members */
-    Reader_getseters,                         /* tp_getset */
+    Reader_getsetters,                        /* tp_getset */
     0,                                        /* tp_base */
     0,                                        /* tp_dict */
     0,                                        /* tp_descr_get */
