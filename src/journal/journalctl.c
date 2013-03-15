@@ -513,16 +513,16 @@ static int generate_new_id128(void) {
 
 static int add_matches(sd_journal *j, char **args) {
         char **i;
-        int r;
 
         assert(j);
 
         STRV_FOREACH(i, args) {
+                int r;
 
                 if (streq(*i, "+"))
                         r = sd_journal_add_disjunction(j);
                 else if (path_is_absolute(*i)) {
-                        char *p, *t = NULL;
+                        char _cleanup_free_ *p, *t = NULL;
                         const char *path;
                         struct stat st;
 
@@ -530,7 +530,6 @@ static int add_matches(sd_journal *j, char **args) {
                         path = p ? p : *i;
 
                         if (stat(path, &st) < 0)  {
-                                free(p);
                                 log_error("Couldn't stat file: %m");
                                 return -errno;
                         }
@@ -542,18 +541,14 @@ static int add_matches(sd_journal *j, char **args) {
                         else if (S_ISBLK(st.st_mode))
                                 asprintf(&t, "_KERNEL_DEVICE=b%u:%u", major(st.st_rdev), minor(st.st_rdev));
                         else {
-                                free(p);
                                 log_error("File is not a device node, regular file or is not executable: %s", *i);
                                 return -EINVAL;
                         }
-
-                        free(p);
 
                         if (!t)
                                 return log_oom();
 
                         r = sd_journal_add_match(j, t, 0);
-                        free(t);
                 } else
                         r = sd_journal_add_match(j, *i, 0);
 
