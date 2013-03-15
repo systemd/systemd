@@ -134,7 +134,7 @@ static struct PyModuleDef module = {
         PyModuleDef_HEAD_INIT,
         "id128", /* name of module */
         module__doc__, /* module documentation, may be NULL */
-        0, /* size of per-interpreter state of the module */
+        -1, /* size of per-interpreter state of the module */
         methods
 };
 

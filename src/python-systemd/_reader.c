@@ -75,6 +75,7 @@ static PyStructSequence_Desc Monotonic_desc = {
 };
 #endif
 
+
 static void Reader_dealloc(Reader* self)
 {
     sd_journal_close(self->j);
@@ -121,6 +122,7 @@ static int Reader_init(Reader *self, PyObject *args, PyObject *keywds)
     return set_error(r, path, "Invalid flags or path");
 }
 
+
 PyDoc_STRVAR(Reader_fileno__doc__,
              "fileno() -> int\n\n"
              "Get a file descriptor to poll for changes in the journal.\n"
@@ -135,6 +137,7 @@ static PyObject* Reader_fileno(Reader *self, PyObject *args)
         return NULL;
     return long_FromLong(r);
 }
+
 
 PyDoc_STRVAR(Reader_reliable_fd__doc__,
              "reliable_fd() -> bool\n\n"
@@ -151,6 +154,7 @@ static PyObject* Reader_reliable_fd(Reader *self, PyObject *args)
     return PyBool_FromLong(r);
 }
 
+
 PyDoc_STRVAR(Reader_close__doc__,
              "close() -> None\n\n"
              "Free resources allocated by this Reader object.\n"
@@ -165,6 +169,7 @@ static PyObject* Reader_close(Reader *self, PyObject *args)
     self->j = NULL;
     Py_RETURN_NONE;
 }
+
 
 PyDoc_STRVAR(Reader___enter____doc__,
              "__enter__() -> self\n\n"
@@ -192,6 +197,7 @@ static PyObject* Reader___exit__(Reader *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+
 PyDoc_STRVAR(Reader_get_next__doc__,
              "get_next([skip]) -> dict\n\n"
              "Return dictionary of the next log entry. Optional skip value will\n"
@@ -204,7 +210,7 @@ static PyObject* Reader_get_next(Reader *self, PyObject *args)
     int64_t skip = 1LL;
     int r;
 
-    if (!PyArg_ParseTuple(args, "|L", &skip))
+    if (!PyArg_ParseTuple(args, "|L:_Reader.get_next", &skip))
         return NULL;
 
     if (skip == 0LL) {
@@ -371,6 +377,7 @@ error:
     return NULL;
 }
 
+
 PyDoc_STRVAR(Reader_get_previous__doc__,
              "get_previous([skip]) -> dict\n\n"
              "Return dictionary of the previous log entry. Optional skip value\n"
@@ -378,12 +385,13 @@ PyDoc_STRVAR(Reader_get_previous__doc__,
 static PyObject* Reader_get_previous(Reader *self, PyObject *args)
 {
     int64_t skip = 1LL;
-    if (!PyArg_ParseTuple(args, "|L", &skip))
+    if (!PyArg_ParseTuple(args, "|L:_Reader.get_previous", &skip))
         return NULL;
 
     return PyObject_CallMethod((PyObject *)self, (char*) "get_next",
                                (char*) "L", -skip);
 }
+
 
 PyDoc_STRVAR(Reader_add_match__doc__,
              "add_match(match) -> None\n\n"
@@ -395,7 +403,7 @@ static PyObject* Reader_add_match(Reader *self, PyObject *args, PyObject *keywds
 {
     char *match;
     int match_len, r;
-    if (!PyArg_ParseTuple(args, "s#", &match, &match_len))
+    if (!PyArg_ParseTuple(args, "s#:_Reader.add_match", &match, &match_len))
         return NULL;
 
     r = sd_journal_add_match(self->j, match, match_len);
@@ -405,6 +413,7 @@ static PyObject* Reader_add_match(Reader *self, PyObject *args, PyObject *keywds
 
     Py_RETURN_NONE;
 }
+
 
 PyDoc_STRVAR(Reader_add_disjunction__doc__,
              "add_disjunction() -> None\n\n"
@@ -419,6 +428,7 @@ static PyObject* Reader_add_disjunction(Reader *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+
 PyDoc_STRVAR(Reader_flush_matches__doc__,
              "flush_matches() -> None\n\n"
              "Clear all current match filters.");
@@ -427,6 +437,7 @@ static PyObject* Reader_flush_matches(Reader *self, PyObject *args)
     sd_journal_flush_matches(self->j);
     Py_RETURN_NONE;
 }
+
 
 PyDoc_STRVAR(Reader_seek_head__doc__,
              "seek_head() -> None\n\n"
@@ -444,6 +455,7 @@ static PyObject* Reader_seek_head(Reader *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+
 PyDoc_STRVAR(Reader_seek_tail__doc__,
              "seek_tail() -> None\n\n"
              "Jump to the end of the journal.\n"
@@ -460,6 +472,7 @@ static PyObject* Reader_seek_tail(Reader *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+
 PyDoc_STRVAR(Reader_seek_realtime__doc__,
              "seek_realtime(realtime) -> None\n\n"
              "Seek to nearest matching journal entry to `realtime`. Argument\n"
@@ -470,7 +483,7 @@ static PyObject* Reader_seek_realtime(Reader *self, PyObject *args)
     uint64_t timestamp;
     int r;
 
-    if (!PyArg_ParseTuple(args, "d", &timedouble))
+    if (!PyArg_ParseTuple(args, "d:_Reader.seek_realtime", &timedouble))
         return NULL;
 
     timestamp = (uint64_t) (timedouble * 1.0E6);
@@ -487,6 +500,7 @@ static PyObject* Reader_seek_realtime(Reader *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+
 PyDoc_STRVAR(Reader_seek_monotonic__doc__,
              "seek_monotonic(monotonic[, bootid]) -> None\n\n"
              "Seek to nearest matching journal entry to `monotonic`. Argument\n"
@@ -501,7 +515,7 @@ static PyObject* Reader_seek_monotonic(Reader *self, PyObject *args)
     sd_id128_t id;
     int r;
 
-    if (!PyArg_ParseTuple(args, "d|z", &timedouble, &bootid))
+    if (!PyArg_ParseTuple(args, "d|z:_Reader.seek_monotonic", &timedouble, &bootid))
         return NULL;
 
     timestamp = (uint64_t) (timedouble * 1.0E6);
@@ -531,6 +545,7 @@ static PyObject* Reader_seek_monotonic(Reader *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+
 PyDoc_STRVAR(Reader_wait__doc__,
              "wait([timeout]) -> state change (integer)\n\n"
              "Wait for a change in the journal. Argument `timeout` specifies\n"
@@ -545,7 +560,7 @@ static PyObject* Reader_wait(Reader *self, PyObject *args, PyObject *keywds)
     int r;
     int64_t timeout = 0LL;
 
-    if (!PyArg_ParseTuple(args, "|L", &timeout))
+    if (!PyArg_ParseTuple(args, "|L:_Reader.wait", &timeout))
         return NULL;
 
     Py_BEGIN_ALLOW_THREADS
@@ -558,6 +573,7 @@ static PyObject* Reader_wait(Reader *self, PyObject *args, PyObject *keywds)
     return long_FromLong(r);
 }
 
+
 PyDoc_STRVAR(Reader_seek_cursor__doc__,
              "seek_cursor(cursor) -> None\n\n"
              "Seek to journal entry by given unique reference `cursor`.");
@@ -566,7 +582,7 @@ static PyObject* Reader_seek_cursor(Reader *self, PyObject *args)
     const char *cursor;
     int r;
 
-    if (!PyArg_ParseTuple(args, "s", &cursor))
+    if (!PyArg_ParseTuple(args, "s:_Reader.seek_cursor", &cursor))
         return NULL;
 
     Py_BEGIN_ALLOW_THREADS
@@ -576,6 +592,7 @@ static PyObject* Reader_seek_cursor(Reader *self, PyObject *args)
         return NULL;
     Py_RETURN_NONE;
 }
+
 
 static PyObject* Reader_iter(PyObject *self)
 {
@@ -601,6 +618,7 @@ static PyObject* Reader_iternext(PyObject *self)
     }
 }
 
+
 PyDoc_STRVAR(Reader_query_unique__doc__,
              "query_unique(field) -> a set of values\n\n"
              "Return a set of unique values appearing in journal for the\n"
@@ -613,7 +631,7 @@ static PyObject* Reader_query_unique(Reader *self, PyObject *args)
     size_t uniq_len;
     PyObject *value_set, *key, *value;
 
-    if (!PyArg_ParseTuple(args, "s", &query))
+    if (!PyArg_ParseTuple(args, "s:_Reader.query_unique", &query))
         return NULL;
 
     Py_BEGIN_ALLOW_THREADS
@@ -676,7 +694,7 @@ static PyObject* get_catalog(PyObject *self, PyObject *args)
     assert(!self);
     assert(args);
 
-    if (!PyArg_ParseTuple(args, "z", &id_))
+    if (!PyArg_ParseTuple(args, "z:get_catalog", &id_))
         return NULL;
 
     r = sd_id128_from_string(id_, &id);
@@ -725,12 +743,14 @@ static int Reader_set_data_threshold(Reader *self, PyObject *value, void *closur
     return set_error(r, NULL, NULL);
 }
 
+
 PyDoc_STRVAR(closed__doc__,
              "True iff journal is closed");
 static PyObject* Reader_get_closed(Reader *self, void *closure)
 {
     return PyBool_FromLong(self->j == NULL);
 }
+
 
 static PyGetSetDef Reader_getsetters[] = {
     {(char*) "data_threshold",

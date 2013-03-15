@@ -128,7 +128,7 @@ static struct PyModuleDef module = {
         PyModuleDef_HEAD_INIT,
         "_journal", /* name of module */
         NULL, /* module documentation, may be NULL */
-        0, /* size of per-interpreter state of the module */
+        -1, /* size of per-interpreter state of the module */
         methods
 };
 
