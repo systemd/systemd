@@ -30,23 +30,6 @@
 #include "macro.h"
 #include "util.h"
 
-#if PY_MAJOR_VERSION >=3
-# define unicode_FromStringAndSize PyUnicode_FromStringAndSize
-# define unicode_FromString PyUnicode_FromString
-# define long_FromLong PyLong_FromLong
-# define long_FromSize_t PyLong_FromSize_t
-# define long_Check PyLong_Check
-# define long_AsLong PyLong_AsLong
-#else
-/* Python 3 type naming convention is used */
-# define unicode_FromStringAndSize PyString_FromStringAndSize
-# define unicode_FromString PyString_FromString
-# define long_FromLong PyInt_FromLong
-# define long_FromSize_t PyInt_FromSize_t
-# define long_Check PyInt_Check
-# define long_AsLong PyInt_AsLong
-#endif
-
 typedef struct {
     PyObject_HEAD
     sd_journal *j;

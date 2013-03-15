@@ -13,6 +13,7 @@ Contents:
 
    journal
    id128
+   daemon
 
 Indices and tables
 ==================

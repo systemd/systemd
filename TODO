@@ -587,6 +587,7 @@ Features:
      be just "return self->j != NULL")
    - figure out a simple way to wait for journal events in a way that
      works with ^C
+   - add documentation to systemd.daemon
 
 External:
 

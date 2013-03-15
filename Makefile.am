@@ -3484,6 +3484,7 @@ if HAVE_PYTHON_DEVEL
 pkgpyexec_LTLIBRARIES = \
 	_journal.la \
 	id128.la \
+	_daemon.la \
 	_reader.la
 
 _journal_la_SOURCES = \
@@ -3526,6 +3527,27 @@ id128_la_LIBADD = \
 	$(PYTHON_LIBS) \
 	libsystemd-id128.la
 
+_daemon_la_SOURCES = \
+	src/python-systemd/_daemon.c \
+	src/python-systemd/pyutil.c \
+	src/python-systemd/pyutil.h
+
+_daemon_la_CFLAGS = \
+	$(AM_CFLAGS) \
+        -fvisibility=default \
+	$(PYTHON_CFLAGS) \
+	-I$(top_builddir)/src/python-systemd
+
+_daemon_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-shared \
+	-module \
+	-avoid-version
+
+_daemon_la_LIBADD = \
+	$(PYTHON_LIBS) \
+	libsystemd-daemon.la
+
 _reader_la_SOURCES = \
 	src/python-systemd/_reader.c \
 	src/python-systemd/pyutil.c \
@@ -3550,6 +3572,7 @@ _reader_la_LIBADD = \
 
 dist_pkgpyexec_PYTHON = \
 	src/python-systemd/journal.py \
+	src/python-systemd/daemon.py \
 	src/python-systemd/__init__.py
 
 src/python-systemd/id128-constants.h: src/systemd/sd-messages.h Makefile
