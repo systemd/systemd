@@ -2776,14 +2776,14 @@ dist_bashcompletion_DATA += \
 	shell-completion/bash/systemd-coredumpctl
 
 sysctl_DATA = \
-	sysctl.d/coredump.conf
+	sysctl.d/50-coredump.conf
 
 CLEANFILES += \
-	sysctl.d/coredump.conf
+	sysctl.d/50-coredump.conf
 endif
 
 EXTRA_DIST += \
-	sysctl.d/coredump.conf.in
+	sysctl.d/50-coredump.conf.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_BINFMT
