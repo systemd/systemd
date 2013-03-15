@@ -440,7 +440,11 @@ int mount_setup(bool loaded_policy) {
                 if (mount(NULL, "/", NULL, MS_REC|MS_SHARED, NULL) < 0)
                         log_warning("Failed to set up the root directory for shared mount propagation: %m");
 
-        /* Create a few directories we always want around */
+        /* Create a few directories we always want around, Note that
+         * sd_booted() checks for /run/systemd/system, so this mkdir
+         * really needs to stay for good, otherwise software that
+         * copied sd-daemon.c into their sources will misdetect
+         * systemd. */
         mkdir_label("/run/systemd", 0755);
         mkdir_label("/run/systemd/system", 0755);
 

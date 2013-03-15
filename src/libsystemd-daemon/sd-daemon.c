@@ -519,18 +519,15 @@ _sd_export_ int sd_booted(void) {
 #if defined(DISABLE_SYSTEMD) || !defined(__linux__)
         return 0;
 #else
+        struct stat st;
 
-        struct stat a, b;
+        /* We test whether the runtime unit file directory has been
+         * created. This takes place in mount-setup.c, so is
+         * guaranteed to happen very early during boot. */
 
-        /* We simply test whether the systemd cgroup hierarchy is
-         * mounted */
-
-        if (lstat("/sys/fs/cgroup", &a) < 0)
+        if (lstat("/run/systemd/system/", &st) < 0)
                 return 0;
 
-        if (lstat("/sys/fs/cgroup/systemd", &b) < 0)
-                return 0;
-
-        return a.st_dev != b.st_dev;
+        return !!S_ISDIR(st.st_mode);
 #endif
 }
