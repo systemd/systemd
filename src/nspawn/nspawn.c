@@ -1589,7 +1589,7 @@ int main(int argc, char *argv[]) {
                         _exit(EXIT_FAILURE);
                 }
 
-                log_info("Init process in the container running as PID %d", pid);
+                log_info("Init process in the container running as PID %lu.", (unsigned long) pid);
                 close_nointr_nofail(pipefd[0]);
                 close_nointr_nofail(pipefd[1]);
 
