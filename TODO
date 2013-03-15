@@ -46,6 +46,11 @@ Fedora 19:
 
 Features:
 
+* Support SO_REUSEPORT with socket activation:
+  - Let systemd maintain a pool of servers.
+  - Use for seamless upgrades, by running the new server before stopping the
+    old.
+
 * BootLoaderSpec: drop allowing ext234 for $BOOT. Clarify that the
   kernel has to be in $BOOT. Clarify that the boot loader should be
   installed to the ESP. Define a way how an installer can figure out
