@@ -581,7 +581,6 @@ Features:
 * drop cap bounding set in readahead and other services
 
 * systemd-python:
-   - export sd_journal_get_catalog_for_message_id (in systemd.id128)
    - allow reading of only select fields in systemd.journal._reader.Reader
    - export sd_journal_test_cursor in systemd.journal._reader.Reader
    - export sd_journal_get_usage in systemd.journal._reader.Reader

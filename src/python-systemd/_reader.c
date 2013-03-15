@@ -50,6 +50,11 @@ static int set_error(int r, const char* path, const char* invalid_message) {
     return -1;
 }
 
+
+PyDoc_STRVAR(module__doc__,
+             "Class to reads the systemd journal similar to journalctl.");
+
+
 #if PY_MAJOR_VERSION >= 3
 static PyTypeObject MonotonicType;
 
@@ -657,6 +662,37 @@ static PyObject* Reader_get_catalog(Reader *self, PyObject *args)
 }
 
 
+PyDoc_STRVAR(get_catalog__doc__,
+             "get_catalog(id128) -> str\n\n"
+             "Retrieve a message catalog entry for the given id.\n"
+             "Wraps man:sd_journal_get_catalog_for_message_id(3).");
+static PyObject* get_catalog(PyObject *self, PyObject *args)
+{
+    int r;
+    char *id_ = NULL;
+    sd_id128_t id;
+    char _cleanup_free_ *msg = NULL;
+
+    assert(!self);
+    assert(args);
+
+    if (!PyArg_ParseTuple(args, "z", &id_))
+        return NULL;
+
+    r = sd_id128_from_string(id_, &id);
+    if (set_error(r, NULL, "Invalid id128"))
+        return NULL;
+
+    Py_BEGIN_ALLOW_THREADS
+    r = sd_journal_get_catalog_for_message_id(id, &msg);
+    Py_END_ALLOW_THREADS
+    if (set_error(r, NULL, NULL))
+        return NULL;
+
+    return unicode_FromString(msg);
+}
+
+
 PyDoc_STRVAR(data_threshold__doc__,
              "Threshold for field size truncation in bytes.\n\n"
              "Fields longer than this will be truncated to the threshold size.\n"
@@ -774,16 +810,19 @@ static PyTypeObject ReaderType = {
     PyType_GenericNew,                        /* tp_new */
 };
 
-#define SUMMARY \
-    "Module that reads the systemd journal similar to journalctl."
+static PyMethodDef methods[] = {
+        { "get_catalog", get_catalog, METH_VARARGS, get_catalog__doc__},
+        { NULL, NULL, 0, NULL }        /* Sentinel */
+};
 
 #if PY_MAJOR_VERSION >= 3
-static PyModuleDef _reader_module = {
+static PyModuleDef module = {
     PyModuleDef_HEAD_INIT,
     "_reader",
-    SUMMARY,
+    module__doc__,
     -1,
-    NULL, NULL, NULL, NULL, NULL
+    methods,
+    NULL, NULL, NULL, NULL
 };
 #endif
 
@@ -813,7 +852,7 @@ init_reader(void)
 #endif
 
 #if PY_MAJOR_VERSION >= 3
-    m = PyModule_Create(&_reader_module);
+    m = PyModule_Create(&module);
     if (m == NULL)
         return NULL;
 
@@ -822,7 +861,7 @@ init_reader(void)
         initialized = true;
     }
 #else
-    m = Py_InitModule3("_reader", NULL, SUMMARY);
+    m = Py_InitModule3("_reader", methods, module__doc__);
     if (m == NULL)
         return;
 #endif
