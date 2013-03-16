@@ -328,7 +328,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         if (found_monotonic) {
                 char buf[FORMAT_TIMESPAN_MAX];
                 log_debug_unit(UNIT(t)->id,
-                               "%s: Monotonic timer elapses in %s the next time.",
+                               "%s: Monotonic timer elapses in %s.",
                                UNIT(t)->id,
                                format_timespan(buf, sizeof(buf), t->next_elapse_monotonic > ts.monotonic ? t->next_elapse_monotonic - ts.monotonic : 0));
 
@@ -341,7 +341,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         if (found_realtime) {
                 char buf[FORMAT_TIMESTAMP_MAX];
                 log_debug_unit(UNIT(t)->id,
-                               "%s: Realtime timer elapses at %s the next time.",
+                               "%s: Realtime timer elapses at %s.",
                                UNIT(t)->id,
                                format_timestamp(buf, sizeof(buf), t->next_elapse_realtime));
 
