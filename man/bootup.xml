@@ -175,7 +175,7 @@
 
         <refsect1>
                 <title>Initrd System Manager Bootup</title>
-                <para>The default target in the initrd is the initrd-fs.target. The bootup process is
+                <para>The default target in the initrd is the initrd.target. The bootup process is
                 identical to the System Manager Bootup until it reaches basic.target. From there,
                 systemd approaches the special initrd.target. If the root device can be mounted at
                 /sysroot, the sysroot.mount unit becomes active and the initrd-root-fs.target is
@@ -213,7 +213,6 @@
                        |                       |
                        |                       v
                        |                initrd-fs.target
-                       |                       |
                        \______________________ |
                                               \|
                                                v
