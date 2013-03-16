@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Multi-User
+Description=Multi-User System
 Documentation=man:systemd.special(7)
 Requires=basic.target
 Conflicts=rescue.service rescue.target

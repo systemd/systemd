@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Initrd Target
+Description=Initrd Default Target
 Documentation=man:systemd.special(7)
 OnFailure=emergency.target
 OnFailureIsolate=yes
