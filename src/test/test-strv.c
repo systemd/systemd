@@ -233,8 +233,23 @@ static void test_strv_append(void) {
         assert_se(streq(c[0], "test3"));
 }
 
+static void test_strv_foreach_pair(void) {
+        _cleanup_strv_free_ char **a = NULL;
+        char **x, **y;
+
+        a = strv_new("pair_one",   "pair_one",
+                     "pair_two",   "pair_two",
+                     "pair_three", "pair_three",
+                     NULL);
+
+        STRV_FOREACH_PAIR(x, y, a) {
+                assert_se(streq(*x, *y));
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
+        test_strv_foreach_pair();
         test_strv_find();
         test_strv_find_prefix();
         test_strv_join();
