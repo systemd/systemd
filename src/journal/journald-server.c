@@ -593,7 +593,7 @@ static void dispatch_message_real(
                                 IOVEC_SET_STRING(iovec[n++], session);
                 }
 
-                if (sd_pid_get_owner_uid(ucred->uid, &owner) >= 0) {
+                if (sd_pid_get_owner_uid(ucred->pid, &owner) >= 0) {
                         owner_valid = true;
                         if (asprintf(&owner_uid, "_SYSTEMD_OWNER_UID=%lu", (unsigned long) owner) >= 0)
                                 IOVEC_SET_STRING(iovec[n++], owner_uid);
