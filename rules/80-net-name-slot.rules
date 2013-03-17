@@ -4,6 +4,11 @@ ACTION=="remove", GOTO="net_name_slot_end"
 SUBSYSTEM!="net", GOTO="net_name_slot_end"
 NAME!="", GOTO="net_name_slot_end"
 
+IMPORT{cmdline}="net.predictable-names"
+ENV{net.predictable-names}=="0", GOTO="net_name_slot_end"
+IMPORT{cmdline}="rd.net.predictable-names"
+ENV{rd.net.predictable-names}=="0", TEST=="/etc/initrd-release", GOTO="net_name_slot_end"
+
 NAME=="", ENV{ID_NET_NAME_ONBOARD}!="", NAME="$env{ID_NET_NAME_ONBOARD}"
 NAME=="", ENV{ID_NET_NAME_SLOT}!="", NAME="$env{ID_NET_NAME_SLOT}"
 NAME=="", ENV{ID_NET_NAME_PATH}!="", NAME="$env{ID_NET_NAME_PATH}"

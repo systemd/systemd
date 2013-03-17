@@ -28,8 +28,6 @@ Fedora 19:
 * cgroup attrs:
   - update dbus interface docs in wiki
 
-* kernel cmdline switch to turn off predictable network interface names
-
 * journal is not closed properly at shutdown when run in a container?
 
 * localed:

@@ -154,6 +154,14 @@
           non-working kernel modules.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>net.predictable-names=</varname></term>
+        <term><varname>rd.net.predictable-names=</varname></term>
+        <listitem>
+          <para>Rename network interfaces to give them predictable names
+          when possible. Defaults to 1.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
  </refsect1>
 
