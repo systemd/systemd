@@ -155,11 +155,10 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>net.predictable-names=</varname></term>
-        <term><varname>rd.net.predictable-names=</varname></term>
+        <term><varname>net.ifnames=</varname></term>
         <listitem>
-          <para>Rename network interfaces to give them predictable names
-          when possible. Defaults to 1.</para>
+          <para>Network interfaces are renamed to give them predictable names
+          when possible. It is enabled by default, specifying 0 disables it.</para>
         </listitem>
       </varlistentry>
     </variablelist>
