@@ -941,7 +941,7 @@ int show_journal_by_unit(
                 OutputFlags flags,
                 bool system) {
 
-        sd_journal *j = NULL;
+        sd_journal _cleanup_journal_close_ *j = NULL;
         int r;
         int jflags = SD_JOURNAL_LOCAL_ONLY | system * SD_JOURNAL_SYSTEM_ONLY;
 
@@ -954,24 +954,20 @@ int show_journal_by_unit(
 
         r = sd_journal_open(&j, jflags);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (system)
                 r = add_matches_for_unit(j, unit);
         else
                 r = add_matches_for_user_unit(j, unit, uid);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = show_journal(f, j, mode, n_columns, not_before, how_many, flags);
         if (r < 0)
-                goto finish;
+                return r;
 
-finish:
-        if (j)
-                sd_journal_close(j);
-
-        return r;
+        return 0;
 }
 
 static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {

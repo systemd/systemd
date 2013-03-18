@@ -203,6 +203,7 @@ static inline size_t IOVEC_INCREMENT(struct iovec *i, unsigned n, size_t k) {
 #define _cleanup_set_free_ __attribute__((cleanup(set_freep)))
 #define _cleanup_set_free_free_ __attribute__((cleanup(set_free_freep)))
 #define _cleanup_strv_free_ __attribute__((cleanup(strv_freep)))
+#define _cleanup_journal_close_ __attribute__((cleanup(journal_closep)))
 
 #define VA_FORMAT_ADVANCE(format, ap)                                   \
 do {                                                                    \

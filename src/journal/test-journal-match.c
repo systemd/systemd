@@ -28,8 +28,8 @@
 #include "log.h"
 
 int main(int argc, char *argv[]) {
-        sd_journal *j;
-        char *t;
+        sd_journal _cleanup_journal_close_ *j;
+        char _cleanup_free_ *t;
 
         log_set_max_level(LOG_DEBUG);
 
@@ -59,9 +59,6 @@ int main(int argc, char *argv[]) {
         assert_se(streq(t, "((TWO=two AND (ONE=two OR ONE=one)) OR (PIFF=paff AND (QUUX=yyyyy OR QUUX=xxxxx OR QUUX=mmmm) AND (HALLO= OR HALLO=WALDO)))"));
 
         printf("resulting match expression is: %s\n", t);
-        free(t);
-
-        sd_journal_close(j);
 
         return 0;
 }

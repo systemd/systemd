@@ -960,8 +960,7 @@ finish:
         if (r >= 0)
                 rm_rf("/run/log/journal", false, true, false);
 
-        if (j)
-                sd_journal_close(j);
+        sd_journal_close(j);
 
         return r;
 }

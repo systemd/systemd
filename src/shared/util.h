@@ -36,6 +36,7 @@
 #include <dirent.h>
 #include <sys/resource.h>
 #include <stddef.h>
+#include <systemd/sd-journal.h>
 
 #include "macro.h"
 #include "time-util.h"
@@ -529,6 +530,10 @@ void closep(int *fd);
 void closedirp(DIR **d);
 static inline void umaskp(mode_t *u) {
         umask(*u);
+}
+
+static inline void journal_closep(sd_journal **j) {
+        sd_journal_close(*j);
 }
 
 _malloc_  static inline void *malloc_multiply(size_t a, size_t b) {

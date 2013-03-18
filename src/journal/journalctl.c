@@ -897,7 +897,7 @@ static int access_check(void) {
 
 int main(int argc, char *argv[]) {
         int r;
-        sd_journal *j = NULL;
+        sd_journal _cleanup_journal_close_ *j = NULL;
         bool need_seek = false;
         sd_id128_t previous_boot_id;
         bool previous_boot_id_valid = false, first_line = true;
@@ -937,7 +937,7 @@ int main(int argc, char *argv[]) {
 
         r = access_check();
         if (r < 0)
-                goto finish;
+                return EXIT_FAILURE;
 
         if (arg_directory)
                 r = sd_journal_open_directory(&j, arg_directory, 0);
@@ -945,7 +945,7 @@ int main(int argc, char *argv[]) {
                 r = sd_journal_open(&j, arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY);
         if (r < 0) {
                 log_error("Failed to open journal: %s", strerror(-r));
-                goto finish;
+                return EXIT_FAILURE;
         }
 
         if (arg_action == ACTION_VERIFY) {
@@ -955,8 +955,7 @@ int main(int argc, char *argv[]) {
 
         if (arg_action == ACTION_PRINT_HEADER) {
                 journal_print_header(j);
-                r = 0;
-                goto finish;
+                return EXIT_SUCCESS;
         }
 
         if (arg_action == ACTION_DISK_USAGE) {
@@ -965,33 +964,33 @@ int main(int argc, char *argv[]) {
 
                 r = sd_journal_get_usage(j, &bytes);
                 if (r < 0)
-                        goto finish;
+                        return EXIT_FAILURE;
 
-                printf("Journals take up %s on disk.\n", format_bytes(sbytes, sizeof(sbytes), bytes));
-                r = 0;
-                goto finish;
+                printf("Journals take up %s on disk.\n",
+                       format_bytes(sbytes, sizeof(sbytes), bytes));
+                return EXIT_SUCCESS;
         }
 
         r = add_this_boot(j);
         if (r < 0)
-                goto finish;
+                return EXIT_FAILURE;
 
         r = add_unit(j);
         if (r < 0)
-                goto finish;
+                return EXIT_FAILURE;
 
         r = add_matches(j, argv + optind);
         if (r < 0)
-                goto finish;
+                return EXIT_FAILURE;
 
         r = add_priorities(j);
         if (r < 0)
-                goto finish;
+                return EXIT_FAILURE;
 
         /* Opening the fd now means the first sd_journal_wait() will actually wait */
         r = sd_journal_get_fd(j);
         if (r < 0)
-                goto finish;
+                return EXIT_FAILURE;
 
         if (arg_field) {
                 const void *data;
@@ -1000,7 +999,7 @@ int main(int argc, char *argv[]) {
                 r = sd_journal_query_unique(j, arg_field);
                 if (r < 0) {
                         log_error("Failed to query unique data objects: %s", strerror(-r));
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
                 SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
@@ -1018,15 +1017,14 @@ int main(int argc, char *argv[]) {
                         n_shown ++;
                 }
 
-                r = 0;
-                goto finish;
+                return EXIT_SUCCESS;
         }
 
         if (arg_cursor) {
                 r = sd_journal_seek_cursor(j, arg_cursor);
                 if (r < 0) {
                         log_error("Failed to seek to cursor: %s", strerror(-r));
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
                 if (!arg_reverse)
                         r = sd_journal_next(j);
@@ -1037,7 +1035,7 @@ int main(int argc, char *argv[]) {
                 r = sd_journal_seek_realtime_usec(j, arg_since);
                 if (r < 0) {
                         log_error("Failed to seek to date: %s", strerror(-r));
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
                 r = sd_journal_next(j);
 
@@ -1045,7 +1043,7 @@ int main(int argc, char *argv[]) {
                 r = sd_journal_seek_realtime_usec(j, arg_until);
                 if (r < 0) {
                         log_error("Failed to seek to date: %s", strerror(-r));
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
                 r = sd_journal_previous(j);
 
@@ -1053,7 +1051,7 @@ int main(int argc, char *argv[]) {
                 r = sd_journal_seek_tail(j);
                 if (r < 0) {
                         log_error("Failed to seek to tail: %s", strerror(-r));
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
                 r = sd_journal_previous_skip(j, arg_lines);
@@ -1062,7 +1060,7 @@ int main(int argc, char *argv[]) {
                 r = sd_journal_seek_tail(j);
                 if (r < 0) {
                         log_error("Failed to seek to tail: %s", strerror(-r));
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
                 r = sd_journal_previous(j);
@@ -1071,7 +1069,7 @@ int main(int argc, char *argv[]) {
                 r = sd_journal_seek_head(j);
                 if (r < 0) {
                         log_error("Failed to seek to head: %s", strerror(-r));
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
                 r = sd_journal_next(j);
@@ -1079,7 +1077,7 @@ int main(int argc, char *argv[]) {
 
         if (r < 0) {
                 log_error("Failed to iterate through journal: %s", strerror(-r));
-                goto finish;
+                return EXIT_FAILURE;
         }
 
         if (!arg_no_pager && !arg_follow)
@@ -1189,9 +1187,6 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
-        if (j)
-                sd_journal_close(j);
-
         pager_close();
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

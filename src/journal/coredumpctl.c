@@ -34,6 +34,7 @@
 #include "log.h"
 #include "path-util.h"
 #include "pager.h"
+#include "macro.h"
 
 static enum {
         ACTION_NONE,
@@ -42,7 +43,6 @@ static enum {
         ACTION_GDB,
 } arg_action = ACTION_LIST;
 
-static Set *matches = NULL;
 static FILE* output = NULL;
 static char* field = NULL;
 
@@ -139,7 +139,7 @@ fail:
         return r;
 }
 
-static int parse_argv(int argc, char *argv[]) {
+static int parse_argv(int argc, char *argv[], Set *matches) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
@@ -519,10 +519,11 @@ finish:
 }
 
 int main(int argc, char *argv[]) {
-        sd_journal *j = NULL;
+        sd_journal _cleanup_journal_close_ *j = NULL;
         const char* match;
         Iterator it;
         int r = 0;
+        Set _cleanup_set_free_free_ *matches = NULL;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
@@ -534,7 +535,7 @@ int main(int argc, char *argv[]) {
                 goto end;
         }
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, matches);
         if (r < 0)
                 goto end;
 
@@ -578,11 +579,6 @@ int main(int argc, char *argv[]) {
         }
 
 end:
-        if (j)
-                sd_journal_close(j);
-
-        set_free_free(matches);
-
         pager_close();
 
         if (output)
