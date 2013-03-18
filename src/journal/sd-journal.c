@@ -1215,7 +1215,7 @@ static void check_network(sd_journal *j, int fd) {
 }
 
 static int add_file(sd_journal *j, const char *prefix, const char *filename) {
-        char *path;
+        char _cleanup_free_ *path = NULL;
         int r;
         JournalFile *f;
 
@@ -1234,20 +1234,15 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
         if (!path)
                 return -ENOMEM;
 
-        if (hashmap_get(j->files, path)) {
-                free(path);
+        if (hashmap_get(j->files, path))
                 return 0;
-        }
 
         if (hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
                 log_debug("Too many open journal files, not adding %s, ignoring.", path);
-                free(path);
                 return 0;
         }
 
         r = journal_file_open(path, O_RDONLY, 0, false, false, NULL, j->mmap, NULL, &f);
-        free(path);
-
         if (r < 0) {
                 if (errno == ENOENT)
                         return 0;
@@ -1263,11 +1258,11 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
                 return r;
         }
 
+        log_debug("File %s got added.", f->path);
+
         check_network(j, f->fd);
 
         j->current_invalidate_counter ++;
-
-        log_debug("File %s got added.", f->path);
 
         return 0;
 }
@@ -1311,9 +1306,9 @@ static int remove_file(sd_journal *j, const char *prefix, const char *filename) 
 }
 
 static int add_directory(sd_journal *j, const char *prefix, const char *dirname) {
-        char *path;
+        char _cleanup_free_ *path = NULL;
         int r;
-        DIR *d;
+        DIR _cleanup_closedir_ *d = NULL;
         sd_id128_t id, mid;
         Directory *m;
 
@@ -1336,8 +1331,6 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
         d = opendir(path);
         if (!d) {
                 log_debug("Failed to open %s: %m", path);
-                free(path);
-
                 if (errno == ENOENT)
                         return 0;
                 return -errno;
@@ -1346,32 +1339,24 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
         m = hashmap_get(j->directories_by_path, path);
         if (!m) {
                 m = new0(Directory, 1);
-                if (!m) {
-                        closedir(d);
-                        free(path);
+                if (!m)
                         return -ENOMEM;
-                }
 
                 m->is_root = false;
                 m->path = path;
 
                 if (hashmap_put(j->directories_by_path, m->path, m) < 0) {
-                        closedir(d);
-                        free(m->path);
                         free(m);
                         return -ENOMEM;
                 }
 
+                path = NULL; /* avoid freeing in cleanup */
                 j->current_invalidate_counter ++;
 
                 log_debug("Directory %s got added.", m->path);
 
-        } else if (m->is_root) {
-                free (path);
-                closedir(d);
+        } else if (m->is_root)
                 return 0;
-        }  else
-                free(path);
 
         if (m->wd <= 0 && j->inotify_fd >= 0) {
 
@@ -1402,13 +1387,11 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
 
         check_network(j, dirfd(d));
 
-        closedir(d);
-
         return 0;
 }
 
 static int add_root_directory(sd_journal *j, const char *p) {
-        DIR *d;
+        DIR _cleanup_closedir_ *d = NULL;
         Directory *m;
         int r;
 
@@ -1426,21 +1409,17 @@ static int add_root_directory(sd_journal *j, const char *p) {
         m = hashmap_get(j->directories_by_path, p);
         if (!m) {
                 m = new0(Directory, 1);
-                if (!m) {
-                        closedir(d);
+                if (!m)
                         return -ENOMEM;
-                }
 
                 m->is_root = true;
                 m->path = strdup(p);
                 if (!m->path) {
-                        closedir(d);
                         free(m);
                         return -ENOMEM;
                 }
 
                 if (hashmap_put(j->directories_by_path, m->path, m) < 0) {
-                        closedir(d);
                         free(m->path);
                         free(m);
                         return -ENOMEM;
@@ -1450,10 +1429,8 @@ static int add_root_directory(sd_journal *j, const char *p) {
 
                 log_debug("Root directory %s got added.", m->path);
 
-        } else if (!m->is_root) {
-                closedir(d);
+        } else if (!m->is_root)
                 return 0;
-        }
 
         if (m->wd <= 0 && j->inotify_fd >= 0) {
 
@@ -1490,8 +1467,6 @@ static int add_root_directory(sd_journal *j, const char *p) {
         }
 
         check_network(j, dirfd(d));
-
-        closedir(d);
 
         return 0;
 }
