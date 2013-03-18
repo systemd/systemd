@@ -153,6 +153,35 @@ PyDoc_STRVAR(Reader_close__doc__,
              "See man:sd_journal_close(3).");
 static PyObject* Reader_close(Reader *self, PyObject *args)
 {
+    assert(self);
+    assert(!args);
+
+    sd_journal_close(self->j);
+    self->j = NULL;
+    Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(Reader___enter____doc__,
+             "__enter__() -> self\n\n"
+             "Part of the context manager protocol.\n"
+             "Returns self.\n");
+static PyObject* Reader___enter__(PyObject *self, PyObject *args)
+{
+    assert(self);
+    assert(!args);
+
+    Py_INCREF(self);
+    return self;
+}
+
+PyDoc_STRVAR(Reader___exit____doc__,
+             "__exit__(type, value, traceback) -> None\n\n"
+             "Part of the context manager protocol.\n"
+             "Closes the journal.\n");
+static PyObject* Reader___exit__(Reader *self, PyObject *args)
+{
+    assert(self);
+
     sd_journal_close(self->j);
     self->j = NULL;
     Py_RETURN_NONE;
@@ -649,6 +678,9 @@ static PyGetSetDef Reader_getseters[] = {
 static PyMethodDef Reader_methods[] = {
     {"fileno",          (PyCFunction) Reader_fileno, METH_NOARGS, Reader_fileno__doc__},
     {"reliable_fd",     (PyCFunction) Reader_reliable_fd, METH_NOARGS, Reader_reliable_fd__doc__},
+    {"close",           (PyCFunction) Reader_close, METH_NOARGS, Reader_close__doc__},
+    {"__enter__",       (PyCFunction) Reader___enter__, METH_NOARGS, Reader___enter____doc__},
+    {"__exit__",        (PyCFunction) Reader___exit__, METH_VARARGS, Reader___exit____doc__},
     {"close",           (PyCFunction) Reader_close, METH_NOARGS, Reader_close__doc__},
     {"get_next",        (PyCFunction) Reader_get_next, METH_VARARGS, Reader_get_next__doc__},
     {"get_previous",    (PyCFunction) Reader_get_previous, METH_VARARGS, Reader_get_previous__doc__},
