@@ -1568,37 +1568,21 @@ static sd_journal *journal_new(int flags, const char *path) {
 
         if (path) {
                 j->path = strdup(path);
-                if (!j->path) {
-                        free(j);
-                        return NULL;
-                }
+                if (!j->path)
+                        goto fail;
         }
 
         j->files = hashmap_new(string_hash_func, string_compare_func);
-        if (!j->files) {
-                free(j->path);
-                free(j);
-                return NULL;
-        }
-
         j->directories_by_path = hashmap_new(string_hash_func, string_compare_func);
-        if (!j->directories_by_path) {
-                hashmap_free(j->files);
-                free(j->path);
-                free(j);
-                return NULL;
-        }
-
         j->mmap = mmap_cache_new();
-        if (!j->mmap) {
-                hashmap_free(j->files);
-                hashmap_free(j->directories_by_path);
-                free(j->path);
-                free(j);
-                return NULL;
-        }
+        if (!j->files || !j->directories_by_path || !j->mmap)
+                goto fail;
 
         return j;
+
+fail:
+        sd_journal_close(j);
+        return NULL;
 }
 
 _public_ int sd_journal_open(sd_journal **ret, int flags) {
