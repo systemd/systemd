@@ -140,7 +140,9 @@ enum udev_builtin_cmd {
         UDEV_BUILTIN_BLKID,
 #endif
         UDEV_BUILTIN_BTRFS,
+#ifdef ENABLE_FIRMWARE
         UDEV_BUILTIN_FIRMWARE,
+#endif
         UDEV_BUILTIN_HWDB,
         UDEV_BUILTIN_INPUT_ID,
 #ifdef HAVE_KMOD
@@ -167,7 +169,9 @@ struct udev_builtin {
 extern const struct udev_builtin udev_builtin_blkid;
 #endif
 extern const struct udev_builtin udev_builtin_btrfs;
+#ifdef ENABLE_FIRMWARE
 extern const struct udev_builtin udev_builtin_firmware;
+#endif
 extern const struct udev_builtin udev_builtin_hwdb;
 extern const struct udev_builtin udev_builtin_input_id;
 #ifdef HAVE_KMOD

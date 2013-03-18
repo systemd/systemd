@@ -64,5 +64,4 @@ SUBSYSTEM=="virtio-ports", KERNEL=="vport*", ATTR{name}=="?*", SYMLINK+="virtio-
 
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb --subsystem=usb"
 SUBSYSTEM=="input", ENV{ID_INPUT}=="", IMPORT{builtin}="input_id"
-SUBSYSTEM=="firmware", ACTION=="add", IMPORT{builtin}="firmware"
 ENV{MODALIAS}!="", IMPORT{builtin}="hwdb --subsystem=$env{SUBSYSTEM}"

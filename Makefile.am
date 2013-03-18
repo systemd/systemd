@@ -1352,11 +1352,9 @@ rootlibexec_PROGRAMS += \
 
 nodist_systemunit_DATA += \
 	units/systemd-modules-load.service
+
 SYSINIT_TARGET_WANTS += \
 	systemd-modules-load.service
-
-dist_udevrules_DATA += \
-	rules/80-drivers.rules
 
 endif
 
@@ -1809,7 +1807,6 @@ libudev_core_la_SOURCES = \
 	src/udev/udev-ctrl.c \
 	src/udev/udev-builtin.c \
 	src/udev/udev-builtin-btrfs.c \
-	src/udev/udev-builtin-firmware.c \
 	src/udev/udev-builtin-hwdb.c \
 	src/udev/udev-builtin-input_id.c \
 	src/udev/udev-builtin-net_id.c \
@@ -1833,9 +1830,20 @@ libudev_core_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	-DFIRMWARE_PATH="$(FIRMWARE_PATH)"
 
+if ENABLE_FIRMWARE
+libudev_core_la_SOURCES += \
+	src/udev/udev-builtin-firmware.c
+
+dist_udevrules_DATA += \
+	rules/50-firmware.rules
+endif
+
 if HAVE_KMOD
 libudev_core_la_SOURCES += \
 	src/udev/udev-builtin-kmod.c
+
+dist_udevrules_DATA += \
+	rules/80-drivers.rules
 endif
 
 if HAVE_BLKID
