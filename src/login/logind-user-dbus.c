@@ -257,7 +257,7 @@ static DBusHandlerResult user_message_dispatch(
                 DBusMessage *message) {
 
         DBusError error;
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r;
 
         assert(u);
@@ -306,16 +306,11 @@ static DBusHandlerResult user_message_dispatch(
         if (reply) {
                 if (!bus_maybe_send_reply(connection, message, reply))
                         goto oom;
-
-                dbus_message_unref(reply);
         }
 
         return DBUS_HANDLER_RESULT_HANDLED;
 
 oom:
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -366,9 +361,9 @@ char *user_bus_path(User *u) {
 }
 
 int user_send_signal(User *u, bool new_user) {
-        DBusMessage *m;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
         int r = -ENOMEM;
-        char *p = NULL;
+        _cleanup_free_ char *p = NULL;
         uint32_t uid;
 
         assert(u);
@@ -399,16 +394,13 @@ int user_send_signal(User *u, bool new_user) {
         r = 0;
 
 finish:
-        dbus_message_unref(m);
-        free(p);
-
         return r;
 }
 
 int user_send_changed(User *u, const char *properties) {
-        DBusMessage *m;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
         int r = -ENOMEM;
-        char *p = NULL;
+        _cleanup_free_ char *p = NULL;
 
         assert(u);
 
@@ -429,9 +421,5 @@ int user_send_changed(User *u, const char *properties) {
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-        free(p);
-
         return r;
 }

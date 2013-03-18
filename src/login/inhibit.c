@@ -42,7 +42,7 @@ static enum {
 } arg_action = ACTION_INHIBIT;
 
 static int inhibit(DBusConnection *bus, DBusError *error) {
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r;
 
         r = bus_method_call_with_reply(
@@ -66,13 +66,11 @@ static int inhibit(DBusConnection *bus, DBusError *error) {
                                    DBUS_TYPE_INVALID))
                 r = -EIO;
 
-        dbus_message_unref(reply);
-
         return r;
 }
 
 static int print_inhibitors(DBusConnection *bus, DBusError *error) {
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         unsigned n = 0;
         DBusMessageIter iter, sub, sub2;
         int r;
@@ -139,9 +137,6 @@ static int print_inhibitors(DBusConnection *bus, DBusError *error) {
         r = 0;
 
 finish:
-        if (reply)
-                dbus_message_unref(reply);
-
         return r;
 }
 

@@ -319,7 +319,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         int r;
         uint32_t vtnr = 0;
         _cleanup_close_ int fifo_fd = -1;
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         Session *session = NULL;
         User *user = NULL;
         Seat *seat = NULL;
@@ -536,6 +536,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 }
 
                 *_reply = reply;
+                reply = NULL;
 
                 return 0;
         }
@@ -681,6 +682,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         }
 
         *_reply = reply;
+        reply = NULL;
 
         return 0;
 
@@ -690,9 +692,6 @@ fail:
 
         if (user)
                 user_add_to_gc_queue(user);
-
-        if (reply)
-                dbus_message_unref(reply);
 
         return r;
 }
@@ -712,7 +711,7 @@ static int bus_manager_inhibit(
         InhibitMode mm;
         unsigned long ul;
         int r, fifo_fd = -1;
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
 
         assert(m);
         assert(connection);
@@ -833,6 +832,7 @@ static int bus_manager_inhibit(
 
         close_nointr_nofail(fifo_fd);
         *_reply = reply;
+        reply = NULL;
 
         inhibitor_start(i);
 
@@ -844,9 +844,6 @@ fail:
 
         if (fifo_fd >= 0)
                 close_nointr_nofail(fifo_fd);
-
-        if (reply)
-                dbus_message_unref(reply);
 
         return r;
 }
@@ -1126,7 +1123,7 @@ static int bus_manager_can_shutdown_or_sleep(
 
         bool multiple_sessions, challenge, blocked, b;
         const char *result;
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r;
         unsigned long ul;
 
@@ -1226,11 +1223,11 @@ finish:
                         DBUS_TYPE_STRING, &result,
                         DBUS_TYPE_INVALID);
         if (!b) {
-                dbus_message_unref(reply);
                 return -ENOMEM;
         }
 
         *_reply = reply;
+        reply = NULL;
         return 0;
 }
 
@@ -1430,7 +1427,7 @@ static DBusHandlerResult manager_message_handler(
         Manager *m = userdata;
 
         DBusError error;
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r;
 
         assert(connection);
@@ -2338,16 +2335,11 @@ static DBusHandlerResult manager_message_handler(
         if (reply) {
                 if (!bus_maybe_send_reply(connection, message, reply))
                                 goto oom;
-
-                dbus_message_unref(reply);
         }
 
         return DBUS_HANDLER_RESULT_HANDLED;
 
 oom:
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -2413,7 +2405,7 @@ DBusHandlerResult bus_message_filter(
 }
 
 int manager_send_changed(Manager *manager, const char *properties) {
-        DBusMessage *m;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
         int r = -ENOMEM;
 
         assert(manager);
@@ -2428,9 +2420,6 @@ int manager_send_changed(Manager *manager, const char *properties) {
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-
         return r;
 }
 

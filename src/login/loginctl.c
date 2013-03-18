@@ -72,7 +72,7 @@ static void polkit_agent_open_if_enabled(void) {
 }
 
 static int list_sessions(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r;
         DBusMessageIter iter, sub, sub2;
         unsigned k = 0;
@@ -139,14 +139,11 @@ static int list_sessions(DBusConnection *bus, char **args, unsigned n) {
         r = 0;
 
 finish:
-        if (reply)
-                dbus_message_unref(reply);
-
         return r;
 }
 
 static int list_users(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r;
         DBusMessageIter iter, sub, sub2;
         unsigned k = 0;
@@ -211,14 +208,11 @@ static int list_users(DBusConnection *bus, char **args, unsigned n) {
         r = 0;
 
 finish:
-        if (reply)
-                dbus_message_unref(reply);
-
         return r;
 }
 
 static int list_seats(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r;
         DBusMessageIter iter, sub, sub2;
         unsigned k = 0;
@@ -281,9 +275,6 @@ static int list_seats(DBusConnection *bus, char **args, unsigned n) {
         r = 0;
 
 finish:
-        if (reply)
-                dbus_message_unref(reply);
-
         return r;
 }
 
@@ -961,7 +952,7 @@ finish:
 }
 
 static int show(DBusConnection *bus, char **args, unsigned n) {
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r, ret = 0;
         DBusError error;
         unsigned i;
@@ -1048,15 +1039,9 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                 r = show_one(args[0], bus, path, show_properties, &new_line);
                 if (r != 0)
                         ret = r;
-
-                dbus_message_unref(reply);
-                reply = NULL;
         }
 
 finish:
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return ret;

@@ -307,7 +307,7 @@ static DBusHandlerResult session_message_dispatch(
                 DBusMessage *message) {
 
         DBusError error;
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r;
 
         assert(s);
@@ -414,16 +414,11 @@ static DBusHandlerResult session_message_dispatch(
         if (reply) {
                 if (!bus_maybe_send_reply(connection, message, reply))
                         goto oom;
-
-                dbus_message_unref(reply);
         }
 
         return DBUS_HANDLER_RESULT_HANDLED;
 
 oom:
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -478,9 +473,9 @@ char *session_bus_path(Session *s) {
 }
 
 int session_send_signal(Session *s, bool new_session) {
-        DBusMessage *m;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
         int r = -ENOMEM;
-        char *p = NULL;
+        _cleanup_free_ char *p = NULL;
 
         assert(s);
 
@@ -508,16 +503,13 @@ int session_send_signal(Session *s, bool new_session) {
         r = 0;
 
 finish:
-        dbus_message_unref(m);
-        free(p);
-
         return r;
 }
 
 int session_send_changed(Session *s, const char *properties) {
-        DBusMessage *m;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
         int r = -ENOMEM;
-        char *p = NULL;
+        _cleanup_free_ char *p = NULL;
 
         assert(s);
 
@@ -538,17 +530,13 @@ int session_send_changed(Session *s, const char *properties) {
         r = 0;
 
 finish:
-        if (m)
-                dbus_message_unref(m);
-        free(p);
-
         return r;
 }
 
 int session_send_lock(Session *s, bool lock) {
-        DBusMessage *m;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
         bool b;
-        char *p;
+        _cleanup_free_ char *p = NULL;
 
         assert(s);
 
@@ -557,14 +545,11 @@ int session_send_lock(Session *s, bool lock) {
                 return -ENOMEM;
 
         m = dbus_message_new_signal(p, "org.freedesktop.login1.Session", lock ? "Lock" : "Unlock");
-        free(p);
 
         if (!m)
                 return -ENOMEM;
 
         b = dbus_connection_send(s->manager->bus, m, NULL);
-        dbus_message_unref(m);
-
         if (!b)
                 return -ENOMEM;
 
