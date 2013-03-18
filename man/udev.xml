@@ -54,28 +54,7 @@
     sources is provided by the library libudev.</para>
   </refsect1>
 
-  <refsect1><title>Configuration</title>
-    <para>udev configuration files are placed in <filename>/etc/udev</filename>
-    and <filename>/usr/lib/udev</filename>. All empty lines or lines beginning with
-    '#' are ignored.</para>
-
-    <refsect2><title>Configuration file</title>
-      <para>udev expects its main configuration file at <filename>/etc/udev/udev.conf</filename>.
-      It consists of a set of variables allowing the user to override default udev values.
-      The following variables can be set:</para>
-      <variablelist>
-        <varlistentry>
-          <term><varname>udev_log</varname></term>
-          <listitem>
-            <para>The logging priority. Valid values are the numerical syslog priorities
-            or their textual representations: <option>err</option>, <option>info</option>
-            and <option>debug</option>.</para>
-          </listitem>
-        </varlistentry>
-      </variablelist>
-    </refsect2>
-
-    <refsect2><title>Rules files</title>
+  <refsect1><title>Rules files</title>
       <para>The udev rules are read from the files located in the
       system rules directory <filename>/usr/lib/udev/rules.d</filename>,
       the volatile runtime directory <filename>/run/udev/rules.d</filename>
@@ -94,9 +73,10 @@
       extensions are ignored.</para>
 
       <para>Every line in the rules file contains at least one key-value pair.
+      Except for empty lines or lines beginning with '#', which are ignored.
       There are two kinds of keys: match and assignment.
-      If all match keys are matching against its value, the rule gets applied and the
-      assignment keys get the specified value assigned.</para>
+      If all match keys match against their values, the rule gets applied and the
+      assignment keys get the specified values assigned.</para>
 
       <para>A matching rule may rename a network interface, add symlinks
       pointing to the device node, or run a specified program as part of
@@ -714,7 +694,6 @@
           </listitem>
         </varlistentry>
       </variablelist>
-    </refsect2>
   </refsect1>
 
   <refsect1>

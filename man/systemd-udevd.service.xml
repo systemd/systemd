@@ -157,6 +157,23 @@
     </variablelist>
  </refsect1>
 
+ <refsect1><title>Configuration file</title>
+   <para>udev expects its main configuration file at <filename>/etc/udev/udev.conf</filename>.
+   It consists of a set of variables allowing the user to override default udev values. All
+   empty lines or lines beginning with '#' are ignored. The following variables can be
+   set:</para>
+   <variablelist>
+     <varlistentry>
+       <term><varname>udev_log</varname></term>
+       <listitem>
+         <para>The logging priority. Valid values are the numerical syslog priorities
+         or their textual representations: <option>err</option>, <option>info</option>
+         and <option>debug</option>.</para>
+       </listitem>
+     </varlistentry>
+   </variablelist>
+ </refsect1>
+
   <refsect1>
     <title>See Also</title>
     <para><citerefentry>
