@@ -392,14 +392,31 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>RUN</option></term>
+          <term><option>RUN{<replaceable>type</replaceable>}</option></term>
           <listitem>
             <para>Add a program to the list of programs to be executed for a specific
-            device.</para>
-            <para>If no absolute path is given, the program is expected to live in
-            /usr/lib/udev, otherwise the absolute path must be specified. The program
-            name and following arguments are separated by spaces. Single quotes can
-            be used to specify arguments with spaces.</para>
+            device, depending on <literal>type</literal>:</para>
+            <variablelist>
+              <varlistentry>
+                <term><literal>program</literal></term>
+                <listitem>
+                  <para>Execute an external program specified as the assigned
+                  value. If no absolute path is given, the program is expected to live in
+                  /usr/lib/udev, otherwise the absolute path must be specified.</para>
+                  <para>This is the default if no <replaceable>type</replaceable> is
+                  specified.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>builtin</literal></term>
+                <listitem>
+                  <para>As <option>program</option>, but use one of the built-in programs rather
+                  than an external one.</para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+            <para>The program name and following arguments are separated by spaces.
+            Single quotes can be used to specify arguments with spaces.</para>
             <para>This can only be used for very short-running foreground tasks. Running an
             event process for a long period of time may block all further events for
             this or a dependent device.</para>
@@ -439,6 +456,13 @@
                 </listitem>
               </varlistentry>
               <varlistentry>
+                <term><literal>builtin</literal></term>
+                <listitem>
+                  <para>As <option>program</option>, but use one of the built-in programs rather
+                  than an external one.</para>
+                </listitem>
+              </varlistentry>
+             <varlistentry>
                 <term><literal>file</literal></term>
                 <listitem>
                   <para>Import a text file specified as the assigned value, the content
