@@ -1894,7 +1894,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         }
 
         if (reply)
-                if (!dbus_connection_send(connection, reply, NULL))
+                if (!bus_maybe_send_reply(connection, message, reply))
                         goto oom;
 
         return DBUS_HANDLER_RESULT_HANDLED;

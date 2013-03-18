@@ -77,7 +77,7 @@ DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusConnection *c, DBusM
                 return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
         }
 
-        if (!dbus_connection_send(c, reply, NULL))
+        if (!bus_maybe_send_reply(c, message, reply))
                 return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
         return DBUS_HANDLER_RESULT_HANDLED;

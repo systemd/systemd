@@ -412,7 +412,7 @@ static DBusHandlerResult session_message_dispatch(
         }
 
         if (reply) {
-                if (!dbus_connection_send(connection, reply, NULL))
+                if (!bus_maybe_send_reply(connection, message, reply))
                         goto oom;
 
                 dbus_message_unref(reply);

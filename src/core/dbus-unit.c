@@ -582,7 +582,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
         }
 
         if (reply)
-                if (!dbus_connection_send(connection, reply, NULL))
+                if (!bus_maybe_send_reply(connection, message, reply))
                         goto oom;
 
         return DBUS_HANDLER_RESULT_HANDLED;
@@ -673,7 +673,7 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
 
                         free(introspection);
 
-                        if (!dbus_connection_send(connection, reply, NULL))
+                        if (!bus_maybe_send_reply(connection, message, reply))
                                 goto oom;
 
                         return DBUS_HANDLER_RESULT_HANDLED;
@@ -886,7 +886,7 @@ DBusHandlerResult bus_unit_queue_job(
                             DBUS_TYPE_INVALID))
                 goto oom;
 
-        if (!dbus_connection_send(connection, reply, NULL))
+        if (!bus_maybe_send_reply(connection, message, reply))
                 goto oom;
 
         return DBUS_HANDLER_RESULT_HANDLED;

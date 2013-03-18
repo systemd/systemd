@@ -116,7 +116,7 @@ static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusConnection *connec
                 return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
         }
 
-        if (!dbus_connection_send(connection, reply, NULL))
+        if (!bus_maybe_send_reply(connection, message, reply))
                 return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
         return DBUS_HANDLER_RESULT_HANDLED;
@@ -185,7 +185,7 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBu
 
                         free(introspection);
 
-                        if (!dbus_connection_send(connection, reply, NULL))
+                        if (!bus_maybe_send_reply(connection, message, reply))
                                 goto oom;
 
                         return DBUS_HANDLER_RESULT_HANDLED;

@@ -406,7 +406,7 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
         dbus_error_free(&error);
 
         if (reply) {
-                if (!dbus_connection_send(connection, reply, NULL))
+                if (!bus_maybe_send_reply(connection, message, reply))
                         goto oom;
 
                 dbus_message_unref(reply);
