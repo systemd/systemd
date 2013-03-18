@@ -374,8 +374,8 @@
         <varlistentry>
           <term><option>RUN{<replaceable>type</replaceable>}</option></term>
           <listitem>
-            <para>Add a program to the list of programs to be executed for a specific
-            device, depending on <literal>type</literal>:</para>
+            <para>Add a program to the list of programs to be executed after processing all the
+            rules for a specific event, depending on <literal>type</literal>:</para>
             <variablelist>
               <varlistentry>
                 <term><literal>program</literal></term>
