@@ -14,4 +14,4 @@
 0x15 volumedown
 0x16 mute
 0x17 prog1 # ThinkPad/ThinkVantage button (high keycode: "vendor")
-0x1A micmute # Microphone mute
+0x1A f20 # Microphone mute button; should be micmute, but see https://mail.gnome.org/archives/commits-list/2013-January/msg05822.html
