@@ -92,6 +92,7 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 #define MIN3(a,b,c)                             \
         MIN(MIN(a,b),c)
 
+#ifndef CLAMP
 #define CLAMP(x, low, high)                                             \
         __extension__ ({                                                \
                         typeof(x) _x = (x);                             \
@@ -99,6 +100,7 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
                         typeof(high) _high = (high);                    \
                         ((_x > _high) ? _high : ((_x < _low) ? _low : _x)); \
                 })
+#endif
 
 #define assert_se(expr)                                                 \
         do {                                                            \

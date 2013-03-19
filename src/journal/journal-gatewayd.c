@@ -110,7 +110,6 @@ static int open_journal(RequestMeta *m) {
         return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM_ONLY);
 }
 
-
 static int respond_oom_internal(struct MHD_Connection *connection) {
         struct MHD_Response *response;
         const char m[] = "Out of memory.\n";
