@@ -65,7 +65,7 @@ static int bus_user_append_display(DBusMessageIter *i, const char *property, voi
         DBusMessageIter sub;
         User *u = data;
         const char *id, *path;
-        char *p = NULL;
+        char _cleanup_free_ *p = NULL;
 
         assert(i);
         assert(property);
@@ -86,12 +86,8 @@ static int bus_user_append_display(DBusMessageIter *i, const char *property, voi
         }
 
         if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &id) ||
-            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &path)) {
-                free(p);
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &path))
                 return -ENOMEM;
-        }
-
-        free(p);
 
         if (!dbus_message_iter_close_container(i, &sub))
                 return -ENOMEM;
@@ -191,7 +187,7 @@ static int bus_user_append_idle_hint_since(DBusMessageIter *i, const char *prope
 
 static int bus_user_append_default_cgroup(DBusMessageIter *i, const char *property, void *data) {
         User *u = data;
-        char *t;
+        char _cleanup_free_ *t = NULL;
         int r;
         bool success;
 
@@ -204,8 +200,6 @@ static int bus_user_append_default_cgroup(DBusMessageIter *i, const char *proper
                 return r;
 
         success = dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t);
-        free(t);
-
         return success ? 0 : -ENOMEM;
 }
 
@@ -362,7 +356,6 @@ char *user_bus_path(User *u) {
 
 int user_send_signal(User *u, bool new_user) {
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
-        int r = -ENOMEM;
         _cleanup_free_ char *p = NULL;
         uint32_t uid;
 
@@ -377,7 +370,7 @@ int user_send_signal(User *u, bool new_user) {
 
         p = user_bus_path(u);
         if (!p)
-                goto finish;
+                return -ENOMEM;
 
         uid = u->uid;
 
@@ -386,20 +379,16 @@ int user_send_signal(User *u, bool new_user) {
                             DBUS_TYPE_UINT32, &uid,
                             DBUS_TYPE_OBJECT_PATH, &p,
                             DBUS_TYPE_INVALID))
-                goto finish;
+                return -ENOMEM;
 
         if (!dbus_connection_send(u->manager->bus, m, NULL))
-                goto finish;
+                return -ENOMEM;
 
-        r = 0;
-
-finish:
-        return r;
+        return 0;
 }
 
 int user_send_changed(User *u, const char *properties) {
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
-        int r = -ENOMEM;
         _cleanup_free_ char *p = NULL;
 
         assert(u);
@@ -413,13 +402,10 @@ int user_send_changed(User *u, const char *properties) {
 
         m = bus_properties_changed_new(p, "org.freedesktop.login1.User", properties);
         if (!m)
-                goto finish;
+                return -ENOMEM;
 
         if (!dbus_connection_send(u->manager->bus, m, NULL))
-                goto finish;
+                return -ENOMEM;
 
-        r = 0;
-
-finish:
-        return r;
+        return 0;
 }

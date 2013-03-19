@@ -901,7 +901,7 @@ finish:
 
 static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         struct udev_device *d;
-        char *rule = NULL, *file = NULL;
+        char _cleanup_free_ *rule = NULL, *file = NULL;
         const char *id_for_seat;
         int r;
 
@@ -943,9 +943,6 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         r = trigger_device(m, d);
 
 finish:
-        free(rule);
-        free(file);
-
         if (d)
                 udev_device_unref(d);
 
@@ -953,7 +950,7 @@ finish:
 }
 
 static int flush_devices(Manager *m) {
-        DIR *d;
+        DIR _cleanup_closedir_ *d;
 
         assert(m);
 
@@ -978,8 +975,6 @@ static int flush_devices(Manager *m) {
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
                                 log_warning("Failed to unlink %s: %m", de->d_name);
                 }
-
-                closedir(d);
         }
 
         return trigger_device(m, NULL);
@@ -1222,9 +1217,8 @@ finish:
                         reply,
                         DBUS_TYPE_STRING, &result,
                         DBUS_TYPE_INVALID);
-        if (!b) {
+        if (!b)
                 return -ENOMEM;
-        }
 
         *_reply = reply;
         reply = NULL;
@@ -2406,21 +2400,19 @@ DBusHandlerResult bus_message_filter(
 
 int manager_send_changed(Manager *manager, const char *properties) {
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
-        int r = -ENOMEM;
 
         assert(manager);
 
-        m = bus_properties_changed_new("/org/freedesktop/login1", "org.freedesktop.login1.Manager", properties);
+        m = bus_properties_changed_new("/org/freedesktop/login1",
+                                       "org.freedesktop.login1.Manager",
+                                       properties);
         if (!m)
-                goto finish;
+                return -ENOMEM;
 
         if (!dbus_connection_send(manager->bus, m, NULL))
-                goto finish;
+                return -ENOMEM;
 
-        r = 0;
-
-finish:
-        return r;
+        return 0;
 }
 
 int manager_dispatch_delayed(Manager *manager) {

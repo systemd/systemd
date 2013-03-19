@@ -89,14 +89,13 @@ static int list_sessions(DBusConnection *bus, char **args, unsigned n) {
                         NULL,
                         DBUS_TYPE_INVALID);
         if (r)
-                goto finish;
+                return r;
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
             dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)  {
                 log_error("Failed to parse reply.");
-                r = -EIO;
-                goto finish;
+                return -EIO;
         }
 
         dbus_message_iter_recurse(&iter, &sub);
@@ -110,8 +109,7 @@ static int list_sessions(DBusConnection *bus, char **args, unsigned n) {
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
                         log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
+                        return -EIO;
                 }
 
                 dbus_message_iter_recurse(&sub, &sub2);
@@ -122,8 +120,7 @@ static int list_sessions(DBusConnection *bus, char **args, unsigned n) {
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &seat, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &object, false) < 0) {
                         log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
+                        return -EIO;
                 }
 
                 printf("%10s %10u %-16s %-16s\n", id, (unsigned) uid, user, seat);
@@ -136,10 +133,7 @@ static int list_sessions(DBusConnection *bus, char **args, unsigned n) {
         if (on_tty())
                 printf("\n%u sessions listed.\n", k);
 
-        r = 0;
-
-finish:
-        return r;
+        return 0;
 }
 
 static int list_users(DBusConnection *bus, char **args, unsigned n) {
@@ -160,14 +154,13 @@ static int list_users(DBusConnection *bus, char **args, unsigned n) {
                         NULL,
                         DBUS_TYPE_INVALID);
         if (r)
-              goto finish;
+                return r;
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
             dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)  {
                 log_error("Failed to parse reply.");
-                r = -EIO;
-                goto finish;
+                return -EIO;
         }
 
         dbus_message_iter_recurse(&iter, &sub);
@@ -181,8 +174,7 @@ static int list_users(DBusConnection *bus, char **args, unsigned n) {
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
                         log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
+                        return -EIO;
                 }
 
                 dbus_message_iter_recurse(&sub, &sub2);
@@ -191,8 +183,7 @@ static int list_users(DBusConnection *bus, char **args, unsigned n) {
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &user, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &object, false) < 0) {
                         log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
+                        return -EIO;
                 }
 
                 printf("%10u %-16s\n", (unsigned) uid, user);
@@ -205,10 +196,7 @@ static int list_users(DBusConnection *bus, char **args, unsigned n) {
         if (on_tty())
                 printf("\n%u users listed.\n", k);
 
-        r = 0;
-
-finish:
-        return r;
+        return 0;
 }
 
 static int list_seats(DBusConnection *bus, char **args, unsigned n) {
@@ -229,14 +217,13 @@ static int list_seats(DBusConnection *bus, char **args, unsigned n) {
                         NULL,
                         DBUS_TYPE_INVALID);
         if (r)
-                goto finish;
+                return r;
 
         if (!dbus_message_iter_init(reply, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
             dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)  {
                 log_error("Failed to parse reply.");
-                r = -EIO;
-                goto finish;
+                return -EIO;
         }
 
         dbus_message_iter_recurse(&iter, &sub);
@@ -249,8 +236,7 @@ static int list_seats(DBusConnection *bus, char **args, unsigned n) {
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
                         log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
+                        return -EIO;
                 }
 
                 dbus_message_iter_recurse(&sub, &sub2);
@@ -258,8 +244,7 @@ static int list_seats(DBusConnection *bus, char **args, unsigned n) {
                 if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &seat, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &object, false) < 0) {
                         log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
+                        return -EIO;
                 }
 
                 printf("%-16s\n", seat);
@@ -272,10 +257,7 @@ static int list_seats(DBusConnection *bus, char **args, unsigned n) {
         if (on_tty())
                 printf("\n%u seats listed.\n", k);
 
-        r = 0;
-
-finish:
-        return r;
+        return 0;
 }
 
 typedef struct SessionStatusInfo {
@@ -1077,7 +1059,6 @@ finish:
 }
 
 static int kill_session(DBusConnection *bus, char **args, unsigned n) {
-        int ret = 0;
         unsigned i;
 
         assert(args);
@@ -1086,28 +1067,28 @@ static int kill_session(DBusConnection *bus, char **args, unsigned n) {
                 arg_kill_who = "all";
 
         for (i = 1; i < n; i++) {
-                ret = bus_method_call_with_reply (
-                                bus,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "KillSession",
-                                NULL,
-                                NULL,
-                                DBUS_TYPE_STRING, &args[i],
-                                DBUS_TYPE_STRING, &arg_kill_who,
-                                DBUS_TYPE_INT32, &arg_signal,
-                                DBUS_TYPE_INVALID);
-                if (ret)
-                        goto finish;
+                int r;
+
+                r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "KillSession",
+                        NULL,
+                        NULL,
+                        DBUS_TYPE_STRING, &args[i],
+                        DBUS_TYPE_STRING, &arg_kill_who,
+                        DBUS_TYPE_INT32, &arg_signal,
+                        DBUS_TYPE_INVALID);
+                if (r)
+                        return r;
         }
 
-finish:
-        return ret;
+        return 0;
 }
 
 static int enable_linger(DBusConnection *bus, char **args, unsigned n) {
-        int ret = 0;
         unsigned i;
         dbus_bool_t b, interactive = true;
 
@@ -1120,36 +1101,35 @@ static int enable_linger(DBusConnection *bus, char **args, unsigned n) {
         for (i = 1; i < n; i++) {
                 uint32_t u;
                 uid_t uid;
+                int r;
 
-                ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
-                if (ret < 0) {
-                        log_error("Failed to resolve user %s: %s", args[i], strerror(-ret));
-                        goto finish;
+                r = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
+                if (r < 0) {
+                        log_error("Failed to resolve user %s: %s", args[i], strerror(-r));
+                        return r;
                 }
 
                 u = (uint32_t) uid;
-                ret = bus_method_call_with_reply (
-                                bus,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "SetUserLinger",
-                                NULL,
-                                NULL,
-                                DBUS_TYPE_UINT32, &u,
-                                DBUS_TYPE_BOOLEAN, &b,
-                                DBUS_TYPE_BOOLEAN, &interactive,
-                                DBUS_TYPE_INVALID);
-                if (ret)
-                        goto finish;
+                r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "SetUserLinger",
+                        NULL,
+                        NULL,
+                        DBUS_TYPE_UINT32, &u,
+                        DBUS_TYPE_BOOLEAN, &b,
+                        DBUS_TYPE_BOOLEAN, &interactive,
+                        DBUS_TYPE_INVALID);
+                if (r)
+                        return r;
         }
 
-finish:
-        return ret;
+        return 0;
 }
 
 static int terminate_user(DBusConnection *bus, char **args, unsigned n) {
-        int ret = 0;
         unsigned i;
 
         assert(args);
@@ -1157,34 +1137,33 @@ static int terminate_user(DBusConnection *bus, char **args, unsigned n) {
         for (i = 1; i < n; i++) {
                 uint32_t u;
                 uid_t uid;
+                int r;
 
-                ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
-                if (ret < 0) {
-                        log_error("Failed to look up user %s: %s", args[i], strerror(-ret));
-                        goto finish;
+                r = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
+                if (r < 0) {
+                        log_error("Failed to look up user %s: %s", args[i], strerror(-r));
+                        return r;
                 }
 
                 u = (uint32_t) uid;
-                ret = bus_method_call_with_reply (
-                                bus,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "TerminateUser",
-                                NULL,
-                                NULL,
-                                DBUS_TYPE_UINT32, &u,
-                                DBUS_TYPE_INVALID);
-                if (ret)
-                        goto finish;
+                r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "TerminateUser",
+                        NULL,
+                        NULL,
+                        DBUS_TYPE_UINT32, &u,
+                        DBUS_TYPE_INVALID);
+                if (r)
+                        return r;
         }
 
-finish:
-        return ret;
+        return 0;
 }
 
 static int kill_user(DBusConnection *bus, char **args, unsigned n) {
-        int ret = 0;
         unsigned i;
 
         assert(args);
@@ -1195,35 +1174,34 @@ static int kill_user(DBusConnection *bus, char **args, unsigned n) {
         for (i = 1; i < n; i++) {
                 uid_t uid;
                 uint32_t u;
+                int r;
 
-                ret = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
-                if (ret < 0) {
-                        log_error("Failed to look up user %s: %s", args[i], strerror(-ret));
-                        goto finish;
+                r = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
+                if (r < 0) {
+                        log_error("Failed to look up user %s: %s", args[i], strerror(-r));
+                        return r;
                 }
 
                 u = (uint32_t) uid;
-                ret = bus_method_call_with_reply (
-                                bus,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "KillUser",
-                                NULL,
-                                NULL,
-                                DBUS_TYPE_UINT32, &u,
-                                DBUS_TYPE_INT32, &arg_signal,
-                                DBUS_TYPE_INVALID);
-                if (ret)
-                        goto finish;
+                r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "KillUser",
+                        NULL,
+                        NULL,
+                        DBUS_TYPE_UINT32, &u,
+                        DBUS_TYPE_INT32, &arg_signal,
+                        DBUS_TYPE_INVALID);
+                if (r)
+                        return r;
         }
 
-finish:
-        return ret;
+        return 0;
 }
 
 static int attach(DBusConnection *bus, char **args, unsigned n) {
-        int ret = 0;
         unsigned i;
         dbus_bool_t interactive = true;
 
@@ -1232,24 +1210,25 @@ static int attach(DBusConnection *bus, char **args, unsigned n) {
         polkit_agent_open_if_enabled();
 
         for (i = 2; i < n; i++) {
-                ret = bus_method_call_with_reply (
-                                bus,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "AttachDevice",
-                                NULL,
-                                NULL,
-                                DBUS_TYPE_STRING, &args[1],
-                                DBUS_TYPE_STRING, &args[i],
-                                DBUS_TYPE_BOOLEAN, &interactive,
-                                DBUS_TYPE_INVALID);
-                if (ret)
-                        goto finish;
+                int r;
+
+                r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "AttachDevice",
+                        NULL,
+                        NULL,
+                        DBUS_TYPE_STRING, &args[1],
+                        DBUS_TYPE_STRING, &args[i],
+                        DBUS_TYPE_BOOLEAN, &interactive,
+                        DBUS_TYPE_INVALID);
+                if (r)
+                        return r;
         }
 
-finish:
-        return ret;
+        return 0;
 }
 
 static int flush_devices(DBusConnection *bus, char **args, unsigned n) {
@@ -1288,28 +1267,28 @@ static int lock_sessions(DBusConnection *bus, char **args, unsigned n) {
 }
 
 static int terminate_seat(DBusConnection *bus, char **args, unsigned n) {
-        int ret = 0;
         unsigned i;
 
         assert(args);
 
         for (i = 1; i < n; i++) {
-                ret = bus_method_call_with_reply (
-                                bus,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "TerminateSeat",
-                                NULL,
-                                NULL,
-                                DBUS_TYPE_STRING, &args[i],
-                                DBUS_TYPE_INVALID);
-                if (ret)
-                        goto finish;
+                int r;
+
+                r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "TerminateSeat",
+                        NULL,
+                        NULL,
+                        DBUS_TYPE_STRING, &args[i],
+                        DBUS_TYPE_INVALID);
+                if (r)
+                        return r;
         }
 
-finish:
-        return ret;
+        return 0;
 }
 
 static int help(void) {

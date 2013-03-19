@@ -61,7 +61,7 @@ static int bus_seat_append_active(DBusMessageIter *i, const char *property, void
         DBusMessageIter sub;
         Seat *s = data;
         const char *id, *path;
-        char *p = NULL;
+        char _cleanup_free_ *p = NULL;
 
         assert(i);
         assert(property);
@@ -82,12 +82,8 @@ static int bus_seat_append_active(DBusMessageIter *i, const char *property, void
         }
 
         if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &id) ||
-            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &path)) {
-                free(p);
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &path))
                 return -ENOMEM;
-        }
-
-        free(p);
 
         if (!dbus_message_iter_close_container(i, &sub))
                 return -ENOMEM;
@@ -108,7 +104,7 @@ static int bus_seat_append_sessions(DBusMessageIter *i, const char *property, vo
                 return -ENOMEM;
 
         LIST_FOREACH(sessions_by_seat, session, s->sessions) {
-                char *p;
+                char _cleanup_free_ *p = NULL;
 
                 if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
                         return -ENOMEM;
@@ -118,12 +114,8 @@ static int bus_seat_append_sessions(DBusMessageIter *i, const char *property, vo
                         return -ENOMEM;
 
                 if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &session->id) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &p)) {
-                        free(p);
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &p))
                         return -ENOMEM;
-                }
-
-                free(p);
 
                 if (!dbus_message_iter_close_container(&sub, &sub2))
                         return -ENOMEM;
@@ -356,7 +348,7 @@ const DBusObjectPathVTable bus_seat_vtable = {
 };
 
 char *seat_bus_path(Seat *s) {
-        char *t, *r;
+        char _cleanup_free_ *t;
 
         assert(s);
 
@@ -364,15 +356,11 @@ char *seat_bus_path(Seat *s) {
         if (!t)
                 return NULL;
 
-        r = strappend("/org/freedesktop/login1/seat/", t);
-        free(t);
-
-        return r;
+        return strappend("/org/freedesktop/login1/seat/", t);
 }
 
 int seat_send_signal(Seat *s, bool new_seat) {
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
-        int r = -ENOMEM;
         _cleanup_free_ char *p = NULL;
 
         assert(s);
@@ -380,33 +368,28 @@ int seat_send_signal(Seat *s, bool new_seat) {
         m = dbus_message_new_signal("/org/freedesktop/login1",
                                     "org.freedesktop.login1.Manager",
                                     new_seat ? "SeatNew" : "SeatRemoved");
-
         if (!m)
                 return -ENOMEM;
 
         p = seat_bus_path(s);
         if (!p)
-                goto finish;
+                return -ENOMEM;
 
         if (!dbus_message_append_args(
                             m,
                             DBUS_TYPE_STRING, &s->id,
                             DBUS_TYPE_OBJECT_PATH, &p,
                             DBUS_TYPE_INVALID))
-                goto finish;
+                return -ENOMEM;
 
         if (!dbus_connection_send(s->manager->bus, m, NULL))
-                goto finish;
+                return -ENOMEM;
 
-        r = 0;
-
-finish:
-        return r;
+        return 0;
 }
 
 int seat_send_changed(Seat *s, const char *properties) {
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
-        int r = -ENOMEM;
         _cleanup_free_ char *p = NULL;
 
         assert(s);
@@ -420,13 +403,10 @@ int seat_send_changed(Seat *s, const char *properties) {
 
         m = bus_properties_changed_new(p, "org.freedesktop.login1.Seat", properties);
         if (!m)
-                goto finish;
+                return -ENOMEM;
 
         if (!dbus_connection_send(s->manager->bus, m, NULL))
-                goto finish;
+                return -ENOMEM;
 
-        r = 0;
-
-finish:
-        return r;
+        return 0;
 }

@@ -108,12 +108,8 @@ static int bus_session_append_seat(DBusMessageIter *i, const char *property, voi
         }
 
         if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &id) ||
-            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &path)) {
-                free(p);
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &path))
                 return -ENOMEM;
-        }
-
-        free(p);
 
         if (!dbus_message_iter_close_container(i, &sub))
                 return -ENOMEM;
@@ -124,7 +120,7 @@ static int bus_session_append_seat(DBusMessageIter *i, const char *property, voi
 static int bus_session_append_user(DBusMessageIter *i, const char *property, void *data) {
         DBusMessageIter sub;
         User *u = data;
-        char *p = NULL;
+        char _cleanup_free_ *p = NULL;
 
         assert(i);
         assert(property);
@@ -138,12 +134,8 @@ static int bus_session_append_user(DBusMessageIter *i, const char *property, voi
                 return -ENOMEM;
 
         if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT32, &u->uid) ||
-            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &p)) {
-                free(p);
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &p))
                 return -ENOMEM;
-        }
-
-        free(p);
 
         if (!dbus_message_iter_close_container(i, &sub))
                 return -ENOMEM;
@@ -205,7 +197,7 @@ static int bus_session_append_idle_hint_since(DBusMessageIter *i, const char *pr
 
 static int bus_session_append_default_cgroup(DBusMessageIter *i, const char *property, void *data) {
         Session *s = data;
-        char *t;
+        char _cleanup_free_ *t = NULL;
         int r;
         bool success;
 
@@ -218,8 +210,6 @@ static int bus_session_append_default_cgroup(DBusMessageIter *i, const char *pro
                 return r;
 
         success = dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t);
-        free(t);
-
         return success ? 0 : -ENOMEM;
 }
 
@@ -458,7 +448,7 @@ const DBusObjectPathVTable bus_session_vtable = {
 };
 
 char *session_bus_path(Session *s) {
-        char *t, *r;
+        char _cleanup_free_ *t;
 
         assert(s);
 
@@ -466,15 +456,11 @@ char *session_bus_path(Session *s) {
         if (!t)
                 return NULL;
 
-        r = strappend("/org/freedesktop/login1/session/", t);
-        free(t);
-
-        return r;
+        return strappend("/org/freedesktop/login1/session/", t);
 }
 
 int session_send_signal(Session *s, bool new_session) {
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
-        int r = -ENOMEM;
         _cleanup_free_ char *p = NULL;
 
         assert(s);
@@ -488,27 +474,23 @@ int session_send_signal(Session *s, bool new_session) {
 
         p = session_bus_path(s);
         if (!p)
-                goto finish;
+                return -ENOMEM;
 
         if (!dbus_message_append_args(
                             m,
                             DBUS_TYPE_STRING, &s->id,
                             DBUS_TYPE_OBJECT_PATH, &p,
                             DBUS_TYPE_INVALID))
-                goto finish;
+                return -ENOMEM;
 
         if (!dbus_connection_send(s->manager->bus, m, NULL))
-                goto finish;
+                return -ENOMEM;
 
-        r = 0;
-
-finish:
-        return r;
+        return 0;
 }
 
 int session_send_changed(Session *s, const char *properties) {
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
-        int r = -ENOMEM;
         _cleanup_free_ char *p = NULL;
 
         assert(s);
@@ -522,15 +504,12 @@ int session_send_changed(Session *s, const char *properties) {
 
         m = bus_properties_changed_new(p, "org.freedesktop.login1.Session", properties);
         if (!m)
-                goto finish;
+                return -ENOMEM;
 
         if (!dbus_connection_send(s->manager->bus, m, NULL))
-                goto finish;
+                return -ENOMEM;
 
-        r = 0;
-
-finish:
-        return r;
+        return 0;
 }
 
 int session_send_lock(Session *s, bool lock) {
