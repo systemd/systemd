@@ -605,3 +605,6 @@ static inline void *mempset(void *s, int c, size_t n) {
         memset(s, c, n);
         return (char*)s + n;
 }
+
+char *hexmem(const void *p, size_t l);
+char *strextend(char **x, ...);

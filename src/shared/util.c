@@ -1029,7 +1029,6 @@ int rmdir_parents(const char *path, const char *stop) {
         return 0;
 }
 
-
 char hexchar(int x) {
         static const char table[16] = "0123456789abcdef";
 
@@ -1048,6 +1047,23 @@ int unhexchar(char c) {
                 return c - 'A' + 10;
 
         return -1;
+}
+
+char *hexmem(const void *p, size_t l) {
+        char *r, *z;
+        const uint8_t *x;
+
+        z = r = malloc(l * 2 + 1);
+        if (!r)
+                return NULL;
+
+        for (x = p; x < (const uint8_t*) p + l; x++) {
+                *(z++) = hexchar(*x >> 4);
+                *(z++) = hexchar(*x & 15);
+        }
+
+        *z = 0;
+        return r;
 }
 
 char octchar(int x) {
@@ -5728,4 +5744,56 @@ fail1:
 fail2:
         rmdir(template);
         return r;
+}
+
+char *strextend(char **x, ...) {
+        va_list ap;
+        size_t f, l;
+        char *r, *p;
+
+        assert(x);
+
+        l = f = *x ? strlen(*x) : 0;
+
+        va_start(ap, x);
+        for (;;) {
+                const char *t;
+                size_t n;
+
+                t = va_arg(ap, const char *);
+                if (!t)
+                        break;
+
+                n = strlen(t);
+                if (n > ((size_t) -1) - l) {
+                        va_end(ap);
+                        return NULL;
+                }
+
+                l += n;
+        }
+        va_end(ap);
+
+        r = realloc(*x, l+1);
+        if (!r)
+                return NULL;
+
+        p = r + f;
+
+        va_start(ap, x);
+        for (;;) {
+                const char *t;
+
+                t = va_arg(ap, const char *);
+                if (!t)
+                        break;
+
+                p = stpcpy(p, t);
+        }
+        va_end(ap);
+
+        *p = 0;
+        *x = r;
+
+        return r + l;
 }
