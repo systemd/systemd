@@ -60,10 +60,10 @@ _journalctl() {
                                 comps=${__journal_fields[*]}
                         ;;
                         --unit|-u)
-                                comps=$(journalctl -F '_SYSTEMD_UNIT')
+                                comps=$(journalctl -F '_SYSTEMD_UNIT' 2>/dev/null)
                         ;;
                         --user-unit)
-                                comps=$(journalctl -F '_SYSTEMD_USER_UNIT')
+                                comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
                         ;;
                         *)
                                 return 0
