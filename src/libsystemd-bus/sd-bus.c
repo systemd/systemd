@@ -996,6 +996,11 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
         if (r < 0)
                 return r;
 
+        /* If this is a reply and no reply was requested, then let's
+         * suppress this, if we can */
+        if (m->dont_send && !serial)
+                return 0;
+
         if (bus->wqueue_size <= 0) {
                 size_t idx = 0;
 

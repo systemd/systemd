@@ -71,6 +71,7 @@ struct sd_bus_message {
         bool free_header:1;
         bool free_fields:1;
         bool free_body:1;
+        bool dont_send:1;
 
         struct bus_header *header;
         void *fields;

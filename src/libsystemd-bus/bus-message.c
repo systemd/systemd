@@ -245,6 +245,8 @@ int sd_bus_message_new_signal(
                 return -EINVAL;
         if (!member)
                 return -EINVAL;
+        if (!m)
+                return -EINVAL;
 
         t = message_new(bus, SD_BUS_MESSAGE_TYPE_SIGNAL);
         if (!t)
@@ -283,6 +285,8 @@ int sd_bus_message_new_method_call(
                 return -EINVAL;
         if (!member)
                 return -EINVAL;
+        if (!m)
+                return -EINVAL;
 
         t = message_new(bus, SD_BUS_MESSAGE_TYPE_METHOD_CALL);
         if (!t)
@@ -315,9 +319,10 @@ fail:
         return r;
 }
 
-int sd_bus_message_new_method_return(
+static int message_new_reply(
                 sd_bus *bus,
                 sd_bus_message *call,
+                uint8_t type,
                 sd_bus_message **m) {
 
         sd_bus_message *t;
@@ -327,12 +332,15 @@ int sd_bus_message_new_method_return(
                 return -EINVAL;
         if (call->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
                 return -EINVAL;
+        if (!m)
+                return -EINVAL;
 
-        t = message_new(bus, SD_BUS_MESSAGE_TYPE_METHOD_RETURN);
+        t = message_new(bus, type);
         if (!t)
                 return -ENOMEM;
 
         t->reply_serial = BUS_MESSAGE_SERIAL(call);
+
         r = message_append_field_uint32(t, SD_BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_serial);
         if (r < 0)
                 goto fail;
@@ -343,12 +351,21 @@ int sd_bus_message_new_method_return(
                         goto fail;
         }
 
+        t->dont_send = !!(call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED);
+
         *m = t;
-        return 0;
 
 fail:
         message_free(t);
         return r;
+}
+
+int sd_bus_message_new_method_return(
+                sd_bus *bus,
+                sd_bus_message *call,
+                sd_bus_message **m) {
+
+        return message_new_reply(bus, call, SD_BUS_MESSAGE_TYPE_METHOD_RETURN, m);
 }
 
 int sd_bus_message_new_method_error(
@@ -360,29 +377,16 @@ int sd_bus_message_new_method_error(
         sd_bus_message *t;
         int r;
 
-        if (!call)
-                return -EINVAL;
-        if (call->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
-                return -EINVAL;
         if (!e)
                 return -EINVAL;
         if (!e->name)
                 return -EINVAL;
+        if (!m)
+                return -EINVAL;
 
-        t = message_new(bus, SD_BUS_MESSAGE_TYPE_METHOD_ERROR);
-        if (!t)
-                return -ENOMEM;
-
-        t->reply_serial = BUS_MESSAGE_SERIAL(call);
-        r = message_append_field_uint32(t, SD_BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_serial);
+        r = message_new_reply(bus, call, SD_BUS_MESSAGE_TYPE_METHOD_ERROR, &t);
         if (r < 0)
-                goto fail;
-
-        if (call->sender) {
-                r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, call->sender, &t->sender);
-                if (r < 0)
-                        goto fail;
-        }
+                return r;
 
         r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_ERROR_NAME, SD_BUS_TYPE_STRING, e->name, &t->error.name);
         if (r < 0)
