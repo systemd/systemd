@@ -85,7 +85,9 @@ ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="ThinkPad X2* Tablet*
 ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="*IdeaPad*", RUN+="keymap $name lenovo-ideapad"
 ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_name}=="S10-*", RUN+="keymap $name lenovo-ideapad"
 ENV{DMI_VENDOR}=="LENOVO", ATTR{[dmi/id]product_version}=="*IdeaPad Y550*", RUN+="keymap $name 0x95 media 0xA3 play"
-ENV{DMI_VENDOR}=="LENOVO", ATTR{[dmi/id]product_version}=="*Lenovo V480*|*IdeaPad U300s*", RUN+="keymap $name 0xf1 f21"
+ENV{DMI_VENDOR}=="LENOVO", ATTR{[dmi/id]product_version}=="*Lenovo V480*", RUN+="keymap $name 0xf1 f21"
+# 0xf1 is touchpad toggle, 0xCE is microphone mute in Lenovo U300s
+ENV{DMI_VENDOR}=="LENOVO", ATTR{[dmi/id]product_version}=="*IdeaPad U300s*", RUN+="keymap $name 0xf1 f21 0xCE f20"
 
 ENV{DMI_VENDOR}=="Hewlett-Packard*", RUN+="keymap $name hewlett-packard"
 ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[tT][aA][bB][lL][eE][tT]*", RUN+="keymap $name hewlett-packard-tablet"
