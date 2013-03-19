@@ -46,7 +46,7 @@ static void format_uid(char *buf, size_t l) {
         assert(l > 0);
 
         snprintf(text, sizeof(text)-1, "%llu", (unsigned long long) geteuid());
-        text[sizeof(text)-1] = 0;
+        char_array_0(text);
 
         memset(buf, 0, l);
 
