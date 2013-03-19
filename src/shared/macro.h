@@ -158,6 +158,8 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 #define memzero(x,l) (memset((x), 0, (l)))
 #define zero(x) (memzero(&(x), sizeof(x)))
 
+#define CHAR_TO_STR(x) ((char[2]) { x, 0 })
+
 #define char_array_0(x) x[sizeof(x)-1] = 0;
 
 #define IOVEC_SET_STRING(i, s)                  \
