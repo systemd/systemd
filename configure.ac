@@ -724,8 +724,10 @@ AM_CONDITIONAL(ENABLE_FIRMWARE, [test "x${FIRMWARE_PATH}" != "x"])
 AC_ARG_ENABLE([gudev],
        AS_HELP_STRING([--disable-gudev], [disable Gobject libudev support @<:@default=enabled@:>@]),
        [], [enable_gudev=yes])
-AS_IF([test "x$enable_gudev" = "xyes"], [ PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0]) ])
+AS_IF([test "x$enable_gudev" = "xyes"], [ PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0 gio-2.0]) ])
 AM_CONDITIONAL([ENABLE_GUDEV], [test "x$enable_gudev" = "xyes"])
+
+AS_IF([test "x$enable_gudev" = "xyes"], [ AC_DEFINE(HAVE_GLIB, 1, [Define if glib is available]) ])
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([keymap],

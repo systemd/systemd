@@ -1,0 +1,135 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+#ifndef foosdbushfoo
+#define foosdbushfoo
+
+/***
+  This file is part of systemd.
+
+  Copyright 2013 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+#include <inttypes.h>
+#include <sys/types.h>
+
+#include "sd-bus-protocol.h"
+
+typedef struct sd_bus sd_bus;
+typedef struct sd_bus_message sd_bus_message;
+
+typedef struct {
+        const char *name;
+        const char *message;
+        int need_free;
+} sd_bus_error;
+
+typedef int (*sd_message_handler_t)(sd_bus *bus, sd_bus_message *m, void *userdata);
+
+/* Connections */
+
+int sd_bus_open_system(sd_bus **ret);
+int sd_bus_open_user(sd_bus **ret);
+int sd_bus_open_address(const char *address, sd_bus **ret);
+int sd_bus_open_fd(int fd, sd_bus **ret);
+void sd_bus_close(sd_bus *bus);
+
+sd_bus *sd_bus_ref(sd_bus *bus);
+sd_bus *sd_bus_unref(sd_bus *bus);
+
+int sd_bus_is_running(sd_bus *bus);
+int sd_bus_can_send(sd_bus *bus, char type);
+
+int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial);
+int sd_bus_send_with_reply(sd_bus *bus, sd_bus_message *m, sd_message_handler_t callback, void *userdata, uint64_t usec, uint64_t *serial);
+int sd_bus_send_with_reply_cancel(sd_bus *bus, uint64_t serial);
+int sd_bus_send_with_reply_and_block(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_bus_error *error, sd_bus_message **r);
+
+int sd_bus_get_fd(sd_bus *bus);
+int sd_bus_get_events(sd_bus *bus);
+int sd_bus_process(sd_bus *bus, sd_bus_message **r);
+int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
+int sd_bus_flush(sd_bus *bus);
+
+int sd_bus_add_filter(sd_bus *bus, sd_message_handler_t callback, void *userdata);
+int sd_bus_remove_filter(sd_bus *bus, sd_message_handler_t callback, void *userdata);
+
+/* Message object */
+
+int sd_bus_message_new_signal(sd_bus *bus, const char *path, const char *interface, const char *member, sd_bus_message **m);
+int sd_bus_message_new_method_call(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_message **m);
+int sd_bus_message_new_method_return(sd_bus *bus, sd_bus_message *call, sd_bus_message **m);
+int sd_bus_message_new_method_error(sd_bus *bus, sd_bus_message *call, const sd_bus_error *e, sd_bus_message **m);
+
+sd_bus_message* sd_bus_message_ref(sd_bus_message *m);
+sd_bus_message* sd_bus_message_unref(sd_bus_message *m);
+
+int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type);
+int sd_bus_message_get_serial(sd_bus_message *m, uint64_t *serial);
+int sd_bus_message_get_reply_serial(sd_bus_message *m, uint64_t *serial);
+int sd_bus_message_get_no_reply(sd_bus_message *m);
+
+const char *sd_bus_message_get_path(sd_bus_message *m);
+const char *sd_bus_message_get_interface(sd_bus_message *m);
+const char *sd_bus_message_get_member(sd_bus_message *m);
+const char *sd_bus_message_get_destination(sd_bus_message *m);
+const char *sd_bus_message_get_sender(sd_bus_message *m);
+const sd_bus_error *sd_bus_message_get_error(sd_bus_message *m);
+
+int sd_bus_message_get_uid(sd_bus_message *m, uid_t *uid);
+int sd_bus_message_get_gid(sd_bus_message *m, gid_t *gid);
+int sd_bus_message_get_pid(sd_bus_message *m, pid_t *pid);
+int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid);
+
+int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member);
+int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, const char *member);
+int sd_bus_message_is_method_error(sd_bus_message *m, const char *name);
+
+int sd_bus_message_set_no_reply(sd_bus_message *m, int b);
+int sd_bus_message_set_destination(sd_bus_message *m, const char *destination);
+
+int sd_bus_message_append(sd_bus_message *m, const char *types, ...);
+int sd_bus_message_append_basic(sd_bus_message *m, char type, const void *p);
+int sd_bus_message_open_container(sd_bus_message *m, char type, const char *contents);
+int sd_bus_message_close_container(sd_bus_message *m);
+
+int sd_bus_message_read_type(sd_bus_message *m, char *type, char *element, size_t *length);
+int sd_bus_message_read_basic(sd_bus_message *m, char type, char element, const void **p, size_t *length);
+int sd_bus_message_read(sd_bus_message *m, const char *types, ...);
+
+/* Bus management */
+
+const char *sd_bus_get_unique_name(sd_bus *bus);
+int sd_bus_request_name(sd_bus *bus, const char *name, int flags);
+int sd_bus_release_name(sd_bus *bus, const char *name);
+int sd_bus_list_names(sd_bus *bus, char ***l);
+int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner);
+int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid);
+int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid);
+int sd_bus_add_match(sd_bus *bus, const char *match);
+int sd_bus_remove_match(sd_bus *bus, const char *match);
+
+/* Error objects */
+
+#define SD_BUS_ERROR_INIT (NULL, NULL, false)
+
+void sd_bus_error_free(sd_bus_error *e);
+int sd_bus_error_set(sd_bus_error *e, const char *name, const char *format, ...);
+void sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message);
+int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
+int sd_bus_error_is_set(const sd_bus_error *e);
+int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
+
+#endif

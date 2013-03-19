@@ -80,6 +80,8 @@
 /systemd-user-sessions
 /systemd-vconsole-setup
 /tags
+/test-bus-marshal
+/test-bus-signature
 /test-calendarspec
 /test-catalog
 /test-cgroup

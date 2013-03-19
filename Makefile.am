@@ -1639,6 +1639,50 @@ EXTRA_DIST += \
 	src/libsystemd-daemon/libsystemd-daemon.sym
 
 # ------------------------------------------------------------------------------
+libsystemd_bus_la_SOURCES = \
+	src/libsystemd-bus/sd-bus.c \
+	src/libsystemd-bus/sd-bus.h \
+	src/libsystemd-bus/sd-bus-protocol.h \
+	src/libsystemd-bus/bus-control.c \
+	src/libsystemd-bus/bus-error.c \
+	src/libsystemd-bus/bus-error.h \
+	src/libsystemd-bus/bus-internal.c \
+	src/libsystemd-bus/bus-internal.h \
+	src/libsystemd-bus/bus-message.c \
+	src/libsystemd-bus/bus-message.h \
+	src/libsystemd-bus/bus-signature.c \
+	src/libsystemd-bus/bus-type.c \
+	src/libsystemd-bus/bus-type.h
+
+noinst_LTLIBRARIES += \
+        libsystemd-bus.la
+
+noinst_tests += \
+	test-bus-marshal \
+	test-bus-signature
+
+test_bus_marshal_SOURCES = \
+	src/libsystemd-bus/test-bus-marshal.c
+
+test_bus_marshal_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la \
+	$(GLIB_LIBS) \
+	$(DBUS_LIBS)
+
+test_bus_marshal_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(GLIB_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+test_bus_signature_SOURCES = \
+	src/libsystemd-bus/test-bus-signature.c
+
+test_bus_signature_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la
+
+# ------------------------------------------------------------------------------
 if ENABLE_GTK_DOC
 SUBDIRS += \
 	docs/libudev

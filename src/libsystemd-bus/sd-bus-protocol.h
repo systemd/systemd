@@ -1,0 +1,96 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+#ifndef foosdbusprotocolhfoo
+#define foosdbusprotocolhfoo
+
+/***
+  This file is part of systemd.
+
+  Copyright 2013 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+/* Types of message */
+
+#define SD_BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
+
+enum {
+        _SD_BUS_MESSAGE_TYPE_INVALID = 0,
+        SD_BUS_MESSAGE_TYPE_METHOD_CALL,
+        SD_BUS_MESSAGE_TYPE_METHOD_RETURN,
+        SD_BUS_MESSAGE_TYPE_METHOD_ERROR,
+        SD_BUS_MESSAGE_TYPE_SIGNAL,
+        _SD_BUS_MESSAGE_TYPE_MAX
+};
+
+/* Primitive types */
+
+enum {
+        _SD_BUS_TYPE_INVALID         = 0,
+        SD_BUS_TYPE_BYTE             = 'y',
+        SD_BUS_TYPE_BOOLEAN          = 'b',
+        SD_BUS_TYPE_INT16            = 'n',
+        SD_BUS_TYPE_UINT16           = 'q',
+        SD_BUS_TYPE_INT32            = 'i',
+        SD_BUS_TYPE_UINT32           = 'u',
+        SD_BUS_TYPE_INT64            = 'x',
+        SD_BUS_TYPE_UINT64           = 't',
+        SD_BUS_TYPE_DOUBLE           = 'd',
+        SD_BUS_TYPE_STRING           = 's',
+        SD_BUS_TYPE_OBJECT_PATH      = 'o',
+        SD_BUS_TYPE_SIGNATURE        = 'g',
+        SD_BUS_TYPE_UNIX_FD          = 'h',
+        SD_BUS_TYPE_ARRAY            = 'a',
+        SD_BUS_TYPE_VARIANT          = 'v',
+        SD_BUS_TYPE_STRUCT           = 'r', /* not actually used in signatures */
+        SD_BUS_TYPE_STRUCT_BEGIN     = '(',
+        SD_BUS_TYPE_STRUCT_END       = ')',
+        SD_BUS_TYPE_DICT_ENTRY       = 'e', /* not actually used in signatures */
+        SD_BUS_TYPE_DICT_ENTRY_BEGIN = '{',
+        SD_BUS_TYPE_DICT_ENTRY_END   = '}',
+};
+
+/* Endianess */
+
+enum {
+        _SD_BUS_INVALID_ENDIAN = 0,
+        SD_BUS_LITTLE_ENDIAN   = 'l',
+        SD_BUS_BIG_ENDIAN      = 'B'
+};
+
+/* Flags */
+
+enum {
+        SD_BUS_MESSAGE_NO_REPLY_EXPECTED = 1,
+        SD_BUS_MESSAGE_NO_AUTO_START = 2
+};
+
+/* Header fields */
+
+enum {
+        _SD_BUS_MESSAGE_HEADER_INVALID = 0,
+        SD_BUS_MESSAGE_HEADER_PATH,
+        SD_BUS_MESSAGE_HEADER_INTERFACE,
+        SD_BUS_MESSAGE_HEADER_MEMBER,
+        SD_BUS_MESSAGE_HEADER_ERROR_NAME,
+        SD_BUS_MESSAGE_HEADER_REPLY_SERIAL,
+        SD_BUS_MESSAGE_HEADER_DESTINATION,
+        SD_BUS_MESSAGE_HEADER_SENDER,
+        SD_BUS_MESSAGE_HEADER_SIGNATURE,
+        SD_BUS_MESSAGE_HEADER_UNIX_FDS,
+        _SD_BUS_MESSAGE_HEADER_MAX
+};
+
+#endif

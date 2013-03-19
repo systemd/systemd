@@ -1,0 +1,101 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+#pragma once
+
+/***
+  This file is part of systemd.
+
+  Copyright 2013 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <netinet/in.h>
+
+#include "hashmap.h"
+#include "list.h"
+#include "util.h"
+
+#include "sd-bus.h"
+#include "bus-error.h"
+
+struct reply_callback {
+        sd_message_handler_t callback;
+        void *userdata;
+        usec_t timeout;
+        uint64_t serial;
+};
+
+struct filter_callback {
+        sd_message_handler_t callback;
+        void *userdata;
+
+        LIST_FIELDS(struct filter_callback, callbacks);
+};
+
+enum bus_state {
+        BUS_OPENING,
+        BUS_AUTHENTICATING,
+        BUS_HELLO,
+        BUS_RUNNING,
+        BUS_CLOSED
+};
+
+struct sd_bus {
+        unsigned n_ref;
+        enum bus_state state;
+        int fd;
+        int message_version;
+        bool can_fds:1;
+        bool send_hello:1;
+
+        void *rbuffer;
+        size_t rbuffer_size;
+
+        sd_bus_message **rqueue;
+        unsigned rqueue_size;
+
+        sd_bus_message **wqueue;
+        unsigned wqueue_size;
+        size_t windex;
+
+        uint64_t serial;
+
+        char *unique_name;
+
+        Hashmap *reply_callbacks;
+        LIST_HEAD(struct filter_callback, filter_callbacks);
+
+        union {
+                struct sockaddr sa;
+                struct sockaddr_un un;
+                struct sockaddr_in in;
+                struct sockaddr_in6 in6;
+        } sockaddr;
+        socklen_t sockaddr_size;
+
+        sd_id128_t peer;
+
+        char *address;
+        unsigned address_index;
+
+        int last_connect_error;
+
+        struct iovec auth_iovec[3];
+        unsigned auth_index;
+        size_t auth_size;
+        char *auth_uid;
+};
