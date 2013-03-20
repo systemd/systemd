@@ -585,7 +585,6 @@ Features:
 
 * systemd-python:
    - allow reading of only select fields in systemd.journal._reader.Reader
-   - export sd_journal_test_cursor in systemd.journal._reader.Reader
    - figure out a simple way to wait for journal events in a way that
      works with ^C
    - add documentation to systemd.daemon

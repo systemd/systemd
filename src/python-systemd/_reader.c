@@ -374,26 +374,6 @@ static PyObject* Reader_get_next(Reader *self, PyObject *args)
             goto error;
     }
 
-    {
-        PyObject _cleanup_Py_DECREF_ *key = NULL, *value = NULL;
-        char _cleanup_free_ *cursor = NULL;
-
-        r = sd_journal_get_cursor(self->j, &cursor);
-        if (set_error(r, NULL, NULL))
-            goto error;
-
-        key = unicode_FromString("__CURSOR");
-        if (!key)
-            goto error;
-
-        value = PyBytes_FromString(cursor);
-        if (!value)
-            goto error;
-
-        if (PyDict_SetItem(dict, key, value))
-            goto error;
-    }
-
     return dict;
 error:
     Py_DECREF(dict);
@@ -602,6 +582,50 @@ static PyObject* Reader_seek_cursor(Reader *self, PyObject *args)
 }
 
 
+PyDoc_STRVAR(Reader_get_cursor__doc__,
+             "get_cursor() -> str\n\n"
+             "Return a cursor string for the current journal entry.\n\n"
+             "Wraps sd_journal_get_cursor(). See man:sd_journal_get_cursor(3).");
+static PyObject* Reader_get_cursor(Reader *self, PyObject *args)
+{
+    char _cleanup_free_ *cursor = NULL;
+    int r;
+
+    assert(self);
+    assert(!args);
+
+    r = sd_journal_get_cursor(self->j, &cursor);
+    if (set_error(r, NULL, NULL))
+        return NULL;
+
+    return unicode_FromString(cursor);
+}
+
+
+PyDoc_STRVAR(Reader_test_cursor__doc__,
+             "test_cursor(str) -> bool\n\n"
+             "Test whether the cursor string matches current journal entry.\n\n"
+             "Wraps sd_journal_test_cursor(). See man:sd_journal_test_cursor(3).");
+static PyObject* Reader_test_cursor(Reader *self, PyObject *args)
+{
+    const char *cursor;
+    int r;
+
+    assert(self);
+    assert(args);
+
+    if (!PyArg_ParseTuple(args, "s:_Reader.get_cursor", &cursor))
+        return NULL;
+
+    r = sd_journal_test_cursor(self->j, cursor);
+    set_error(r, NULL, NULL);
+    if (r < 0)
+        return NULL;
+
+    return PyBool_FromLong(r);
+}
+
+
 static PyObject* Reader_iter(PyObject *self)
 {
     Py_INCREF(self);
@@ -792,6 +816,8 @@ static PyMethodDef Reader_methods[] = {
     {"seek_monotonic",  (PyCFunction) Reader_seek_monotonic, METH_VARARGS, Reader_seek_monotonic__doc__},
     {"wait",            (PyCFunction) Reader_wait, METH_VARARGS, Reader_wait__doc__},
     {"seek_cursor",     (PyCFunction) Reader_seek_cursor, METH_VARARGS, Reader_seek_cursor__doc__},
+    {"get_cursor",      (PyCFunction) Reader_get_cursor, METH_NOARGS, Reader_get_cursor__doc__},
+    {"test_cursor",     (PyCFunction) Reader_test_cursor, METH_VARARGS, Reader_test_cursor__doc__},
     {"query_unique",    (PyCFunction) Reader_query_unique, METH_VARARGS, Reader_query_unique__doc__},
     {"get_catalog",     (PyCFunction) Reader_get_catalog, METH_NOARGS, Reader_get_catalog__doc__},
     {NULL}  /* Sentinel */
