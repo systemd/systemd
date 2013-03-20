@@ -940,7 +940,7 @@ AC_MSG_RESULT([
         Extra stop script:       ${RC_LOCAL_SCRIPT_PATH_STOP}
 
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
-        CPPLAGS:                 ${OUR_CPPFLAGS} ${CPPFLAGS}
+        CPPFLAGS:                ${OUR_CPPFLAGS} ${CPPFLAGS}
         LDFLAGS:                 ${OUR_LDFLAGS} ${LDFLAGS}
         PYTHON_CFLAGS:           ${PYTHON_CFLAGS}
         PYTHON_LIBS:             ${PYTHON_LIBS}
