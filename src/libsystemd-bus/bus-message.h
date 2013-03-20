@@ -57,7 +57,6 @@ struct sd_bus_message {
         const char *member;
         const char *destination;
         const char *sender;
-        const char *signature;
 
         sd_bus_error error;
 
@@ -92,11 +91,7 @@ struct sd_bus_message {
         char *peeked_signature;
 };
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-#define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != SD_BUS_BIG_ENDIAN)
-#else
-#define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != SD_BUS_LITTLE_ENDIAN)
-#endif
+#define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != SD_BUS_NATIVE_ENDIAN)
 
 static inline uint16_t BUS_MESSAGE_BSWAP16(sd_bus_message *m, uint16_t u) {
         return BUS_MESSAGE_NEED_BSWAP(m) ? bswap_16(u) : u;
@@ -132,3 +127,4 @@ int bus_message_parse(sd_bus_message *m);
 int bus_message_seal(sd_bus_message *m, uint64_t serial);
 int bus_message_dump(sd_bus_message *m);
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);
+int bus_message_from_malloc(void *buffer, size_t length, sd_bus_message **ret);

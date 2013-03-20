@@ -22,6 +22,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <endian.h>
+
 /* Types of message */
 
 #define SD_BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
@@ -67,7 +69,14 @@ enum {
 enum {
         _SD_BUS_INVALID_ENDIAN = 0,
         SD_BUS_LITTLE_ENDIAN   = 'l',
-        SD_BUS_BIG_ENDIAN      = 'B'
+        SD_BUS_BIG_ENDIAN      = 'B',
+#if __BYTE_ORDER == __BIG_ENDIAN
+        SD_BUS_NATIVE_ENDIAN   = SD_BUS_BIG_ENDIAN,
+        SD_BUS_REVERSE_ENDIAN  = SD_BUS_LITTLE_ENDIAN
+#else
+        SD_BUS_NATIVE_ENDIAN   = SD_BUS_LITTLE_ENDIAN,
+        SD_BUS_REVERSE_ENDIAN  = SD_BUS_BIG_ENDIAN
+#endif
 };
 
 /* Flags */

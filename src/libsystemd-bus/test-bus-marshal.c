@@ -116,7 +116,12 @@ int main(int argc, char *argv[]) {
                         dbus_message_unref(w);
         }
 
-        free(buffer);
+        m = sd_bus_message_unref(m);
+
+        r = bus_message_from_malloc(buffer, sz, &m);
+        assert_se(r >= 0);
+
+        bus_message_dump(m);
 
         assert_se(sd_bus_message_rewind(m, true) >= 0);
 

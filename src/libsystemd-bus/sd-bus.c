@@ -833,10 +833,6 @@ static int message_make(sd_bus *bus, size_t size, sd_bus_message **m) {
         assert(m);
         assert(bus->rbuffer_size >= size);
 
-        t = new0(sd_bus_message, 1);
-        if (!t)
-                return -ENOMEM;
-
         if (bus->rbuffer_size > size) {
                 b = memdup((const uint8_t*) bus->rbuffer + size, bus->rbuffer_size - size);
                 if (!b) {
@@ -845,13 +841,11 @@ static int message_make(sd_bus *bus, size_t size, sd_bus_message **m) {
                 }
         }
 
-        t->n_ref = 1;
-
-        t->header = bus->rbuffer;
-        t->free_header = true;
-
-        t->fields = (uint8_t*) bus->rbuffer + sizeof(struct bus_header);
-        t->body = (uint8_t*) bus->rbuffer + sizeof(struct bus_header) + ALIGN_TO(BUS_MESSAGE_BODY_SIZE(t), 8);
+        r = bus_message_from_malloc(bus->rbuffer, size, &t);
+        if (r < 0) {
+                free(b);
+                return r;
+        }
 
         bus->rbuffer = b;
         bus->rbuffer_size -= size;

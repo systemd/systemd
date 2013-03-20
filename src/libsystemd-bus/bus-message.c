@@ -30,7 +30,8 @@
 #include "bus-type.h"
 #include "bus-signature.h"
 
-int message_append_basic(sd_bus_message *m, char type, const void *p, const void **stored);
+static int message_parse_fields(sd_bus_message *m);
+static int message_append_basic(sd_bus_message *m, char type, const void *p, const void **stored);
 
 static void reset_containers(sd_bus_message *m) {
         unsigned i;
@@ -125,8 +126,6 @@ static void *message_extend_fields(sd_bus_message *m, size_t align, size_t sz) {
                         m->destination = (const char*) m->fields + (m->destination - (const char*) o);
                 if (m->sender)
                         m->sender = (const char*) m->fields + (m->sender - (const char*) o);
-                if (m->signature)
-                        m->signature = (const char*) m->fields + (m->signature - (const char*) o);
                 if (m->error.name)
                         m->error.name = (const char*) m->fields + (m->error.name - (const char*) o);
         }
@@ -224,21 +223,76 @@ static int message_append_field_uint32(sd_bus_message *m, uint8_t h, uint32_t x)
         return 0;
 }
 
+int bus_message_from_malloc(void *buffer, size_t length, sd_bus_message **ret) {
+        sd_bus_message *m;
+        struct bus_header *h;
+        size_t total, fs, bs;
+        int r;
+
+        assert(buffer || length <= 0);
+        assert(ret);
+
+        if (length < sizeof(struct bus_header))
+                return -EBADMSG;
+
+        h = buffer;
+        if (h->version != 1)
+                return -EBADMSG;
+
+        if (h->serial == 0)
+                return -EBADMSG;
+
+        if (h->type == _SD_BUS_MESSAGE_TYPE_INVALID)
+                return -EBADMSG;
+
+        if (h->endian == SD_BUS_NATIVE_ENDIAN) {
+                fs = h->fields_size;
+                bs = h->body_size;
+        } else if (h->endian == SD_BUS_REVERSE_ENDIAN) {
+                fs = bswap_32(h->fields_size);
+                bs = bswap_32(h->body_size);
+        } else
+                return -EBADMSG;
+
+        total = sizeof(struct bus_header) + ALIGN_TO(fs, 8) + bs;
+        if (length != total)
+                return -EBADMSG;
+
+        m = new0(sd_bus_message, 1);
+        if (!m)
+                return -ENOMEM;
+
+        m->n_ref = 1;
+        m->header = h;
+        m->free_header = true;
+        m->fields = (uint8_t*) buffer + sizeof(struct bus_header);
+        m->body = (uint8_t*) buffer + sizeof(struct bus_header) + ALIGN_TO(fs, 8);
+        m->sealed = true;
+
+        m->n_iovec = 1;
+        m->iovec[0].iov_base = buffer;
+        m->iovec[0].iov_len = length;
+
+        r = message_parse_fields(m);
+        if (r < 0) {
+                message_free(m);
+                return r;
+        }
+
+        *ret = m;
+        return 0;
+}
+
 static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
         sd_bus_message *m;
 
-        m = malloc0(ALIGN(sizeof(struct sd_bus_message)) + sizeof(struct bus_header));
+        m = malloc0(ALIGN(sizeof(sd_bus_message)) + sizeof(struct bus_header));
         if (!m)
                 return NULL;
 
         m->n_ref = 1;
         m->header = (struct bus_header*) ((uint8_t*) m + ALIGN(sizeof(struct sd_bus_message)));
-
-#if __BYTE_ORDER == __BIG_ENDIAN
-        m->header->endian = SD_BUS_BIG_ENDIAN;
-#else
-        m->header->endian = SD_BUS_LITTLE_ENDIAN;
-#endif
+        m->header->endian = SD_BUS_NATIVE_ENDIAN;
         m->header->type = type;
         m->header->version = bus ? bus->message_version : 1;
 
@@ -1491,7 +1545,7 @@ static int bus_message_enter_array(
                 return r;
 
         if (BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q) > 67108864)
-                return -E2BIG;
+                return -EBADMSG;
 
         r = message_peek_body(m, &rindex, alignment, 0, NULL);
         if (r < 0)
@@ -1752,6 +1806,8 @@ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **content
                         if (r < 0)
                                 return r;
 
+                        assert(l >= 1);
+
                         sig = strndup(c->signature + c->index + 1, l);
                         if (!sig)
                                 return -ENOMEM;
@@ -2011,15 +2067,364 @@ int sd_bus_message_read(sd_bus_message *m, const char *types, ...) {
         return r;
 }
 
-int bus_message_parse(sd_bus_message *m) {
+static int message_peek_fields(
+                sd_bus_message *m,
+                size_t *rindex,
+                size_t align,
+                size_t nbytes,
+                void **ret) {
+
+        assert(m);
+        assert(rindex);
+        assert(align > 0);
+
+        return buffer_peek(m->fields, BUS_MESSAGE_FIELDS_SIZE(m), rindex, align, nbytes, ret);
+}
+
+static int message_peek_field_string(
+                sd_bus_message *m,
+                size_t *ri,
+                const char **ret) {
+
+        size_t l;
+        int r;
+        void *q;
+
+        assert(m);
+        assert(ri);
+
+        r = message_peek_fields(m, ri, 4, 4, &q);
+        if (r < 0)
+                return r;
+
+        l = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
+        r = message_peek_fields(m, ri, 1, l+1, &q);
+        if (r < 0)
+                return r;
+
+        if (!validate_string(q, l))
+                return -EBADMSG;
+
+        if (ret)
+                *ret = q;
+
+        return 0;
+}
+
+static int message_peek_field_signature(
+                sd_bus_message *m,
+                size_t *ri,
+                const char **ret) {
+
+        size_t l;
+        int r;
+        void *q;
+
+        assert(m);
+        assert(ri);
+
+        r = message_peek_fields(m, ri, 1, 1, &q);
+        if (r < 0)
+                return r;
+
+        l = *(uint8_t*) q;
+        r = message_peek_fields(m, ri, 1, l+1, &q);
+        if (r < 0)
+                return r;
+
+        if (!validate_signature(q, l))
+                return -EBADMSG;
+
+        if (ret)
+                *ret = q;
+
+        return 0;
+}
+
+static int message_peek_field_uint32(
+                sd_bus_message *m,
+                size_t *ri,
+                uint32_t *ret) {
+
+        int r;
+        void *q;
+
+        assert(m);
+        assert(ri);
+
+        r = message_peek_fields(m, ri, 4, 4, &q);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
+
+        return 0;
+}
+
+static int message_skip_fields(
+                sd_bus_message *m,
+                size_t *ri,
+                uint32_t array_size,
+                const char **signature) {
+
+        size_t original_index;
+        int r;
+
+        assert(m);
+        assert(ri);
+        assert(signature);
+
+        original_index = *ri;
+
+        for (;;) {
+                char t;
+                void *q;
+                size_t l;
+
+                if (array_size != (uint32_t) -1 &&
+                    array_size <= *ri - original_index)
+                        return 0;
+
+                t = **signature;
+                if (!t)
+                        return 0;
+
+                if (t == SD_BUS_TYPE_STRING ||
+                    t == SD_BUS_TYPE_OBJECT_PATH) {
+
+                        r = message_peek_field_string(m, ri, NULL);
+                        if (r < 0)
+                                return r;
+
+                        (*signature)++;
+
+                } else if (t == SD_BUS_TYPE_SIGNATURE) {
+
+                        r = message_peek_field_signature(m, ri, NULL);
+                        if (r < 0)
+                                return r;
+
+                        (*signature)++;
+
+                } else if (bus_type_is_basic(t)) {
+                        size_t align, k;
+
+                        align = bus_type_get_alignment(align);
+                        k = bus_type_get_size(align);
+
+                        r = message_peek_fields(m, ri, align, k, NULL);
+                        if (r < 0)
+                                return r;
+
+                        (*signature)++;
+
+                } else if (t == SD_BUS_TYPE_ARRAY) {
+
+                        r = signature_element_length(*signature+1, &l);
+                        if (r < 0)
+                                return r;
+
+                        assert(l >= 1);
+                        {
+                                char sig[l-1], *s;
+                                size_t nas;
+                                int alignment;
+
+                                strncpy(sig, *signature + 1, l-1);
+                                s = sig;
+
+                                alignment = bus_type_get_alignment(sig[0]);
+                                if (alignment < 0)
+                                        return alignment;
+
+                                r = message_peek_fields(m, ri, 4, 4, &q);
+                                if (r < 0)
+                                        return r;
+
+                                nas = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
+                                if (nas > 67108864)
+                                        return -EBADMSG;
+
+                                r = message_peek_fields(m, ri, alignment, 0, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                r = message_skip_fields(m, ri, nas, (const char**) &s);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        (*signature) += 1 + l;
+
+                } else if (t == SD_BUS_TYPE_VARIANT) {
+                        const char *s;
+
+                        r = message_peek_field_signature(m, ri, &s);
+                        if (r < 0)
+                                return r;
+
+                        r = message_skip_fields(m, ri, (uint32_t) -1, (const char**) &s);
+                        if (r < 0)
+                                return r;
+
+                        (*signature)++;
+
+                } else if (t == SD_BUS_TYPE_STRUCT ||
+                           t == SD_BUS_TYPE_DICT_ENTRY) {
+
+                        r = signature_element_length(*signature, &l);
+                        if (r < 0)
+                                return r;
+
+                        assert(l >= 2);
+                        {
+                                char sig[l-1], *s;
+                                strncpy(sig, *signature + 1, l-1);
+                                s = sig;
+
+                                r = message_skip_fields(m, ri, (uint32_t) -1, (const char**) &s);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        *signature += l;
+                } else
+                        return -EINVAL;
+        }
+}
+
+static int message_parse_fields(sd_bus_message *m) {
+        size_t ri;
+        int r;
+
         assert(m);
 
-        if (m->header->version != 1)
-                return -EIO;
+        for (ri = 0; ri < BUS_MESSAGE_FIELDS_SIZE(m); ) {
+                const char *signature;
+                uint8_t *header;
 
-        if (m->header->endian != SD_BUS_BIG_ENDIAN &&
-            m->header->endian != SD_BUS_LITTLE_ENDIAN)
-                return -EIO;
+                r = message_peek_fields(m, &ri, 8, 1, (void**) &header);
+                if (r < 0)
+                        return r;
+
+                r = message_peek_field_signature(m, &ri, &signature);
+                if (r < 0)
+                        return r;
+
+                switch (*header) {
+                case _SD_BUS_MESSAGE_HEADER_INVALID:
+                        return -EBADMSG;
+
+                case SD_BUS_MESSAGE_HEADER_PATH:
+                        if (!streq(signature, "o"))
+                                return -EBADMSG;
+
+                        r = message_peek_field_string(m, &ri, &m->path);
+                        break;
+
+                case SD_BUS_MESSAGE_HEADER_INTERFACE:
+                        if (!streq(signature, "s"))
+                                return -EBADMSG;
+
+                        r = message_peek_field_string(m, &ri, &m->interface);
+                        break;
+
+                case SD_BUS_MESSAGE_HEADER_MEMBER:
+                        if (!streq(signature, "s"))
+                                return -EBADMSG;
+
+                        r = message_peek_field_string(m, &ri, &m->member);
+                        break;
+
+                case SD_BUS_MESSAGE_HEADER_ERROR_NAME:
+                        if (!streq(signature, "s"))
+                                return -EBADMSG;
+
+                        r = message_peek_field_string(m, &ri, &m->error.name);
+                        break;
+
+                case SD_BUS_MESSAGE_HEADER_DESTINATION:
+                        if (!streq(signature, "s"))
+                                return -EBADMSG;
+
+                        r = message_peek_field_string(m, &ri, &m->destination);
+                        break;
+
+                case SD_BUS_MESSAGE_HEADER_SENDER:
+                        if (!streq(signature, "s"))
+                                return -EBADMSG;
+
+                        r = message_peek_field_string(m, &ri, &m->sender);
+                        break;
+
+
+                case SD_BUS_MESSAGE_HEADER_SIGNATURE: {
+                        const char *s;
+                        char *c;
+
+                        if (!streq(signature, "g"))
+                                return -EBADMSG;
+
+                        r = message_peek_field_signature(m, &ri, &s);
+                        if (r < 0)
+                                return r;
+
+                        c = strdup(s);
+                        if (!c)
+                                return -ENOMEM;
+
+                        free(m->root_container.signature);
+                        m->root_container.signature = c;
+
+                        r = 0;
+                        break;
+                }
+
+                case SD_BUS_MESSAGE_HEADER_REPLY_SERIAL:
+                        if (!streq(signature, "u"))
+                                return -EBADMSG;
+
+                        r = message_peek_field_uint32(m, &ri, &m->reply_serial);
+                        break;
+
+                default:
+                        r = message_skip_fields(m, &ri, (uint32_t) -1, (const char **) &signature);
+                }
+
+                if (r < 0)
+                        return r;
+        }
+
+        if (isempty(m->root_container.signature) != (BUS_MESSAGE_BODY_SIZE(m) == 0))
+                return -EBADMSG;
+
+        switch (m->header->type) {
+
+        case SD_BUS_MESSAGE_TYPE_SIGNAL:
+                if (!m->path || !m->interface || !m->member)
+                        return -EBADMSG;
+                break;
+
+        case SD_BUS_MESSAGE_TYPE_METHOD_CALL:
+
+                if (!m->path || !m->member)
+                        return -EBADMSG;
+
+                break;
+
+        case SD_BUS_MESSAGE_TYPE_METHOD_RETURN:
+
+                if (m->reply_serial == 0)
+                        return -EBADMSG;
+                break;
+
+        case SD_BUS_MESSAGE_TYPE_METHOD_ERROR:
+
+                if (m->reply_serial == 0 || !m->error.name)
+                        return -EBADMSG;
+                break;
+        }
 
         return 0;
 }
@@ -2068,7 +2473,7 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
 
         /* If there's a non-trivial signature set, then add it in here */
         if (!isempty(m->root_container.signature)) {
-                r = message_append_field_signature(m, SD_BUS_MESSAGE_HEADER_SIGNATURE, m->root_container.signature, &m->signature);
+                r = message_append_field_signature(m, SD_BUS_MESSAGE_HEADER_SIGNATURE, m->root_container.signature, NULL);
                 if (r < 0)
                         return r;
         }
@@ -2139,7 +2544,7 @@ int bus_message_dump(sd_bus_message *m) {
                strna(m->member),
                strna(m->destination),
                strna(m->sender),
-               strna(m->signature),
+               strna(m->root_container.signature),
                m->reply_serial,
                strna(m->error.name),
                strna(m->error.message),
@@ -2151,7 +2556,7 @@ int bus_message_dump(sd_bus_message *m) {
                 return r;
         }
 
-        printf("BEGIN_MESSAGE \"%s\" {\n", strempty(m->signature));
+        printf("BEGIN_MESSAGE \"%s\" {\n", strempty(m->root_container.signature));
 
         for(;;) {
                 _cleanup_free_ char *prefix = NULL;
