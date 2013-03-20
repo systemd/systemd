@@ -518,6 +518,7 @@ static int analyze_plot(DBusConnection *bus) {
 
         for (u = times; u < times + n; u++) {
                 char ts[FORMAT_TIMESPAN_MAX];
+                bool b;
 
                 if (!u->name)
                         continue;
@@ -526,10 +527,12 @@ static int analyze_plot(DBusConnection *bus) {
                 svg_bar("active",       u->aet, u->axt, y);
                 svg_bar("deactivating", u->axt, u->iet, y);
 
-                if (u->ixt * SCALE_X > width * 2 / 3)
-                        svg_text(false, u->ixt, y, u->time? "%s (%s)" : "%s", u->name, format_timespan(ts, sizeof(ts), u->time));
+                b = u->ixt * SCALE_X > width * 2 / 3;
+                if (u->time)
+                        svg_text(b, u->ixt, y, "%s (%s)",
+                                 u->name, format_timespan(ts, sizeof(ts), u->time));
                 else
-                        svg_text(true, u->ixt, y, u->time? "%s (%s)" : "%s", u->name, format_timespan(ts, sizeof(ts), u->time));
+                        svg_text(b, u->ixt, y, "%s", u->name);
                 y++;
         }
         svg("</g>\n\n");
