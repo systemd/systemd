@@ -83,8 +83,8 @@ static void Reader_dealloc(Reader* self)
 }
 
 PyDoc_STRVAR(Reader__doc__,
-             "Reader([flags | path]) -> ...\n\n"
-             "Reader allows filtering and retrieval of Journal entries.\n"
+             "_Reader([flags | path]) -> ...\n\n"
+             "_Reader allows filtering and retrieval of Journal entries.\n"
              "Note: this is a low-level interface, and probably not what you\n"
              "want, use systemd.journal.Reader instead.\n\n"
              "Argument `flags` sets open flags of the journal, which can be one\n"
@@ -93,7 +93,9 @@ PyDoc_STRVAR(Reader__doc__,
              "volatile journal files; and SYSTEM_ONLY opens only\n"
              "journal files of system services and the kernel.\n\n"
              "Argument `path` is the directory of journal files. Note that\n"
-             "`flags` and `path` are exclusive.\n");
+             "`flags` and `path` are exclusive.\n\n"
+             "_Reader implements the context manager protocol: the journal\n"
+             "will be closed when exiting the block.");
 static int Reader_init(Reader *self, PyObject *args, PyObject *keywds)
 {
     int flags = 0, r;
@@ -221,19 +223,17 @@ static PyObject* Reader___exit__(Reader *self, PyObject *args)
 }
 
 
-PyDoc_STRVAR(Reader_get_next__doc__,
-             "get_next([skip]) -> dict\n\n"
-             "Return dictionary of the next log entry. Optional skip value will\n"
-             "return the `skip`\\-th log entry.");
-static PyObject* Reader_get_next(Reader *self, PyObject *args)
+PyDoc_STRVAR(Reader_next__doc__,
+             "next([skip]) -> bool\n\n"
+             "Go to the next log entry. Optional skip value means to go to\n"
+             "the `skip`\\-th log entry.\n"
+             "Returns False if at end of file, True otherwise.");
+static PyObject* Reader_next(Reader *self, PyObject *args)
 {
-    PyObject *dict;
-    const void *msg;
-    size_t msg_len;
     int64_t skip = 1LL;
     int r;
 
-    if (!PyArg_ParseTuple(args, "|L:_Reader.get_next", &skip))
+    if (!PyArg_ParseTuple(args, "|L:next", &skip))
         return NULL;
 
     if (skip == 0LL) {
@@ -257,7 +257,26 @@ static PyObject* Reader_get_next(Reader *self, PyObject *args)
     set_error(r, NULL, NULL);
     if (r < 0)
         return NULL;
-    else if (r == 0) /* EOF */
+    return PyBool_FromLong(r);
+}
+
+
+PyDoc_STRVAR(Reader_get_next__doc__,
+             "get_next([skip]) -> dict\n\n"
+             "Return dictionary of the next log entry. Optional skip value will\n"
+             "return the `skip`\\-th log entry. Returns an empty dict on EOF.");
+static PyObject* Reader_get_next(Reader *self, PyObject *args)
+{
+    PyObject _cleanup_Py_DECREF_ *tmp = NULL;
+    PyObject *dict;
+    const void *msg;
+    size_t msg_len;
+    int r;
+
+    tmp = Reader_next(self, args);
+    if (!tmp)
+        return NULL;
+    if (tmp == Py_False) /* EOF */
         return PyDict_New();
 
     dict = PyDict_New();
@@ -316,68 +335,80 @@ static PyObject* Reader_get_next(Reader *self, PyObject *args)
         }
     }
 
-    {
-        PyObject _cleanup_Py_DECREF_ *key = NULL, *value = NULL;
-        uint64_t realtime;
-
-        r = sd_journal_get_realtime_usec(self->j, &realtime);
-        if (set_error(r, NULL, NULL))
-            goto error;
-
-        key = unicode_FromString("__REALTIME_TIMESTAMP");
-        if (!key)
-            goto error;
-
-        assert_cc(sizeof(unsigned long long) == sizeof(realtime));
-        value = PyLong_FromUnsignedLongLong(realtime);
-        if (!value)
-            goto error;
-
-        if (PyDict_SetItem(dict, key, value))
-            goto error;
-    }
-
-    {
-        PyObject _cleanup_Py_DECREF_
-            *key = NULL, *timestamp = NULL, *bytes = NULL, *value = NULL;
-        sd_id128_t id;
-        uint64_t monotonic;
-
-        r = sd_journal_get_monotonic_usec(self->j, &monotonic, &id);
-        if (set_error(r, NULL, NULL))
-            goto error;
-
-        assert_cc(sizeof(unsigned long long) == sizeof(monotonic));
-        key = unicode_FromString("__MONOTONIC_TIMESTAMP");
-        timestamp = PyLong_FromUnsignedLongLong(monotonic);
-        bytes = PyBytes_FromStringAndSize((const char*) &id.bytes, sizeof(id.bytes));
-#if PY_MAJOR_VERSION >= 3
-        value = PyStructSequence_New(&MonotonicType);
-#else
-        value = PyTuple_New(2);
-#endif
-        if (!key || !timestamp || !bytes || !value)
-            goto error;
-
-        Py_INCREF(timestamp);
-        Py_INCREF(bytes);
-
-#if PY_MAJOR_VERSION >= 3
-        PyStructSequence_SET_ITEM(value, 0, timestamp);
-        PyStructSequence_SET_ITEM(value, 1, bytes);
-#else
-        PyTuple_SET_ITEM(value, 0, timestamp);
-        PyTuple_SET_ITEM(value, 1, bytes);
-#endif
-
-        if (PyDict_SetItem(dict, key, value))
-            goto error;
-    }
-
     return dict;
 error:
     Py_DECREF(dict);
     return NULL;
+}
+
+
+PyDoc_STRVAR(Reader_get_realtime__doc__,
+             "get_realtime() -> int\n\n"
+             "Return the realtime timestamp for the current journal entry\n"
+             "in microseconds.\n\n"
+             "Wraps sd_journal_get_realtime_usec().\n"
+             "See man:sd_journal_get_realtime_usec(3).");
+static PyObject* Reader_get_realtime(Reader *self, PyObject *args)
+{
+    uint64_t timestamp;
+    int r;
+
+    assert(self);
+    assert(!args);
+
+    r = sd_journal_get_realtime_usec(self->j, &timestamp);
+    if (set_error(r, NULL, NULL))
+        return NULL;
+
+    assert_cc(sizeof(unsigned long long) == sizeof(timestamp));
+    return PyLong_FromUnsignedLongLong(timestamp);
+}
+
+
+PyDoc_STRVAR(Reader_get_monotonic__doc__,
+             "get_monotonic() -> (timestamp, bootid)\n\n"
+             "Return the monotonic timestamp for the current journal entry\n"
+             "as a tuple of time in microseconds and bootid.\n\n"
+             "Wraps sd_journal_get_monotonic_usec().\n"
+             "See man:sd_journal_get_monotonic_usec(3).");
+static PyObject* Reader_get_monotonic(Reader *self, PyObject *args)
+{
+    uint64_t timestamp;
+    sd_id128_t id;
+    PyObject *monotonic, *bootid, *tuple;
+    int r;
+
+    assert(self);
+    assert(!args);
+
+    r = sd_journal_get_monotonic_usec(self->j, &timestamp, &id);
+    if (set_error(r, NULL, NULL))
+        return NULL;
+
+    assert_cc(sizeof(unsigned long long) == sizeof(timestamp));
+    monotonic = PyLong_FromUnsignedLongLong(timestamp);
+    bootid = PyBytes_FromStringAndSize((const char*) &id.bytes, sizeof(id.bytes));
+#if PY_MAJOR_VERSION >= 3
+    tuple = PyStructSequence_New(&MonotonicType);
+#else
+    tuple = PyTuple_New(2);
+#endif
+    if (!monotonic || !bootid || !tuple) {
+        Py_XDECREF(monotonic);
+        Py_XDECREF(bootid);
+        Py_XDECREF(tuple);
+        return NULL;
+    }
+
+#if PY_MAJOR_VERSION >= 3
+    PyStructSequence_SET_ITEM(tuple, 0, monotonic);
+    PyStructSequence_SET_ITEM(tuple, 1, bootid);
+#else
+    PyTuple_SET_ITEM(tuple, 0, monotonic);
+    PyTuple_SET_ITEM(tuple, 1, bootid);
+#endif
+
+    return tuple;
 }
 
 
@@ -388,7 +419,7 @@ PyDoc_STRVAR(Reader_get_previous__doc__,
 static PyObject* Reader_get_previous(Reader *self, PyObject *args)
 {
     int64_t skip = 1LL;
-    if (!PyArg_ParseTuple(args, "|L:_Reader.get_previous", &skip))
+    if (!PyArg_ParseTuple(args, "|L:get_previous", &skip))
         return NULL;
 
     return PyObject_CallMethod((PyObject *)self, (char*) "get_next",
@@ -406,7 +437,7 @@ static PyObject* Reader_add_match(Reader *self, PyObject *args, PyObject *keywds
 {
     char *match;
     int match_len, r;
-    if (!PyArg_ParseTuple(args, "s#:_Reader.add_match", &match, &match_len))
+    if (!PyArg_ParseTuple(args, "s#:add_match", &match, &match_len))
         return NULL;
 
     r = sd_journal_add_match(self->j, match, match_len);
@@ -570,7 +601,7 @@ static PyObject* Reader_seek_cursor(Reader *self, PyObject *args)
     const char *cursor;
     int r;
 
-    if (!PyArg_ParseTuple(args, "s:_Reader.seek_cursor", &cursor))
+    if (!PyArg_ParseTuple(args, "s:seek_cursor", &cursor))
         return NULL;
 
     Py_BEGIN_ALLOW_THREADS
@@ -614,7 +645,7 @@ static PyObject* Reader_test_cursor(Reader *self, PyObject *args)
     assert(self);
     assert(args);
 
-    if (!PyArg_ParseTuple(args, "s:_Reader.get_cursor", &cursor))
+    if (!PyArg_ParseTuple(args, "s:test_cursor", &cursor))
         return NULL;
 
     r = sd_journal_test_cursor(self->j, cursor);
@@ -663,7 +694,7 @@ static PyObject* Reader_query_unique(Reader *self, PyObject *args)
     size_t uniq_len;
     PyObject *value_set, *key, *value;
 
-    if (!PyArg_ParseTuple(args, "s:_Reader.query_unique", &query))
+    if (!PyArg_ParseTuple(args, "s:query_unique", &query))
         return NULL;
 
     Py_BEGIN_ALLOW_THREADS
@@ -805,8 +836,11 @@ static PyMethodDef Reader_methods[] = {
     {"get_usage",       (PyCFunction) Reader_get_usage, METH_NOARGS, Reader_get_usage__doc__},
     {"__enter__",       (PyCFunction) Reader___enter__, METH_NOARGS, Reader___enter____doc__},
     {"__exit__",        (PyCFunction) Reader___exit__, METH_VARARGS, Reader___exit____doc__},
+    {"next",            (PyCFunction) Reader_next, METH_VARARGS, Reader_next__doc__},
     {"get_next",        (PyCFunction) Reader_get_next, METH_VARARGS, Reader_get_next__doc__},
     {"get_previous",    (PyCFunction) Reader_get_previous, METH_VARARGS, Reader_get_previous__doc__},
+    {"get_realtime",    (PyCFunction) Reader_get_realtime, METH_NOARGS, Reader_get_realtime__doc__},
+    {"get_monotonic",   (PyCFunction) Reader_get_monotonic, METH_NOARGS, Reader_get_monotonic__doc__},
     {"add_match",       (PyCFunction) Reader_add_match, METH_VARARGS|METH_KEYWORDS, Reader_add_match__doc__},
     {"add_disjunction", (PyCFunction) Reader_add_disjunction, METH_NOARGS, Reader_add_disjunction__doc__},
     {"flush_matches",   (PyCFunction) Reader_flush_matches, METH_NOARGS, Reader_flush_matches__doc__},
