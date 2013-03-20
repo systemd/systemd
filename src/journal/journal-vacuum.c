@@ -36,7 +36,7 @@
 #include "util.h"
 
 struct vacuum_info {
-        off_t usage;
+        uint64_t usage;
         char *filename;
 
         uint64_t realtime;
@@ -293,7 +293,7 @@ int journal_directory_vacuum(
                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
                         log_debug("Deleted archived journal %s/%s.", directory, list[i].filename);
 
-                        if ((uint64_t) list[i].usage > sum)
+                        if (list[i].usage < sum)
                                 sum -= list[i].usage;
                         else
                                 sum = 0;
