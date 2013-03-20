@@ -2213,8 +2213,8 @@ static int message_skip_fields(
                 } else if (bus_type_is_basic(t)) {
                         size_t align, k;
 
-                        align = bus_type_get_alignment(align);
-                        k = bus_type_get_size(align);
+                        align = bus_type_get_alignment(t);
+                        k = bus_type_get_size(t);
 
                         r = message_peek_fields(m, ri, align, k, NULL);
                         if (r < 0)
