@@ -1381,8 +1381,6 @@ _public_ const char *udev_device_get_sysattr_value(struct udev_device *udev_devi
         }
 
         if (S_ISLNK(statbuf.st_mode)) {
-                struct udev_device *dev;
-
                 /*
                  * Some core links return only the last element of the target path,
                  * these are just values, the paths should not be exposed.
@@ -1398,17 +1396,6 @@ _public_ const char *udev_device_get_sysattr_value(struct udev_device *udev_devi
                         goto out;
                 }
 
-                /* resolve custom link to a device and return its syspath */
-                if (!streq(sysattr, "device")) {
-                        strscpyl(path, sizeof(path), udev_device->syspath, "/", sysattr, NULL);
-                        dev = udev_device_new_from_syspath(udev_device->udev, path);
-                        if (dev != NULL) {
-                                list_entry = udev_list_entry_add(&udev_device->sysattr_value_list, sysattr,
-                                                                 udev_device_get_syspath(dev));
-                                val = udev_list_entry_get_value(list_entry);
-                                udev_device_unref(dev);
-                        }
-                }
                 goto out;
         }
 
@@ -1468,7 +1455,7 @@ _public_ int udev_device_set_sysattr_value(struct udev_device *udev_device, cons
                 value_len = 0;
         else
                 value_len = strlen(value);
-restart:
+
         strscpyl(path, sizeof(path), udev_device_get_syspath(dev), "/", sysattr, NULL);
         if (lstat(path, &statbuf) != 0) {
                 udev_list_entry_add(&dev->sysattr_value_list, sysattr, NULL);
@@ -1477,24 +1464,7 @@ restart:
         }
 
         if (S_ISLNK(statbuf.st_mode)) {
-                /*
-                 * Cannot modify core link values
-                 */
-                if (streq(sysattr, "driver") ||
-                    streq(sysattr, "subsystem") ||
-                    streq(sysattr, "module")) {
-                        ret = -EPERM;
-                } else if (!streq(sysattr, "device")) {
-                        /* resolve custom link to a device */
-                        strscpyl(path, sizeof(path), udev_device->syspath, "/", sysattr, NULL);
-                        dev = udev_device_new_from_syspath(udev_device->udev, path);
-                        if (dev != NULL)
-                                goto restart;
-                        ret = -ENXIO;
-                } else {
-                        /* Unhandled, to not try to modify anything */
-                        ret = -EINVAL;
-                }
+                ret = -EINVAL;
                 goto out;
         }
 
