@@ -161,7 +161,7 @@ int bus_error_from_errno(sd_bus_error *e, int error) {
 
         if (error == -ENOMEM)
                 sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.NoMemory", strerror(-error));
-        else if (error == -EPERM || error == EACCES)
+        else if (error == -EPERM || error == -EACCES)
                 sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.AccessDenied", strerror(-error));
         else
                 sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.Failed", "Operation failed");
