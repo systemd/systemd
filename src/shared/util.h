@@ -608,3 +608,4 @@ static inline void *mempset(void *s, int c, size_t n) {
 
 char *hexmem(const void *p, size_t l);
 char *strextend(char **x, ...);
+char *strrep(const char *s, unsigned n);

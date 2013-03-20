@@ -5797,3 +5797,22 @@ char *strextend(char **x, ...) {
 
         return r + l;
 }
+
+char *strrep(const char *s, unsigned n) {
+        size_t l;
+        char *r, *p;
+        unsigned i;
+
+        assert(s);
+
+        l = strlen(s);
+        p = r = malloc(l * n + 1);
+        if (!r)
+                return NULL;
+
+        for (i = 0; i < n; i++)
+                p = stpcpy(p, s);
+
+        *p = 0;
+        return r;
+}

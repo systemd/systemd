@@ -27,6 +27,13 @@
 
 #include "sd-bus-protocol.h"
 
+/* TODO:
+ *
+ * - make unix fd passing work
+ * - add page donation logic
+ * - api for appending/reading fixed arrays
+ */
+
 typedef struct sd_bus sd_bus;
 typedef struct sd_bus_message sd_bus_message;
 
@@ -105,9 +112,12 @@ int sd_bus_message_append_basic(sd_bus_message *m, char type, const void *p);
 int sd_bus_message_open_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_close_container(sd_bus_message *m);
 
-int sd_bus_message_read_type(sd_bus_message *m, char *type, char *element, size_t *length);
-int sd_bus_message_read_basic(sd_bus_message *m, char type, char element, const void **p, size_t *length);
 int sd_bus_message_read(sd_bus_message *m, const char *types, ...);
+int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p);
+int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *contents);
+int sd_bus_message_exit_container(sd_bus_message *m);
+int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents);
+int sd_bus_message_rewind(sd_bus_message *m, bool complete);
 
 /* Bus management */
 

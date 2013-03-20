@@ -760,7 +760,7 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m) {
         if (m->sealed)
                 return 0;
 
-        return message_seal(m, ++b->serial);
+        return bus_message_seal(m, ++b->serial);
 }
 
 static int message_write(sd_bus *bus, sd_bus_message *m, size_t *idx) {
@@ -856,7 +856,7 @@ static int message_make(sd_bus *bus, size_t size, sd_bus_message **m) {
         bus->rbuffer = b;
         bus->rbuffer_size -= size;
 
-        r = message_parse(t);
+        r = bus_message_parse(t);
         if (r < 0) {
                 sd_bus_message_unref(t);
                 return r;

@@ -34,6 +34,7 @@ struct bus_container {
         unsigned index;
 
         uint32_t *array_size;
+        size_t begin;
 };
 
 _packed_ struct bus_header {
@@ -77,14 +78,18 @@ struct sd_bus_message {
         void *fields;
         void *body;
 
+        size_t rindex;
+
         uint32_t n_fds;
         int *fds;
 
-        struct bus_container root_container, *sub_containers;
+        struct bus_container root_container, *containers;
         unsigned n_containers;
 
         struct iovec iovec[4];
         unsigned n_iovec;
+
+        char *peeked_signature;
 };
 
 #if __BYTE_ORDER == __BIG_ENDIAN
@@ -93,20 +98,28 @@ struct sd_bus_message {
 #define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != SD_BUS_LITTLE_ENDIAN)
 #endif
 
-static inline uint32_t BUS_MESSAGE_BSWAP(sd_bus_message *m, uint32_t u) {
+static inline uint16_t BUS_MESSAGE_BSWAP16(sd_bus_message *m, uint16_t u) {
+        return BUS_MESSAGE_NEED_BSWAP(m) ? bswap_16(u) : u;
+}
+
+static inline uint32_t BUS_MESSAGE_BSWAP32(sd_bus_message *m, uint32_t u) {
         return BUS_MESSAGE_NEED_BSWAP(m) ? bswap_32(u) : u;
 }
 
+static inline uint64_t BUS_MESSAGE_BSWAP64(sd_bus_message *m, uint64_t u) {
+        return BUS_MESSAGE_NEED_BSWAP(m) ? bswap_64(u) : u;
+}
+
 static inline uint32_t BUS_MESSAGE_SERIAL(sd_bus_message *m) {
-        return BUS_MESSAGE_BSWAP(m, m->header->serial);
+        return BUS_MESSAGE_BSWAP32(m, m->header->serial);
 }
 
 static inline uint32_t BUS_MESSAGE_BODY_SIZE(sd_bus_message *m) {
-        return BUS_MESSAGE_BSWAP(m, m->header->body_size);
+        return BUS_MESSAGE_BSWAP32(m, m->header->body_size);
 }
 
 static inline uint32_t BUS_MESSAGE_FIELDS_SIZE(sd_bus_message *m) {
-        return BUS_MESSAGE_BSWAP(m, m->header->fields_size);
+        return BUS_MESSAGE_BSWAP32(m, m->header->fields_size);
 }
 
 static inline void bus_message_unrefp(sd_bus_message **m) {
@@ -115,7 +128,7 @@ static inline void bus_message_unrefp(sd_bus_message **m) {
 
 #define _cleanup_bus_message_unref_ __attribute__((cleanup(bus_message_unrefp)))
 
-int message_parse(sd_bus_message *m);
-int message_seal(sd_bus_message *m, uint64_t serial);
-void message_dump(sd_bus_message *m);
+int bus_message_parse(sd_bus_message *m);
+int bus_message_seal(sd_bus_message *m, uint64_t serial);
+int bus_message_dump(sd_bus_message *m);
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);

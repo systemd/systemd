@@ -37,8 +37,8 @@
 
 int main(int argc, char *argv[]) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        int r;
-        const char *x, *y, *z, *a, *b, *c;
+        int r, boolean;
+        const char *x, *y, *z, *a, *b, *c, *d;
         uint8_t u, v;
         void *buffer = NULL;
         size_t sz;
@@ -74,10 +74,10 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_close_container(m);
         assert_se(r >= 0);
 
-        r = message_seal(m, 4711);
+        r = bus_message_seal(m, 4711);
         assert_se(r >= 0);
 
-        message_dump(m);
+        bus_message_dump(m);
 
         r = bus_message_get_blob(m, &buffer, &sz);
         assert_se(r >= 0);
@@ -118,12 +118,48 @@ int main(int argc, char *argv[]) {
 
         free(buffer);
 
-        /* r = sd_bus_message_read(m, "sas", &x, 5, &y, &z, &a, &b, &c); */
-        /* assert_se(r >= 0); */
+        assert_se(sd_bus_message_rewind(m, true) >= 0);
 
-        /* r = sd_bus_message_read(m, "a{yv}", 2, */
-        /*                        &u, "s", &x, */
-        /*                        &v, "s", &y); */
+        r = sd_bus_message_read(m, "sas", &x, 2, &y, &z);
+        assert_se(r > 0);
+        assert_se(streq(x, "a string"));
+        assert_se(streq(y, "string #1"));
+        assert_se(streq(z, "string #2"));
+
+        r = sd_bus_message_read(m, "sass", &x, 5, &y, &z, &a, &b, &c, &d);
+        assert_se(r > 0);
+        assert_se(streq(x, "foobar"));
+        assert_se(streq(y, "foo"));
+        assert_se(streq(z, "bar"));
+        assert_se(streq(a, "waldo"));
+        assert_se(streq(b, "piep"));
+        assert_se(streq(c, "pap"));
+        assert_se(streq(d, "after"));
+
+        r = sd_bus_message_read(m, "a{yv}", 2, &u, "s", &x, &v, "s", &y);
+        assert_se(r > 0);
+        assert_se(u == 3);
+        assert_se(streq(x, "foo"));
+        assert_se(v == 5);
+        assert_se(streq(y, "waldo"));
+
+        r = sd_bus_message_read(m, "ba(ss)", &boolean, 3, &x, &y, &a, &b, &c, &d);
+        assert_se(r > 0);
+        assert_se(boolean);
+        assert_se(streq(x, "aaa"));
+        assert_se(streq(y, "1"));
+        assert_se(streq(a, "bbb"));
+        assert_se(streq(b, "2"));
+        assert_se(streq(c, "ccc"));
+        assert_se(streq(d, "3"));
+
+        r = sd_bus_message_read(m, "as", 2, &x, &y);
+        assert_se(r > 0);
+        assert_se(streq(x, "foobar"));
+        assert_se(streq(y, "waldo"));
+
+        r = sd_bus_message_peek_type(m, NULL, NULL);
+        assert_se(r == 0);
 
         return 0;
 }
