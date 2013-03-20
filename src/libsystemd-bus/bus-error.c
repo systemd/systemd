@@ -31,6 +31,13 @@
 #include "sd-bus.h"
 #include "bus-error.h"
 
+bool bus_error_is_dirty(sd_bus_error *e) {
+        if (!e)
+                return 0;
+
+        return e->name || e->message || e->need_free;
+}
+
 void sd_bus_error_free(sd_bus_error *e) {
         if (!e)
                 return;
@@ -51,7 +58,7 @@ int sd_bus_error_set(sd_bus_error *e, const char *name, const char *format, ...)
 
         if (!e)
                 return 0;
-        if (sd_bus_error_is_set(e))
+        if (bus_error_is_dirty(e))
                 return -EINVAL;
         if (!name)
                 return -EINVAL;
@@ -81,7 +88,7 @@ int sd_bus_error_set(sd_bus_error *e, const char *name, const char *format, ...)
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e) {
         if (!dest)
                 return 0;
-        if (sd_bus_error_is_set(dest))
+        if (bus_error_is_dirty(dest))
                 return -EINVAL;
         if (!sd_bus_error_is_set(e))
                 return 0;
@@ -113,18 +120,19 @@ int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e) {
 void sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message) {
         if (!e)
                 return;
-        if (sd_bus_error_is_set(e))
+        if (bus_error_is_dirty(e))
                 return;
 
         e->name = name;
         e->message = message;
+        e->need_free = false;
 }
 
 int sd_bus_error_is_set(const sd_bus_error *e) {
         if (!e)
                 return 0;
 
-        return e->name || e->message || e->need_free;
+        return !!e->name;
 }
 
 int sd_bus_error_has_name(const sd_bus_error *e, const char *name) {

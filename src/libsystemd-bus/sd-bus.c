@@ -1131,7 +1131,7 @@ int sd_bus_send_with_reply_and_block(
                 return -EINVAL;
         if (!m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
                 return -EINVAL;
-        if (sd_bus_error_is_set(error))
+        if (sd_bus_error_is_dirty(error))
                 return -EINVAL;
 
         r = sd_bus_send(bus, m, &serial);

@@ -447,9 +447,7 @@ int sd_bus_message_new_method_error(
         sd_bus_message *t;
         int r;
 
-        if (!e)
-                return -EINVAL;
-        if (!e->name)
+        if (!sd_bus_error_is_set(e))
                 return -EINVAL;
         if (!m)
                 return -EINVAL;

@@ -131,9 +131,9 @@ int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid);
 int sd_bus_add_match(sd_bus *bus, const char *match);
 int sd_bus_remove_match(sd_bus *bus, const char *match);
 
-/* Error objects */
+/* Error structures */
 
-#define SD_BUS_ERROR_INIT (NULL, NULL, false)
+#define SD_BUS_ERROR_INIT (NULL, NULL, 0)
 
 void sd_bus_error_free(sd_bus_error *e);
 int sd_bus_error_set(sd_bus_error *e, const char *name, const char *format, ...);
