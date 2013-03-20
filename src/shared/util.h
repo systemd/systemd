@@ -579,7 +579,7 @@ int on_ac_power(void);
 
 int search_and_fopen(const char *path, const char *mode, const char **search, FILE **_f);
 int search_and_fopen_nulstr(const char *path, const char *mode, const char *search, FILE **_f);
-int create_tmp_dir(char template[], mode_t mask, bool need_sticky, char** dir_name);
+int create_tmp_dir(char template[], char** dir_name);
 
 #define FOREACH_LINE(line, f, on_error)                         \
         for (;;)                                                \

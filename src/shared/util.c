@@ -5683,46 +5683,49 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *sear
         return search_and_fopen_internal(path, mode, s, _f);
 }
 
-int create_tmp_dir(char template[], mode_t mask, bool need_sticky, char** dir_name) {
+int create_tmp_dir(char template[], char** dir_name) {
         int r = 0;
-        char *d = NULL;
-        bool remove = false;
+        char *d, *dt;
         mode_t _cleanup_umask_ u;
 
         assert(dir_name);
 
-        u = umask(mask);
+        u = umask(0077);
         d = mkdtemp(template);
         if (!d) {
-                r = -errno;
-                log_debug("Can't create directory");
-                goto fail;
+                log_error("Can't create directory %s: %m", template);
+                return -errno;
         }
 
-        remove = true;
-
-        log_debug("Created temporary directory : %s", template);
-
-        d = strdup(template);
-        if (!d) {
+        dt = strjoin(d, "/tmp", NULL);
+        if (!dt) {
                 r = log_oom();
-                goto fail;
+                goto fail2;
         }
 
-        if (need_sticky) {
-                r = chmod(template, 0777 | S_ISVTX);
-                if (r < 0) {
-                        r = -errno;
-                        goto fail;
-                }
-                log_debug("Setting sticky bit on : %s", template);
+        umask(0000);
+        r = mkdir(dt, 0777);
+        if (r) {
+                log_error("Can't create directory %s: %m", dt);
+                r = -errno;
+                goto fail1;
         }
+        log_debug("Created temporary directory %s", dt);
 
-        *dir_name = d;
+        r = chmod(dt, 0777 | S_ISVTX);
+        if (r < 0) {
+                log_error("Failed to chmod %s: %m", dt);
+                r = -errno;
+                goto fail1;
+        }
+        log_debug("Set sticky bit on %s", dt);
+
+        *dir_name = dt;
 
         return 0;
-fail:
-        if (remove)
-                rmdir(template);
+fail1:
+        rmdir(dt);
+fail2:
+        rmdir(template);
         return r;
 }

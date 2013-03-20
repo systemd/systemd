@@ -40,6 +40,7 @@
 #include <sys/poll.h>
 #include <linux/seccomp-bpf.h>
 #include <glob.h>
+#include <libgen.h>
 
 #ifdef HAVE_PAM
 #include <security/pam_appl.h>
@@ -1551,19 +1552,22 @@ void exec_context_init(ExecContext *c) {
 }
 
 void exec_context_tmp_dirs_done(ExecContext *c) {
-        assert(c);
+        char* dirs[] = {c->tmp_dir ? c->tmp_dir : c->var_tmp_dir,
+                        c->tmp_dir ? c->var_tmp_dir : NULL,
+                        NULL};
+        char **dirp;
 
-        if (c->tmp_dir) {
-                rm_rf_dangerous(c->tmp_dir, false, true, false);
-                free(c->tmp_dir);
-                c->tmp_dir = NULL;
+        for(dirp = dirs; *dirp; dirp++) {
+                char *dir;
+                rm_rf_dangerous(*dirp, false, true, false);
+
+                dir = dirname(*dirp);
+                rmdir(dir);
+
+                free(*dirp);
         }
 
-        if (c->var_tmp_dir) {
-                rm_rf_dangerous(c->var_tmp_dir, false, true, false);
-                free(c->var_tmp_dir);
-                c->var_tmp_dir = NULL;
-        }
+        c->tmp_dir = c->var_tmp_dir = NULL;
 }
 
 void exec_context_done(ExecContext *c, bool reloading_or_reexecuting) {

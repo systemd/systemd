@@ -183,22 +183,20 @@ int setup_tmpdirs(char **tmp_dir,
         assert(tmp_dir);
         assert(var_tmp_dir);
 
-        r = create_tmp_dir(tmp_dir_template, 0000, true, tmp_dir);
+        r = create_tmp_dir(tmp_dir_template, tmp_dir);
         if (r < 0)
-                goto fail2;
+                return r;
 
-        r = create_tmp_dir(var_tmp_dir_template, 0000, true, var_tmp_dir);
-        if (r < 0)
-                goto fail1;
+        r = create_tmp_dir(var_tmp_dir_template, var_tmp_dir);
+        if (r == 0)
+                return 0;
 
-        return 0;
-
-fail1:
+        /* failure */
         rmdir(*tmp_dir);
+        rmdir(tmp_dir_template);
         free(*tmp_dir);
         *tmp_dir = NULL;
 
-fail2:
         return r;
 }
 
