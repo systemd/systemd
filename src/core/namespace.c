@@ -218,16 +218,14 @@ int setup_namespace(char** read_write_dirs,
         if (!mount_flags)
                 mount_flags = MS_SHARED;
 
-        if (unshare(CLONE_NEWNS) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (unshare(CLONE_NEWNS) < 0)
+                return -errno;
 
         m = mounts = (BindMount *) alloca(n * sizeof(BindMount));
         if ((r = append_mounts(&m, read_write_dirs, READWRITE)) < 0 ||
                 (r = append_mounts(&m, read_only_dirs, READONLY)) < 0 ||
                 (r = append_mounts(&m, inaccessible_dirs, INACCESSIBLE)) < 0)
-                goto fail;
+                return r;
 
         if (private_tmp) {
                 m->path = "/tmp";
@@ -246,10 +244,8 @@ int setup_namespace(char** read_write_dirs,
 
         /* Remount / as SLAVE so that nothing now mounted in the namespace
            shows up in the parent */
-        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
+                return -errno;
 
         for (m = mounts; m < mounts + n; ++m) {
                 r = apply_mount(m, tmp_dir, var_tmp_dir);
@@ -277,6 +273,5 @@ undo_mounts:
                         umount2(m->path, MNT_DETACH);
         }
 
-fail:
         return r;
 }
